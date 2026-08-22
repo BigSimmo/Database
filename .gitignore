@@ -62,6 +62,7 @@
 !/.agents/skills/prompt-perfector/
 !/.agents/skills/rag-change-lab/
 !/.agents/skills/rag/
+!/.agents/skills/rag-cloud-sdd/
 !/.agents/skills/recovery/
 !/.agents/skills/reindex/
 !/.agents/skills/release/
@@ -116,6 +117,9 @@ test-output.txt
 /sample-documents/
 /tmp/
 
+# docling lab run output (generated fixtures, raw measurements, reports)
+/eval/docling/out/
+
 # python
 __pycache__/
 .pytest_cache/
@@ -159,3 +163,6 @@ ds-bundle/
 dist/
 test-output*.txt
 docs/archive/staging-tenancy-evidence-*
+
+# Subagent-driven-development coordination scratch (ledger, briefs, review packages)
+.superpowers/

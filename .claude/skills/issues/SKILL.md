@@ -20,8 +20,9 @@ the report; record that fetch separately because the report itself performs no p
 ## Trigger
 
 - User types `/issues` (optionally with a subcommand or filter below).
-- User says **`issues list`**: refresh the artifact from the current worktree's
-  `docs/outstanding-issues.md`, then open `C:\Users\joshs\OneDrive\ISSUES-LIST.html` in Codex.
+- User says **`issues list`**: read the queue back from the current worktree's
+  `docs/outstanding-issues.md`. There is no separate artifact to open — see "The canonical
+  ledger is the register" below.
 - User asks to add / close / update / list / capture an outstanding task, recommendation, or issue.
 
 ## Default: `/issues` (read-only)
@@ -65,6 +66,13 @@ Parse the intent from natural language too — the exact syntax is a convenience
   ID and its one-line outcome. Reconciliation moves the row to **Resolved / archive** and updates
   any recommended-queue references.
 - **`/issues update <id> <text>`** — queue an immutable `update` request for an open canonical ID.
+- **`/issues queue <id> <field>=<value>`** — queue an immutable `queue` request that corrects this
+  item's **Recommended execution queue** row: `--acuity`, `--capability`, `--when`, `--estimate`,
+  `--outcome`. Use it whenever a re-grade or a change of timing lands on the Open-items row, because
+  the queue is what an operator actually reads to decide what to start, and until ledger `#M6JNR8`
+  it could only be pruned on close — so a stale A1 entry could keep sending sessions at closed work.
+  Order and the `ID(s)` cell are not editable: Order is renumbered automatically on every close, and
+  changing membership is an `add` or a `done`, not an edit.
 - **`/issues capture`** — scan the current session for recommendations, follow-ups, deferrals, and
   unfixed problems that surfaced but were not recorded. Propose them as a numbered list and add the
   confirmed ones (dedupe against existing rows first — do not re-add something already tracked).
@@ -85,6 +93,7 @@ paragraph; put the smallest next action in **Detail / next action**.
 npm run issues:add -- --pri P2 --type issue --summary "…" --detail "…" --source "…"
 npm run issues:done -- '#151' --outcome "Resolved 2026-07-31 by PR #1494. …"
 npm run issues:update -- '#151' --detail "…"
+npm run issues:queue -- '#151' --acuity A3 --when "After the next release"
 ```
 
 Each command creates one validated UUID JSON file under `docs/outstanding-issues-inbox/`; it does
@@ -102,21 +111,17 @@ part of an ordinary product PR.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.
 
-## Refresh the visual register
+## The canonical ledger is the register
 
-`docs/outstanding-issues.md` remains the canonical rendered source. Queueing a request does not
-change it, so do not refresh the visual artifact after `add`, `update`, `done`, `capture`, or a
-ledger sweep. Refresh only after a successful reconciliation or before opening an `issues list`:
+`docs/outstanding-issues.md` is the sole canonical, cross-platform register. Read it directly, or
+through `npm run issues:report -- --json`. There is no second artifact to refresh, and no step of
+this skill produces one.
 
-```powershell
-& 'C:\Users\joshs\.codex\scripts\refresh-issues-list.ps1' -LedgerPath (Join-Path (Get-Location) 'docs\outstanding-issues.md')
-```
-
-Require the decisive `ISSUES_LIST_UPDATED` line. The stable artifact is
-`C:\Users\joshs\OneDrive\ISSUES-LIST.html`. If refresh fails, do not undo a valid ledger mutation;
-report that the Markdown source is current and the visual artifact is stale. Still proceed to the
-reconciliation handoff — a stale visual artifact must not invalidate a successful canonical
-transaction.
+The legacy `ISSUES-LIST.html` visual register was **retired on 2026-08-18** by ledger issue `#338`,
+precisely because it could only be refreshed from one Windows machine and so drifted silently as
+work moved to container and cloud sessions. Do not refresh it, do not report it as stale after a
+reconciliation, and do not improvise a substitute renderer — a reconciliation that updates the
+canonical Markdown is complete on its own.
 
 ## Persist the memory (commit)
 

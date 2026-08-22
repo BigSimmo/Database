@@ -29,3 +29,41 @@ d650ecb89bcdfece0af77ad9ea0d62d8eaa42233:scripts/build-ranking-snapshot.ts:gener
 # False positive: deliberately credential-shaped test data proving that hosted
 # app inventory reporting never echoes arbitrary operator-supplied values.
 a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic-api-key:451
+# False positive: a synthetic PHI canary in the adversarial fixture dataset. The
+# first version of these tokens carried identifier-shaped digit runs
+# (CANARY-PHI-DOB-<date>), which read as a high-entropy secret; the file contains
+# no credential material. The tip no longer matches — canary tokens are now
+# letters-only, enforced by scripts/rag-adversarial-contract.mjs and pinned by
+# tests/rag-adversarial-fixtures.test.ts — but this historical commit is still
+# scanned on every PR range run.
+57fd5ae462dd85a3fd6af0a4d6e2db5d8d711b68:scripts/fixtures/rag-adversarial-cases.v1.json:generic-api-key:18
+# False positives in the vendored third-party user skills copied verbatim into
+# .claude/cloud-profile/ for Claude Code web-container parity (docs/claude-cloud.md).
+# Both are deliberately fake illustrative strings in documentation prose, read in
+# context before pinning. DESCRIBED, NEVER QUOTED: an allowlist comment that
+# reproduces the offending string becomes a finding in this file at its own line, as
+# the d2b7b898 entry above records. That is not hypothetical here — the first version
+# of this block quoted one of the two values and turned two findings into three.
+#   - clean-up-comments/references/rule.md:497 sits under a "don't leave sensitive
+#     info in production" marker inside a "Remove Sensitive Information" section. The
+#     skill teaches the rule the scanner enforces, and the value it shows as the thing
+#     NOT to commit is an obvious sequential-digit placeholder.
+#   - playwright-best-practices/advanced/authentication-flows.md:54 is a mock token
+#     constant in a "Fully Mocked Verification" example, handed back by a page.route
+#     stub that never reaches a real service.
+# Neither is a credential and neither is executed; GitGuardian passes on the same
+# content. Pinned per finding rather than by path, so every other line of the vendored
+# tree stays scanned — a vendored directory is exactly where a real secret could
+# otherwise hide unnoticed. A fingerprint is <commit>:<file>:<rule>:<line>, so these
+# are re-derived from the scan that actually failed rather than carried over from the
+# superseded PR #2227, whose commit prefix da6088e70 exists on no branch here and
+# would never have matched.
+0792284e63001015899f08e72301e2f23648d616:.claude/cloud-profile/skills/playwright-best-practices/advanced/authentication-flows.md:generic-api-key:54
+0792284e63001015899f08e72301e2f23648d616:.claude/cloud-profile/skills/clean-up-comments/references/rule.md:generic-api-key:497
+# The tip no longer quotes that value (see the commit above), but a Gitleaks PR run
+# scans every commit in the base..head range, so the commit that briefly carried it is
+# still read on each run and has to be pinned by its own fingerprint. Rewriting it out
+# of history would need a force-push, which is worse than one more pinned line.
+14535ffc5f05d559f6bccac84099f9e6874bba6a:.gitleaksignore:generic-api-key:49
+# Reviewed false positive: a localhost example URL with a dummy API key in a removed handoff document.
+92097e53e096bc33c8b23f73874981b2e3214af3:docs/ed-care-plans/claude-build-handover-2026-08-21.md:generic-api-key:360

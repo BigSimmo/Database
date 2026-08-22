@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "3156e1c9-82aa-46c3-84e6-0e119015acc6",
+  "createdOn": "2026-08-15",
+  "action": "cancel",
+  "payload": {
+    "requestId": "1da43f2b-4b52-4fb7-b39a-e5aa5bf7c7e7",
+    "reason": "Superseded by the consolidated #316 update so all Phase 0 evidence and the corrected current inventory land as one audited mutation."
+  }
+}

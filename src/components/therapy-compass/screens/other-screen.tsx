@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
+import { ExternalLink, ShieldCheck, TriangleAlert } from "lucide-react";
 
-import { pageContainer } from "@/components/ui-primitives";
+import { cardSurface } from "@/components/card-recipes";
+import { PageHeader } from "@/components/ui/page-header";
+import { cn, pageContainer } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl, therapyBtn } from "../controls";
-import { AlertIcon, ExternalLinkIcon, ShieldCheckIcon } from "../icons";
 import { LoadingState, Meter } from "../ui";
 
 export function OtherScreen() {
@@ -21,23 +23,22 @@ export function OtherScreen() {
 
   if (!isReview) {
     return (
-      <section className="max-w-[720px] my-[60px] mx-auto text-center">
-        <span className="inline-flex items-center justify-center w-[64px] h-[64px] rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] mb-5">
-          <ShieldCheckIcon size={30} strokeWidth={1.6} />
-        </span>
-        <h1 className="mt-0 mx-0 mb-2 text-2xl font-semibold text-[color:var(--text-heading)]">{b.otherLabel}</h1>
-        <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
-          This surface uses the same Therapy shell. Pick a tool from the top navigation to keep exploring the clinical
-          workspace.
-        </p>
-        <div className="flex gap-2.5 justify-center flex-wrap">
-          <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goHome}>
-            Go to Home
-          </button>
-          <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={b.goSearch}>
-            Search therapies
-          </button>
-        </div>
+      <section className={cn(pageContainer, "my-10 max-w-[720px]")}>
+        <PageHeader
+          title={b.otherLabel}
+          icon={ShieldCheck}
+          description="This surface uses the same Therapy shell. Pick a tool from the top navigation to keep exploring the clinical workspace."
+          actions={
+            <>
+              <Button variant="primary" onClick={b.goHome}>
+                Go to Home
+              </Button>
+              <Button variant="secondary" onClick={b.goSearch}>
+                Search therapies
+              </Button>
+            </>
+          }
+        />
       </section>
     );
   }
@@ -46,26 +47,29 @@ export function OtherScreen() {
 
   return (
     <section data-screen-label="Review Queue" className={pageContainer}>
-      <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
-        <div>
-          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
-            Review Queue
-          </h1>
-          <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
-            Records awaiting source and clinical review, lowest review-completeness first.
-          </p>
-        </div>
-        <span className="inline-flex items-center gap-2 h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-lg bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] text-sm-minus font-semibold">
-          <AlertIcon size={16} strokeWidth={1.8} />
-          {b.reviewCount} to review
-        </span>
-      </div>
+      <PageHeader
+        className="mb-[22px]"
+        title="Review Queue"
+        description="Records awaiting source and clinical review, lowest review-completeness first."
+        // A count, not a control: `meta` is the documented slot for status
+        // chips and counts, so it renders under the description rather than in
+        // the actions column it used to share with nothing else.
+        meta={
+          <span className="inline-flex items-center gap-2 h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-lg bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] text-sm-minus font-semibold">
+            <TriangleAlert aria-hidden="true" size={16} strokeWidth={1.8} />
+            {b.reviewCount} to review
+          </span>
+        }
+      />
 
       <div className="flex flex-col gap-3">
         {queue.map((t) => (
           <div
             key={t.slug}
-            className="grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--e1)] py-4 px-5"
+            className={cn(
+              cardSurface,
+              "grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center py-4 px-5",
+            )}
           >
             <div className="min-w-0">
               <div className="text-sm font-semibold text-[color:var(--text-heading)]">{t.name}</div>
@@ -76,10 +80,9 @@ export function OtherScreen() {
             <Meter value={t.sourceCompleteness} label="Source" />
             <Meter value={t.indexCompleteness} label="Index" />
             <Meter value={t.reviewCompleteness} label="Review" />
-            <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={() => b.open(t.slug)}>
-              <ExternalLinkIcon size={15} strokeWidth={1.7} />
+            <Button variant="secondary" icon={ExternalLink} onClick={() => b.open(t.slug)}>
               Open
-            </button>
+            </Button>
           </div>
         ))}
       </div>

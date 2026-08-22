@@ -6,6 +6,7 @@ import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions } from "@/lib/app-modes";
+import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
 import { isAlwaysStandaloneShellPath, isStandaloneModeHomePath } from "@/lib/search-route-ownership";
 
 /**
@@ -95,18 +96,22 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "src/app/(search-app)/medications/page.tsx",
     "Medication mode home is a content slot; the band is mounted by medication-prescribing-workspace.tsx inside the dashboard shell.",
   ],
-  [
-    "src/app/(search-app)/dsm/page.tsx",
-    "DSM mode home is a catalogue landing; result lists (and the band) live on /dsm/search.",
-  ],
-  [
-    "src/app/(search-app)/factsheets/page.tsx",
-    "Factsheets mode home is a catalogue landing; result lists (and the band) live on /factsheets/search.",
-  ],
-  [
-    "src/app/(search-app)/therapy-compass/page.tsx",
-    "Therapy home is the library landing; the search results band lives on /therapy-compass/search.",
-  ],
+  /*
+   * Every consolidated mode home. These bare paths render nothing at all any more
+   * — each is a `redirect()` onto the shared lightweight home — so there is no
+   * result list for the band to head. Each mode's results (and the band) live at
+   * `<mode>/search`, which this inventory still checks.
+   *
+   * Derived from the redirect map rather than listed, so consolidating another
+   * mode cannot leave a stale reason behind claiming it still renders a landing.
+   */
+  ...[...consolidatedModeHomeModeIds].map(
+    (modeId) =>
+      [
+        `src/app/(search-app)/${modeId}/page.tsx`,
+        `${modeId} has no home of its own: the bare path redirects to /?mode=${modeId} and its result list (with the band) lives on /${modeId}/search.`,
+      ] as const,
+  ),
 ]);
 
 const ROOT_DASHBOARD_ROUTE = path.join(APP_DIR, "(search-app)", "page.tsx");
@@ -152,8 +157,8 @@ function routePathname(routeAbs: string): string {
  * the band through their own page:
  * - `isAlwaysStandaloneShellPath` — never mounts the dashboard (services, forms, …)
  * - `isStandaloneModeHomePath` — mode homes with their own results page, including
- *   `/tools`, whose page switches between `ApplicationsLauncherPage` and its
- *   route-owned submitted-results component
+ *   `/tools`, whose default and submitted states both mount its route-owned
+ *   `ToolsSearchResultsPage`
  */
 function reachabilityRoots(routeAbs: string): string[] {
   const pathname = routePathname(routeAbs);

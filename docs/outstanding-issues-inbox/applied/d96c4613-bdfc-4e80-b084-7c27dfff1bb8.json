@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "d96c4613-bdfc-4e80-b084-7c27dfff1bb8",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#Q5JHBJ",
+    "detail": "RE-SCOPED 2026-08-18: the 20260818090000 schema_drift_snapshot v2 probe is ALREADY LIVE on production, auto-applied by the Supabase GitHub integration on merge of PR #2058 (verified in the Phase 3 production window, forensics section 3.7: probe ok, migration_history 20 rows = 15 unallowlisted + 5 seeded; live-drift 32131517648 reports 15 migration_history findings). The deploy step of this row is done and needs no window. REMAINING: triage the 15 reported no-statements versions (the 2026-07-01..07-02 cluster and the 2026-07-12 batch listed in forensics section 1.1) and author fail-fast validation guard migrations per 20260804110240 for each, never bare allowlisting; index-shaped ones can ride Phase 4's guard batches. See D4 in #316: while auto-deploy is on, every merged migration is a production deploy.",
+    "source": "PR #2123 forensics section 3.7; coordination chat 2026-08-19",
+    "baseRowFingerprint": "b15db0edeba070d72b7bfa791f65f4882808db23e33c29ad54fe4a3a6b795972"
+  }
+}

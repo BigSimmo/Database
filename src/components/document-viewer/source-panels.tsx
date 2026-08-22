@@ -26,6 +26,7 @@ import {
 } from "react";
 import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
+import { useBatchSignedImageUrls } from "@/components/clinical-dashboard/use-batch-signed-urls";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
   clinicalDivider,
@@ -491,6 +492,9 @@ export function DocumentImageList({
   // window cannot carry into the next guideline.
   const visibleCount = Math.min(Math.max(requestedCount, RAIL_IMAGE_WINDOW), images.length);
   const remaining = Math.max(images.length - visibleCount, 0);
+
+  const visibleImageIds = useMemo(() => images.slice(0, visibleCount).map((image) => image.id), [images, visibleCount]);
+  useBatchSignedImageUrls(visibleImageIds);
 
   useEffect(() => {
     if (remaining === 0) return () => undefined;

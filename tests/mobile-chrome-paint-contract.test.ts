@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceFrom, sourceSegment } from "./helpers/source-contract";
+
 const globalStylesSource = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
 const calculatorsSource = readFileSync(
   new URL("../src/components/calculators/search-page.tsx", import.meta.url),
@@ -14,7 +16,13 @@ const scrollHideSource = readFileSync(
 
 describe("mobile chrome paint baseline", () => {
   it("keeps the header opaque while the edge-to-edge footer uses localized soft glass", () => {
-    const phoneStyles = globalStylesSource.slice(globalStylesSource.indexOf("@media (max-width: 639px)"));
+    const phoneStyles = sourceFrom(
+      globalStylesSource,
+      "@media (max-width: 639px) {\n  /* Phone baseline: a full-width opaque header.",
+      {
+        label: "globals.css max-width 639px phone header query",
+      },
+    );
 
     expect(phoneStyles).toMatch(
       /\.edge-glass-header,\s*\n\s*\.universal-header\s*\{[\s\S]*?background: var\(--surface\);[\s\S]*?backdrop-filter: none/,
@@ -39,14 +47,24 @@ describe("mobile chrome paint baseline", () => {
   });
 
   it("keeps every footer-glass variant localized with a fully transparent physical edge", () => {
-    const footerBackdropStart = globalStylesSource.indexOf(
+    const footerBackdropSource = sourceSegment(
+      globalStylesSource,
       ".answer-footer-search-dock .answer-footer-search-backdrop {",
+      "@supports not ((backdrop-filter: blur(1px))",
+      { label: "footer backdrop rules", allowRepeatedStart: true },
     );
-    const supportsFallbackStart = globalStylesSource.indexOf("@supports not ((backdrop-filter: blur(1px))");
-    const reducedTransparencyStart = globalStylesSource.indexOf("@media (prefers-reduced-transparency: reduce)");
-    const footerBackdropSource = globalStylesSource.slice(footerBackdropStart, supportsFallbackStart);
-    const supportsFallbackSource = globalStylesSource.slice(supportsFallbackStart, reducedTransparencyStart);
-    const reducedTransparencySource = globalStylesSource.slice(reducedTransparencyStart);
+    const supportsFallbackSource = sourceSegment(
+      globalStylesSource,
+      "@supports not ((backdrop-filter: blur(1px))",
+      "@media (prefers-reduced-transparency: reduce)",
+      { label: "supports fallback rules", allowRepeatedStart: true },
+    );
+    const reducedTransparencySource = sourceSegment(
+      globalStylesSource,
+      "@media (prefers-reduced-transparency: reduce)",
+      "@layer components {",
+      { label: "reduced transparency footer backdrop rules", allowRepeatedStart: true },
+    );
 
     expect(footerBackdropSource).toContain("color-mix(in srgb, var(--background) 28%, transparent) 58%");
     expect(supportsFallbackSource).toContain("color-mix(in srgb, var(--background) 38%, transparent) 62%");
@@ -57,15 +75,11 @@ describe("mobile chrome paint baseline", () => {
     }
   });
 
-  it("registers the calculator page reserve with the shared hide and transition contracts", () => {
-    expect(calculatorsSource).toContain("useReserveTransitionMarker(dockHidden, activeCalc)");
-    expect(calculatorsSource).toContain("if (!activeCalc) return;");
-    expect(calculatorsSource).toContain("queueMicrotask(() =>");
-    expect(calculatorsSource).toContain("setDockFocused(false)");
-    expect(calculatorsSource).not.toContain("if (!cancelled) setDockFocused(false)");
-    expect(calculatorsSource).toContain('reserveOwner="calculator"');
-    expect(calculatorsSource).toContain('reserveHiddenPad="0rem"');
-    expect(calculatorsSource).toContain("reserveTransitioning={reserveTransitioning}");
+  it("keeps calculator results free of a second phone dock and page reserve", () => {
+    expect(calculatorsSource).not.toContain("useReserveTransitionMarker");
+    expect(calculatorsSource).not.toContain('reserveOwner="calculator"');
+    expect(calculatorsSource).not.toContain('data-testid="calculators-phone-dock"');
+    expect(calculatorsSource).not.toContain("PhoneFooterLayerPortal");
     expect(globalStylesSource).toContain('[data-reserve-owner][data-reserve-transitioning="true"]');
     expect(scrollHideSource).toContain('querySelectorAll("[data-reserve-owner]")');
     expect(scrollHideSource).toContain("dataset.reserveHiddenPad");

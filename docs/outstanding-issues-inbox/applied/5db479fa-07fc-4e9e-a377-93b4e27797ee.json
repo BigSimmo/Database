@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "5db479fa-07fc-4e9e-a377-93b4e27797ee",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "21b6525a-dd2d-4dcc-95d5-c3c777420adf",
+    "reason": "Superseded by f3b63187-c295-4f6a-8ecd-602f348835c4, which closes duplicate #333 and preserves its evidence on #331."
+  }
+}

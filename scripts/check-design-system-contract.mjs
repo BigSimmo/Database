@@ -10,6 +10,7 @@ import {
   findDebtPathRegressions,
   findErrorStateCountPropsInSource,
   findFailedStateResultCountsInSource,
+  findInteractiveTapFloorDeclarationsInSource,
   findInteractiveTapLiteralsInSource,
   findTextSoftConsumersInSource,
   findTypeStepCssUsagesInSource,
@@ -65,6 +66,11 @@ function findInteractiveTapLiterals(file) {
   return findInteractiveTapLiteralsInSource(file.relativePath, sourceText);
 }
 
+function findInteractiveTapFloorDeclarations(file) {
+  const sourceText = fs.readFileSync(file.absolutePath, "utf8");
+  return findInteractiveTapFloorDeclarationsInSource(file.relativePath, sourceText);
+}
+
 function findTherapyButtonsWithoutBaseClass(file) {
   if (!file.relativePath.startsWith("src/components/therapy-compass/") || !file.relativePath.endsWith(".tsx"))
     return [];
@@ -113,6 +119,7 @@ const metrics = {
   rawColorLiterals: 0,
   literalShadowClasses: 0,
   legacyTapClasses: 0,
+  interactiveTapFloorDeclarations: 0,
   colourOnlyStatusIndicators: 0,
   statusColouredNumerals: 0,
   edgeOwnershipConflicts: 0,
@@ -126,6 +133,7 @@ const metrics = {
   rawPaddingLiterals: 0,
   rawRadiusLiterals: 0,
   rawGapLiterals: 0,
+  rawMarginLiterals: 0,
   rawLineHeightLiterals: 0,
   layoutTransitionExceptions: 0,
   textSoftConsumers: 0,
@@ -184,6 +192,7 @@ for (const file of files) {
   const classAnalysis = analyzeClassContractsInSource(file.relativePath, source);
   recordDebt("literalShadowClasses", file.relativePath, classAnalysis.literalShadowClasses.length);
   recordDebt("legacyTapClasses", file.relativePath, classAnalysis.legacyTapClasses.length);
+  recordDebt("interactiveTapFloorDeclarations", file.relativePath, findInteractiveTapFloorDeclarations(file).length);
   // Fail closed when a whole-file text scan finds debt the AST class-root pass
   // cannot see (unresolved identifiers, odd expression shapes). Baselines are 0,
   // so any miss would otherwise silently weaken the ratchet.
@@ -215,6 +224,7 @@ for (const file of files) {
   recordDebt("rawPaddingLiterals", file.relativePath, classAnalysis.rawPaddingLiterals.length);
   recordDebt("rawRadiusLiterals", file.relativePath, classAnalysis.rawRadiusLiterals.length);
   recordDebt("rawGapLiterals", file.relativePath, classAnalysis.rawGapLiterals.length);
+  recordDebt("rawMarginLiterals", file.relativePath, classAnalysis.rawMarginLiterals.length);
   recordDebt("rawLineHeightLiterals", file.relativePath, classAnalysis.rawLineHeightLiterals.length);
   for (const step of classAnalysis.typeStepUsages) typeStepUsage.add(step);
   for (const step of findTypeStepCssUsagesInSource(source, file.relativePath)) typeStepCssUsage.add(step);
@@ -231,6 +241,7 @@ for (const file of files) {
     recordDebt("rawPaddingLiterals", file.relativePath, cssAnalysis.rawPaddingLiterals.length);
     recordDebt("rawRadiusLiterals", file.relativePath, cssAnalysis.rawRadiusLiterals.length);
     recordDebt("rawGapLiterals", file.relativePath, cssAnalysis.rawGapLiterals.length);
+    recordDebt("rawMarginLiterals", file.relativePath, cssAnalysis.rawMarginLiterals.length);
     recordDebt("rawLineHeightLiterals", file.relativePath, cssAnalysis.rawLineHeightLiterals.length);
     imageInversionFindings.push(...cssAnalysis.imageInversions);
     layoutTransitionFindings.push(...cssAnalysis.layoutTransitions);
@@ -487,7 +498,7 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Design-system contract passed (${files.length} production files; raw colors ${metrics.rawColorLiterals}; literal shadows ${metrics.literalShadowClasses}; legacy tap classes ${metrics.legacyTapClasses}; edge conflicts ${metrics.edgeOwnershipConflicts}; 1px shadow spreads ${metrics.onePixelShadowSpreads}).`,
+  `Design-system contract passed (${files.length} production files; raw colors ${metrics.rawColorLiterals}; literal shadows ${metrics.literalShadowClasses}; legacy tap classes ${metrics.legacyTapClasses}; sub-floor interactive min-heights ${metrics.interactiveTapFloorDeclarations}; edge conflicts ${metrics.edgeOwnershipConflicts}; 1px shadow spreads ${metrics.onePixelShadowSpreads}).`,
 );
 console.log(
   `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}; arbitrary tracking ${metrics.arbitraryTracking}.`,
@@ -496,7 +507,7 @@ console.log(
   `Status-colour boundary: colour-only status indicators ${metrics.colourOnlyStatusIndicators}; status-coloured numerals ${metrics.statusColouredNumerals}; image inversions ${imageInversionFindings.length}.`,
 );
 console.log(
-  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw gap literals ${metrics.rawGapLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
+  `Scale ratchets: raw padding literals ${metrics.rawPaddingLiterals}; raw radius literals ${metrics.rawRadiusLiterals}; raw gap literals ${metrics.rawGapLiterals}; raw margin literals ${metrics.rawMarginLiterals}; raw line-height literals ${metrics.rawLineHeightLiterals}.`,
 );
 console.log(`Text-role ratchet: --text-soft consumers ${metrics.textSoftConsumers}.`);
 console.log(`Error-state boundary: count-bearing title/body props ${metrics.errorStateCountProps}.`);

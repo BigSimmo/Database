@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "c3d91fce-52e5-41ed-8648-b2bf5e95b32c",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#331",
+    "outcome": "Not a comparison bug. Investigated 2026-08-14 in PR #1951: the staleness was real and wrapping-only. Normalising whitespace on the committed and regenerated docs/medication-interaction-lexicon-review.md leaves them byte-identical across all 28 catalogue terms, so no content changed, but the committed line wrapping genuinely differed from the generator's. The reason three branches saw it with 'zero diff on their branch' is that it was already stale on main, so every branch inherited the failure regardless of what it touched — git diff origin/main was the wrong instrument, since main itself carried the stale copy. It also escaped npm run format because prettier runs proseWrap: preserve, which accepts both wrappings. Fixed by regenerating with npm run medications:lexicon-report followed by prettier (the order the check expects). The remaining open question — that no CI job runs this check — is tracked in #333 rather than here."
+  }
+}

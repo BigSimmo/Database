@@ -96,6 +96,12 @@ free real estate for ordering keys (see §2's critical property).
   the post-finalize source-safe gates in `rag.ts` (`claim_support_high_risk_gap`,
   `material_source_governance_gap`, `numeric_band_coherence_gap`, `numeric_faithfulness_gap`)
   and the `finalizeRagAnswerQualityCore` gates.
+- Since 2026-08-17 (S1d) the finalizer's gap conversion first attempts the same
+  source-backed extractive recovery the loop and outer catch use
+  (`recoverFinalGateGapExtractively`): a fast + `strong_routine_retrieval` gap-like answer
+  over non-empty results rebuilds extractively (marker
+  `final_quality_gate_source_backed_recovery:<reason>`); empty-retrieval, strong-route, and
+  comparison/dose/threshold gaps stay terminal as `final_quality_gate:<reason>`.
 - Since 2026-08-12 the quality-gate throw sites raise `GenerationQualityError`
   (`src/lib/rag/rag-generation-quality-diagnostics.ts`) carrying `{stage, gateReason,
 answerShape}` where `answerShape` is provider-safe counts/lengths only — never prose. The
@@ -107,3 +113,30 @@ answerShape}` where `answerShape` is provider-safe counts/lengths only — never
   `generation_fallback:generation_quality_failed` degraded token, cache exclusion, and the
   source-only fallback are byte-for-byte unchanged. Do not use these fields to relax a gate;
   they exist so a live degraded answer can name the gate that rejected it.
+
+## 8. Answer composition menu (packet S2, 2026-08-18)
+
+- `src/lib/rag/answer-composition.ts` is a pure map from (`RagQueryClass`,
+  `ClinicalQueryIntent`) to a **related-information menu**: the `answerSections` kinds the
+  model should attempt when — and only when — the retrieved excerpts support them.
+  `buildAnswerInput` (`rag.ts`) serialises it as one `related_information_menu:` line in the
+  "Interpreted clinical task" block; `answerInstructions` §"Answer sections" tells the model the
+  menu is advisory, evidence-gated, cited like any other section, and subordinate to the
+  verbatim narrow-question rule. Prompt version `clinical-rag-answer-v19`, schema `maxItems` 6.
+- Rule: the query class is authoritative; the heuristic intent refines only
+  `medication_dose_risk` / `table_threshold`, and only on `escalation_risk` (dosing/threshold
+  menus otherwise). `comparison` and `broad_summary` carry fixed menus; `document_lookup` and
+  `unsupported_or_general` deliberately carry **none** — the latter is the only class where
+  `isOverExpandedSimpleGeneratedAnswer` (> 95 words / > 1 section) can fire. `definition`
+  intent does not silence a menu because `intentFromSignals` matches "long-term" / "determine".
+- Prompt-only: no pipeline stage, `RagAnswer` field, render block, routing, retrieval,
+  ranking, selection, claim-support, or finalizer change. Verification and the render trust
+  ladder apply to menu sections unchanged. Contract pins: `tests/answer-composition.test.ts`
+  (all 48 class×intent cells), `tests/rag-answer-composition-prompt.test.ts`,
+  `tests/rag-answer-fallback.test.ts` (menu line in the real prompt input).
+- Downstream consumer (packet S3, 2026-08-18): `src/lib/answer-follow-up.ts` reads the same menu to
+  compose the answer surface's follow-up chips — menu-derived candidates, gated on the retrieved
+  evidence the client actually received, and suppressed when the answer body or an emitted section of
+  that kind already covers them. It only READS the menu and changes no retrieval, ranking or prompt
+  surface. Its templates are index-aligned with the menu items, asserted over all 48 cells in
+  `tests/answer-follow-up.test.ts`, so a menu edit fails offline instead of silently dropping a chip.

@@ -20,12 +20,10 @@ import {
   ChevronDown,
   FileText,
   Filter,
-  Globe2,
   Loader2,
   Layers3,
   Menu,
   MessageSquarePlus,
-  Plus,
   Search,
   Send,
   ShieldCheck,
@@ -37,6 +35,7 @@ import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
@@ -56,7 +55,6 @@ import {
   chatSendButton,
   floatingControl,
   glassOverlaySurface,
-  ignoreUnavailableActivation,
   shellChip,
   eyebrowText,
 } from "@/components/ui-primitives";
@@ -113,8 +111,8 @@ const phoneModeGroups = [
   {
     id: "care",
     label: "Care",
-    hint: "Medication, tools, therapy",
-    modeIds: ["prescribing", "tools", "therapy-compass", "factsheets"],
+    hint: "Medication, calculators, reference, therapy",
+    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
@@ -199,10 +197,11 @@ export function MasterSearchHeader({
   onScopeFiltersChange,
   onToggleScope,
   onScopeOpenChange,
-  onOpenUpload,
   onOpenEvidence,
   onOpenRecentDocuments,
   onOpenLibrary,
+  onOpenDocumentAdmin,
+  canManageDocuments = false,
   onOpenSourcePdf,
   onNewChat,
   onOpenMobileSidebar,
@@ -216,10 +215,10 @@ export function MasterSearchHeader({
   composerFollowUpSuggestions,
   onPickComposerFollowUpSuggestion,
   composerFollowUpSuggestionsDisabled = false,
-  headerVariant = "default",
   sharedHomeIdentity = false,
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
+  mobileHomeComposerPlacement = "hero",
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   showPhoneSuggestionTickerOnHome = false,
@@ -246,17 +245,20 @@ export function MasterSearchHeader({
   realDataReady: boolean;
   onQueryChange: (query: string) => void;
   onSearchModeChange: (mode: AppModeId) => void;
-  onAsk: () => void;
+  onAsk: (query?: string) => void;
   onClearQuery: () => void;
   onClearScope: () => void;
   onQueryModeChange: (mode: ClinicalQueryMode) => void;
   onScopeFiltersChange: (filters: SearchScopeFilters) => void;
   onToggleScope: (documentId: string) => void;
   onScopeOpenChange?: (open: boolean) => void;
-  onOpenUpload?: () => void;
   onOpenEvidence?: () => void;
   onOpenRecentDocuments?: () => void;
   onOpenLibrary?: () => void;
+  /** Opens the administrator document/indexing surface. Paired with `canManageDocuments`. */
+  onOpenDocumentAdmin?: () => void;
+  /** Gates the administrator-only rows in the mode action list. Defaults to hidden. */
+  canManageDocuments?: boolean;
   onOpenSourcePdf?: () => void;
   onNewChat?: () => void;
   onOpenMobileSidebar?: () => void;
@@ -271,7 +273,6 @@ export function MasterSearchHeader({
   composerFollowUpSuggestions?: string[];
   onPickComposerFollowUpSuggestion?: (suggestion: string) => void;
   composerFollowUpSuggestionsDisabled?: boolean;
-  headerVariant?: "default" | "workflow";
   /** Keep the product identity stable while `/` retargets between modes. */
   sharedHomeIdentity?: boolean;
   mobileSearchPlacement?: "default" | "bottom";
@@ -279,6 +280,10 @@ export function MasterSearchHeader({
    *  content keeps maximum screen space. Every phone dock uses it now; the
    *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
+  /** Which placement the home hero vs footer uses on phones. Tools uses "footer"
+   *  so its search pill sits in the bottom dock like a submitted search while
+   *  retaining the home privacy notice. */
+  mobileHomeComposerPlacement?: "hero" | "footer";
   /** Show the compact phone suggestion ticker only for standalone-mode homes. */
   showPhoneSuggestionTickerOnHome?: boolean;
   desktopSearchPlacement?: "default" | "hero";
@@ -354,6 +359,7 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
+  const [, setLastAppMode] = useLastAppMode();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -365,7 +371,6 @@ export function MasterSearchHeader({
   const selectedAppMode = appModeDefinition(searchMode);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
-  const isWorkflowHeader = headerVariant === "workflow";
   const isServicesMode = searchMode === "services";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
@@ -373,7 +378,9 @@ export function MasterSearchHeader({
     selectedSearch.kind === "documents" ||
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
+    selectedSearch.kind === "therapies" ||
     selectedSearch.kind === "tools" ||
+    selectedSearch.kind === "calculators" ||
     selectedSearch.kind === "favourites" ||
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
@@ -657,10 +664,14 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : searchMode === "factsheets"
-                          ? "factsheets"
-                          : "answer";
-  const actionMenuItems = modeActionItemsFor(actionMenuSetId);
+                        : searchMode === "calculators"
+                          ? "calculators"
+                          : searchMode === "factsheets"
+                            ? "factsheets"
+                            : searchMode === "dictionary"
+                              ? "dictionary"
+                              : "answer";
+  const actionMenuItems = modeActionItemsFor(actionMenuSetId, { canManageDocuments });
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
 
   function currentUsesScopeSheet() {
@@ -718,10 +729,6 @@ export function MasterSearchHeader({
       onSearchModeChange("documents");
       return;
     }
-    if (actionId === "documents-upload") {
-      onOpenUpload?.();
-      return;
-    }
     if (actionId === "documents-scope") {
       openScopePicker();
       return;
@@ -738,6 +745,11 @@ export function MasterSearchHeader({
     if (actionId === "documents-recent") {
       onSearchModeChange("documents");
       onOpenRecentDocuments?.();
+      return;
+    }
+    if (actionId === "documents-admin") {
+      onSearchModeChange("documents");
+      onOpenDocumentAdmin?.();
       return;
     }
     if (actionId === "documents-status" || actionId === "documents-collections") {
@@ -757,6 +769,22 @@ export function MasterSearchHeader({
     if (actionId === "factsheets-browse") {
       onSearchModeChange("factsheets");
       onQueryChange("");
+      return;
+    }
+    if (actionId === "dictionary-search") {
+      router.push(`/dictionary/search${trimmedQuery ? `?q=${encodeURIComponent(trimmedQuery)}` : ""}`);
+      return;
+    }
+    if (actionId === "dictionary-topics") {
+      router.push("/dictionary/topics");
+      return;
+    }
+    if (actionId === "dictionary-compare") {
+      router.push("/dictionary/compare");
+      return;
+    }
+    if (actionId === "dictionary-sources") {
+      router.push("/dictionary/sources");
       return;
     }
     if (actionId === "services-search") {
@@ -812,6 +840,10 @@ export function MasterSearchHeader({
     }
     if (actionId === "tools-browse") {
       onSearchModeChange("tools");
+      return;
+    }
+    if (actionId === "calculators-browse") {
+      router.push("/calculators");
       return;
     }
     if (actionId === "differentials-build") {
@@ -883,6 +915,30 @@ export function MasterSearchHeader({
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
+    if (mode.id === "tools" && "href" in mode && mode.href) {
+      // Tools is a browse-first directory: selecting it opens the canonical
+      // all-tools page instead of retargeting the shared-home composer.
+      // Persist the selection here rather than via onSearchModeChange: that
+      // callback owns shared-home navigation and would race this canonical push.
+      setLastAppMode(mode.id);
+      pendingModeSelectionFocusRef.current = mode.id;
+      router.push(mode.href);
+      if (mode.id === searchMode) {
+        const restoreSameModeFocus = () => {
+          if (pendingModeSelectionFocusRef.current !== mode.id) return;
+          if (document.getElementById("app-mode-menu")) {
+            window.setTimeout(restoreSameModeFocus, 50);
+            return;
+          }
+          restoreFocusUnlessMoved(modeButtonRef.current);
+          pendingModeSelectionFocusRef.current = null;
+        };
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(restoreSameModeFocus);
+        });
+      }
+      return;
+    }
     if (isSearchableAppMode(mode.id)) {
       // Wait until the URL-owned mode prop settles before returning focus. The
       // trigger's accessible name changes with that prop; focusing in the click
@@ -987,11 +1043,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // A pick always returns to the shared home; warm that exact URL rather than a
-  // mode-owned home or search route the user has not asked to open.
+  // Most picks return to the shared home. Tools is browse-first and opens its
+  // canonical all-results directory, so warm that route instead.
   function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const href = appModeSelectionHref(modeId);
+    const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {
@@ -1253,7 +1309,7 @@ export function MasterSearchHeader({
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
-        if (composerSlotKind === "home" && composerSlotId) {
+        if (composerSlotId) {
           setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
         }
         setDesktopComposerPortalActive(false);
@@ -1314,7 +1370,7 @@ export function MasterSearchHeader({
         portalFailureStartedAt = null;
         if (host.parentNode !== slot) slot.appendChild(host);
         // Portal host keeps height via `:not(:empty)`; drop the pending marker.
-        if (composerSlotKind === "home") setModeHomeComposerReservePending(slot, false);
+        setModeHomeComposerReservePending(slot, false);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
         setDesktopComposerPortalFallback(false);
@@ -1329,7 +1385,7 @@ export function MasterSearchHeader({
           portalFailureStartedAt = null;
           setDesktopComposerPortalFallback(false);
           // Viewport never hosts this hero slot — collapse the SSR reserve band.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
           return;
         }
         const now = window.performance.now();
@@ -1349,14 +1405,14 @@ export function MasterSearchHeader({
             );
           }
           // Keep the SSR pending reserve while we retry adoption.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, true);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), true);
         } else {
           // A missing/unhydrated page slot must not remove search forever. Home
           // routes suppress the header fallback during the bounded retry window
           // because ModeHomeTemplate already reserves the settled hero geometry;
           // only surface the fallback after portal adoption has genuinely failed.
           // Collapse the empty hero band once the header fallback takes over.
-          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
           setDesktopComposerPortalFallback(true);
         }
       }
@@ -1376,7 +1432,7 @@ export function MasterSearchHeader({
       observer.disconnect();
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
-      if (composerSlotKind === "home") {
+      if (composerSlotId) {
         setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
       }
       setDesktopComposerPortalActive(false);
@@ -1722,6 +1778,9 @@ export function MasterSearchHeader({
   function renderSearchComposer(placement: "default" | "desktop-home" | "desktop-page") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const isDesktopPageComposer = placement === "desktop-page";
+    const isDefaultComposer = placement === "default";
+    const isPageDesktopComposerPending =
+      isDefaultComposer && Boolean(desktopPageComposerSlotId) && !desktopComposerPortalFallback;
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
@@ -1750,11 +1809,16 @@ export function MasterSearchHeader({
     // Differentials compare addon is dock chrome (search pill + Compare bar).
     // Hide/reveal the whole dock together; do not pin for the addon slot.
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
-    // Phones show the APP-5 notice only on the home hero (the answer mode
-    // home's in-flow composer); every phone bottom dock is a compact
-    // result/entry pill without it, so content keeps maximum screen space.
+    // Phones show the APP-5 notice on the home hero (the answer mode
+    // home's in-flow composer) and footer mode homes (e.g. tools); result
+    // bottom docks omit it so content keeps maximum screen space.
+    // `mobileHomeComposerPlacement === "footer"` alone is not enough: it is set
+    // for every /tools-prefixed route, so the home slot must also be present to
+    // distinguish the tools home from a tools result dock.
     // Tablet/desktop composers keep the site-wide notice everywhere.
-    const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
+    const showsComposerPrivacyNotice = usesPhoneSearchLayout
+      ? isDesktopHomeComposer || (mobileHomeComposerPlacement === "footer" && Boolean(desktopHomeComposerSlotId))
+      : true;
 
     const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
     const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
@@ -1774,6 +1838,8 @@ export function MasterSearchHeader({
 
     return (
       <form
+        role="search"
+        aria-label="Search"
         onSubmit={submit}
         data-composer-placement={placement}
         onTouchStart={(e) => {
@@ -1835,6 +1901,7 @@ export function MasterSearchHeader({
                       "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
                       stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
                     ),
+          isPageDesktopComposerPending && "sm:hidden",
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
@@ -1962,8 +2029,9 @@ export function MasterSearchHeader({
             {/* The clear button is a flex sibling (not absolutely positioned): the
               unlayered .answer-footer-search-input padding beats a conditional
               pr-* utility, which let text run under an overlaid button. */}
-            <label className="flex min-w-0 flex-1 items-center overflow-hidden">
+            <div className="flex min-w-0 flex-1 items-center overflow-hidden">
               <input
+                type="search"
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
@@ -2000,7 +2068,7 @@ export function MasterSearchHeader({
                   <X aria-hidden="true" className="size-icon-md" />
                 </button>
               )}
-            </label>
+            </div>
             <span className="answer-footer-search-divider" aria-hidden="true" />
             <button
               type="submit"
@@ -2033,12 +2101,14 @@ export function MasterSearchHeader({
             surface may duplicate it. Phones show it only on the home hero —
             see showsComposerPrivacyNotice. */}
         {showsComposerPrivacyNotice ? (
-          <PrivacyInputNotice
-            id={composerPrivacyWarningId}
-            testId={composerPrivacyWarningId}
-            className="mt-1.5 justify-center px-3 text-center"
-            returnMode={searchMode === "answer" ? undefined : searchMode}
-          />
+          <div role="group" aria-label="Search privacy notice">
+            <PrivacyInputNotice
+              id={composerPrivacyWarningId}
+              testId={composerPrivacyWarningId}
+              className="mt-1.5 justify-center px-3 text-center"
+              returnMode={searchMode === "answer" ? undefined : searchMode}
+            />
+          </div>
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
             open it even when the footer chip row is not shown. */}
@@ -2173,24 +2243,12 @@ export function MasterSearchHeader({
       {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
     >
       <div className="edge-glass-header-backdrop" aria-hidden="true" />
-      <div
-        className={cn(
-          "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
-          isWorkflowHeader
-            ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
-            : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
-        )}
-      >
+      <div className="relative mx-auto grid min-h-14 max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={onOpenMobileSidebar}
-            className={cn(
-              "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              // From md the desktop icon rail owns navigation, so the drawer
-              // trigger is phone-only outside workflow headers.
-              isWorkflowHeader ? "grid" : "grid md:hidden",
-            )}
+            className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:hidden"
             aria-label="Open Clinical Guide menu"
           >
             <Menu aria-hidden="true" className="size-icon-lg" />
@@ -2234,7 +2292,7 @@ export function MasterSearchHeader({
             if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
             setModeMenuOpen(false);
           }}
-          className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+          className="relative z-[60] min-w-0 justify-self-center"
         >
           <button
             ref={modeButtonRef}
@@ -2242,18 +2300,7 @@ export function MasterSearchHeader({
             onClick={toggleModeMenu}
             onKeyDown={handleModeTriggerKeyDown}
             className={cn(
-              // Size utilities live in the per-variant branch, never the shared
-              // base: cn() was plain concat (no tailwind-merge), so keeping the
-              // default h-/w-/min-w- here too made the workflow overrides dead —
-              // Tailwind v4 emits same-property utilities in canonical order and
-              // the base won at every breakpoint but lg:. That constraint is
-              // lifted (ledger #218): cn() merges, so a base size would now lose
-              // to the branch that follows it. The split stays because one place
-              // per size is still the clearer shape, not because it is forced.
-              "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              isWorkflowHeader
-                ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
-                : "h-12 w-[min(13rem,calc(100vw-9rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
+              "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-9rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[13rem] sm:pr-3",
             )}
             aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
             aria-expanded={modeMenuOpen}
@@ -2299,49 +2346,19 @@ export function MasterSearchHeader({
         </div>
 
         <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
-          {isWorkflowHeader ? (
-            <>
-              <button
-                type="button"
-                aria-disabled="true"
-                onClick={ignoreUnavailableActivation}
-                aria-describedby="workflow-language-region-unavailable"
-                className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:not-aria-disabled:bg-[color:var(--surface-subtle)] hover:not-aria-disabled:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-label="Language and region settings (coming soon)"
-                title="Language and region — coming soon"
-              >
-                <Globe2 className="h-5 w-5" aria-hidden />
-              </button>
-              <span id="workflow-language-region-unavailable" className="sr-only">
-                Language and region settings are coming soon.
-              </span>
-              <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
-              <button
-                type="button"
-                onClick={onNewChat}
-                className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-label="Start a new comparison"
-                title="New comparison"
-              >
-                <Plus className="h-5 w-5" aria-hidden />
-              </button>
-            </>
-          ) : null}
-          {!isWorkflowHeader ? (
-            <button
-              type="button"
-              onClick={onNewChat}
-              className={cn(
-                "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
-                !showDesktopNewChat && "md:hidden",
-              )}
-              aria-label="Start a new chat"
-              title="New chat"
-            >
-              <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
-              <span className="hidden whitespace-nowrap xl:inline">New chat</span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={onNewChat}
+            className={cn(
+              "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
+              !showDesktopNewChat && "md:hidden",
+            )}
+            aria-label="Start a new chat"
+            title="New chat"
+          >
+            <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
+            <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+          </button>
         </div>
       </div>
 
@@ -2368,6 +2385,7 @@ export function MasterSearchHeader({
           portal
           mobilePlacement="bottom"
           mobileSize="content"
+          mobileHeaderSafeArea="padding"
           testId="app-mode-menu-sheet"
           contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"
           bodyClassName="bg-[color:var(--surface-lux)] px-2.5 pb-2 pt-0.5"
@@ -2424,16 +2442,21 @@ export function MasterSearchHeader({
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
   const homePortalPending =
     Boolean(desktopHomeComposerSlotId) && homeComposerMediaEligible && !desktopComposerPortalFallback;
+  const portalPending = homePortalPending;
   const searchComposer = searchComposerVisible ? (
     <>
-      {/* ModeHomeTemplate reserves the final hero-composer height in SSR, so a
-          temporary header fallback would make the stack 204px and move all main
-          content up 132px when the portal attaches. Generic page slots do not
-          reserve geometry and retain the immediate fallback. A failed home
-          adoption restores it after the bounded retry window above. */}
+      {/* ModeHomeTemplate and desktop page slots reserve their settled geometry
+          in SSR, so a temporary header fallback would make the stack grow and
+          shift all main content when the portal attaches (CLS 0.118 on desktop
+          /documents/search). Mode home routes suppress the header fallback entirely
+          because the hero slot in the page body reserves geometry during SSR;
+          generic page slots keep the phone fallback rendered during SSR and
+          unknown media state while applying sm:hidden so the desktop fallback
+          never renders over the reserved page slot. A failed adoption restores
+          the header fallback after the bounded retry window above. */}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? null
-        : homePortalPending
+        : portalPending
           ? null
           : renderSearchComposer("default")}
       {desktopComposerPortalActive && desktopComposerPortalHost

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "0b6a19d6-c586-4ea3-8fc6-fa8ee941d922",
+  "createdOn": "2026-08-14",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b53c5e20-2c6f-41da-a202-bcf5c7609938",
+    "reason": "The queued correction is stale: PR #1949's PWA install-sheet decoding=async change is now on main."
+  }
+}

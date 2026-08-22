@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ae7596a8-9064-4554-9530-4d145a02672c",
+  "createdOn": "2026-08-22",
+  "action": "queue",
+  "payload": {
+    "id": "#231",
+    "acuity": "A2",
+    "capability": "Specialist — answer generation + Operator",
+    "when": "Schedule with the next answer-path work; NOT an immediate live investigation",
+    "outcome": "RE-SCOPED 2026-08-22 (was A1 / retrieval-budget investigation). The retrieval-side premise is CLOSED and measured: retrieval costs 955 ms text / 6,720 ms hybrid against a 25,000 ms fast budget (4-27%), so it cannot bind it. What remains is the generation-side R4 residual — chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback already in place — plus the 2026-08-22 Gate E finding that the remaining provider_timeout label cannot be attributed to one mechanism and partly reflects the quality-retry ladder. **Gate:** focused answer-route tests offline first; live probe only with explicit provider approval. **Stop:** do not weaken quality gates to hide timeouts; flag RAG surfaces before edit.",
+    "baseRowFingerprint": "4dcd82f183abb10675b1d47f56271fe76fa6606ca3ea93e072b3ffc6f3f54d9d"
+  }
+}

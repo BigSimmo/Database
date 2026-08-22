@@ -2,7 +2,7 @@
 
 import { BrainCircuit, ClipboardList } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import type { FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
@@ -28,6 +28,12 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
   };
 }
 
+type TherapyFavouritesLoadState = {
+  key: string;
+  items: FavouriteItem[];
+  status: Extract<SavedFavouritesBandStatus, "ready" | "loading" | "error">;
+};
+
 export type SavedRegistryFavouritesResult = {
   items: FavouriteItem[];
   /** Combined account + registry status for the band/empty state. When unaffected
@@ -51,9 +57,64 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   const savedServices = favourites.service;
   const savedForms = favourites.form;
   const savedDifferentials = favourites.differential;
+  const savedTherapies = favourites.therapy;
+  const savedTherapyKey = savedTherapies.join("\u0000");
 
   const services = useRegistryRecords("service", { enabled: savedServices.length > 0, view: "search" });
   const forms = useRegistryRecords("form", { enabled: savedForms.length > 0, view: "search" });
+  const [therapyLoadAttempt, setTherapyLoadAttempt] = useState(0);
+  const [therapyLoad, setTherapyLoad] = useState<TherapyFavouritesLoadState>({
+    key: "",
+    items: [],
+    status: "ready",
+  });
+  const currentTherapyLoad: TherapyFavouritesLoadState =
+    therapyLoad.key === savedTherapyKey
+      ? therapyLoad
+      : {
+          key: savedTherapyKey,
+          items: [],
+          status: savedTherapies.length > 0 ? "loading" : "ready",
+        };
+  // Reset during render when the saved-slug set changes, matching the repository
+  // hook pattern and avoiding a stale frame from the previous account/library.
+  if (therapyLoad.key !== savedTherapyKey) {
+    setTherapyLoad(currentTherapyLoad);
+  }
+
+  useEffect(() => {
+    if (!savedTherapyKey) return undefined;
+    let active = true;
+    void import("@/lib/therapies")
+      .then(({ findTherapyRecord }) => {
+        if (!active) return;
+        const items = savedTherapies.flatMap((slug) => {
+          const therapy = findTherapyRecord(slug);
+          if (!therapy) return [];
+          return [
+            {
+              id: `therapies:${therapy.slug}`,
+              title: therapy.name,
+              type: "therapies",
+              set: "Saved therapies",
+              meta: therapy.bestUsedFor ?? therapy.category ?? "Saved therapy record",
+              sourceMeta: therapy.reviewStatus === "reviewed" ? "Reviewed therapy" : "Source review required",
+              primaryAction: "Open",
+              href: `/therapy-compass/${therapy.slug}`,
+              icon: appModeIcons["therapy-compass"],
+              keywords: [therapy.name, therapy.category, ...therapy.tags].filter(Boolean).join(" ").toLowerCase(),
+            } satisfies FavouriteItem,
+          ];
+        });
+        setTherapyLoad({ key: savedTherapyKey, items, status: "ready" });
+      })
+      .catch(() => {
+        if (active) setTherapyLoad({ key: savedTherapyKey, items: [], status: "error" });
+      });
+    return () => {
+      active = false;
+    };
+  }, [savedTherapies, savedTherapyKey, therapyLoadAttempt]);
 
   const items = useMemo(() => {
     const savedServiceSet = new Set(savedServices);
@@ -80,13 +141,17 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
       icon: BrainCircuit,
       keywords: slug.replaceAll("-", " "),
     }));
-    return [...serviceItems, ...formItems, ...differentialItems];
-  }, [services.records, forms.records, savedServices, savedForms, savedDifferentials]);
+    return [...serviceItems, ...formItems, ...differentialItems, ...currentTherapyLoad.items];
+  }, [services.records, forms.records, savedServices, savedForms, savedDifferentials, currentTherapyLoad.items]);
 
   // Only a registry that was actually requested can report a fault: a disabled
   // hook sits in its initial state forever and must not be read as a failure.
   // Unauthorized outranks error because it is the one the reader can act on.
-  const requested = [savedServices.length > 0 ? services.status : null, savedForms.length > 0 ? forms.status : null];
+  const requested = [
+    savedServices.length > 0 ? services.status : null,
+    savedForms.length > 0 ? forms.status : null,
+    savedTherapies.length > 0 ? currentTherapyLoad.status : null,
+  ];
   const rawRegistryStatus: SavedFavouritesBandStatus = requested.includes("unauthorized")
     ? "unauthorized"
     : requested.includes("error") || requested.includes("not_found")
@@ -111,7 +176,24 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
     if (isAuthenticated) reloadAccount();
     if (savedServices.length > 0) refetchServices();
     if (savedForms.length > 0) refetchForms();
-  }, [isAuthenticated, reloadAccount, savedServices.length, savedForms.length, refetchServices, refetchForms]);
+    if (savedTherapies.length > 0) {
+      setTherapyLoad((current) => ({
+        key: savedTherapyKey,
+        items: current.key === savedTherapyKey ? current.items : [],
+        status: "loading",
+      }));
+      setTherapyLoadAttempt((attempt) => attempt + 1);
+    }
+  }, [
+    isAuthenticated,
+    reloadAccount,
+    savedServices.length,
+    savedForms.length,
+    savedTherapies.length,
+    savedTherapyKey,
+    refetchServices,
+    refetchForms,
+  ]);
 
   return { items, status, registryStatus, refetch };
 }

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "97e7beeb-97e5-43a6-b238-065b42070969",
+  "createdOn": "2026-08-14",
+  "action": "done",
+  "payload": {
+    "id": "#194",
+    "outcome": "3 of 5 named backfill one-shots archived via PR #1947 (backfill-document-covers.mjs, backfill-document-tags.ts, backfill-enrichment.ts moved to scripts/archive/, npm scripts repointed, one test import updated). The other 2 (backfill-gold-document-labels.ts, backfill-smart-index.ts) were found already classified [live] ongoing tooling in docs/scripts-index.md and docs/codebase-index.md, not one-shot candidates -- archiving them would have contradicted the repo's own documented convention, so they were correctly left in place. The 'dead ci-change-scope token' claim was confirmed FALSE by grep: scripts/ci-change-scope.mjs is live, central CI tooling wired into ci.yml and four other verify scripts. No removal made."
+  }
+}

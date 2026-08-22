@@ -26,6 +26,30 @@ const FORM_ROUTE = "/forms/transport-crisis-form";
 
 // Adoption evidence: these browser regressions exercise DisclosureGroup.items[].extendDescription.
 test.describe("Forms section navigation", () => {
+  test("keeps information rows inside the mobile viewport", async ({ page }) => {
+    for (const width of [320, 390, 639]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });
+
+      const section = page.getByRole("region", { name: "Form information" });
+      await expect(section).toBeVisible({ timeout: 20_000 });
+
+      const geometry = await section.locator('[data-testid="disclosure"]').evaluateAll((rows) =>
+        rows.map((row) => {
+          const bounds = row.getBoundingClientRect();
+          return { left: bounds.left, right: bounds.right, width: bounds.width };
+        }),
+      );
+
+      expect(geometry.length).toBeGreaterThan(0);
+      for (const row of geometry) {
+        expect(row.left, `${width}px row must not cross the left viewport edge`).toBeGreaterThanOrEqual(0);
+        expect(row.right, `${width}px row must not cross the right viewport edge`).toBeLessThanOrEqual(width + 1);
+        expect(row.width, `${width}px row must retain a usable width`).toBeGreaterThan(0);
+      }
+    }
+  });
+
   test("expands information previews into one continuous answer", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(FORM_ROUTE, { waitUntil: "domcontentloaded" });

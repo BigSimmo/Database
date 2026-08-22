@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a3ba2812-2984-4fad-b959-6dfe69fb6aa8",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Recurring 'Unhandled server request error' on /api/search and /api/search/universal in Sentry — unowned, pre-dates #1946",
+    "detail": "Sentry (clinibase-xz): three issue groups in 24h, 17 events, 0 users impacted, on /api/search and /api/search/universal, all with culprit chunk 1261.js:2:4801. First seen 2026-08-14T08:44:37Z on release c9b089c9, about six hours before PR #1946 merged, so not caused by the row contracts. Recorded in the #212 tranche-1 handover; never captured durably until now. Next: triage the Sentry groups (read-only Sentry MCP or dashboard), map chunk 1261.js to source via the release's source maps, reproduce locally with the request shapes Sentry recorded. Stop: do not silence the error path; search routes are clinical output.",
+    "source": "RAG programme coordinator, S1 PR #2022 residuals and #212 handover follow-ups, 2026-08-17",
+    "issueUlid": "01M07SS758BTVMVKSAMK68GMS5"
+  }
+}

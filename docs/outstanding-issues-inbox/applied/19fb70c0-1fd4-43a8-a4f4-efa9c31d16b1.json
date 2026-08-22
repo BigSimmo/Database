@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "19fb70c0-1fd4-43a8-a4f4-efa9c31d16b1",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#231",
+    "detail": "2026-08-14: rung-2 evidence measured live - supabase_rpc_latency_ms 31610 on a semantic query (route budget 25000 starved generation), caused by the #316 dropped trigram indexes; after restore 1535 (text) / 8519 (hybrid). Pre-generation latency was the binding residual cause for semantic-query fallbacks; S1 (A1 phase 2) should re-verify generation-quality-gate dominance on healthy latency before choosing a code mitigation rung.",
+    "source": "session 2026-08-14 live incident probes"
+  }
+}

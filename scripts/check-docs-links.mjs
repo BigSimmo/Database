@@ -47,12 +47,6 @@ const ROOT_PREFIXES = [
 // designed-but-unbuilt drivers and hypothetical future splits.
 const ALLOWLIST = new Set([
   "scripts/reindex-shadow.ts", // designed-only harness driver (docs/reindex-shadow-harness-design.md)
-  // Planned-but-unbuilt files named by the RAG improvement guide (docs/rag-improvement/README.md):
-  "src/lib/rag/answer-composition.ts",
-  "scripts/check-rag-adversarial-fixtures.mjs",
-  "scripts/fixtures/rag-adversarial-cases.v1.json",
-  "docs/rag-improvement/data-flow-register.md", // packet S4 deliverable (docs/rag-improvement/HANDOVER.md)
-  "scripts/probe-generation-quality.ts", // lands with PR #1899; remove this entry after it merges
   "docs/site-map.generated.md", // hypothetical future split named in docs/process-hardening.md
   // Legacy pre-(search-app) paths still cited in docs/ledger/redesign records:
   "src/app/page.tsx",

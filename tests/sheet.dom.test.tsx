@@ -236,6 +236,24 @@ describe("Sheet stacked-overlay coordination", () => {
     expect(classes).not.toContain("sm:max-h-[88dvh]");
   });
 
+  it("uses a bottom sheet on phones and a restrained right drawer from small screens", () => {
+    render(
+      <Sheet open onClose={vi.fn()} title="Filters" placement="responsive-right">
+        <p>Filter body</p>
+      </Sheet>,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Filters" });
+    expect(dialog).toHaveClass(
+      "rounded-t-2xl",
+      "sm:h-full",
+      "sm:max-w-[32rem]",
+      "sm:rounded-l-2xl",
+      "sm:rounded-r-none",
+    );
+    expect(dialog.parentElement).toHaveClass("items-end", "justify-center", "sm:items-stretch", "sm:justify-end");
+  });
+
   it("keeps the dialog mounted in production when the title resolves empty", () => {
     vi.stubEnv("NODE_ENV", "production");
     try {

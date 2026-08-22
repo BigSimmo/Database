@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, ArrowRight, FileText, GitCompareArrows, ShieldAlert } from "lucide-react";
@@ -9,6 +9,7 @@ import { ArrowLeft, ArrowRight, FileText, GitCompareArrows, ShieldAlert } from "
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  resultFilterFacetGroup,
   resultFilterGroup,
   type ResultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
@@ -19,6 +20,13 @@ import {
 import { ContextualBackLink } from "@/components/contextual-back-link";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { normalizeSearchText } from "@/lib/catalog-search";
+import {
+  readResultFilterValue,
+  readResultFilterValues,
+  replaceResultFilterUrl,
+  writeResultFilterValue,
+  writeResultFilterValues,
+} from "@/lib/result-filter-url";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import type {
@@ -30,6 +38,10 @@ import type { DifferentialLikelihood } from "@/lib/differential-snapshot";
 
 type BrowseGrouping = "urgency" | "presentation";
 type PresentationPriority = "all" | DifferentialStreamItem["status"];
+type DifferentialResultScope = "matches" | "all";
+
+const priorityValues = new Set<PresentationPriority>(["all", "emergent", "urgent", "routine"]);
+const scopeValues = new Set<DifferentialResultScope>(["matches", "all"]);
 
 type DifferentialStreamWorkspaceProps = {
   model: DifferentialStreamModel;
@@ -37,16 +49,14 @@ type DifferentialStreamWorkspaceProps = {
   initialFocus?: string;
 };
 
-const streamCopy: Record<DifferentialStreamType, { heading: string; description: string; entriesLabel: string }> = {
+const streamCopy: Record<DifferentialStreamType, { heading: string; description: string }> = {
   presentations: {
     heading: "Presentations",
     description: "Start with what is happening now, then open a pathway to compare likely causes.",
-    entriesLabel: "Symptom-led pathways with priority and safety cues",
   },
   diagnoses: {
     heading: "Diagnoses",
     description: "Compare likely causes and exclusion clues.",
-    entriesLabel: "Diagnosis-focused differential content",
   },
 };
 
@@ -293,32 +303,13 @@ function StreamCard({
   );
 }
 
-function StreamFilterControls({
-  stream,
-  showGrouping,
+function StreamGroupingControl({
   browseGrouping,
   onBrowseGroupingChange,
-  presentationPriority,
-  onPresentationPriorityChange,
-  focusedTitle,
-  showConnectionFilter,
-  focusMode,
-  onFocusModeChange,
 }: {
-  stream: DifferentialStreamType;
-  showGrouping: boolean;
   browseGrouping: BrowseGrouping;
   onBrowseGroupingChange: (grouping: BrowseGrouping) => void;
-  presentationPriority: PresentationPriority;
-  onPresentationPriorityChange: (priority: PresentationPriority) => void;
-  focusedTitle: string | null;
-  showConnectionFilter: boolean;
-  focusMode: boolean;
-  onFocusModeChange: (enabled: boolean) => void;
 }) {
-  const isPresentation = stream === "presentations";
-  if (!showGrouping && !isPresentation && !showConnectionFilter) return null;
-
   const optionClass = (selected: boolean) =>
     [
       "inline-flex min-h-10 items-center rounded-lg border px-3 text-xs font-bold transition-colors motion-reduce:transition-none",
@@ -329,80 +320,30 @@ function StreamFilterControls({
     ].join(" ");
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {showGrouping ? (
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Group diagnoses">
-          <button
-            type="button"
-            onClick={() => onBrowseGroupingChange("urgency")}
-            aria-pressed={browseGrouping === "urgency"}
-            className={optionClass(browseGrouping === "urgency")}
-          >
-            By urgency
-          </button>
-          <button
-            type="button"
-            onClick={() => onBrowseGroupingChange("presentation")}
-            aria-pressed={browseGrouping === "presentation"}
-            className={optionClass(browseGrouping === "presentation")}
-          >
-            By presentation
-          </button>
-        </div>
-      ) : null}
-      {isPresentation ? (
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Presentation priority">
-          {(
-            [
-              ["all", "All priorities"],
-              ["emergent", "Emergent"],
-              ["urgent", "Urgent"],
-              ["routine", "Routine"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onPresentationPriorityChange(value)}
-              aria-pressed={presentationPriority === value}
-              className={optionClass(presentationPriority === value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-      {showConnectionFilter && focusedTitle ? (
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="group"
-          aria-label={isPresentation ? "Related pathway filter" : "Family filter"}
-        >
-          <button
-            type="button"
-            onClick={() => onFocusModeChange(false)}
-            aria-pressed={!focusMode}
-            className={optionClass(!focusMode)}
-          >
-            {isPresentation ? "All pathways" : "All entries"}
-          </button>
-          <button
-            type="button"
-            onClick={() => onFocusModeChange(true)}
-            aria-pressed={focusMode}
-            title={`Show ${focusedTitle} and related ${isPresentation ? "pathways" : "entries"}`}
-            className={optionClass(focusMode)}
-          >
-            {isPresentation ? "Related pathways" : "Focused family"}
-          </button>
-        </div>
-      ) : null}
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Group diagnoses">
+      <button
+        type="button"
+        onClick={() => onBrowseGroupingChange("urgency")}
+        aria-pressed={browseGrouping === "urgency"}
+        className={optionClass(browseGrouping === "urgency")}
+      >
+        By urgency
+      </button>
+      <button
+        type="button"
+        onClick={() => onBrowseGroupingChange("presentation")}
+        aria-pressed={browseGrouping === "presentation"}
+        className={optionClass(browseGrouping === "presentation")}
+      >
+        By presentation
+      </button>
     </div>
   );
 }
 
 export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }: DifferentialStreamWorkspaceProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const copy = streamCopy[model.stream];
   const isPresentation = model.stream === "presentations";
   // Match buildDifferentialStreamModel: punctuation-only queries are browse mode.
@@ -410,19 +351,58 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
   const matchItems = useMemo(() => model.items.filter((item) => item.isMatch), [model.items]);
   const itemBySlug = useMemo(() => new Map(model.items.map((item) => [item.slug, item])), [model.items]);
   const itemById = useMemo(() => new Map(model.items.map((item) => [item.id, item])), [model.items]);
+  const chapterFilterOptions = useMemo(
+    () => [
+      ...model.chapters.map((chapter) => ({
+        value: `chapter:${chapter.id}`,
+        label: chapter.title,
+        section: "chapters" as const,
+        itemIds: new Set(chapter.itemIds),
+      })),
+      ...(model.stream === "diagnoses"
+        ? model.presentationChapters.map((chapter) => ({
+            value: `presentation:${chapter.id}`,
+            label: chapter.title,
+            section: "presentations" as const,
+            itemIds: new Set(chapter.itemIds),
+          }))
+        : []),
+    ],
+    [model.chapters, model.presentationChapters, model.stream],
+  );
+  const chapterItemIdsByValue = useMemo(
+    () => new Map(chapterFilterOptions.map((option) => [option.value, option.itemIds])),
+    [chapterFilterOptions],
+  );
+  const chapterFilterValues = useMemo(
+    () => new Set(chapterFilterOptions.map((option) => option.value)),
+    [chapterFilterOptions],
+  );
+  const defaultScope: DifferentialResultScope = hasQuery ? "matches" : "all";
+  const resultScope = readResultFilterValue(searchParams, "scope", scopeValues, defaultScope);
+  const presentationPriority = readResultFilterValue(searchParams, "priority", priorityValues, "all");
+  const selectedChapterFilters = new Set(readResultFilterValues(searchParams, "chapter", chapterFilterValues));
 
   const [focusedSlug, setFocusedSlug] = useState<string | null>(() => {
     const requested = initialFocus.trim().toLowerCase();
     if (requested && itemBySlug.has(requested)) return requested;
     return matchItems[0]?.slug ?? null;
   });
-  const [familyMode, setFamilyMode] = useState(false);
   const [browseGrouping, setBrowseGrouping] = useState<BrowseGrouping>("urgency");
-  const [presentationPriority, setPresentationPriority] = useState<PresentationPriority>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [filterOpen, setFilterOpen] = useState(false);
   const filterPanelId = useId();
   const didAutoJumpForFocus = useRef("");
+
+  const setResultScope = (value: DifferentialResultScope) =>
+    replaceResultFilterUrl((params) => writeResultFilterValue(params, "scope", value, defaultScope, scopeValues));
+  const setPresentationPriority = (value: PresentationPriority) =>
+    replaceResultFilterUrl((params) => writeResultFilterValue(params, "priority", value, "all", priorityValues));
+  const setFamilyMode = (enabled: boolean) =>
+    replaceResultFilterUrl((params) => {
+      if (enabled) params.set("related", "1");
+      else params.delete("related");
+    });
 
   const resultSignature = matchItems.map((item) => item.slug).join("|");
   const [lastResultSignature, setLastResultSignature] = useState("");
@@ -436,10 +416,10 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
     if (!initialFocus.trim() && matchItems[0]) {
       setFocusedSlug(matchItems[0].slug);
     }
-    setFamilyMode(false);
   }
 
   const focusedItem = focusedSlug ? (itemBySlug.get(focusedSlug) ?? null) : null;
+  const familyMode = Boolean(focusedItem && searchParams.get("related") === "1");
   const relatedSlugSet = useMemo(() => {
     if (!focusedItem) return new Set<string>();
     return new Set(
@@ -449,14 +429,29 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
     );
   }, [focusedItem, isPresentation]);
 
-  const visibleItems = useMemo(() => {
-    const connectedItems =
-      familyMode && focusedItem
-        ? model.items.filter((item) => item.slug === focusedItem.slug || relatedSlugSet.has(item.slug))
-        : model.items;
-    if (!isPresentation || presentationPriority === "all") return connectedItems;
-    return connectedItems.filter((item) => item.status === presentationPriority);
-  }, [familyMode, focusedItem, isPresentation, model.items, presentationPriority, relatedSlugSet]);
+  const filterStreamItems = (
+    scope: DifferentialResultScope,
+    priority: PresentationPriority,
+    chapters: ReadonlySet<string>,
+    related: boolean,
+  ) =>
+    model.items.filter((item) => {
+      if (scope === "matches" && !item.isMatch) return false;
+      if (related && focusedItem && item.slug !== focusedItem.slug && !relatedSlugSet.has(item.slug)) return false;
+      if (priority !== "all" && item.status !== priority) return false;
+      if (chapters.size > 0) {
+        let inSelectedChapter = false;
+        for (const token of chapters) {
+          if (chapterItemIdsByValue.get(token)?.has(item.id)) {
+            inSelectedChapter = true;
+            break;
+          }
+        }
+        if (!inSelectedChapter) return false;
+      }
+      return true;
+    });
+  const visibleItems = filterStreamItems(resultScope, presentationPriority, selectedChapterFilters, familyMode);
 
   const activeChapters =
     !hasQuery && model.stream === "diagnoses"
@@ -528,78 +523,135 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
   const showBrowseGrouping = !hasQuery && model.stream === "diagnoses";
   const showConnectionFilter = Boolean(focusedItem && (!isPresentation || focusedItem.relatedPathways.length > 0));
   const mobileFilterGroups: ResultFilterGroup[] = [];
-  if (showBrowseGrouping) {
-    mobileFilterGroups.push(
-      resultFilterGroup<BrowseGrouping>({
-        id: "grouping",
-        label: "Group diagnoses",
-        value: browseGrouping,
-        options: [
-          { value: "urgency", label: "By urgency" },
-          { value: "presentation", label: "By presentation" },
-        ],
-        onChange: setBrowseGrouping,
-      }),
-    );
-  }
-  if (isPresentation) {
+  if (filterOpen) {
     mobileFilterGroups.push(
       resultFilterGroup<PresentationPriority>({
         id: "priority",
-        label: "Presentation priority",
+        label: "Clinical urgency",
         value: presentationPriority,
-        options: [
-          { value: "all", label: "All priorities" },
-          { value: "emergent", label: "Emergent" },
-          { value: "urgent", label: "Urgent" },
-          { value: "routine", label: "Routine" },
-        ],
+        options: (["all", "emergent", "urgent", "routine"] as const).map((value) => ({
+          value,
+          label: value === "all" ? "All priorities" : statusLabel(value),
+          hint: String(filterStreamItems(resultScope, value, selectedChapterFilters, familyMode).length),
+        })),
         onChange: setPresentationPriority,
       }),
     );
-  }
-  if (focusedItem && showConnectionFilter) {
-    mobileFilterGroups.push(
-      resultFilterGroup<"all" | "family">({
-        id: isPresentation ? "pathways" : "family",
-        label: isPresentation ? "Related pathways" : "Family view",
-        value: familyMode ? "family" : "all",
-        options: [
-          { value: "all", label: isPresentation ? "All pathways" : "All entries" },
-          {
-            value: "family",
-            label: isPresentation ? "Related pathways" : "Focused family",
-            hint: focusedItem.title,
-          },
-        ],
-        onChange: (value) => setFamilyMode(value === "family"),
-      }),
-    );
+    if (model.stream === "diagnoses" && chapterFilterOptions.length > 0) {
+      mobileFilterGroups.push(
+        resultFilterFacetGroup({
+          id: "chapter",
+          label: "Chapter or presentation",
+          description: "Alternatives in this group combine with OR.",
+          selected: selectedChapterFilters,
+          optionSections: [
+            {
+              id: "chapters",
+              label: "Diagnostic chapters",
+              optionValues: chapterFilterOptions
+                .filter((option) => option.section === "chapters")
+                .map((option) => option.value),
+            },
+            {
+              id: "presentations",
+              label: "Presentation families",
+              optionValues: chapterFilterOptions
+                .filter((option) => option.section === "presentations")
+                .map((option) => option.value),
+            },
+          ],
+          options: chapterFilterOptions.map((option) => {
+            const withCandidate = new Set(selectedChapterFilters);
+            if (!withCandidate.has(option.value)) withCandidate.add(option.value);
+            const count = filterStreamItems(resultScope, presentationPriority, withCandidate, familyMode).length;
+            return {
+              value: option.value,
+              label: option.label,
+              hint: String(count),
+              disabled: count === 0 && !selectedChapterFilters.has(option.value),
+            };
+          }),
+          onToggle: (value) =>
+            replaceResultFilterUrl((params) => {
+              const next = new Set(readResultFilterValues(params, "chapter", chapterFilterValues));
+              if (!next.delete(value)) next.add(value);
+              writeResultFilterValues(params, "chapter", next, chapterFilterValues);
+            }),
+        }),
+      );
+    }
+    if (focusedItem && showConnectionFilter) {
+      mobileFilterGroups.push(
+        resultFilterGroup<"all" | "family">({
+          id: isPresentation ? "pathways" : "family",
+          label: isPresentation ? "Related pathways" : "Family view",
+          value: familyMode ? "family" : "all",
+          options: [
+            { value: "all", label: isPresentation ? "All pathways" : "All entries" },
+            {
+              value: "family",
+              label: isPresentation ? "Related pathways" : "Focused family",
+              hint: focusedItem.title,
+            },
+          ],
+          onChange: (value) => setFamilyMode(value === "family"),
+        }),
+      );
+    }
   }
   const activeFilterCount =
     Number(familyMode) +
-    Number(showBrowseGrouping && browseGrouping !== "urgency") +
-    Number(isPresentation && presentationPriority !== "all");
+    Number(resultScope !== defaultScope) +
+    Number(presentationPriority !== "all") +
+    selectedChapterFilters.size;
   const appliedFilters: AppliedFilterChip[] = [];
-  if (isPresentation && presentationPriority !== "all") {
+  if (resultScope !== defaultScope) {
+    appliedFilters.push({
+      id: "scope",
+      groupLabel: "Search in",
+      valueLabel: resultScope === "all" ? "All entries" : "Matches",
+      onRemove: () => setResultScope(defaultScope),
+    });
+  }
+  if (presentationPriority !== "all") {
     appliedFilters.push({
       id: "priority",
-      label: `${statusLabel(presentationPriority)} priority`,
+      groupLabel: "Priority",
+      valueLabel: statusLabel(presentationPriority),
       onRemove: () => setPresentationPriority("all"),
+    });
+  }
+  for (const token of selectedChapterFilters) {
+    const option = chapterFilterOptions.find((item) => item.value === token);
+    if (!option) continue;
+    appliedFilters.push({
+      id: token,
+      groupLabel: option.section === "presentations" ? "Presentation" : "Chapter",
+      valueLabel: option.label,
+      onRemove: () =>
+        replaceResultFilterUrl((params) => {
+          const next = new Set(readResultFilterValues(params, "chapter", chapterFilterValues));
+          next.delete(token);
+          writeResultFilterValues(params, "chapter", next, chapterFilterValues);
+        }),
     });
   }
   if (familyMode && focusedItem) {
     appliedFilters.push({
       id: isPresentation ? "pathways" : "family",
-      label: isPresentation ? `${focusedItem.title} related pathways` : `${focusedItem.title} family`,
+      groupLabel: isPresentation ? "Related pathways" : "Family",
+      valueLabel: focusedItem.title,
       onRemove: () => setFamilyMode(false),
     });
   }
 
   function clearStreamFilters() {
-    setBrowseGrouping("urgency");
-    setFamilyMode(false);
-    setPresentationPriority("all");
+    replaceResultFilterUrl((params) => {
+      params.delete("scope");
+      params.delete("priority");
+      params.delete("chapter");
+      params.delete("related");
+    });
   }
 
   function renderCardGrid(items: DifferentialStreamItem[]): ReactNode {
@@ -643,37 +695,34 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
         <SearchResultsHeaderBand
           modeId="differentials"
           query={hasQuery ? query : ""}
-          matchCount={hasQuery ? model.matchCount : model.items.length}
+          matchCount={visibleItems.length}
           headingLevel={2}
           filterLabel={isPresentation ? "Presentation pathway controls" : `${copy.heading} catalogue controls`}
           mobileControlsPlacement="inline"
           mobileControls={
-            mobileFilterGroups.length > 0 ? (
-              <ResultFilterTrigger
-                panelId={filterPanelId}
-                testId="differentials-stream-filter-trigger"
-                open={filterOpen}
-                activeCount={activeFilterCount}
-                onToggle={() => setFilterOpen((current) => !current)}
-                title={`Filter ${copy.heading.toLowerCase()}`}
-              />
+            <ResultFilterTrigger
+              panelId={filterPanelId}
+              testId="differentials-stream-filter-trigger"
+              open={filterOpen}
+              activeCount={activeFilterCount}
+              onToggle={() => setFilterOpen((current) => !current)}
+              title={`Filter ${copy.heading.toLowerCase()}`}
+            />
+          }
+          utilityControls={
+            showBrowseGrouping ? (
+              <StreamGroupingControl browseGrouping={browseGrouping} onBrowseGroupingChange={setBrowseGrouping} />
             ) : undefined
           }
           filterControls={
-            mobileFilterGroups.length > 0 ? (
-              <StreamFilterControls
-                stream={model.stream}
-                showGrouping={showBrowseGrouping}
-                browseGrouping={browseGrouping}
-                onBrowseGroupingChange={setBrowseGrouping}
-                presentationPriority={presentationPriority}
-                onPresentationPriorityChange={setPresentationPriority}
-                focusedTitle={focusedItem?.title ?? null}
-                showConnectionFilter={showConnectionFilter}
-                focusMode={familyMode}
-                onFocusModeChange={setFamilyMode}
-              />
-            ) : undefined
+            <ResultFilterTrigger
+              panelId={filterPanelId}
+              testId="differentials-stream-filter-trigger-desktop"
+              open={filterOpen}
+              activeCount={activeFilterCount}
+              onToggle={() => setFilterOpen((current) => !current)}
+              title={`Filter ${copy.heading.toLowerCase()}`}
+            />
           }
           appliedFilters={appliedFilters}
           onClearFilters={activeFilterCount > 0 ? clearStreamFilters : undefined}
@@ -686,20 +735,40 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
           title={`Filter ${copy.heading.toLowerCase()}`}
           description={
             isPresentation
-              ? "Narrow pathways by clinical priority or shared diagnostic candidates."
-              : "Choose how catalogue entries are grouped or narrowed."
+              ? "Choose query scope, urgency, or pathways related to the focused presentation."
+              : "Choose query scope, urgency, diagnostic chapter, presentation family, or related entries."
           }
           groups={mobileFilterGroups}
+          scope={{
+            label: "Search in",
+            value: resultScope,
+            onChange: (value) => setResultScope(value as DifferentialResultScope),
+            options: [
+              {
+                value: "matches",
+                label: "Matches",
+                count: filterStreamItems("matches", presentationPriority, selectedChapterFilters, familyMode).length,
+                description: "Keep entries matched by the current query.",
+              },
+              {
+                value: "all",
+                label: "All entries",
+                count: filterStreamItems("all", presentationPriority, selectedChapterFilters, familyMode).length,
+                description: "Apply refinements across this whole stream.",
+              },
+            ],
+          }}
           onClearAll={activeFilterCount > 0 ? clearStreamFilters : undefined}
-          footerNote={`${visibleItems.length} ${
-            isPresentation
+          summary={{
+            count: visibleItems.length,
+            noun: isPresentation
               ? visibleItems.length === 1
                 ? "pathway"
                 : "pathways"
               : visibleItems.length === 1
                 ? "entry"
-                : "entries"
-          } showing`}
+                : "entries",
+          }}
         />
 
         {!hasQuery && model.presets.length > 0 ? (
@@ -782,15 +851,6 @@ export function DifferentialStreamWorkspace({ model, query, initialFocus = "" }:
         ) : null}
 
         <section className="grid gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-bold text-[color:var(--text-heading)]">
-                {isPresentation ? "Presentation pathways" : "Clinical entries"}
-              </h2>
-              <span className="text-sm text-[color:var(--text-muted)]">{copy.entriesLabel}</span>
-            </div>
-          </div>
-
           {visibleItems.length === 0 ? (
             <div
               data-testid="differentials-stream-empty-filter"

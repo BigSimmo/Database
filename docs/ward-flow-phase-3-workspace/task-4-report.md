@@ -39,13 +39,11 @@ undefined` guard in the effect, the `elapsed` and `now` formulas — is unchange
 
 ### `tests/ward-flow-provider.dom.test.tsx` (new)
 
-- **Filename deviation from the brief.** The brief names this file `tests/ward-flow-provider.test.tsx`.
-  This repo's `vitest.config.mts` splits Vitest into two projects: `node` (`tests/**/*.test.ts`,
-  no DOM) and `jsdom` (`tests/**/*.dom.test.tsx` only, with `@testing-library/react` cleanup and
-  jsdom polyfills wired via `tests/setup/jsdom.setup.ts`). A file named `ward-flow-provider.test.tsx`
-  matches neither project's include glob — it would not be collected by `npm run test` at all, and
-  running it directly with no `--project` flag puts it in the Node environment, where `render()`
-  has no `document`. Every one of the 115 existing React component tests in this repo uses the
+- **DOM-test filename.** This repo's `vitest.config.mts` splits Vitest into two projects: `node`
+  (`tests/**/*.test.ts`, no DOM) and `jsdom` (`tests/**/*.dom.test.tsx` only, with
+  `@testing-library/react` cleanup and jsdom polyfills wired via `tests/setup/jsdom.setup.ts`).
+  This test uses the DOM-project filename so it is collected by `npm run test`; every one of the
+  115 existing React component tests in this repo uses the
   `*.dom.test.tsx` suffix (confirmed: `find tests -iname "*.test.tsx" -not -iname "*.dom.test.tsx"`
   returns nothing). I named the file `ward-flow-provider.dom.test.tsx` instead, kept every other
   brief detail (imports, `Probe` component, both required test bodies) unchanged, and added two

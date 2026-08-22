@@ -1,10 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DocumentSearchResultsPanel } from "@/components/clinical-dashboard/document-search-results";
 import { removeScopeFilterValue, scopeFilterChips } from "@/lib/search-scope-filter-chips";
 import type { DocumentMatch, SearchScopeSummary } from "@/lib/types";
+
+let mockSearchParams = new URLSearchParams();
+afterEach(() => {
+  mockSearchParams = new URLSearchParams();
+});
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -15,7 +20,7 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     prefetch: vi.fn(),
   }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
   usePathname: () => "/",
 }));
 
@@ -236,9 +241,9 @@ describe("documents zero-result state when retrieval degraded", () => {
 describe("scope filter chips", () => {
   it("names the group so a bare value is not ambiguous", () => {
     expect(scopeFilterChips({ topics: ["agitation"], sites: ["FSH"], locality: "local" })).toEqual([
-      { id: "scope:topics:agitation", label: "Topic: agitation" },
-      { id: "scope:sites:FSH", label: "Site: FSH" },
-      { id: "scope:locality:local", label: "Locality: local" },
+      { id: "scope:topics:agitation", groupLabel: "Topic", valueLabel: "agitation" },
+      { id: "scope:sites:FSH", groupLabel: "Site", valueLabel: "FSH" },
+      { id: "scope:locality:local", groupLabel: "Locality", valueLabel: "Local" },
     ]);
   });
 
@@ -260,5 +265,69 @@ describe("scope filter chips", () => {
     expect(removeScopeFilterValue({ topics: ["agitation"] }, "scope:topics:nope")).toEqual({
       topics: ["agitation"],
     });
+  });
+});
+
+describe("documents hoisted filtered-to-zero empty state", () => {
+  it("hoists the empty state full width directly beneath the header band when facet-filtered to zero", () => {
+    const docA: DocumentMatch = {
+      ...agitationMatch,
+      document_id: "22222222-2222-4222-8222-222222222222",
+      title: "Adult Acute Agitation Clinical Guideline",
+      labels: [
+        {
+          id: "l1",
+          document_id: "22222222-2222-4222-8222-222222222222",
+          label_type: "population",
+          label: "Adult",
+          confidence: 0.95,
+          source: "generated",
+          metadata: { review_status: "approved" },
+        },
+        {
+          id: "l2",
+          document_id: "22222222-2222-4222-8222-222222222222",
+          label_type: "setting",
+          label: "Inpatient",
+          confidence: 0.95,
+          source: "generated",
+          metadata: { review_status: "approved" },
+        },
+      ],
+    };
+    const docB: DocumentMatch = {
+      ...agitationMatch,
+      document_id: "33333333-3333-4333-8333-333333333333",
+      title: "Paediatric Acute Agitation Clinical Guideline",
+      labels: [
+        {
+          id: "l3",
+          document_id: "33333333-3333-4333-8333-333333333333",
+          label_type: "population",
+          label: "Paediatric",
+          confidence: 0.95,
+          source: "generated",
+          metadata: { review_status: "approved" },
+        },
+        {
+          id: "l4",
+          document_id: "33333333-3333-4333-8333-333333333333",
+          label_type: "setting",
+          label: "Outpatient",
+          confidence: 0.95,
+          source: "generated",
+          metadata: { review_status: "approved" },
+        },
+      ],
+    };
+
+    // Stacking constraints across different facet groups (AND across groups) filters the combined set to zero
+    mockSearchParams = new URLSearchParams("facet=population:adult,setting:outpatient");
+    render(<DocumentSearchResultsPanel {...baseProps} matches={[docA, docB]} />);
+
+    const emptyStateContainer = screen.getByTestId("document-filter-empty-results");
+    expect(emptyStateContainer).toBeInTheDocument();
+    expect(emptyStateContainer).toHaveClass("w-full");
+    expect(screen.queryByTestId("document-result-card")).not.toBeInTheDocument();
   });
 });

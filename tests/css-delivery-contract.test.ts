@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import { sourceSegment } from "./helpers/source-contract";
+
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("cold-load CSS and font delivery", () => {
@@ -22,7 +24,9 @@ describe("cold-load CSS and font delivery", () => {
 
   it("keeps the display-swap body font preloaded for LCP text", () => {
     const rootLayout = read("src/app/layout.tsx");
-    const geistSans = rootLayout.slice(rootLayout.indexOf("const geistSans"), rootLayout.indexOf("const geistMono"));
+    const geistSans = sourceSegment(rootLayout, "const geistSans", "const geistMono", {
+      label: "geistSans font configuration",
+    });
 
     expect(geistSans).toContain('display: "swap"');
     expect(geistSans).not.toContain("preload: false");

@@ -1,21 +1,39 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { normalizedSchemaSha256 as driftSha } from "../scripts/check-drift";
 import {
+  ACTIVE_CI_RUN_STATES,
   autoMergeVerdict,
+  touchesProductionMigrations,
   changedFilesForRange,
+  defaultRunsFetch,
   driftVerdict,
+  findInFlightCiRuns,
   findPrettierBin,
+  forcePushedBranchNames,
   formatGuard,
   guardBaseForRange,
   HEAVY_RUN_ADMISSION_BUSY_EXIT,
   HEAVY_RUN_ADMISSION_BUSY_MARKER,
+  inFlightCiGuard,
+  inFlightCiVerdict,
   isCoordinatorBusyOutput,
   isCoordinatorBusyResult,
   isEslintPolicyFile,
+  isForcePushRange,
+  isRequiredCiWorkflow,
   isTypecheckExcludedPath,
   lintableFiles,
   needsRepoWideLint,
@@ -25,6 +43,8 @@ import {
   pushedBranchNames,
   pushedTipMatchesHead,
   staticGuard,
+  cleanupFormatCheckout,
+  unlinkDependencyLink,
 } from "../scripts/guard-push.mjs";
 
 const ZERO = "0".repeat(40);
@@ -78,20 +98,22 @@ describe("guard-push sha parity", () => {
 });
 
 describe("auto-merge verdict", () => {
-  it("blocks any PR branch with armed auto-merge", () => {
-    expect(autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 }).block).toBe(
-      true,
-    );
+  it("does not block a fast-forward push to a PR branch with armed auto-merge, but warns", () => {
+    const v = autoMergeVerdict("codex/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 6 });
+    expect(v.block).toBe(false);
+    expect(v.warn).toBe(true);
   });
 
-  it("blocks a claude/* branch with an armed auto-merge on an open PR", () => {
-    const v = autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 });
+  it("blocks a force-push to a claude/* branch with armed auto-merge on an open PR", () => {
+    const v = autoMergeVerdict("claude/x", { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 7 }, true);
     expect(v.block).toBe(true);
     expect(v.number).toBe(7);
   });
 
-  it("does not block when auto-merge is not armed", () => {
-    expect(autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN" }).block).toBe(false);
+  it("does not warn or block a force-push when auto-merge is not armed", () => {
+    const v = autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN" }, true);
+    expect(v.block).toBe(false);
+    expect(v.warn).toBe(false);
   });
 
   it("does not block when there is no open PR", () => {
@@ -100,6 +122,46 @@ describe("auto-merge verdict", () => {
 
   it("does not block when the PR is not OPEN", () => {
     expect(autoMergeVerdict("claude/x", { autoMergeRequest: {}, state: "MERGED" }).block).toBe(false);
+  });
+});
+
+describe("force-push detection", () => {
+  it("does not flag a fast-forward push", () => {
+    const { root, git } = gitFixture();
+    writeFileSync(join(root, "one.md"), "one\n");
+    git("add", "one.md");
+    git("commit", "--quiet", "-m", "one");
+    const remoteSha = git("rev-parse", "HEAD");
+    writeFileSync(join(root, "two.md"), "two\n");
+    git("add", "two.md");
+    git("commit", "--quiet", "-m", "two");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(isForcePushRange({ localSha, remoteSha, remoteRef: "refs/heads/feature" }, root)).toBe(false);
+    expect(forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root)).toEqual(new Set());
+  });
+
+  it("flags a push that abandons the remote tip (history rewrite)", () => {
+    const { root, git, baseSha } = gitFixture();
+    writeFileSync(join(root, "abandoned.md"), "abandoned\n");
+    git("add", "abandoned.md");
+    git("commit", "--quiet", "-m", "abandoned");
+    const remoteSha = git("rev-parse", "HEAD");
+
+    git("reset", "--quiet", "--hard", baseSha);
+    writeFileSync(join(root, "rebuilt.md"), "rebuilt\n");
+    git("add", "rebuilt.md");
+    git("commit", "--quiet", "-m", "rebuilt");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(isForcePushRange({ localSha, remoteSha, remoteRef: "refs/heads/feature" }, root)).toBe(true);
+    expect(forcePushedBranchNames([{ localSha, remoteSha, remoteRef: "refs/heads/feature" }], root)).toEqual(
+      new Set(["feature"]),
+    );
+  });
+
+  it("never flags a brand-new branch (zero remote sha) as a force-push", () => {
+    expect(isForcePushRange({ localSha: "abc123", remoteSha: ZERO, remoteRef: "refs/heads/feature" })).toBe(false);
   });
 });
 
@@ -152,6 +214,49 @@ describe("push-range parsing", () => {
 
   it("ignores blank lines", () => {
     expect(parsePushRanges("\n  \n")).toHaveLength(0);
+  });
+
+  it("compares a fast-forward push from its remote tip", () => {
+    const { root, git } = gitFixture();
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "one.md"), "one\n");
+    git("add", "one.md");
+    git("commit", "--quiet", "-m", "one");
+    const remoteSha = git("rev-parse", "HEAD");
+    writeFileSync(join(root, "two.md"), "two\n");
+    git("add", "two.md");
+    git("commit", "--quiet", "-m", "two");
+    const localSha = git("rev-parse", "HEAD");
+
+    // Ordinary push: the remote tip is reachable, so it stays the base and only
+    // the newly pushed commit is in scope.
+    expect(guardBaseForRange({ localSha, remoteSha }, root)).toBe(remoteSha);
+    expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["two.md"]);
+  });
+
+  // A force-push abandons the old remote tip. Comparing against it makes every
+  // file the discarded history carried look deleted, which is unanswerable for
+  // transaction guards; the merge base is the question CI actually asks.
+  it("falls back to the merge base when the remote tip was discarded by a force-push", () => {
+    const { root, git, baseSha } = gitFixture();
+    git("update-ref", "refs/remotes/origin/main", "HEAD");
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "abandoned.md"), "abandoned\n");
+    git("add", "abandoned.md");
+    git("commit", "--quiet", "-m", "abandoned");
+    const discardedSha = git("rev-parse", "HEAD");
+
+    git("reset", "--quiet", "--hard", baseSha);
+    writeFileSync(join(root, "rebuilt.md"), "rebuilt\n");
+    git("add", "rebuilt.md");
+    git("commit", "--quiet", "-m", "rebuilt");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(discardedSha).not.toBe(localSha);
+    expect(guardBaseForRange({ localSha, remoteSha: discardedSha }, root)).toBe(baseSha);
+    // abandoned.md must not read as a deletion introduced by this push.
+    expect(changedFilesForRange({ localSha, remoteSha: discardedSha }, root)).toEqual(["rebuilt.md"]);
   });
 
   it("keeps a Windows new-branch static command scoped to the PR side of an advanced main", () => {
@@ -307,5 +412,295 @@ describe("static guard scope selection", () => {
     const docsOnly = staticGuard(["docs/only.md"]);
     expect(docsOnly.ok).toBe(true);
     expect(docsOnly.message).toBeUndefined();
+  });
+});
+
+describe("in-flight CI push guard (#HSSHRG)", () => {
+  it("recognizes active workflow runs for required CI only", () => {
+    expect(isRequiredCiWorkflow({ name: "CI" })).toBe(true);
+    expect(isRequiredCiWorkflow({ workflowName: "CI" })).toBe(true);
+    expect(isRequiredCiWorkflow({ path: ".github/workflows/ci.yml" })).toBe(true);
+    expect(isRequiredCiWorkflow({ path: ".github\\workflows\\ci.yml" })).toBe(true);
+    expect(isRequiredCiWorkflow({ name: "Nightly Security Scan" })).toBe(false);
+
+    expect(ACTIVE_CI_RUN_STATES.has("in_progress")).toBe(true);
+    expect(ACTIVE_CI_RUN_STATES.has("queued")).toBe(true);
+    expect(ACTIVE_CI_RUN_STATES.has("completed")).toBe(false);
+
+    const runs = [
+      { databaseId: 1, name: "CI", status: "in_progress", conclusion: null },
+      { databaseId: 2, name: "CI", status: "queued", conclusion: "" },
+      { databaseId: 3, name: "CI", status: "completed", conclusion: "success" },
+      { databaseId: 4, name: "Deploy", status: "in_progress", conclusion: null },
+    ];
+    const inFlight = findInFlightCiRuns(runs);
+    expect(inFlight).toHaveLength(2);
+    expect(inFlight.map((r: Record<string, unknown>) => r.databaseId)).toEqual([1, 2]);
+
+    const objPayload = {
+      workflow_runs: [
+        { id: 10, path: ".github/workflows/ci.yml", status: "waiting", conclusion: null },
+        { id: 11, path: ".github/workflows/ci.yml", status: "completed", conclusion: "failure" },
+      ],
+    };
+    expect(findInFlightCiRuns(objPayload).map((r: Record<string, unknown>) => r.id)).toEqual([10]);
+  });
+
+  it("blocks a push to an open PR when required CI is in-flight", () => {
+    const runs = [
+      { databaseId: 101, name: "CI", status: "in_progress", conclusion: null, url: "https://github.com/run/101" },
+    ];
+    const verdict = inFlightCiVerdict("claude/my-fix", { state: "OPEN", number: 123 }, runs);
+    expect(verdict.block).toBe(true);
+    expect(verdict.number).toBe(123);
+    expect(verdict.runs).toHaveLength(1);
+  });
+
+  it("allows push when CI has completed or no runs are in-flight", () => {
+    const completedRuns = [{ databaseId: 102, name: "CI", status: "completed", conclusion: "success" }];
+    const verdict = inFlightCiVerdict("claude/my-fix", { state: "OPEN", number: 123 }, completedRuns);
+    expect(verdict.block).toBe(false);
+    expect(verdict.reason).toBe("no-in-flight-ci");
+  });
+
+  it("blocks an armed auto-merge when the push carries a hosted migration", () => {
+    // Merging to main applies migrations to the live clinical database automatically,
+    // so auto-merge on such a PR schedules an unattended production schema change.
+    const armed = { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 88 };
+    const v = autoMergeVerdict("claude/x", armed, false, true);
+    expect(v.block).toBe(true);
+    expect(v.reason).toBe("auto-merge-armed-migration");
+    expect(v.number).toBe(88);
+  });
+
+  it("blocks a migration push even when it is an ordinary fast-forward", () => {
+    // The fast-forward carve-out exists because GitHub re-validates required checks.
+    // It does not make an unattended production schema change acceptable.
+    const armed = { autoMergeRequest: { enabledAt: "t" }, state: "OPEN", number: 89 };
+    expect(autoMergeVerdict("claude/x", armed, false, false).block).toBe(false);
+    expect(autoMergeVerdict("claude/x", armed, false, true).block).toBe(true);
+  });
+
+  it("does not block a migration push when auto-merge is not armed", () => {
+    // The risk is the unattended merge, not the migration itself.
+    const v = autoMergeVerdict("claude/x", { autoMergeRequest: null, state: "OPEN", number: 90 }, false, true);
+    expect(v.block).toBe(false);
+  });
+
+  it("counts only supabase/migrations as a production migration path", () => {
+    expect(touchesProductionMigrations(["supabase/migrations/20260101_x.sql"])).toBe(true);
+    expect(touchesProductionMigrations(["src/lib/a.ts", "docs/b.md"])).toBe(false);
+    // schema.sql is a mirror of the chain, not a thing the integration applies.
+    expect(touchesProductionMigrations(["supabase/schema.sql"])).toBe(false);
+    expect(touchesProductionMigrations([])).toBe(false);
+  });
+
+  it("never blocks base branch pushes or closed PRs", () => {
+    const runs = [{ databaseId: 101, name: "CI", status: "in_progress", conclusion: null }];
+    expect(inFlightCiVerdict("main", { state: "OPEN", number: 1 }, runs).block).toBe(false);
+    expect(inFlightCiVerdict("release/2.0", { state: "OPEN", number: 2 }, runs).block).toBe(false);
+    expect(inFlightCiVerdict("claude/my-fix", { state: "MERGED", number: 123 }, runs).block).toBe(false);
+    expect(inFlightCiVerdict("claude/my-fix", null, runs).block).toBe(false);
+  });
+
+  it("inFlightCiGuard formats actionable blocked message with PR and run details", () => {
+    const runs = [{ databaseId: 555, name: "CI", status: "in_progress", url: "https://github.com/run/555" }];
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
+      prViewer: () => ({ state: "OPEN", number: 77 }),
+      runFetcher: () => runs,
+      // Without this the guard fails open at the `gh --version` probe and never reaches the
+      // formatting under test, so the case would assert nothing on any machine that has no
+      // `gh` on PATH — green in CI, red in a bare container, for no product reason.
+      ghAvailable: () => true,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("PR #77 on claude/my-fix has required CI run(s) currently IN-FLIGHT");
+    expect(result.message).toContain("Run 555: CI (in_progress) https://github.com/run/555");
+    expect(result.message).toContain("SKIP_IN_FLIGHT_CI_GUARD=1 git push");
+    expect(result.message).toContain("#HSSHRG");
+  });
+
+  it("inFlightCiGuard fails open when gh is unavailable", () => {
+    const result = inFlightCiGuard(["claude/my-fix"], [], {
+      prViewer: () => {
+        throw new Error("prViewer must not be consulted without gh");
+      },
+      runFetcher: () => {
+        throw new Error("runFetcher must not be consulted without gh");
+      },
+      ghAvailable: () => false,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.note).toContain("gh not available");
+  });
+
+  it("inFlightCiGuard skips when SKIP_IN_FLIGHT_CI_GUARD=1 is set", () => {
+    const previous = process.env.SKIP_IN_FLIGHT_CI_GUARD;
+    process.env.SKIP_IN_FLIGHT_CI_GUARD = "1";
+    try {
+      const result = inFlightCiGuard(["claude/my-fix"], [], {
+        prViewer: () => ({ state: "OPEN", number: 77 }),
+        runFetcher: () => [{ databaseId: 555, name: "CI", status: "in_progress" }],
+      });
+      expect(result.ok).toBe(true);
+      expect(result.skipped).toBe("SKIP_IN_FLIGHT_CI_GUARD=1");
+    } finally {
+      if (previous === undefined) delete process.env.SKIP_IN_FLIGHT_CI_GUARD;
+      else process.env.SKIP_IN_FLIGHT_CI_GUARD = previous;
+    }
+  });
+
+  it("supports localRef === 'HEAD' in pushedTipMatchesHead", () => {
+    expect(pushedTipMatchesHead([{ localSha: "sha123", localRef: "HEAD" }], "sha123").ok).toBe(true);
+    expect(pushedTipMatchesHead([{ localSha: "sha123", localRef: "HEAD" }], "sha456").ok).toBe(false);
+  });
+
+  it("defaultRunsFetch scopes to ci.yml and pages past the default 10-run window (#HSSHRG)", () => {
+    let capturedArgs: string[] = [];
+    defaultRunsFetch("claude/my-fix", ((_cmd: string, args: string[]) => {
+      capturedArgs = args;
+      return "[]";
+    }) as unknown as typeof execFileSync);
+
+    expect(capturedArgs).toContain("run");
+    expect(capturedArgs).toContain("list");
+    expect(capturedArgs).toContain("--branch");
+    expect(capturedArgs).toContain("claude/my-fix");
+    expect(capturedArgs).toContain("--workflow");
+    expect(capturedArgs).toContain("ci.yml");
+    const limitIndex = capturedArgs.indexOf("--limit");
+    expect(limitIndex).not.toBe(-1);
+    expect(Number(capturedArgs[limitIndex + 1])).toBeGreaterThan(10);
+  });
+});
+
+describe("format-checkout cleanup never deletes through the linked dependency tree", () => {
+  // checkPushedCommit checks out the pushed commit into a scratch directory and
+  // links a node_modules tree in so a dynamic prettier config can resolve its
+  // plugins. When the pushing worktree has no dependencies of its own,
+  // findPrettierBin borrows ANOTHER worktree's real node_modules, and on Windows
+  // that borrow is a junction. The scratch directory is then torn down with
+  // `git worktree remove --force` plus a recursive rmSync, neither of which
+  // respects `git worktree lock`. These tests pin the invariant that the link is
+  // unlinked-not-followed first, and that the force-deletes are skipped entirely
+  // when it could not be.
+  //
+  // Platform note: the link below is a junction on win32 and a directory symlink
+  // everywhere else, so CI (Linux) proves the symlink case and a Windows run
+  // proves the junction case. Both are exercised by the same assertions.
+  function linkFixture() {
+    const sentinel = mkdtempSync(join(tmpdir(), "guard-push-sentinel-"));
+    created.push(sentinel);
+    mkdirSync(join(sentinel, "prettier", "bin"), { recursive: true });
+    writeFileSync(join(sentinel, "prettier", "package.json"), '{"version":"3.9.6"}');
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const link = join(container, "node_modules");
+    symlinkSync(sentinel, link, process.platform === "win32" ? "junction" : "dir");
+    return { sentinel, container, link, canary: join(sentinel, "prettier", "package.json") };
+  }
+
+  it("removes the link itself and leaves the borrowed tree intact", () => {
+    const { container, link, canary } = linkFixture();
+    expect(existsSync(canary)).toBe(true);
+
+    unlinkDependencyLink(link);
+    expect(existsSync(link)).toBe(false);
+    expect(existsSync(canary)).toBe(true);
+
+    // The force-delete that follows in checkPushedCommit can no longer reach it.
+    rmSync(container, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    expect(existsSync(canary)).toBe(true);
+  });
+
+  it("removes a DANGLING link, which existsSync reports as absent", () => {
+    // Regression guard. existsSync follows the link, so once the borrowed tree
+    // is gone the link reads as absent and an existsSync-gated cleanup leaves it
+    // in place — for `git worktree remove --force` and a recursive rmSync to
+    // interpret instead. lstat sees the link whether or not it resolves.
+    const { sentinel, link } = linkFixture();
+    rmSync(sentinel, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    expect(existsSync(link)).toBe(false); // the trap: it is still there
+
+    unlinkDependencyLink(link);
+    expect(() => lstatSync(link)).toThrow(/ENOENT/);
+  });
+
+  it("is tolerant of the link already being gone", () => {
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const result = unlinkDependencyLink(join(container, "node_modules"));
+    expect(result.removed).toBe(false);
+    expect(result.reason).toBe("absent");
+  });
+
+  it("refuses a real directory at the link path instead of deleting its contents", () => {
+    // Nothing in guard-push creates a real directory here, so one means something
+    // unexpected — and recursively deleting an unexpected directory is the exact
+    // hazard these tests exist to prevent.
+    const container = mkdtempSync(join(tmpdir(), "guard-push-container-"));
+    created.push(container);
+    const real = join(container, "node_modules");
+    mkdirSync(join(real, "prettier"), { recursive: true });
+    writeFileSync(join(real, "prettier", "package.json"), '{"version":"3.9.6"}');
+
+    const result = unlinkDependencyLink(real);
+    expect(result.removed).toBe(false);
+    expect(result.reason).toBe("not-a-link");
+    expect(existsSync(join(real, "prettier", "package.json"))).toBe(true);
+  });
+
+  it("SKIPS both force-deletes when the link could not be removed", () => {
+    // Regression guard. Swallowing the unlink failure and continuing is the one
+    // case where a force-delete runs over a directory that still holds a live
+    // link into another worktree's node_modules. A leftover scratch directory is
+    // cheap; that is not.
+    const calls: string[] = [];
+    cleanupFormatCheckout("D:/nonexistent-scratch", {
+      unlink: () => ({ removed: false, reason: "failed" }) as const,
+      removeWorktree: () => {
+        calls.push("removeWorktree");
+      },
+      removeDir: () => {
+        calls.push("removeDir");
+      },
+      log: () => {},
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("still tears down the checkout when the link was removed or was never there", () => {
+    for (const reason of ["unlink", "absent"] as const) {
+      const calls: string[] = [];
+      cleanupFormatCheckout("D:/nonexistent-scratch", {
+        unlink: () => ({ removed: reason === "unlink", reason }),
+        removeWorktree: () => {
+          calls.push("removeWorktree");
+        },
+        removeDir: () => {
+          calls.push("removeDir");
+        },
+        log: () => {},
+      });
+      expect(calls).toEqual(["removeWorktree", "removeDir"]);
+    }
+  });
+
+  it("unlinks BEFORE either force-delete, so traversal behaviour cannot matter", () => {
+    const order: string[] = [];
+    cleanupFormatCheckout("D:/nonexistent-scratch", {
+      unlink: () => {
+        order.push("unlink");
+        return { removed: true, reason: "unlink" } as const;
+      },
+      removeWorktree: () => {
+        order.push("removeWorktree");
+      },
+      removeDir: () => {
+        order.push("removeDir");
+      },
+      log: () => {},
+    });
+    expect(order).toEqual(["unlink", "removeWorktree", "removeDir"]);
   });
 });

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "abc21f52-0d39-490d-9676-d106b9af4302",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Build packet B4: Docling worker shadow mode (WORKER_DOCUMENT_EXTRACTOR_MODE=legacy|shadow) — authorised by the Gate B PASS of 2026-08-18",
+    "detail": "Gate B passed on 2026-08-18 (evidence run 32176604314 at 8a92378; record docs/rag-improvement/gate-b-decision-record-2026-08-18.md): design-only authorisation for README section B4 per HANDOVER S7+. Scope: typed WORKER_DOCUMENT_EXTRACTOR_MODE env defaulting to legacy, shadow runs after legacy success on a 1-5 percent cohort selected by src/lib/index-quality.ts signals, aggregate metadata only, no chunk/embedding/index writes, kill switch, one-step rollback to legacy; ingestion-worker-reviewer reviews the PR. Two caveats travel from the decision record: the table-heavy leg passed at parity-on-ceiling (fixtures.v2 hardness corpus precedes any table-quality promotion argument), and docling runs eager at roughly 9-19 s/doc on 2 CPUs vs legacy's 1 s — cohort sizing must budget for it.",
+    "source": "packet S6b Gate B decision record, 2026-08-18",
+    "issueUlid": "01M0B66FJ69DGA6R5W8QN9V7CY"
+  }
+}

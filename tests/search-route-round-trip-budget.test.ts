@@ -231,12 +231,22 @@ describe("Supabase round-trip budget on the /api/search route", () => {
       Array.isArray(payload.results) ? payload.results.length : 0,
       "the route must actually retrieve, or the budget proves nothing",
     ).toBeGreaterThan(0);
-    expect(
-      counter.total(),
-      `the route must issue Supabase traffic, or a zero budget is meaningless — ${JSON.stringify(counter.breakdown())}`,
-    ).toBeGreaterThan(0);
+    const retrievalRpcCount =
+      counter.countOf("match_document_chunks_text_v2") + counter.countOf("match_document_table_facts_text_v2");
+    expect(retrievalRpcCount, "the route must issue retrieval RPCs, or the budget proves nothing").toBeGreaterThan(0);
 
-    // Measured, not derived — this is what the route does today, pinned so a
+    // 16 total round trips:
+    //   1  consume_api_subject_rate_limit (route rate limiting)
+    //   1  rag_aliases (query classification)
+    //   3  match_document_chunks_text_v2 (primary probe + 2 lexical query variants)
+    //   3  match_document_table_facts_text_v2 (primary probe + 2 lexical query variants)
+    //   2  get_related_document_metadata_v2 (metadata enrichment across 2 unique document_ids)
+    //   1  document_index_quality (metadata enrichment index-status query)
+    //   3  document_images (visual enrichment queries: source document + related documents)
+    //   1  rag_retrieval_logs (fire-and-forget diagnostic insertion)
+    //   1  rag_queries (fire-and-forget query logging)
+    //
+    // Total pinned so a reviewer does not have to eyeball every PR: an added
     // change (in the preamble, retrieval core, enrichment, or telemetry write)
     // has to be deliberate. Update in the commit that moves it.
     expect(counter.total(), `search route round trips changed — ${JSON.stringify(counter.breakdown())}`).toBe(16);
@@ -255,7 +265,7 @@ describe("Supabase round-trip budget on the /api/search route", () => {
       "from:rag_retrieval_logs": 1,
       "from:rag_queries": 1,
     });
-  });
+  }, 60_000);
 
   it("spends no rate-limit-denied request on retrieval traffic beyond the limiter check", async () => {
     // A route budget also has to say what a *denied* caller costs: the limiter

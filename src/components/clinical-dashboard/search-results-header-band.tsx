@@ -112,7 +112,12 @@ function useRailOverflow<Element extends HTMLElement>() {
 
 export type AppliedFilterChip = {
   id: string;
-  label: string;
+  /** Compact value shown on phones, for example `High`. */
+  valueLabel: string;
+  /** Context restored on larger screens, for example `Risk: High`. */
+  groupLabel?: string;
+  /** Complete label announced by assistive technology. */
+  accessibleLabel?: string;
   onRemove: () => void;
 };
 
@@ -141,6 +146,7 @@ export function SearchResultsHeaderBand({
   onClearFilters,
   filterLabel = "Filter search results",
   headingLevel = 2,
+  resultNoun: resultNounOverride,
   className,
 }: {
   modeId: AppModeId;
@@ -201,6 +207,19 @@ export function SearchResultsHeaderBand({
   filterLabel?: string;
   /** Use level 1 when the ribbon is the route's primary page heading. */
   headingLevel?: 1 | 2;
+  /**
+   * What this count counted, when the mode registry's noun is not specific
+   * enough to be true.
+   *
+   * The default is `resultHeading` and it is right for the eleven modes whose
+   * result list is one kind of thing. Dictionary's is not: the same list is
+   * terms or abbreviations depending on which scope segment is pressed, so
+   * "1 dictionary result" would name a category the reader did not choose while
+   * "1 abbreviation" names what is actually on screen. Pass it already
+   * singularised for the count you passed — the band cannot know that the plural
+   * of this mode's noun is not the word plus "s".
+   */
+  resultNoun?: string;
   className?: string;
 }) {
   const displayQuery = query.trim() || "All";
@@ -217,7 +236,7 @@ export function SearchResultsHeaderBand({
   // rather than "Could not load <noun>" avoids having to lower-case the leading
   // word, which would mangle the acronym in "DSM diagnoses".
   const searchConfig = appModeSearchConfig(modeId);
-  const resultNoun = searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results";
+  const resultNoun = resultNounOverride ?? searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results";
   const resolvedFaultTitle =
     faultTitle ?? (resolvedStatus === "unauthorized" ? "Sign in to continue" : `${resultNoun} could not be loaded`);
   const resolvedFaultBody =
@@ -392,7 +411,13 @@ export function SearchResultsHeaderBand({
                       Once the query stops being the heading, an unlabelled number
                       is unanchored on a deep link or below the fold — and the mode
                       registry already carries the noun. */}
-                  {matchCount === 1 ? singularNoun(inlineNoun(resultNoun)) : inlineNoun(resultNoun)}
+                  {/* An override is already correct for the count it was given —
+                      a caller that knows "abbreviation" is the singular of
+                      "abbreviations" also knows which one this count needs, and
+                      `singularNoun` would turn a supplied "abbreviation" into
+                      itself only by luck of the suffix rules. */}
+                  {resultNounOverride ??
+                    (matchCount === 1 ? singularNoun(inlineNoun(resultNoun)) : inlineNoun(resultNoun))}
                   {/* Nested in the count phrase, not a sibling flex item: the
                       status row is `flex … gap-1.5`, so a separate span with a
                       leading space doubled the gap before the middot and still
@@ -591,9 +616,10 @@ export function SearchResultsHeaderBand({
           toolbar. It deliberately survives `loading` and a zero result: nothing
           matching is exactly when you need to relax a filter, and dropping it
           mid-search would flicker the chips out and back on every keystroke.
-          Only a fault removes it, because filtering a result set that never
-          loaded is meaningless. */}
-      {appliedFilters.length > 0 && !faulted ? (
+          A fault still keeps it: retrieval and result constraints are user
+          state, not a claim that the faulted result count is trustworthy, and
+          the controls remain the shortest recovery path. */}
+      {appliedFilters.length > 0 ? (
         <div
           data-testid="search-query-ribbon-shelf"
           role="group"
@@ -634,8 +660,8 @@ export function SearchResultsHeaderBand({
                 key={filter.id}
                 type="button"
                 onClick={filter.onRemove}
-                aria-label={`Remove ${filter.label} filter`}
-                title={filter.label}
+                aria-label={`Remove ${filter.accessibleLabel ?? `${filter.groupLabel ? `${filter.groupLabel}: ` : ""}${filter.valueLabel}`} filter`}
+                title={`${filter.groupLabel ? `${filter.groupLabel}: ` : ""}${filter.valueLabel}`}
                 data-selected="true"
                 className={cn(
                   // Hover deepens the chip's own accent rather than swapping to the
@@ -645,7 +671,13 @@ export function SearchResultsHeaderBand({
                   focusRing,
                 )}
               >
-                <span className="truncate">{filter.label}</span>
+                {filter.groupLabel ? (
+                  <span className="hidden truncate sm:inline">
+                    <span className="text-[color:var(--text-muted)]">{filter.groupLabel}: </span>
+                    {filter.valueLabel}
+                  </span>
+                ) : null}
+                <span className={cn("truncate", filter.groupLabel && "sm:hidden")}>{filter.valueLabel}</span>
                 <X className="h-3 w-3 shrink-0" aria-hidden />
               </button>
             ))}
@@ -786,11 +818,11 @@ export function ResultSortControl({
  * escape, and on therapy-compass `Clear search` is the only one for a query-only
  * zero result. Shipping the escape hatch below the floor the same change raised
  * the facets, the find field and the disclosure headings to would contradict the
- * rule this component's own redesign argues for. Relaxes to 36px from `sm`,
- * exactly like the facets.
+ * rule this component's own redesign argues for. It keeps the 40px pointer
+ * floor from `sm`, exactly like the filter controls.
  */
 const emptyStateAction =
-  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-9";
+  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-10";
 
 export function SearchResultsEmptyState({
   modeId,
@@ -857,11 +889,13 @@ export function SearchResultsEmptyState({
   const filtered = appliedFilters.length > 0;
   const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
   // What the panel can actually offer, decided before the copy describes it.
-  // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` and therapy-compass
-  // has no entry, so there is neither an example nor a cross-mode route there —
-  // yet the body said "Try an example, or jump to another mode", naming two
-  // controls the reader could not see. Copy that promises absent affordances is
-  // the same defect class as a label that does not match its handler.
+  // Both halves need a handler as well as data: most hosts render this panel
+  // without `onTryExample`/`onCrossMode` (only Services, Calculators and Forms
+  // wire the first), so a mode with a full `searchCommandSurfaceByMode` entry can
+  // still have no example and no cross-mode route to offer — yet the body said
+  // "Try an example, or jump to another mode", naming two controls the reader
+  // could not see. Copy that promises absent affordances is the same defect class
+  // as a label that does not match its handler.
   const hasExample = Boolean(config?.examples[0] && onTryExample);
   const hasCrossMode = crossModes.length > 0 && Boolean(onCrossMode);
   // Degraded outranks filtered, which outranks a plain miss. A search whose
@@ -950,24 +984,65 @@ export function SearchResultsEmptyState({
   ].filter(Boolean);
 
   return (
-    <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
+    <div className="relative overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-left shadow-[var(--shadow-inset)]">
+      {/* The state mark, carrying the same vocabulary as the band's own lead:
+          the stroke *count* — not the hue — is what separates a degraded search
+          from a healthy one, because `--clinical-accent` resolves to LinkText
+          under forced colors while `--warning` resolves to CanvasText, and hue
+          alone would render "filtered" and "could not complete" identically.
+          Utilities rather than an unlayered class: `.search-band-lead` is
+          unlayered precisely so it can beat Tailwind's utilities layer, and this
+          mark has no utility to beat — adding a class here would enlarge the
+          inventory `style-contract-registry` polices for nothing. `box-content`
+          + `w-0` makes the border the entire width. Exactly one width class per
+          branch: two would both emit `border-left-width` and the winner would be
+          stylesheet order rather than the branch. */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-y-0 left-0 box-content w-0",
+          degraded
+            ? "border-l-[6px] border-double border-l-[color:var(--warning)]"
+            : filtered
+              ? "border-l-[3px] border-solid border-l-[color:var(--clinical-accent)]"
+              : "border-l-[3px] border-solid border-l-[color:var(--border-strong)]",
+          "forced-colors:border-l-[color:CanvasText]",
+        )}
+      />
       {/* Visible copy is never inside the live region: a region that mounts
           already populated is silent in most screen readers, and wrapping the
           visible tree would flash empty for a frame. The sr-only live region
           below is populated after mount (query-only) or omitted (filtered).
           NOT `role="status"`: the band already owns that role on every search
           route and a second one makes singular `getByRole("status")` ambiguous. */}
-      <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-        {degraded ? (
-          <CircleAlert className="h-5 w-5" aria-hidden />
-        ) : filtered ? (
-          <Funnel className="h-5 w-5" aria-hidden />
-        ) : (
-          <Search className="h-5 w-5" aria-hidden />
-        )}
-      </span>
-      <Title className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">{emptyTitle}</Title>
-      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>
+      {/* The glyph sits beside the heading rather than inside it: a 48px tinted
+          disc above centred copy is a container the icon vocabulary does not
+          have, and putting the SVG inside `Title` would put a node inside the
+          accessible name that every heading assertion resolves. */}
+      <div className="flex items-start gap-2.5">
+        <span
+          className={cn(
+            "mt-px shrink-0",
+            degraded
+              ? "text-[color:var(--warning)]"
+              : filtered
+                ? "text-[color:var(--clinical-accent)]"
+                : "text-[color:var(--text-muted)]",
+          )}
+        >
+          {degraded ? (
+            <CircleAlert className="h-4 w-4" aria-hidden />
+          ) : filtered ? (
+            <Funnel className="h-4 w-4" aria-hidden />
+          ) : (
+            <Search className="h-4 w-4" aria-hidden />
+          )}
+        </span>
+        <div className="min-w-0">
+          <Title className="text-sm font-semibold text-[color:var(--text-heading)]">{emptyTitle}</Title>
+          <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>
+        </div>
+      </div>
       {!filtered ? (
         <div aria-live="polite" className="sr-only">
           {liveMessage}
@@ -979,7 +1054,7 @@ export function SearchResultsEmptyState({
           own action, which is also the fix for the single button that said
           "Clear filters" and called `clearSearch`. */}
       {filtered ? (
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+        <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
           {lastFilter ? (
             <button
               key={lastFilter.id}
@@ -987,12 +1062,16 @@ export function SearchResultsEmptyState({
               onClick={lastFilter.onRemove}
               data-testid="search-results-empty-remove-filter"
               className={cn(
-                "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]",
+                // `sm:min-h-10`, not `sm:min-h-9`: the desktop floor in this file
+                // is 40px — `emptyStateAction` above and every shelf control use
+                // it — and this is the control the filtered path leads with. The
+                // phone floor was already correct.
+                "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] sm:min-h-10",
                 focusRing,
               )}
             >
               <CircleMinus className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Remove “{lastFilter.label}”
+              Remove “{lastFilter.accessibleLabel ?? lastFilter.valueLabel}”
             </button>
           ) : null}
           {onClearFilters && appliedFilters.length > 1 ? (
@@ -1010,10 +1089,10 @@ export function SearchResultsEmptyState({
       {secondary.length > 0 ? (
         <div
           className={cn(
-            "flex flex-wrap items-center justify-center gap-1.5",
+            "flex flex-wrap items-center gap-1.5",
             // Demoted below a rule once relaxing is on offer: an example query is
             // a different search, and the reader has not finished this one.
-            filtered ? "mt-3.5 border-t border-[color:var(--border)] pt-3.5" : "mt-3",
+            filtered ? "mt-3.5 border-t border-[color:var(--border)] pt-3.5" : "mt-3.5",
           )}
         >
           {secondary}

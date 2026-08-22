@@ -64,6 +64,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
+import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -78,6 +79,7 @@ import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
+  modeHomeComposerReservePendingValue,
   modeHomeDesktopComposerSlotId,
 } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
@@ -108,6 +110,8 @@ type GlobalSearchShellProps = {
   initialMode?: AppModeId;
   availableModeIds?: readonly AppModeId[];
   desktopSearchPlacement?: "default" | "hero";
+  /** Override the phone placement for a standalone mode home's shared composer. */
+  mobileHomeComposerPlacement?: "hero" | "footer";
   /** Hide the shared search composer on routes that provide their own search surface. */
   searchComposerVisible?: boolean;
   /** Keep the global header/search while allowing a route to use the full desktop canvas. */
@@ -156,7 +160,7 @@ export function GlobalSearchShell(props: GlobalSearchShellProps) {
           // fallback and resolved content briefly coexisted. A route-agnostic mode-home
           // skeleton (the same one `loading.tsx` shows during navigation) reserves the
           // layout so the first frame reads as "loading" instead of a blank background.
-          <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
+          <div className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-dvh">
             <ModeHomeRouteLoading />
           </div>
         )
@@ -311,6 +315,7 @@ function GlobalStandaloneSearchShellBody({
   initialMode = "answer",
   availableModeIds,
   desktopSearchPlacement = "default",
+  mobileHomeComposerPlacement = "hero",
   searchComposerVisible = true,
   hideDesktopSidebar = false,
   chromeVisible = true,
@@ -415,7 +420,9 @@ function GlobalStandaloneSearchShellBody({
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const differentialsCompareAddonActive =
     searchMode === "differentials" &&
-    (pathname === "/differentials/diagnoses" || (pathname === "/differentials" && hasSubmittedModeSearch));
+    // `/differentials` is absent on purpose: it redirects to the shared home, so a
+    // branch naming it can never be true and would only read as live ownership.
+    (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -442,11 +449,20 @@ function GlobalStandaloneSearchShellBody({
   const isInfoPage = isInformationPage(pathname);
   const shouldShowSearchComposer =
     searchComposerVisible &&
+    pathname !== "/tools" &&
     !isDifferentialPresentationWorkflow &&
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
+  // `/tools` owns its catalogue controls rather than a shared composer. Keep
+  // the sidebar's cross-guide search usable by returning to Answer first.
+  const openSidebarSearch = pathname === "/tools" ? startNewAnswerChat : () => focusComposerInput(inputRef);
+  const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
+  // This flag controls sm+ padding for standalone mode homes. Tools has no
+  // shared composer, so it cannot reserve floating-composer space. Phone
+  // clearance is resolved separately from heroOwnsPhoneComposer below.
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
-  // Standalone mode homes keep the in-flow hero pill at every width (no phone
-  // dock reserve). Document viewer routes own their own floating composer, so
+  // Most standalone mode homes keep the in-flow hero pill at every width. Tools
+  // deliberately has no shared composer. Document viewer routes own their own
+  // floating composer, so
   // the shell keeps only a small pad and lets DocumentViewer manage clearance.
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
@@ -461,7 +477,7 @@ function GlobalStandaloneSearchShellBody({
     resolveShellVisibleMobileComposerReserve({
       shouldShowSearchComposer,
       pageOwnedComposerRoute: isPageOwnedComposerRoute(pathname),
-      isStandaloneModeHome,
+      heroOwnsPhoneComposer,
       searchMode,
       differentialsCompareAddonActive,
     }),
@@ -638,8 +654,8 @@ function GlobalStandaloneSearchShellBody({
     router.push(appModeHomeHref(mode, nextOptions));
   }
 
-  function submitSearch() {
-    const trimmedQuery = query.trim();
+  function submitSearch(queryOverride?: string) {
+    const trimmedQuery = (queryOverride ?? query).trim();
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
@@ -817,6 +833,7 @@ function GlobalStandaloneSearchShellBody({
               onPrefetchSettings={loadSettingsDialog}
               onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
+              onOpenSearch={openSidebarSearch}
             />
           </div>
         </div>
@@ -856,15 +873,14 @@ function GlobalStandaloneSearchShellBody({
             onAsk={submitSearch}
             onClearQuery={() => {
               setQuery("");
-              if (isStandaloneModeHome) navigateToMode(searchMode, { focus: true });
+              if (isStandaloneModeHome || searchMode === "calculators") {
+                navigateToMode(searchMode, { focus: true });
+              }
             }}
             onClearScope={() => undefined}
             onQueryModeChange={setQueryMode}
             onScopeFiltersChange={setScopeFilters}
             onToggleScope={() => undefined}
-            onOpenUpload={() =>
-              router.push(`${appModeHomeHref("documents", { focus: true, queryMode, scopeFilters })}#sources`)
-            }
             onOpenEvidence={() => navigateToMode("answer", { focus: true })}
             onNewChat={startNewAnswerChat}
             showDesktopNewChat={!shouldShowDesktopSidebar}
@@ -874,8 +890,8 @@ function GlobalStandaloneSearchShellBody({
             recentQueries={recentQueries}
             onPickRecent={pickRecentQuery}
             onCrossModeSearch={crossModeSearch}
-            headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
+            mobileHomeComposerPlacement={mobileHomeComposerPlacement}
             // Every phone dock is the compact single-row pill so content keeps
             // maximum screen space (mode homes and result views alike).
             mobileBottomSearchVariant="compact"
@@ -890,11 +906,9 @@ function GlobalStandaloneSearchShellBody({
             desktopPageComposerSlotId={
               shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
             }
-            // Standalone mode homes keep the in-flow hero pill at every width,
-            // phones included — the composer sits in the middle of the hero and
-            // scrolls with the content, matching the answer home rather than
-            // docking to the bottom edge.
-            heroComposerBreakpoint="all"
+            // Most standalone homes keep the in-flow hero pill at every width.
+            // Tools suppresses the shared composer at every breakpoint.
+            heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the top bar to hand space back to content.
             // Tablet and desktop portal search into normal page flow. The outer
@@ -934,7 +948,7 @@ function GlobalStandaloneSearchShellBody({
           data-chrome-transitioning={chromeTransitioning ? "true" : undefined}
           data-phone-scroll-owner={activeScrollOwner}
           data-phone-footer-owner={
-            isStandaloneModeHome
+            heroOwnsPhoneComposer
               ? "hero"
               : isPageOwnedComposerRoute(pathname)
                 ? "page"
@@ -975,7 +989,8 @@ function GlobalStandaloneSearchShellBody({
               <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
-                className="hidden sm:block sm:empty:hidden"
+                data-composer-reserve={modeHomeComposerReservePendingValue}
+                className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
               />
             ) : null}
             {/*
@@ -1025,9 +1040,7 @@ function GlobalStandaloneSearchShellBody({
       <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
-        // The workflow header keeps its menu trigger past md, so the drawer
-        // must stay available until the locked desktop rail takes over at lg.
-        hiddenFrom={isDifferentialPresentationWorkflow ? "lg" : "md"}
+        hiddenFrom="md"
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}
@@ -1040,6 +1053,7 @@ function GlobalStandaloneSearchShellBody({
         onPrefetchSettings={loadSettingsDialog}
         onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
+        onOpenSearch={openSidebarSearch}
       />
     </div>
   );

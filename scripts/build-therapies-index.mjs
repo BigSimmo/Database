@@ -86,43 +86,26 @@ function renderManifest(current, previous, summary) {
     "// not download and parse a record projection before its LCP can paint.",
     "export const THERAPY_CATALOGUE_SUMMARY = {",
     `  totalCount: ${summary.totalCount},`,
+    `  needsReviewCount: ${summary.needsReviewCount},`,
     `  defaultBriefSlug: ${JSON.stringify(summary.defaultBriefSlug)},`,
     `  defaultSheetSlug: ${JSON.stringify(summary.defaultSheetSlug)},`,
     "} as const;\n",
   ].join("\n");
 }
 
-// The source catalogue's `modality` is an echo of one of the record's own tags:
-// all 205 records carry one, every value is also present in that record's
-// `tags`, and the whole catalogue collapses to just CBT/ACT/DBT. That inference
-// mislabels somatic and psychodynamic treatments — ECT and rTMS as "ACT",
-// Psychoanalysis and Psychodynamic Psychotherapy as "CBT", MBT and TFP as
-// "DBT" — and the value renders as a curated chip on the detail and recommend
-// screens while scoring related-therapy selection. A guess presented as a
-// curated fact is a clinical mislabel, so emit the field only when the source
-// genuinely curates a value that is not already one of the record's tags.
-// Consumers already treat `null` as "unknown" and render nothing.
-function curatedModality(therapy) {
-  const value = therapy.modality ?? null;
-  if (!value) return null;
-  const tags = Array.isArray(therapy.tags) ? therapy.tags : [];
-  return tags.includes(value) ? null : value;
-}
-
 // Detail and recommend load the full catalogue (`catalogue: "full"`), not the
-// index projections. Scrub tag-echo modalities there too; a raw copy of the
-// source would leave the mislabel on the only path that renders the chip.
-const curatedFull = therapies.map((therapy) => ({
-  ...therapy,
-  modality: curatedModality(therapy),
-}));
+// index projections. Strip dead modality field from full catalogue outputs.
+const curatedFull = therapies.map((therapy) => {
+  const item = { ...therapy };
+  delete item.modality;
+  return item;
+});
 
 const projected = therapies
   .map((t) => ({
     slug: t.slug,
     name: t.name,
     category: t.category ?? null,
-    modality: curatedModality(t),
     clinicalSummary: t.clinicalSummary ?? null,
     bestUsedFor: t.bestUsedFor ?? null,
     targetSymptoms: t.targetSymptoms ?? null,
@@ -140,7 +123,6 @@ const browserProjected = therapies
     slug: therapy.slug,
     name: therapy.name,
     category: therapy.category ?? null,
-    modality: curatedModality(therapy),
     // The browser index is the browse/pathway payload, not the search corpus.
     // Keep only the short subtitle the catalogue cards render. Search loads the
     // full records so removing long clinical prose here cannot change recall.
@@ -171,6 +153,10 @@ const browserHomeProjected = therapies
 
 const catalogueSummary = {
   totalCount: browserHomeProjected.length,
+  // Records still awaiting qualified-clinician sign-off. Therapy ships its review
+  // state rather than hiding unreviewed records, so the library notice states this
+  // count; computing it here keeps the notice from drifting away from the data.
+  needsReviewCount: browserHomeProjected.filter((therapy) => therapy.reviewStatus !== "reviewed").length,
   defaultBriefSlug: browserHomeProjected.find((therapy) => therapy.briefInterventionAvailable)?.slug ?? null,
   defaultSheetSlug: browserHomeProjected.find((therapy) => therapy.patientSheetAvailable)?.slug ?? null,
 };
@@ -179,11 +165,13 @@ if (checkOnly) {
   const summaryBlock = extractConstObjectBody(currentManifest, "THERAPY_CATALOGUE_SUMMARY");
   const recordedSummary = {
     totalCount: Number(summaryBlock.match(/totalCount: (\d+)/)?.[1] ?? Number.NaN),
+    needsReviewCount: Number(summaryBlock.match(/needsReviewCount: (\d+)/)?.[1] ?? Number.NaN),
     defaultBriefSlug: summaryBlock.match(/defaultBriefSlug: (null|"[^"]+")/)?.[1] ?? "",
     defaultSheetSlug: summaryBlock.match(/defaultSheetSlug: (null|"[^"]+")/)?.[1] ?? "",
   };
   if (
     recordedSummary.totalCount !== catalogueSummary.totalCount ||
+    recordedSummary.needsReviewCount !== catalogueSummary.needsReviewCount ||
     recordedSummary.defaultBriefSlug !== JSON.stringify(catalogueSummary.defaultBriefSlug) ||
     recordedSummary.defaultSheetSlug !== JSON.stringify(catalogueSummary.defaultSheetSlug)
   ) {

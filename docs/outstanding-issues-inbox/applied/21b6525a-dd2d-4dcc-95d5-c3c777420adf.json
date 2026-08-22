@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "21b6525a-dd2d-4dcc-95d5-c3c777420adf",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#333",
+    "detail": "PARTIAL 2026-08-14 (PR #1951): the regeneration half of this row's Next step is done. Ran npm run medications:lexicon-report, confirmed by whitespace-normalised byte comparison that it is a pure re-wrap and not a content change needing clinical review (all 28 catalogue terms identical), and committed it. The diagnosis in #331 is now closed out: it was not a staleness-comparison bug, it was a genuinely stale committed file that prettier could not flag because proseWrap: preserve accepts both wrappings. STILL OPEN, and the more important half: the check is in the local verify:pr-local chain but in no CI job, so it fails every local preflight while every required check stays green. Decide one way or the other — wire it into CI so it cannot silently rot again, or drop it from verify:pr-local so it stops failing preflights it does not gate. Caveat on this PR: #1951 carries the regeneration alongside a workflow test rather than strictly on its own as this row asked, because the session was constrained to a single designated branch; the regeneration is its own revertible commit."
+  }
+}

@@ -66,9 +66,11 @@ const termStatsCacheTtlMs = 10 * 60 * 1000;
 const termStatsCacheMaxEntries = 1024;
 
 const termStatsCache = new Map<string, { expiresAt: number; stats: CorpusTopicTermStats }>();
+const inFlightGroundingQueries = new Map<string, Promise<CorpusTopicTermStats[]>>();
 
 export function resetCorpusGroundingCacheForTests() {
   termStatsCache.clear();
+  inFlightGroundingQueries.clear();
 }
 
 function cacheKey(ownerScopeKey: string, term: string) {
@@ -156,54 +158,63 @@ export async function classifyCorpusGrounding(args: {
   }
 
   if (missing.length > 0) {
+    const flightKey = `${ownerScopeKey}:${[...missing].sort().join(",")}`;
     try {
-      const ownerFilter = accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL;
-      const versioned = await resolveAbortableQuery(
-        args.supabase.rpc("corpus_topic_term_stats_v2", {
-          terms: missing,
-          owner_filter: ownerFilter,
-          include_public: accessScope.includePublic,
-        }),
-        args.signal,
-      );
-      const calls =
-        !versioned || isMissingRetrievalRpcError(versioned.error)
-          ? await Promise.all([
-              resolveAbortableQuery(
-                args.supabase.rpc("corpus_topic_term_stats", { terms: missing, owner_filter: ownerFilter }),
-                args.signal,
-              ),
-              accessScope.ownerId && accessScope.includePublic
-                ? resolveAbortableQuery(
-                    args.supabase.rpc("corpus_topic_term_stats", {
-                      terms: missing,
-                      owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
-                    }),
-                    args.signal,
-                  )
-                : Promise.resolve({ data: [], error: null }),
-            ])
-          : [versioned];
-      if (calls.some((call) => call.error)) throw calls.find((call) => call.error)?.error;
-      const byTerm = new Map<string, CorpusTopicTermStats>();
-      for (const call of calls) {
-        for (const row of (call.data ?? []) as CorpusTopicTermStats[]) {
-          const current = byTerm.get(row.term);
-          byTerm.set(
-            row.term,
-            current
-              ? {
-                  term: row.term,
-                  has_ts_signal: current.has_ts_signal || row.has_ts_signal,
-                  title_doc_count: current.title_doc_count + row.title_doc_count,
-                  chunk_present: current.chunk_present || row.chunk_present,
-                  total_doc_count: current.total_doc_count + row.total_doc_count,
-                }
-              : row,
+      let flight = inFlightGroundingQueries.get(flightKey);
+      if (!flight) {
+        flight = (async () => {
+          const ownerFilter = accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL;
+          const versioned = await resolveAbortableQuery(
+            args.supabase.rpc("corpus_topic_term_stats_v2", {
+              terms: missing,
+              owner_filter: ownerFilter,
+              include_public: accessScope.includePublic,
+            }),
+            args.signal,
           );
-        }
+          const calls =
+            !versioned || isMissingRetrievalRpcError(versioned.error)
+              ? await Promise.all([
+                  resolveAbortableQuery(
+                    args.supabase.rpc("corpus_topic_term_stats", { terms: missing, owner_filter: ownerFilter }),
+                    args.signal,
+                  ),
+                  accessScope.ownerId && accessScope.includePublic
+                    ? resolveAbortableQuery(
+                        args.supabase.rpc("corpus_topic_term_stats", {
+                          terms: missing,
+                          owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+                        }),
+                        args.signal,
+                      )
+                    : Promise.resolve({ data: [], error: null }),
+                ])
+              : [versioned];
+          if (calls.some((call) => call.error)) throw calls.find((call) => call.error)?.error;
+          const byTerm = new Map<string, CorpusTopicTermStats>();
+          for (const call of calls) {
+            for (const row of (call.data ?? []) as CorpusTopicTermStats[]) {
+              const current = byTerm.get(row.term);
+              byTerm.set(
+                row.term,
+                current
+                  ? {
+                      term: row.term,
+                      has_ts_signal: current.has_ts_signal || row.has_ts_signal,
+                      title_doc_count: current.title_doc_count + row.title_doc_count,
+                      chunk_present: current.chunk_present || row.chunk_present,
+                      total_doc_count: current.total_doc_count + row.total_doc_count,
+                    }
+                  : row,
+              );
+            }
+          }
+          return [...byTerm.values()];
+        })();
+        inFlightGroundingQueries.set(flightKey, flight);
       }
-      const rows = [...byTerm.values()];
+
+      const rows = await flight;
       // A term the RPC did not echo back got dropped SQL-side (blank after trim); treat the
       // whole classification as inconclusive rather than guessing.
       if (rows.length !== missing.length) return { verdict: "inconclusive", anchorTerms: [], absentTerms: [] };
@@ -217,6 +228,8 @@ export async function classifyCorpusGrounding(args: {
       // Fail open: missing RPC (migration not applied), transient DB error, demo mode — the
       // caller keeps today's behaviour (LLM classifier fallback + soft-tail short-circuit).
       return { verdict: "inconclusive", anchorTerms: [], absentTerms: [] };
+    } finally {
+      inFlightGroundingQueries.delete(flightKey);
     }
   }
 

@@ -275,6 +275,27 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  test("shared-home mode changes keep the document title aligned with visible copy", async ({ page }) => {
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+
+    await expect(page).toHaveTitle("Clinical Answers | Clinical KB");
+    await page.getByRole("button", { name: /Mode\s*Answer/i }).click();
+    const modeMenu = page.getByRole("menu");
+    await expect(modeMenu).toBeVisible();
+    await modeMenu.getByText("Dictionary", { exact: true }).click();
+
+    await expect(page).toHaveURL(/\?mode=dictionary$/);
+    await expect(page.getByRole("heading", { level: 2, name: "Clinical Dictionary" })).toBeVisible();
+    await expect(page).toHaveTitle("Clinical Dictionary | Clinical KB");
+
+    // Repeated parameters are an adversarial deep-link case. The first value is
+    // the canonical selection used by both the server metadata and client state.
+    await page.goto("/?mode=therapy-compass&mode=dictionary", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { level: 2, name: "Therapy" })).toBeVisible();
+    await expect(page).toHaveTitle("Therapy | Clinical KB");
+  });
+
   test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
     // jsdom cannot enforce `inert`, so the browser is the only place the modal
     // containment contract (and its release) can actually be proven.
@@ -492,8 +513,8 @@ test.describe("Clinical KB accessibility coverage", () => {
     await filterGroup.getByRole("radio", { name: /^Presentations/ }).click();
     await expect(filterGroup.getByRole("radio", { name: /^Presentations/ })).toBeChecked();
     await expect(filterGroup.getByRole("radio", { name: /^All/ })).not.toBeChecked();
-    await filterGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
-    await expect(filterGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
+    await filterGroup.getByRole("radio", { name: /^Differentials/ }).click();
+    await expect(filterGroup.getByRole("radio", { name: /^Differentials/ })).toBeChecked();
 
     // The radio role promises a keyboard model, so prove it in a real browser and
     // not only in jsdom: one tab stop, arrows moving focus AND selection, Home and
@@ -501,19 +522,19 @@ test.describe("Clinical KB accessibility coverage", () => {
     // focus trap, which is what the sheet puts around this group.
     const all = filterGroup.getByRole("radio", { name: /^All/ });
     const presentations = filterGroup.getByRole("radio", { name: /^Presentations/ });
-    const diagnoses = filterGroup.getByRole("radio", { name: /^Diagnoses/ });
-    await diagnoses.focus();
-    await diagnoses.press("Home");
+    const differentials = filterGroup.getByRole("radio", { name: /^Differentials/ });
+    await differentials.focus();
+    await differentials.press("Home");
     await expect(all).toBeFocused();
     await expect(all).toBeChecked();
     await all.press("ArrowRight");
     await expect(presentations).toBeFocused();
     await expect(presentations).toBeChecked();
     await presentations.press("End");
-    await expect(diagnoses).toBeFocused();
-    await expect(diagnoses).toBeChecked();
+    await expect(differentials).toBeFocused();
+    await expect(differentials).toBeChecked();
     // Exactly one tab stop for the group — the checked option.
-    await expect(diagnoses).toHaveAttribute("tabindex", "0");
+    await expect(differentials).toHaveAttribute("tabindex", "0");
     await expect(all).toHaveAttribute("tabindex", "-1");
     await expect(presentations).toHaveAttribute("tabindex", "-1");
 
@@ -521,7 +542,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(filterTrigger).toHaveAccessibleName(/1 filter active/);
   });
 
-  test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {
+  test("document actions do not offer uploads and preserve focus", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
@@ -531,15 +552,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     await menuTrigger.click();
     const menu = page.getByTestId("daily-actions-menu");
     await expect(menu).toBeVisible();
-    await menu.getByRole("menuitem", { name: "Add document" }).click();
-    await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
-    const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
-    await expect(sourcesDialog).toBeVisible();
-    await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(
-      "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
-    );
-    await sourcesDialog.getByRole("button", { name: "Close Sources" }).click();
-    await expect(sourcesDialog).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
     await expect
       .poll(() =>
         page.evaluate(() => {
@@ -549,7 +565,7 @@ test.describe("Clinical KB accessibility coverage", () => {
             : "none";
         }),
       )
-      .toBe("BUTTON:Open documents options:visible");
+      .toBe("BUTTON:Open answer options:visible");
   });
 
   test("Therapy Compass preserves focus, selection, tap targets, and fixed paper tokens", async ({
@@ -558,7 +574,9 @@ test.describe("Clinical KB accessibility coverage", () => {
     test.setTimeout(300_000);
     await page.emulateMedia({ colorScheme: "dark" });
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/therapy-compass", { waitUntil: "domcontentloaded" });
+    // `/therapy-compass` redirects to the shared home since consolidation; going
+    // there directly keeps this on the surface it is asserting about.
+    await page.goto("/?mode=therapy-compass", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({
       timeout: 60_000,
@@ -669,19 +687,19 @@ test.describe("Clinical KB accessibility coverage", () => {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: "Brief Intervention" })).toBeVisible({ timeout: 60_000 });
-    const durationGroup = page.getByRole("group", { name: "Brief intervention duration" });
-    const fiveMinuteButton = durationGroup.getByRole("button", { name: "5 minutes", exact: true });
-    const fifteenMinuteButton = durationGroup.getByRole("button", { name: "15 minutes", exact: true });
-    await expect(fiveMinuteButton).toHaveAttribute("aria-pressed", "true");
-    await fifteenMinuteButton.click();
-    await expect(fiveMinuteButton).toHaveAttribute("aria-pressed", "false");
-    await expect(fifteenMinuteButton).toHaveAttribute("aria-pressed", "true");
+    const durationTabs = page.getByRole("tablist", { name: "Brief intervention duration" });
+    const fiveMinuteTab = durationTabs.getByRole("tab", { name: "5 minutes", exact: true });
+    const fifteenMinuteTab = durationTabs.getByRole("tab", { name: "15 minutes", exact: true });
+    await expect(fiveMinuteTab).toHaveAttribute("aria-selected", "true");
+    await fifteenMinuteTab.click();
+    await expect(fiveMinuteTab).toHaveAttribute("aria-selected", "false");
+    await expect(fifteenMinuteTab).toHaveAttribute("aria-selected", "true");
 
     await page.goto("/therapy-compass/cognitive-behavioural-therapy-cbt/sheet", {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: "Patient Sheet Builder" })).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole("button", { name: "Plain", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("radio", { name: "Plain", exact: true })).toBeChecked();
 
     const clinicianSwitch = page.getByRole("switch", { name: "Show clinician footer" });
     const clinicianSwitchSize = await clinicianSwitch.evaluate((element) => {

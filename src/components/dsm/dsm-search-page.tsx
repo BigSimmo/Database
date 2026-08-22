@@ -1,261 +1,149 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type FocusEvent as ReactFocusEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
-import {
-  BookOpenCheck,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  CircleAlert,
-  GitCompareArrows,
-  ListFilter,
-  SearchX,
-  X,
-} from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useId, useMemo, useState } from "react";
+import { BookOpenCheck, Check, ChevronRight, CircleAlert, GitCompareArrows, SearchX } from "lucide-react";
 
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsHeaderBand,
+  type AppliedFilterChip,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
-  resultFilterGroup,
+  resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
-import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { cardSurface } from "@/components/card-recipes";
 import { cn, codeText, EmptyState, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
-
-function categoryHref(query: string, category?: string, ids: string[] = []) {
-  const params = new URLSearchParams();
-  if (query) params.set("q", query);
-  if (category) params.set("category", category);
-  if (ids.length) params.set("ids", ids.join(","));
-  const suffix = params.toString();
-  return suffix ? `/dsm/search?${suffix}` : "/dsm/search";
-}
+import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
 
 function compareHref(slugs: string[]) {
   const params = new URLSearchParams({ ids: slugs.join(",") });
   return `/dsm/compare?${params.toString()}`;
 }
 
-// Compact category filter: a single trigger that opens an anchored menu of
-// category links, replacing the multi-row pill wall so results sit higher on the
-// page. Each option is a real navigation link (server-driven filtering), styled as
-// a menuitemradio so the active category reads as the checked option.
-function CategoryFilterDropdown({
-  query,
-  categories,
-  activeCategory,
-  totalCount,
-  selected,
-}: {
-  query: string;
-  categories: DsmCategory[];
-  activeCategory?: DsmCategory;
-  totalCount: number;
-  selected: string[];
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const optionRefs = useRef<Array<HTMLAnchorElement | null>>([]);
-  const menuId = useId();
-
-  const options = useMemo(
-    () => [
-      { key: undefined as string | undefined, label: "All categories", count: totalCount },
-      ...categories.map((item) => ({ key: item.key, label: item.label, count: item.diagnosis_count })),
-    ],
-    [categories, totalCount],
-  );
-  const activeIndex = activeCategory ? options.findIndex((option) => option.key === activeCategory.key) : 0;
-
-  useDismissableLayer({
-    enabled: open,
-    refs: [rootRef],
-    restoreFocusRef: triggerRef,
-    onDismiss: () => setOpen(false),
-  });
-
-  function focusOption(index: number) {
-    const total = options.length;
-    const next = ((index % total) + total) % total;
-    optionRefs.current[next]?.focus();
-  }
-
-  // Single source of truth for initial focus: whoever opens the menu picks the
-  // option to land on and schedules the one focus call. A parallel open-effect
-  // that also focused the active item would race this and clobber ArrowUp's
-  // reverse-entry onto the last option.
-  function openMenu(focusIndex: number) {
-    setOpen(true);
-    window.requestAnimationFrame(() => focusOption(focusIndex));
-  }
-
-  function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      openMenu(Math.max(0, activeIndex));
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      openMenu(options.length - 1);
-    }
-  }
-
-  function handleOptionKeyDown(event: ReactKeyboardEvent<HTMLAnchorElement>, index: number) {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      focusOption(index + 1);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      focusOption(index - 1);
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      focusOption(0);
-    } else if (event.key === "End") {
-      event.preventDefault();
-      focusOption(options.length - 1);
-    } else if (event.key === " ") {
-      // A menuitemradio announces Space as an activation key, but the option is
-      // an anchor (Space would otherwise scroll), so activate it like click/Enter.
-      event.preventDefault();
-      event.currentTarget.click();
-    }
-    // Escape (dismiss + restore focus to the trigger) is owned by
-    // useDismissableLayer's document-level handler, so it isn't duplicated here.
-  }
-
-  // Close when focus leaves the widget entirely (e.g. Tab off the last option),
-  // so the menu never lingers open over the results. Keep it open while focus
-  // moves between the trigger and its options, and don't prevent the focus move.
-  function handleRootBlur(event: ReactFocusEvent<HTMLDivElement>) {
-    if (!open) return;
-    const nextTarget = event.relatedTarget as Node | null;
-    if (nextTarget && rootRef.current?.contains(nextTarget)) return;
-    setOpen(false);
-  }
-
-  const activeLabel = activeCategory ? activeCategory.label : "All categories";
-  const activeCount = activeCategory ? activeCategory.diagnosis_count : totalCount;
-
-  return (
-    <div ref={rootRef} onBlur={handleRootBlur} className="relative w-full">
-      <button
-        type="button"
-        ref={triggerRef}
-        data-testid="dsm-category-filter"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        onKeyDown={handleTriggerKeyDown}
-        onClick={() => (open ? setOpen(false) : openMenu(Math.max(0, activeIndex)))}
-        className={cn(
-          // One inset surface inside the band filter row — avoid a bordered
-          // button sitting in another bordered gray strip (double box).
-          "inline-flex min-h-tap w-full items-center gap-2 rounded-lg border px-3 text-xs font-bold transition",
-          searchFocusRing,
-          open || activeCategory
-            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
-            : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)]",
-        )}
-      >
-        <ListFilter className="h-4 w-4 shrink-0 text-[color:var(--text-heading)]" aria-hidden />
-        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-heading)]">
-          Category
-        </span>
-        <span className="min-w-0 flex-1 truncate text-left font-extrabold text-[color:var(--text-heading)]">
-          {activeLabel}
-        </span>
-        {/* Plain tabular count — a surface-subtle pill on the band's
-            surface-subtle filter row made the figure disappear. */}
-        <span className="shrink-0 text-xs font-bold tabular-nums text-[color:var(--text-muted)]">{activeCount}</span>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition-transform",
-            open && "rotate-180",
-          )}
-          aria-hidden
-        />
-      </button>
-
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          aria-label="Filter by category"
-          className="absolute left-0 top-[calc(100%+0.5rem)] z-40 max-h-[min(22rem,60vh)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-elevated)]"
-        >
-          {options.map((option, index) => {
-            const isActive = index === activeIndex;
-            return (
-              <Link
-                key={option.key ?? "all"}
-                ref={(element) => {
-                  optionRefs.current[index] = element;
-                }}
-                href={categoryHref(query, option.key, selected)}
-                role="menuitemradio"
-                aria-checked={isActive}
-                // Roving focus: menu items stay out of the Tab sequence (arrow keys
-                // move focus programmatically) so one Tab press leaves the whole
-                // widget instead of walking through every category link.
-                tabIndex={-1}
-                onKeyDown={(event) => handleOptionKeyDown(event, index)}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex min-h-10 items-center gap-2 rounded-lg px-2.5 text-xs font-bold transition",
-                  searchFocusRing,
-                  isActive
-                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <span className="grid h-4 w-4 shrink-0 place-items-center text-[color:var(--clinical-accent)]">
-                  {isActive ? <Check className="h-4 w-4" aria-hidden /> : null}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                <span className="shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
-                  {option.count}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function DsmSearchPage({
   query,
-  category,
   categories,
-  results,
-  totalCount,
+  results: queryResults,
   initialIds = [],
 }: {
   query: string;
-  category?: string;
   categories: DsmCategory[];
   results: DsmDiagnosisSummary[];
-  totalCount: number;
   initialIds?: string[];
+  /** Retained for older server/test callers; filtering now uses the query-matched summaries. */
+  totalCount?: number;
 }) {
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selected, setSelected] = useState<string[]>(initialIds.slice(0, 3));
   const [filterOpen, setFilterOpen] = useState(false);
   const filterPanelId = useId();
-  const activeCategory = categories.find((item) => item.key === category);
+  const categoryKeys = useMemo(() => new Set(categories.map((item) => item.key)), [categories]);
+  const selectedCategories = new Set(readResultFilterValues(searchParams, "category", categoryKeys));
+  const supportValues = new Set(["specifiers", "differentials"] as const);
+  const selectedSupport = new Set(readResultFilterValues(searchParams, "support", supportValues));
+  const filterDiagnoses = (
+    categorySelection: ReadonlySet<string>,
+    supportSelection: ReadonlySet<"specifiers" | "differentials">,
+  ) =>
+    queryResults.filter((result) => {
+      if (categorySelection.size > 0 && !categorySelection.has(result.category.key)) return false;
+      if (supportSelection.has("specifiers") && result.specifierCount === 0) return false;
+      if (supportSelection.has("differentials") && result.differentialCount === 0) return false;
+      return true;
+    });
+  const results = filterDiagnoses(selectedCategories, selectedSupport);
+  const activeFilterCount = selectedCategories.size + selectedSupport.size;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const canCompare = selected.length >= 2;
+
+  function toggleCategory(value: string) {
+    replaceResultFilterUrl((params) => {
+      const current = new Set(readResultFilterValues(params, "category", categoryKeys));
+      if (!current.delete(value)) current.add(value);
+      writeResultFilterValues(params, "category", current, categoryKeys);
+    });
+  }
+
+  function toggleSupport(value: "specifiers" | "differentials") {
+    replaceResultFilterUrl((params) => {
+      const current = new Set(readResultFilterValues(params, "support", supportValues));
+      if (!current.delete(value)) current.add(value);
+      writeResultFilterValues(params, "support", current, supportValues);
+    });
+  }
+
+  function clearFilters() {
+    replaceResultFilterUrl((params) => {
+      params.delete("category");
+      params.delete("support");
+    });
+  }
+
+  const appliedFilters: AppliedFilterChip[] = [
+    ...[...selectedCategories].map((key) => ({
+      id: `category-${key}`,
+      groupLabel: "Category",
+      valueLabel: categories.find((item) => item.key === key)?.label ?? key,
+      onRemove: () => toggleCategory(key),
+    })),
+    ...[...selectedSupport].map((support) => ({
+      id: `support-${support}`,
+      groupLabel: "Support",
+      valueLabel: support === "specifiers" ? "Has specifiers" : "Has differential guidance",
+      onRemove: () => toggleSupport(support),
+    })),
+  ];
+
+  const filterGroups = [
+    resultFilterFacetGroup({
+      id: "category",
+      label: "Category",
+      description: "Select one or more query-matched diagnostic categories.",
+      selected: selectedCategories,
+      options: categories.map((category) => {
+        const next = new Set(selectedCategories);
+        if (!next.has(category.key)) next.add(category.key);
+        const count = filterDiagnoses(next, selectedSupport).length;
+        return {
+          value: category.key,
+          label: category.label,
+          hint: String(count),
+          disabled: count === 0 && !selectedCategories.has(category.key),
+        };
+      }),
+      onToggle: toggleCategory,
+    }),
+    resultFilterFacetGroup({
+      id: "has-specifiers",
+      label: "Specifier support",
+      selected: new Set(selectedSupport.has("specifiers") ? ["specifiers"] : []),
+      options: [
+        {
+          value: "specifiers",
+          label: "Has specifiers",
+          hint: String(filterDiagnoses(selectedCategories, new Set([...selectedSupport, "specifiers"])).length),
+        },
+      ],
+      onToggle: () => toggleSupport("specifiers"),
+    }),
+    resultFilterFacetGroup({
+      id: "has-differentials",
+      label: "Differential guidance",
+      selected: new Set(selectedSupport.has("differentials") ? ["differentials"] : []),
+      options: [
+        {
+          value: "differentials",
+          label: "Has differential guidance",
+          hint: String(filterDiagnoses(selectedCategories, new Set([...selectedSupport, "differentials"])).length),
+        },
+      ],
+      onToggle: () => toggleSupport("differentials"),
+    }),
+  ];
 
   function toggleDiagnosis(slug: string) {
     setSelected((current) => {
@@ -274,6 +162,8 @@ export function DsmSearchPage({
           matchCount={results.length}
           headingLevel={1}
           filterLabel="Filter diagnoses by category"
+          appliedFilters={appliedFilters}
+          onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
           mobileControlsPlacement="inline"
           mobileControls={
             <ResultFilterTrigger
@@ -281,7 +171,7 @@ export function DsmSearchPage({
               testId="dsm-category-filter-phone"
               title="Filter DSM diagnoses"
               open={filterOpen}
-              activeCount={activeCategory ? 1 : 0}
+              activeCount={activeFilterCount}
               onToggle={() => setFilterOpen((current) => !current)}
             />
           }
@@ -298,27 +188,14 @@ export function DsmSearchPage({
             ) : null
           }
           filterControls={
-            <div className="hidden w-full flex-wrap items-center gap-x-2 gap-y-1.5 sm:flex">
-              <CategoryFilterDropdown
-                query={query}
-                categories={categories}
-                activeCategory={activeCategory}
-                totalCount={totalCount}
-                selected={selected}
-              />
-              {activeCategory ? (
-                <Link
-                  href={categoryHref(query, undefined, selected)}
-                  className={cn(
-                    "inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-                    searchFocusRing,
-                  )}
-                >
-                  <X className="h-3.5 w-3.5" aria-hidden />
-                  Clear category
-                </Link>
-              ) : null}
-            </div>
+            <ResultFilterTrigger
+              panelId={filterPanelId}
+              testId="dsm-category-filter-desktop"
+              title="Filter DSM diagnoses"
+              open={filterOpen}
+              activeCount={activeFilterCount}
+              onToggle={() => setFilterOpen((current) => !current)}
+            />
           }
         />
 
@@ -328,41 +205,17 @@ export function DsmSearchPage({
           panelId={filterPanelId}
           testId="dsm-category-filter-panel"
           title="Filter DSM diagnoses"
-          groups={[
-            resultFilterGroup({
-              id: "category",
-              label: "Category",
-              value: activeCategory?.key ?? "all",
-              options: [
-                { value: "all", label: "All categories", hint: String(totalCount) },
-                ...categories.map((item) => ({
-                  value: item.key,
-                  label: item.label,
-                  hint: String(item.diagnosis_count),
-                })),
-              ],
-              onChange: (value) => {
-                setFilterOpen(false);
-                router.push(categoryHref(query, value === "all" ? undefined : value, selected));
-              },
-            }),
-          ]}
-          onClearAll={
-            activeCategory
-              ? () => {
-                  setFilterOpen(false);
-                  router.push(categoryHref(query, undefined, selected));
-                }
-              : undefined
-          }
-          footerNote={`${results.length} ${results.length === 1 ? "diagnosis" : "diagnoses"} showing`}
+          description="Narrow the query-matched summary set without changing diagnosis or comparison content."
+          groups={filterGroups}
+          onClearAll={activeFilterCount > 0 ? clearFilters : undefined}
+          summary={{ count: results.length, noun: results.length === 1 ? "diagnosis" : "diagnoses" }}
         />
 
         {results.length ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
             <section
               aria-label="DSM diagnosis results"
-              className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+              className={cn(cardSurface, "overflow-hidden rounded-xl shadow-[var(--e2)]")}
             >
               <div className="flex items-baseline justify-between gap-4 border-b border-[color:var(--border)] px-4 py-4 sm:px-5">
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)] sm:text-lg">
@@ -388,8 +241,19 @@ export function DsmSearchPage({
                       data-testid="dsm-search-result"
                       className={cn(
                         "group grid grid-cols-[3rem_minmax(0,1fr)_3rem] items-start gap-3.5 px-4 py-4 transition sm:gap-4 sm:px-5 sm:py-5 lg:grid-cols-[3rem_minmax(0,1fr)_10rem_7rem_3rem] lg:items-center lg:gap-3 lg:px-4 xl:grid-cols-[3rem_minmax(14rem,1fr)_10rem_7rem_3rem] xl:gap-4 xl:px-5",
+                        // Rows sit INSIDE the results panel, so they carry no
+                        // elevation of their own (SPEC §4.7: a card inside a
+                        // panel is never heavier than its parent) — only the
+                        // fill changes. `cardSelected` is not used here for the
+                        // same reason: it ships a shadow.
+                        //
+                        // The `/55` alpha it replaces was the last of the four
+                        // selected encodings this branch retired. An alpha on a
+                        // token colour is unreviewable: what it actually
+                        // contrasts against depends on the row stripe behind it,
+                        // which differs per theme.
                         isSelected
-                          ? "bg-[color:var(--clinical-accent-soft)]/55"
+                          ? "bg-[color:var(--clinical-accent-soft)]"
                           : "hover:bg-[color:var(--surface-subtle)]",
                       )}
                     >
@@ -401,7 +265,7 @@ export function DsmSearchPage({
                           isSelected ? "from" : "to"
                         } comparison`}
                         className={cn(
-                          "grid h-12 w-12 place-items-center rounded-xl border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                          "grid h-12 w-12 place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                           isSelected
                             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--decoration-soft)] hover:border-[color:var(--clinical-accent)]",
@@ -453,7 +317,7 @@ export function DsmSearchPage({
             </section>
 
             <aside className="grid gap-3 lg:sticky lg:top-20" aria-label="Comparison selection">
-              <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
+              <section className={cn(cardSurface, "rounded-xl p-4")}>
                 <div className="flex items-center gap-2">
                   <GitCompareArrows className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
                   <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Compare diagnoses</h2>
@@ -464,7 +328,7 @@ export function DsmSearchPage({
                 {selected.length ? (
                   <ol className="mt-3 grid gap-2">
                     {selected.map((slug, index) => {
-                      const item = results.find((result) => result.slug === slug);
+                      const item = queryResults.find((result) => result.slug === slug);
                       return (
                         <li
                           key={slug}

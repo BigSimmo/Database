@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -18,7 +18,9 @@ import {
   MOCKUP_ROUTE_SEGMENT,
   normalizeManifestRoute,
   partitionRouteClientChunks,
+  resolveBaselineCommitDistance,
   resolveBaselineSource,
+  STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD,
 } from "../scripts/check-bundle-budget.mjs";
 
 const buf = (n: number) => Buffer.alloc(n, "a"); // highly compressible; gzip < raw
@@ -242,6 +244,17 @@ describe("compareToBudget", () => {
     expect(v.status).toBe("warn");
   });
 
+  it("triggers a drift warning when growth exceeds warnTolerancePct while within tolerance", () => {
+    const v = compareToBudget(
+      { totalGzipBytes: 1060 },
+      { enforce: true, tolerancePct: 10, warnTolerancePct: 5, totalGzipBytes: 1000 },
+    );
+    expect(v.status).toBe("warn");
+    expect(v.isDriftWarning).toBe(true);
+    expect(v.overPct).toBeCloseTo(6, 5);
+    expect(v.reason).toContain("drift warning > 5%");
+  });
+
   it("treats exactly-at-tolerance as ok", () => {
     const v = compareToBudget({ totalGzipBytes: 1100 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 1000 });
     expect(v.status).toBe("ok");
@@ -276,10 +289,41 @@ describe("bundle baseline provenance", () => {
     expect(resolveBaselineSource({ GITHUB_SHA: "not-a-sha" }, () => "b".repeat(40))).toBe("b".repeat(40));
     expect(resolveBaselineSource({}, () => "still-not-a-sha")).toBeNull();
   });
+
+  it("resolves baseline commit distance using git rev-list", () => {
+    const mockExec = vi.fn(() => "15\n");
+    const count = resolveBaselineCommitDistance(gitHead, process.cwd(), mockExec as unknown as typeof execFileSync);
+    expect(count).toBe(15);
+    expect(mockExec).toHaveBeenCalledWith(
+      "git",
+      ["-C", process.cwd(), "rev-list", "--count", `${gitHead.toLowerCase()}..HEAD`],
+      expect.any(Object),
+    );
+  });
+
+  it("returns null for malformed or absent baseline commit SHA", () => {
+    expect(resolveBaselineCommitDistance(null)).toBeNull();
+    expect(resolveBaselineCommitDistance("not-a-sha")).toBeNull();
+  });
+
+  it("returns null when git output is malformed or non-numeric", () => {
+    const mockExecTrailing = vi.fn(() => "12 commits\n");
+    expect(
+      resolveBaselineCommitDistance(gitHead, process.cwd(), mockExecTrailing as unknown as typeof execFileSync),
+    ).toBeNull();
+
+    const mockExecNonNumeric = vi.fn(() => "fatal: bad revision\n");
+    expect(
+      resolveBaselineCommitDistance(gitHead, process.cwd(), mockExecNonNumeric as unknown as typeof execFileSync),
+    ).toBeNull();
+  });
+  it("defines a default stale baseline commit distance threshold", () => {
+    expect(STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD).toBe(50);
+  });
 });
 
 describe("committed route bundle budgets", () => {
-  it("covers the same five journeys as Lighthouse with enforced numeric baselines", () => {
+  it("covers the same journeys as Lighthouse with enforced numeric baselines", () => {
     const bundle = JSON.parse(readFileSync(path.resolve("bundle-budget.json"), "utf8"));
     const lighthouse = JSON.parse(readFileSync(path.resolve("lighthouse-budget.json"), "utf8"));
 

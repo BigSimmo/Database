@@ -26,10 +26,10 @@ type AuthContextValue = {
   authEpoch: number;
   registerAuthRequest: (controller: AbortController) => { epoch: number; release: () => void };
   isAuthEpochCurrent: (epoch: number) => boolean;
-  signInWithEmail: (email: string) => Promise<void>;
+  signInWithEmail: (email: string, next?: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signUpWithPassword: (email: string, password: string) => Promise<void>;
-  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
+  signInWithOAuth: (provider: OAuthProvider, next?: string) => Promise<void>;
   signOut: () => Promise<void>;
   markSessionExpired: () => void;
 };
@@ -145,9 +145,13 @@ export function shouldFailInitialAuthVerification(error: unknown) {
   return Boolean(error) && !isDefinitiveAuthValidationError(error) && !isRetryableInitialAuthVerificationError(error);
 }
 
-function authCallbackRedirect() {
+/** `next` must be a same-origin relative path; /auth/callback re-validates it
+ *  regardless (open-redirect defense-in-depth), so a bad value here just falls
+ *  back to "/" rather than being a security boundary in itself. */
+function authCallbackRedirect(next?: string) {
   if (typeof window === "undefined") return undefined;
-  return `${window.location.origin}${AUTH_CALLBACK_PATH}`;
+  const base = `${window.location.origin}${AUTH_CALLBACK_PATH}`;
+  return next ? `${base}?next=${encodeURIComponent(next)}` : base;
 }
 
 /** Read and clear a `?auth_error=` param left by the /auth/callback route. */
@@ -286,7 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [client]);
 
   const signInWithEmail = useCallback(
-    async (email: string) => {
+    async (email: string, next?: string) => {
       const active = requireClient();
       if (!active) return;
       setStatus("loading");
@@ -294,7 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNotice(null);
       const { error: signInError } = await active.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: authCallbackRedirect() },
+        options: { emailRedirectTo: authCallbackRedirect(next) },
       });
       if (signInError) {
         setStatus("error");
@@ -352,7 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signInWithOAuth = useCallback(
-    async (provider: OAuthProvider) => {
+    async (provider: OAuthProvider, next?: string) => {
       const active = requireClient();
       if (!active) return;
       setStatus("loading");
@@ -360,7 +364,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNotice(null);
       const { error: oauthError } = await active.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: authCallbackRedirect() },
+        options: { redirectTo: authCallbackRedirect(next) },
       });
       if (oauthError) {
         setStatus("error");

@@ -125,6 +125,15 @@ export function mergeRegistryRecordWithDefault(kind: RegistryRecordKind, row: Re
       const tags = catalogPayload.tags;
       merged.catalogPayload = typeof tags === "object" && tags !== null ? { tags } : {};
     } else {
+      // actSections is derived, never owner-editable: it comes from the Act-section file
+      // (or a curated per-form override) and every summary there is hash-pinned to the
+      // statutory text it was written from. Letting a stored owner payload win would
+      // leave an owner seeded before an Act amendment or a summary correction reading the
+      // superseded legal summary forever, which is exactly what the hash gate exists to
+      // prevent. Same rationale as summaryCards being forced from the baseline above.
+      const baselineActSections = (baseline.catalogPayload as { actSections?: unknown } | undefined)?.actSections;
+      if (baselineActSections === undefined) delete catalogPayload.actSections;
+      else catalogPayload.actSections = baselineActSections;
       merged.catalogPayload = catalogPayload;
     }
   }

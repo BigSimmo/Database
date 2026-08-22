@@ -24,6 +24,13 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
+  // Draws its own phone/desktop frames with a top bar, mode nav and composer in
+  // every frame, because the header under study sits directly beneath them.
+  const isDictionaryBrowseHeaderMockup = pathname.startsWith("/mockups/dictionary-browse-header");
+  // Same reason: this study draws its own tab rail, page card and site-wide
+  // composer inside every frame, so shared chrome would read as a second real
+  // header and a second real search bar over the row under review.
+  const isDictionaryControlRowMockup = pathname === "/mockups/dictionary-control-row";
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
@@ -60,6 +67,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Draws its own phone frames with an in-frame Choose mode sheet; shared chrome
   // would read as a second real header over the study.
   const isPhoneModeSheetYesMockup = pathname === "/mockups/phone-mode-sheet-yes";
+  // A full-shell sidebar study: it owns the desktop rail, phone slide-over,
+  // command surface, and composer inside one frame. Shared mockup chrome would
+  // duplicate every surface under review and distort the responsive contract.
+  const isSidebarLiveMockup = pathname === "/mockups/sidebar-live";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
@@ -71,6 +82,14 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // the three directions restructure that band. Shared chrome above them would read as a second,
   // real header and a second real composer over the study.
   const isToolsSearchDirectionsMockup = pathname === "/mockups/tools-search-directions";
+  // Caring Contact owns a complete patient-first operational shell. It is not a
+  // search mode, and its synthetic patient context must never enter shared search.
+  const isCaringContactMockup =
+    pathname === "/mockups/caring-contacts" || pathname.startsWith("/mockups/caring-contacts/");
+  // Care Plan owns a complete clinical shell with its own rail, phone dock and a
+  // single search slot of its own. It is not a search mode, and its synthetic
+  // patient context must never enter shared search.
+  const isCarePlanMockup = pathname === "/mockups/care-plan" || pathname.startsWith("/mockups/care-plan/");
 
   return (
     <GlobalMockupSearchShell
@@ -112,7 +131,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
         !isPinnedPlusMenuMockup &&
-        !isPhoneModeSheetYesMockup
+        !isPhoneModeSheetYesMockup &&
+        !isSidebarLiveMockup &&
+        !isCaringContactMockup &&
+        !isCarePlanMockup &&
+        !isDictionaryBrowseHeaderMockup &&
+        !isDictionaryControlRowMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -132,7 +156,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
         !isPinnedPlusMenuMockup &&
-        !isPhoneModeSheetYesMockup
+        !isPhoneModeSheetYesMockup &&
+        !isSidebarLiveMockup &&
+        !isCaringContactMockup &&
+        !isCarePlanMockup &&
+        !isDictionaryBrowseHeaderMockup &&
+        !isDictionaryControlRowMockup
       }
     >
       {children}

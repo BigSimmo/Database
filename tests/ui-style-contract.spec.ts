@@ -23,6 +23,7 @@ test.describe("unlayered style rules render their effect", () => {
 
   for (const contract of STYLE_EFFECT_CONTRACTS) {
     test(contract.description, async ({ page }) => {
+      if (contract.viewport) await page.setViewportSize(contract.viewport);
       if (contract.bootstrap?.sessionStorage?.length) {
         await page.addInitScript(
           ({ sessionStorage }) => {
@@ -147,6 +148,163 @@ test.describe("unlayered style rules render their effect", () => {
     expect(audit.measuredCount, "expected at least one rendered tap-sized control").toBeGreaterThan(0);
     expect(audit.inlineCarriers, "tap-sized min-height is inert on inline boxes").toEqual([]);
     expect(audit.undersized, "controls rendered below their declared min-height").toEqual([]);
+  });
+
+  /**
+   * Gate 2 / ledger #293 finding 2 — the rendered-interactive enumeration.
+   *
+   * The test above only ever measures elements whose COMPUTED `min-height` is
+   * already at or above the tap floor (`declared < tapFloor - 0.5` is
+   * skipped), so a floor overridden down to 0 is invisible to it by
+   * construction. A broader enumeration was written in session
+   * (2026-08-09) to close that gap, found a genuine defect class in every
+   * run, and was then reverted rather than landed: on
+   * `/services?q=CMHT&run=1` six runs against one production build returned
+   * 6, 5, 4, 3, 3 and 9 distinct sub-floor shapes, largely disjoint —
+   * `waitForLoadState("networkidle")` plus shape deduplication did not
+   * settle it, because that route drives the live search+ranking pipeline
+   * and the audit raced its async render. Since this spec matches
+   * `productionSpecPattern` (`playwright.config.ts`) and ships in the
+   * required Production UI job, an intermittent version would have blocked
+   * every merge in the repo — worse than the gap it closes. A later pass
+   * (2026-08-12) also refuted the finding this gap was chasing on THAT
+   * route: `services-navigator-page.tsx`'s zeroed carriers are an
+   * intentional `sm:min-h-0` desktop release of the phone-only floor, not a
+   * live defect (see the finding-1 correction in
+   * `docs/outstanding-issues.md` #293) — so re-deriving it there would have
+   * reported the wrong thing even if it were deterministic.
+   *
+   * This version closes finding 2 two ways at once, per #293's own revised
+   * "Next": (1) it enumerates on `/forms`'s no-query home, which renders its
+   * cards from a fixed array once its registry *summary* settles rather than
+   * from ranked search results whose shape can legitimately vary run to run
+   * — never re-land this enumeration on a live-search route; and (2) it
+   * polls the enumeration itself until three consecutive reads agree before
+   * trusting it, rather than a fixed wait or `networkidle` (which
+   * `ui-specifiers.spec.ts` already found unusable here: persistent
+   * background fetches keep it open past its timeout on this app's routes).
+   * The explicit `.sort()` below is a second, independent determinism
+   * safeguard: the shape list's order must never depend on `querySelectorAll`
+   * traversal order or `classList` iteration order, only on content.
+   *
+   * It runs at a PHONE viewport deliberately: `min-h-tap`'s `sm:` release is
+   * unreleased below that breakpoint, so a sub-floor carrier there is a
+   * genuine violation rather than the intentional desktop-width finding-1
+   * shape, and `#293`'s own "Next" calls a phone layout "the simpler, more
+   * deterministic surface" for exactly this reason.
+   */
+  test("min-h-tap carriers render at or above the tap floor at a phone viewport (Gate 2, #293 finding 2)", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const enumerateTapCarriers = () =>
+      page.evaluate(() => {
+        const describe = (element: Element) => {
+          const rect = element.getBoundingClientRect();
+          // Sorted class list: an unsorted `element.className` string would
+          // make the shape depend on source/compiler class order rather than
+          // on which classes are actually present.
+          const classes = Array.from(element.classList).sort().join(".");
+          return `${element.tagName.toLowerCase()}.${classes}@${Math.round(rect.height)}`;
+        };
+        return Array.from(document.querySelectorAll("*"))
+          .filter((element) => element.classList.contains("min-h-tap"))
+          .filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          })
+          .map(describe)
+          .sort(); // Explicit sort: output must never depend on DOM traversal order.
+      });
+
+    /**
+     * Read the enumeration repeatedly until it stops changing. This is the
+     * mechanism that survives whatever async settling remains on the route
+     * (registry summary fetch, hydration, layout effects) instead of
+     * guessing a fixed delay or trusting `networkidle`.
+     */
+    const waitForStableEnumeration = async (): Promise<string[]> => {
+      let previousKey: string | null = null;
+      let stableStreak = 0;
+      let shapes: string[] = [];
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        shapes = await enumerateTapCarriers();
+        const key = JSON.stringify(shapes);
+        if (key === previousKey) {
+          stableStreak += 1;
+          if (stableStreak >= 3) return shapes;
+        } else {
+          stableStreak = 0;
+        }
+        previousKey = key;
+        await page.waitForTimeout(150);
+      }
+      throw new Error(`tap-carrier enumeration did not stabilise after 20 polls; last read: ${JSON.stringify(shapes)}`);
+    };
+
+    // Forms results, not `/forms`: that path is a redirect onto the shared home
+    // since consolidation, and the shared home carries no `min-h-tap` element at
+    // all — the audit would enumerate an empty set and pass vacuously. The result
+    // rows are where this repo's tap carriers actually live.
+    const runAudit = async (): Promise<string[]> => {
+      await page.goto("/forms/search?q=transport&run=1", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("form-search-mobile-results").waitFor({ state: "visible", timeout: 20_000 });
+      return waitForStableEnumeration();
+    };
+
+    // Three independent full navigations — the same shape of reproduction as
+    // #293's six-run evidence — must agree exactly. This is the assertion
+    // that would have caught the original nondeterminism: it does not just
+    // check the audit's *content*, it checks that repeating the whole
+    // navigate-and-enumerate cycle is stable.
+    const first = await runAudit();
+    const second = await runAudit();
+    const third = await runAudit();
+
+    expect(second, "repeat navigation produced a different min-h-tap carrier enumeration").toEqual(first);
+    expect(third, "repeat navigation produced a different min-h-tap carrier enumeration").toEqual(first);
+    expect(first.length, "expected at least one rendered min-h-tap carrier on this route").toBeGreaterThan(0);
+
+    const tapFloor = await page.evaluate(() => {
+      const probe = document.createElement("div");
+      // Keep the measurement out of the page's flex/grid flow so it reflects
+      // only the token value, not ambient layout sizing.
+      Object.assign(probe.style, {
+        position: "fixed",
+        left: "-9999px",
+        top: "-9999px",
+        display: "block",
+        boxSizing: "border-box",
+        width: "1px",
+        minHeight: "0",
+        margin: "0",
+        padding: "0",
+        border: "0",
+      });
+      probe.style.height =
+        getComputedStyle(document.documentElement).getPropertyValue("--spacing-tap").trim() || "3rem";
+      document.body.appendChild(probe);
+      try {
+        return probe.getBoundingClientRect().height;
+      } finally {
+        probe.remove();
+      }
+    });
+    expect(tapFloor, "expected --spacing-tap to resolve to the documented 48px phone tap floor").toBeGreaterThanOrEqual(
+      48,
+    );
+
+    const undersized = first.filter((shape) => {
+      const height = Number(shape.slice(shape.lastIndexOf("@") + 1));
+      // An unmeasurable shape is a failure, not a pass.
+      return !Number.isFinite(height) || height < tapFloor - 0.5;
+    });
+
+    // At this viewport `min-h-tap`'s `sm:` release (finding 1) is not in
+    // force, so every carrier is expected to render at or above the floor.
+    expect(undersized, "min-h-tap carriers rendered below the tap floor at phone width").toEqual([]);
   });
 });
 

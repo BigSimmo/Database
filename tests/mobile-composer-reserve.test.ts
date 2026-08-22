@@ -4,7 +4,6 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  isCalculatorsOwnedRoute,
   isDocumentViewerOwnedRoute,
   isPageOwnedComposerRoute,
   mobileComposerDifferentialsCompareReserve,
@@ -44,7 +43,7 @@ describe("mobile composer reserve contract", () => {
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: false,
         documentViewerOwnedRoute: true,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "documents",
         differentialsCompareAddonActive: false,
       }),
@@ -56,11 +55,23 @@ describe("mobile composer reserve contract", () => {
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
         documentViewerOwnedRoute: false,
-        isStandaloneModeHome: true,
+        heroOwnsPhoneComposer: true,
         searchMode: "services",
         differentialsCompareAddonActive: false,
       }),
     ).toBe(mobileComposerIdleReserve);
+  });
+
+  it("uses the shared compact dock reserve when a standalone home delegates phones to the footer", () => {
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: true,
+        documentViewerOwnedRoute: false,
+        heroOwnsPhoneComposer: false,
+        searchMode: "tools",
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerVisibleReserve.shellDock);
   });
 
   it("uses the compact dock reserve for non-answer dashboard docks when the hero does not own phones", () => {
@@ -102,16 +113,28 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerIdleReserve);
   });
 
-  it("derives hero phone ownership from the mounted hero slot; any mode home uses all-widths breakpoint", () => {
-    // Any mounted mode home (answer, documents, prescribing, tools, favourites)
-    // needs "all" (phones keep the in-flow hero pill) per the page-ownership
-    // contract. Only result/submitted views use "sm-up" so phones get the compact
-    // bottom dock. desktopHomeComposerSlotId is undefined on result views, so
-    // heroOwnsPhoneComposer stays false there regardless of the breakpoint value.
+  it("derives hero phone ownership from the mounted hero slot while Tools delegates phones to the footer", () => {
+    // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
+    // deliberate exception: its content-rich directory delegates phones to the
+    // compact footer while retaining the hero from sm upward. Result/submitted
+    // views also use "sm-up"; desktopHomeComposerSlotId is undefined there, so
+    // heroOwnsPhoneComposer stays false regardless of the breakpoint value.
+    //
+    // The Tools exception is scoped to the mounted Tools directory: on the shared
+    // home the same short hero renders for every mode, so `showSharedHome` opts
+    // back in. Without it the modes that borrow `resultKind: "tools"` as a benign
+    // search kind (Factsheets, Dictionary, Therapy Compass) inherited the Tools
+    // dock on `/` and lost the hero composer, ticker and privacy notice.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
-    expect(dashboard).toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
+    expect(dashboard).toMatch(
+      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,
+    );
+    expect(dashboard).not.toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
+    expect(dashboard).not.toMatch(
+      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
+    );
     expect(dashboard).toContain(
       'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
@@ -189,7 +212,7 @@ describe("mobile composer reserve contract", () => {
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
         documentViewerOwnedRoute: false,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "differentials",
         differentialsCompareAddonActive: true,
       }),
@@ -205,18 +228,16 @@ describe("mobile composer reserve contract", () => {
     expect(isDocumentViewerOwnedRoute("/forms")).toBe(false);
   });
 
-  it("classifies calculators as a page-owned composer route", () => {
-    expect(isCalculatorsOwnedRoute("/calculators")).toBe(true);
-    expect(isCalculatorsOwnedRoute("/calculators/phq-9")).toBe(true);
-    expect(isCalculatorsOwnedRoute("/tools")).toBe(false);
-    expect(isPageOwnedComposerRoute("/calculators")).toBe(true);
+  it("keeps calculators shell-owned and document viewers page-owned", () => {
+    expect(isPageOwnedComposerRoute("/calculators")).toBe(false);
+    expect(isPageOwnedComposerRoute("/calculators/phq-9")).toBe(false);
     expect(isPageOwnedComposerRoute("/documents/source")).toBe(true);
     expect(isPageOwnedComposerRoute("/tools")).toBe(false);
     expect(
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: false,
         pageOwnedComposerRoute: true,
-        isStandaloneModeHome: false,
+        heroOwnsPhoneComposer: false,
         searchMode: "tools",
         differentialsCompareAddonActive: false,
       }),

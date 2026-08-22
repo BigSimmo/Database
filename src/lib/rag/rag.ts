@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
+import { answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
+import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
@@ -59,6 +61,7 @@ import {
 import { buildEvidencePreviewProgress, type VerifiedUnit } from "@/lib/answer-preview";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
+import { relatedInformationMenuLine } from "@/lib/rag/answer-composition";
 export {
   capPerDocumentCrowding,
   selectModelContextResults,
@@ -338,7 +341,7 @@ const answerJsonOutputSchema = {
       type: "array",
       description:
         "Second-layer structured support. Add only distinct source-backed modules that improve scanability, such as actions, monitoring, medication/dose, thresholds, comparison, cautions, documentation, or source gaps.",
-      maxItems: 5,
+      maxItems: 6,
       items: {
         type: "object",
         additionalProperties: false,
@@ -535,8 +538,8 @@ function provenanceLayerKeys(result: SearchResult) {
   return layers;
 }
 
-/** Record search score telemetry. */
-function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
+/** Record search score telemetry. Exported for `tests/rag-score.test.ts`; not a route surface. */
+export function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
     telemetry.top_score = 0;
     telemetry.second_top_score = 0;
@@ -568,6 +571,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
+  // Strict equality, deliberately: "document_context" rows carry the constant 1 with no match strength to inflate; counting them here would mix two populations and make the RC9 signal unreadable. Pinned by tests/rag-score.test.ts.
   telemetry.synthetic_similarity_count = results.filter(
     (result) => result.similarity_origin === "synthetic_text",
   ).length;
@@ -2093,7 +2097,8 @@ export async function searchChunksWithTelemetry(
   // A1: the embedding-field, index-unit, and chunk-hybrid RPCs each depend only on the
   // already-computed query embedding and have no data dependency on one another, so run
   // them concurrently instead of as three sequential Supabase round-trips. The two helper
-  // functions swallow their own RPC errors and resolve to [], so Promise.all cannot reject.
+  // functions resolve their own RPC errors and logged row-shape mismatches to [], so Promise.all
+  // cannot reject when an optional signal layer drifts.
   throwIfAborted(args.signal);
   const parallelRpcStartedAt = Date.now();
   const [embeddingFieldResult, indexUnitResult, hybridResult] = await Promise.all([
@@ -2179,13 +2184,17 @@ export async function searchChunksWithTelemetry(
 
   const { data: hybridData, error: hybridError } = hybridResult;
   if (hybridError) recordHybridRpcError(telemetry, "match_document_chunks_hybrid", hybridError);
-  telemetry.vector_candidate_count = hybridData?.length ?? 0;
-  recordRetrievalLayer(telemetry, "hybrid_vector", hybridData?.length ?? 0, {
+  // On a hybrid RPC error `hybridData` is null, so this validates an empty array and the
+  // existing hybrid-error -> vector-fallback path below is reached unchanged.
+  const hybridRows = hybridData ?? [];
+  assertRetrievalRows(hybridRows, "match_document_chunks_hybrid");
+  telemetry.vector_candidate_count = hybridRows.length;
+  recordRetrievalLayer(telemetry, "hybrid_vector", hybridRows.length, {
     latencyMs: hybridResult.latencyMs,
-    topScore: layerTopScore((hybridData ?? []) as SearchResult[]),
+    topScore: layerTopScore(hybridRows),
   });
   const vectorCandidates = mergeSearchResults(
-    mergeSearchResults((hybridData ?? []) as SearchResult[], embeddingFieldCandidates),
+    mergeSearchResults(hybridRows, embeddingFieldCandidates),
     indexUnitCandidates,
   );
 
@@ -2257,7 +2266,9 @@ export async function searchChunksWithTelemetry(
       );
 
       if (error) throw new Error(error.message);
-      return (data ?? []) as SearchResult[];
+      const rows = data ?? [];
+      assertRetrievalRows(rows, "match_document_chunks");
+      return rows;
     }),
   ).catch((error) => {
     if (!args.forceEmbedding && textFastResults.length > 0) return [] as SearchResult[][];
@@ -3199,6 +3210,7 @@ async function answerQuestionWithScopeUncoalesced(
           ? "simple direct question: answer only the definition or direct fact requested; do not broaden into management unless asked"
           : "use the question wording to decide the necessary clinical scope"
       }`,
+      relatedInformationMenuLine(queryClass, queryAnalysis.intent),
       `display_mode: ${smartApiPlan.displayMode}`,
       `route: ${route.mode} (${route.reason})`,
       `answer_plan.intent: ${smartApiPlan.answerPlan.intent}`,
@@ -3897,9 +3909,7 @@ ${qualityRetryInstruction}`
           retrieval_strategy: search.telemetry.retrieval_strategy,
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
-          search_latency_ms: searchLatencyMs,
-          generation_latency_ms: generationLatencyMs,
-          total_latency_ms: answer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
+          ...answerLatencyMetadata(searchLatencyMs, generationLatencyMs, answer.latencyTimings, startedAt),
           openai_request_ids: openAIRequestIds,
           openai_usage: answer.openAIUsage ?? null,
           evidence_summary: answer.evidenceSummary,
@@ -4269,9 +4279,7 @@ ${qualityRetryInstruction}`
           retrieval_strategy: "generation_fallback",
           weighted_top_score: search.telemetry.weighted_top_score,
           rrf_top_score: search.telemetry.rrf_top_score,
-          search_latency_ms: searchLatencyMs,
-          generation_latency_ms: generationLatencyMs,
-          total_latency_ms: fallbackAnswer.latencyTimings?.total_latency_ms ?? Date.now() - startedAt,
+          ...answerLatencyMetadata(searchLatencyMs, generationLatencyMs, fallbackAnswer.latencyTimings, startedAt),
           openai_request_ids: fallbackAnswer.openAIRequestIds,
           openai_usage: fallbackAnswer.openAIUsage,
           evidence_summary: fallbackAnswer.evidenceSummary,
@@ -4304,15 +4312,7 @@ export async function summarizeDocument(documentId: string, ownerId?: string, op
     } satisfies RagAnswer;
   }
 
-  const documentMetadata = (document as { metadata?: unknown }).metadata;
-  const results = committedChunks.map((chunk) => ({
-    ...chunk,
-    title: document.title,
-    file_name: document.file_name,
-    source_metadata: normalizeOptionalSourceMetadata(documentMetadata),
-    similarity: 1,
-    images: [],
-  })) as SearchResult[];
+  const results = buildDocumentSummaryResults(committedChunks, document);
 
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
 Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph,

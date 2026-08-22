@@ -104,10 +104,14 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
 
 // One larger-phone pass over the worst offender to catch viewport-dependent
 // regressions (the 390x844 sweep above is the canonical size).
-test("phone scroll stays smooth on /formulation at 430x932", async ({ page }) => {
+//
+// The long mechanism list moved to `/formulation/search` when `/formulation`
+// became a redirect onto the shared home. The runway is the point of this test —
+// it deliberately does NOT call addPhoneScrollRunway — so it follows the content.
+test("phone scroll stays smooth on /formulation/search at 430x932", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 430, height: 932 });
-  await gotoPhoneSurface(page, "/formulation");
+  await gotoPhoneSurface(page, "/formulation/search");
   await installFlipCounter(page);
 
   const initial = await readGeometry(page);
@@ -165,4 +169,14 @@ test("phone forms search hides header and footer after submit without stale focu
     afterHide.viewportHeight - 1,
   );
   expect(Number.parseFloat(afterHide.reservePb) || 0, "hidden reserve releases the bottom rail").toBeLessThanOrEqual(1);
+});
+
+test("phone route flips under reducedMotion: 'reduce' preserve layout and scroll owner", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/calculators");
+  await addPhoneScrollRunway(page);
+  const initial = await readGeometry(page);
+  expect(initial.scrollOwner, "browser route uses document scrolling").toBe("document");
+  expect(initial.headerHidden, "header visible at top").toBe(false);
 });

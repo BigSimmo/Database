@@ -406,7 +406,7 @@ export function DocumentClinicalSummary({
                 <Sparkles aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
               </span>
               <h2 className="text-sm font-bold tracking-display text-[color:var(--text-heading)] sm:text-base">
-                High-yield clinical summary
+                Clinical priorities
               </h2>
             </div>
             {model.sourceBacked ? (

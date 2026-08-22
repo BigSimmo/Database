@@ -19,6 +19,7 @@ import {
   resolveLiveCanvasWindow,
   resolveRenderAheadPages,
 } from "@/components/document-viewer/canvas-raster-budget";
+import { resolveBboxOverlayStyle } from "@/components/document-viewer/bbox-overlay";
 import { announce } from "@/components/ui/live-announcer";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 import {
@@ -113,6 +114,7 @@ const PdfPageSlot = memo(function PdfPageSlot({
   rotation,
   contentWidth,
   fallbackGeometry,
+  highlightedBbox,
   registerSlot,
   onGeometry,
   onRenderStateChange,
@@ -130,6 +132,7 @@ const PdfPageSlot = memo(function PdfPageSlot({
   contentWidth: number;
   /** The first measured page's geometry, reserving a box for pages not yet loaded. */
   fallbackGeometry: PageGeometry | null;
+  highlightedBbox?: [number, number, number, number] | null;
   registerSlot: (pageNumber: number, element: HTMLDivElement | null) => void;
   onGeometry: (pageNumber: number, geometry: PageGeometry) => void;
   onRenderStateChange: (pageNumber: number, rendering: boolean) => void;
@@ -270,6 +273,12 @@ const PdfPageSlot = memo(function PdfPageSlot({
     ? resolveViewportScale({ fitWidth, contentWidth, baseWidth: reservedGeometry.width, renderZoom })
     : 1;
 
+  const overlayStyle = resolveBboxOverlayStyle({
+    bbox: highlightedBbox,
+    pageGeometry: reservedGeometry,
+    rotation,
+  });
+
   return (
     <div
       ref={slotRef}
@@ -291,14 +300,40 @@ const PdfPageSlot = memo(function PdfPageSlot({
       }
     >
       {render ? (
-        <canvas
-          ref={canvasRef}
-          aria-label={`${title} page ${pageNumber}`}
-          className={cn(
-            "mx-auto max-w-full self-start rounded-lg bg-[color:var(--surface)] shadow-[var(--e1)] transition-opacity duration-[var(--duration-quick)] motion-reduce:transition-none",
-            painted ? "opacity-100" : "opacity-0",
-          )}
-        />
+        <div
+          className="relative mx-auto max-w-full self-start"
+          style={
+            reservedGeometry
+              ? {
+                  width: `${Math.floor(reservedGeometry.width * reservedScale)}px`,
+                  height: `${Math.floor(reservedGeometry.height * reservedScale)}px`,
+                  maxWidth: fitWidth ? "100%" : "none",
+                }
+              : undefined
+          }
+        >
+          <canvas
+            ref={canvasRef}
+            aria-label={`${title} page ${pageNumber}`}
+            className={cn(
+              "block h-full w-full max-w-full rounded-lg bg-[color:var(--surface)] shadow-[var(--e1)] transition-opacity duration-[var(--duration-quick)] motion-reduce:transition-none",
+              painted ? "opacity-100" : "opacity-0",
+            )}
+          />
+          {overlayStyle && painted ? (
+            <div
+              data-testid="pdf-bbox-highlight"
+              aria-hidden="true"
+              className="pointer-events-none absolute z-10 rounded border-2 border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]/15 shadow-[var(--glow-primary)]"
+              style={{
+                left: overlayStyle.left,
+                top: overlayStyle.top,
+                width: overlayStyle.width,
+                height: overlayStyle.height,
+              }}
+            />
+          ) : null}
+        </div>
       ) : (
         <div
           aria-hidden="true"
@@ -334,6 +369,8 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   zoom,
   rotation = 0,
   fullscreen = false,
+  highlightedBbox,
+  highlightedBboxPage,
   onFitWidthChange,
   onZoomChange,
   onRotate,
@@ -352,6 +389,8 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   zoom: number;
   rotation?: number;
   fullscreen?: boolean;
+  highlightedBbox?: [number, number, number, number] | null;
+  highlightedBboxPage?: number | null;
   onFitWidthChange: (fitWidth: boolean) => void;
   onZoomChange: (zoom: number) => void;
   /**
@@ -1078,6 +1117,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
                 rotation={rotation}
                 contentWidth={contentWidth}
                 fallbackGeometry={referenceGeometry}
+                highlightedBbox={highlightedBboxPage === pageNumber ? highlightedBbox : null}
                 registerSlot={registerSlot}
                 onGeometry={handleGeometry}
                 onRenderStateChange={handleRenderStateChange}

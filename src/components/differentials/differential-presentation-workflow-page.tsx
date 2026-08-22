@@ -687,6 +687,11 @@ export function DifferentialPresentationWorkflowPage({
                 <h1 className="mt-2 max-w-[58rem] text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:text-2xl-minus">
                   {workflow.title}
                 </h1>
+                {workflow.scopeLabel ? (
+                  <p className="mt-2 max-w-[52rem] text-sm font-bold leading-6 text-[color:var(--text-heading)]">
+                    {workflow.scopeLabel}
+                  </p>
+                ) : null}
                 <p className="mt-2 hidden max-w-[48rem] text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:block">
                   {workflow.subtitle}
                 </p>

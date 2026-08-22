@@ -19,6 +19,7 @@ import {
   BookOpenText,
   TriangleAlert,
   CalendarDays,
+  Calculator,
   Check,
   ChevronDown,
   ChevronRight,
@@ -39,7 +40,6 @@ import {
   Sparkles,
   Tags,
   Table2,
-  UploadCloud,
   Waypoints,
   Wrench,
   X,
@@ -57,12 +57,14 @@ export type ModeActionSetId =
   | "forms"
   | "favourites"
   | "tools"
+  | "calculators"
   | "differentials"
   | "dsm"
   | "specifiers"
   | "formulation"
   | "prescribing"
-  | "factsheets";
+  | "factsheets"
+  | "dictionary";
 export type ModeActionPlacement = "up" | "down";
 
 const actionSurfaceId = "daily-actions-sheet";
@@ -101,7 +103,7 @@ export type ModeActionId =
   | "answer-evidence-map"
   | "answer-new"
   | "documents-search"
-  | "documents-upload"
+  | "documents-admin"
   | "documents-scope"
   | "documents-recent"
   | "documents-tables"
@@ -123,6 +125,7 @@ export type ModeActionId =
   | "medication-access"
   | "tools-browse"
   | "tools-new"
+  | "calculators-browse"
   | "differentials-build"
   | "differentials-criteria"
   | "differentials-documents"
@@ -139,7 +142,11 @@ export type ModeActionId =
   | "formulation-compare"
   | "formulation-map"
   | "factsheets-search"
-  | "factsheets-browse";
+  | "factsheets-browse"
+  | "dictionary-search"
+  | "dictionary-topics"
+  | "dictionary-compare"
+  | "dictionary-sources";
 
 export type ModeActionItem = {
   id: ModeActionId;
@@ -148,10 +155,16 @@ export type ModeActionItem = {
   description?: string;
   icon: LucideIcon;
   primary?: boolean;
+  /**
+   * Administrator-only row. Hidden unless the caller passes `canManageDocuments`,
+   * because `modeActionItemsFor` filters it out by default — a caller that forgets
+   * the flag under-shows rather than leaking an admin affordance to a clinician.
+   */
+  adminOnly?: boolean;
 };
 
 // One curated, primary-first action list per mode. Keep the accessible name of each
-// item (its `label`) test-stable: Answer must expose "Scope"; Documents "Upload PDF".
+// item (its `label`) test-stable: Answer must expose "Scope"; Documents "Browse library".
 const modeActionSets = {
   answer: [
     {
@@ -161,7 +174,6 @@ const modeActionSets = {
       icon: MessageSquarePlus,
       primary: true,
     },
-    { id: "documents-upload", label: "Add document", description: "Upload a source", icon: UploadCloud },
     { id: "documents-scope", label: "Scope", description: "Limit answers to chosen sources", icon: Filter },
     {
       id: "answer-evidence-map",
@@ -174,15 +186,21 @@ const modeActionSets = {
   ],
   documents: [
     {
-      id: "documents-upload",
-      label: "Upload PDF",
-      description: "Add an indexed source",
-      icon: UploadCloud,
+      id: "documents-collections",
+      label: "Browse library",
+      description: "All indexed sources",
+      icon: FolderOpen,
       primary: true,
     },
     { id: "documents-scope", label: "Scope sources", description: "Limit answers to selected sources", icon: Filter },
+    {
+      id: "documents-admin",
+      label: "Manage library",
+      description: "Indexing, jobs and setup",
+      icon: Wrench,
+      adminOnly: true,
+    },
     { id: "documents-recent", label: "Recent documents", description: "Browse recently updated", icon: Clock3 },
-    { id: "documents-collections", label: "Browse library", description: "All indexed sources", icon: FolderOpen },
     { id: "documents-tables", label: "Tables", description: "Search table evidence", icon: Table2 },
     { id: "documents-viewer", label: "Open source PDF", description: "View a source document", icon: FileText },
   ],
@@ -226,6 +244,15 @@ const modeActionSets = {
       primary: true,
     },
     { id: "tools-new", label: "New answer", description: "Clear the current thread", icon: Sparkles },
+  ],
+  calculators: [
+    {
+      id: "calculators-browse",
+      label: "Browse calculators",
+      description: "Open the calculator catalogue",
+      icon: Calculator,
+      primary: true,
+    },
   ],
   differentials: [
     {
@@ -352,10 +379,61 @@ const modeActionSets = {
       icon: BookOpenText,
     },
   ],
+  dictionary: [
+    {
+      id: "dictionary-search",
+      // Search and Browse were one catalogue behind two destinations, so the
+      // pair collapsed to one action naming the content rather than the verb.
+      label: "Terms",
+      description: "Search or browse the governed catalogue",
+      icon: Search,
+      primary: true,
+    },
+    {
+      id: "dictionary-topics",
+      label: "Browse topics",
+      description: "Open clinical collections",
+      icon: Tags,
+    },
+    {
+      id: "dictionary-compare",
+      label: "Compare terms",
+      description: "Align stored fields",
+      icon: GitCompareArrows,
+    },
+    {
+      id: "dictionary-sources",
+      label: "Sources and review",
+      description: "See governance and coverage",
+      icon: ShieldCheck,
+    },
+  ],
 } as const satisfies Record<ModeActionSetId, readonly ModeActionItem[]>;
 
-export function modeActionItemsFor(setId: ModeActionSetId): readonly ModeActionItem[] {
-  return modeActionSets[setId];
+/**
+ * The rows for a mode, with administrator-only rows filtered out unless the caller
+ * says the viewer can manage documents.
+ *
+ * The admin row exists because the indexing drawer is otherwise unreachable from a
+ * cold load: every `setIndexingAdminDrawerOpen(true)` call lives inside
+ * `openLibraryHealthTarget`, and both `LibraryHealthStrip` render sites are behind
+ * the drawer already being open. Without an entry point here an administrator has
+ * no first move to document management, setup, jobs or quality controls.
+ *
+ * The flag defaults to `false` so a caller that forgets it hides the row rather than
+ * exposing an admin affordance to a clinician; `openLibraryHealthTarget` re-checks
+ * `canUseAdministrativeApis` server-side of this anyway, so the filter is presentation,
+ * never the authorization boundary.
+ */
+export function modeActionItemsFor(
+  setId: ModeActionSetId,
+  options?: { readonly canManageDocuments?: boolean },
+): readonly ModeActionItem[] {
+  // Annotated rather than inferred: `modeActionSets` is `as const`, so the inferred union
+  // has `adminOnly` only on the arms that set it and the filter below would not typecheck.
+  const items: readonly ModeActionItem[] = modeActionSets[setId];
+  if (options?.canManageDocuments) return items;
+  return items.filter((item) => !item.adminOnly);
 }
 
 function assignTriggerRef(ref: Ref<HTMLButtonElement> | undefined, element: HTMLButtonElement | null) {
@@ -714,7 +792,7 @@ export function ModeActionPopup({
   // desktop popover and the phone/tablet sheet. Each row's accessible name is set
   // via aria-label to the `label` only; the visible secondary description is linked
   // with aria-describedby (and must not use aria-hidden, which conflicts with it).
-  // That keeps exact-match queries like "Scope"/"Upload PDF" stable.
+  // That keeps exact-match queries like "Scope"/"Browse library" stable.
   function renderActionRows() {
     return (
       <div

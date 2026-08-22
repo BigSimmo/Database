@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "89d7fe98-1873-41e8-bc21-d77cab91663b",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Confirm from its own log whether the PreCompact hook's output actually reaches model context",
+    "detail": ".claude/hooks/precompact-issues-capture.sh was added in PR #2113 to ask for /issues capture BEFORE compaction discards the follow-ups it wants recorded; the pre-existing issues-surface.sh reminder is a SessionStart hook and therefore fires AFTER compaction, when the material is already gone. Claude Code is known to inject hook stdout into model context for SessionStart, UserPromptSubmit, PreToolUse and PostToolUse. Whether it does so for PreCompact could NOT be determined: the installed CLI at %APPDATA%\\npm\\node_modules\\@anthropic-ai\\claude-code ships a compiled claude.exe with no inspectable JS bundle to grep. The hook therefore prints plain text rather than a hookSpecificOutput JSON envelope, so that if the platform does not inject it the operator still sees a clean transcript line instead of a raw JSON blob, and it appends one line per firing to a log so the question is answerable rather than permanently open. Next, after any compaction in a session using this repo: cat \"$(git rev-parse --absolute-git-dir)/claude-precompact.log\". Lines present but no reminder seen in context means the limit is real and the SessionStart backstop is carrying it. No lines at all means the registration is wrong. WARNING: that log lives under the worktree's own git dir, so it is destroyed when the worktree is removed — check it before cleaning up the worktree this was authored in.",
+    "source": "PR #2113 .claude/hooks/precompact-issues-capture.sh",
+    "issueUlid": "01M0ACENGDRZQQBT0WJ6MSQ6KS"
+  }
+}

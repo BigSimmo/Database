@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "d656dcb5-3228-4ab8-b40c-b0377e63cb94",
+  "createdOn": "2026-08-15",
+  "action": "done",
+  "payload": {
+    "id": "#293",
+    "outcome": "Closed after PR #1962 landed on main (commit 885c613): tests/ui-style-contract.spec.ts now has a deterministic Gate 2 tap-carrier enumeration test at a 390x844 phone viewport on /forms's static home, polling until 3 consecutive reads agree. Finding 1 (min-height override) was already refuted as intentional (sm: desktop release of the phone-only floor); this closes Finding 2, the last open part."
+  }
+}

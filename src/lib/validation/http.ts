@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { PublicApiError } from "@/lib/http";
 
-export const publicValidationErrorShape = "{ error: string }" as const;
-
 export function validationError(message: string, code = "invalid_request") {
   return new PublicApiError(message, 400, { code });
 }

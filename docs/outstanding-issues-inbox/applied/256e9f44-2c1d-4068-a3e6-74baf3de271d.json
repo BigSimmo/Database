@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "256e9f44-2c1d-4068-a3e6-74baf3de271d",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#212",
+    "detail": "RAG-surface tranche implemented via PR #1946: new src/lib/rag/rag-row-contracts.ts (assertRetrievalRows, Zod-backed, RetrievalRowShapeError) replaces 4 'as SearchResult[]' casts in rag.ts (hybrid telemetry/merge, vector-fallback, document-summary context) with runtime shape assertion -- strict on id/document_id/content (not-null in schema) and the 4 score fields (nullish), loose via z.looseObject on everything else so RPC-version column differences don't break. Assertion-only (no transform), so object identity/key order is unchanged on success; errors carry only Zod issue paths, never row content. tests/rag-retrieval-row-contract.test.ts (8 cases) plus tests/rag-imputation-contract.test.ts kept green as evidence no ranking/comparator logic moved. Deliberately untouched: query_embedding casts (a deliberate repo-wide convention satisfying Supabase-generated RPC types) and outbound Json serialization casts. Remaining #212 population (~11 as-unknown-as casts) confirmed via grep to live OUTSIDE rag.ts's import graph: src/app/api/documents/route.ts (4), src/app/api/ingestion/{batches,jobs,quality}/route.ts (6), src/app/api/jobs/route.ts (1) -- legitimate non-RAG-flagged tranche-2 candidates, not yet started.",
+    "source": "PR #1946, session 2026-08-14"
+  }
+}

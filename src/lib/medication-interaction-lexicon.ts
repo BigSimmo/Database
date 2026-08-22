@@ -26,6 +26,8 @@ export type LexiconTerm = {
   surfaces: string[];
   kind: LexiconTermKind;
   select?: CatalogueSelector;
+  /** Source records that can mention this term without declaring a matching counterparty. */
+  sourceDenySlugs?: string[];
   note?: string;
 };
 
@@ -40,7 +42,17 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     id: "opioids",
     surfaces: ["opioids", "opioid", "opioid analgesia", "opiates", "full agonists"],
     kind: "catalogue",
-    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone"] },
+    // `loperamide` is denied for the same reason as the antagonists: the subclass
+    // match is a substring one, and the catalogue classifies it "Peripheral Opioid
+    // Agonist" — P-gp keeps it out of the CNS at therapeutic doses, so it does not
+    // add to the sedation and respiratory-depression rows this term drives (35 of
+    // its 36 rows are CRITICAL or HIGH). Its real risk, QTc prolongation in
+    // overdose or with P-gp inhibitors, is carried by the catalogue's own per-drug
+    // QTc data and the `qtc-prolonging` mechanism term, not by this one.
+    select: { subclassIncludes: ["Opioid"], denySlugs: ["naltrexone", "naloxone", "loperamide"] },
+    // Loperamide's own P-gp row describes possible opioid sedation, but does
+    // not declare every opioid as a counterparty.
+    sourceDenySlugs: ["loperamide"],
   },
   { id: "ssris", surfaces: ["ssris", "ssri"], kind: "catalogue", select: { subclassIncludes: ["SSRI"] } },
   { id: "snris", surfaces: ["snris", "snri"], kind: "catalogue", select: { subclassIncludes: ["SNRI"] } },
@@ -54,7 +66,12 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     id: "tcas",
     surfaces: ["tcas", "tca", "tricyclics", "tricyclic antidepressants", "anticholinergic tcas"],
     kind: "catalogue",
-    select: { slugs: ["amitriptyline", "nortriptyline", "imipramine", "clomipramine", "doxepin", "dothiepin"] },
+    // `dosulepin`, not `dothiepin`: same drug, and the catalogue keys it on the
+    // current INN. The old spelling matched no record, so a TCA the catalogue
+    // marks FATAL in overdose fired none of this term's 20 CRITICAL/HIGH rows.
+    // tests/medication-interaction-lexicon-coverage.test.ts now fails on any slug
+    // that resolves to nothing, so a dead selector cannot ship again.
+    select: { slugs: ["amitriptyline", "nortriptyline", "imipramine", "clomipramine", "doxepin", "dosulepin"] },
   },
   {
     id: "antipsychotics",
@@ -62,7 +79,7 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     kind: "catalogue",
     select: { classes: ["Antipsychotic", "LAI Antipsychotic"] },
   },
-  { id: "nsaids", surfaces: ["nsaids", "nsaid"], kind: "catalogue", select: { subclassIncludes: ["NSAID"] } },
+  { id: "nsaids", surfaces: ["nsaids", "nsaid"], kind: "catalogue", select: { subclassIncludes: ["NSAID", "COX-2"] } },
   {
     id: "beta-blockers",
     surfaces: ["beta-blockers", "beta blockers", "beta-blocker", "beta blocker", "non-selective beta-blockers"],
@@ -163,16 +180,44 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     select: { subclassIncludes: ["Anticholinergic"] },
   },
   {
+    // Every row this term fires on is about additive ANTICHOLINERGIC burden, not
+    // about histamine blockade — one says so in its own words: "if given with
+    // TCAs, sedating antihistamines, or antipsychotics". The second-generation
+    // agents are denied because they carry essentially no anticholinergic
+    // activity, and the catalogue labels them as such ("H1 Antihistamine (2nd
+    // Gen)"). Before this, benzatropine + loratadine produced a CRITICAL
+    // "anticholinergic toxidrome ... risk of toxic megacolon" alert and
+    // oxybutynin + cetirizine produced "frank delirium and bowel impaction".
+    //
+    // Cyclizine, promethazine, alimemazine and diphenhydramine stay: all four
+    // are genuinely anticholinergic and are what the rows mean.
+    // Clinical review 2026-08-22 (ledger #1YPV51).
     id: "antihistamines",
     surfaces: ["antihistamines", "antihistamine"],
     kind: "catalogue",
-    select: { subclassIncludes: ["Antihistamine"] },
+    select: { subclassIncludes: ["Antihistamine"], denySlugs: ["cetirizine", "fexofenadine", "loratadine"] },
   },
   {
+    // Every row is a SYSTEMIC effect: five are insulin resistance and raised
+    // BSL, one is tendon rupture with ciprofloxacin, one is additive
+    // hypokalaemia. A steroid cream does not massively increase insulin
+    // requirements, so the four purely topical agents are denied — the
+    // catalogue marks them "Topical Glucocorticoid".
+    //
+    // Inhaled agents are deliberately KEPT. The hypokalaemia row is about a
+    // formoterol inhaler and names "high-dose corticosteroids", and high-dose
+    // inhaled steroids do carry systemic effects. Beclometasone and mometasone
+    // are catalogued "Topical/Inhaled" and are kept on the same reasoning.
+    // Fludrocortisone is a mineralocorticoid and is kept: it raises BSL and
+    // drives hypokalaemia, which is exactly what these rows describe.
+    // Clinical review 2026-08-22 (ledger #1YPV51).
     id: "corticosteroids",
     surfaces: ["corticosteroids", "corticosteroid", "steroids", "steroid"],
     kind: "catalogue",
-    select: { classes: ["Steroid"] },
+    select: {
+      classes: ["Steroid"],
+      denySlugs: ["betamethasone", "clobetasol", "hydrocortisone-1", "triamcinolone"],
+    },
   },
   {
     // Not a class — a name alias, and the most consequential one in the file.
@@ -199,18 +244,93 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     kind: "catalogue",
     select: { slugs: ["lithium-carbonate-ir-sr"] },
   },
-  // No `z-drugs` term. It existed until the review sheet showed it firing on
-  // zero catalogue rows: nothing in the corpus says "Z-drugs", "zolpidem-type
-  // hypnotics" or even "hypnotics". Keeping a term that can never match implied
-  // z-drug coverage the tool does not have.
-  //
-  // Zolpidem and zopiclone ARE reachable in the catalogue, but they are named
-  // only through "CNS depressants" (10 rows) and "sedatives" (2 rows), both of
-  // which are deliberately `mechanism` terms — unenumerable, so those rows stay
-  // unresolved and the medication holds at grey rather than green. Enumerating
-  // them would turn a fail-safe grey into a confident red across a large and
-  // ill-defined class, which is a clinical decision, not a lexicon edit.
-  // Recorded in the review sheet's coverage section instead.
+  {
+    id: "calcium-channel-blockers",
+    surfaces: [
+      "calcium channel blockers",
+      "calcium channel blocker",
+      "ccbs",
+      "ccb",
+      "non-dhp ccbs",
+      "dhp calcium channel blockers",
+    ],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Calcium Channel Blocker", "CCB"] },
+  },
+  {
+    id: "cephalosporins",
+    surfaces: ["cephalosporins", "cephalosporin"],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Cephalosporin"] },
+  },
+  {
+    id: "penicillins",
+    surfaces: ["penicillins", "penicillin"],
+    kind: "catalogue",
+    select: {
+      slugs: [
+        "amoxicillin",
+        "amoxicillin-clavulanate",
+        "benzathine-benzylpenicillin",
+        "dicloxacillin",
+        "flucloxacillin",
+        "phenoxymethylpenicillin",
+        "piperacillin-tazobactam",
+      ],
+    },
+  },
+  {
+    // Almost every row is an enzyme inducer destroying the COMBINED pill —
+    // carbamazepine, St John's wort, topiramate above 200 mg — plus one about
+    // estrogen and VTE risk with tranexamic acid. Depot medroxyprogesterone is
+    // the method a woman is switched TO when she is on an inducer, so warning
+    // that it will fail does not merely cry wolf: it argues against the option
+    // that still works. Removed on clinical review 2026-08-22 (ledger #1YPV51).
+    // Levonorgestrel is kept: implant and pill formulations are inducer-affected.
+    id: "oral-contraceptives",
+    surfaces: ["oral contraceptives", "oral contraceptive", "combined oral contraceptive pill", "cocp", "ocps", "ocp"],
+    kind: "catalogue",
+    select: { slugs: ["ethinylestradiol", "levonorgestrel"] },
+  },
+  {
+    id: "fibrates",
+    surfaces: ["fibrates", "fibrate"],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Fibrate"] },
+  },
+  {
+    id: "immunosuppressants",
+    surfaces: ["immunosuppressants", "immunosuppressant"],
+    kind: "catalogue",
+    select: { slugs: ["methotrexate"] },
+  },
+  {
+    id: "nrt",
+    surfaces: ["transdermal nrt", "nicotine transdermal systems", "nicotine patches"],
+    kind: "catalogue",
+    select: {
+      slugs: [
+        "nicotine-gum",
+        "nicotine-inhalator",
+        "nicotine-lozenge",
+        "nicotine-mouth-spray",
+        "nicotine-patch",
+        "nicotine-sublingual-tablet",
+      ],
+    },
+  },
+  {
+    id: "antibiotics",
+    surfaces: ["antibiotics", "antibiotic", "oral antibiotics", "broad-spectrum antibiotics"],
+    kind: "catalogue",
+    select: { classes: ["Antibiotic"] },
+  },
+  {
+    id: "sulfonylureas",
+    surfaces: ["sulfonylureas", "sulfonylurea"],
+    kind: "catalogue",
+    select: { subclassIncludes: ["Sulfonylurea"] },
+  },
 ];
 
 const NON_CATALOGUE_TERMS: LexiconTerm[] = [
@@ -316,6 +436,60 @@ const NON_CATALOGUE_TERMS: LexiconTerm[] = [
     id: "serotonergic",
     surfaces: ["serotonergic drugs", "serotonergic agents", "other serotonergics"],
     kind: "mechanism",
+  },
+  {
+    id: "bile-acid-sequestrants",
+    surfaces: ["bile acid sequestrants", "cholestyramine"],
+    kind: "external",
+    note: "Bile acid sequestrants (e.g. Cholestyramine); not stocked in catalogue.",
+  },
+  {
+    id: "retinoids",
+    surfaces: ["isotretinoin", "acitretin"],
+    kind: "external",
+    note: "Systemic retinoids; outside current catalogue.",
+  },
+  {
+    id: "orlistat",
+    surfaces: ["orlistat"],
+    kind: "external",
+    note: "Lipase inhibitor; outside catalogue.",
+  },
+  {
+    id: "anaesthetics",
+    surfaces: ["anaesthetic agents", "anaesthetics", "anaesthetic", "neuromuscular blocking agents"],
+    kind: "external",
+    note: "Hospital-only surgical anaesthetics and neuromuscular blockers.",
+  },
+  {
+    id: "laiv",
+    surfaces: ["live attenuated influenza vaccine", "laiv"],
+    kind: "external",
+    note: "Live attenuated influenza vaccine, not prescribable drug.",
+  },
+  {
+    id: "barrier-contraception",
+    surfaces: ["condoms", "latex condoms", "diaphragms"],
+    kind: "nonDrug",
+    note: "Barrier contraception methods damaged by oil-based formulations.",
+  },
+  {
+    id: "liquid-paraffin",
+    surfaces: ["liquid paraffin", "mineral oil laxatives"],
+    kind: "external",
+    note: "Mineral oil laxative; outside catalogue.",
+  },
+  {
+    id: "iv-calcium-solutions",
+    surfaces: ["iv calcium solutions", "hartmann's", "plasmalyte"],
+    kind: "nonDrug",
+    note: "Intravenous electrolyte infusion solutions, not prescribable drugs.",
+  },
+  {
+    id: "oral-absorption",
+    surfaces: ["concomitant oral medications", "rapidly acting oral medications"],
+    kind: "mechanism",
+    note: "General absorption delay / transit-time alteration for oral formulations.",
   },
 ];
 

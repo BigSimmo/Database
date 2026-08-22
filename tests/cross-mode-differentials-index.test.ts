@@ -26,6 +26,7 @@ describe("cross-mode differentials precomputed index", () => {
         id: presentation.id,
         title: presentation.title,
         subtitle: presentation.subtitle,
+        titleAliases: presentation.titleAliases,
       })),
       aliases: differentialSearchAliases(),
     };

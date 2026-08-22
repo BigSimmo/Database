@@ -106,11 +106,12 @@ describe("DocumentFrame contract", () => {
   });
 });
 
-// The phone reading order is source-first. `buildDocumentSectionIndex` has always
-// described it that way — "main column (overview -> PDF -> evidence -> text) then
-// the aside rail" — but the DOM disagreed, because DocumentClinicalSummary
-// rendered inside DocumentOverviewLanding, above the PDF. Measured in Chromium at
-// 390x844, that put the PDF panel 651px down the page; it now starts at 395px.
+// The phone reading order puts the clinical priorities card ahead of the PDF:
+// title strip, then DocumentClinicalSummary, then the source column (PDF ->
+// evidence -> text), then the aside rail. `DocumentClinicalSummary` still
+// renders as its own grid child rather than inside `DocumentOverviewLanding`
+// (that separation is what lets it carry its own phone order independent of
+// the title card).
 describe("document viewer phone reading order", () => {
   const landingSource = readFileSync(
     fileURLToPath(new URL("../src/components/document-viewer/document-overview-landing.tsx", import.meta.url)),
@@ -122,7 +123,7 @@ describe("document viewer phone reading order", () => {
     expect(viewerSource).toContain("<DocumentClinicalSummary");
   });
 
-  it("orders every phone grid child explicitly so none defaults ahead of the source", () => {
+  it("orders every phone grid child explicitly so none defaults ahead of the title strip", () => {
     // An unordered grid item defaults to `order: 0` and would sort before
     // `order-1`, so the rail in particular must carry its own late slot.
     expect(viewerSource).toContain("max-sm:order-1");
@@ -131,8 +132,8 @@ describe("document viewer phone reading order", () => {
     expect(viewerSource).toContain('className="max-sm:order-4"');
 
     const overview = viewerSource.indexOf("max-sm:order-1");
-    const summaryCard = viewerSource.indexOf("max-sm:order-3");
-    const sourceColumn = viewerSource.indexOf("max-sm:order-2");
+    const summaryCard = viewerSource.indexOf("max-sm:order-2");
+    const sourceColumn = viewerSource.indexOf("max-sm:order-3");
     expect(overview).toBeGreaterThan(-1);
     expect(summaryCard).toBeGreaterThan(-1);
     expect(sourceColumn).toBeGreaterThan(-1);

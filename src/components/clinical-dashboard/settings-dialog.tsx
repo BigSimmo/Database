@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -8,6 +9,7 @@ import {
   Check,
   ChevronRight,
   CircleHelp,
+  FlaskConical,
   CircleUserRound,
   Globe2,
   Keyboard,
@@ -40,6 +42,7 @@ import {
   DENSITY_OPTIONS,
   JURISDICTION_OPTIONS,
   LANDING_OPTIONS,
+  MOTION_OPTIONS,
   POPULATION_OPTIONS,
   useAppPreferences,
 } from "@/components/clinical-dashboard/use-app-preferences";
@@ -62,7 +65,8 @@ type SettingsSectionId =
   | "notifications"
   | "privacy"
   | "keyboard"
-  | "help";
+  | "help"
+  | "development";
 
 const SETTINGS_SECTIONS: ReadonlyArray<{ id: SettingsSectionId; navLabel: string; icon: LucideIcon }> = [
   { id: "account", navLabel: "Account", icon: CircleUserRound },
@@ -73,6 +77,7 @@ const SETTINGS_SECTIONS: ReadonlyArray<{ id: SettingsSectionId; navLabel: string
   { id: "privacy", navLabel: "Privacy", icon: ShieldCheck },
   { id: "keyboard", navLabel: "Shortcuts", icon: Keyboard },
   { id: "help", navLabel: "Help & About", icon: CircleHelp },
+  { id: "development", navLabel: "Developer", icon: FlaskConical },
 ];
 
 const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string; icon: LucideIcon }> = [
@@ -586,7 +591,7 @@ export function SettingsDialog({
               // (forced-colors Canvas / reduced-transparency `--surface`).
               // Scroll-hide stays phone-only via `lg:translate-y-0`.
               "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:translate-y-0 lg:pb-3 lg:pt-6 lg:bg-[color:var(--surface-lux)] lg:px-0",
-              headerHidden ? "-translate-y-full" : "translate-y-0",
+              headerHidden && "-translate-y-full",
             )}
           >
             <div className="edge-glass-header-backdrop lg:hidden" aria-hidden="true" />
@@ -881,12 +886,21 @@ export function SettingsDialog({
                     options={LANDING_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsToggleField
+                <SettingsField
                   icon={Sparkles}
-                  label="Reduce motion"
-                  checked={preferences.motion === "reduced"}
-                  onChange={(checked) => setPreference("motion", checked ? "reduced" : "system")}
-                />
+                  label="Motion"
+                  labelId="settings-motion-label"
+                  description="System follows your device's Reduce Motion setting. Full keeps loading animations running even when your device asks to reduce motion."
+                  stacked
+                >
+                  <SegmentedControl
+                    ariaLabelledBy="settings-motion-label"
+                    layout="equal"
+                    value={preferences.motion}
+                    onChange={(value) => setPreference("motion", value)}
+                    options={MOTION_OPTIONS}
+                  />
+                </SettingsField>
               </SettingsGroup>
             </SettingsSection>
 
@@ -1016,6 +1030,30 @@ export function SettingsDialog({
                   <BookOpen aria-hidden="true" className="h-4 w-4" />
                   Guide & help
                 </button>
+              </div>
+            </SettingsSection>
+
+            <SettingsSection
+              id="development"
+              title="Developer"
+              note="In-progress surfaces. Signing in with a developer account is required to open them. Not clinical content."
+            >
+              <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+                <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Developer hub</p>
+                <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                  Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
+                  patient record, message or schedule on them is real.
+                </p>
+                <Link
+                  href="/mockups/development"
+                  onClick={onClose}
+                  className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                  data-testid="settings-row-development-page"
+                >
+                  <FlaskConical aria-hidden="true" className="h-4 w-4" />
+                  Developer
+                  <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
+                </Link>
               </div>
             </SettingsSection>
           </div>

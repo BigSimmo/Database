@@ -517,7 +517,9 @@ WF-001 rank 6 (score 46). Before touching anything I checked this against the re
 than assuming it — first surprise: `grep -rn "WF-303" src/ tests/` returns **zero matches**.
 WF-303 is not a hand-authored id; it is produced at runtime by `routineMovements(30, 300)` in
 `ward-movements.ts` (`id: \`WF-${String(index).padStart(3, "0")}\``, ids WF-300..WF-329), so no
-grep for the literal string will ever find it. I ran the real `queueOrder`/`operationalScore`against the real`wardMovements`fixture and`NOW_ANCHOR`with`npx tsx`(a scratch script under`scripts/_tmp-check-queue-order.mts`, deleted after use, never committed):
+grep for the literal string will ever find it. I ran the real `queueOrder`/`operationalScore`against
+the real`wardMovements`fixture and`NOW_ANCHOR`with`npx tsx` (a deleted, uncommitted scratch
+script):
 
 ```
 Rank | id | urgency(tier) | score
@@ -770,10 +772,9 @@ both reported `(unchanged)` — already correctly formatted, nothing to commit f
 - No source file under `src/` has any net change — the one source edit made
   (`ward-movements.ts`, for mutation testing) was fully reverted and confirmed byte-identical via
   empty `git diff --stat`.
-- Two scratch scripts (`scripts/_tmp-check-queue-order.mts`,
-  `scripts/_tmp-check-legalform-scan.mts`) were created under `scripts/` to verify fixture facts
-  against real code before writing tests, then deleted before this report was written — neither
-  is present in the working tree or was committed.
+- Two scratch scripts were created under `scripts/` to verify fixture facts against real code
+  before writing tests, then deleted before this report was written — neither is present in the
+  working tree or was committed.
 
 ### Status assessment — fix round 1
 
@@ -909,8 +910,8 @@ disk, run, observe the result, restore from backup, print the restored content b
 diff it against the backup to confirm byte-identical, then move on. `git status --short` was
 clean (only the intended `tests/ward-flow-single-source.test.ts` diff) after every restore.
 
-**(a) A `NOW_ANCHOR` read in a non-allow-listed file under `src`, outside `WARD_DIR`.** Created
-`src/lib/ward-probe-round2/frozen.ts`:
+**(a) A `NOW_ANCHOR` read in a non-allow-listed file under `src`, outside `WARD_DIR`.** Created a
+temporary probe file:
 
 ```
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
@@ -922,7 +923,7 @@ Result:
 ```
  × restricts every read of NOW_ANCHOR under src to the named allow-list
 AssertionError: expected [ Array(1) ] to deeply equal []
-+   "src\lib\ward-probe-round2\frozen.ts",
++   "temporary probe file",
  Tests  1 failed | 8 passed (9)
 ```
 
@@ -976,8 +977,8 @@ AssertionError: expected [ Array(1) ] to deeply equal []
 Restored `ward-movements.ts` from backup; `git diff --stat -- src/components/ward-management/ward-movements.ts`
 produced no output (byte-identical to `HEAD`).
 
-**(d) A direct fixture import in a non-allowed `ward-management` file.** Created
-`src/components/ward-management/probe-round2.ts`:
+**(d) A direct fixture import in a non-allowed `ward-management` file.** Created a temporary
+probe file:
 
 ```
 export { wardMovements as probedMovements } from "./ward-movements";
@@ -988,7 +989,7 @@ Result:
 ```
  × has no component reading the frozen fixture directly
 AssertionError: expected [ Array(1) ] to deeply equal []
-+   "src\components\ward-management\probe-round2.ts",
++   "temporary probe file",
  Tests  1 failed | 8 passed (9)
 ```
 

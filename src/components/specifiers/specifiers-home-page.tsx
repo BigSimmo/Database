@@ -1,38 +1,53 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 import { ArrowRight, ChevronRight, GitCompareArrows, ListChecks, Search, Tags } from "lucide-react";
 
 import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
+import {
+  SearchResultsHeaderBand,
+  type AppliedFilterChip,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import {
   CategoryTag,
   ReviewStatusBadge,
-  SpecifierDiagnosisFilter,
   SpecifierMatchCard,
   SpecifierPageShell,
   SpecifierSafetyNote,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
+import {
+  readResultFilterValue,
+  readResultFilterValues,
+  replaceResultFilterUrl,
+  writeResultFilterValue,
+  writeResultFilterValues,
+} from "@/lib/result-filter-url";
 
 // The curated set covers a small number of high-signal mood-episode specifiers.
 // The full DSM-5-TR catalogue (~585 items) is surfaced additively beneath the
 // curated matches so a search still reaches the broader taxonomy without displacing
 // the richer curated cards.
 const CATALOGUE_RESULT_LIMIT = 24;
+const CATALOGUE_RESULT_INCREMENT = 24;
+type SpecifierResultScope = "guides" | "catalogue";
+const specifierScopeValues = new Set<SpecifierResultScope>(["guides", "catalogue"]);
 
 const diagnosisOptions = [
   { value: "", label: "All diagnoses" },
@@ -67,9 +82,9 @@ function SpecifiersHome() {
     <ModeHomeMain testId="specifiers-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="specifiers"
-        title="Specifiers"
-        subtitle="Check specifier fit and exclusions."
-        icon={Tags}
+        title={sharedHomePresentation.specifiers.title}
+        subtitle={sharedHomePresentation.specifiers.subtitle}
+        icon={appModeIcons.specifiers}
         actionsLabel="Specifier workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[
@@ -107,15 +122,7 @@ function SpecifiersHome() {
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         }
-        footer={
-          <div className="grid gap-3">
-            <SpecifierPathwayStrip />
-            <ModeHomeVerificationFooter
-              label="Diagnostic decision support"
-              body="Review criteria and exclusions before documenting"
-            />
-          </div>
-        }
+        footer={<SpecifierPathwayStrip />}
       />
     </ModeHomeMain>
   );
@@ -184,34 +191,186 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
 }
 
 function SpecifierResults({ query }: { query: string }) {
-  const [family, setFamily] = useState<"all" | SpecifierFamily>("all");
-  const [diagnosis, setDiagnosis] = useState("");
+  const searchParams = useSearchParams();
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
-  const results = useMemo(() => searchSpecifiers(query, { family, diagnosis }), [diagnosis, family, query]);
-  // The full-catalogue section is additive and diagnosis-specific, so it is NOT
-  // de-duped against the curated cards: those are generic mood-only specifiers, and
-  // a label-only match would wrongly hide the disorder-specific catalogue rows (e.g.
-  // a curated "With catatonia" card must not remove schizophrenia/autism catatonia).
-  // It still drives the shared count and empty-state so a catalog-only query never
-  // shows "0 matches" with an empty-state banner above real results.
-  const catalogueMatches = useMemo(() => searchSpecifierCatalog(query).slice(0, CATALOGUE_RESULT_LIMIT), [query]);
-  const totalMatches = results.length + catalogueMatches.length;
-  // One array for the desktop rail and the phone sheet. The full label is safe
-  // at both: the band hides `filterControls` below `sm` whenever a page also
-  // supplies `mobileControls`, so the chips' phone-only short label could never
-  // render and the two breakpoints never showed different text.
+  const allGuideMatches = useMemo(() => searchSpecifiers(query, { family: "all", diagnosis: "" }), [query]);
+  const allCatalogueMatches = useMemo(() => searchSpecifierCatalog(query), [query]);
+  const defaultScope: SpecifierResultScope = allGuideMatches.length > 0 ? "guides" : "catalogue";
+  const scope = readResultFilterValue(searchParams, "scope", specifierScopeValues, defaultScope);
+  const familyValues = useMemo(() => new Set(specifierFamilies.map((option) => option.id)), []);
+  const diagnosisValues = useMemo(() => new Set(diagnosisOptions.map((option) => option.value)), []);
+  const family = readResultFilterValue(searchParams, "family", familyValues, "all") as "all" | SpecifierFamily;
+  const diagnosis = readResultFilterValue(searchParams, "diagnosis", diagnosisValues, "");
+  const categoryOptions = useMemo(
+    () =>
+      [...new Map(allCatalogueMatches.map(({ item }) => [item.categoryId, item.category])).entries()]
+        .map(([value, label]) => ({ value, label }))
+        .sort((left, right) => left.label.localeCompare(right.label)),
+    [allCatalogueMatches],
+  );
+  const categoryValues = useMemo(() => new Set(categoryOptions.map((option) => option.value)), [categoryOptions]);
+  const selectedCategories = new Set(readResultFilterValues(searchParams, "category", categoryValues));
+  const reviewedOnly = searchParams.get("reviewed") === "1";
+  const guideMatches = useMemo(() => searchSpecifiers(query, { family, diagnosis }), [diagnosis, family, query]);
+  const catalogueMatches = allCatalogueMatches.filter(
+    ({ item }) =>
+      (selectedCategories.size === 0 || selectedCategories.has(item.categoryId)) &&
+      (!reviewedOnly || item.src === "source-verified"),
+  );
+  const matchingTotal = scope === "guides" ? guideMatches.length : catalogueMatches.length;
+  const resultSignature = `${query}|${scope}|${[...selectedCategories].sort().join(",")}|${reviewedOnly}`;
+  const [visibleState, setVisibleState] = useState({ signature: resultSignature, count: CATALOGUE_RESULT_LIMIT });
+  if (visibleState.signature !== resultSignature) {
+    setVisibleState({ signature: resultSignature, count: CATALOGUE_RESULT_LIMIT });
+  }
+  const visibleCatalogueMatches = catalogueMatches.slice(0, visibleState.count);
+
   const familyOptions = useMemo(
     () => specifierFamilies.map((option) => ({ value: option.id, label: option.label })),
     [],
   );
+  const updateLens = <Value extends string>(
+    key: "scope" | "family" | "diagnosis",
+    value: Value,
+    fallback: Value,
+    allowed: ReadonlySet<Value>,
+  ) => replaceResultFilterUrl((params) => writeResultFilterValue(params, key, value, fallback, allowed));
+  const toggleCategory = (value: string) =>
+    replaceResultFilterUrl((params) => {
+      const next = new Set(readResultFilterValues(params, "category", categoryValues));
+      if (!next.delete(value)) next.add(value);
+      writeResultFilterValues(params, "category", next, categoryValues);
+    });
+  const setReviewedOnly = (enabled: boolean) =>
+    replaceResultFilterUrl((params) => {
+      if (enabled) params.set("reviewed", "1");
+      else params.delete("reviewed");
+    });
+  const clearFilters = () =>
+    replaceResultFilterUrl((params) => {
+      params.delete("scope");
+      params.delete("family");
+      params.delete("diagnosis");
+      params.delete("category");
+      params.delete("reviewed");
+    });
+  const activeFilterCount =
+    Number(scope !== defaultScope) +
+    (scope === "guides"
+      ? Number(family !== "all") + Number(Boolean(diagnosis))
+      : selectedCategories.size + Number(reviewedOnly));
+  const appliedFilters: AppliedFilterChip[] = [];
+  if (scope !== defaultScope) {
+    appliedFilters.push({
+      id: "scope",
+      groupLabel: "Search in",
+      valueLabel: scope === "guides" ? "Clinical guides" : "Full catalogue",
+      onRemove: () => updateLens("scope", defaultScope, defaultScope, specifierScopeValues),
+    });
+  }
+  if (scope === "guides") {
+    if (family !== "all") {
+      appliedFilters.push({
+        id: "family",
+        groupLabel: "Family",
+        valueLabel: familyOptions.find((option) => option.value === family)?.label ?? family,
+        onRemove: () => updateLens("family", "all", "all", familyValues),
+      });
+    }
+    if (diagnosis) {
+      appliedFilters.push({
+        id: "diagnosis",
+        groupLabel: "Diagnosis",
+        valueLabel: diagnosisOptions.find((option) => option.value === diagnosis)?.label ?? diagnosis,
+        onRemove: () => updateLens("diagnosis", "", "", diagnosisValues),
+      });
+    }
+  } else {
+    for (const category of selectedCategories) {
+      appliedFilters.push({
+        id: `category-${category}`,
+        groupLabel: "Category",
+        valueLabel: categoryOptions.find((option) => option.value === category)?.label ?? category,
+        onRemove: () => toggleCategory(category),
+      });
+    }
+    if (reviewedOnly) {
+      appliedFilters.push({
+        id: "reviewed",
+        groupLabel: "Source",
+        valueLabel: "Source verified",
+        onRemove: () => setReviewedOnly(false),
+      });
+    }
+  }
+
+  const groups =
+    scope === "guides"
+      ? [
+          resultFilterGroup({
+            id: "family",
+            label: "Family",
+            value: family,
+            options: familyOptions.map((option) => ({
+              ...option,
+              hint: String(searchSpecifiers(query, { family: option.value, diagnosis }).length),
+            })),
+            onChange: (value) => updateLens("family", value, "all", familyValues),
+          }),
+          resultFilterGroup({
+            id: "diagnosis",
+            label: "Diagnosis",
+            value: diagnosis,
+            options: diagnosisOptions.map((option) => ({
+              ...option,
+              hint: String(searchSpecifiers(query, { family, diagnosis: option.value }).length),
+            })),
+            onChange: (value) => updateLens("diagnosis", value, "", diagnosisValues),
+          }),
+        ]
+      : [
+          resultFilterFacetGroup({
+            id: "category",
+            label: "Category",
+            selected: selectedCategories,
+            options: categoryOptions.map((option) => {
+              const next = new Set(selectedCategories);
+              if (!next.has(option.value)) next.add(option.value);
+              const count = allCatalogueMatches.filter(
+                ({ item }) => next.has(item.categoryId) && (!reviewedOnly || item.src === "source-verified"),
+              ).length;
+              return { ...option, hint: String(count), disabled: count === 0 && !selectedCategories.has(option.value) };
+            }),
+            onToggle: toggleCategory,
+          }),
+          resultFilterFacetGroup({
+            id: "reviewed",
+            label: "Source verification",
+            selected: new Set(reviewedOnly ? ["reviewed"] : []),
+            options: [
+              {
+                value: "reviewed",
+                label: "Source verified",
+                hint: String(
+                  allCatalogueMatches.filter(
+                    ({ item }) =>
+                      item.src === "source-verified" &&
+                      (selectedCategories.size === 0 || selectedCategories.has(item.categoryId)),
+                  ).length,
+                ),
+              },
+            ],
+            onToggle: () => setReviewedOnly(!reviewedOnly),
+          }),
+        ];
 
   return (
     <SpecifierPageShell>
       <SearchResultsHeaderBand
         modeId="specifiers"
         query={query}
-        matchCount={totalMatches}
+        matchCount={matchingTotal}
         headingLevel={1}
         filterLabel="Filter specifier results"
         // One compact badged trigger replaces the two-column grid of selects, so
@@ -223,22 +382,22 @@ function SpecifierResults({ query }: { query: string }) {
             testId="specifier-filter-trigger-phone"
             title="Filter specifiers"
             open={filterOpen}
-            activeCount={(family === "all" ? 0 : 1) + (diagnosis === "" ? 0 : 1)}
+            activeCount={activeFilterCount}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
         filterControls={
-          <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5">
-            <SegmentedControl
-              value={family}
-              onChange={setFamily}
-              options={familyOptions}
-              label="Filter by specifier family"
-              className="sm:flex-1"
-            />
-            <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
-          </div>
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="specifier-filter-trigger-desktop"
+            title="Filter specifiers"
+            open={filterOpen}
+            activeCount={activeFilterCount}
+            onToggle={() => setFilterOpen((current) => !current)}
+          />
         }
+        appliedFilters={appliedFilters}
+        onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
       />
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up. Both
@@ -250,48 +409,55 @@ function SpecifierResults({ query }: { query: string }) {
         panelId={filterPanelId}
         testId="specifier-filter-panel"
         title="Filter specifiers"
-        groups={[
-          resultFilterGroup({
-            id: "family",
-            label: "Family",
-            value: family,
-            options: familyOptions,
-            onChange: setFamily,
-          }),
-          resultFilterGroup({
-            id: "diagnosis",
-            label: "Diagnosis",
-            value: diagnosis,
-            options: diagnosisOptions,
-            onChange: setDiagnosis,
-          }),
-        ]}
-        onClearAll={
-          family === "all" && diagnosis === ""
-            ? undefined
-            : () => {
-                setFamily("all");
-                setDiagnosis("");
-              }
-        }
-        // `results`, not `totalMatches`. Both groups narrow only the curated
-        // list; `catalogueMatches` keys on the query alone, so reporting the sum
-        // claimed the sheet scoped a total its filters could not move — the
-        // count sat still while a filter visibly changed the list.
-        footerNote={`${results.length} showing`}
+        scope={{
+          label: "Search in",
+          value: scope,
+          onChange: (value) => updateLens("scope", value as SpecifierResultScope, defaultScope, specifierScopeValues),
+          options: [
+            {
+              value: "guides",
+              label: "Clinical guides",
+              count: guideMatches.length,
+              description: "Curated decision-support guides.",
+            },
+            {
+              value: "catalogue",
+              label: "Full catalogue",
+              count: catalogueMatches.length,
+              description: "The complete disorder-specific catalogue.",
+            },
+          ],
+        }}
+        groups={groups}
+        onClearAll={activeFilterCount > 0 ? clearFilters : undefined}
+        summary={{ count: matchingTotal, noun: matchingTotal === 1 ? "specifier" : "specifiers" }}
       />
 
-      {totalMatches === 0 ? (
+      {matchingTotal === 0 ? (
         <EmptySearchResults query={query} />
-      ) : results.length > 0 ? (
+      ) : scope === "guides" ? (
         <section aria-label="Specifier matches" className="grid gap-3">
-          {results.map(({ record }, index) => (
+          {guideMatches.map(({ record }, index) => (
             <SpecifierMatchCard key={record.slug} record={record} isTopMatch={index === 0} />
           ))}
         </section>
       ) : null}
 
-      <SpecifierCatalogueMatches matches={catalogueMatches} />
+      {scope === "catalogue" ? <SpecifierCatalogueMatches matches={visibleCatalogueMatches} /> : null}
+      {scope === "catalogue" && visibleCatalogueMatches.length < catalogueMatches.length ? (
+        <button
+          type="button"
+          onClick={() =>
+            setVisibleState((current) => ({
+              signature: resultSignature,
+              count: current.count + CATALOGUE_RESULT_INCREMENT,
+            }))
+          }
+          className="inline-flex min-h-tap w-full items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] sm:min-h-10"
+        >
+          Show more ({catalogueMatches.length - visibleCatalogueMatches.length} remaining)
+        </button>
+      ) : null}
 
       <SpecifierSafetyNote />
     </SpecifierPageShell>

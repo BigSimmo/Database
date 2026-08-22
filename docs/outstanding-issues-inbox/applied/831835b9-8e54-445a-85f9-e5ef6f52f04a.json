@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "831835b9-8e54-445a-85f9-e5ef6f52f04a",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#281",
+    "outcome": "Preserved canonical DocumentClinicalSummary anchor and suppressed redundant rail disclosure on mobile",
+    "baseRowFingerprint": "a445f3fcb9cd45b23c04f960ebf8f1539578545ccafffdf4a8344435ae35c362"
+  }
+}

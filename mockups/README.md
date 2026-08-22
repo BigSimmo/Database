@@ -43,6 +43,65 @@ Some document-search mockups include live handoff routes (for example `document-
 - Full three-direction study: [`/mockups/privacy-page-directions`](../src/app/mockups/privacy-page-directions/page.tsx)
 - Static comps: [`public/mockups/privacy-page-redesign-2026-08/`](../public/mockups/privacy-page-redesign-2026-08/README.md)
 
+## Dictionary Browse header study (2026-08-18)
+
+Runnable study at [`/mockups/dictionary-browse-header`](../src/app/mockups/dictionary-browse-header/page.tsx). The
+brief was to drop the description line under **Browse terms** and the orphaned A–Z / Z–A sort pill that floats on its
+own row, then rebuild the header for the phone. All three directions move sort into the Filters sheet, where the other
+modes already keep it; they differ in how much letter navigation stays on screen.
+
+| Direction                   | Phone chrome before a result | Trade-off                                                     |
+| --------------------------- | ---------------------------- | ------------------------------------------------------------- |
+| 01 Compact title bar        | 2 bands                      | Keeps both browse views explicit; least vertical saving       |
+| 02 Fused letter rail (rec.) | 2 bands                      | Abbreviations becomes a rail chip rather than a separate view |
+| 03 Index rail + jump sheet  | 1 band                       | Edge rail is a fine-motor target; jump sheet is the a11y path |
+
+The current header is rendered side by side at the top of the page for comparison. Shared mockup chrome is suppressed
+because each frame draws its own top bar, mode nav and composer.
+
+## Dictionary Browse header, round two (2026-08-18)
+
+Runnable study at [`/mockups/dictionary-browse-header-compact`](../src/app/mockups/dictionary-browse-header-compact/page.tsx),
+a follow-up to the round-one study above. Every version replaces the 27-chip horizontal letter rail with a **letter
+dropdown on phones** and moves **Abbreviations out of the header into the Filters sheet** beside sort.
+
+| Version                        | Phone chrome | Trade-off                                                           |
+| ------------------------------ | ------------ | ------------------------------------------------------------------- |
+| 01 Title bar + letter dropdown | 2 rows       | Title still costs a row the mode nav already implies                |
+| 02 Single fused row (rec.)     | 1 row        | An active filter chip costs the row its title and count at 390 px   |
+| 03 Slim toolbar, title retired | 1 slim bar   | Phone loses its visual page title; depends on the mode nav above it |
+
+Demoting a view switch into a sheet hides state, so each version surfaces an active **Abbreviations** chip beside the
+letter control. Without it the header would claim 96 terms while listing 24 abbreviations.
+
+Note for anyone extending these: the mockup stylesheet only emits Tailwind classes that some source actually uses, and
+no production file uses a bare `grid-cols-6` (only `xl:grid-cols-6`). The 26-letter pickers therefore pin
+`gridTemplateColumns` inline rather than depending on class generation — a bare `grid-cols-6` silently collapses them
+to one column.
+
+## Dictionary — condensing the phone control row (2026-08-21)
+
+Runnable study at [`/mockups/dictionary-control-row`](../src/app/mockups/dictionary-control-row/page.tsx).
+Deliberately the narrowest of the Dictionary header rounds: the page keeps its kicker, title, summary line, desktop
+sort/view/Filter, letter rail, result rows and the site-wide bottom composer exactly as they are. Only the **phone
+control row** changes — today two viewport-sized dotted pills for Terms / Abbrev plus an A-Z dropdown, on a second
+line under a summary line that is already two thirds empty.
+
+Each version drops the decorative leading dots and folds the row up into the summary line, so the control block goes
+from two rows to one. What differs is which cost each one attacks.
+
+| Version                               | Attacks               | Trade-off                                            |
+| ------------------------------------- | --------------------- | ---------------------------------------------------- |
+| 01 Fold it into the line above (rec.) | The second line       | Four things on one line; small toggle segments       |
+| 02 Drop the segmented control         | The unselected option | Scope costs two taps; other count is not visible     |
+| 03 One control, one sheet             | Having two controls   | Everything is two taps; abbreviations undiscoverable |
+
+Every version is rendered twice — the row alone at true 390 px width, which is how the complaint was raised, and the
+row in place on the page. Shared mockup chrome is suppressed because each frame draws its own tab rail and composer.
+
+The tab rail reads Terms · Topics · More rather than Search · Browse · More: this round assumes Search and Browse have
+merged into one destination, with the site-wide composer as the mode’s only search surface.
+
 ## Phone Choose mode sheet YES comps
 
 Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review of the shipping phone mode sheet plus **YES 01 perfected** (sectioned clinical list — shipping recommendation) and YES 02 (icon deck alternate). Shared mockup chrome is suppressed so only the in-frame sheet is judged.

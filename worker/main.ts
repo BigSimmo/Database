@@ -39,8 +39,19 @@ import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/datab
 import { compensateUploadedArtifactAndThrow } from "../src/lib/storage-upload-compensation";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
-import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prerequisites";
+import {
+  assertEnrichmentChunkRows,
+  assertEnrichmentImageRows,
+  partitionClaimedJobRows,
+  type RejectedClaimedJobRow,
+} from "./row-contracts";
+import {
+  checkDoclingShadowPrerequisites,
+  checkMedspacyPrerequisites,
+  checkPythonPdfPrerequisites,
+} from "./prerequisites";
 import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
+import { runShadowExtraction } from "./shadow-extraction";
 import { buildTableFactRows } from "./table-facts";
 import { enrichmentRepairDecision, ingestionFailureDecision } from "./behavior";
 import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
@@ -259,15 +270,25 @@ async function completeJob(job: JobRow, stage: string) {
   }
   if (!isMissingSchemaError(error)) throw supabaseStageError("complete ingestion job", error);
 
-  await updateJob(job.id, {
-    status: "completed",
-    stage,
-    progress: 100,
-    locked_at: null,
-    locked_by: null,
-    completed_at: new Date().toISOString(),
-  });
-  await markSupersededSiblingJobs(job);
+  const { error: updateError } = await supabase
+    .from("ingestion_jobs")
+    .update({
+      status: "completed",
+      stage,
+      progress: 100,
+      locked_at: null,
+      locked_by: null,
+      completed_at: new Date().toISOString(),
+    })
+    .eq("id", job.id)
+    .eq("locked_by", workerId);
+  if (updateError) throw supabaseStageError("complete ingestion job fallback", updateError);
+
+  try {
+    await markSupersededSiblingJobs(job);
+  } catch (siblingError) {
+    console.warn("Non-fatal error superseding sibling jobs", safeErrorLogDetails(siblingError));
+  }
   await updateBatch(job.batch_id);
   invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
 }
@@ -306,7 +327,11 @@ async function completeStrictEnrichmentJob(job: JobRow) {
 }
 
 async function failOrRetryJob(args: {
-  job: JobRow;
+  // Structurally narrowed so a contract-rejected claimed row (whose `documents` payload
+  // cannot be trusted) can still be failed terminally: the RPC path needs only the ids,
+  // and the missing-schema fallback reads `documents.owner_id` solely as an ownership
+  // filter. The ordinary caller passes a full JobRow unchanged.
+  job: Pick<JobRow, "id" | "document_id" | "batch_id"> & { documents: Pick<JobDocument, "owner_id"> };
   retry: boolean;
   documentStatus: "queued" | "failed" | "indexed";
   stage: string;
@@ -396,7 +421,9 @@ function noteSkippedImage(skipReasons: Map<string, number>, reason: string) {
   skipReasons.set(reason, (skipReasons.get(reason) ?? 0) + 1);
 }
 
-async function claimJobs() {
+// The declared JobRow[] return is the compile-time proof that the claim contract's
+// inferred row type stays assignable to JobRow — weakening the schema fails here.
+async function claimJobs(): Promise<JobRow[]> {
   const { data, error } = await supabase.rpc("claim_ingestion_jobs", {
     p_worker_id: workerId,
     p_claim_limit: env.WORKER_CONCURRENCY,
@@ -404,10 +431,44 @@ async function claimJobs() {
   });
 
   if (error) throw supabaseStageError("claim ingestion jobs", error);
-  return ((data ?? []) as unknown as Array<Omit<JobRow, "documents"> & { documents: JobDocument }>).map((job) => ({
-    ...job,
-    documents: job.documents,
-  })) as JobRow[];
+
+  // #212 T4: per-row fail-soft validation. A batch-wide throw here would bypass the job
+  // lifecycle entirely — the run-loop claim catch backs off and repolls (and exits the
+  // process under --once) — while the RPC has already committed leases and attempt_count
+  // increments for every row, orphaning valid siblings. A row that fails the contract is
+  // failed terminally instead (a shape mismatch is deterministic; retrying reruns the same
+  // to_jsonb over the same columns) and never reaches processJob.
+  const { accepted, rejected } = partitionClaimedJobRows(data ?? []);
+  for (const rejection of rejected) await terminallyFailRejectedClaimedRow(rejection);
+  return accepted;
+}
+
+async function terminallyFailRejectedClaimedRow(rejection: RejectedClaimedJobRow) {
+  if (!rejection.failable) {
+    // No trustworthy job identity: leave the held lease to the stale reclaim, which is
+    // bounded — claim eligibility requires attempt_count < max_attempts and every claim
+    // increments the count, so a persistently malformed row cannot loop forever.
+    console.warn("Claimed job row failed the shape contract without a usable job id; leaving to stale reclaim", {
+      issues: rejection.error.issues,
+    });
+    return;
+  }
+  const { id, document_id, batch_id, ownerId, documentStatus } = rejection.failable;
+  try {
+    await failOrRetryJob({
+      job: { id, document_id, batch_id, documents: { owner_id: ownerId } },
+      retry: false,
+      documentStatus,
+      stage: "claimed row failed shape contract",
+      errorMessage: rejection.error.message,
+    });
+  } catch (failError) {
+    // The fail path must not take down the batch either; stale reclaim recovers this row.
+    console.warn(
+      "Terminal fail of a malformed claimed row did not complete; leaving to stale reclaim",
+      safeErrorLogDetails(failError),
+    );
+  }
 }
 
 async function downloadDocument(storagePath: string) {
@@ -1628,8 +1689,9 @@ function extractionMetrics(
 }
 
 async function loadEnrichmentRows(documentId: string) {
-  const chunks = [];
-  const images = [];
+  const chunks: unknown[] = [];
+  const images: unknown[] = [];
+  const MAX_ENRICHMENT_CHUNKS = 5000;
 
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase
@@ -1642,6 +1704,11 @@ async function loadEnrichmentRows(documentId: string) {
       .range(start, start + 999);
     if (error) throw new Error(error.message);
     chunks.push(...(data ?? []));
+    if (chunks.length > MAX_ENRICHMENT_CHUNKS) {
+      throw new Error(
+        `Document ${documentId} exceeded maximum enrichment chunk limit of ${MAX_ENRICHMENT_CHUNKS}. Aborting enrichment to prevent memory exhaustion.`,
+      );
+    }
     if (!data || data.length < 1000) break;
   }
 
@@ -1658,6 +1725,12 @@ async function loadEnrichmentRows(documentId: string) {
     if (!data || data.length < 1000) break;
   }
 
+  // #212 T4: these read-backs feed upsertDocumentEnrichment and upsertDocumentDeepMemory,
+  // which previously received them through unchecked parameter casts. A contract throw is
+  // contained by the inline-enrichment try in processJob: enrichment is marked failed, the
+  // job still completes, and repair is queued — record-and-skip, never a retry loop.
+  assertEnrichmentChunkRows(chunks);
+  assertEnrichmentImageRows(images);
   return { chunks, images };
 }
 
@@ -1680,21 +1753,31 @@ async function processJob(job: JobRow) {
     const buffer = await downloadDocument(job.documents.storage_path);
     await updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 });
     // Finding #7: Ingestion Worker Heartbeat. Prevent stale locks during long PDF extractions.
+    let leaseLost = false;
     const heartbeat = setInterval(
       () => {
-        updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 }).catch(() => {});
+        updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 }).catch(() => {
+          leaseLost = true;
+        });
       },
       Math.min(60_000, jobLeaseHeartbeatMs),
     );
+    // Legacy extraction wall clock is recorded alongside any B4 shadow measurement so the
+    // docling-vs-legacy latency comparison uses the same document on the same host.
+    const legacyExtractionStartedAt = Date.now();
     try {
       extracted = await extractDocument({
         buffer,
         fileName: job.documents.file_name,
         mimeType: job.documents.file_type,
       });
+      if (leaseLost) {
+        throw new Error("Ingestion lease lost during document extraction; aborting job processing.");
+      }
     } finally {
       clearInterval(heartbeat);
     }
+    const legacyExtractionWallMs = Date.now() - legacyExtractionStartedAt;
 
     await updateJobProgress(job.id, { stage: "saving pages", progress: 32 });
     const pageRows = buildDocumentPageRows(job.document_id, extracted);
@@ -1802,8 +1885,8 @@ async function processJob(job: JobRow) {
         const deepMemory = await upsertDocumentDeepMemory({
           supabase,
           document: job.documents,
-          chunks: enrichmentRows.chunks as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["chunks"],
-          images: enrichmentRows.images as unknown as Parameters<typeof upsertDocumentDeepMemory>[0]["images"],
+          chunks: enrichmentRows.chunks,
+          images: enrichmentRows.images,
           summary: enrichment.summary.summary,
         });
         sectionCount = deepMemory.sections.length;
@@ -1827,6 +1910,48 @@ async function processJob(job: JobRow) {
       }
     } else {
       await updateJob(job.id, { stage: "core index complete; enrichment deferred", progress: 98 });
+    }
+
+    // Packet B4 — docling shadow extraction. Runs ONLY here: after the legacy generation is
+    // committed (the live index never depends on it) and before the final metadata merge
+    // (so the aggregate record rides the existing worker-owned write — no new write site,
+    // no document_index_quality / chunk / embedding / index-unit / table-fact write).
+    // Fail-open and bounded (worker/shadow-extraction.ts); null when the mode is "legacy"
+    // or the document is outside the cohort, in which case nothing is written.
+    let shadowExtraction: Awaited<ReturnType<typeof runShadowExtraction>> = null;
+    if (env.WORKER_DOCUMENT_EXTRACTOR_MODE === "shadow") {
+      // Fail-open: updateJobProgress throws on a lost lease, and a lost lease must not fail a
+      // job whose generation is already committed — swallow it exactly like the heartbeat.
+      await updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)", progress: 98 }).catch(() => {});
+      const shadowHeartbeat = setInterval(
+        () => {
+          updateJobProgress(job.id, { stage: "indexed; shadow extraction (docling)", progress: 98 }).catch(() => {});
+        },
+        Math.min(60_000, jobLeaseHeartbeatMs),
+      );
+      try {
+        shadowExtraction = await runShadowExtraction(
+          {
+            documentId: job.document_id,
+            indexGenerationId,
+            fileName: job.documents.file_name,
+            mimeType: job.documents.file_type,
+            buffer,
+            legacy: extracted,
+            legacyWallMs: legacyExtractionWallMs,
+            quality: { issues: finalQuality.issues, metrics: finalQuality.metrics },
+          },
+          {
+            config: {
+              mode: env.WORKER_DOCUMENT_EXTRACTOR_MODE,
+              cohortPercent: env.WORKER_SHADOW_EXTRACTION_COHORT_PERCENT,
+              pythonBin: env.WORKER_DOCLING_PYTHON_BIN,
+            },
+          },
+        );
+      } finally {
+        clearInterval(shadowHeartbeat);
+      }
     }
 
     const repair = enrichmentRepairDecision({
@@ -1871,6 +1996,9 @@ async function processJob(job: JobRow) {
           }),
       embedding_model: env.OPENAI_EMBEDDING_MODEL,
       ...metrics,
+      // B4: aggregate numbers only; absent (not null) outside shadow mode / the cohort so a
+      // legacy-mode run never touches an earlier shadow record on the row.
+      ...(shadowExtraction ? { shadow_extraction: shadowExtraction } : {}),
     };
 
     await updateDocument(job.document_id, job.documents.owner_id, {
@@ -1934,6 +2062,16 @@ async function main() {
     const medspacyPrereqs = await checkMedspacyPrerequisites();
     if (!medspacyPrereqs.ok) {
       console.warn(`medspaCy assertion prerequisite warning (tagging will fail open): ${medspacyPrereqs.detail}`);
+    }
+  }
+  if (env.WORKER_DOCUMENT_EXTRACTOR_MODE === "shadow") {
+    console.log(
+      `Docling shadow extraction enabled (packet B4): cohort ${env.WORKER_SHADOW_EXTRACTION_COHORT_PERCENT}% of ` +
+        "index-quality-selected PDFs after legacy commit; aggregate metadata only. Rollback: set WORKER_DOCUMENT_EXTRACTOR_MODE=legacy, then deploy.",
+    );
+    const doclingPrereqs = await checkDoclingShadowPrerequisites();
+    if (!doclingPrereqs.ok) {
+      console.warn(`Docling shadow prerequisite warning (shadow extraction will fail open): ${doclingPrereqs.detail}`);
     }
   }
 

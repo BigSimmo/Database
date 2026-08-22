@@ -16,7 +16,7 @@ import {
   Search,
   ShieldAlert,
   Square,
-  UploadCloud,
+  Activity,
   Wrench,
 } from "lucide-react";
 import {
@@ -30,11 +30,11 @@ import {
   useState,
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
-import { useUploadDesktopLayout } from "@/components/clinical-dashboard/use-upload-desktop-layout";
+import { useIndexingAdminDesktopLayout } from "@/components/clinical-dashboard/use-indexing-admin-desktop-layout";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { ownsVerticalScroll, scrollSurface } from "@/components/clinical-dashboard/scroll-surface";
-import { isLocalNoAuthMode, resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
+import { incrementalEvidencePreviewRenderingEnabled, isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { isAdministratorUser } from "@/lib/authorization";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
@@ -50,6 +50,7 @@ import {
 import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
+import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
@@ -82,10 +83,13 @@ import {
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
+import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import {
+  mobileComposerIdleReserve,
   resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
@@ -100,7 +104,6 @@ import {
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
-  answerTimedOutError,
   applyRenamedDocumentToAnswer,
   compactScopeFilters,
   hasActiveIndexingWork,
@@ -110,11 +113,12 @@ import {
   replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
+  shouldShowSharedHome,
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
-import { answerRecovery, errorCopy } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy, sharedHomeDocumentTitle } from "@/lib/ui-copy";
 import { summarizeBulkReindexPayload } from "@/lib/bulk-reindex-results";
 import {
   type DocumentDrawerMode,
@@ -140,7 +144,7 @@ import {
 import {
   type IndexingMonitorFilter,
   type LibraryHealthTarget,
-  type UploadIndexingTab,
+  type IndexingAdministrationTab,
 } from "@/components/clinical-dashboard/document-admin";
 import { useHomeModeSeed } from "@/components/clinical-dashboard/use-home-mode-seed";
 import {
@@ -155,7 +159,6 @@ import {
   RelatedDocumentsPanel,
   SetupChecklist,
   StagedAnswerResultSurface,
-  UploadPanel,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
 import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
@@ -170,12 +173,10 @@ import {
   keywordQueryFromNaturalLanguage,
   makeSearchError,
   progressForRetry,
-  readAnswerStream,
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
   type AnswerErrorKind,
-  type AnswerPayload,
   type SearchError,
 } from "@/components/clinical-dashboard/search-utils";
 import {
@@ -224,11 +225,13 @@ import {
 } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
+import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
+
 import { type SmartDocumentTag, type SmartDocumentTagFacet } from "@/lib/document-tags";
 import type {
   ClinicalDocument,
@@ -437,6 +440,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setError(null);
     setAnswerProgress(null);
+    setAnswerEvidencePreview(null);
     setDifferentialEvidenceQuery(null);
   }, [resetAnswerThread]);
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
@@ -449,6 +453,7 @@ export function ClinicalDashboard({
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [answerProgressEvents, setAnswerProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
   const [answerProgressStartedAt, setAnswerProgressStartedAt] = useState<number | null>(null);
+  const [answerEvidencePreview, setAnswerEvidencePreview] = useState<VerifiedEvidencePreviewUnit | null>(null);
   const [answerLifecycle, dispatchAnswerLifecycle] = useReducer(answerLifecycleReducer, initialAnswerLifecycle);
   const [error, setError] = useState<string | null>(null);
   // Companion state for `error`, used to pick the right recovery UI (retry vs.
@@ -517,8 +522,12 @@ export function ClinicalDashboard({
   );
   const settingsState = useSettingsState();
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
-  const uploadUsesDesktopRegions = useUploadDesktopLayout();
-  const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
+  // Same contract as the documents drawer above: UtilityDrawer's default return target is its own
+  // mobile trigger, which unmounts with the drawer on phone layouts, leaving focus with nowhere to
+  // go. Capture the real opener before opening instead.
+  const indexingAdminReturnFocusRef = useRef<HTMLElement | null>(null);
+  const indexingAdminUsesDesktopRegions = useIndexingAdminDesktopLayout();
+  const indexingAdminTabRefs = useRef(new Map<IndexingAdministrationTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -656,7 +665,7 @@ export function ClinicalDashboard({
     setSettingsOpen: settingsState.setSettingsOpen,
     setMobileSidebarOpen: settingsState.setMobileSidebarOpen,
     setDocumentsDrawerOpen: settingsState.setDocumentsDrawerOpen,
-    setUploadDrawerOpen: settingsState.setUploadDrawerOpen,
+    setIndexingAdminDrawerOpen: settingsState.setIndexingAdminDrawerOpen,
     prefetch: (href) => router.prefetch(href),
   });
   const settingsGuideFlow = useSettingsGuideFlow({
@@ -695,10 +704,6 @@ export function ClinicalDashboard({
   });
   // Local no-auth can still exercise public-read APIs, but administration is always
   // derived separately from the immutable account role claim.
-  const uploadReadOnlyMode = resolveUploadReadOnlyMode({
-    explicitDemoMode,
-    authUnavailableFallback: browserAuthUnavailableDemoFallback,
-  });
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
@@ -708,7 +713,6 @@ export function ClinicalDashboard({
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
   const isAdministrator = isAdministratorUser(auth.session?.user);
   const canUseAdministrativeApis = localProjectReady && isAdministrator;
-  const canUploadDocuments = canUseAdministrativeApis && canUsePublicSearchApis;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
   const canRunSearch =
     explicitDemoMode ||
@@ -718,6 +722,8 @@ export function ClinicalDashboard({
     canAttemptDeployedPublicSearch;
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
+      indexingAdminReturnFocusRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
       if (!canUseAdministrativeApis) {
         closeDashboardTransientSurfaces("documents");
         settingsState.setDocumentsDrawerMode("library");
@@ -742,20 +748,20 @@ export function ClinicalDashboard({
         settingsState.setDocumentsDrawerMode("admin");
         settingsState.setDocumentsDrawerOpen(true);
       } else if (target === "indexing") {
-        closeDashboardTransientSurfaces("upload");
-        settingsState.setUploadMobileTab("jobs");
+        closeDashboardTransientSurfaces("indexingAdmin");
+        settingsState.setIndexingAdminMobileTab("jobs");
         setIndexingMonitorFilter("active");
-        settingsState.setUploadDrawerOpen(true);
+        settingsState.setIndexingAdminDrawerOpen(true);
       } else if (target === "failures") {
-        closeDashboardTransientSurfaces("upload");
-        settingsState.setUploadMobileTab("jobs");
+        closeDashboardTransientSurfaces("indexingAdmin");
+        settingsState.setIndexingAdminMobileTab("jobs");
         setIndexingMonitorFilter("failed");
-        settingsState.setUploadDrawerOpen(true);
+        settingsState.setIndexingAdminDrawerOpen(true);
       } else {
-        closeDashboardTransientSurfaces("upload");
-        settingsState.setUploadMobileTab("setup");
+        closeDashboardTransientSurfaces("indexingAdmin");
+        settingsState.setIndexingAdminMobileTab("setup");
         setIndexingMonitorFilter("all");
-        settingsState.setUploadDrawerOpen(true);
+        settingsState.setIndexingAdminDrawerOpen(true);
       }
 
       window.setTimeout(() => {
@@ -1351,16 +1357,28 @@ export function ClinicalDashboard({
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
   const dashboardDataSurfaceVisible =
-    settingsState.documentScopeOpen || settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen;
+    settingsState.documentScopeOpen || settingsState.documentsDrawerOpen || settingsState.indexingAdminDrawerOpen;
   const administrationSurfaceVisible =
     canUseAdministrativeApis &&
-    (settingsState.uploadDrawerOpen ||
+    (settingsState.indexingAdminDrawerOpen ||
       (settingsState.documentsDrawerOpen && settingsState.documentsDrawerMode === "admin"));
 
   useEffect(() => {
     dashboardDataLoadedRef.current = false;
     administrationDataLoadedRef.current = false;
   }, [authEpoch]);
+
+  // Losing administrator access must not leave jobs, batches and quality data on screen. The render
+  // guard on the drawer stops painting immediately; this clears the state behind it too, so
+  // re-acquiring access does not silently reopen a surface the user never asked for.
+  //
+  // Corrected during render rather than in an effect: `react-hooks/set-state-in-effect` forbids the
+  // effect form, and this is React's documented "adjust state while rendering" case — the condition
+  // is false immediately after the setter runs, so it settles in one extra pass and never loops.
+  if (!canUseAdministrativeApis && settingsState.indexingAdminDrawerOpen) {
+    settingsState.setIndexingAdminDrawerOpen(false);
+    setIndexingMonitorFilter("all");
+  }
 
   useEffect(() => {
     refresh({ includeSetup: true, includeDashboardData: false, includeDocumentMeta: false }).catch(() => undefined);
@@ -1478,40 +1496,24 @@ export function ClinicalDashboard({
     };
   }, []);
 
-  useEffect(() => {
-    const searchParamString = searchParams.toString();
-    if (lastSyncedSearchParamsRef.current === searchParamString) return;
-    lastSyncedSearchParamsRef.current = searchParamString;
-    const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
-    setQueryMode(nextSearchContext.queryMode);
-    setScopeFilters(nextSearchContext.scopeFilters);
-    if (searchParams.get("run") === "1") return;
-
-    const mode = searchParams.get("mode");
-    if (!isAppModeId(mode) || !isAppModeVisible(mode)) return;
-
-    if (modeChangeFromUiRef.current) {
-      modeChangeFromUiRef.current = false;
-      return;
-    }
-
-    const nextQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
-    const shouldFocusComposer = searchParams.get("focus") === "1";
-    const hasUrlQuery = searchParams.has("q") || searchParams.has("query");
-    const frame = window.requestAnimationFrame(() => {
-      if (mode === "differentials") clearModeResultState();
-      setSearchMode(mode);
-      if (hasUrlQuery) setQuery(nextQuery);
-      setModeSearchSubmitted(false);
-      setLoading(false);
-      setError(null);
-      setAnswerProgress(null);
-      if (shouldFocusComposer) focusComposerInput(true);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [searchParams, clearModeResultState, focusComposerInput]);
-
-  useHomeModeSeed({ pathname, searchParams, lastAppMode });
+  useHomeModeSeed({
+    pathname,
+    searchParams,
+    lastAppMode,
+    setSearchMode,
+    setQuery,
+    setQueryMode,
+    setScopeFilters,
+    setModeSearchSubmitted,
+    setLoading,
+    setError,
+    setAnswerProgress,
+    clearModeResultState,
+    focusComposerInput,
+    stopSearch,
+    modeChangeFromUiRef,
+    lastSyncedSearchParamsRef,
+  });
 
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
@@ -1670,57 +1672,30 @@ export function ClinicalDashboard({
     };
   }
 
-  async function requestAnswer(
+  function requestAnswer(
     queryText: string,
     filtersOverride: SearchScopeFilters = scopeFilters,
     queryModeOverride: ClinicalQueryMode = requestQueryMode,
     onProgress: (progress: AnswerProgressUpdate) => void,
+    onEvidencePreview: (preview: VerifiedEvidencePreviewUnit | null) => void,
     signal?: AbortSignal,
     onStreamActivity?: () => void,
   ) {
-    let response: Response;
-    try {
-      response = await fetch("/api/answer/stream", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(clientDemoMode ? {} : authorizationHeader),
-        },
-        body: JSON.stringify({
-          query: queryText,
-          documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
-          filters: compactScopeFilters(filtersOverride),
-          queryMode: queryModeOverride,
-        }),
-        signal,
-      });
-    } catch (error) {
-      if (answerTimedOutRef.current) throw answerTimedOutError();
-      if (isAbortError(error)) throw error;
-      throw searchNetworkFailure("Answer search");
-    }
-
-    if (response.status === 401) {
-      markSessionExpired();
-      throw makeSearchError("Search request was not authorized by the server.", 401, false);
-    }
-    if (!response.ok) {
-      throw await parseApiErrorResponse(response);
-    }
-
-    let payload: AnswerPayload;
-    try {
-      payload = await readAnswerStream(response, onProgress, onStreamActivity);
-    } catch (error) {
-      if (answerTimedOutRef.current) throw answerTimedOutError();
-      if (isAbortError(error)) throw error;
-      throw error;
-    }
-    return {
-      kind: "answer" as const,
-      query: queryText,
-      payload,
-    };
+    return requestAnswerStream({
+      queryText,
+      filters: filtersOverride,
+      queryMode: queryModeOverride,
+      selectedDocumentIds,
+      clientDemoMode,
+      authorizationHeader,
+      onProgress,
+      onEvidencePreview,
+      signal,
+      onStreamActivity,
+      timedOut: () => answerTimedOutRef.current,
+      onSessionExpired: markSessionExpired,
+      networkFailure: () => searchNetworkFailure("Answer search"),
+    });
   }
 
   async function runWithRetries<T>(
@@ -1773,6 +1748,7 @@ export function ClinicalDashboard({
     setAnswerProgress(null);
     setAnswerProgressEvents([]);
     setAnswerProgressStartedAt(null);
+    setAnswerEvidencePreview(null);
     dispatchAnswerLifecycle({ type: "cancel" });
   }
 
@@ -1933,6 +1909,10 @@ export function ClinicalDashboard({
         return [...current, { ...progress, receivedAt: Date.now() }].slice(-16);
       });
     };
+    const onAnswerEvidencePreview = (preview: VerifiedEvidencePreviewUnit | null) => {
+      if (!requestIsCurrent()) return;
+      setAnswerEvidencePreview(incrementalEvidencePreviewRenderingEnabled() ? preview : null);
+    };
     const onRetryProgress = (message: string) => {
       if (isAnswerRequest) onAnswerProgress({ stage: "retrying", message });
       else onProgress(message);
@@ -1951,6 +1931,7 @@ export function ClinicalDashboard({
     setSearchFacets(null);
     setSearchScope(null);
     setSourceGovernanceWarnings([]);
+    setAnswerEvidencePreview(null);
     setAnswerViewMode("high_yield");
     if (isAnswerRequest) {
       const startedAt = Date.now();
@@ -2029,15 +2010,18 @@ export function ClinicalDashboard({
                   abortController.signal,
                 )
               : await runWithRetries(
-                  () =>
-                    requestAnswer(
+                  () => {
+                    onAnswerEvidencePreview(null);
+                    return requestAnswer(
                       entry.query,
                       filtersOverride,
                       targetQueryMode,
                       onAnswerProgress,
+                      onAnswerEvidencePreview,
                       abortController.signal,
                       answerWatchdog.touch,
-                    ),
+                    );
+                  },
                   onRetryProgress,
                   abortController.signal,
                 );
@@ -2196,7 +2180,7 @@ export function ClinicalDashboard({
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
       autoRunSearchSignatureRef.current = searchSubmissionSignature(searchMode, trimmedQuery, navigationContext);
-      window.history.pushState(
+      window.history[replaceExistingAnswer ? "replaceState" : "pushState"](
         null,
         "",
         documentsSearchHref({
@@ -2733,28 +2717,6 @@ export function ClinicalDashboard({
     openDocumentsDrawer("source");
   }
 
-  function openUploadDrawer() {
-    if (!canUseAdministrativeApis) {
-      openDocumentsDrawer("library");
-      setActionNotice({
-        tone: "warning",
-        message: "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
-      });
-      return;
-    }
-    closeDashboardTransientSurfaces("upload");
-    setSearchMode("documents");
-    settingsState.setDocumentsDrawerMode("admin");
-    settingsState.setUploadDrawerOpen(true);
-    window.requestAnimationFrame(() => {
-      const drawer = document.getElementById("dashboard-upload-drawer") as HTMLDetailsElement | null;
-      drawer?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
-      if (drawer && !drawer.open) {
-        drawer.querySelector<HTMLElement>("summary")?.click();
-      }
-    });
-  }
-
   function openEvidenceDrawer() {
     closeDashboardTransientSurfaces();
     const reviewTrigger = document.getElementById("answer-evidence-drawer-mobile-trigger") as HTMLButtonElement | null;
@@ -3014,14 +2976,22 @@ export function ClinicalDashboard({
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
-  // `/` is the single home page for every mode. The mode pill retargets the
-  // composer instead of navigating, so the hero must not be answer-only: picking
-  // DSM on home keeps this exact surface and only swaps the placeholder. Gated on
-  // the pathname (never on `searchMode`) per the hero-vs-dock rule in
-  // docs/search-chrome-behaviour.md — a mode pick must not flip composer reserve.
-  const isHomeRoute = pathname === "/";
-  const showSharedHome =
-    isHomeRoute && !submittedUrlRunRequested && !error && !answer && !loading && !submittedAnswerSearchActive;
+  const showSharedHome = shouldShowSharedHome({
+    pathname,
+    mode: searchParams.get("mode"),
+    submittedUrlRunRequested,
+    hasError: Boolean(error),
+    hasAnswer: Boolean(answer),
+    loading,
+    submittedAnswerSearchActive,
+  });
+  // The mode pill rewrites the shared-home URL with history.replaceState rather
+  // than asking Next to navigate. Server metadata therefore cannot update after
+  // an in-place mode choice; keep the accessible browser title aligned with the
+  // visible mode heading on that client-only path as well.
+  useEffect(() => {
+    if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
+  }, [searchMode, showSharedHome]);
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
@@ -3044,10 +3014,16 @@ export function ClinicalDashboard({
         activeModeResultKind === "services" ||
         activeModeResultKind === "forms") &&
         modeSearchSubmitted));
+  // `/tools` owns the tools catalogue, but the legacy `/?mode=tools` entry
+  // still renders this dashboard path. Keep both entry points composer-free so
+  // the alias cannot mount a second ownership model (hero/page/dock) behind
+  // the canonical route's no-composer contract. Modes that only borrow the
+  // `tools` result kind remain on the shared home and are intentionally exempt.
+  const toolsDirectoryWithoutComposer = activeModeResultKind === "tools" && !showSharedHome;
   const showDesktopHomeComposer =
     !error &&
     (showSharedHome ||
-      activeModeResultKind === "tools" ||
+      (!toolsDirectoryWithoutComposer && activeModeResultKind === "tools") ||
       (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
         ((searchMode === "documents" &&
@@ -3064,18 +3040,26 @@ export function ClinicalDashboard({
             !(query.trim() && documentMatches.length > 0)))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   const desktopResultComposerSlotId =
-    !desktopHomeComposerSlotId && searchMode !== "answer" ? desktopPageComposerSlotId : undefined;
-  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
-  // favourites) keeps the in-flow hero pill on phones ("all") per the
-  // page-ownership contract. Only result/submitted views fall back to "sm-up"
-  // so phones get the compact bottom dock.
-  const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";
+    !desktopHomeComposerSlotId && searchMode !== "answer" && !toolsDirectoryWithoutComposer
+      ? desktopPageComposerSlotId
+      : undefined;
+  // Most mounted mode homes keep the in-flow hero pill on phones. The Tools
+  // directory has no composer at any breakpoint. Modes borrowing `kind:
+  // "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via
+  // `showSharedHome`.
+  const heroComposerBreakpoint =
+    showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
-  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
-  // Favourites and Tools are content-rich hubs: they share the centred hero but
-  // stay top-aligned so their lists start in a stable position.
+  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer && !toolsDirectoryWithoutComposer;
+  // Tools owns its local catalogue controls, so the sidebar's cross-guide
+  // search action must leave the directory before trying to focus a shared
+  // composer that is intentionally absent.
+  const openSidebarSearch = toolsDirectoryWithoutComposer ? startNewChat : focusComposerInput;
+  // Favourites and Tools are content-rich hubs that stay top-aligned; the shared
+  // home mounts neither, so it centres like every other mode.
   const centeredModeHome =
-    showDesktopHomeComposer && activeModeResultKind !== "tools" && activeModeResultKind !== "favourites";
+    showDesktopHomeComposer &&
+    (showSharedHome || (activeModeResultKind !== "tools" && activeModeResultKind !== "favourites"));
   // Short mode homes (centred homes plus the services/forms registry homes)
   // drop the large mobile bottom padding so phones don't get a scrollbar for
   // content that already fits. Result views keep the full clearance.
@@ -3090,54 +3074,48 @@ export function ClinicalDashboard({
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
-    resolveDashboardVisibleMobileComposerReserve({
-      searchMode,
-      hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
-      differentialsCompareAddonActive,
-      patientDetailsAddonActive,
-      heroOwnsPhoneComposer,
-    }),
+    toolsDirectoryWithoutComposer
+      ? mobileComposerIdleReserve
+      : resolveDashboardVisibleMobileComposerReserve({
+          searchMode,
+          hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
+          differentialsCompareAddonActive,
+          patientDetailsAddonActive,
+          heroOwnsPhoneComposer,
+        }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
-  const activeUploadWork =
+  const activeIndexingWorkCount =
     jobs.filter((job) => job.status === "pending" || job.status === "processing").length +
     batches.filter((batch) => batch.status === "queued" || batch.status === "processing").length;
-  const failedUploadWork =
+  const failedIndexingWorkCount =
     jobs.filter((job) => job.status === "failed").length + batches.filter((batch) => batch.status === "failed").length;
-  const uploadTabs: Array<{
-    id: UploadIndexingTab;
+  const indexingAdminTabs: Array<{
+    id: IndexingAdministrationTab;
     label: string;
     summary: string;
     tabId: string;
     panelId: string;
-    icon: typeof UploadCloud;
+    icon: typeof Activity;
   }> = [
     {
       id: "setup",
       label: "Setup",
       summary: `${setupReadyCount}/${setupCheckCount} ready`,
-      tabId: "dashboard-upload-tab-setup",
+      tabId: "dashboard-indexing-admin-tab-setup",
       panelId: "dashboard-setup-section",
       icon: ListChecks,
     },
     {
-      id: "upload",
-      label: "Upload",
-      summary: uploadReadOnlyMode || !canUploadDocuments ? "Locked" : "Ready",
-      tabId: "dashboard-upload-tab-upload",
-      panelId: "dashboard-upload-section",
-      icon: UploadCloud,
-    },
-    {
       id: "jobs",
       label: "Jobs",
-      summary: activeUploadWork
-        ? `${activeUploadWork} active`
-        : failedUploadWork
-          ? `${failedUploadWork} failed`
+      summary: activeIndexingWorkCount
+        ? `${activeIndexingWorkCount} active`
+        : failedIndexingWorkCount
+          ? `${failedIndexingWorkCount} failed`
           : "Idle",
-      tabId: "dashboard-upload-tab-jobs",
+      tabId: "dashboard-indexing-admin-tab-jobs",
       panelId: "dashboard-indexing-section",
       icon: RefreshCw,
     },
@@ -3145,15 +3123,15 @@ export function ClinicalDashboard({
       id: "quality",
       label: "Quality",
       summary: qualityItems.length ? `${qualityItems.length} review` : "Clear",
-      tabId: "dashboard-upload-tab-quality",
+      tabId: "dashboard-indexing-admin-tab-quality",
       panelId: "dashboard-quality-section",
       icon: ShieldAlert,
     },
   ];
 
-  function handleUploadTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    const order = uploadTabs.map((tab) => tab.id);
-    const index = order.indexOf(settingsState.uploadMobileTab);
+  function handleIndexingAdminTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    const order = indexingAdminTabs.map((tab) => tab.id);
+    const index = order.indexOf(settingsState.indexingAdminMobileTab);
     const next =
       event.key === "ArrowRight"
         ? order[(index + 1) % order.length]
@@ -3166,16 +3144,9 @@ export function ClinicalDashboard({
               : null;
     if (!next) return;
     event.preventDefault();
-    if (next !== settingsState.uploadMobileTab) settingsState.setUploadMobileTab(next);
-    uploadTabRefs.current.get(next)?.focus();
+    if (next !== settingsState.indexingAdminMobileTab) settingsState.setIndexingAdminMobileTab(next);
+    indexingAdminTabRefs.current.get(next)?.focus();
   }
-
-  const handleUploadQueued = () => {
-    setUserStartedIngestion(true);
-    setIndexingActive(true);
-    settingsState.setUploadMobileTab("jobs");
-    void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
-  };
   const documentsDrawerIsAdmin = settingsState.documentsDrawerMode === "admin" && canUseAdministrativeApis;
   const documentsDrawerTitle =
     settingsState.documentsDrawerMode === "recent"
@@ -3209,9 +3180,10 @@ export function ClinicalDashboard({
       : settingsState.documentsDrawerMode === "source"
         ? ExternalLink
         : documentsDrawerIsAdmin
-          ? UploadCloud
+          ? Activity
           : FolderOpen;
-  const drawerGroupTitle = settingsState.uploadDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
+  const drawerGroupTitle =
+    settingsState.indexingAdminDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
 
   // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
   // DocumentSearchResultsPanel). These close over the draft `query` or call the
@@ -3226,6 +3198,7 @@ export function ClinicalDashboard({
   const handleCrossModeSearch = useEventCallback(crossModeSearch);
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleScopeFiltersChange = useScopeFilterRelax(query, queryMode, setScopeFilters, ask);
+  const handleDocumentFiltersApply = useApplyFilters(query, queryMode, setScopeFilters, setSelectedDocumentIds, askRef);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
@@ -3318,6 +3291,7 @@ export function ClinicalDashboard({
         onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
+        onOpenSearch={openSidebarSearch}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -3349,10 +3323,14 @@ export function ClinicalDashboard({
           onScopeFiltersChange={setScopeFilters}
           onScopeOpenChange={settingsState.setDocumentScopeOpen}
           onToggleScope={toggleDocumentScope}
-          onOpenUpload={openUploadDrawer}
           onOpenEvidence={openEvidenceDrawer}
           onOpenRecentDocuments={openRecentDocuments}
           onOpenLibrary={openSourceLibrary}
+          // Restores the administrator's cold-load route to document management: the
+          // indexing drawer's only other openers sit inside surfaces that require it to
+          // be open already.
+          canManageDocuments={canUseAdministrativeApis}
+          onOpenDocumentAdmin={() => openLibraryHealthTarget("documents")}
           onOpenSourcePdf={openSourcePdfBrowser}
           onNewChat={startNewChat}
           showDesktopNewChat={false}
@@ -3374,6 +3352,7 @@ export function ClinicalDashboard({
           composerFollowUpSuggestionsDisabled={loading}
           showPhoneSuggestionTickerOnHome={heroOwnsPhoneComposer}
           sharedHomeIdentity={showSharedHome}
+          searchComposerVisible={!toolsDirectoryWithoutComposer}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           // Every phone dock is the compact single-row pill so content keeps
@@ -3658,6 +3637,10 @@ export function ClinicalDashboard({
                     <SearchProgressBanner message={answerProgress} onStop={stopSearch} />
                   ) : null)}
 
+                {activeModeResultKind === "answer" && loading && answerEvidencePreview ? (
+                  <AnswerEvidencePreview preview={answerEvidencePreview} />
+                ) : null}
+
                 {showUniversalAlsoMatches &&
                 (activeModeResultKind === "tools" ||
                   activeModeResultKind === "documents" ||
@@ -3667,7 +3650,7 @@ export function ClinicalDashboard({
                 ) : null}
 
                 {showSharedHome ? (
-                  // The one home surface, shared by all 13 modes. It sits above every
+                  // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
                   // presentation and composer target; mode-owned content stays behind
                   // its own route (/tools, /favourites, /dsm, …).
@@ -3767,6 +3750,8 @@ export function ClinicalDashboard({
                         onTagSearch={handleDocumentTagSearch}
                         scopeFilters={searchMode === "documents" ? scopeFilters : null}
                         onScopeFiltersChange={searchMode === "documents" ? handleScopeFiltersChange : undefined}
+                        selectedDocumentIds={searchMode === "documents" ? selectedDocumentIds : []}
+                        onDocumentFiltersApply={searchMode === "documents" ? handleDocumentFiltersApply : undefined}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />
@@ -3843,7 +3828,7 @@ export function ClinicalDashboard({
                   onTagSearch={handleDocumentTagSearch}
                 />
               )}
-              {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
+              {(settingsState.documentsDrawerOpen || settingsState.indexingAdminDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
                   <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {drawerGroupTitle}
@@ -3911,15 +3896,16 @@ export function ClinicalDashboard({
                     </UtilityDrawer>
                   ) : null}
 
-                  {settingsState.uploadDrawerOpen ? (
+                  {settingsState.indexingAdminDrawerOpen && canUseAdministrativeApis ? (
                     <UtilityDrawer
-                      id="dashboard-upload-drawer"
-                      icon={UploadCloud}
-                      title="Upload and indexing"
-                      summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
-                      mobileSummary="Setup & uploads"
-                      open={settingsState.uploadDrawerOpen}
-                      onOpenChange={settingsState.setUploadDrawerOpen}
+                      id="dashboard-indexing-admin-drawer"
+                      icon={Activity}
+                      title="Indexing administration"
+                      summary="Documents are added through the administrator backend. Monitor setup, jobs, and ingestion quality here."
+                      mobileSummary="Indexing admin"
+                      open={settingsState.indexingAdminDrawerOpen}
+                      onOpenChange={settingsState.setIndexingAdminDrawerOpen}
+                      sheetReturnFocusRef={indexingAdminReturnFocusRef}
                     >
                       <LibraryHealthStrip
                         documents={documents}
@@ -3931,19 +3917,19 @@ export function ClinicalDashboard({
                       />
                       <div
                         role="tablist"
-                        aria-label="Upload and indexing sections"
-                        onKeyDown={handleUploadTabKeyDown}
-                        className="grid grid-cols-4 gap-2 lg:hidden"
+                        aria-label="Indexing administration sections"
+                        onKeyDown={handleIndexingAdminTabKeyDown}
+                        className="grid grid-cols-3 gap-2 lg:hidden"
                       >
-                        {uploadTabs.map((tab) => {
-                          const active = settingsState.uploadMobileTab === tab.id;
+                        {indexingAdminTabs.map((tab) => {
+                          const active = settingsState.indexingAdminMobileTab === tab.id;
                           const Icon = tab.icon;
                           return (
                             <button
                               key={tab.id}
                               ref={(element) => {
-                                if (element) uploadTabRefs.current.set(tab.id, element);
-                                else uploadTabRefs.current.delete(tab.id);
+                                if (element) indexingAdminTabRefs.current.set(tab.id, element);
+                                else indexingAdminTabRefs.current.delete(tab.id);
                               }}
                               type="button"
                               role="tab"
@@ -3953,7 +3939,7 @@ export function ClinicalDashboard({
                               aria-label={tab.label}
                               aria-describedby={`${tab.tabId}-summary`}
                               tabIndex={active ? 0 : -1}
-                              onClick={() => settingsState.setUploadMobileTab(tab.id)}
+                              onClick={() => settingsState.setIndexingAdminMobileTab(tab.id)}
                               className={cn(
                                 "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
                                 active
@@ -3978,13 +3964,15 @@ export function ClinicalDashboard({
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div
                           id="dashboard-setup-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}
                           aria-labelledby={
-                            uploadUsesDesktopRegions ? "dashboard-setup-section-heading" : "dashboard-upload-tab-setup"
+                            indexingAdminUsesDesktopRegions
+                              ? "dashboard-setup-section-heading"
+                              : "dashboard-indexing-admin-tab-setup"
                           }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                            settingsState.uploadMobileTab !== "setup" && "hidden lg:block",
+                            settingsState.indexingAdminMobileTab !== "setup" && "hidden lg:block",
                           )}
                         >
                           <p
@@ -3997,45 +3985,16 @@ export function ClinicalDashboard({
                           {showAuthPanel && <AuthPanel />}
                         </div>
                         <div
-                          id="dashboard-upload-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
-                          aria-labelledby={
-                            uploadUsesDesktopRegions
-                              ? "dashboard-upload-section-heading"
-                              : "dashboard-upload-tab-upload"
-                          }
-                          className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                            settingsState.uploadMobileTab !== "upload" && "hidden lg:block",
-                          )}
-                        >
-                          <p
-                            id="dashboard-upload-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
-                          >
-                            Clinical upload
-                          </p>
-                          <UploadPanel
-                            onUploaded={handleUploadQueued}
-                            demoMode={uploadReadOnlyMode}
-                            canUpload={canUploadDocuments}
-                            authorizationHeader={authorizationHeader}
-                            registerAuthRequest={registerAuthRequest}
-                            isAuthEpochCurrent={isAuthEpochCurrent}
-                            onSessionExpired={markSessionExpired}
-                          />
-                        </div>
-                        <div
                           id="dashboard-indexing-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}
                           aria-labelledby={
-                            uploadUsesDesktopRegions
+                            indexingAdminUsesDesktopRegions
                               ? "dashboard-indexing-section-heading"
-                              : "dashboard-upload-tab-jobs"
+                              : "dashboard-indexing-admin-tab-jobs"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                            settingsState.uploadMobileTab !== "jobs" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-start-1",
+                            settingsState.indexingAdminMobileTab !== "jobs" && "hidden lg:block",
                           )}
                         >
                           <p
@@ -4056,15 +4015,15 @@ export function ClinicalDashboard({
                         </div>
                         <div
                           id="dashboard-quality-section"
-                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          role={indexingAdminUsesDesktopRegions ? "region" : "tabpanel"}
                           aria-labelledby={
-                            uploadUsesDesktopRegions
+                            indexingAdminUsesDesktopRegions
                               ? "dashboard-quality-section-heading"
-                              : "dashboard-upload-tab-quality"
+                              : "dashboard-indexing-admin-tab-quality"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                            settingsState.uploadMobileTab !== "quality" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-2",
+                            settingsState.indexingAdminMobileTab !== "quality" && "hidden lg:block",
                           )}
                         >
                           <p
@@ -4087,7 +4046,7 @@ export function ClinicalDashboard({
                 </section>
               )}
 
-              {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
+              {(settingsState.documentsDrawerOpen || settingsState.indexingAdminDrawerOpen) && (
                 <GuideTrigger onOpen={openGuide} onPrefetch={loadGuideDialog} />
               )}
             </div>
@@ -4129,6 +4088,7 @@ export function ClinicalDashboard({
           onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
+          onOpenSearch={openSidebarSearch}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>

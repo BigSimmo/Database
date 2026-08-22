@@ -1,0 +1,1 @@
+| 2026-08-17 | claude/rag-d3-s5-followups | 60e61bb9b89e2a62cefa7e89e8f6497c09e8a900 | docs/rag-improvement S5 follow-ups: HANDOVER S5/S2 rows, COORDINATION §7, 4 inbox requests (docs-only) | docs-only; S5 landed; follow-ups queued | verify:pr-local docs scope |

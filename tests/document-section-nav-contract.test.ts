@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { sourceSegment } from "./helpers/source-contract";
+
 /**
  * Cheap wiring contract for document section navigation.
  *
@@ -50,9 +52,11 @@ describe("document section navigation ownership", () => {
   });
 
   it("keeps document-viewer ui-smoke on the current phone section chrome", () => {
-    const documentViewerSmoke = uiSmokeSource.slice(
-      uiSmokeSource.indexOf('test("document viewer puts the PDF preview first'),
-      uiSmokeSource.indexOf('test("answer glass header overlays main'),
+    const documentViewerSmoke = sourceSegment(
+      uiSmokeSource,
+      'test("document viewer puts the PDF preview first',
+      'test("answer glass header overlays main',
+      { label: "document viewer phone section smoke" },
     );
 
     expect(documentViewerSmoke).toContain('getByTestId("document-section-trigger")');

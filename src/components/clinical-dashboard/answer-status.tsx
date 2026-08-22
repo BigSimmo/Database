@@ -16,7 +16,13 @@ import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
-import { answerLoading, copyButton, sharedHomeEmptyState, sharedHomePresentation } from "@/lib/ui-copy";
+import {
+  answerLoading,
+  copyButton,
+  sharedHomeEmptyState,
+  sharedHomePresentation,
+  type SharedHomePresentation,
+} from "@/lib/ui-copy";
 
 export function CopyButton({
   label,
@@ -69,12 +75,13 @@ export function SharedHomeEmptyState({
     onSelectRecent && preferences.showRecentOnHome
       ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5)
       : [];
-  const presentation = sharedHomePresentation[modeId];
+  const presentation: SharedHomePresentation = sharedHomePresentation[modeId];
 
   return (
     <ModeHomeTemplate
       testId="shared-home-empty-state"
       title={presentation.title}
+      subtitle={presentation.subtitle}
       icon={appModeIcons[modeId]}
       headingLevel={2}
       stabilizePhoneCopy
@@ -94,11 +101,6 @@ export function SharedHomeEmptyState({
               icon={History}
             />
           )}
-          {/* No privacy link here: the composer's PrivacyInputNotice is the
-              single site-wide notice, so the hero footer must not repeat it. */}
-          {/* Pre-query copy must describe what the search does, not assert that
-              every indexed source is verified/current (PT-06): validation status
-              varies per document and is surfaced on the results themselves. */}
         </div>
       }
     />
@@ -197,7 +199,7 @@ function AnswerActivityTrace({ density }: { density: AnswerProgressDensity }) {
     <div
       data-testid="answer-activity-trace"
       data-density={density}
-      className={cn("answer-activity-trace w-full overflow-hidden", compact ? "h-5" : "h-10 sm:h-12")}
+      className={cn("answer-activity-trace relative w-full overflow-hidden", compact ? "h-5" : "h-10 sm:h-12")}
     >
       <svg
         aria-hidden="true"
@@ -218,20 +220,39 @@ function AnswerActivityTrace({ density }: { density: AnswerProgressDensity }) {
           vectorEffect="non-scaling-stroke"
           className="text-[color:var(--clinical-accent)] opacity-25 forced-colors:text-[CanvasText] forced-colors:opacity-100"
         />
-        <path
-          data-slot="answer-activity-trace-sweep"
-          d={answerActivityPath}
-          pathLength="320"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={compact ? 1.75 : 2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="36 284"
-          vectorEffect="non-scaling-stroke"
-          className="answer-activity-trace__sweep text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
-        />
       </svg>
+      {/* Two identical copies inside a 200%-wide strip. Each copy is `w-1/2` of the
+          strip, i.e. exactly one container width, so the trace is not horizontally
+          compressed. Translating the strip by -50% puts copy 2 where copy 1 was, so
+          the loop is seamless and the resting (reduced-motion) frame at 0% is a
+          correctly aligned full-width ECG rather than a blank box. */}
+      <span
+        aria-hidden="true"
+        data-slot="answer-activity-trace-sweep"
+        className="answer-activity-trace__sweep pointer-events-none absolute inset-y-0 left-0 flex w-[200%]"
+      >
+        {[0, 1].map((copy) => (
+          <svg
+            key={copy}
+            focusable="false"
+            viewBox="0 0 320 44"
+            preserveAspectRatio="none"
+            className="block h-full w-1/2 shrink-0"
+          >
+            <path
+              d={answerActivityPath}
+              pathLength="320"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={compact ? 1.75 : 2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              className="text-[color:var(--clinical-accent)] forced-colors:text-[Highlight]"
+            />
+          </svg>
+        ))}
+      </span>
     </div>
   );
 }

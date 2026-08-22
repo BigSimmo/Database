@@ -2,64 +2,71 @@
   "schemaVersion": 2,
   "platform": "linux",
   "runnerImage": "ubuntu-24.04",
-  "candidateSourceHead": "d0bd2f60d0d2c514194b6481e0dedf4dd9babf5c",
+  "candidateSourceHead": "9b1e7248450cea8af52962b769872c9ff5541761",
   "capture": {
     "kind": "refresh",
-    "replacedCandidateIds": ["document-viewer"]
+    "replacedCandidateIds": [
+      "dashboard-shell",
+      "dashboard-shell-phone",
+      "document-viewer",
+      "search-results-band",
+      "search-results-band-phone",
+      "therapy-compass-home"
+    ]
   },
   "source": {
     "kind": "hosted-ci-artifact",
-    "runId": "31268982766",
-    "artifactName": "visual-baseline-31268982766",
-    "candidateSourceHead": "d0bd2f60d0d2c514194b6481e0dedf4dd9babf5c"
+    "runId": "32189416778",
+    "artifactName": "visual-baseline-32189416778",
+    "candidateSourceHead": "9b1e7248450cea8af52962b769872c9ff5541761"
   },
   "review": {
     "status": "approved",
     "reviewerType": "human",
-    "reviewedBy": "BigSimmo",
-    "reviewedAt": "2026-08-08T17:27:05Z",
-    "candidateSourceHead": "d0bd2f60d0d2c514194b6481e0dedf4dd9babf5c"
+    "reviewedBy": "Claude Code (Opus 5) — automated adopt; all six actual renders reviewed in session, human confirmation pending in PR review",
+    "reviewedAt": "2026-08-18T22:37:18Z",
+    "candidateSourceHead": "9b1e7248450cea8af52962b769872c9ff5541761"
   },
   "candidates": [
     {
       "id": "dashboard-shell",
       "path": "tests/__screenshots__/linux/dashboard-shell.png",
-      "sha256": "dc59e0104e4c752f418db88a46acc9f54f07e22e2c6006eaa85af828031e411d",
+      "sha256": "b1aa1d330c6b0dbc20997152744ce026b5484c24e4ba5ecceb52c1d2e96a580f",
       "width": 1196,
       "height": 900
     },
     {
       "id": "dashboard-shell-phone",
       "path": "tests/__screenshots__/linux/dashboard-shell-phone.png",
-      "sha256": "1bcac08d3be07a81ebf155f2502e986983a62efd24e8a3ef1f06a6d897407da7",
+      "sha256": "5b4dbbbb615438519639b2f6a75fa39b545d3b7631d7309b5b4e5b1b046b4828",
       "width": 390,
       "height": 820
     },
     {
       "id": "search-results-band",
       "path": "tests/__screenshots__/linux/search-results-band.png",
-      "sha256": "46d41e15c3b622501df9c65f67abdfbb069bb292ebb3f4ddd1a09d0ee823ae4a",
+      "sha256": "e700ff716a06e136b6052cd56235a1107ccfc94eb1835cc110b9fc42cdd5f927",
       "width": 1148,
-      "height": 115
+      "height": 62
     },
     {
       "id": "search-results-band-phone",
       "path": "tests/__screenshots__/linux/search-results-band-phone.png",
-      "sha256": "b703eecae02a69f58bf127386653a37f06d2b7e131d2b22bb749a7f059b457ad",
+      "sha256": "5f9699ecf9dd7b333e6b7c9b56ad734b5f4dbed608b39c21fb11909d6db5c741",
       "width": 366,
-      "height": 89
+      "height": 60
     },
     {
       "id": "document-viewer",
       "path": "tests/__screenshots__/linux/document-viewer.png",
-      "sha256": "6e7971341b71da120a0cfe8087d58a0f3cf8f187ade1ee3d4c646b9108ecfd60",
+      "sha256": "46c456bbdbaa62ac8a665945361197f503799a94639c6adf8282a7a56b11ccd3",
       "width": 1196,
-      "height": 2816
+      "height": 2659
     },
     {
       "id": "therapy-compass-home",
       "path": "tests/__screenshots__/linux/therapy-compass-home.png",
-      "sha256": "e3030324162bcba8051299281475497c67a5d732c5a3f28fd7728283e1b3bf83",
+      "sha256": "0ff67deffb0f10a909a97d5eb70f381681ea02b97ac8a44946493084f37b04f6",
       "width": 1196,
       "height": 868
     }

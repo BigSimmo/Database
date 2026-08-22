@@ -88,6 +88,35 @@ describe("SearchResultsHeaderBand", () => {
     expect(within(region).queryByText(/\d/)).toBeNull();
   });
 
+  it("keeps removable filter state visible while a fault suppresses untrusted counts", () => {
+    const onRemove = vi.fn();
+
+    render(
+      <SearchResultsHeaderBand
+        modeId="documents"
+        query="lithium monitoring"
+        matchCount={0}
+        status="error"
+        filterControls={<span>Tables 0</span>}
+        appliedFilters={[
+          {
+            id: "risk-high",
+            valueLabel: "High",
+            groupLabel: "Risk",
+            accessibleLabel: "high-risk sources",
+            onRemove,
+          },
+        ]}
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "Search results for lithium monitoring" });
+    expect(screen.queryByText("Tables 0")).toBeNull();
+    expect(within(region).queryByText(/\d/)).toBeNull();
+    expect(screen.getByRole("group", { name: "Applied filters" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Remove high-risk sources filter" })).toBeVisible();
+  });
+
   // Initial loading is the same untrue-zero risk: forms forces matches to [] until
   // the registry is ready, so a count-bearing page control would assert "0" under Searching….
   it("drops count-bearing page controls while loading", () => {
@@ -546,6 +575,22 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("trigger")).toHaveAttribute("aria-controls", "panel");
   });
+
+  it("lets a caller keep the filter wordmark visible at every width", () => {
+    render(
+      <ResultFilterTrigger
+        panelId="panel"
+        testId="always-labelled-trigger"
+        title="Filter the dictionary catalogue"
+        open={false}
+        activeCount={0}
+        onToggle={vi.fn()}
+        labelVisibility="always"
+      />,
+    );
+
+    expect(screen.getByText("Filter", { selector: "span" })).not.toHaveClass("min-[414px]:max-[429px]:sr-only");
+  });
 });
 
 describe("ResultFilterSheet facet groups", () => {
@@ -737,6 +782,42 @@ describe("ResultFilterSheet facet groups", () => {
     expect(screen.getByRole("radiogroup", { name: "Show" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Domain" })).toBeInTheDocument();
   });
+
+  it("organises one facet into visual sections without changing its OR group", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="formulation-panel"
+        testId="formulation-filter-panel"
+        title="Filter formulation mechanisms"
+        groups={[
+          resultFilterFacetGroup({
+            id: "domain",
+            label: "Domain",
+            description: "Select any relevant domains; selections combine with OR.",
+            selected: new Set<string>(),
+            options: [
+              { value: "belief", label: "Belief" },
+              { value: "threat", label: "Threat" },
+            ],
+            optionSections: [
+              { id: "meaning", label: "Meaning and belief", optionValues: ["belief"] },
+              { id: "emotion", label: "Emotion and threat", optionValues: ["threat"] },
+            ],
+            onToggle: vi.fn(),
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("group", { name: "Domain" })).toHaveLength(1);
+    expect(screen.getByText("Select any relevant domains; selections combine with OR.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Meaning and belief" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Emotion and threat" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Belief" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Threat" })).toBeVisible();
+  });
 });
 
 // docs/filter-contract.md section 5: more than three facet groups adds a
@@ -896,7 +977,8 @@ describe("ResultFilterSheet dense facet groups", () => {
     expect(screen.getByText("No filter matches “zzz-no-match”.")).toBeInTheDocument();
   });
 
-  it("renders the scope segment slot above the groups when a mode supplies one", () => {
+  it("renders the typed scope selector above the groups when a mode supplies one", () => {
+    const onChange = vi.fn();
     render(
       <ResultFilterSheet
         open
@@ -905,15 +987,65 @@ describe("ResultFilterSheet dense facet groups", () => {
         testId="scope-filter-panel"
         title="Filter services"
         groups={[facetGroup("catchments", "Catchment", [{ value: "Peel", label: "Peel" }])]}
-        scopeControl={<div data-testid="scope-segment">These results 12 · All items 219</div>}
+        scope={{
+          value: "results",
+          onChange,
+          options: [
+            { value: "results", label: "Current results", count: 12 },
+            { value: "all", label: "All items", count: 219 },
+          ],
+        }}
       />,
     );
 
-    expect(screen.getByTestId("scope-segment")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /current results/i })).toBeChecked();
+    expect(screen.getByText("219")).toBeInTheDocument();
   });
 });
 
 describe("ResultFilterSheet", () => {
+  it("uses typed staged actions, coverage, and one result action", async () => {
+    const user = userEvent.setup();
+    const onApply = vi.fn();
+    const onBrowseAll = vi.fn();
+
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="document-panel"
+        testId="document-filter-panel"
+        title="Filter documents"
+        groups={[
+          resultFilterGroup({
+            id: "type",
+            label: "Result type",
+            value: "all",
+            options: [{ value: "all", label: "All" }],
+            onChange: vi.fn(),
+          }),
+        ]}
+        applicationMode="staged"
+        coverage={{ visibleCount: 7, totalCount: 12 }}
+        summary={{ count: 7, noun: "documents" }}
+        primaryActionLabel="Update search"
+        onApply={onApply}
+        secondaryAction={{ label: "Browse all sources", count: 2014, onClick: onBrowseAll }}
+      />,
+    );
+
+    const coverage = screen.getByRole("progressbar", { name: "Visible results" });
+    expect(coverage).toHaveAttribute("aria-valuenow", "7");
+    expect(coverage.parentElement).toHaveTextContent("7 of 12 retrieved matches visible");
+    expect(screen.getByText(/Changes apply together/)).toHaveClass("sr-only");
+    expect(screen.getAllByRole("button", { name: "Update search" })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Update search" }));
+    await user.click(screen.getByRole("button", { name: /Browse all sources/ }));
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(onBrowseAll).toHaveBeenCalledTimes(1);
+  });
+
   it("exposes each dimension as a radio group and reports the selection back typed", async () => {
     const user = userEvent.setup();
     const onFamilyChange = vi.fn();
@@ -1214,8 +1346,8 @@ describe("ResultFilterSheet", () => {
 
 describe("SearchResultsEmptyState", () => {
   const filters = [
-    { id: "medication", label: "Lithium", onRemove: vi.fn() },
-    { id: "action", label: "Discharge", onRemove: vi.fn() },
+    { id: "medication", valueLabel: "Lithium", onRemove: vi.fn() },
+    { id: "action", valueLabel: "Discharge", onRemove: vi.fn() },
   ];
 
   it("leads with relaxing a filter when the set is empty because of them", async () => {
@@ -1315,10 +1447,12 @@ describe("SearchResultsEmptyState", () => {
     // owns that role on every search route, and a second one made singular
     // `getByRole("status")` queries across the suite ambiguous.
     expect(screen.getByText("No matches for “unmatched therapy”")).toBeVisible();
-    // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` with no
-    // therapy-compass entry, so this mode has neither an example nor a
-    // cross-mode route. The body must not tell the reader to "try an example, or
-    // jump to another mode" when the panel renders no control for either.
+    // No `onTryExample` or `onCrossMode` handler is passed here — matching the
+    // real Therapy call site (therapy-compass/screens/search-screen.tsx) — so
+    // this panel has neither an example nor a cross-mode route to offer, even
+    // though the mode now carries a full `searchCommandSurfaceByMode` entry. The
+    // body must not tell the reader to "try an example, or jump to another mode"
+    // when the panel renders no control for either.
     expect(screen.getByText("Check the spelling, or try a broader term.")).toBeVisible();
     expect(screen.queryByRole("button", { name: /^Try:/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Search in / })).toBeNull();

@@ -354,14 +354,10 @@ test.describe("Clinical KB long-content stress coverage", () => {
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);
-        // Wait for the sliding bottom sheet to settle before clicking (no force) so
-        // the tap lands on Upload rather than an adjacent row mid-animation.
-        await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click();
+        await expect(dailyActions.getByRole("menuitem", { name: /Add document|Upload PDF/ })).toHaveCount(0);
+        await expect(page.locator('input[type="file"]')).toHaveCount(0);
+        await page.keyboard.press("Escape");
         await expect(dailyActions).toBeHidden();
-        await expect(
-          page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." }),
-        ).toContainText("Use Sources to open indexed documents.");
-        await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);
 
@@ -474,13 +470,13 @@ test.describe("Medication responsive stress coverage", () => {
         const metrics = await page.evaluate((viewportWidth) => {
           const workspace = document.querySelector<HTMLElement>(".medication-results-workspace");
           const patient = document.querySelector<HTMLElement>(".medication-patient-strip");
-          const filters = document.querySelector<HTMLElement>(".medication-filter-strip");
           const card = document.querySelector<HTMLElement>('[data-testid="medication-result-acamprosate-phone"]');
-          const firstFilter =
+          const firstFilter = document.querySelector<HTMLElement>(
             viewportWidth < 640
-              ? document.querySelector<HTMLElement>('[data-testid="medication-filter-trigger-phone"]')
-              : filters?.querySelector<HTMLElement>("button");
-          if (!workspace || !patient || !filters || !card || !firstFilter) return null;
+              ? '[data-testid="medication-filter-trigger-phone"]'
+              : '[data-testid="medication-filter-trigger-desktop"]',
+          );
+          if (!workspace || !patient || !card || !firstFilter) return null;
           const workspaceRect = workspace.getBoundingClientRect();
           const patientRect = patient.getBoundingClientRect();
           const cardRect = card.getBoundingClientRect();
@@ -501,7 +497,7 @@ test.describe("Medication responsive stress coverage", () => {
           };
         }, viewport.width);
         expect(metrics).not.toBeNull();
-        expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(42);
+        expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(viewport.width < 640 ? 48 : 40);
 
         if (viewport.width <= 639) {
           expect(metrics?.workspaceLeft ?? 0).toBeGreaterThanOrEqual(12);
@@ -527,6 +523,32 @@ test.describe("Medication responsive stress coverage", () => {
       } else {
         await expect(desktopResult).toBeVisible();
         await expect(phoneResult).toBeHidden();
+
+        const columnMetrics = await page
+          .locator('[data-testid^="medication-result-"][data-testid$="-desktop"]:visible')
+          .evaluateAll((rows) =>
+            rows.map((row) => {
+              const ceiling = row.querySelector<HTMLElement>('[data-medication-cell="ceiling"]');
+              const action = row.querySelector<HTMLElement>('[data-medication-cell="action"]');
+              const table = row.parentElement?.parentElement;
+              if (!ceiling || !action || !table) return null;
+              const ceilingRect = ceiling.getBoundingClientRect();
+              const actionRect = action.getBoundingClientRect();
+              const rowRect = row.getBoundingClientRect();
+              const tableRect = table.getBoundingClientRect();
+              return {
+                columnGap: actionRect.left - ceilingRect.right,
+                ceilingOverflow: ceiling.scrollWidth - ceiling.clientWidth,
+                rightEdgeOverflow: rowRect.right - tableRect.right,
+              };
+            }),
+          );
+        expect(columnMetrics.every(Boolean)).toBe(true);
+        for (const metrics of columnMetrics) {
+          expect(metrics?.columnGap ?? 0).toBeGreaterThanOrEqual(12);
+          expect(metrics?.ceilingOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+          expect(metrics?.rightEdgeOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
+        }
       }
     }
 

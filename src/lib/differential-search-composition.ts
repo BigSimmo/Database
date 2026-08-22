@@ -20,12 +20,15 @@ export type DifferentialSearchResultItem = {
   kind: "presentation" | "diagnosis";
   slug: string;
   title: string;
+  scopeLabel?: string;
   subtitle: string;
   href: string;
   status: DifferentialRecord["status"];
   score: number;
   matchLabel: "Best match" | "High match" | "Moderate match" | "Lower match";
   tags: string[];
+  clinicalCues: string[];
+  nextSteps: string[];
   safety: string;
   reasons: string[];
 };
@@ -44,6 +47,8 @@ function diagnosisResultItem(match: DifferentialRecordMatch): Omit<DifferentialS
     tags: [...record.currentPresentation.slice(0, 3), record.investigations[0]]
       .filter((value): value is string => Boolean(value?.trim()))
       .slice(0, 4),
+    clinicalCues: record.currentPresentation.filter((value) => value.trim()).slice(0, 3),
+    nextSteps: record.investigations.filter((value) => value.trim()).slice(0, 2),
     safety: record.safetySnapshot.summary,
     reasons,
   };
@@ -58,11 +63,14 @@ function presentationResultItem(
     kind: "presentation",
     slug: workflow.id,
     title: workflow.title,
+    scopeLabel: workflow.scopeLabel,
     subtitle: workflow.subtitle,
     href: `/differentials/presentations/${workflow.id}`,
     status: workflow.status,
     score,
     tags: workflow.safetySnapshot.tags.slice(0, 4),
+    clinicalCues: workflow.safetySnapshot.tags.filter((value) => value.trim()).slice(0, 3),
+    nextSteps: workflow.reviewChecklist.filter((value) => value.trim()).slice(0, 2),
     safety: workflow.safetySnapshot.summary,
     reasons,
   };

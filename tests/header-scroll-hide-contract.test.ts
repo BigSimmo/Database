@@ -32,7 +32,7 @@ const dashboardResultComposerSlotSource = read(
 const composerSlotSource = read("src/lib/mode-home-composer.ts");
 const phoneHeaderPortalSource = read("src/components/clinical-dashboard/phone-header-collapse-portal.tsx");
 const phoneFooterPortalSource = read("src/components/clinical-dashboard/phone-footer-layer-portal.tsx");
-const therapyNavSource = read("src/components/therapy-compass/nav.tsx");
+const registryModeNavSource = read("src/components/mode-nav/registry-mode-nav.tsx");
 const modeNavSource = read("src/components/mode-nav/mode-nav.tsx");
 const modeNavPortalSource = read("src/components/mode-nav/mode-nav-portal.tsx");
 const documentViewerSource = read("src/components/DocumentViewer.tsx");
@@ -275,12 +275,18 @@ describe("shared header hide/reveal wiring", () => {
       '"document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"',
     );
     expect(shellSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(shellSource).toContain('className="hidden sm:block sm:empty:hidden"');
+    expect(shellSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
+    expect(shellSource).toContain(
+      'className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
+    );
     // Dashboard result slot lives in a budget-extracted helper so ClinicalDashboard
     // stays under the maintainability no-growth ceiling.
     expect(dashboardSource).toContain("DashboardDesktopResultComposerSlot");
     expect(dashboardResultComposerSlotSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(dashboardResultComposerSlotSource).toContain('className="hidden sm:block sm:empty:hidden"');
+    expect(dashboardResultComposerSlotSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
+    expect(dashboardResultComposerSlotSource).toContain(
+      'className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"',
+    );
     expect(behaviourDocSource).toContain("Tablet and desktop search are page-owned");
   });
 
@@ -349,9 +355,9 @@ describe("shared header hide/reveal wiring", () => {
     // negatively alone, a `nav.tsx` that had dropped navigation entirely would
     // still pass. Therapy never names the portal itself — it delegates to
     // `ModeNav` — so the positive half of the assertion has to follow that hop.
-    expect(therapyNavSource).toContain("<ModeNav ");
+    expect(registryModeNavSource).toContain("<ModeNav");
     expect(modeNavSource).toContain("<ModeNavHeaderPortal>{bar}</ModeNavHeaderPortal>");
-    expect(therapyNavSource).not.toContain("PhoneHeaderCollapsePortal");
+    expect(registryModeNavSource).not.toContain("PhoneHeaderCollapsePortal");
     expect(modeNavPortalSource).toContain("phoneHeaderCollapseAddonSlotId");
     expect(modeNavPortalSource).toContain("createPortal(children, host)");
     expect(documentViewerSource).toContain("<PhoneHeaderCollapsePortal>");
@@ -436,7 +442,7 @@ describe("shared header hide/reveal wiring", () => {
   it("uses one adaptive phone footer positioning owner", () => {
     expect(headerSource).toContain("phone-footer-layer");
     expect(documentViewerSource).toContain("phone-footer-layer document-viewer-composer");
-    expect(calculatorSearchSource).toContain("phone-footer-layer answer-footer-search-dock");
+    expect(calculatorSearchSource).not.toContain("phone-footer-layer");
   });
 
   it("exposes one stable diagnostic contract across each phone chrome owner", () => {
@@ -464,20 +470,18 @@ describe("shared header hide/reveal wiring", () => {
     expect(phoneFooterPortalSource).toContain("export function PhoneFooterLayerFrame");
     expect(shellSource).toContain("<PhoneFooterLayerFrame");
     expect(dashboardSource).toContain("<PhoneFooterLayerFrame");
-    expect(calculatorSearchSource).toContain("<PhoneFooterLayerPortal>");
+    expect(calculatorSearchSource).not.toContain("<PhoneFooterLayerPortal>");
     expect(documentViewerSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain('data-testid="differential-presentation-phone-footer"');
   });
 
-  it("shares the frame's authoritative scroll decision with the calculator footer", () => {
+  it("keeps calculator results on the shell's authoritative scroll decision", () => {
     expect(phoneFooterPortalSource).toContain("export function usePhoneFooterLayerScrollHidden");
     expect(shellSource).toContain("scrollHidden={chromeScrollHide.hidden}");
     expect(dashboardSource).toContain("scrollHidden={chromeScrollHidden}");
-    expect(calculatorSearchSource).toContain("const frameScrollHidden = usePhoneFooterLayerScrollHidden()");
-    expect(calculatorSearchSource).toContain(
-      "const footerHidden = frameScrollHidden ?? (innerFooterHidden || documentFooterHidden)",
-    );
+    expect(calculatorSearchSource).not.toContain("usePhoneFooterLayerScrollHidden");
+    expect(calculatorSearchSource).not.toContain("useHideOnScroll");
   });
 
   it("releases the phone top safe-area with hidden chrome while retaining the wide inset", () => {

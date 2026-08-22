@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Activity,
@@ -9,22 +9,24 @@ import {
   Lock,
   Pill,
   SearchX,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
-  Target,
   TriangleAlert,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useId, useMemo, useState } from "react";
 
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
+  resultFilterFacetGroup,
   resultFilterGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -52,9 +54,24 @@ import {
   type ClinicalBadgeTone,
 } from "@/components/clinical-dashboard/clinical-badge";
 import { medicationIdentityBadges, type MedicationRecord } from "@/lib/medications";
+import {
+  medicationMatchValues,
+  medicationRowMatchesFilters,
+  medicationScopeValues,
+  medicationSignalValues,
+  type MedicationClinicalSignal,
+  type MedicationMatchQuality,
+  type MedicationScope,
+} from "@/lib/medication-filters";
+import {
+  readResultFilterValue,
+  readResultFilterValues,
+  replaceResultFilterUrl,
+  writeResultFilterValue,
+  writeResultFilterValues,
+} from "@/lib/result-filter-url";
 import { SEMANTIC_TONE_META } from "@/lib/semantic-tone";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
-import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { cn, EmptyState, pageContainer } from "@/components/ui-primitives";
 
 type MedicationPrescribingWorkspaceProps = {
@@ -89,6 +106,8 @@ type MedicationResult = {
 
 type MedicationRow = {
   result: MedicationResult;
+  medication?: MedicationRecord;
+  drugClass: string;
   badges: ClinicalBadgeItem[];
   /** Per-medication (drug-class) identity accent hex, for a subtle icon tint. */
   accent?: string;
@@ -96,13 +115,16 @@ type MedicationRow = {
   verdict?: MedicationVerdict;
 };
 
-type MedicationResultFilter = "best" | "indication" | "safety" | "monitoring";
+const medicationMatchOptions: ReadonlyArray<{ value: MedicationMatchQuality; label: string }> = [
+  { value: "all", label: "All qualities" },
+  { value: "exact", label: "Exact clinical fit" },
+  { value: "good", label: "Good clinical fit" },
+  { value: "related", label: "Related match" },
+];
 
-const medicationResultFilters: Array<{ id: MedicationResultFilter; label: string; icon: LucideIcon }> = [
-  { id: "best", label: "Best", icon: Sparkles },
-  { id: "indication", label: "Indication", icon: Target },
-  { id: "safety", label: "Safety", icon: ShieldAlert },
-  { id: "monitoring", label: "Monitor", icon: Activity },
+const medicationSignalOptions: ReadonlyArray<{ value: MedicationClinicalSignal; label: string }> = [
+  { value: "safety", label: "Safety" },
+  { value: "monitoring", label: "Monitoring" },
 ];
 
 const medicationCapabilities: Capability[] = [
@@ -262,9 +284,9 @@ function MedicationHome({
   return (
     <ModeHomeTemplate
       testId="medication-home"
-      title="Medication"
-      subtitle="Medication dosing and safety."
-      icon={Pill}
+      title={sharedHomePresentation.prescribing.title}
+      subtitle={sharedHomePresentation.prescribing.subtitle}
+      icon={appModeIcons.prescribing}
       headingLevel={2}
       desktopComposerSlotId={desktopComposerSlotId}
       actionsLabel="Medication prompts"
@@ -283,33 +305,14 @@ function MedicationHome({
         onClick: () => onSuggestedSearch(item.query),
       }))}
       footer={
-        <div className="grid gap-3">
-          <StatusNotice
-            realDataReady={realDataReady}
-            authUnavailable={authUnavailable}
-            apiUnavailable={apiUnavailable}
-            setupWarning={setupWarning}
-          />
-          <ModeHomeVerificationFooter label="Prescribing support" body="Confirm against source" />
-        </div>
+        <StatusNotice
+          realDataReady={realDataReady}
+          authUnavailable={authUnavailable}
+          apiUnavailable={apiUnavailable}
+          setupWarning={setupWarning}
+        />
       }
     />
-  );
-}
-
-function resultMatchesFilter(result: MedicationResult, filter: MedicationResultFilter) {
-  if (filter === "best") return true;
-  if (filter === "indication") return result.match !== "Related match";
-  // actionTone is source-derived (contraindication vs caution vs monitoring content),
-  // so it is a stronger signal than the text heuristics — any row whose action shows
-  // a safety icon (danger or warning) must be reachable through the Safety chip. The
-  // chips are lenses, not partitions, so warning rows may also appear under Monitor.
-  if (filter === "safety") {
-    return result.actionTone !== "neutral" || /check|avoid|caution|ceiling|max/i.test(result.action);
-  }
-  return (
-    result.actionTone === "warning" ||
-    /monitor|level|review|renal|hepatic/i.test(`${result.action} ${result.dose} ${result.ceiling}`)
   );
 }
 
@@ -385,13 +388,13 @@ function HighlightedName({ text, term }: { text: string; term: string }) {
   );
 }
 
-function DoseCeiling({ value }: { value: string }) {
+function MaximumDose({ value }: { value: string }) {
   return (
-    <span className="inline-flex min-h-6 w-fit items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+    <span className="inline-grid min-h-6 min-w-0 max-w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 text-2xs font-semibold text-[color:var(--text-muted)]">
       <span className="rounded border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs uppercase tracking-label text-[color:var(--text-muted)]">
-        Ceiling
+        Max
       </span>
-      <span className="nums break-words text-[color:var(--text-heading)] md:whitespace-nowrap">{value}</span>
+      <span className="nums min-w-0 break-words leading-5 text-[color:var(--text-heading)]">{value}</span>
     </span>
   );
 }
@@ -412,14 +415,15 @@ function MedicationResults({
   // identity consumers still use `fields=index`.
   const catalog = useMedicationCatalog(query);
   const { profile, isEmpty: profileEmpty } = usePatientProfile();
-  const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
+  const searchParams = useSearchParams();
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
-  const { rows, counts, totalAvailable } = useMemo(() => {
+  const { bestRows, allRows } = useMemo(() => {
     const governance = catalog.data?.governance;
     const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => {
       const badges = medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [];
       const accent = medication?.accent;
+      const drugClass = medication?.class || medication?.category || "Other";
       // Prepend a per-patient verdict badge so the highest-severity signal
       // surfaces first in the row's badge cluster (priority-sorted by tone).
       // The verdict folds BOTH engines together — physiology considerations and
@@ -438,59 +442,207 @@ function MedicationResults({
           unreachableCounterpartyCount: interactions.unreachableCounterparties.length,
         });
         const verdictBadge = verdictSummaryBadge(verdict);
-        return { result, badges: verdictBadge ? [verdictBadge, ...badges] : badges, accent, verdict };
+        return {
+          result,
+          medication,
+          drugClass,
+          badges: verdictBadge ? [verdictBadge, ...badges] : badges,
+          accent,
+          verdict,
+        };
       }
-      return { result, badges, accent };
+      return { result, medication, drugClass, badges, accent };
     };
-    const sourceRows =
-      catalog.data?.matches?.map((match) => toRow(match.result, match.medication)) ??
-      (catalog.data?.records ?? []).slice(0, 12).map((record) =>
-        toRow(
-          {
-            id: record.slug,
-            name: record.name,
-            indication: record.subclass || record.category,
-            match: "Catalogue match",
-            dose: "See reference",
-            ceiling: "See reference",
-            action: "Open full prescribing reference.",
-            actionTone: "neutral" as const,
-            tone: "slate" as const,
-            href: `/medications/${record.slug}`,
-          },
-          record,
+    const ranked = catalog.data?.matches?.map((match) => toRow(match.result, match.medication)) ?? [];
+    const rankedSlugs = new Set(ranked.map((row) => row.medication?.slug ?? row.result.id));
+    // Widening to the full catalogue must not reshuffle the ranked query
+    // matches. Keep them in provider rank order, then append catalogue-only
+    // records in catalogue order.
+    const complete = [
+      ...ranked,
+      ...(catalog.data?.records ?? [])
+        .filter((record) => !rankedSlugs.has(record.slug))
+        .map((record) =>
+          toRow(
+            {
+              id: record.slug,
+              name: record.name,
+              indication: record.subclass || record.category,
+              match: "Catalogue match",
+              dose: "See reference",
+              ceiling: "See reference",
+              action: "Open full prescribing reference.",
+              actionTone: "neutral" as const,
+              tone: "slate" as const,
+              href: `/medications/${record.slug}`,
+            },
+            record,
+          ),
         ),
-      );
-    const scoped = sourceRows;
-    const filterCounts: Record<MedicationResultFilter, number> = { best: 0, indication: 0, safety: 0, monitoring: 0 };
-    for (const row of scoped) {
-      for (const filter of medicationResultFilters) {
-        if (resultMatchesFilter(row.result, filter.id)) filterCounts[filter.id] += 1;
-      }
-    }
-    return {
-      rows: scoped.filter((row) => resultMatchesFilter(row.result, activeFilter)),
-      counts: filterCounts,
-      totalAvailable: scoped.length,
-    };
-  }, [activeFilter, catalog.data, profile, profileEmpty]);
-  const resultCount = rows.length;
-  // One array feeds the desktop rail and the phone sheet, so the counts cannot
-  // drift between them and the dimension states one-of-N at both breakpoints.
-  const filterOptions = useMemo<ReadonlyArray<SegmentedControlOption<MedicationResultFilter>>>(
+    ];
+    return { bestRows: ranked, allRows: complete };
+  }, [catalog.data, profile, profileEmpty]);
+
+  const scope = readResultFilterValue(searchParams, "scope", medicationScopeValues, "best");
+  const matchFilter = readResultFilterValue(searchParams, "match", medicationMatchValues, "all");
+  const classValues = useMemo(
     () =>
-      medicationResultFilters.map((filter) => ({
-        value: filter.id,
-        label: filter.label,
-        icon: filter.icon,
-        hint: String(counts[filter.id]),
-      })),
-    [counts],
+      [...new Set(allRows.map((row) => row.drugClass).filter(Boolean))].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    [allRows],
   );
+  const classValueSet = useMemo(() => new Set(classValues), [classValues]);
+  const classFilters = useMemo(
+    () => new Set(readResultFilterValues(searchParams, "class", classValueSet)),
+    [classValueSet, searchParams],
+  );
+  const signalFilters = useMemo(
+    () => new Set(readResultFilterValues(searchParams, "signal", medicationSignalValues)),
+    [searchParams],
+  );
+
+  const { rows, scopeCounts, matchCounts, classCounts, signalCounts, totalAvailable } = useMemo(() => {
+    const filters = { match: matchFilter, classes: classFilters, signals: signalFilters };
+    const rowsForScope = (nextScope: MedicationScope) => (nextScope === "best" ? bestRows : allRows);
+    const matches = (candidateRows: MedicationRow[], candidateFilters = filters) =>
+      candidateRows.filter((row) => medicationRowMatchesFilters(row, candidateFilters));
+    const baseRows = rowsForScope(scope);
+    const visible = matches(baseRows);
+
+    return {
+      rows: visible,
+      totalAvailable: baseRows.length,
+      scopeCounts: {
+        best: matches(bestRows).length,
+        all: matches(allRows).length,
+      } satisfies Record<MedicationScope, number>,
+      matchCounts: Object.fromEntries(
+        medicationMatchOptions.map((option) => [
+          option.value,
+          matches(baseRows, { ...filters, match: option.value }).length,
+        ]),
+      ) as Record<MedicationMatchQuality, number>,
+      classCounts: Object.fromEntries(
+        classValues.map((drugClass) => {
+          const projected = classFilters.has(drugClass) ? classFilters : new Set([...classFilters, drugClass]);
+          return [drugClass, matches(baseRows, { ...filters, classes: projected }).length];
+        }),
+      ) as Record<string, number>,
+      signalCounts: Object.fromEntries(
+        medicationSignalOptions.map((option) => {
+          const projected = signalFilters.has(option.value) ? signalFilters : new Set([...signalFilters, option.value]);
+          return [option.value, matches(baseRows, { ...filters, signals: projected }).length];
+        }),
+      ) as Record<MedicationClinicalSignal, number>,
+    };
+  }, [allRows, bestRows, classFilters, classValues, matchFilter, scope, signalFilters]);
+
+  const setScope = (value: MedicationScope) =>
+    replaceResultFilterUrl((params) => writeResultFilterValue(params, "scope", value, "best", medicationScopeValues));
+  const setMatchFilter = (value: MedicationMatchQuality) =>
+    replaceResultFilterUrl((params) => writeResultFilterValue(params, "match", value, "all", medicationMatchValues));
+  const toggleClass = (value: string) => {
+    if (classValueSet.size === 0) return;
+    replaceResultFilterUrl((params) => {
+      const next = new Set(readResultFilterValues(params, "class", classValueSet));
+      if (!next.delete(value)) next.add(value);
+      writeResultFilterValues(params, "class", next, classValueSet);
+    });
+  };
+  const toggleSignal = (value: MedicationClinicalSignal) => {
+    replaceResultFilterUrl((params) => {
+      const next = new Set(readResultFilterValues(params, "signal", medicationSignalValues));
+      if (!next.delete(value)) next.add(value);
+      writeResultFilterValues(params, "signal", next, medicationSignalValues);
+    });
+  };
+  const clearFilters = () =>
+    replaceResultFilterUrl((params) => {
+      params.delete("scope");
+      params.delete("match");
+      params.delete("class");
+      params.delete("signal");
+    });
+
+  const resultCount = rows.length;
+  const activeFilterCount =
+    (scope === "best" ? 0 : 1) + (matchFilter === "all" ? 0 : 1) + classFilters.size + signalFilters.size;
+  const filterGroups = [
+    resultFilterGroup({
+      id: "match-quality",
+      label: "Match quality",
+      value: matchFilter,
+      options: medicationMatchOptions.map((option) => ({
+        ...option,
+        hint: String(matchCounts[option.value]),
+        disabled: option.value !== matchFilter && matchCounts[option.value] === 0,
+      })),
+      onChange: setMatchFilter,
+    }),
+    resultFilterFacetGroup({
+      id: "drug-class",
+      label: "Drug class",
+      selected: classFilters,
+      options: classValues.map((value) => ({
+        value,
+        label: value,
+        hint: String(classCounts[value] ?? 0),
+        disabled: !classFilters.has(value) && (classCounts[value] ?? 0) === 0,
+      })),
+      onToggle: toggleClass,
+    }),
+    resultFilterFacetGroup({
+      id: "clinical-signal",
+      label: "Clinical signal",
+      description: "Safety and monitoring are one OR group; choosing either keeps records with that signal.",
+      selected: signalFilters,
+      options: medicationSignalOptions.map((option) => ({
+        ...option,
+        hint: String(signalCounts[option.value]),
+        disabled: !signalFilters.has(option.value) && signalCounts[option.value] === 0,
+      })),
+      onToggle: toggleSignal,
+    }),
+  ];
+  const appliedFilters = [
+    ...(scope === "all"
+      ? [
+          {
+            id: "scope",
+            groupLabel: "Search in",
+            valueLabel: "All medications",
+            accessibleLabel: "Search in all medications",
+            onRemove: () => setScope("best"),
+          },
+        ]
+      : []),
+    ...(matchFilter === "all"
+      ? []
+      : [
+          {
+            id: "match",
+            groupLabel: "Match",
+            valueLabel: medicationMatchOptions.find((option) => option.value === matchFilter)?.label ?? matchFilter,
+            onRemove: () => setMatchFilter("all"),
+          },
+        ]),
+    ...[...classFilters].map((value) => ({
+      id: `class-${value}`,
+      groupLabel: "Class",
+      valueLabel: value,
+      onRemove: () => toggleClass(value),
+    })),
+    ...[...signalFilters].map((value) => ({
+      id: `signal-${value}`,
+      groupLabel: "Signal",
+      valueLabel: medicationSignalOptions.find((option) => option.value === value)?.label ?? value,
+      onRemove: () => toggleSignal(value),
+    })),
+  ];
   // The match-quality badge only earns its slot when it differentiates: hide it on
   // "Exact clinical fit" rows when every visible row says the same thing.
   const showMatchBadge = useMemo(() => new Set(rows.map((row) => row.result.match)).size > 1, [rows]);
-  const activeFilterLabel = medicationResultFilters.find((filter) => filter.id === activeFilter)?.label ?? "filtered";
   const initialCatalogLoading = catalog.loading && !catalog.data;
   const catalogRefetching = catalog.loading && Boolean(catalog.data);
 
@@ -513,44 +665,55 @@ function MedicationResults({
             testId="medication-filter-trigger-phone"
             title="Filter medication results"
             open={filterOpen}
-            activeCount={activeFilter === "best" ? 0 : 1}
+            activeCount={activeFilterCount}
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
         filterControls={
-          <SegmentedControl
-            value={activeFilter}
-            onChange={setActiveFilter}
-            options={filterOptions}
-            label="Medication result filters"
-            // `.medication-filter-strip` is load-bearing: ui-stress.spec.ts
-            // measures this row's first button for tap height and left inset.
-            className="medication-filter-strip"
+          <ResultFilterTrigger
+            panelId={filterPanelId}
+            testId="medication-filter-trigger-desktop"
+            title="Filter medication results"
+            open={filterOpen}
+            activeCount={activeFilterCount}
+            onToggle={() => setFilterOpen((current) => !current)}
           />
         }
+        appliedFilters={appliedFilters}
+        onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
       />
 
       <MedicationInterpretationChip interpretation={catalog.data?.interpretation} />
 
-      {/* Phone-only by construction: the trigger that opens it lives in the
-          ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         panelId={filterPanelId}
         testId="medication-filter-panel"
         title="Filter medication results"
-        groups={[
-          resultFilterGroup({
-            id: "result-filter",
-            label: "Show",
-            value: activeFilter,
-            options: filterOptions,
-            onChange: setActiveFilter,
-          }),
-        ]}
-        onClearAll={activeFilter === "best" ? undefined : () => setActiveFilter("best")}
-        footerNote={`${resultCount} showing`}
+        description="Narrow the ranked matches without changing prescribing content or patient safety notices."
+        scope={{
+          label: "Search in",
+          value: scope,
+          options: [
+            {
+              value: "best",
+              label: "Best matches",
+              count: scopeCounts.best,
+              description: "The ranked results for this query.",
+            },
+            {
+              value: "all",
+              label: "All medications",
+              count: scopeCounts.all,
+              description: "The complete medication catalogue.",
+            },
+          ],
+          onChange: (value) => setScope(value as MedicationScope),
+        }}
+        groups={filterGroups}
+        onClearAll={activeFilterCount > 0 ? clearFilters : undefined}
+        summary={{ count: resultCount, noun: resultCount === 1 ? "medication" : "medications" }}
       />
 
       {/* Phone gets the docked pill + sheet instead of the in-flow strip: two
@@ -576,16 +739,16 @@ function MedicationResults({
           <div className="medication-results-inset space-y-2">
             <EmptyState
               icon={SearchX}
-              title={`No ${activeFilterLabel.toLowerCase()} matches for this search`}
-              body="None of the current results carry this signal. Show all matches to keep browsing."
+              title="No medications match these filters"
+              body="Remove a refinement to return to the ranked prescribing results."
               live="polite"
             />
             <button
               type="button"
-              onClick={() => setActiveFilter("best")}
+              onClick={clearFilters}
               className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
-              Show all {totalAvailable} matches
+              Reset filters
             </button>
           </div>
         ) : (
@@ -601,11 +764,11 @@ function MedicationResults({
       ) : null}
 
       {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
-        <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
-          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        <div className="hidden overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
+          <div className="grid grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
-            <span>Dose</span>
-            <span>Ceiling</span>
+            <span>Usual dose</span>
+            <span>Max dose</span>
             <span>Prescribing action</span>
             <span className="sr-only">Open</span>
           </div>
@@ -618,7 +781,7 @@ function MedicationResults({
               // outranks "this is the top hit".
               const verdictRing = row.verdict ? medicationVerdictRingClass(row.verdict.tone) : null;
               const rowClassName = cn(
-                "group grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
+                "group grid w-full grid-cols-[minmax(12rem,1.12fr)_minmax(5.5rem,0.46fr)_minmax(7rem,0.66fr)_minmax(12rem,1.15fr)_1.5rem] items-start gap-3 px-4 py-3.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
                   ? cn(
                       "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)]",
@@ -631,17 +794,17 @@ function MedicationResults({
               );
               const rowContent = (
                 <>
-                  <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex min-w-0 items-start gap-3">
                     <ResultToneIcon result={result} accent={row.accent} />
                     <div className="min-w-0">
-                      <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
+                      <span className="block break-words text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                         <HighlightedName text={result.name} term={query} />
                       </span>
-                      <span className="line-clamp-1 break-words text-xs font-medium text-[color:var(--text-muted)]">
+                      <span className="mt-0.5 line-clamp-1 break-words text-xs font-medium leading-4 text-[color:var(--text-muted)]">
                         {result.indication}
                       </span>
                       {showMatchBadge || result.match !== "Exact clinical fit" || row.badges.length > 0 ? (
-                        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+                        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
                           {showMatchBadge || result.match !== "Exact clinical fit" ? (
                             <ResultMatchBadge result={result} />
                           ) : null}
@@ -650,12 +813,17 @@ function MedicationResults({
                       ) : null}
                     </div>
                   </div>
-                  <span className="nums line-clamp-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                  <span className="nums line-clamp-2 min-w-0 break-words pt-0.5 text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                     {result.dose}
                   </span>
-                  <DoseCeiling value={result.ceiling} />
-                  <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-snug text-[color:var(--text-heading)]">
-                    <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
+                  <div data-medication-cell="ceiling" className="min-w-0 pt-0.5">
+                    <MaximumDose value={result.ceiling} />
+                  </div>
+                  <span
+                    data-medication-cell="action"
+                    className="flex min-w-0 items-start gap-2 pt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-heading)]"
+                  >
+                    <ActionToneIcon tone={result.actionTone} className="mt-[0.1875rem] h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
                   {result.href ? (
@@ -732,7 +900,7 @@ function MedicationResults({
                 ) : null}
                 <div className="flex max-w-full flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
                   <span className="nums line-clamp-2 break-words">{result.dose}</span>
-                  <DoseCeiling value={result.ceiling} />
+                  <MaximumDose value={result.ceiling} />
                 </div>
                 <p className="line-clamp-2 break-words text-pretty text-xs leading-normal text-[color:var(--text-muted)]">
                   <ActionToneIcon tone={result.actionTone} className="mr-1 inline-block h-3.5 w-3.5 align-[-0.15em]" />

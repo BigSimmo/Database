@@ -12,10 +12,20 @@ Staging is two independent tiers: a **staging Supabase project** (data) and a
 > the staging corpus is empty, and `search_schema_health()` passes. Do not create replacements.
 > **Revalidated 2026-07-30:** the staging project and app are still healthy, correctly identify as
 > staging, run with `RAG_PROVIDER_MODE=offline`, and have no OpenAI key. Linked migration history
-> has **24** local-only versions: ten holes before/at `20260719053533` (four are historical
-> placeholders) and fourteen versions after `20260719055623`. `supabase db push --linked
---include-all --dry-run` prints that exact 24-version chain. Do not run a normal or partial push:
-> history is divergent, and the full chain currently ends in the separately governed BMJ
+> had **24** local-only versions on 2026-07-30, remeasured to **26** on 2026-08-17 as `main`
+> advanced. **Resolved 2026-08-18 (Phase 2, ledger `#056`):** the gap measured **28** at the start
+> of the approved staging window (ten history holes plus eighteen versions after `20260719055623`)
+> and the full chain was replayed to parity — staging now holds **194** rows in
+> `supabase_migrations.schema_migrations`, latest `20260814151000`, zero `statements IS NULL`, and a
+> two-way diff against `supabase/migrations/` is empty. Each replayed row was verified byte-identical
+> to its repository file by md5. Evidence and the six replay findings:
+> [`docs/audit/live-drift-forensics-2026-08.md`](audit/live-drift-forensics-2026-08.md) § Phase 2.
+> The chain still grows every time `main` advances, so re-measure rather than trusting any fixed
+> number here. `supabase db push --linked --include-all --dry-run` prints the exact current chain.
+> Do not run a normal or partial push. Note that a plain `--include-all` push is **not** sufficient
+> on its own: four migrations exist as duplicate earlier/later version pairs, and pushing the earlier
+> copies re-applies older `create or replace function` bodies over newer ones — the later four must
+> be re-executed afterwards (Phase 2 finding 2). The chain includes the separately governed BMJ
 > attestation migration `20260727010000`. Reconcile the entire reviewed chain only in an approved
 > scope, then repeat the identity, indexing, health, and empty-data-boundary proof.
 
@@ -42,7 +52,8 @@ those vars are unset.
    # Unavailable until the divergent history is reconciled in an approved window:
    # do not run a normal `supabase db push`. Preview the full reviewed chain first:
    supabase db push --linked --include-all --dry-run
-   # Only after explicit approval for the complete 24-version chain:
+   # Only after explicit approval for the complete chain the dry-run just printed
+   # (26 versions as at 2026-08-17, and growing — never hardcode the count):
    # supabase db push --linked --include-all
    ```
 

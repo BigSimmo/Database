@@ -4,9 +4,9 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-const push = vi.fn();
+const replace = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ replace }),
 }));
 
 import { FactsheetsSearchPage } from "@/components/factsheets/factsheets-search-page";
@@ -45,14 +45,14 @@ describe("FactsheetsSearchPage category filter", () => {
 
   it("selecting a category narrows within the query rather than replacing it", async () => {
     const user = userEvent.setup();
-    push.mockClear();
+    replace.mockClear();
     render(<FactsheetsSearchPage query={query} results={results} />);
 
     const desktopGroup = screen.getByRole("radiogroup", { name: "Category" });
     await user.click(within(desktopGroup).getByRole("radio", { name: "Medications (1)" }));
 
-    expect(push).toHaveBeenCalledTimes(1);
-    const href = push.mock.calls[0][0] as string;
+    expect(replace).toHaveBeenCalledTimes(1);
+    const href = replace.mock.calls[0][0] as string;
     // Both params survive — category narrows, it does not replace the search.
     expect(href).toContain(`q=${encodeURIComponent(query)}`);
     expect(href).toContain("category=Medications");
@@ -60,21 +60,21 @@ describe("FactsheetsSearchPage category filter", () => {
 
   it("clearing the category preserves the query", async () => {
     const user = userEvent.setup();
-    push.mockClear();
+    replace.mockClear();
     render(<FactsheetsSearchPage query={query} category="Medications" results={results} />);
 
     await user.click(screen.getByTestId("factsheet-filter-trigger-phone"));
     await user.click(screen.getByTestId("factsheet-filter-panel-clear"));
 
-    expect(push).toHaveBeenCalledTimes(1);
-    const href = push.mock.calls[0][0] as string;
+    expect(replace).toHaveBeenCalledTimes(1);
+    const href = replace.mock.calls[0][0] as string;
     expect(href).toContain(`q=${encodeURIComponent(query)}`);
     expect(href).not.toContain("category=");
   });
 
   it("keeps a selected zero-count category as an explained, inert dead end", async () => {
     const user = userEvent.setup();
-    push.mockClear();
+    replace.mockClear();
     render(
       <FactsheetsSearchPage query={query} category="Conditions" results={filterFactsheets(query, "Conditions")} />,
     );
@@ -90,7 +90,7 @@ describe("FactsheetsSearchPage category filter", () => {
     expect(within(desktopGroup).queryByRole("radio", { name: "Tests & procedures (0)" })).not.toBeInTheDocument();
 
     await user.click(selectedZero);
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
 
     await user.click(screen.getByTestId("factsheet-filter-trigger-phone"));
     const sheet = screen.getByTestId("factsheet-filter-panel");
@@ -100,11 +100,11 @@ describe("FactsheetsSearchPage category filter", () => {
     expect(within(sheet).getByText(selectedZeroMessage)).toBeInTheDocument();
 
     await user.click(sheetSelectedZero);
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
     await user.click(within(sheetGroup).getByRole("radio", { name: "Medications (1)" }));
 
-    expect(push).toHaveBeenCalledTimes(1);
-    const href = push.mock.calls[0][0] as string;
+    expect(replace).toHaveBeenCalledTimes(1);
+    const href = replace.mock.calls[0][0] as string;
     expect(href).toContain(`q=${encodeURIComponent(query)}`);
     expect(href).toContain("category=Medications");
   });

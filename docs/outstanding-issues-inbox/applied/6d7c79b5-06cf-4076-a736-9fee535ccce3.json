@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6d7c79b5-06cf-4076-a736-9fee535ccce3",
+  "createdOn": "2026-08-20",
+  "action": "done",
+  "payload": {
+    "id": "#SZGPAH",
+    "outcome": "Resolved 2026-08-20: verified by running the spec, not by reading it. node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-tools-search-mode-mockup.spec.ts on a clean origin/main worktree at a341832af reported '16 passed (1.5m)' with zero failures. The repair landed in PR #2115 ('repair the three assertions the tools mockup spec had stale on main', 2026-08-18); the assertion text this row was raised against has since changed from '2 showing' to '2 tools'. The advisory ui lane is no longer red on this spec.",
+    "baseRowFingerprint": "91c2e882526fd9783e8deea3a2261efda6879c336b108101424dcbdcb6e2c961"
+  }
+}

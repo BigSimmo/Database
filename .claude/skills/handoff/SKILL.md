@@ -57,12 +57,22 @@ force-push, or discard work.
    End the message with:
    `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
 5. **Push** the feature branch: `git push -u origin <branch>`. Per-PR auto-merge state is user-owned:
-   automation must not disable it. If the branch already has an open PR with auto-merge armed,
-   leave it mutation-frozen; do not push or change the branch/base until it merges or the user
+   automation must not disable or re-enable it. If the branch already has an open PR with auto-merge
+   armed, an ordinary fast-forward push (this step) is still safe — GitHub re-validates required
+   checks against the new head before it merges. Never force-push, rewrite history, or change the
+   branch/base while auto-merge is armed; that alone stays frozen until the PR merges or the user
    manually changes that state. Never pipe the push through `tail`,
    `head`, or another command that can mask its status. Confirm the remote tip equals local HEAD
    with `git ls-remote` before reporting success. The pre-push guards run
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.
+
+   **Restarting a branch whose PR already merged:** GitHub deletes the remote branch on merge,
+   so the local `origin/<branch>` ref is stale and `--force-with-lease` fails with `stale info`
+   before it ever reaches the remote. That is not a lease violation to override — run
+   `git remote prune origin` and push normally. There is nothing to force: the branch no longer
+   exists remotely, so the push creates it fresh. Observed 2026-08-14 restarting this branch
+   after PR #1944 merged.
+
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Write the body from `.github/pull_request_template.md` in full normal
    prose — exact `## Summary` / `## Verification` / `## Risk and rollout` / (when clinical-risk
@@ -75,12 +85,15 @@ force-push, or discard work.
 7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
    (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
    the row into `docs/branch-review-ledger.md`.
-8. **Stop.** Report the PR URL and a short summary, then end the turn. Do not follow the
-   PR from here — no CI polling, no `gh run watch`, no re-runs, no branch sync, no replies
-   to review bots, no `Monitor`/`ScheduleWakeup`/cron parked on it. That tail is the
-   wasted-usage loop AGENTS.md "Stop when the pull request is open" rules out, and
-   `.claude/hooks/pr-handoff-stop.sh` denies those commands, the equivalent GitHub MCP
-   tools, and that loop machinery for the rest of the session.
+8. **Babysit CI for up to 30 minutes, then stop.** Opening the PR starts a budget, not an
+   exit: watch the required checks, re-run a failed job, sync a behind-but-clean branch, and
+   push a fix for what this change broke. Look roughly every five minutes — wait with
+   `ScheduleWakeup`/`Monitor`, never tight polling — and stop the moment CI settles or the
+   30 minutes are up. Never park a cron job on the PR; it outlives the session and is denied
+   throughout. Then report the PR URL, a short summary, and plainly where CI stands (green,
+   red with the failing check named, or still running), and end the turn. See AGENTS.md
+   "Babysit the pull request, then stop"; `.claude/hooks/pr-handoff-stop.sh` enforces the
+   ceiling by denying the follow tools once the budget is spent.
 
 ## Requires explicit confirmation (do not do automatically)
 

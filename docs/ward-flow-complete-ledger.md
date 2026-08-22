@@ -222,18 +222,18 @@ the word "passed".
 
 ## 8. Where everything is
 
-| Need                                    | File                                                         |
-| --------------------------------------- | ------------------------------------------------------------ |
-| Project orientation, Phases 1–3         | `docs/ward-flow-context.md`                                  |
-| **Phase 3 state and how to resume**     | `docs/ward-flow-phase-3-handover.md`                         |
-| Phase 3 execution record, every ruling  | `docs/ward-flow-phase-3-ledger.md`                           |
-| Phase 3 briefs, reports, reviews        | `docs/ward-flow-phase-3-workspace/`                          |
-| Phase 3 binding authority               | `docs/superpowers/specs/2026-08-19-…-role-screens-design.md` |
-| Phase 3 plan, 12 tasks                  | `docs/superpowers/plans/2026-08-19-…-role-screens.md`        |
-| Phase 1 handoff                         | `docs/ward-flow-phase-handoff.md`                            |
-| Phase 2 kickoff                         | `docs/ward-flow-phase-2-kickoff.md`                          |
-| Design decisions across ward management | `docs/ward-management-decisions.md`                          |
-| Route and mode map                      | `docs/ward-management-mode-map.md`                           |
+| Need                                    | File                                                                         |
+| --------------------------------------- | ---------------------------------------------------------------------------- |
+| Project orientation, Phases 1–3         | `docs/ward-flow-context.md`                                                  |
+| **Phase 3 state and how to resume**     | `docs/ward-flow-phase-3-handover.md`                                         |
+| Phase 3 execution record, every ruling  | `docs/ward-flow-phase-3-ledger.md`                                           |
+| Phase 3 briefs, reports, reviews        | `docs/ward-flow-phase-3-workspace/`                                          |
+| Phase 3 binding authority               | `docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md` |
+| Phase 3 plan, 12 tasks                  | `docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md`        |
+| Phase 1 handoff                         | `docs/ward-flow-phase-handoff.md`                                            |
+| Phase 2 kickoff                         | `docs/ward-flow-phase-2-kickoff.md`                                          |
+| Design decisions across ward management | `docs/ward-management-decisions.md`                                          |
+| Route and mode map                      | `docs/ward-management-mode-map.md`                                           |
 
 The live superpowers workspace is `.superpowers/sdd/2026-08-19-ward-flow-phase-3-role-screens/`
 and is **gitignored** — a continuing session appends there, and refreshes

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "64dd6966-0697-4b70-a7ee-c8d526729404",
+  "createdOn": "2026-08-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Governance Option B decided: tag document-summary rows with similarity_origin 'document_context', keep the confidence label — implement as packet G1",
+    "detail": "Owner decision 2026-08-17 on the question queued by #212 tranche 3 (buildDocumentSummaryResults stamps similarity: 1 with no similarity_origin; deriveConfidence excludes only synthetic_text). Option B: add a new similarity_origin value document_context to the union in src/lib/types.ts and to src/lib/answer-stream-contract.ts, stamp it in buildDocumentSummaryResults (src/lib/rag/rag-row-contracts.ts), keep deriveConfidence unchanged and pin it with discriminating tests, keep rag.ts synthetic_similarity_count from counting it, and update docs/clinical-hazard-analysis.md H5a. Rationale: the only caller is the document-summary route where the query is the document itself and citation support is still verified; Option A (tag as synthetic_text so summaries cap at medium) rejected as a label downgrade without a measured safety gain. RAG impact: no retrieval behaviour change; no canary. Packet: docs/rag-improvement/HANDOVER.md G1. Closes the P1 governance question row once landed.",
+    "source": "RAG programme coordinator, S1 PR #2022 residuals and #212 handover follow-ups, 2026-08-17",
+    "issueUlid": "01M07SS7GT0MSNT8C71GX4KF5V"
+  }
+}

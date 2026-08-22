@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "314e5e31-7d15-46f2-adb0-c4d113bc589d",
+  "createdOn": "2026-08-15",
+  "action": "update",
+  "payload": {
+    "id": "#098",
+    "detail": "UPDATE 2026-08-16: residual (a) is complete on current main via commit 563ce4195512b9e623df6ba98762f4a3dc1b9e8e. tests/search-route-round-trip-budget.test.ts now drives POST /api/search with a counted Supabase client and pins the successful-request route budget plus the limiter-only denial path, so route preamble and post-processing traffic are covered. Keep this row open: residual (c) is still unresolved. scripts/eval-rag-offline.mjs and scripts/test-rag-offline.mjs remain unwired, and the new route-level test is not registered in scripts/fixtures/rag-offline-contract-tests.json. Decide explicitly whether the offline contract runner is the canonical home and register this route-level budget there, or wire the legacy scripts. The prior stop against wholesale collapsing the three lexical variants remains unchanged; any later latency change still needs a materially different approach or a real canary pair. Stop: do not close #098 until the runner decision is implemented and recorded.",
+    "source": "Commit 563ce4195512b9e623df6ba98762f4a3dc1b9e8e; tests/search-route-round-trip-budget.test.ts; scripts/fixtures/rag-offline-contract-tests.json"
+  }
+}

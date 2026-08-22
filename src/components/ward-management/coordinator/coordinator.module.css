@@ -6,7 +6,7 @@
   --co-space-12: 0.75rem;
   --co-space-14: 0.875rem;
   --co-space-20: 1.25rem;
-  --co-space-48: 3rem;
+  --co-space-48: var(--spacing-tap);
   /*
    * Task 7: the phone-pinned referral bar's own vertical footprint, computed rather than
    * measured — one `--co-space-48` button row, `--co-shortlist-bar-pad-y` above it, at least the

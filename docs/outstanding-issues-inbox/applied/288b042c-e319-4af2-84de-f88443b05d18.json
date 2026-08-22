@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "288b042c-e319-4af2-84de-f88443b05d18",
+  "createdOn": "2026-08-18",
+  "action": "done",
+  "payload": {
+    "id": "#268",
+    "outcome": "Approved standardizing bare-dash missing values on design system MissingValue accessible component",
+    "baseRowFingerprint": "02750284f0ccc18e9a4297879999b992d4087623c8f843f3a9bd9922ac921090"
+  }
+}

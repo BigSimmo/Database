@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "d2e60a94-b12a-4502-a8b9-3dc8406cc8c8",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The visual ISSUES-LIST.html register cannot be refreshed from any non-Windows session, so it drifts silently as work moves to cloud sessions",
+    "detail": "**Outcome:** either the rendered register is refreshable from any session that can reconcile, or it is retired and the Markdown ledger is the only artifact. **Detail, observed 2026-08-14 during the reconciliation in PR #1956.** `.claude/skills/issues/SKILL.md` refreshes the register by invoking `refresh-issues-list.ps1` under the operator's Windows `.codex\\scripts` directory and writing `ISSUES-LIST.html` into their OneDrive folder — both absolute Windows paths. A Linux, container, or Codex/Claude Cloud session can run `npm run issues:reconcile` perfectly well (it did: 35 requests, write-discipline verified) but cannot run the refresh and cannot even check how stale the artifact is. The skill already handles this correctly for a single run — it says a stale visual artifact must not invalidate a valid canonical transaction, which is the right call — so this is not a correctness bug. The problem is cumulative: every cloud reconciliation widens the gap, and nothing measures it, so a reader opening the HTML has no way to tell whether it is an hour or a month behind. **Why it is P3 and not higher:** `docs/outstanding-issues.md` is the canonical rendered source and is always current; only the convenience artifact drifts. **Next, cheapest first:** decide whether the register is still wanted. If yes, the smallest fix is a stamp rather than a port — have the refresh write the reconciliation commit SHA into the HTML so staleness is visible at a glance, and have reconcile print a reminder naming the commit that needs it. A full cross-platform port (a Node renderer under `scripts/`) is the larger option and probably only worth it if the register is load-bearing for someone. If nobody reads it, retiring it and deleting that skill section is cheaper than either. **Stop:** do not improvise a substitute renderer or hand-write the HTML from a cloud session — an artifact that looks refreshed but was produced by a different generator is worse than one that is visibly stale.",
+    "source": "PR #1956 reconciliation; .claude/skills/issues/SKILL.md refresh section; session 2026-08-14"
+  }
+}

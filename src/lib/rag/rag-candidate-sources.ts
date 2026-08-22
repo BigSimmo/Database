@@ -27,6 +27,14 @@ import { applyMemoryCardBoosts, fetchMemoryCardsForQuery } from "@/lib/deep-memo
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import {
+  RetrievalRowShapeError,
+  assertEmbeddingFieldRows,
+  assertIndexUnitRows,
+  assertRetrievalRows,
+  type EmbeddingFieldSignalRow,
+  type IndexUnitSignalRow,
+} from "@/lib/rag/rag-row-contracts";
+import {
   firstVariantPoolIsStrong,
   maxTextRpcQueryVariants,
   relaxVariantToOrQuery,
@@ -140,6 +148,12 @@ export function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc
   }
 }
 
+/** Index-unit consumers read these provenance fields as maps; retain that output contract. */
+function optionalJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 /** Record how many variant RPCs a lexical surface actually issued (PT-02 early-exit). */
 function recordTextVariantFanout(
   telemetry: SearchTelemetry | undefined,
@@ -211,7 +225,9 @@ export async function searchTextChunkCandidates(args: {
     // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
     // instead of silently degrading to zero candidates. Return value unchanged.
     if (error) recordHybridRpcError(args.telemetry, "match_document_chunks_text", error);
-    return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
+    if (error || !data?.length) return [] as SearchResult[];
+    assertRetrievalRows(data, "match_document_chunks_text");
+    return data;
   };
 
   const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
@@ -336,14 +352,6 @@ export type ChunkSignalMatch = {
     match_reason?: string | null;
   }>;
   indexUnit?: DocumentIndexUnitMatch | null;
-};
-
-type IndexUnitRpcRow = DocumentIndexUnitMatch & {
-  document_id: string;
-  source_chunk_id: string | null;
-  similarity?: number | null;
-  text_rank?: number | null;
-  hybrid_score?: number | null;
 };
 
 type TableFactRpcRow = {
@@ -1058,26 +1066,14 @@ export async function searchEmbeddingFieldCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  const matches = (
-    data as Array<{
-      source_chunk_id: string | null;
-      field_type: string | null;
-      similarity?: number | null;
-      text_rank?: number | null;
-      hybrid_score?: number | null;
-    }>
-  )
-    .filter(
-      (
-        row,
-      ): row is {
-        source_chunk_id: string;
-        field_type: string | null;
-        similarity?: number | null;
-        text_rank?: number | null;
-        hybrid_score?: number | null;
-      } => Boolean(row.source_chunk_id),
-    )
+  try {
+    assertEmbeddingFieldRows(data, "match_document_embedding_fields_hybrid");
+  } catch (error) {
+    if (!(error instanceof RetrievalRowShapeError)) throw error;
+    return [] as SearchResult[];
+  }
+  const matches = data
+    .filter((row): row is EmbeddingFieldSignalRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
     .map((row) => ({
       chunkId: row.source_chunk_id,
       similarity: Number(row.similarity ?? 0),
@@ -1125,8 +1121,14 @@ export async function searchIndexUnitCandidates(args: {
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
-  const matches = (data as IndexUnitRpcRow[])
-    .filter((row): row is IndexUnitRpcRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
+  try {
+    assertIndexUnitRows(data, "match_document_index_units_hybrid");
+  } catch (error) {
+    if (!(error instanceof RetrievalRowShapeError)) throw error;
+    return [] as SearchResult[];
+  }
+  const matches = data
+    .filter((row): row is IndexUnitSignalRow & { source_chunk_id: string } => Boolean(row.source_chunk_id))
     .map((row) => ({
       chunkId: row.source_chunk_id,
       similarity: Number(row.similarity ?? 0),
@@ -1146,13 +1148,13 @@ export async function searchIndexUnitCandidates(args: {
         page_end: row.page_end,
         heading_path: row.heading_path ?? [],
         normalized_terms: row.normalized_terms ?? [],
-        source_span: row.source_span ?? null,
+        source_span: optionalJsonRecord(row.source_span),
         quality_score: row.quality_score,
         extraction_mode: row.extraction_mode,
         similarity: row.similarity,
         text_rank: row.text_rank,
         hybrid_score: row.hybrid_score,
-        metadata: row.metadata ?? null,
+        metadata: optionalJsonRecord(row.metadata),
       },
     }));
   return loadChunksForSignalMatches({

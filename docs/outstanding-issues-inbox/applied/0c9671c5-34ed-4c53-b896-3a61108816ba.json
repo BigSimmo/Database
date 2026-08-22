@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0c9671c5-34ed-4c53-b896-3a61108816ba",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "416afc07-6d2a-479d-a10d-c323bf037767",
+    "reason": "Stale optimistic-concurrency fingerprint. Superseded by cab0fdc2-b88c-45bb-98ac-3e4acffcddd2, which rereads #6GW95D from current main, retains the fleet-wide safety evidence, and re-scopes its priority and summary."
+  }
+}

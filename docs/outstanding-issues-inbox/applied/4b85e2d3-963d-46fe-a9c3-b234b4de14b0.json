@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "id": "4b85e2d3-963d-46fe-a9c3-b234b4de14b0",
+  "createdOn": "2026-08-14",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "npm run format in an uninstalled worktree runs a different Prettier than the lockfile pins and manufactures false drift",
+    "detail": "MEASURED 2026-08-14 in a Claude-on-web container during PR #1943, by running the commands rather than reasoning about them. The repo pins prettier ^3.9.6 in package.json with 3.9.6 in package-lock.json, but the container had no node_modules, so 'npm run format' (prettier --write .) resolved Prettier through npx and got 3.8.1. The older Prettier disagreed with files that are correctly formatted under the pinned version and REWROTE 31 files nobody had touched, including src/lib/rag/rag-cache.ts, src/lib/rag/rag-provider.ts, src/lib/openai.ts, src/lib/types.ts, tests/route-reachability.test.ts and several docs. Committing that output would have turned a docs-only PR into one classifyPullRequestFiles scores as ragRanking and clinicalRisk, pulling in a Clinical Governance Preflight and a RAG impact line for changes that were pure formatting noise, and would have collided with four sibling sessions working the same tree. Proof it was an artifact and not real drift: 'npx prettier@3.9.6 --check' on the same files returns 'All matched files use Prettier code style!' -- main is clean. This is the same failure class as archived row #087 (never act on a knip finding from a worktree that has not been installed) but strictly worse, because knip only reports while format WRITES, and the false result arrives already applied to the working tree. Next: make the version explicit rather than incidental -- either pin the binary in the format and format:changed scripts, or fail closed when the resolved Prettier version does not match the lockfile, so the command cannot silently run the wrong one. A pre-push guard already reconstructs an exact-lock environment for this reason (scripts/guard-push.mjs), so the precedent for refusing to trust an unpinned local Prettier exists. Stop: do not commit the output of npm run format from a worktree that has not been installed, and do not conclude formatting drift exists on main without re-checking under the pinned version.",
+    "source": "session 2026-08-14 PR #1943; package.json ^3.9.6; package-lock.json 3.9.6; npx prettier --version 3.8.1 vs npx prettier@3.9.6"
+  }
+}

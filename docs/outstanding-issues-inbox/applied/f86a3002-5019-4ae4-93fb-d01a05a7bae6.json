@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "f86a3002-5019-4ae4-93fb-d01a05a7bae6",
+  "createdOn": "2026-08-14",
+  "action": "update",
+  "payload": {
+    "id": "#308",
+    "detail": "Measured 2026-08-12 during the #147 close-out, twice, on the offline Lighthouse harness (Chromium 141): desktop /documents/search CLS **0.119**, against a committed baseline that also reads **0.119**. So this is long-standing and deterministic, not a regression — and it is above the 0.1 threshold. It sits outside #147's scope, which was mobile only, and it contradicts that row's claim that 'desktop passes everywhere: 0.016-0.097' — that range is stale. Companion desktop values from the same runs, all passing: /dsm 0.014, /forms 0.059-0.064, / 0.006, /therapy-compass 0.000. Desktop attribution completed 2026-08-14: a Playwright + PerformanceObserver(layout-shift) harness against an offline production build at 1350x940 DPR 1 recorded **0.118** CLS. This is a separate attribution measurement, not a replacement for the canonical 0.119 Lighthouse value. One first-paint+~0.3-0.5s event contributed ~99.98% of that harness total: MasterSearchHeader's composer-adoption effect portals the search composer into GlobalSearchShell's desktop slot, while the header shrinks 184px and the slot grows 0 -> 184px. This is shared desktop search-chrome timing, not page-local. Next: reserve the settled height at the adoption boundary under the one-composer/hidden-means-zero-reserve contracts, then re-measure with the same harness. Stop: do not raise the CLS budget; do not read local LCP or TBT from the loopback harness; and do not use a blanket min-height that hides the shift without matching the header reserve.",
+    "source": "Local offline verify:lighthouse runs 2026-08-12 (two runs, identical CLS); #147 close-out; lighthouse-budget.json. Attribution: session 2026-08-14, PR branch codex/visual-layout-polish; desktop CLS script adapted from scripts/measure-cls-attribution.mjs (offline, not committed)."
+  }
+}

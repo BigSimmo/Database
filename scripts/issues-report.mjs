@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { parseIssues } from "./check-outstanding-issues.mjs";
+import { issueIdCitations } from "./issue-id.mjs";
 import { splitCells } from "./outstanding-issues.mjs";
 
 const LEDGER_PATH = "docs/outstanding-issues.md";
@@ -31,7 +33,7 @@ function queueRows(markdown) {
     if (cells.length !== 7) continue;
     rows.push({
       order: Number(cells[0]),
-      ids: [...cells[1].matchAll(/#\d+/g)].map((match) => match[0]),
+      ids: issueIdCitations(cells[1]),
       acuity: cells[2],
       capability: cells[3],
       when: cells[4],
@@ -75,7 +77,8 @@ export function buildIssuesReport(markdown, source) {
     .map((row) => {
       const cells = splitCells(row.raw);
       return {
-        id: cells[0],
+        // parseIssues strips the durable ULID comment from the human-facing id.
+        id: row.id,
         priority: cells[1],
         type: cells[2],
         summary: cells[3],
@@ -118,7 +121,8 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
   const branch = tryGit(["branch", "--show-current"], cwd) || "(detached)";
   const counts = tryGit(["rev-list", "--left-right", "--count", "origin/main...HEAD"], cwd);
   const [behind, ahead] = counts ? counts.split(/\s+/).map(Number) : [null, null];
-  const remoteLedger = tryGit(["show", `origin/main:${LEDGER_PATH}`], cwd);
+  const gitPath = LEDGER_PATH.replace(/\\/g, "/");
+  const remoteLedger = tryGit(["show", `origin/main:${gitPath}`], cwd);
   if (remoteLedger !== undefined) {
     return {
       markdown: remoteLedger,
@@ -133,8 +137,15 @@ export function loadRevalidatedLedger(cwd = process.cwd()) {
       },
     };
   }
+  const localPath = path.resolve(cwd, ...gitPath.split("/"));
+  let markdown = "";
+  try {
+    markdown = readFileSync(localPath, "utf8");
+  } catch {
+    markdown = readFileSync(fileURLToPath(new URL(`../${gitPath}`, import.meta.url)), "utf8");
+  }
   return {
-    markdown: readFileSync(new URL(`../${LEDGER_PATH}`, import.meta.url), "utf8"),
+    markdown,
     source: {
       ref: "worktree",
       branch,
@@ -173,7 +184,12 @@ function main() {
   else render(report, args.has("--agent-safe-wins"));
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+const isDirectRun =
+  process.argv[1] &&
+  (fileURLToPath(import.meta.url) === path.resolve(process.argv[1]) ||
+    import.meta.url === pathToFileURL(process.argv[1]).href);
+
+if (isDirectRun) {
   try {
     main();
   } catch (error) {

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
-import { resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
+import { resolveClientDemoMode } from "@/lib/client-env";
 
 const routeSource = readFileSync(new URL("../src/app/(search-app)/favourites/page.tsx", import.meta.url), "utf8");
 const librarySource = readFileSync(
@@ -21,10 +21,15 @@ const universalSearchSource = readFileSync(
   new URL("../src/components/clinical-dashboard/universal-search-command-surface.tsx", import.meta.url),
   "utf8",
 );
-const mobileCardSource = librarySource.slice(
-  librarySource.indexOf("function FavouriteMobileCard"),
-  librarySource.indexOf("function FavouritesTable"),
-);
+// End the slice at FavouriteMobileCard's own closing brace rather than at
+// whichever function happened to be declared next. The old form ran to
+// `function FavouritesTable`, so any component added between the two was
+// silently pulled into this window and failed the aria-pressed assertion below
+// for code that is not the mobile card at all (hit while retiring the library
+// nav for ledger #164).
+const mobileCardStart = librarySource.indexOf("function FavouriteMobileCard");
+const mobileCardEnd = librarySource.indexOf("\n}\n", mobileCardStart);
+const mobileCardSource = librarySource.slice(mobileCardStart, mobileCardEnd);
 
 describe("favourites demo-data boundary", () => {
   it("passes trusted server demo state and never merges prototype favourites into live mode unconditionally", () => {
@@ -88,8 +93,7 @@ describe("favourites demo-data boundary", () => {
     );
   });
 
-  it("keeps upload read-only independent of local no-auth demo treatment", () => {
-    // Local no-auth is demo for favourites/recent-query owners, but uploads must stay writable.
+  it("keeps local no-auth within the non-production demo boundary", () => {
     expect(
       resolveClientDemoMode({
         explicitDemoMode: false,
@@ -106,23 +110,5 @@ describe("favourites demo-data boundary", () => {
         environment: "development",
       }),
     ).toBe(false);
-    const browserAuthUnavailableDemoFallback = true;
-    expect(
-      resolveUploadReadOnlyMode({
-        explicitDemoMode: false,
-        authUnavailableFallback: browserAuthUnavailableDemoFallback,
-        environment: "development",
-      }),
-    ).toBe(true);
-    expect(
-      resolveUploadReadOnlyMode({
-        explicitDemoMode: false,
-        authUnavailableFallback: false,
-        environment: "development",
-      }),
-    ).toBe(false);
-    expect(dashboardSource).toMatch(/const uploadReadOnlyMode = resolveUploadReadOnlyMode\(\{/);
-    expect(dashboardSource).toContain("authUnavailableFallback: browserAuthUnavailableDemoFallback");
-    expect(dashboardSource).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
   });
 });

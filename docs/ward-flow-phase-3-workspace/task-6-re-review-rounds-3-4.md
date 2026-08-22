@@ -87,8 +87,8 @@ All four are present and correct in the current tree:
   before the `Set.has()` lookup. Verified this repo (Windows workstation, `core.fileMode=false`
   Dev Drive) actually needs it: the suite passes today, which it could not if the comparison
   silently failed on every legitimate reader.
-- The round-4 probe file the doc comment describes (`src/lib/ward-probe/frozen.ts`) does not
-  exist in the working tree and has no history (`git log --all -- src/lib/ward-probe` is empty)
+- The round-4 temporary probe described in the doc comment does not exist in the working tree and
+  has no history (`git log --all -- src/lib/ward-probe` is empty)
   — consistent with "created, proved the point, deleted," never committed.
 - Path-collision claim checked directly: since keys are full paths and `walk()` builds full
   paths too, no two distinct files can ever produce the same key — the collision risk the round-4

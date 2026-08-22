@@ -88,7 +88,7 @@ export function FactsheetsSearchPage({
     const option = categoryOptions.find((entry) => entry.value === value);
     if (!option || option.disabled) return;
     setFilterOpen(false);
-    router.push(searchHref(query, value === "all" ? undefined : value));
+    router.replace(searchHref(query, value === "all" ? undefined : value), { scroll: false });
   };
 
   return (
@@ -182,8 +182,8 @@ export function FactsheetsSearchPage({
 
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up.
-          Selecting a category is a navigation here, so the sheet closes with the
-          push — leaving it open would float over a page it no longer describes. */}
+          Selecting a category is replacement navigation here, so the sheet closes
+          before the route updates and repeated filtering does not pollute Back. */}
       <ResultFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -194,13 +194,14 @@ export function FactsheetsSearchPage({
           resultFilterGroup({
             id: "category",
             label: "Category",
+            description: activeCategoryDeadEndMessage,
             value: activeCategory ?? "all",
             options: categoryOptions,
             onChange: applyCategory,
           }),
         ]}
         onClearAll={activeCategory ? () => applyCategory("all") : undefined}
-        footerNote={activeCategoryDeadEndMessage ?? `${results.length} showing`}
+        summary={{ count: results.length, noun: results.length === 1 ? "factsheet" : "factsheets" }}
       />
 
       {results.length === 0 ? (

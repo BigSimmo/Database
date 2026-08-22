@@ -69,7 +69,7 @@ describe("buildCrossModeLinks", () => {
       subtitle: "Intensive home-based acute care",
     });
     expect(links[0]!.badges).toEqual([{ label: "Acute", tone: "info" }]);
-    expect(links[0]!.modeSearchHref).toContain("/services?");
+    expect(links[0]!.modeSearchHref).toContain("/services/search?");
     expect(links[0]!.modeSearchHref).toContain("run=1");
   });
 
@@ -79,6 +79,17 @@ describe("buildCrossModeLinks", () => {
     expect(links[0]!.modeId).toBe("differentials");
     expect(links[0]!.title.toLowerCase()).toMatch(/psychosis|psychotic/);
     expect(links[0]!.detailHref).toMatch(/^\/differentials\/(diagnoses|presentations)\//);
+  });
+
+  it("keeps retitled presentations findable by their imported title", () => {
+    const links = buildCrossModeLinks("poor rapport", { differentials });
+
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({
+      modeId: "differentials",
+      slug: "poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport",
+      detailHref: "/differentials/presentations/poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport",
+    });
   });
 
   it("does not surface differentials for queries that only name a medication", () => {

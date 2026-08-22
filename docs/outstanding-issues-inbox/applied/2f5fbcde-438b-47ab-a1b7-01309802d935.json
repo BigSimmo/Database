@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2f5fbcde-438b-47ab-a1b7-01309802d935",
+  "createdOn": "2026-08-17",
+  "action": "update",
+  "payload": {
+    "id": "#212",
+    "detail": "Corrected 2026-08-17: the previous text was stale in two ways. (1) The \"40 unsafe casts\" headline is wrong. Measured on main at d0276718 across src/, worker/ and scripts/: 80 \"as unknown as\" and 60 \"JSON.parse\" occurrences -- but most are legitimate OUTBOUND serialization (pgvector query_embedding args, telemetry inserts cast to Json) or client handles, to which no Zod schema applies, so the remediable number is far lower than either figure suggests. (2) The named remaining population was wrong: src/app/api/documents/route.ts, src/app/api/ingestion/{batches,jobs,quality}/route.ts and src/app/api/jobs/route.ts were listed as holding 11 casts; each in fact holds ZERO \"as unknown as\" and ZERO JSON.parse. STATUS: src/lib/rag/** is COMPLETE for this class of defect as of tranche 1 (PR #1946, rag.ts, live-verified) and tranche 2 (PR #1981, rag-candidate-sources.ts); five casts remain there and all five are deliberate (outbound pgvector args plus one client handle). Tranche 3 covered src/app/api/**: an audit of all 41 route files found only 3 \"as unknown as\" (all outbound telemetry cast to Json, correctly left alone) and no JSON.parse at all, and confirmed every request body is already validated through parseJsonBody with a Zod schema. The genuine targets were a different metric -- unchecked casts that assert STRUCTURE onto inbound DB/RPC data -- of which there were 4, now replaced by src/lib/validation/row-contracts.ts: search_document_chunks RPC rows, the document_chunks table fallback rows, document_labels rows, and the search_schema_health payload (declared Returns: Json, so previously a structure claim with nothing behind it). REMAINING: worker/main.ts (11 \"as unknown as\") is the next and largest cluster, deferred as its own tranche because ingestion is a separate risk domain. Scripts are not production paths.",
+    "source": "ledger #212 tranche 3 (PR for src/app/api row contracts), session 2026-08-17"
+  }
+}

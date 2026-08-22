@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { DsmSearchPage } from "@/components/dsm/dsm-search-page";
-import { dsmCategories, dsmDiagnoses, listDsmDiagnosisSummaries } from "@/lib/dsm";
+import { dsmCategories, listDsmDiagnosisSummaries } from "@/lib/dsm";
 
 export const metadata: Metadata = {
   title: "Search DSM diagnoses | Clinical KB",
@@ -13,7 +13,6 @@ type DsmSearchRouteProps = {
   searchParams?: Promise<{
     q?: string | string[];
     query?: string | string[];
-    category?: string | string[];
     ids?: string | string[];
   }>;
 };
@@ -25,8 +24,6 @@ function firstValue(value?: string | string[]) {
 export default async function DsmSearchRoute({ searchParams }: DsmSearchRouteProps) {
   const params = searchParams ? await searchParams : {};
   const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
-  const requestedCategory = firstValue(params.category)?.trim();
-  const category = dsmCategories.some((item) => item.key === requestedCategory) ? requestedCategory : undefined;
   const rawIds = firstValue(params.ids) ?? "";
   const initialIds = rawIds
     ? rawIds
@@ -38,10 +35,8 @@ export default async function DsmSearchRoute({ searchParams }: DsmSearchRoutePro
   return (
     <DsmSearchPage
       query={query}
-      category={category}
       categories={dsmCategories}
-      results={listDsmDiagnosisSummaries({ query, category })}
-      totalCount={dsmDiagnoses.length}
+      results={listDsmDiagnosisSummaries({ query })}
       initialIds={initialIds}
     />
   );

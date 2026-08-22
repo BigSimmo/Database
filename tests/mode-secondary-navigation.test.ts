@@ -11,7 +11,7 @@ import {
   routedModeSecondaryNavigationCount,
 } from "@/lib/mode-secondary-navigation";
 
-/** Seven modes intentionally register no destinations at all — see `emptyRegistryModes`. */
+/** Eight modes intentionally register no destinations at all — see `emptyRegistryModes`. */
 const expectedLabels: Record<AppModeId, string[]> = {
   answer: [],
   documents: [],
@@ -24,8 +24,10 @@ const expectedLabels: Record<AppModeId, string[]> = {
   formulation: ["Find", "Build", "Compare", "Map"],
   prescribing: [],
   tools: [],
-  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Brief Intervention", "Patient Sheets"],
+  calculators: [],
+  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways"],
   factsheets: ["Topics", "Search"],
+  dictionary: ["Terms", "Topics", "Compare", "Sources"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -40,12 +42,14 @@ const cleanLandingPath: Record<AppModeId, string> = {
   formulation: "/formulation",
   prescribing: "/medications",
   tools: "/tools",
+  calculators: "/calculators",
   "therapy-compass": "/therapy-compass",
   factsheets: "/factsheets",
+  dictionary: "/dictionary",
 };
 
 /**
- * The seven modes that register nothing. Each used to carry one
+ * The eight modes that register nothing. Each used to carry one
  * `action: "search"` entry rendering a lone <button> inside its own <nav>
  * landmark, whose only effect was focusing a composer already on screen. Every
  * one is genuinely single-surface, so the control was deleted rather than
@@ -59,12 +63,13 @@ const emptyRegistryModes = [
   "favourites",
   "prescribing",
   "tools",
+  "calculators",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 13 modes with the approved destinations and no Home item", () => {
+  it("covers all 15 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(13);
+    expect(appModeIds).toHaveLength(15);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -73,7 +78,7 @@ describe("mode secondary navigation registry", () => {
     }
   });
 
-  it("registers no destinations at all for the seven single-surface modes", () => {
+  it("registers no destinations at all for the eight single-surface modes", () => {
     // Empty is a real answer, pinned rather than left incidental: a future edit
     // that re-adds a lone focus-the-composer button should have to argue with
     // this test rather than slip back in.
@@ -97,7 +102,7 @@ describe("mode secondary navigation registry", () => {
     // single-button strips were deleted it no longer decides visibility on its
     // own. `PageSecondaryNavigation` returns null on a mode with no registered
     // destinations before it consults this at all — which is what actually
-    // silences the seven above, and is asserted in
+    // silences the eight above, and is asserted in
     // tests/page-secondary-navigation.dom.test.tsx.
     for (const modeId of emptyRegistryModes) {
       expect(modeSecondaryNavigationRegistry[modeId]).toEqual([]);
@@ -224,6 +229,29 @@ describe("mode secondary navigation registry", () => {
         currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
       }),
     ).toBe("/factsheets");
+
+    // Terms is the current tab on /dictionary/search, so its own link carries
+    // the catalogue's whole state — scope, letter and facets as well as the
+    // query — rather than resetting the surface the reader is already on.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dictionary",
+        itemId: "search",
+        href: "/dictionary/search",
+        currentSearchParams: new URLSearchParams("q=tardive&run=1&view=abbreviations&letter=T&kind=therapy"),
+      }),
+    ).toBe("/dictionary/search?q=tardive&run=1&view=abbreviations&letter=T&kind=therapy");
+
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "therapy-compass",
+        itemId: "compare",
+        href: "/therapy-compass/compare",
+        currentSearchParams: new URLSearchParams(
+          "q=trauma&run=1&ids=cbt%2Cact&topic=Anxiety&density=dense&prompt=patient+name",
+        ),
+      }),
+    ).toBe("/therapy-compass/compare?q=trauma&run=1&ids=cbt%2Cact&topic=Anxiety&density=dense");
   });
 
   it("adopts only modes with two or more routed destinations (explicit list, not silent derivation)", () => {
@@ -233,11 +261,13 @@ describe("mode secondary navigation registry", () => {
     // below only inspects modes with fewer than two. A mode silently losing the
     // bar is the regression this list exists to make impossible.
     expect([...MODE_NAV_ADOPTED_MODES].sort()).toEqual([
+      "dictionary",
       "differentials",
       "dsm",
       "factsheets",
       "formulation",
       "specifiers",
+      "therapy-compass",
     ]);
 
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
@@ -248,7 +278,6 @@ describe("mode secondary navigation registry", () => {
     }
 
     for (const modeId of appModeIds) {
-      if (modeId === "therapy-compass") continue; // owns ModeNav via useTherapyNavItems
       if (routedModeSecondaryNavigationCount(modeId) < 2) {
         expect(MODE_NAV_ADOPTED_MODES).not.toContain(modeId);
       }
@@ -269,6 +298,22 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/sertraline")).toBeNull();
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets")).toBe("topics");
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/search")).toBe("search");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/search")).toBe("search");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/recommend")).toBe("recommend");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/compare")).toBe("compare");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/pathways")).toBe("pathways");
+    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/cbt")).toBeNull();
+
+    // Dictionary's Search and Browse were one catalogue behind two routes and
+    // are now one. `/dictionary/browse` redirects before a page renders, so no
+    // destination may claim it — and Terms must not be marked current on a
+    // dictionary record either.
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/search")).toBe("search");
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/browse")).toBeNull();
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/auditory-hallucination")).toBeNull();
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/topics/assessment-and-measurement")).toBe(
+      "topics",
+    );
 
     // The `registry[modeId][0]?.id` fallback is gone. A mode with no branch and
     // no entries has no current destination, rather than silently lighting its

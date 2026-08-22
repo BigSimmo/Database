@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "7d9d496a-d6de-440e-9dc4-cb99ebda327b",
+  "createdOn": "2026-08-18",
+  "action": "update",
+  "payload": {
+    "id": "#231",
+    "pri": "P2",
+    "detail": "S1 (#2022), S1b (#2035), S1d (#2054) landed with green canary pairs: generation-quality false rejections and the finalizer gap hole are fixed. Residual R4: chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy (measured 4/4 at v18 4ea310e48 and 2/4 at v19 main on 2026-08-18; safe source-backed extractive fallback, never model synthesis). Route-budget stop condition unchanged. Remediation-plan Phase 5.2 (re-test #231 after the trigram-index restore) is satisfied by S1's 2026-08-17 healthy-latency probes; live-drift #316 Phase 1.2 classified all ten RPC divergences as attribute-only, so canaries since 2026-08-14 measure a reconstructable path. Re-graded P1 -> P2. Next: prompt/context trimming for complex classes, or accept the extractive fallback as the durable answer for these two classes. Do not add a separate R4 row — this update supersedes that need.",
+    "source": "docs/rag-improvement/HANDOVER.md secs 1-2; docs/rag-improvement/COORDINATION.md sec 7; docs/database-remediation-plan.md Phase 5.2; docs/audit/live-drift-forensics-2026-08.md sec on Phase 1.2 classification; ledger rows #316 / #248 / #231 / #342; session 2026-08-18",
+    "baseRowFingerprint": "24d212685db2f45fea3a95b1ac495979a4b8b7a8d61d46a4d407517d7de5269b"
+  }
+}

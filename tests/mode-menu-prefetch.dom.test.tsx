@@ -2,9 +2,11 @@
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { LAST_APP_MODE_STORAGE_KEY } from "@/components/clinical-dashboard/use-last-app-mode";
 import { appModeSelectionHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
 
 /**
@@ -85,6 +87,78 @@ describe("mode menu destination prefetch", () => {
     router.push.mockReset();
     router.replace.mockReset();
     router.prefetch.mockReset();
+    window.localStorage.clear();
+  });
+
+  it("exposes the shared composer as a semantic search input", () => {
+    render(<MasterSearchHeader {...headerProps()} />);
+    expect(screen.getByTestId("global-search-input")).toHaveAttribute("type", "search");
+  });
+
+  it("keeps calculator submission enabled when document data is unavailable", async () => {
+    const user = userEvent.setup();
+    const onAsk = vi.fn();
+
+    render(
+      <MasterSearchHeader
+        {...headerProps()}
+        searchMode="calculators"
+        query="PHQ-9"
+        realDataReady={false}
+        onAsk={onAsk}
+      />,
+    );
+
+    const submit = screen.getByRole("button", { name: "Search clinical calculators" });
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+    expect(onAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("submits the selected calculator suggestion rather than the previous query state", async () => {
+    const user = userEvent.setup();
+    const onAsk = vi.fn();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
+
+    try {
+      function CalculatorHeader() {
+        const [query, setQuery] = useState("depression");
+        return (
+          <MasterSearchHeader
+            {...headerProps()}
+            searchMode="calculators"
+            query={query}
+            onQueryChange={setQuery}
+            onAsk={onAsk}
+          />
+        );
+      }
+
+      render(<CalculatorHeader />);
+      const input = screen.getByTestId("global-search-input");
+      await user.clear(input);
+      await user.type(input, "depression");
+      await user.click(await screen.findByRole("option", { name: /depression severity.*PHQ-9/i }));
+
+      expect(onAsk).toHaveBeenCalledWith("depression severity");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("shows calculator-specific actions instead of Answer actions", async () => {
+    const user = userEvent.setup();
+
+    render(<MasterSearchHeader {...headerProps()} searchMode="calculators" />);
+    await user.click(screen.getByRole("button", { name: "Open calculators options" }));
+
+    const actions = await screen.findByRole("menu", { name: "Useful actions" });
+    expect(within(actions).getByRole("menuitem", { name: "Browse calculators" })).toBeVisible();
+    expect(within(actions).queryByRole("menuitem", { name: "New question" })).toBeNull();
+    expect(within(actions).queryByRole("menuitem", { name: "Add document" })).toBeNull();
   });
 
   it("prefetches the shared-home selection URL when the user points at a mode", async () => {
@@ -104,6 +178,26 @@ describe("mode menu destination prefetch", () => {
     const prefetched = new Set(router.prefetch.mock.calls.map(([href]) => href as string));
     expect(prefetched.has(documentsHref)).toBe(true);
     expect(prefetched.size).toBeLessThan(guestModeHomes().length);
+  });
+
+  it("prefetches and opens the canonical all-tools directory from the mode menu", async () => {
+    const user = userEvent.setup();
+    const onSearchModeChange = vi.fn();
+
+    render(<MasterSearchHeader {...headerProps()} onSearchModeChange={onSearchModeChange} />);
+    await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
+    const toolsOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Tools/i },
+    );
+
+    await user.hover(toolsOption);
+    expect(router.prefetch.mock.calls.some(([href]) => href === "/tools")).toBe(true);
+
+    await user.click(toolsOption);
+    expect(router.push).toHaveBeenCalledWith("/tools");
+    expect(onSearchModeChange).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(LAST_APP_MODE_STORAGE_KEY)).toBe("tools");
   });
 
   it("warms a mode again after Next invalidates its cached payload", async () => {
@@ -160,6 +254,26 @@ describe("mode menu destination prefetch", () => {
     await user.click(answerOption);
 
     expect(onSearchModeChange).toHaveBeenCalledWith("answer");
+    await vi.waitFor(() => {
+      expect(trigger).toHaveFocus();
+    });
+  });
+
+  it("restores mode-trigger focus when re-opening the active Tools directory", async () => {
+    const user = userEvent.setup();
+    const onSearchModeChange = vi.fn();
+    render(<MasterSearchHeader {...headerProps()} searchMode="tools" onSearchModeChange={onSearchModeChange} />);
+
+    const trigger = screen.getByRole("button", { name: /Mode Tools/i });
+    await user.click(trigger);
+    const toolsOption = within(await screen.findByRole("menu", { name: "Choose app mode" })).getByRole(
+      "menuitemradio",
+      { name: /Tools/i },
+    );
+    await user.click(toolsOption);
+
+    expect(router.push).toHaveBeenCalledWith("/tools");
+    expect(onSearchModeChange).not.toHaveBeenCalled();
     await vi.waitFor(() => {
       expect(trigger).toHaveFocus();
     });

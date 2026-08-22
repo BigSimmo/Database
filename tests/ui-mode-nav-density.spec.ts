@@ -80,12 +80,13 @@ const gotoTherapySearch = (page: Page) => gotoTherapy(page);
  * offline rather than leaving a mode uncovered.
  */
 const MODES = [
-  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 7, profile: "extended" },
+  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 4, profile: "balanced-four" },
   { modeId: "dsm", route: "/dsm/compare", items: 2, profile: "two-item" },
   { modeId: "specifiers", route: "/specifiers/compare", items: 4, profile: "compact-four" },
   { modeId: "formulation", route: "/formulation/compare", items: 4, profile: "compact-four" },
   { modeId: "differentials", route: "/differentials/diagnoses", items: 4, profile: "balanced-four" },
   { modeId: "factsheets", route: "/factsheets/search", items: 2, profile: "two-item" },
+  { modeId: "dictionary", route: "/dictionary/search?q=MSE", items: 4, profile: "balanced-four" },
 ] as const;
 
 function densityPoints(profile: DensityProfile) {
@@ -112,27 +113,6 @@ function densityPoints(profile: DensityProfile) {
  * with a different count needs no second table to keep in step.
  */
 const slotsAt = (items: number, capacity: number) => Math.min(items, capacity);
-
-/**
- * A route whose destination is permanently in the overflow.
- *
- * Therapy ships seven destinations and the bands cap at five slots, so Brief
- * Intervention never gets one — which fires `moreHoldsActive`, the branch that
- * decides what the More slot renders when the current page has folded. If it
- * ever borrows the folded label, this is the route where "Brief Intervention"
- * lands beside Search and Compare in a 352px bar and the arithmetic stops
- * working (~430px of content, 352px of space).
- */
-const FOLDED_ACTIVE_ROUTE = "/therapy-compass/acceptance-and-commitment-therapy-act/brief";
-
-/**
- * The other permanently-folded destination. Both record-scoped pages reach the
- * More slot by the same route through `data-active-from="none"`, but they are
- * separate items with separate labels — and "Patient Sheets" is the second
- * longest label in the set, so it is the one that would expose a regression
- * where the slot sizes to its content after all.
- */
-const FOLDED_SHEET_ROUTE = "/therapy-compass/acceptance-and-commitment-therapy-act/sheet";
 
 type NavState = {
   state: "bar" | "collapsed" | "none";
@@ -289,38 +269,11 @@ test.describe("ModeNav density", () => {
     });
   }
 
-  for (const width of [BAND_3_PX, BAND_4_PX, BAND_5_PX]) {
-    for (const [route, label] of [
-      [FOLDED_ACTIVE_ROUTE, "Brief Intervention"],
-      [FOLDED_SHEET_ROUTE, "Patient Sheets"],
-    ] as const) {
-      test(`keeps the overflow slot at one width on ${label} (${width}px)`, async ({ page }) => {
-        await page.setViewportSize({ width, height: 900 });
-        await gotoTherapy(page, route);
-
-        await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");
-
-        const nav = await readNav(page);
-        expectNoClippedLabels(nav, `${width}px on ${label}`);
-        // The last slot is the overflow control, and its word does not change
-        // with the route. Borrowing the folded page's label is what the band
-        // budget cannot pay for; the rule and the off-screen name carry the
-        // signal instead, and neither has a width.
-        expect(nav.labels.at(-1)?.text).toBe("More");
-        expect(nav.labels.map((slot) => slot.text)).not.toContain(label);
-      });
-    }
-  }
-
   /**
    * Every Therapy destination, at every band, must say where you are.
    *
-   * `search`/`compare` always have their own slot, `recommend` appears at 33rem
-   * and `pathways` at 42rem, and `brief` never does — so the mark moves between
-   * the page's own tab and the More slot as the container narrows. A component
-   * that decides this alone can only see "has a band at all", which leaves five
-   * of the seven pages showing nothing on a phone. Exactly one of the two must
-   * be marked at any width: never zero, never both.
+   * The mark moves between the page's own tab and More as the container narrows.
+   * Exactly one must be marked at any width: never zero, never both.
    */
   for (const width of [BAND_3_PX, BAND_4_PX, BAND_5_PX]) {
     test(`marks the current page exactly once at ${width}px`, async ({ page }) => {
@@ -331,8 +284,6 @@ test.describe("ModeNav density", () => {
         ["/therapy-compass/compare", "Compare"],
         ["/therapy-compass/recommend", "Recommend"],
         ["/therapy-compass/pathways", "Pathways"],
-        [FOLDED_ACTIVE_ROUTE, "Brief Intervention"],
-        [FOLDED_SHEET_ROUTE, "Patient Sheets"],
       ] as const) {
         await gotoTherapy(page, route);
         await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");

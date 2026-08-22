@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RagQueryClass, SmartRagApiPlan } from "@/lib/types";
+import type { RagQueryClass } from "@/lib/types";
 
 export const clinicalQueryModes = [
   "auto",
@@ -40,14 +40,6 @@ export function queryClassForClinicalMode(mode: ClinicalQueryMode): RagQueryClas
     default:
       return null;
   }
-}
-
-export function preferredResponseModeForClinicalMode(
-  mode: ClinicalQueryMode,
-): SmartRagApiPlan["responseMode"] | undefined {
-  if (mode === "required_documentation") return "document_lookup";
-  if (mode === "compare_guidance") return "multi_document_synthesis";
-  return undefined;
 }
 
 export function clinicalModePrompt(mode: ClinicalQueryMode) {

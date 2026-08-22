@@ -1,12 +1,29 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { CalculatorsSearchPage } from "@/components/calculators";
+import { appModeSelectionHref } from "@/lib/app-modes";
+import { consolidatedModeHomeTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 
-export const metadata: Metadata = {
-  title: "Calculators - Clinical KB",
-  description: "Psychiatry clinical decision calculators and rating scales with source-cited scoring guidance.",
+/**
+ * `Clinical Calculators` has no home page of its own any more.
+ *
+ * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
+ * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). This path stays so
+ * bookmarks and external deep links keep resolving, and forwards to that shared
+ * home. Submitted searches render at `/calculators/search`; the proxy carries the
+ * query across, so a deep link never lands here without one.
+ *
+ * The previous detailed page is preserved, off the live routes, at
+ * `/mockups/calculators-home-detailed`.
+ */
+type CalculatorsHomeRouteProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default function CalculatorsRoute() {
-  return <CalculatorsSearchPage />;
+export default async function CalculatorsHomeRoute({ searchParams }: CalculatorsHomeRouteProps) {
+  // Resolved through the same helper the proxy uses, so a request that reaches
+  // this backstop lands where the proxy would have sent it — including a
+  // submitted `?q=…&run=1`, which goes on to /calculators/search rather than
+  // arriving at the home with its query dropped.
+  const params = searchParams ? await searchParams : {};
+  redirect(consolidatedModeHomeTargetForSearchParams("/calculators", params) ?? appModeSelectionHref("calculators"));
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ContextualBackLink } from "@/components/contextual-back-link";
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
@@ -120,9 +120,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
       <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
         <ClinicalRail />
         <header className={styles.workspaceHeader}>
-          <Link href="/ward-management" aria-label="Back to Ward Flow">
+          <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
             <ArrowLeft aria-hidden="true" />
-          </Link>
+          </ContextualBackLink>
           <div>
             <span>Ward Flow</span>
             <h1>Movement not found</h1>
@@ -153,9 +153,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
     <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
       <ClinicalRail />
       <header className={styles.workspaceHeader}>
-        <Link href="/ward-management" aria-label="Back to Ward Flow">
+        <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
           <ArrowLeft aria-hidden="true" />
-        </Link>
+        </ContextualBackLink>
         <div>
           <span>Ward Flow</span>
           <h1>{patient.id} movement workspace</h1>

@@ -1,10 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { consolidatedModeHomeTarget, unsubmittedModeSearchTarget } from "@/lib/consolidated-mode-home-redirect";
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
+import {
+  DEVELOPER_AREA_HEADER,
+  DEVELOPER_AREA_PATH_HEADER,
+  DEVELOPER_GATED_PATH_PREFIXES,
+} from "@/lib/developer-area/headers";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
+
+function isDeveloperGatedPath(pathname: string) {
+  return DEVELOPER_GATED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
 
 // Next 16 renamed the `middleware` file convention to `proxy` (see
 // node_modules/next/dist/docs/.../file-conventions/proxy.md). Proxy defaults to
@@ -25,8 +35,19 @@ import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-
 //      API requests still pass through this refresh path because route handlers
 //      cannot write rotated SSR cookies back to the browser themselves.
 
-const documentFlowRedirects: Record<string, string> = {
+/**
+ * Retired paths that forward, query string intact, to the surface that replaced
+ * them. Resolved here as one 307 rather than left to the page's own
+ * `redirect()`, which under the streaming `(search-app)` layout emits a
+ * client-side meta refresh — a second of empty shell. Each page keeps its
+ * redirect as a backstop for anything the matcher misses.
+ */
+const staticRouteRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
+  // Dictionary's Search and Browse were one catalogue behind two destinations
+  // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
+  // thing there, so the query string travels unchanged.
+  "/dictionary/browse": "/dictionary/search",
 };
 
 const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);
@@ -67,6 +88,22 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method) &&
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/webhooks/")
+  ) {
+    const secFetchSite = request.headers.get("sec-fetch-site");
+    if (secFetchSite === "cross-site") {
+      const response = NextResponse.json(
+        { error: "Cross-site request blocked.", code: "cross_site_forbidden" },
+        { status: 403 },
+      );
+      response.headers.set("content-security-policy", csp);
+      return response;
+    }
+  }
+
   // Request headers Next.js reads during SSR: `x-nonce` for our own inline
   // <script>, and the CSP header from which Next extracts the nonce for its
   // scripts. Rebuilt from the *current* request each call so session-cookie
@@ -75,6 +112,17 @@ export async function proxy(request: NextRequest) {
     const headers = new Headers(request.headers);
     headers.set("x-nonce", nonce);
     headers.set("content-security-policy", csp);
+    // Untrusted: strip unconditionally so a client cannot set this header itself
+    // and spoof past the parent `/mockups` layout's production gate on a route
+    // that is not actually one of the developer-gated subtrees listed in
+    // DEVELOPER_GATED_PATH_PREFIXES (`/mockups/development`, the Caring Contact
+    // prototype, and the Care Plan prototype).
+    headers.delete(DEVELOPER_AREA_HEADER);
+    headers.delete(DEVELOPER_AREA_PATH_HEADER);
+    if (isDeveloperGatedPath(pathname)) {
+      headers.set(DEVELOPER_AREA_HEADER, "1");
+      headers.set(DEVELOPER_AREA_PATH_HEADER, `${pathname}${request.nextUrl.search}`);
+    }
     return headers;
   };
   // Every response the browser sees must carry the enforced CSP header.
@@ -86,7 +134,7 @@ export async function proxy(request: NextRequest) {
   const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
   if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
 
-  const redirectTarget = documentFlowRedirects[pathname];
+  const redirectTarget = staticRouteRedirects[pathname];
 
   if (redirectTarget) {
     const url = request.nextUrl.clone();
@@ -101,6 +149,35 @@ export async function proxy(request: NextRequest) {
   // sanitised components of this request's own query, so it cannot become an
   // open redirect. The page remains as a backstop for any request the matcher
   // misses.
+  // Consolidated mode homes: every mode but Favourites, Tools and Medication now
+  // shares one home, so its bare path forwards — to `/?mode=<id>` unsubmitted, or
+  // to `<mode>/search` when the link carries a submitted query. Resolved here for
+  // the same reason as the document-source fallbacks below — a page `redirect()`
+  // under the streaming `(search-app)` layout emits a client-side meta refresh (a
+  // full second of empty shell) rather than a 307. The page keeps its own redirect
+  // as a backstop for anything this misses.
+  const consolidatedHomeTarget = consolidatedModeHomeTarget(pathname, request.nextUrl.searchParams);
+
+  if (consolidatedHomeTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = consolidatedHomeTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
+  // The same forward for an unsubmitted `<mode>/search`: those four routes have no
+  // browse view, so an empty query would render the retired mode home a second time.
+  const unsubmittedSearchTarget = unsubmittedModeSearchTarget(pathname, request.nextUrl.searchParams);
+
+  if (unsubmittedSearchTarget) {
+    const url = request.nextUrl.clone();
+    const [targetPathname, targetSearch = ""] = unsubmittedSearchTarget.split("?");
+    url.pathname = targetPathname;
+    url.search = targetSearch;
+    return withCsp(NextResponse.redirect(url));
+  }
+
   if (isDocumentSourcePath(pathname)) {
     const url = request.nextUrl.clone();
     const target = documentSourceRedirectTarget(url.searchParams);
@@ -148,6 +225,15 @@ export function shouldBlockProductionMockups(
   environment: Record<string, string | undefined> = process.env,
 ) {
   if (!pathname.startsWith("/mockups") || environment.NODE_ENV !== "production") return false;
+
+  // `/mockups/development` and the two prototypes it links to — Caring Contact
+  // and Care Plan — carry their own signed-in-administrator gate
+  // (`DeveloperAreaGate`, applied in each subtree's layout via the
+  // x-developer-area header set above), so let them through this blanket block
+  // and let that gate run instead of a bare 404. The match is exact-or-slash, so
+  // a look-alike path such as `/mockups/care-plan-archive` is NOT let through.
+  // Every other /mockups/** path is unaffected.
+  if (isDeveloperGatedPath(pathname)) return false;
 
   // Mockups remain unavailable in every normal production process. The one
   // exception is the repository-owned, isolated Playwright server when its

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fb87f710-b46c-452a-b349-e3ce71c36959",
+  "createdOn": "2026-08-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Docling lab fixtures.v2 table-hardness corpus: add unruled, merged-cell, and rotated-header tables so the Gate B table-heavy improvement leg has measurable headroom",
+    "detail": "The v1 corpus's table strata are cleanly ruled grids on which the legacy extractor already scores cell F1 1.0 (S6 smoke run and the S6b Gate B run), so the pre-agreed table-heavy improvement target was set to 0 pp (parity at ceiling) by owner decision on 2026-08-18. Before any table-heavy delta is treated as decisive for a Docling promotion beyond B4 shadow design, add a docling-lab-fixtures.v2 stratum set where the legacy find_tables path is expected to degrade: unruled tables, merged cells, rotated headers. Fixture-hardness change only — eval/docling/ manifest + generator, no worker or extractor edit. See eval/docling/README.md 'Known limitation (v1 corpus)' and docs/rag-improvement/gate-b-decision-record-2026-08-18.md.",
+    "source": "packet S6b (Gate B run), owner threshold decision 2026-08-18",
+    "issueUlid": "01M0AXXCJMBSBE9BYR4QX6QBC8"
+  }
+}

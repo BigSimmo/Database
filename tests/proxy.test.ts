@@ -60,8 +60,8 @@ describe("proxy content-security-policy", () => {
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co");
-    expect(csp).toContain("connect-src 'self' https://*.supabase.co;");
+    expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co;");
+    expect(csp).toContain("connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io");
     // OpenAI calls are server-side only; the browser must not be allowed to
     // reach the provider origin (2026-07-13 audit, finding 12).
     expect(csp).not.toContain("api.openai.com");
@@ -153,6 +153,72 @@ describe("production mockup boundary", () => {
     ).toBe(false);
     expect(shouldBlockProductionMockups("/applications", { NODE_ENV: "production" })).toBe(false);
   });
+
+  it("lets the Care Plan subtree reach its own developer gate, and keeps look-alike prefixes blocked", () => {
+    // The gated prefix is exactly `/mockups/care-plan`. Its base, a patient deep
+    // route and an episode deep route must reach DeveloperAreaGate rather than a
+    // bare 404; every neighbouring path that merely begins with the same
+    // characters stays behind the blanket production block.
+    for (const path of [
+      "/mockups/care-plan",
+      "/mockups/care-plan/patients/SYN-PATIENT-001/management-plan",
+      "/mockups/care-plan/patients/SYN-PATIENT-001/presentations/SYN-PRESENTATION-001",
+    ]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" }), path).toBe(false);
+    }
+    for (const path of [
+      "/mockups/care-plan-archive",
+      "/mockups/care-plan-archive/patients/SYN-PATIENT-001",
+      "/mockups/care-plans",
+      "/mockups/care-plan-2024/system-states",
+    ]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" }), path).toBe(true);
+    }
+  });
+
+  it("lets the developer-gated hub and Caring Contact subtree through the blanket block, without opting in the flag", () => {
+    // These two subtrees carry their own signed-in-administrator gate
+    // (DeveloperAreaGate) instead of the flat 404 — no NEXT_PUBLIC_MOCKUPS_ENABLED
+    // opt-in should be required, and no OTHER /mockups/** path should be affected.
+    for (const path of [
+      "/mockups/development",
+      "/mockups/caring-contacts",
+      "/mockups/caring-contacts/patients",
+      "/mockups/caring-contacts/patients/abc-123",
+    ]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" })).toBe(false);
+    }
+    // A path that merely starts with the same characters is not a prefix match.
+    expect(shouldBlockProductionMockups("/mockups/development-notes", { NODE_ENV: "production" })).toBe(true);
+    expect(shouldBlockProductionMockups("/mockups/caring-contacts-archive", { NODE_ENV: "production" })).toBe(true);
+  });
+});
+
+describe("developer-area header (x-developer-area)", () => {
+  it("sets the header only for the two developer-gated paths, and strips a client-supplied copy elsewhere", async () => {
+    const developmentRequest = requestFor("/mockups/development");
+    const developmentResponse = await proxy(developmentRequest);
+    expect(developmentResponse.headers.get("x-middleware-request-x-developer-area")).toBe("1");
+    expect(developmentResponse.headers.get("x-middleware-request-x-developer-area-path")).toBe("/mockups/development");
+
+    const carePlanRequest = requestFor("/mockups/care-plan/patients/SYN-PATIENT-001/presentations");
+    const carePlanResponse = await proxy(carePlanRequest);
+    expect(carePlanResponse.headers.get("x-middleware-request-x-developer-area")).toBe("1");
+    expect(carePlanResponse.headers.get("x-middleware-request-x-developer-area-path")).toBe(
+      "/mockups/care-plan/patients/SYN-PATIENT-001/presentations",
+    );
+
+    const carePlanLookAlikeResponse = await proxy(requestFor("/mockups/care-plan-archive"));
+    expect(carePlanLookAlikeResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
+
+    const otherMockupRequest = requestFor("/mockups/tools-workflow-board");
+    otherMockupRequest.headers.set("x-developer-area", "1");
+    otherMockupRequest.headers.set("x-developer-area-path", "/mockups/development");
+    const otherMockupResponse = await proxy(otherMockupRequest);
+    // Spoofed header must not survive into the forwarded request.
+    expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
+    expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area-path")).toBeNull();
+  });
 });
 
 describe("document-source fallback redirects", () => {
@@ -179,5 +245,27 @@ describe("document-source fallback redirects", () => {
   it("leaves the document reader route itself untouched", async () => {
     const response = await proxy(requestFor(`/documents/${demoId}?page=2`));
     expect(response.headers.get("location")).toBeNull();
+  });
+});
+
+describe("cross-site mutation blocking", () => {
+  it("blocks cross-site POST requests to API routes with 403", async () => {
+    const request = new NextRequest(new URL("http://localhost/api/documents"), {
+      method: "POST",
+      headers: { "sec-fetch-site": "cross-site" },
+    });
+    const response = await proxy(request);
+    expect(response.status).toBe(403);
+    const body = await response.json();
+    expect(body.code).toBe("cross_site_forbidden");
+  });
+
+  it("allows same-origin API mutations", async () => {
+    const request = new NextRequest(new URL("http://localhost/api/documents"), {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-origin" },
+    });
+    const response = await proxy(request);
+    expect(response.status).not.toBe(403);
   });
 });

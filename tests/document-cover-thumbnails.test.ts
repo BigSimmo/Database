@@ -5,6 +5,7 @@ import { demoDocuments, demoImages, getDemoImage } from "@/lib/demo-data";
 import { toDocumentMatch } from "@/lib/document-enrichment";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import type { RelatedDocument } from "@/lib/types";
+import { isMissingStorageObject, selectCommittedCovers } from "../scripts/archive/backfill-document-covers.mjs";
 
 const extractorSource = readFileSync(new URL("../worker/python/extract_pdf_assets.py", import.meta.url), "utf8");
 const workerSource = readFileSync(new URL("../worker/main.ts", import.meta.url), "utf8");
@@ -22,6 +23,59 @@ describe("document cover thumbnails", () => {
     expect(backfillSource).toMatch(
       /\.order\("created_at", \{ ascending: true \}\)\s*\n\s*\.order\("id", \{ ascending: true \}\)\s*\n\s*\.range\(from, from \+ 999\)/,
     );
+  });
+
+  it("audits every selected PDF and repairs missing objects or cover metadata", () => {
+    expect(backfillSource).toContain('const all = hasFlag("--all")');
+    expect(backfillSource).toContain("loadCurrentDocument(candidate.id)");
+    expect(backfillSource).toContain("loadCurrentCovers(doc.id)");
+    expect(backfillSource).toContain("existingObjectIsLive");
+    expect(backfillSource).toContain("recovered cover metadata");
+    expect(backfillSource).toContain('.eq("metadata->>index_generation_id", expectedGeneration)');
+    expect(backfillSource).toContain("rolled back generation-changed cover repair");
+    expect(backfillSource).not.toContain("coveredIds.has(String(doc.id))");
+  });
+
+  it("fails closed when a cover probe reports anything except a definite missing object", () => {
+    expect(isMissingStorageObject({ status: 404 })).toBe(true);
+    expect(isMissingStorageObject({ code: "NoSuchKey" })).toBe(true);
+    expect(isMissingStorageObject({ statusCode: "404" })).toBe(true);
+    expect(isMissingStorageObject({ status: 403, code: "AccessDenied" })).toBe(false);
+    expect(isMissingStorageObject({ status: 503, code: "InternalError" })).toBe(false);
+    expect(backfillSource).toContain("probe.error && !isMissingStorageObject(probe.error)");
+  });
+
+  it("prefers the document pointer when duplicate committed covers remain", () => {
+    const covers = [
+      { id: "old", index_generation_id: "generation-a", metadata: {} },
+      { id: "pointed", index_generation_id: "generation-a", metadata: {} },
+      { id: "staged", index_generation_id: "generation-b", metadata: {} },
+    ];
+
+    expect(selectCommittedCovers(covers, "generation-a", "pointed")).toEqual({
+      selected: covers[1],
+      matches: covers.slice(0, 2),
+    });
+  });
+
+  it("uses compare-and-swap metadata writes and owned rollback cleanup", () => {
+    expect(backfillSource).toContain('.eq("metadata", JSON.stringify(current))');
+    expect(backfillSource).toMatch(/cover-page-1-\$\{repairId\}\.png/);
+    expect(backfillSource).toContain("failed to roll back replacement cover row");
+    expect(backfillSource).toContain("fresh?.metadata?.cover_image_id === insertedId");
+    expect(backfillSource).toMatch(
+      /failed to roll back replacement cover row[\s\S]*?removeOrQueueReplacedImage\(targetDocument, imagePath\)/,
+    );
+  });
+
+  it("retires replaced rows only after the pointer moves and preserves storage cleanup", () => {
+    expect(backfillSource).toContain("Insert first and retire the previous row only after the document");
+    expect(backfillSource).toMatch(
+      /patchCoverImageId\(doc\.id, inserted\.id, committedGeneration\)[\s\S]*?retireCoverRow\(doc, existingCover\)/,
+    );
+    expect(backfillSource).toContain("removeOrQueueReplacedImage(targetDocument, coverRow.storage_path)");
+    expect(backfillSource).toContain('supabase.from("storage_cleanup_jobs").insert({');
+    expect(backfillSource).toContain('operation: "replace_document_cover"');
   });
 
   it("extracts a first-page cover_page artifact in the PDF worker", () => {

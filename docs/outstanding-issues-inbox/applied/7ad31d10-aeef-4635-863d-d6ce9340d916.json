@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "id": "7ad31d10-aeef-4635-863d-d6ce9340d916",
+  "createdOn": "2026-08-15",
+  "action": "update",
+  "payload": {
+    "id": "#265",
+    "detail": "CORRECTION QUEUED 2026-08-15 during PR #1987 review. Gate 2 is closed for new use, but the just-reconciled detail inherited stale measurements from PR #1984's pre-sync tree. On the exact current tree after PRs #1982-#1986, check:design-system-contract measures interactiveTapFloorDeclarations=40 across 16 production files, not 43 across 17, and edgeOwnershipConflicts=19 across 10 files, not 25 across 12. The strengthened tap-floor parser removed three old false-positive counts from calculators/search-page.tsx; favourites-library-nav and pwa-lifecycle no longer contribute edge conflicts after the merged UI work. The baseline and GATES.md still permit/report the older 43 and 25 values, so they carry three and six units of stale ratchet slack respectively and need a focused tightening follow-up. The detector still correctly evaluates comparable arbitrary lengths and reachable conditional/composed branches, and component-wrapper tags such as Link remain its known blind spot. Gate 7 remains open: add a shared deterministic render-tree traversal plus child/parent elevation-tier check. Gate 8 remains open: decide ring-versus-outline focus ownership, widen onePixelShadowSpreads to all relevant token families, then retire conflicts with browser focus proof. Do not edit the applied 8c133c4e request in place; it is immutable audit history.",
+    "source": "PR #1987 review; exact tree after #1986; check:design-system-contract; scripts/design-system-contract-baseline.json; docs/design-system/GATES.md"
+  }
+}

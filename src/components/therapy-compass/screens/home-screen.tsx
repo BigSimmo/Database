@@ -1,20 +1,19 @@
 "use client";
 
-import { FileText, Network, Search, Sparkles, Waypoints } from "lucide-react";
+import { GitCompareArrows, Network, Sparkles, Waypoints } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { therapyHrefWithSearchParams, therapyScreenHref } from "@/lib/therapy-compass-navigation";
+import { sharedHomePresentation } from "@/lib/ui-copy";
+
+import { TherapyReviewNotice } from "../therapy-review-notice";
 
 import { THERAPY_CATALOGUE_SUMMARY } from "../data/generated-assets";
 
-const SUGGESTIONS = [
-  "Anxiety in outpatient care",
-  "Low mood & motivation",
-  "Trauma-focused",
-  "5-minute grounding",
-  "Relapse prevention",
-];
+const SUGGESTIONS = sharedHomePresentation["therapy-compass"].suggestions;
 
 export function HomeScreen() {
   const router = useRouter();
@@ -27,11 +26,19 @@ export function HomeScreen() {
 
   return (
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
+      {/* Above the hero, not in the footer: the catalogue-wide review caveat is
+          the first thing a reader of this library needs, and the quiet footer
+          line is not load-bearing enough to carry it alone. */}
+      <TherapyReviewNotice className="mb-3 sm:mb-4" />
       <ModeHomeTemplate
         testId="therapy-compass"
-        title="Therapy"
+        title={sharedHomePresentation["therapy-compass"].title}
         subtitle={therapyCountCopy}
-        icon={Search}
+        // The mode's identity glyph is derived from APP_MODE_ICON rather than
+        // chosen here, so this medallion cannot drift from the one nav, the mode
+        // picker and the shared home `/` all render. It was a hard-coded magnifier,
+        // which made the same mode show two different identities by door.
+        icon={appModeIcons["therapy-compass"]}
         actionsLabel="Therapy workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[
@@ -39,33 +46,33 @@ export function HomeScreen() {
             title: "Recommend a therapy",
             description: "Match a clinical question to indexed options.",
             icon: Sparkles,
-            href: "/therapy-compass/recommend",
+            href: therapyScreenHref("recommend"),
           },
           {
             title: "Open a pathway",
             description: "Problem-based, step-by-step workflows.",
             icon: Waypoints,
-            href: "/therapy-compass/pathways",
+            href: therapyScreenHref("pathways"),
           },
           {
-            title: "Create a patient sheet",
-            description: "Design and print a plain-language handout.",
-            icon: FileText,
-            href: `/therapy-compass/${THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug}/sheet`,
+            title: "Compare therapies",
+            description: "Compare clinical fit, cautions and delivery.",
+            icon: GitCompareArrows,
+            href: therapyScreenHref("compare"),
           },
         ]}
         pillsTitle="Common therapy searches"
         pills={SUGGESTIONS.map((suggestion) => ({
           label: suggestion,
-          onClick: () => router.push(`/therapy-compass/search?q=${encodeURIComponent(suggestion)}&run=1`),
+          onClick: () =>
+            router.push(
+              therapyHrefWithSearchParams(
+                therapyScreenHref("search"),
+                new URLSearchParams({ q: suggestion, run: "1" }),
+              ),
+            ),
           icon: Network,
         }))}
-        footer={
-          <ModeHomeVerificationFooter
-            label="Decision support"
-            body="Source-grounded — review status before clinical use"
-          />
-        }
       />
     </ModeHomeMain>
   );

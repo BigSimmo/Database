@@ -1,5 +1,6 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
 import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 
 export const appModeIds = [
@@ -14,8 +15,10 @@ export const appModeIds = [
   "formulation",
   "prescribing",
   "tools",
+  "calculators",
   "therapy-compass",
   "factsheets",
+  "dictionary",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -31,6 +34,8 @@ export type AppModeSearchKind =
   | "dsm"
   | "specifiers"
   | "formulation"
+  | "therapies"
+  | "calculators"
   | "tools";
 export type AppModeResultKind = AppModeSearchKind;
 
@@ -337,18 +342,42 @@ export const appModeDefinitions = [
     },
   },
   {
+    id: "calculators",
+    label: "Calculators",
+    description: "Source-cited psychiatry scores and clinical decision calculators",
+    href: "/calculators",
+    search: {
+      kind: "calculators",
+      placeholder: "Search calculators by scale, symptom, or indication...",
+      inputAriaLabel: "Search clinical calculators by scale, symptom, or indication",
+      submitIdleLabel: "Calculate",
+      submitBusyLabel: "Calculate",
+      submitAriaLabel: "Search clinical calculators",
+      emptyTitle: "Search clinical calculators",
+      readyTitle: "Find a clinical calculator",
+      progressLabel: "Searching the local calculator catalogue.",
+      resultKind: "calculators",
+      resultHeading: "Calculator matches",
+      resultsSurface: "results-band",
+      statusLabel: "Calculators",
+      nextStep: "Open a calculator to score it and review next actions",
+      badgeLabel: null,
+    },
+  },
+  {
     id: "therapy-compass",
     label: "Therapy",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
-    // Cleared for production discovery: the re-curated therapy pathways have
-    // qualified-clinician sign-off, so Therapy is now a first-class mode in the
-    // production sidebar and MODE dropdown (no longer devOnly-gated).
+    // Therapy ships in production with its review state disclosed rather than
+    // hidden. It was previously `devOnly`, which 404'd the route and every
+    // record for real users; the owner's decision is that a catalogue labelled
+    // "needs source review" on the library notice, every result card and every
+    // record page is more useful — and no less honest — than an absent mode.
+    // Per-record sign-off is still tracked by `therapyNeedsReview` and surfaced
+    // everywhere the record appears; it no longer gates reachability.
     search: {
-      // Therapy owns its in-tool search over the imported therapy library (not
-      // the document corpus), so the shared composer borrows the benign "tools"
-      // command behavior while routing into Therapy's dedicated search page.
-      kind: "tools",
+      kind: "therapies",
       // The longer phrase became the late portal's LCP element on Therapy Home.
       // Keep the full search scope in the accessible name below; the concise
       // visible prompt lets the already-painted hero remain the LCP owner.
@@ -360,7 +389,7 @@ export const appModeDefinitions = [
       emptyTitle: "Browse the therapy library",
       readyTitle: "Search source-grounded therapies",
       progressLabel: "Loading the therapy library.",
-      resultKind: "tools",
+      resultKind: "therapies",
       resultHeading: "Therapies",
       resultsSurface: "results-band",
       statusLabel: "Therapy",
@@ -391,6 +420,31 @@ export const appModeDefinitions = [
       resultsSurface: "results-band",
       statusLabel: "Factsheets",
       nextStep: "Open a factsheet to read, save, or print",
+      badgeLabel: null,
+    },
+  },
+  {
+    id: "dictionary",
+    label: "Dictionary",
+    description: "Source-governed clinical terms, abbreviations, and related concepts",
+    href: "/dictionary",
+    search: {
+      // Dictionary owns a local static catalogue. The shared composer uses the
+      // benign tools command kind, then appModeHomeHref routes into its results.
+      kind: "tools",
+      placeholder: "Search a term or abbreviation…",
+      inputAriaLabel: "Search clinical terms, abbreviations, and topics",
+      submitIdleLabel: "Terms",
+      submitBusyLabel: "Terms",
+      submitAriaLabel: "Search the clinical dictionary",
+      emptyTitle: "Search the clinical dictionary",
+      readyTitle: "Find a clinical term",
+      progressLabel: "Searching source-linked dictionary entries.",
+      resultKind: "tools",
+      resultHeading: "Dictionary results",
+      resultsSurface: "results-band",
+      statusLabel: "Dictionary",
+      nextStep: "Open a term, browse the catalogue, or compare definitions",
       badgeLabel: null,
     },
   },
@@ -428,7 +482,9 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "dictionary",
   "tools",
+  "calculators",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
@@ -439,6 +495,13 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     return documentsSearchHref({ ...options, query });
   }
 
+  // A consolidated mode has no home of its own: its bare path only redirects to
+  // the shared home. An unsubmitted href therefore targets `/?mode=<id>` directly
+  // rather than routing in-app navigation through that redirect for nothing.
+  if (consolidatedModeHomeModeIds.has(modeId) && !query) {
+    return appModeSelectionHref(modeId, options);
+  }
+
   if (namespaceIsolatedModes.has(modeId) && "href" in mode && mode.href) {
     const namespacedParams = new URLSearchParams();
     if (query) namespacedParams.set("q", query);
@@ -447,8 +510,12 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     appendSearchNavigationContext(namespacedParams, options);
 
     const suffix = namespacedParams.toString();
-    const namespacedHref =
-      query && modeId === "dsm" ? "/dsm/search" : query && modeId === "factsheets" ? "/factsheets/search" : mode.href;
+    // A submitted search resolves to the mode's own `/search` route. Every
+    // consolidated mode has one, because its bare path is now a redirect onto the
+    // shared home: routing a submitted query back to the bare path would bounce
+    // through that redirect and return here, an infinite loop
+    // (tests/app-modes.test.ts pins the no-loop property for every mode).
+    const namespacedHref = query && consolidatedModeHomeModeIds.has(modeId) ? `${mode.href}/search` : mode.href;
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 
@@ -523,6 +590,8 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "dsm" ||
     kind === "specifiers" ||
     kind === "formulation" ||
+    kind === "therapies" ||
+    kind === "calculators" ||
     kind === "tools"
   );
 }

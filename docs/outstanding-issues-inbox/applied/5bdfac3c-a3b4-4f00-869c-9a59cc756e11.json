@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5bdfac3c-a3b4-4f00-869c-9a59cc756e11",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#CCZ4HB",
+    "outcome": "OWNER DECISION 2026-08-22: leave the CodeRabbit spending cap as it is and accept that automated review from that bot is intermittent. Option (c) of the three this row offered — not a gate, not a cap raise. Recorded in AGENTS.md 'Automated review coverage (owner decision, 2026-08-22)' with the measurements (skipped on PRs #2113, #2252, #2255, #2256, #2263, #2278), the fact that the ChatGPT Codex connector still reviews and is unaffected, the draft-PR interaction, and the standing prohibition on weakening any required check to compensate. Re-open only if the Codex connector also stops reviewing, or if the owner revisits the billing decision.",
+    "baseRowFingerprint": "afc9a2a0680b2801444018a6adaa220b5615b3c157bc8ec9982b75079a20b6c3"
+  }
+}

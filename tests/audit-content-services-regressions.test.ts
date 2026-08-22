@@ -159,7 +159,12 @@ describe("content and services audit regressions", () => {
       /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
     );
     expect(formsHomeSource).toContain("local confirmation");
-    expect(formsHomeSource).toContain("Source catalogue reviewed");
+    // The "Source catalogue reviewed · Official-source MHA 2014 forms · verify
+    // before use" line went with every other mode-home caveat footer. The
+    // enforceable version of that rule lives in tests/mode-home-no-caveat-footer.test.ts,
+    // which pins the footer's call sites structurally; a bare string check here
+    // would pass against a reworded or differently-named replacement.
+    expect(formsHomeSource).not.toContain("Source catalogue reviewed");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {
@@ -223,7 +228,8 @@ describe("content and services audit regressions", () => {
     expect(normalizedFormDetailSource).toContain("href={form.source.url}");
     expect(normalizedFormDetailSource).toContain('target="_blank"');
     expect(normalizedFormDetailSource).toContain('rel="noopener noreferrer"');
-    expect(normalizedFormDetailSource).toContain("inline-flex min-h-10");
+    expect(normalizedFormDetailSource).toContain("inline-flex min-h-tap");
+    expect(normalizedFormDetailSource).toContain("sm:min-h-10");
     expect(formDetailSource).toContain("Source link pending");
     expect(formDetailSource).toContain("Official");
   });

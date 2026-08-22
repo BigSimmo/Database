@@ -9,6 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
+  type UIEventHandler,
 } from "react";
 import { X } from "lucide-react";
 import { OverlayPortal } from "@/components/ui/overlay-root";
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/sheet-focus";
 
 export type SheetMobileSize = "content" | "viewport";
+export type SheetMobileHeaderSafeArea = "none" | "padding" | "offset";
 
 type SheetAccessibleName =
   | { title: string; labelledBy?: string; ariaLabel?: string }
@@ -50,15 +52,43 @@ type SheetBaseProps = {
   titleAccessory?: ReactNode;
   descriptionContent?: ReactNode;
   headerActions?: ReactNode;
+  headerBottom?: ReactNode;
+  headerHidden?: boolean;
+  headerRef?: RefObject<HTMLDivElement | null>;
   headerClassName?: string;
   titleClassName?: string;
   closeButtonClassName?: string;
   contentClassName?: string;
   contentStyle?: CSSProperties;
   bodyClassName?: string;
-  placement?: "default" | "left";
+  bodyRef?: RefObject<HTMLDivElement | null>;
+  /**
+   * Makes the scrollable body reachable by keyboard when its content may not
+   * always include a focusable descendant (WCAG 2.1.1 / axe
+   * scrollable-region-focusable). Omit for bodies that always contain
+   * interactive content.
+   */
+  bodyTabIndex?: number;
+  onBodyScroll?: UIEventHandler<HTMLDivElement>;
+  footerClassName?: string;
+  /**
+   * Stamps `data-footer-variant` on the footer wrapper. Only meaningful when the
+   * footer opts into the shared phone dock chrome (`.answer-footer-search-dock`),
+   * where `globals.css` reads it to pick the scrim height: `compact` is for a dock
+   * carrying a single control row rather than a composer plus an action row.
+   */
+  footerVariant?: "default" | "compact";
+  /** Side placement is opt-in so existing dialogs keep their centred layout. */
+  placement?: "default" | "left" | "right" | "responsive-right";
   mobilePlacement?: "bottom" | "top" | "fullscreen";
   mobileSize?: SheetMobileSize;
+  /**
+   * Keeps the Sheet-owned header controls below the phone top safe area.
+   * Fullscreen sheets default to `padding`; near-full bottom sheets must opt in
+   * because short bottom sheets should not inherit a notch-sized empty band.
+   * Use `offset` only for an absolutely positioned header.
+   */
+  mobileHeaderSafeArea?: SheetMobileHeaderSafeArea;
   portal?: boolean;
   desktopBackdropClassName?: string;
   testId?: string;
@@ -96,15 +126,24 @@ export function Sheet({
   titleAccessory,
   descriptionContent,
   headerActions,
+  headerBottom,
+  headerHidden = false,
+  headerRef,
   headerClassName,
   titleClassName,
   closeButtonClassName,
   contentClassName,
   contentStyle,
   bodyClassName,
+  bodyRef,
+  bodyTabIndex,
+  onBodyScroll,
+  footerClassName,
+  footerVariant,
   placement = "default",
   mobilePlacement = "bottom",
   mobileSize = "content",
+  mobileHeaderSafeArea,
   portal = true,
   desktopBackdropClassName,
   testId,
@@ -341,9 +380,12 @@ export function Sheet({
   }
   const resolvedAriaLabel = ariaLabel || (!title && !labelledBy ? "Dialog" : undefined);
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
-  const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
-  const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
-  const defaultSheetUsesViewportSize = placement !== "left" && mobileSize === "viewport";
+  const sideSheet = placement === "left" || placement === "right";
+  const responsiveSideSheet = placement === "responsive-right";
+  const defaultSheetIsFullscreen = !sideSheet && mobilePlacement === "fullscreen";
+  const defaultSheetIsTopAligned = !sideSheet && mobilePlacement === "top";
+  const defaultSheetUsesViewportSize = !sideSheet && mobileSize === "viewport";
+  const resolvedMobileHeaderSafeArea = mobileHeaderSafeArea ?? (defaultSheetIsFullscreen ? "padding" : "none");
   const contentClassTokens = contentClassName?.split(/\s+/) ?? [];
   const hasMobileMaxHeight = contentClassTokens.some((token) => /^!?max-h-/.test(token));
   const hasSmallScreenMaxHeight = contentClassTokens.some((token) => /^sm:!?max-h-/.test(token));
@@ -356,14 +398,18 @@ export function Sheet({
         // branch still stacks above sibling chrome.
         "pointer-events-auto fixed inset-0 z-[var(--z-modal)] flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         desktopBackdropClassName,
-        placement !== "left" && "motion-safe:animate-overlay-in",
+        !sideSheet && !responsiveSideSheet && "motion-safe:animate-overlay-in",
         placement === "left"
           ? "items-stretch justify-start"
-          : defaultSheetIsFullscreen
-            ? "items-stretch justify-center p-0 lg:items-center lg:p-6"
-            : defaultSheetIsTopAligned
-              ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
-              : "items-end justify-center sm:items-center sm:p-6",
+          : placement === "right"
+            ? "items-stretch justify-end"
+            : placement === "responsive-right"
+              ? "items-end justify-center sm:items-stretch sm:justify-end sm:p-0"
+              : defaultSheetIsFullscreen
+                ? "items-stretch justify-center p-0 lg:items-center lg:p-6"
+                : defaultSheetIsTopAligned
+                  ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
+                  : "items-end justify-center sm:items-center sm:p-6",
       )}
       // Dismiss on click (not pointerdown) so the sheet stays mounted through
       // pointerup and the same gesture cannot click-through into content below.
@@ -381,6 +427,7 @@ export function Sheet({
         ref={panelRef}
         id={id}
         data-testid={testId}
+        data-mobile-header-safe-area={resolvedMobileHeaderSafeArea}
         role="dialog"
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
@@ -396,30 +443,34 @@ export function Sheet({
           "transition duration-[var(--duration-moderate)] motion-reduce:transition-none sm:duration-[var(--duration-quick)]",
           placement === "left"
             ? "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
-            : cn(
-                defaultSheetIsFullscreen
-                  ? // Fullscreen panels size from the inset-0 backdrop (h-full), not
-                    // 100dvh: iOS Safari resolves dvh stale across toolbar
-                    // collapse, which strands a dead band under the sheet.
-                    "h-full max-h-full rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
-                  : cn(
-                      "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-dialog-rise",
-                      defaultSheetIsTopAligned
-                        ? cn(
-                            "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in",
-                            defaultSheetUsesViewportSize && "min-h-[calc(100dvh-2rem)] sm:min-h-0",
-                          )
-                        : cn(
-                            "rounded-t-2xl motion-safe:animate-sheet-up",
-                            defaultSheetUsesViewportSize
-                              ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
-                              : cn(
-                                  !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem)]",
-                                  !hasSmallScreenMaxHeight && "sm:max-h-[88dvh]",
-                                ),
-                          ),
-                    ),
-              ),
+            : placement === "right"
+              ? "h-full max-h-full max-w-[min(32rem,calc(100vw-1rem))] rounded-l-2xl border-y-0 border-r-0 pt-safe sm:max-h-dvh sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:pb-0"
+              : placement === "responsive-right"
+                ? "max-h-[calc(100dvh-2rem)] rounded-t-2xl motion-safe:animate-sheet-up sm:h-full sm:max-h-full sm:max-w-[32rem] sm:rounded-l-2xl sm:rounded-r-none sm:border-y-0 sm:border-r-0 sm:pb-0 sm:motion-safe:animate-dialog-rise"
+                : cn(
+                    defaultSheetIsFullscreen
+                      ? // Fullscreen panels size from the inset-0 backdrop (h-full), not
+                        // 100dvh: iOS Safari resolves dvh stale across toolbar
+                        // collapse, which strands a dead band under the sheet.
+                        "h-full max-h-full rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
+                      : cn(
+                          "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-dialog-rise",
+                          defaultSheetIsTopAligned
+                            ? cn(
+                                "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in",
+                                defaultSheetUsesViewportSize && "min-h-[calc(100dvh-2rem)] sm:min-h-0",
+                              )
+                            : cn(
+                                "rounded-t-2xl motion-safe:animate-sheet-up",
+                                defaultSheetUsesViewportSize
+                                  ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
+                                  : cn(
+                                      !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem)]",
+                                      !hasSmallScreenMaxHeight && "sm:max-h-[88dvh]",
+                                    ),
+                              ),
+                        ),
+                  ),
           "motion-reduce:animate-none",
           contentClassName,
         )}
@@ -427,7 +478,7 @@ export function Sheet({
         <div
           className={cn(
             "mx-auto flex w-full shrink-0 cursor-grab touch-none justify-center pb-1 pt-2 active:cursor-grabbing sm:hidden",
-            placement === "left" && "hidden",
+            sideSheet && "hidden",
             defaultSheetIsFullscreen && "hidden",
             defaultSheetIsTopAligned && "hidden",
           )}
@@ -441,9 +492,20 @@ export function Sheet({
         </div>
         {title ? (
           <div
+            ref={headerRef}
+            data-sheet-header="true"
+            aria-hidden={headerHidden}
+            inert={headerHidden || undefined}
             className={cn(
-              "flex items-center justify-between gap-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              "flex items-center justify-between gap-x-3 border-b border-[color:var(--border)] p-4 sm:p-5",
+              Boolean(headerBottom) && "flex-wrap",
               headerClassName,
+              !headerHidden &&
+                resolvedMobileHeaderSafeArea === "padding" &&
+                "pt-[max(1rem,var(--safe-area-top))] sm:pt-5",
+              !headerHidden &&
+                resolvedMobileHeaderSafeArea === "offset" &&
+                "top-[max(0.75rem,var(--safe-area-top))] sm:top-4",
             )}
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -481,12 +543,29 @@ export function Sheet({
                 <X aria-hidden="true" className="h-4 w-4" />
               </button>
             </div>
+            {headerBottom ? (
+              <div className="order-last -mx-4 mt-3 w-[calc(100%+2rem)] basis-full sm:-mx-5 sm:w-[calc(100%+2.5rem)]">
+                {headerBottom}
+              </div>
+            ) : null}
           </div>
         ) : null}
-        <div className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}>
+        <div
+          ref={bodyRef}
+          onScroll={onBodyScroll}
+          tabIndex={bodyTabIndex}
+          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto p-4 polished-scroll sm:p-5", bodyClassName)}
+        >
           {children}
         </div>
-        {footer ? <div className="shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4">{footer}</div> : null}
+        {footer ? (
+          <div
+            data-footer-variant={footerVariant}
+            className={cn("shrink-0 border-t border-[color:var(--border)] p-3 sm:p-4", footerClassName)}
+          >
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );

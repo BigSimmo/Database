@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import { INTERACTION_LEXICON, selectCatalogueSlugs, type LexiconTerm } from "@/lib/medication-interaction-lexicon";
 import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
-import { substringTraps } from "../scripts/build-medication-lexicon-report";
+import { missedClassMembers, substringTraps } from "../scripts/build-medication-lexicon-report";
 
 type IndexRow = {
   rowKey: string;
@@ -65,9 +65,9 @@ describe("interaction lexicon coverage", () => {
     // recorded here and in the PR. Track raw drug-matching separately, which
     // rose 381 → 417 over the same period and is the number that must never
     // fall without explanation.
-    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(362);
-    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(422);
-    expect(index.sourceRowCount).toBeGreaterThanOrEqual(523);
+    expect(index.stats.resolvedRows).toBeGreaterThanOrEqual(392);
+    expect(index.stats.rowsWithCatalogueTarget).toBeGreaterThanOrEqual(440);
+    expect(index.sourceRowCount).toBeGreaterThanOrEqual(525);
   });
 
   it("keeps every unresolved row visible rather than dropping it", () => {
@@ -181,6 +181,76 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
     expect(traps[0]).toContain("Carbapenem");
   });
 
+  describe("missed class members (the direction that produces a MISSED alert)", () => {
+    const synthetic = (records: Array<Record<string, string>>) =>
+      records as unknown as Parameters<typeof missedClassMembers>[2];
+    const term = (id: string, surfaces: string[]) => [{ id, kind: "catalogue" as const, surfaces, select: {} }];
+
+    it("finds a three-letter class acronym instead of skipping the check", () => {
+      // The `stem.length < 4` bail used to disable this check entirely for `tcas`
+      // and `arbs`, so the sheet printed "checked, nothing found" for terms it had
+      // never examined. That is how Dosulepin stayed invisible.
+      const missed = missedClassMembers(
+        term("tcas", ["tcas", "tca", "tricyclics"]),
+        new Map([["tcas", ["amitriptyline"]]]),
+        synthetic([{ slug: "dosulepin", name: "Dosulepin", class: "Antidepressant", subclass: "TCA", tag: "TCA" }]),
+      );
+      expect(missed).toHaveLength(1);
+      expect(missed[0]).toContain("Dosulepin");
+    });
+
+    it("still refuses to reach a short acronym inside a longer word", () => {
+      // The leading \b does this, not a tail anchor: `arb` must not find
+      // `Carbapenem`, which is the trap substringTraps exists for.
+      const missed = missedClassMembers(
+        term("arbs", ["arbs", "arb"]),
+        new Map([["arbs", ["candesartan"]]]),
+        synthetic([{ slug: "meropenem", name: "Meropenem", class: "Antibiotic", subclass: "Carbapenem", tag: "" }]),
+      );
+      expect(missed).toEqual([]);
+    });
+
+    it("matches a pluralised subclass, so the acronym fix stays a prefix match", () => {
+      // Pins the choice against anchoring the tail: `\btca\b` would miss a
+      // subclass spelled "TCAs", and a missed member is the dangerous direction.
+      const missed = missedClassMembers(
+        term("tcas", ["tcas", "tca"]),
+        new Map([["tcas", ["amitriptyline"]]]),
+        synthetic([{ slug: "dosulepin", name: "Dosulepin", class: "Antidepressant", subclass: "TCAs", tag: "" }]),
+      );
+      expect(missed).toHaveLength(1);
+      expect(missed[0]).toContain("Dosulepin");
+    });
+
+    it("reads the tag, not only class and subclass", () => {
+      // Celecoxib is `COX-2 Inhibitor` by subclass but `NSAID` by tag, so the
+      // catalogue does call it an NSAID — in the one field this check ignored.
+      const missed = missedClassMembers(
+        term("nsaids", ["nsaids", "nsaid"]),
+        new Map([["nsaids", ["ibuprofen"]]]),
+        synthetic([
+          { slug: "celecoxib", name: "Celecoxib", class: "Analgesia", subclass: "COX-2 Inhibitor", tag: "NSAID" },
+        ]),
+      );
+      expect(missed).toHaveLength(1);
+      expect(missed[0]).toContain("Celecoxib");
+    });
+
+    it("does not report a drug the term already selects or deliberately denies", () => {
+      const records = synthetic([
+        { slug: "dosulepin", name: "Dosulepin", class: "Antidepressant", subclass: "TCA", tag: "TCA" },
+      ]);
+      expect(missedClassMembers(term("tcas", ["tcas"]), new Map([["tcas", ["dosulepin"]]]), records)).toEqual([]);
+      expect(
+        missedClassMembers(
+          [{ id: "tcas", kind: "catalogue", surfaces: ["tcas"], select: { denySlugs: ["dosulepin"] } }],
+          new Map(),
+          records,
+        ),
+      ).toEqual([]);
+    });
+  });
+
   it("reaches lithium from the rows that name it", () => {
     // The catalogue record is "Lithium carbonate (IR/SR)", so the name-derived
     // surfaces never included the bare word every row actually uses. Lithium was
@@ -224,6 +294,8 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
       if (name.length < 4) continue;
       for (const [slug, entry] of Object.entries(index.bySlug)) {
         if (slug === record.slug) continue;
+        const sourceRecord = records.find((item) => item.slug === slug);
+        if (sourceRecord && plainName(sourceRecord.name) === name) continue;
         const sourceRows = rowsFor(slug);
         for (const row of entry.rows) {
           const text = sourceRows[row.rowIndex]?.val ?? "";
@@ -291,13 +363,12 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
     expect(dead).toEqual([]);
   });
 
-  it("keeps the divergent duplicate Warfarin records visible", () => {
-    // The catalogue holds two records named "Warfarin" whose interaction rows
-    // have nothing in common, so which one a clinician opens changes which
-    // warnings they see. That is a catalogue defect, not a lexicon one, and it
-    // is deliberately left unpatched pending a clinical decision — but it must
-    // not become invisible. If someone reconciles the records, this test goes
-    // red and the review sheet's flag can be retired with it.
+  it("keeps the duplicate Warfarin records reconciled with identical interaction rows", () => {
+    // The catalogue holds two records named "Warfarin" (warfarin-vka and
+    // warfarin-anticoagulant) representing the same drug. Both records carry
+    // the identical, reconciled 4-row interaction union (CYP2C9 inhibitors,
+    // CYP2C9 inducers, NSAIDs/Aspirin/SSRIs, and dietary Vitamin K) so opening
+    // either record fires the complete verified interaction warnings.
     const duplicates = records.filter((record) => record.name === "Warfarin");
     expect(duplicates.map((record) => record.slug).sort()).toEqual(["warfarin-anticoagulant", "warfarin-vka"]);
 
@@ -309,9 +380,29 @@ describe("lexicon deny-lists (the traps this module exists for)", () => {
         ).map((row) => `${row.key}::${row.val}`),
       );
     const [a, b] = [rowSet("warfarin-vka"), rowSet("warfarin-anticoagulant")];
-    expect(a.size).toBeGreaterThan(0);
-    expect(b.size).toBeGreaterThan(0);
-    expect([...a].filter((row) => b.has(row))).toEqual([]);
+    expect(a.size).toBe(4);
+    expect(b.size).toBe(4);
+    expect(Array.from(a)).toEqual(Array.from(b));
+  });
+
+  it("warfarin index entries do not include the other warfarin slug as a counterparty", () => {
+    const interactionIndex = JSON.parse(
+      readFileSync(path.join(__dirname, "../data/medication-interaction-index.json"), "utf-8"),
+    ) as { bySlug: Record<string, { rows: Array<{ counterparties: string[] }> }> };
+    const { bySlug } = interactionIndex;
+    const warfarinSlugs = ["warfarin-vka", "warfarin-anticoagulant"] as const;
+    // Both entries must exist — if either slug is renamed this test catches it.
+    for (const slug of warfarinSlugs) {
+      expect(bySlug[slug]).toBeDefined();
+    }
+    const warfarinPairs: [string, string][] = [
+      ["warfarin-vka", "warfarin-anticoagulant"],
+      ["warfarin-anticoagulant", "warfarin-vka"],
+    ];
+    for (const [slug, forbidden] of warfarinPairs) {
+      const found = bySlug[slug]!.rows.some((row) => row.counterparties.includes(forbidden));
+      expect(found).toBe(false);
+    }
   });
 
   it("resolves beta blockers across both catalogue spellings", () => {
@@ -385,6 +476,30 @@ describe("lexicon hygiene", () => {
       expect(item.select, `${item.id} needs a selector`).toBeDefined();
       expect(slugsFor(item.id).length, `${item.id} resolved to nothing`).toBeGreaterThan(0);
     }
+  });
+
+  it("resolves every individual slug a selector names", () => {
+    // The guard the `tcas` dead slug needed. The check above passes as long as a
+    // term resolves to ANY drug, so `tcas` stayed green on five of its six slugs
+    // while `dothiepin` — the pre-INN spelling of `dosulepin` — matched nothing,
+    // and a TCA the catalogue marks FATAL in overdose fired none of that term's
+    // 20 CRITICAL/HIGH rows. A slug that resolves to nothing is always a bug: it
+    // is either a typo or a drug that left the catalogue.
+    const known = new Set(records.map((record) => record.slug));
+    for (const item of INTERACTION_LEXICON) {
+      for (const slug of item.select?.slugs ?? []) {
+        expect(known.has(slug), `${item.id} selects slug "${slug}", which is not in the catalogue`).toBe(true);
+      }
+      for (const slug of item.select?.denySlugs ?? []) {
+        expect(known.has(slug), `${item.id} denies slug "${slug}", which is not in the catalogue`).toBe(true);
+      }
+    }
+  });
+
+  it("covers Dosulepin as a TCA", () => {
+    // Regression pin for the dead slug. Dosulepin is dothiepin under its current
+    // INN and the catalogue files it as subclass TCA, so the term must reach it.
+    expect(slugsFor("tcas")).toContain("dosulepin");
   });
 
   it("never lets a source medication appear as its own counterparty", () => {

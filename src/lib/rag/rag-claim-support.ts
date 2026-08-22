@@ -416,7 +416,15 @@ function normativeDirectiveActions(value: string) {
         "i",
       ).test(value) ||
       (!descriptiveContext &&
-        new RegExp(String.raw`\b(?:is|are)\s+${boundedDirectiveAdverbs}(?:${definition.forms})\b`, "i").test(value));
+        new RegExp(String.raw`\b(?:is|are)\s+${boundedDirectiveAdverbs}(?:${definition.forms})\b`, "i").test(value)) ||
+      // Descriptive guideline norm: "the usual/recommended <action> dose … is <value>"
+      // (S1c R2). The digit anchor and the premodifier bound keep incidental
+      // norm-adjacent action words ("a typical error is a repeated dose …") inert.
+      (!descriptiveContext &&
+        new RegExp(
+          String.raw`\b(?:usual|recommended|typical|standard|initial)\b[^.!?;:\n]{0,30}?\b(?:${definition.forms})\b\s+(?:[a-z-]+\s+){0,2}dos(?:e|age|ing|es)\b[^.!?;:\n]{0,60}?\b(?:is|are)\b[^.!?;:\n]{0,16}?\d`,
+          "i",
+        ).test(value));
     if (hasNormativeSignal) actions.add(definition.action);
   }
   return actions;
@@ -467,7 +475,7 @@ export function sourceEvidenceText(source: SearchResult) {
     .join(" ");
 }
 
-function evidenceTextSupportsClaim(claim: string, evidence: string) {
+function evidenceTextSupportsClaim(claim: string, evidence: string, adjacentTopicText?: string) {
   const claimEntities = entities(claim);
   const evidenceEntities = entities(evidence);
   if (claimEntities.size > 0 && [...claimEntities].some((entity) => !evidenceEntities.has(entity))) return false;
@@ -482,6 +490,11 @@ function evidenceTextSupportsClaim(claim: string, evidence: string) {
 
   const claimTopics = topicTokens(claim);
   const evidenceTopics = topicTokens(evidence);
+  // S1c R3: a claim synthesising two adjacent source bullets may count topic tokens
+  // from an immediately adjacent atom-free segment. Only this overlap ratio widens —
+  // entities, polarity, directives, safety dimensions, the trigger check, and the
+  // value-atom containment above all still hold against the single segment.
+  for (const token of topicTokens(adjacentTopicText ?? "")) evidenceTopics.add(token);
   const matchedTopics = [...claimTopics].filter((token) => evidenceTopics.has(token)).length;
   return claimTopics.size === 0 || matchedTopics / claimTopics.size >= 0.5;
 }
@@ -502,12 +515,22 @@ function usesSourceBoundComparisonReflow(source: SearchResult, claim: string) {
   return knownPolicySource && knownRequirementClaim;
 }
 
-function sourceEvidenceClaimSegments(source: SearchResult, claim: string) {
+function sourceEvidenceClaimSegmentGroups(source: SearchResult, claim: string) {
   const split = (value: string | null | undefined, context?: string | null, reflowVisualLines = false) => {
     const rawValue = reflowWrappedAgitationDoseLines(reflowWrappedEscalationRecipientLines(value ?? ""));
+    // Always rejoin PDF visual line wraps before sentence-splitting. Splitting raw extracted
+    // text on `\n+` fragments a source sentence at its hard wrap ("…for adults is 500 mg nocte
+    // and for patients over 65 years it\nis 250 mg nocte"), so no single segment carries every
+    // atom of a claim restating that sentence — a verbatim-faithful high-risk claim then reads
+    // as unsupported and the whole answer degrades to source-only (#231, measured live
+    // 2026-08-17). Blank lines, bullets, terminal punctuation, colons, and numbered headings
+    // stay hard boundaries, and the general path joins only visible sentence continuations
+    // (lowercase/digit/parenthesis starts) so separate capitalized source lines cannot
+    // manufacture support. The comparison-reflow path keeps its historical aggressive join
+    // plus low-yield noise stripping for its two known policy documents, unchanged.
     const blocks = reflowVisualLines
       ? reflowBoundedSourceLines(sourceTextForClinicalProsePreservingBreaks(rawValue))
-      : [rawValue];
+      : reflowBoundedSourceLines(rawValue, { requireContinuationStart: true });
     return blocks.flatMap((block) => {
       const sharedConditional = block.match(/^\s*((?:when|whenever|if|unless)\b[^,;.!?]+),?/i)?.[1];
       return block
@@ -528,11 +551,14 @@ function sourceEvidenceClaimSegments(source: SearchResult, claim: string) {
     sourceLabel: [source.title, source.file_name].filter(Boolean).join(" "),
     content: source.content ?? "",
   });
+  // Segments are grouped by source representation so adjacency means "next to each
+  // other in the same representation", never a flat-list coincidence across e.g. the
+  // content/synopsis boundary.
   return [
-    ...(atomicClozapineRedRange ? [`${sourceContext}. ${atomicClozapineRedRange}`] : []),
-    ...split(source.content, sourceContext, reflowComparisonContent),
-    ...split(source.retrieval_synopsis, sourceContext),
-    ...(source.table_facts ?? []).flatMap((fact) =>
+    ...(atomicClozapineRedRange ? [[`${sourceContext}. ${atomicClozapineRedRange}`]] : []),
+    split(source.content, sourceContext, reflowComparisonContent),
+    split(source.retrieval_synopsis, sourceContext),
+    ...(source.table_facts ?? []).map((fact) =>
       split(
         [[fact.row_label, fact.clinical_parameter, fact.threshold_value].filter(Boolean).join(" "), fact.action]
           .filter(Boolean)
@@ -540,13 +566,26 @@ function sourceEvidenceClaimSegments(source: SearchResult, claim: string) {
         fact.table_title,
       ),
     ),
-    ...split(source.index_unit?.content, source.index_unit?.title),
-  ];
+    split(source.index_unit?.content, source.index_unit?.title),
+  ].filter((group) => group.length > 0);
 }
 
 function sourceSupportsClaim(claim: string, source: SearchResult) {
   if (!isHighRiskClaim(claim)) return evidenceTextSupportsClaim(claim, sourceEvidenceText(source));
-  return sourceEvidenceClaimSegments(source, claim).some((evidence) => evidenceTextSupportsClaim(claim, evidence));
+  return sourceEvidenceClaimSegmentGroups(source, claim).some((group) =>
+    group.some((evidence, index) => {
+      // S1c R3: lend only the immediately adjacent segments' topic tokens, and only
+      // from segments carrying no clinical value atoms of their own — an atom-bearing
+      // neighbour is a competing value context (e.g. the other population's dose), not
+      // supplementary prose, and lending its topics would let a claim bind this
+      // segment's value to the neighbour's condition.
+      const adjacentTopicText = [group[index - 1], group[index + 1]]
+        .filter((neighbour): neighbour is string => Boolean(neighbour))
+        .filter((neighbour) => extractClinicalValueAtoms(neighbour).length === 0)
+        .join(" ");
+      return evidenceTextSupportsClaim(claim, evidence, adjacentTopicText || undefined);
+    }),
+  );
 }
 
 /**
