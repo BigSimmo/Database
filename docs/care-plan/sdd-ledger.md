@@ -98,13 +98,14 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 
 ## Progress
 
-| Task                            | State                      | Commits                | Evidence                                                              |
-| ------------------------------- | -------------------------- | ---------------------- | --------------------------------------------------------------------- |
-| 1. Domain, fixtures, selectors  | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                        |
-| 2. Reducer, provider, lifecycle | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites |
-| 3. Routes, gate, shell          | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites |
-| 4. Snapshot, search, contacts   | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites |
-| 5–11                            | not started                | —                      | —                                                                     |
+| Task                             | State                      | Commits                | Evidence                                                                               |
+| -------------------------------- | -------------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
+| 1. Domain, fixtures, selectors   | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                         |
+| 2. Reducer, provider, lifecycle  | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                  |
+| 3. Routes, gate, shell           | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                  |
+| 4. Snapshot, search, contacts    | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                  |
+| 5. Plan reading, boundary, print | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red |
+| 6–11                             | not started                | —                      | —                                                                                      |
 
 Stage A is Tasks 1–5. **Task 5 ends with a mandatory stop for user review** before
 Task 6 begins.
@@ -186,6 +187,31 @@ discovered this the hard way when two of its own positive controls survived. Fix
 keyed the effect on the previous **variant** rather than a boolean that collapsed two of the
 three variants together; the re-reviewer verified the two effects are now mutually exclusive
 by construction rather than by test.
+
+### Task 5 — complete. Stage A closes here.
+
+- Dispatched opus. Returned `DONE_WITH_CONCERNS` at `891f4bff4`. Task review (opus) returned
+  **Spec ✅ on every enumerated constraint** — the first task to do so — with two Important
+  findings that were the same defect, and five small ones. One fix round (`90c1d01a3`), and
+  the scoped re-review verdicted all seven ADDRESSED with no new breakage.
+- Final: `Test Files 6 passed (6)` / `Tests 291 passed (291)`, plus the Therapy Compass
+  regression at `Test Files 3 passed (3)` / `Tests 25 passed (25)`. Typecheck and lint fresh
+  under `GATE_RECEIPTS=refresh`. 61 mutations across the task, all killed.
+- The shared primitive held. `src/components/ui/print-output.tsx` gained four capabilities,
+  every one additive and default-off; the reviewer verified both Therapy Compass consumers
+  emit identical DOM, and a `container.innerHTML` byte-for-byte pin now fails on any future
+  non-default-off addition — a stronger guard than any per-prop assertion.
+- **A second print defect of the Task 3 kind was found and closed.** The shared print rule
+  makes everything outside `[data-print-output]` invisible, so on a `PrintOutput` route the
+  shell header's synthetic marker never reached the paper. The printed subtree now carries
+  its own marker. Twice now, a print change has silently removed the one line telling a
+  reader the document is fictional; any future print work should assume it will happen again.
+
+**Not proven by Stage A, and must not be claimed:** nothing has rendered in a print medium.
+Pagination, cascade order against Tailwind utilities, whether the monochrome rule actually
+wins, and real print preview are all Task 11 work. No Chromium journey, no accessibility
+audit, no responsive observation at 320 px or 390 px, no production build, and no
+provider-backed gate has run for this feature.
 
 ---
 
@@ -457,6 +483,43 @@ text against itself. Six conflicts found, six ruled.
     met rather than sidestepped. _Cost if wrong:_ one optional prop on a shell that will
     carry more route-specific behaviour as Tasks 6–10 land.
 
+### Task 5
+
+35. **`record-management-plan-print-intent` joins `CONNECTIVITY_EXEMPT_ACTIONS`.** Ruling 24
+    exempted the Personal Safety Plan print from the offline block because printing "is the
+    single action you most want when systems are down, and it appends an audit event rather
+    than changing a record". Both halves of that are properties of the _action_, not of which
+    document it prints; the rationale reads as being about the Safety Plan only because that
+    was the sole print route in existence when it was written. Generalising it to its own
+    logic is not contradicting the reviewed decision — narrowing it to the document it
+    happened to name would be.
+
+    The behaviour decided it anyway, and the mechanism was worse than either the implementer
+    or I assumed: `BrowserPrintButton` calls `onBeforePrint?.()` and then `window.print()`
+    **unconditionally**, ignoring the hook's return, so the reducer's refusal could not stop
+    anything. In the offline specimen the dialogue opened, a clinical document could leave
+    the building, `auditEvents` was unchanged, and the reader was told "nothing was changed".
+    Paper left the room and the application's own account denied it — an underclaim in
+    exactly the direction this prototype's audit discipline exists to prevent, and it made
+    two identical operations diverge.
+
+    Identity uncertainty still blocks printing: Ruling 24 exempted the connectivity block
+    only, never the funnel, and the re-reviewer confirmed the identity, permission and
+    version-conflict checks are separate unconditional statements that were not touched.
+    `print-output.tsx` was deliberately **not** given a veto contract — with the exemption in
+    place nothing on this route depends on one, and adding a new contract to a shared
+    primitive is a bigger change than this warranted. _Cost if wrong:_ a print intent is
+    recorded in a specimen where other mutations are unavailable, which is Ruling 24's stated
+    intent. The latent limitation stands: no caller can refuse a print from a
+    `BrowserPrintButton`, so a future refusable print route needs the primitive changed.
+
+36. **`REVIEW_STATE_TONE` was deleted rather than exported — the implementer deviated and was
+    right.** The instruction was to export the constant and consume it in place of a
+    hand-copied ternary. But fixing the duplicated status marks removed that ternary's only
+    consumer, so exporting would have published a constant to feed nothing. The duplication
+    risk is gone by deletion instead of by coupling. _Cost if wrong:_ a future surface needing
+    the tone exports it then, which is the cheaper moment to decide the shape.
+
 ---
 
 ## Deferred minors — for the whole-branch review to triage
@@ -572,7 +635,16 @@ fictional data only` and `SYNTHETIC_DATA_MARKER`'s `… fictional people, teams,
    `focusin` event ordering — not a stricter one. When a positive control survives, the
    instinct to tighten the assertion is usually wrong; ask first whether the test can
    observe the failure at all.
-6. **Focus has no owner, and that is now an architectural debt.** Three focus defects in a
+6. **A refused run can be scored as a mutation kill, and nearly was.** Task 5's implementer
+   found `npm run typecheck` returning **exit 75** — `Database focused-test capacity is full`,
+   another worktree holding the lease — and realised its first mutation harness would have
+   counted that as the mutation being caught. Six controls had produced no `Tests` summary
+   line. It re-ran each individually with a retry loop and confirmed all six failed on real
+   named assertions, then made every reported run retry until it holds a lease. A mutation
+   "killed" by a refused run is a guard that cannot fail wearing a new costume, and on this
+   machine it will happen again: any run without a `Test Files` summary line is an
+   acquisition failure and must be retried, never scored.
+7. **Focus has no owner, and that is now an architectural debt.** Three focus defects in a
    row shared one cause: the shell is an ancestor, its effect lands last, and every
    descendant calls `focus()` independently. Nothing structurally prevents a fourth — the
    convention is held by three tests rather than by an invariant. The whole-branch review
