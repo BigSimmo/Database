@@ -2168,3 +2168,66 @@ on it, so the option is on the record for the final review rather than lost.
 **The principle worth keeping: an honest narrow guard beats a broad one that cannot deliver what its name
 implies.** The right response to "I cannot prove this reliably" is to say so and guard what you can — not
 to ship an approximation whose failure mode is silent.
+
+## Task 17 — the frozen 24-row definition table, at `003a05e31`
+
+New file `Tests 5 passed (5)`; full suite `Test Files 700 passed | 2 skipped (702)` /
+`Tests 7760 passed | 29 skipped (7789)`; tsc, eslint and prettier clean.
+
+**Ruling 57 was worth making.** I found before dispatch that the brief's supplied test parses FIVE
+columns out of the matrix document and asserts only THREE — `row.phone`, `row.desktop` and
+`row.dismissal` were parsed and never used. That matters because the brief's own Step 5 mutation is
+"swap `pause`'s phone modality → the matrix test goes red", and it **would not have gone red**. The
+implementer would have run the specified proof, seen green, and had to report a proof that proves
+nothing. Ruling 57 required all five columns asserted, through an explicit and TOTAL normalisation from
+the document's prose to the type's kebab-case, failing loudly on an unmapped value — because the obvious
+shortcut, lowercase-and-hyphenate, would map a corrupted matrix cell onto a plausible value and defeat
+the entire point of parsing the record.
+
+All three mutations killed the suite, each first confirmed to change a value an assertion reads. The
+third — the one I added, corrupting a cell of the frozen document itself — failed **naming
+`team-switcher` and the bad value**, and the document was proven byte-identical afterwards by blob hash
+rather than by eye. That is what makes the normalisation demonstrably total rather than merely permissive.
+
+### Ruling 58 — a type member the frozen record can never produce
+
+The implementer stopped and reported a real discrepancy rather than smoothing it over. I verified it
+myself: the matrix's Dismissal column holds exactly **two** distinct values across all 24 rows —
+`Escape, backdrop, close` on 22, and `Recovery action only` on both `session-expiry` and
+`offline-banner`. The design specimens the implementer knew of distinguish those two; the frozen document
+does not.
+
+Ruling: [58] Both rows stay `recovery-only`, faithful to the frozen record, and the now-unreachable
+`action-only` member is **guarded rather than deleted**. — Why: the matrix is the authority and inventing
+a distinction it does not express is exactly the silent drift that parsing the document, rather than
+hand-copying an array, exists to prevent. Deleting the member would deviate from a pinned interface that
+Tasks 18 and 19 both build against. But an enum member no row can hold is an invitation — a future author
+assigns it, nothing objects, and the code quietly disagrees with the frozen record. So a test now asserts
+the set of dismissal values actually used is exactly the two the matrix can produce, which forces any
+future use of the third to be justified against the matrix. — Cost if wrong: if the design really does
+distinguish these two overlays, the matrix wording is amended and one row changes, with the guard
+updated in the same change.
+
+**The ambiguity itself is flagged for the owner as a FROZEN-RECORD question, not resolved here.** The
+prose "Recovery action only" reads either as _recovery-action only_ or as _recovery, action-only_, and
+the two overlays sharing it plausibly differ: a session expiry needs the person to do something, whereas
+an offline banner clears when the connection returns. Amending a frozen design record is not mine to do
+on my own initiative. It costs nothing today — Task 19 requires `session-expiry` to survive Escape and
+both values satisfy that equally.
+
+### The two places automated checking cannot reach, recorded honestly rather than papered over
+
+1. The 24 `summary` and `decision` strings are **original interface copy with no frozen source**.
+2. `availability` has **no column in the matrix**, so those 24 values are compared against nothing.
+
+I explicitly told the implementer NOT to invent checks for either. Asserting today's values against
+themselves would pin its own choices while looking like verification of the frozen record — the
+false-authority failure this branch keeps finding. Both need a human read, and they are surfaced to the
+owner as such.
+
+### A guard limitation worth knowing
+
+An existing test went red because the new file's header comment _mentioned_ the forbidden mockup path in
+prose. The implementer reworded its comment and touched no assertion, which is correct. The guard is a
+source-text scan and cannot distinguish a prose mention from an import — a known and acceptable
+limitation, recorded so the next author to hit it does not think they have found a bug.
