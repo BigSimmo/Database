@@ -20,9 +20,11 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(root, "data", "differentials-snapshot.json");
 const target = join(root, "src", "data", "cross-mode-differentials-index.json");
+const presentationDisplaySource = join(root, "src", "data", "differential-presentation-display-metadata.json");
 const checkOnly = process.argv.includes("--check");
 
 const snapshot = JSON.parse(readFileSync(source, "utf8"));
+const presentationDisplayMetadata = JSON.parse(readFileSync(presentationDisplaySource, "utf8")).presentations;
 
 // Bare-number aliases (e.g. a field-weight "1.1" leaked from snapshot template
 // metadata) would match unrelated records by substring — drop them, mirroring
@@ -37,8 +39,8 @@ const catalog = {
   })),
   presentations: snapshot.presentations.map((presentation) => ({
     id: presentation.id,
-    title: presentation.title,
-    subtitle: presentation.subtitle,
+    title: presentationDisplayMetadata[presentation.id]?.title ?? presentation.title,
+    subtitle: presentationDisplayMetadata[presentation.id]?.scopeLabel ?? presentation.subtitle,
   })),
   aliases: Object.fromEntries(
     Object.entries(snapshot.searchAliases)

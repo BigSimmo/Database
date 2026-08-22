@@ -886,7 +886,6 @@ function GlobalStandaloneSearchShellBody({
             recentQueries={recentQueries}
             onPickRecent={pickRecentQuery}
             onCrossModeSearch={crossModeSearch}
-            headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
             mobileHomeComposerPlacement={mobileHomeComposerPlacement}
             // Every phone dock is the compact single-row pill so content keeps
@@ -1038,9 +1037,7 @@ function GlobalStandaloneSearchShellBody({
       <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
-        // The workflow header keeps its menu trigger past md, so the drawer
-        // must stay available until the locked desktop rail takes over at lg.
-        hiddenFrom={isDifferentialPresentationWorkflow ? "lg" : "md"}
+        hiddenFrom="md"
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}

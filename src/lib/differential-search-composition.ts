@@ -20,6 +20,7 @@ export type DifferentialSearchResultItem = {
   kind: "presentation" | "diagnosis";
   slug: string;
   title: string;
+  scopeLabel?: string;
   subtitle: string;
   href: string;
   status: DifferentialRecord["status"];
@@ -62,6 +63,7 @@ function presentationResultItem(
     kind: "presentation",
     slug: workflow.id,
     title: workflow.title,
+    scopeLabel: workflow.scopeLabel,
     subtitle: workflow.subtitle,
     href: `/differentials/presentations/${workflow.id}`,
     status: workflow.status,

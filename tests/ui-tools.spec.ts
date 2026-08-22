@@ -2004,7 +2004,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     // result row from the imported differentials catalogue.
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Differential matches" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Acute confusion and delirium" }).first()).toBeVisible();
     const desktopBestMatch = page.getByTestId("differential-best-match-card");
     await expect(desktopBestMatch).toBeVisible();
     await expect(desktopBestMatch.getByText("Best match", { exact: true })).toBeVisible();
@@ -2071,13 +2071,21 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(evidenceBackedResults.getByRole("region", { name: "Source status" })).toContainText(
       "1 indexed source match",
     );
+    const visibleTypeBadges = evidenceBackedResults.locator('[data-testid="differential-result-type-badge"]:visible');
+    await expect(visibleTypeBadges.filter({ hasText: "Presentation" }).first()).toBeVisible();
+    await expect(visibleTypeBadges.filter({ hasText: "Differential" }).first()).toBeVisible();
+    const sourceStatusBox = await evidenceBackedResults.getByTestId("differentials-source-status").boundingBox();
+    const safetyBannerBox = await evidenceBackedResults.getByTestId("differentials-safety-banner").boundingBox();
+    expect(sourceStatusBox).not.toBeNull();
+    expect(safetyBannerBox).not.toBeNull();
+    expect(sourceStatusBox!.y + sourceStatusBox!.height).toBeLessThanOrEqual(safetyBannerBox!.y);
     const typeTrigger = page.getByTestId("differential-filter-trigger-phone");
     await expect(typeTrigger).toBeVisible();
     await expect(typeTrigger).toHaveAccessibleName(/No filters active/);
     await typeTrigger.click();
     const typeGroup = page.getByRole("radiogroup", { name: "Show" });
-    await typeGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
-    await expect(typeGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
+    await typeGroup.getByRole("radio", { name: /^Differentials/ }).click();
+    await expect(typeGroup.getByRole("radio", { name: /^Differentials/ })).toBeChecked();
     await typeGroup.getByRole("radio", { name: /^All/ }).click();
     await page.getByTestId("differential-filter-panel-done").click();
     await expect(typeGroup).toBeHidden();
@@ -2742,10 +2750,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(editSelection).toBeVisible();
     await expect(editSelection).toHaveAttribute("href", /\/differentials\/search\?.*ids=wernicke-encephalopathy/);
     await expect(mobileComparison.getByText("Wernicke encephalopathy", { exact: true }).first()).toBeVisible();
-    const languageControl = page.getByRole("button", { name: "Language and region settings (coming soon)" });
-    await expect(languageControl).toBeVisible();
-    await expect(languageControl).toHaveAttribute("aria-disabled", "true");
-    await expect(page.getByRole("button", { name: "Start a new comparison" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Language and region settings (coming soon)" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Start a new chat" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
     await expect(page.getByText("Service details")).toHaveCount(0);
     await expect(page.getByText("Transport order")).toHaveCount(0);

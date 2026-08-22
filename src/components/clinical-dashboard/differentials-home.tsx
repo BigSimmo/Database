@@ -9,7 +9,6 @@ import {
   BrainCircuit,
   Check,
   ChevronRight,
-  CircleHelp,
   FlaskConical,
   GitCompareArrows,
   HeartPulse,
@@ -74,6 +73,7 @@ type DifferentialResult = {
   id: string;
   kind: "presentation" | "diagnosis";
   title: string;
+  scopeLabel?: string;
   subtitle: string;
   href: string;
   status: DifferentialRecord["status"];
@@ -214,11 +214,28 @@ function tagText(value: string) {
   return cleaned.toLowerCase();
 }
 
+function clinicalCueTexts(values: string[]) {
+  const seen = new Set<string>();
+  return values.flatMap((value) =>
+    value
+      .split(/\s*\/\s*/)
+      .map(tagText)
+      .flatMap((cue) => {
+        if (!cue) return [];
+        const key = cue.toLocaleLowerCase("en-AU");
+        if (seen.has(key)) return [];
+        seen.add(key);
+        return [cue];
+      }),
+  );
+}
+
 function toDifferentialResult(item: DifferentialSearchResultItem, query: string): DifferentialResult {
   return {
     id: item.id,
     kind: item.kind,
     title: item.title,
+    scopeLabel: item.scopeLabel,
     subtitle: item.subtitle,
     // Presentation comparisons now own the shared mode bar. Preserve the
     // originating search query so its Search tab can return to these results.
@@ -227,11 +244,29 @@ function toDifferentialResult(item: DifferentialSearchResultItem, query: string)
     selected: false,
     matchLabel: item.matchLabel,
     tags: item.tags.map(tagText),
-    clinicalCues: item.clinicalCues.map(tagText),
+    clinicalCues: clinicalCueTexts(item.clinicalCues),
     nextSteps: item.nextSteps,
     icon: resultIcon(item.kind, item.slug),
     safety: item.safety,
   };
+}
+
+function ResultTypeBadge({ kind }: { kind: DifferentialResult["kind"] }) {
+  const Icon = kind === "presentation" ? BrainCircuit : Stethoscope;
+  return (
+    <span
+      data-testid="differential-result-type-badge"
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-2xs font-extrabold leading-tight",
+        kind === "presentation"
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          : "border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]",
+      )}
+    >
+      <Icon className="size-icon-xs" aria-hidden />
+      {kind === "presentation" ? "Presentation" : "Differential"}
+    </span>
+  );
 }
 
 function StatusBadge({ status, className }: { status: DifferentialRecord["status"]; className?: string }) {
@@ -271,14 +306,9 @@ function MatchBadge({ label }: { label: string }) {
   );
 }
 
-function Chip({ children, fixed = false }: { children: string; fixed?: boolean }) {
+function Chip({ children }: { children: string }) {
   return (
-    <DesignChip
-      size="compact"
-      appearance={{ kind: "information", tone: "quiet" }}
-      wrap
-      className={cn("min-w-0 max-w-full", fixed && "shrink-0")}
-    >
+    <DesignChip size="compact" appearance={{ kind: "information", tone: "quiet" }} wrap className="min-w-0 max-w-full">
       {children}
     </DesignChip>
   );
@@ -344,14 +374,14 @@ function DesktopResultRow({
         >
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="line-clamp-1">{result.title}</span>
-            <DesignChip
-              size="compact"
-              appearance={{ kind: "information", tone: result.kind === "presentation" ? "accent" : "inset" }}
-            >
-              {result.kind === "presentation" ? "Presentation" : "Diagnosis"}
-            </DesignChip>
+            <ResultTypeBadge kind={result.kind} />
             <StatusBadge status={result.status} />
           </div>
+          {result.scopeLabel ? (
+            <p className="mt-1 line-clamp-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+              {result.scopeLabel}
+            </p>
+          ) : null}
           <p className="mt-1 line-clamp-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
             {result.subtitle}
           </p>
@@ -388,45 +418,47 @@ function MobileResultCard({
   return (
     <article
       data-testid="differential-mobile-result-card"
-      className="grid grid-cols-[2rem_minmax(0,1fr)_var(--spacing-tap)] items-start gap-x-2.5 gap-y-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+      className="grid gap-2.5 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
     >
-      <span
-        data-testid="differential-mobile-result-rank"
-        className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]"
-      >
-        {index + 1}
-      </span>
-      <Link
-        href={result.href}
-        className="block min-w-0 rounded-md text-sm font-extrabold leading-5 text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        <span className="line-clamp-2">{result.title}</span>
-        <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
-          <DesignChip
-            size="compact"
-            appearance={{ kind: "information", tone: result.kind === "presentation" ? "accent" : "inset" }}
-          >
-            {result.kind === "presentation" ? "Presentation" : "Diagnosis"}
-          </DesignChip>
-          <StatusBadge status={result.status} />
-          <MatchBadge label={result.matchLabel} />
-        </div>
-        {result.subtitle ? (
-          <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
-            {result.subtitle}
-          </p>
-        ) : null}
-      </Link>
-      {onToggle ? <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} /> : <span />}
-      <div className="col-span-2 col-start-2 min-w-0">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <span
+          data-testid="differential-mobile-result-rank"
+          aria-label={`Result ${index + 1}`}
+          className="nums inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-xs font-extrabold text-[color:var(--text-muted)]"
+        >
+          {index + 1}
+        </span>
+        <Link
+          href={result.href}
+          className="block min-w-0 flex-1 rounded-md text-sm font-extrabold leading-5 text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        >
+          <span className="line-clamp-2">{result.title}</span>
+        </Link>
+        {onToggle ? (
+          <SelectionCheckbox selected={selected} onChange={onToggle} label={result.title} />
+        ) : (
+          <ChevronRight className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
+        )}
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <ResultTypeBadge kind={result.kind} />
+        <StatusBadge status={result.status} />
+        <MatchBadge label={result.matchLabel} />
+      </div>
+      {result.scopeLabel ? (
+        <p className="text-xs font-semibold leading-5 text-[color:var(--text-heading)]">{result.scopeLabel}</p>
+      ) : null}
+      {result.subtitle ? (
+        <p className="line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">{result.subtitle}</p>
+      ) : null}
+      <div className="min-w-0">
         <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
           Clinical cues
         </p>
         <div className="mt-1 flex min-w-0 max-w-full flex-wrap gap-1.5">
-          {result.clinicalCues.slice(0, 2).map((tag, cueIndex) => (
+          {result.clinicalCues.slice(0, 3).map((tag, cueIndex) => (
             <Chip key={`${result.id}-cue-${cueIndex}-${tag}`}>{tag}</Chip>
           ))}
-          {result.clinicalCues.length > 2 ? <Chip fixed>{`+${result.clinicalCues.length - 2}`}</Chip> : null}
         </div>
       </div>
     </article>
@@ -509,20 +541,18 @@ function BestAnswerCard({
         "grid items-start gap-x-2.5 gap-y-3 rounded-lg border shadow-[var(--e1)]",
         "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45",
         compact
-          ? "grid-cols-[2rem_minmax(0,1fr)_var(--spacing-tap)] p-3"
+          ? "grid-cols-[minmax(0,1fr)_var(--spacing-tap)] p-3"
           : "grid-cols-[2.75rem_4.25rem_minmax(0,1fr)_7rem_var(--spacing-tap)] p-3.5",
       )}
     >
-      <span
-        data-testid={!compact ? "differential-best-match-rank" : undefined}
-        className={cn(
-          "grid h-8 w-8 shrink-0 place-items-center rounded-md border bg-[color:var(--surface)] text-sm font-extrabold",
-          "border-[color:var(--clinical-accent-border)] text-[color:var(--clinical-accent)]",
-          !compact && "self-center",
-        )}
-      >
-        {rank}
-      </span>
+      {!compact ? (
+        <span
+          data-testid="differential-best-match-rank"
+          className="grid h-8 w-8 shrink-0 place-items-center self-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-sm font-extrabold text-[color:var(--clinical-accent)]"
+        >
+          {rank}
+        </span>
+      ) : null}
       {!compact ? (
         <span
           className={cn(
@@ -541,35 +571,47 @@ function BestAnswerCard({
         )}
       >
         <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {compact ? (
+            <span
+              aria-label={`Result ${rank}`}
+              className="nums inline-flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-1.5 text-xs font-extrabold text-[color:var(--clinical-accent)]"
+            >
+              {rank}
+            </span>
+          ) : null}
           <h2
             className={cn(
-              "font-extrabold leading-6 text-[color:var(--text-heading)]",
-              compact ? "text-base" : "text-lg",
+              "min-w-0 font-extrabold leading-6 text-[color:var(--text-heading)]",
+              compact ? "mr-auto flex-1 text-base" : "text-lg",
             )}
           >
             <span className={cn(compact && "line-clamp-2")}>{best.title}</span>
           </h2>
-          <DesignChip
-            size="compact"
-            appearance={{ kind: "information", tone: best.kind === "presentation" ? "accent" : "inset" }}
-          >
-            {best.kind === "presentation" ? "Presentation" : "Diagnosis"}
-          </DesignChip>
+          <ResultTypeBadge kind={best.kind} />
           <StatusBadge status={best.status} />
         </div>
+        {best.scopeLabel ? (
+          <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-heading)]">{best.scopeLabel}</p>
+        ) : null}
       </Link>
       {!compact ? (
         <div className="grid min-h-10 place-items-center self-center border-l border-[color:var(--clinical-accent-border)] pl-3">
           <MatchBadge label="Best match" />
         </div>
       ) : null}
-      {onToggle ? <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} /> : <span />}
+      {onToggle ? (
+        <SelectionCheckbox selected={Boolean(selected)} onChange={onToggle} label={best.title} />
+      ) : compact ? (
+        <ChevronRight className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
+      ) : (
+        <span />
+      )}
       {compact ? (
-        <div className="col-span-2 col-start-2 flex items-center gap-1.5">
+        <div className="col-span-2 flex items-center gap-1.5">
           <MatchBadge label="Best match" />
         </div>
       ) : null}
-      <div className={cn(compact ? "col-span-2 col-start-2" : "col-start-3 col-end-6")}>
+      <div className={cn(compact ? "col-span-2" : "col-start-3 col-end-6")}>
         <BestMatchReasoningPanel result={best} compact={compact} />
       </div>
     </section>
@@ -623,7 +665,7 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
   );
 }
 
-function SourceStatusCard({
+function SourceStatusBanner({
   sourceCount,
   evidenceState,
   loading,
@@ -637,87 +679,57 @@ function SourceStatusCard({
   onRunSourceSearch: () => void;
 }) {
   const hasSourceEvidence = evidenceState === "source-backed";
-
   return (
-    <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-        Source status
-      </h2>
-      {/* The "0 matches" / "No matches" strings below are NOT a failed-request
-          guard and must not be converted to ErrorState. They render when
-          `sourcesChecked` is true - the source search ran and legitimately
-          returned nothing, which is a real, correct, catalogue-only result.
-          The failure case is the `sourcesChecked === false` branch, which says
-          "Evidence pending" / "Not yet checked" and offers the run button. An
-          ErrorState here would tell a clinician the system broke when it did
-          not. */}
-      <div className="mt-3 grid gap-2 text-sm font-bold">
-        <p className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-2 text-[color:var(--clinical-accent)]">
-            <ShieldCheck className="h-4 w-4" aria-hidden />
-            {hasSourceEvidence ? "Source-backed" : "Guided local differential"}
-          </span>
-          <span className="text-[color:var(--text-muted)]">
-            {hasSourceEvidence
-              ? `${sourceCount.toLocaleString()} sources`
+    <section
+      data-testid="differentials-source-status"
+      aria-label="Source status"
+      aria-live="polite"
+      className={cn(
+        "grid gap-2 rounded-lg border px-3 py-2.5 min-[390px]:grid-cols-[minmax(0,1fr)_auto] min-[390px]:items-center",
+        hasSourceEvidence || sourcesChecked
+          ? "border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40"
+          : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40",
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2">
+        {loading ? (
+          <Search className="mt-0.5 size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
+        ) : hasSourceEvidence ? (
+          <ShieldCheck className="mt-0.5 size-icon-md shrink-0 text-[color:var(--info)]" aria-hidden />
+        ) : (
+          <Info
+            className={cn(
+              "mt-0.5 size-icon-md shrink-0",
+              sourcesChecked ? "text-[color:var(--info)]" : "text-[color:var(--warning)]",
+            )}
+            aria-hidden
+          />
+        )}
+        <p className="min-w-0 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+          {loading
+            ? "Checking indexed sources…"
+            : hasSourceEvidence
+              ? `${sourceCount.toLocaleString()} indexed source ${sourceCount === 1 ? "match" : "matches"}`
               : sourcesChecked
-                ? "0 matches"
-                : "Evidence pending"}
-          </span>
-        </p>
-        <p className="flex items-center justify-between gap-3 text-[color:var(--warning)]">
-          <span className="inline-flex items-center gap-2">
-            <CircleHelp className="h-4 w-4" aria-hidden />
-            {hasSourceEvidence ? "Imported catalogue" : sourcesChecked ? "Sources checked" : "Run source search"}
-          </span>
-          <span className="text-[color:var(--text-muted)]">
-            {hasSourceEvidence
-              ? `${sourceCount.toLocaleString()} source${sourceCount === 1 ? "" : "s"}`
-              : sourcesChecked
-                ? "No matches"
-                : "Not yet checked"}
-          </span>
+                ? "No indexed source matches — showing reviewed catalogue results"
+                : "Indexed sources have not been checked — showing reviewed catalogue results"}
         </p>
       </div>
-      <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-        {hasSourceEvidence
-          ? "Catalogue matches are ranked from the imported, locally reviewed differentials library."
-          : sourcesChecked
-            ? "No indexed documents matched this query. Showing catalogue-only results."
-            : "Showing reviewed local differential records. Run source search to validate against indexed documents."}
-      </p>
-      {!hasSourceEvidence && !sourcesChecked ? (
+      {!loading && !hasSourceEvidence && !sourcesChecked ? (
         <button
           type="button"
           onClick={onRunSourceSearch}
-          disabled={loading}
-          className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+          className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[390px]:w-auto"
         >
           <Search className="h-4 w-4" aria-hidden />
-          {loading ? "Searching sources" : "Run source search"}
+          Check sources
         </button>
       ) : null}
     </section>
   );
 }
 
-function InterpretationRail({
-  best,
-  results,
-  sourceCount,
-  evidenceState,
-  loading,
-  sourcesChecked,
-  onRunSourceSearch,
-}: {
-  best: DifferentialResult;
-  results: DifferentialResult[];
-  sourceCount: number;
-  evidenceState: DifferentialEvidenceState;
-  loading: boolean;
-  sourcesChecked: boolean;
-  onRunSourceSearch: () => void;
-}) {
+function InterpretationRail({ best, results }: { best: DifferentialResult; results: DifferentialResult[] }) {
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
       <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
@@ -726,13 +738,6 @@ function InterpretationRail({
       </h2>
       {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
       <UrgencyCard results={results} />
-      <SourceStatusCard
-        sourceCount={sourceCount}
-        evidenceState={evidenceState}
-        loading={loading}
-        sourcesChecked={sourcesChecked}
-        onRunSourceSearch={onRunSourceSearch}
-      />
     </aside>
   );
 }
@@ -803,7 +808,7 @@ function SearchResultsView({
       results.filter((result) => matchesKind(result, kind) && matchesUrgency(result, urgencyFilter)).length;
     return (["all", "presentation", "diagnosis"] as const).map((value) => ({
       value,
-      label: value === "all" ? "All" : value === "presentation" ? "Presentations" : "Diagnoses",
+      label: value === "all" ? "All" : value === "presentation" ? "Presentations" : "Differentials",
       hint: String(countFor(value)),
     }));
   }, [results, urgencyFilter]);
@@ -834,7 +839,7 @@ function SearchResultsView({
     appliedFilters.push({
       id: "result-type",
       groupLabel: "Show",
-      valueLabel: kindFilter === "presentation" ? "Presentations" : "Diagnoses",
+      valueLabel: kindFilter === "presentation" ? "Presentations" : "Differentials",
       onRemove: () => setKindFilter("all"),
     });
   }
@@ -857,10 +862,10 @@ function SearchResultsView({
   // explicit `urgencyFilter !== "all"` narrowing.
   function filteredEmptyHeading(): string {
     if (kindFilter !== "all" && urgencyFilter !== "all") {
-      return `No ${kindFilter === "presentation" ? "presentations" : "diagnoses"} at ${statusLabel(urgencyFilter)} priority in this result set`;
+      return `No ${kindFilter === "presentation" ? "presentations" : "differentials"} at ${statusLabel(urgencyFilter)} priority in this result set`;
     }
     if (kindFilter === "presentation") return "No presentations in this result set";
-    if (kindFilter === "diagnosis") return "No diagnoses in this result set";
+    if (kindFilter === "diagnosis") return "No differentials in this result set";
     if (urgencyFilter !== "all") return `No ${statusLabel(urgencyFilter)} results in this result set`;
     return "No results match your filters";
   }
@@ -976,7 +981,7 @@ function SearchResultsView({
               href={differentialRouteWithQuery("/differentials/diagnoses", query)}
               className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
             >
-              Browse diagnoses
+              Browse differentials
             </Link>
           </>
         }
@@ -1007,6 +1012,13 @@ function SearchResultsView({
             onToggle={() => setFilterOpen((current) => !current)}
           />
         }
+      />
+      <SourceStatusBanner
+        sourceCount={reviewedSourceCount}
+        evidenceState={evidenceState}
+        loading={loading}
+        sourcesChecked={sourcesChecked}
+        onRunSourceSearch={rerunSearch}
       />
       {/* Phone-only by construction: the trigger that opens it lives in the
           ribbon's `mobileControls` slot, which the band hides from `sm` up. */}
@@ -1082,7 +1094,7 @@ function SearchResultsView({
               href={differentialRouteWithQuery("/differentials/diagnoses", query)}
               className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
             >
-              Browse diagnoses
+              Browse differentials
               <ChevronRight className="h-4 w-4" aria-hidden />
             </Link>
             <button
@@ -1137,30 +1149,8 @@ function SearchResultsView({
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                     {sortValue === "alpha"
                       ? "Sorted A–Z; the best relevance match remains marked."
-                      : hasSourceEvidence
-                        ? `${reviewedSourceCount.toLocaleString()} indexed source ${reviewedSourceCount === 1 ? "match" : "matches"}. Review before use.`
-                        : sourcesChecked
-                          ? "No indexed source matches. Catalogue order is unchanged."
-                          : "Ranked from the imported catalogue; indexed sources are not checked yet."}
+                      : "Ranked by clinical title, aliases, cues, and catalogue relevance."}
                   </p>
-                </div>
-                <div className="hidden items-center gap-2 sm:flex">
-                  {!hasSourceEvidence && !sourcesChecked ? (
-                    <button
-                      type="button"
-                      onClick={rerunSearch}
-                      disabled={loading}
-                      className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] disabled:cursor-wait disabled:opacity-60"
-                    >
-                      <Search className="h-4 w-4" aria-hidden />
-                      {loading ? "Checking sources" : "Check indexed sources"}
-                    </button>
-                  ) : sourcesChecked && !hasSourceEvidence ? (
-                    <p className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
-                      <Info className="h-4 w-4 text-[color:var(--warning)]" aria-hidden />
-                      No indexed source matches
-                    </p>
-                  ) : null}
                 </div>
               </div>
 
@@ -1171,59 +1161,6 @@ function SearchResultsView({
                   selected={selectedIds.has(best.id)}
                   onToggle={best.kind === "diagnosis" ? () => toggleSelected(best.id) : undefined}
                 />
-                {hasSourceEvidence ? (
-                  <section
-                    aria-label="Source status"
-                    className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 px-3 py-2 text-xs"
-                  >
-                    <Info className="size-icon-md shrink-0 text-[color:var(--info)]" aria-hidden />
-                    <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                      {reviewedSourceCount.toLocaleString()} indexed source{" "}
-                      {reviewedSourceCount === 1 ? "match" : "matches"}
-                    </p>
-                  </section>
-                ) : loading ? (
-                  <section
-                    aria-label="Source status"
-                    aria-live="polite"
-                    className="flex items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 py-2 text-xs"
-                  >
-                    <Search className="size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
-                    <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                      Checking indexed sources…
-                    </p>
-                  </section>
-                ) : !sourcesChecked ? (
-                  <section
-                    aria-label="Source status"
-                    className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 py-2 text-xs min-[390px]:flex min-[390px]:items-center min-[390px]:justify-between min-[390px]:gap-2 min-[390px]:py-1.5 min-[390px]:pr-1.5"
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Info className="size-icon-md shrink-0 text-[color:var(--warning)]" aria-hidden />
-                      <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                        Sources not checked
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={rerunSearch}
-                      className="inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[390px]:w-auto"
-                    >
-                      <Search className="size-icon-sm" aria-hidden />
-                      Check sources
-                    </button>
-                  </section>
-                ) : (
-                  <section
-                    aria-label="Source status"
-                    className="flex items-center gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 py-2 pl-3 pr-3 text-xs"
-                  >
-                    <Info className="size-icon-md shrink-0 text-[color:var(--info)]" aria-hidden />
-                    <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
-                      No indexed source matches
-                    </p>
-                  </section>
-                )}
               </div>
 
               <div className="grid gap-2">
@@ -1303,15 +1240,7 @@ function SearchResultsView({
               )}
             </section>
 
-            <InterpretationRail
-              best={best}
-              results={results}
-              sourceCount={reviewedSourceCount}
-              evidenceState={evidenceState}
-              loading={loading}
-              sourcesChecked={sourcesChecked}
-              onRunSourceSearch={rerunSearch}
-            />
+            <InterpretationRail best={best} results={results} />
           </div>
         </div>
       )}

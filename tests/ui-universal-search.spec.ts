@@ -65,8 +65,8 @@ const universalPayload = {
         {
           id: "acute-confusion-encephalopathy",
           kind: "presentations",
-          title: "Delirium / Acute Confusion / Encephalopathy",
-          subtitle: "Delirium and its encephalopathic mimics are acute medical emergencies",
+          title: "Acute confusion and delirium",
+          subtitle: "Covers delirium, acute confusion, toxic-metabolic encephalopathy, and post-ictal confusion.",
           href: "/differentials/presentations/acute-confusion-encephalopathy",
           score: 18,
           badge: "Emergent",
