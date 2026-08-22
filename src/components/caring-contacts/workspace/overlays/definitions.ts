@@ -21,6 +21,20 @@
 
 export type OverlayPhoneModality = "bottom-sheet" | "full-screen-stage" | "session-gate" | "status-banner";
 export type OverlayDesktopModality = "dialog" | "inspection-drawer" | "session-gate" | "status-banner";
+/**
+ * `action-only` is RESERVED and currently unused. The matrix document expresses
+ * only two dismissal values across its 24 rows — `Escape, backdrop, close` and
+ * `Recovery action only` — and the latter reads the same for `session-expiry`
+ * and `offline-banner`, so neither row can be distinguished into `action-only`
+ * without inventing a distinction the frozen record does not make (Ruling 58).
+ *
+ * It was kept rather than deleted because this union is a pinned interface that
+ * Tasks 18 and 19 build against. It is NOT forgotten: the "uses only the
+ * dismissal values the matrix expresses" test in
+ * `tests/caring-contacts-overlay-definitions.test.ts` fails the moment a row
+ * takes this value, which forces the change to be justified against the matrix
+ * — where the authority lives — rather than assigned quietly here.
+ */
 export type OverlayDismissal = "escape-backdrop-close" | "action-only" | "recovery-only";
 export type OverlayAvailability = "Available" | "Read only" | "Unavailable until resolved";
 

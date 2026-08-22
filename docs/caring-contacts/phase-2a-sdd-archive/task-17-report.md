@@ -232,3 +232,110 @@ mutation 3 and restored byte-identically, proven above.
    (`Read only` on the three read-only surfaces, `Unavailable until resolved` on the seven blocked
    ones, `Available` on the remaining fourteen). If they matter to Task 18's rendering, they should
    get a column in the matrix so they are frozen like everything else.
+
+---
+
+# Follow-up — Ruling 58 and the reserved dismissal member
+
+## What changed
+
+Two additive edits. No existing assertion was deleted, loosened, or reworded, and nothing new is
+exported — the public surface of `definitions.ts` is identical to the first commit.
+
+- **A guard test**, `uses only the dismissal values the matrix expresses`, asserting that the set of
+  `dismissal` values actually taken across the 24 definitions is exactly
+  `["escape-backdrop-close", "recovery-only"]`. It pins the _used set_, not the type, so the reserved
+  member stays in the union while becoming impossible to assign quietly.
+- **A comment on `OverlayDismissal`** recording that `action-only` is reserved, currently
+  unreachable, kept deliberately rather than forgotten, and guarded by that named test — so the next
+  reader does not "tidy up" either the member or the guard.
+
+## The two modality unions need no equivalent guard
+
+I checked every value taken across the 24 rows before deciding:
+
+| Union                    | Members                                                                 | Rows taking each |
+| ------------------------ | ----------------------------------------------------------------------- | ---------------- |
+| `OverlayPhoneModality`   | `bottom-sheet` / `full-screen-stage` / `session-gate` / `status-banner` | 13 / 9 / 1 / 1   |
+| `OverlayDesktopModality` | `dialog` / `inspection-drawer` / `session-gate` / `status-banner`       | 19 / 3 / 1 / 1   |
+| `OverlayDismissal`       | `escape-backdrop-close` / `recovery-only` / **`action-only`**           | 22 / 2 / **0**   |
+
+Both modality unions are **fully exercised** — every member is taken by at least one row — so there
+is no unreachable member to guard and I added nothing. `dismissal` is the only union with a member
+no row can hold, which is why it is the only one that gets a guard.
+
+## Mutation evidence for the new guard
+
+_Does it change a value an assertion reads?_ Yes. I assigned `action-only` to `session-expiry` — the
+row whose ambiguous matrix prose is the whole reason the member exists, and therefore the most
+plausible place for a future author to put it.
+
+```
+FAIL > uses only the dismissal values the matrix expresses
+AssertionError: expected [ 'action-only', …(2) ] to deeply equal [ 'escape-backdrop-close', …(1) ]
+  [
++   "action-only",
+    "escape-backdrop-close",
+    "recovery-only",
+  ]
+ ❯ tests/caring-contacts-overlay-definitions.test.ts:149:18
+      Tests  2 failed | 4 passed (6)
+```
+
+The row-for-row test reddened alongside it, which is the correct blast radius: that row's matrix
+cell normalises to `recovery-only`, so both the frozen-record check and the used-set guard object.
+Reverted; re-ran; 6 passed.
+
+## The prose ambiguity is recorded, not resolved
+
+`Recovery action only` reads either as _recovery-action only_ or as _recovery, action-only_, and the
+two rows sharing it plausibly differ in kind — a session expiry needs the person to act, an offline
+banner clears when the connection returns. Per the ruling, **no code here attempts to settle that**;
+it is a frozen-record question for the owner and the final review, and it costs nothing today
+because Task 19 only requires `session-expiry` to survive Escape, which both readings satisfy.
+
+## Concerns 2 and 3 — closed as recorded limits, deliberately unguarded
+
+The 24 `summary`/`decision` strings and the 24 `availability` values have no frozen source, so no
+test compares them against anything. Per the ruling I have **not** invented a check for them:
+asserting today's values against themselves would pin my own choices while wearing the appearance of
+verifying the frozen record. Both remain human-read items, recorded rather than papered over.
+
+## Note on the source-text guard (concern 4)
+
+`tests/caring-contact-route-files.test.ts` enforces the no-mockup-imports rule by scanning
+production source **text**, so it cannot distinguish an actual import from a prose mention of the
+path in a comment or a doc block. That is a known and acceptable limitation — the guard is
+deliberately blunt in the safe direction — and the fix is always to reword the comment, never to
+narrow the pattern. The next author to hit it has not found a bug.
+
+## Verification
+
+```
+$ node scripts/run-vitest.mjs run tests/caring-contacts-overlay-definitions.test.ts --reporter=dot
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+
+$ node scripts/run-vitest.mjs run tests/caring-contact-route-files.test.ts --reporter=dot
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
+tsc --noEmit: exit 0, no diagnostics
+
+$ npx eslint src/components/caring-contacts/workspace/overlays/definitions.ts tests/caring-contacts-overlay-definitions.test.ts
+eslint: exit 0, no findings
+
+$ npx prettier --check <both files>
+All matched files use Prettier code style!
+```
+
+**I did not re-run the full `npm run test`, and I am saying so rather than implying it passed.** The
+ruling scoped it to a new export; there is none. The change is one added test, one added comment,
+and no change to any exported value, type or signature — the definition table's 24 rows are
+byte-for-byte what the full suite already proved green at commit `003a05e31`. I did re-run the one
+other test that reads this file's source text (`caring-contact-route-files`), because a comment edit
+is exactly what tripped it last time.
+
+`npm run format` ran across the repository and reported no unformatted file outside the two I
+changed.

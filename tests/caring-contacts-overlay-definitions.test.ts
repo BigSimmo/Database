@@ -134,6 +134,21 @@ describe("the frozen 24-overlay contract", () => {
     ).toEqual(["withdrawal", "reassignment"]);
   });
 
+  /**
+   * Ruling 58: `action-only` is a reserved, currently unreachable member of
+   * `OverlayDismissal`. The matrix expresses two dismissal values and no more,
+   * so this pins the used set rather than the type. A future author who assigns
+   * `action-only` to a row must first change the frozen record, which is where
+   * the authority lives.
+   *
+   * The two modality unions need no equivalent guard: all four phone values and
+   * all four desktop values are taken by at least one of the 24 rows.
+   */
+  it("uses only the dismissal values the matrix expresses", () => {
+    const used = [...new Set(WORKSPACE_OVERLAY_DEFINITIONS.map((definition) => definition.dismissal))].sort();
+    expect(used).toEqual(["escape-backdrop-close", "recovery-only"]);
+  });
+
   it("carries no empty field and no prohibited clinical language", () => {
     for (const definition of WORKSPACE_OVERLAY_DEFINITIONS) {
       for (const [field, value] of Object.entries(definition)) {
