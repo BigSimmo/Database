@@ -1983,3 +1983,58 @@ Two details that settle it completely:
 occupies the place where a real check would go and it reports coverage that does not exist. Removing one
 is not a loosening, provided the removal is disclosed with the evidence that it was unfalsifiable — and
 provided nothing weaker but real was quietly dropped alongside it, which was checked here line by line.
+
+## Task 16 — the service-state banner and the explained-automation contract, at `b8f81996c`
+
+Full suite `Test Files 699 passed | 2 skipped (701)` / `Tests 7750 passed | 29 skipped (7779)`, `tsc`
+exit 0, eslint clean.
+
+### The sentinel test I required found a hole in the brief's OWN test
+
+This is the eleventh assertion on this branch found to be unfalsifiable or too narrow, and it was caught
+because the implementer ran the mutation properly instead of assuming it would pass.
+
+The brief's privacy check is `expect(banner.textContent).not.toMatch(/Rowan|Mira|\+61/)`. It is scoped
+to the banner's own text content. When the implementer rendered the responder's free-text note **one
+element outside** `role="status"`, that check **stayed green while a patient name and a mobile number
+sat in the page.**
+
+The reason it matters: **Ruling 43 is about the note not reaching the PAGE, not about it not reaching
+one ARIA region.** A check scoped to the region cannot see a leak one element away, and the banner
+renders on every screen to every team including teams with no part in the incident.
+
+Ruling: [55] The whole-container sentinel scan is the PRIMARY assertion and the brief's narrower check
+stays alongside it. — Why: the narrow one still documents the specific literals that must never appear,
+which is useful as a statement of intent; the sentinel is what actually enforces the rule, because it
+catches any leak rather than three known strings. — Cost if wrong: one extra assertion.
+
+### Ruling 56 — the banner must not depend on a page author remembering
+
+The implementer flagged that `serviceState` is an OPTIONAL shell prop, so nothing forces a screen to
+pass one, and proposed capturing it as an issue for later.
+
+Ruling: [56] Closed now, not captured. `serviceState` becomes a REQUIRED prop and the page reads the
+real state. — Why: consider what optional means concretely — during a live safety stop, a screen whose
+author forgot shows **no banner at all**, and a clinician keeps working believing sending is fine. That
+is exactly the harm Ruling 9 and Spec §4.2 exist to prevent, and "visible everywhere" is not a property
+that can rest on memory. It is also cheapest to fix at this exact moment, because there is currently
+**one** page; every screen Plan 2B adds makes it more expensive. Required means the compiler refuses a
+new screen that omits it. — Cost if wrong: every future screen must supply a service state, which is
+the intended burden.
+**Standing prohibition attached: it must NOT be satisfied with a hardcoded running state.** That would
+be worse than optional, because it would render a confident "service running" during a live incident.
+The wiring uses what already exists — the memoised store from Task 12 and the narrowing view from
+Task 14 — and if it turns out to need something Tasks 17/18 own, the implementer stops and reports
+rather than inventing a data path.
+
+### Confirmed without change
+
+- **The banner's service-stop control is an unavailable control, not a link** — the implementer spotted a
+  genuine conflict in my own dispatch and resolved it correctly. Ruling 52 governs: an unbuilt
+  destination never ships as a link to a 404. Building hrefs from the route module is about where hrefs
+  come from when a destination IS built, not a licence to ship a dead one.
+- **Colour-independence proved at DOM level is sufficient here**, because the DOM tests assert the thing
+  that actually matters: the reason text and the approval count are read AS TEXT. That is what
+  "communicated through text, icon and structure, never colour alone" means. A greyscale render would add
+  little, and Task 15 already established that most forced-colours assertions on this surface cannot
+  discriminate — so adding one would be adding an assertion that cannot fail.
