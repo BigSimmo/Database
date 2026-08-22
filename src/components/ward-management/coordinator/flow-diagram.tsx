@@ -11,6 +11,7 @@ import {
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
+import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
 import { edPressure } from "@/components/ward-management/ward-pressure";
 import { allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
@@ -133,10 +134,11 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
  * resize rather than only ever being screenshotted once.
  */
 export function FlowDiagram({ movement, now, selectedUnitId, onSelectUnit }: FlowDiagramProps) {
+  const { units } = useWardFlow();
   const pressure = useMemo(() => edPressure(now), [now]);
   const shortlist = useMemo(
-    () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP) : []),
-    [movement, now],
+    () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP, units) : []),
+    [movement, now, units],
   );
   const shortlistByUnitId = useMemo(
     () => new Map(shortlist.map((candidate) => [candidate.unit.id, candidate])),
