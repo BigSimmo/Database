@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 43,
+    "pending": 46,
     "resolved": 359
   },
   "queue": [
@@ -902,6 +902,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "414e60a0-f441-4cbb-9996-9dce4f22583e",
+      "action": "cancel",
+      "summary": "Cancel request 296db779-44cb-4817-9592-3ebf22aca38b: Superseded by the clinical sign-off of 2026-08-22. This request recorded PARTIAL PROGRESS and instructed that the row not be closed without explicit owner confirmation that the review was actually carried out. That confirmation has now been given and the review has happened, so the row closes; its content is carried into the closure rather than discarded. Note in particular that one of the four proposals this request recorded as WITHDRAWN -- splitting antihistamines by sedation -- was reversed on 2026-08-22 and applied, and the reversal was evidence-driven rather than a change of mind: the original withdrawal reasoned only that the term selects the antihistamine subclass so splitting it would stop the term meaning antihistamines, which never examined what the rows say. Reading them settled it: all four rows describe additive ANTICHOLINERGIC burden and one names sedating antihistamines explicitly, so the second-generation agents were producing a CRITICAL anticholinergic-toxidrome alert they cannot cause. The other three withdrawals still stand.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "453dc608-a999-4789-9792-35431b805245",
       "action": "done",
       "summary": "#75JA0P: Resolved 2026-08-21 by explicit test strategy: retain reduced-motion suite stability while the motion-emulation contract requires every motion-sensitive spec to declare reduced or no-preference coverage; contract tests pass.",
@@ -912,6 +918,12 @@
       "action": "done",
       "summary": "#EP1BQS: Resolved 2026-08-21: the RAG programme handover now points implementing sessions back to the canonical ledger and requires a duplicate-implementation check when provider reads are authorised.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "4aed85d0-2bed-4c39-9560-6d5ab2bada19",
+      "action": "done",
+      "summary": "#1YPV51: Resolved 2026-08-22 by the Repository Lead's sign-off, recorded in the Sign-off block of docs/medication-interaction-lexicon-review.md. All 37 catalogue terms were expanded to their resolved drug lists and reviewed alongside the text of the rows each term fires on: 34 confirmed correct as they stood, 3 narrowed. (1) ANTIHISTAMINES: all four rows describe additive ANTICHOLINERGIC burden and one names 'sedating antihistamines' in its own words, yet cetirizine, fexofenadine and loratadine resolved into the term -- benzatropine + loratadine produced a CRITICAL 'anticholinergic toxidrome ... risk of toxic megacolon' alert and oxybutynin + cetirizine 'frank delirium and bowel impaction'. The three second-generation agents are denied; cyclizine, promethazine, alimemazine and diphenhydramine are kept. (2) CORTICOSTEROIDS: every row is a systemic effect (insulin resistance x5, tendon rupture with ciprofloxacin, additive hypokalaemia), so the four purely topical glucocorticoids are denied; inhaled agents are deliberately kept because the hypokalaemia row concerns a formoterol inhaler and names high-dose corticosteroids, and fludrocortisone is kept as a mineralocorticoid that raises BSL and drives hypokalaemia. (3) ORAL-CONTRACEPTIVES: the rows concern enzyme inducers destroying the COMBINED pill, and depot medroxyprogesterone is the method a woman is switched TO on an inducer; its own catalogue row already states inducers 'accelerate the clearance of the oral tablets, but the massive 150mg IM depot is generally resistant to clinically failing from this', so the generic term was flattening a nuance the catalogue records correctly. It is removed from the term and its own row still fires, pinned by a test. Two classification questions answered: moclobemide correctly excluded from maois (the rows concern irreversible inhibition -- tyramine crisis and washout -- which a reversible inhibitor does not carry), atomoxetine correctly classed SNRI. Measured: 23 medications changed, removals only, nothing added anywhere, all 328 medications intact, resolved/unresolved unchanged at 392/133. Each change was mutation-tested: reverted, observed to fail 3/4/1 tests, restored. Also fixed: the report generator hardcoded 'Status: UNREVIEWED', so the document would have contradicted itself in its first sentence the moment the sign-off was filled in; the status line is now derived from the recorded sign-off on the same read in both the write and --check paths. HISTORY CARRIED FROM CANCELLED REQUEST 296db779 (2026-08-21, partial progress): loperamide was resolving as an opioid because the selector matches the substring 'Opioid' and the catalogue classifies it 'Peripheral Opioid Agonist'; it is deny-listed alongside naltrexone and naloxone. Four further changes were proposed and withdrawn that day -- adding moclobemide to maois, removing atomoxetine from snris, folding the Z-drugs into benzodiazepines, and splitting antihistamines by sedation. THREE OF THOSE WITHDRAWALS STILL STAND. The fourth was REVERSED on 2026-08-22 and applied: the original withdrawal reasoned only that splitting would stop the term meaning 'antihistamines', which never examined what the rows say; reading them settled it. Recorded so the reversal is visible as evidence-driven rather than a change of mind. HOW THIS REVIEW WAS DONE, stated because this row exists over an earlier closure that claimed a review that had not happened: an assistant analysis proposed a verdict per term with its evidence, and the Repository Lead read and accepted them. It is a reviewed-and-accepted sign-off, NOT an independent re-derivation from primary sources, and must not be described as one. NOT RESOLVED BY THIS, and filed as its own row: acei resolves to perindopril alone, arbs to candesartan alone, statins to atorvastatin and rosuvastatin, because ramipril, lisinopril, irbesartan and simvastatin are absent from the catalogue entirely -- a patient on one of them produces silence rather than safety, which on screen is indistinguishable from a clear check.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "4bc642e9-5fba-4b43-90e8-407fe2c11408",
@@ -960,6 +972,12 @@
       "action": "done",
       "summary": "#G4M3DV: Resolved 2026-08-21: verify:pr-local detects an active Clinical KB dev server before its build and prints the stop/clear/rerun remedy while preserving fail-closed build behavior.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "6a16ed64-3b63-4977-8a2b-8c50c6b16877",
+      "action": "cancel",
+      "summary": "Cancel request a4a993d4-2326-4150-b9df-1ccf4f5433a3: Reissued as one closure carrying the history from cancelled request 296db779 -- the loperamide fix, the four proposals withdrawn on 2026-08-21, and the fact that one of those withdrawals was later reversed on better evidence. Requests are immutable, so combining them means replacing rather than editing.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "725bdcac-1dd2-45dd-bb99-2901797f9ade",

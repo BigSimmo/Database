@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6a16ed64-3b63-4977-8a2b-8c50c6b16877",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a4a993d4-2326-4150-b9df-1ccf4f5433a3",
+    "reason": "Reissued as one closure carrying the history from cancelled request 296db779 -- the loperamide fix, the four proposals withdrawn on 2026-08-21, and the fact that one of those withdrawals was later reversed on better evidence. Requests are immutable, so combining them means replacing rather than editing."
+  }
+}
