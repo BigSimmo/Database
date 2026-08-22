@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#CHW9N3",
-    "outcome": "Resolved 2026-08-22: the loading contract retains its separate fourteen-route inventory for consolidated and standalone homes, while a dedicated assertion now requires every exported non-root standaloneModeHomePath to remain in that inventory; the root's in-shell pending skeleton stays separately guarded, and documents now has ModeHomeRouteLoading.",
+    "outcome": "Resolved 2026-08-22: the loading contract retains its separate fourteen-route inventory for consolidated and standalone homes, while a dedicated assertion now requires every exported standaloneModeHomePath to remain in that inventory; the dashboard root's in-shell pending skeleton stays separately guarded, and documents now has ModeHomeRouteLoading.",
     "baseRowFingerprint": "76f2027c2d55767c65558c8135322be91962a46c13e505bd94f0c4a1063e690e"
   }
 }

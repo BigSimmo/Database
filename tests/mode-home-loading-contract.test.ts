@@ -27,9 +27,6 @@ const MODE_HOME_LOADING_ROUTES = [
 describe("mode-home loading contract", () => {
   it("keeps every named standalone mode home in the broader loading inventory", () => {
     for (const pathname of standaloneModeHomePaths) {
-      // The dashboard root has no route-level loading.tsx; its in-shell pending
-      // navigation skeleton is asserted in the next test.
-      if (pathname === "/") continue;
       expect(MODE_HOME_LOADING_ROUTES).toContain(pathname.slice(1));
     }
   });
