@@ -1238,10 +1238,10 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 76 = 59 + 6 + 10 + 1: the base routes, the six mode-search routes, the
-    // ten-route Ward Flow prototype, and the Caring Contacts workspace. This is
+    // 78 = 59 + 6 + 12 + 1: the base routes, the six mode-search routes, the
+    // twelve-route Ward Flow prototype, and the Caring Contacts workspace. This is
     // a census, so a route nobody intended to add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(76);
+    expect(manifest.routeCoverage.discovered).toHaveLength(78);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
