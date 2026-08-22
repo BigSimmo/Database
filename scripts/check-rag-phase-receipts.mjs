@@ -21,6 +21,7 @@ import {
   programmeVerificationErrors,
   resumeStateErrors,
   reviewPackageEvidenceErrors,
+  reviewPackageDigest,
   requiredResidualGateErrors,
   taskChainErrors,
   tddEvidenceErrors,
@@ -138,16 +139,6 @@ function reviewPackageBytes(base, head) {
     null,
   );
   return buildReviewPackageBytes(base, head, commitList(base, head), diff);
-}
-
-function patchId(bytes) {
-  const output = execFileSync("git", ["patch-id", "--stable"], {
-    cwd: repositoryRoot,
-    input: bytes,
-    encoding: "utf8",
-    stdio: ["pipe", "pipe", "ignore"],
-  }).trim();
-  return output.split(/\s+/)[0] || "EMPTY";
 }
 
 function repositoryPath(path) {
@@ -316,8 +307,8 @@ function validateReviewHistory(reviews, immutableBase, finalHead, label, impleme
             review.baseSha,
             review.headSha,
             commitList(review.baseSha, review.headSha),
-            patchId(actualBytes),
-            patchId(expectedBytes),
+            reviewPackageDigest(actualBytes),
+            reviewPackageDigest(expectedBytes),
           ).map((error) => `${reviewLabel}: ${error}`),
         );
       } catch (error) {

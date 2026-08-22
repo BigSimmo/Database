@@ -1,3 +1,9 @@
+import { createHash } from "node:crypto";
+
+export function reviewPackageDigest(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
 export function packageIdentityErrors(receipt, p00Receipt, label) {
   const errors = [];
   for (const field of ["packageVariant", "packageHash", "packageBaseSha", "packageHeadSha"]) {

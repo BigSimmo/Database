@@ -19,6 +19,7 @@ import {
   programmeVerificationErrors,
   resumeStateErrors,
   reviewPackageEvidenceErrors,
+  reviewPackageDigest,
   requiredResidualGateErrors,
   taskChainErrors,
   tddEvidenceErrors,
@@ -329,7 +330,7 @@ describe("RAG plan execution packages", () => {
     const base = "a".repeat(40);
     const head = "b".repeat(40);
     const commits = ["c".repeat(40), "d".repeat(40)];
-    const fullRange = buildReviewPackageBytes(base, head, commits, Buffer.from("diff --git a/a b/a\n"));
+    const fullRange = buildReviewPackageBytes(base, head, commits, Buffer.from("diff --git a/a b/a\n@@ -1 +1 @@\n-old\n+new\n"));
     expect(reviewPackageEvidenceErrors(fullRange, base, head, commits, "patch-1", "patch-1")).toEqual([]);
     expect(
       reviewPackageEvidenceErrors(fullRange, base, head, commits.slice(1), "patch-1", "patch-1").join("\n"),
@@ -337,6 +338,18 @@ describe("RAG plan execution packages", () => {
     expect(reviewPackageEvidenceErrors(fullRange, base, head, commits, "patch-1", "patch-2").join("\n")).toContain(
       "patch differs from the recorded full range",
     );
+
+    const whitespaceChanged = Buffer.from(fullRange.toString("utf8").replace("+new", "+n e w"));
+    expect(
+      reviewPackageEvidenceErrors(
+        whitespaceChanged,
+        base,
+        head,
+        commits,
+        reviewPackageDigest(whitespaceChanged),
+        reviewPackageDigest(fullRange),
+      ).join("\n"),
+    ).toContain("patch differs from the recorded full range");
 
     const expectedMetadataPaths = ["receipts/P08A.json", "artifacts/P08A-review.diff"];
     const validMetadata = {
