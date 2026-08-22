@@ -98,6 +98,7 @@ function inboxAction(item: InboxItem) {
   if (item.id.startsWith("legal-")) return "Escalate legal timing";
   if (item.id.startsWith("declines-")) return "Expand destination search";
   if (item.id.startsWith("transport-")) return "Follow up transport provider";
+  if (item.id.startsWith("bed-hold-")) return "Reconfirm or release bed hold";
   return "Review movement";
 }
 
@@ -157,8 +158,8 @@ function DecisionPanel({
   onSelectId: (id: string) => void;
 }) {
   const [confirmed, setConfirmed] = useState(false);
-  const { now } = useWardFlow();
-  const candidates = useMemo(() => eligibleCandidates(patient, now, 3), [patient, now]);
+  const { now, units } = useWardFlow();
+  const candidates = useMemo(() => eligibleCandidates(patient, now, 3, units), [patient, now, units]);
   // Never fall back to candidates[0] when the id in play isn't one of this movement's own
   // shortlisted candidates — that would silently describe the wrong unit (Task 6 Critical 1).
   const selected = candidates.find((candidate) => candidate.unit.id === selectedId);
@@ -273,7 +274,7 @@ function DecisionPanel({
 }
 
 function QueueView({ role }: { role: WardRole }) {
-  const { movements, now } = useWardFlow();
+  const { movements, now, units } = useWardFlow();
   const [selectedId, setSelectedId] = useState(movements[0].id);
   const rolePatients = useMemo(() => sortByRole(movements, role).filter(isOpen), [movements, role]);
   // Hold only the id and derive the record from the live `movements` list on every render —
@@ -308,7 +309,7 @@ function QueueView({ role }: { role: WardRole }) {
           </thead>
           <tbody>
             {rolePatients.map((patient) => {
-              const top = eligibleCandidates(patient, now, 1)[0];
+              const top = eligibleCandidates(patient, now, 1, units)[0];
               return (
                 <tr key={patient.id} data-selected={selected?.id === patient.id}>
                   <td>
@@ -336,7 +337,7 @@ function QueueView({ role }: { role: WardRole }) {
         <DecisionPanel
           patient={selected}
           role={role}
-          selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, now)[0]?.unit.id}
+          selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, now, 3, units)[0]?.unit.id}
           onSelectId={() => undefined}
         />
       ) : (
