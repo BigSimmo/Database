@@ -129,7 +129,9 @@ export function applyRequest(markdown, request) {
     const id = request.payload.id;
     const fingerprint = queueRowFingerprint(markdown, id);
     if (!fingerprint) {
-      throw new Error(`${id} no longer has exactly one queue row; reread and reissue this request from the latest ledger`);
+      throw new Error(
+        `${id} no longer has exactly one queue row; reread and reissue this request from the latest ledger`,
+      );
     }
     if (fingerprint !== String(request.payload.baseRowFingerprint).toLowerCase()) {
       throw new Error(
@@ -689,12 +691,12 @@ function createRequest(action, argv) {
                 outcome: argValue(argv, "outcome"),
               }
             : {
-              // `pri` rides the same update request as the prose fields so a
-              // demotion and the reason for it land as one auditable mutation.
-              // Without it the CLI could not express a re-prioritisation at all,
-              // which is the half of ledger #313 the inbox would otherwise
-              // reintroduce: updateIssue accepts --pri and validateRequest
-              // permits it, but nothing could produce the payload.
+                // `pri` rides the same update request as the prose fields so a
+                // demotion and the reason for it land as one auditable mutation.
+                // Without it the CLI could not express a re-prioritisation at all,
+                // which is the half of ledger #313 the inbox would otherwise
+                // reintroduce: updateIssue accepts --pri and validateRequest
+                // permits it, but nothing could produce the payload.
                 id: argv[1],
                 pri: argValue(argv, "pri"),
                 summary: argValue(argv, "summary"),

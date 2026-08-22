@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 37,
+    "pending": 38,
     "resolved": 359
   },
   "queue": [
@@ -1038,6 +1038,12 @@
       "action": "done",
       "summary": "#99KVDF: Resolved 2026-08-21 by accepting the measured stop decision: do not retry folding AnswerCard support text into VerificationNotice because the 4.5px saving does not remove a row.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "e0508db3-fdbc-4d76-9d6a-5e592b77d198",
+      "action": "add",
+      "summary": "Two zero-cost levers to restore automated review coverage remain unbuilt",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "eeac3580-2340-415d-824f-e31c23d8e2f7",

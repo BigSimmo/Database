@@ -931,10 +931,21 @@ cap, so it declines most reviews with "Review limit reached" — measured on PRs
 #2256, #2263 and #2278 between 2026-08-18 and 2026-08-22. The owner has decided to **leave the cap
 as it is and accept that CodeRabbit review is intermittent**, rather than raise it (`#CCZ4HB`).
 
-What that means in practice, and what it does not mean:
+**Read `docs/decisions/ccz4hb-review-coverage.md` before acting on this.** A separate analysis
+written the same day measured the cause and it is not primarily billing: CodeRabbit's included
+reviews refill at one per hour (24/day) while this repo merged 25.4 PRs/day on average over the
+preceding month. It also found that 285 of the last 1,190 merged PRs (24%) changed only
+documentation and 190 (16%) changed only the repo's own record-keeping files — roughly six review
+credits a day spent on files a code-review bot has nothing to say about. Two levers therefore remain
+open at **no cost and no loss of safety**, and the owner's decision above does not foreclose them:
+configure CodeRabbit to skip documentation-only PRs, and stop opening PRs whose only content is a
+bookkeeping record. Do those before anyone proposes raising the cap again.
 
-- The ChatGPT Codex connector still reviews and is unaffected by CodeRabbit's cap — it commented on
-  #2278 in the same run CodeRabbit skipped. Automated review is therefore reduced, not absent.
+What the decision means in practice, and what it does not mean:
+
+- The ChatGPT Codex connector reviewed PR #2278 on 2026-08-22 in the same run CodeRabbit skipped, so
+  as of that date automated review is reduced rather than absent. Do not treat that as permanent —
+  the connector reported its own usage limit on PR #2113 on 2026-08-18, so it can lapse too.
 - Draft PRs are skipped by CodeRabbit outright, so a PR that stays in draft gets nothing from it
   even when allowance is available. Undrafting mid-CI also cancels the in-flight run.
 - **Do not weaken, skip, or relax any required check to compensate.** The required gates are now

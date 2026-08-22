@@ -620,7 +620,10 @@ function selfTest() {
       regradedCells[5] === "1h" &&
       regradedCells[6] === "solo",
   );
-  check("queue does not touch the Open-items row", splitCells(parseIssues(regraded).rows.find((r) => r.id === "#005").raw)[1] === "P2");
+  check(
+    "queue does not touch the Open-items row",
+    splitCells(parseIssues(regraded).rows.find((r) => r.id === "#005").raw)[1] === "P2",
+  );
 
   // A composite ID(s) cell is one row shared by two issues; addressing it by
   // either cited id must reach the same row rather than only the first.
@@ -632,10 +635,7 @@ function selfTest() {
 
   // Escaping is the same hazard as everywhere else in this file: a bare pipe in
   // prose would silently become a column boundary.
-  check(
-    "queue escapes pipes in new text",
-    updateQueueRow(fixture, "#005", { outcome: "a | b" }).includes("a \\| b"),
-  );
+  check("queue escapes pipes in new text", updateQueueRow(fixture, "#005", { outcome: "a | b" }).includes("a \\| b"));
 
   // Assert the MESSAGE, not merely that something threw. Without the explicit
   // "no queue row" guard the lookup still fails — on a NaN index, several frames
