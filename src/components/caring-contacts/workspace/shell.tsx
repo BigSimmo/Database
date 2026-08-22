@@ -3,7 +3,9 @@ import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
+import { ServiceStateBanner } from "./service-state-banner";
 import { SyntheticMarker } from "./synthetic-marker";
 import { UnavailableDestination } from "./unavailable-destination";
 import type { WorkspaceWidthState } from "./width-state";
@@ -119,6 +121,16 @@ export type CaringContactsShellProps = {
   title: string;
   /** Optional plain-words statement of what this screen is for. */
   description?: string;
+  /**
+   * The service-wide safety stop, if the screen has read it.
+   *
+   * Spec §4.2 requires the banner on EVERY screen while a stop is active, so
+   * every screen that can read the state must pass it here. It is optional
+   * rather than required only because the Phase 2A screens are still static and
+   * do not yet read the store; the shell renders nothing at all when it is
+   * absent or when the service is running.
+   */
+  serviceState?: ServiceState;
   children: ReactNode;
 };
 
@@ -150,7 +162,7 @@ const focusRing =
  * `width-state.ts` holds the same boundaries as numbers for the overlay
  * modality decision; nothing here re-derives them.
  */
-export function CaringContactsShell({ title, description, children }: CaringContactsShellProps) {
+export function CaringContactsShell({ title, description, serviceState, children }: CaringContactsShellProps) {
   return (
     <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] md:flex">
       {WIDTH_STATE_MARKERS.map(({ state, className, label }) => (
@@ -212,6 +224,13 @@ export function CaringContactsShell({ title, description, children }: CaringCont
             <SyntheticMarker className="ml-auto" />
           </div>
         </header>
+
+        {/*
+          Directly under the header, above the screen's own content, so a stop is
+          the first thing read on every screen rather than something to scroll to.
+          It renders nothing while the service is running.
+        */}
+        {serviceState ? <ServiceStateBanner state={serviceState} /> : null}
 
         <main className="min-w-0 px-4 pb-28 pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
           <div className="mx-auto w-full max-w-6xl min-[1440px]:max-w-[90rem]">
