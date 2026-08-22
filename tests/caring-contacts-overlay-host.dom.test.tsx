@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -151,6 +154,17 @@ describe("the overlay host", () => {
     }
 
     expect(() => blockReasonWording("some-reason-nobody-wrote-wording-for")).toThrow(/Ruling 61/);
+
+    // An object literal inherits from Object.prototype, so a bare `map[key]` lookup
+    // answers `toString` and friends with a FUNCTION rather than `undefined` — which
+    // walks straight past a `=== undefined` guard and renders as nothing at all: a
+    // blocked control whose reason paragraph is empty. Exactly the "plausible instead
+    // of visible" outcome Ruling 61 forbids, reached by inheritance rather than by a
+    // default branch. Task 17 hit the identical defect in its matrix normalisation and
+    // fixed it with `Object.hasOwn`; the fix has to be made again per lookup.
+    for (const inherited of ["toString", "constructor", "valueOf", "hasOwnProperty", "__proto__", "isPrototypeOf"]) {
+      expect(() => blockReasonWording(inherited), `${inherited} slipped past the guard`).toThrow(/Ruling 61/);
+    }
   });
 
   /**
@@ -174,13 +188,42 @@ describe("the overlay host", () => {
    * That divergence is left in place deliberately — `sheet.tsx` is a design-system
    * component the whole application uses and `widthStateFor` is frozen design
    * non-regression — so this test exists to pin the BAND and name its cause, not to
-   * assert the mismatch is desirable. If either breakpoint moves, this goes red at
-   * the exact width rather than the divergence widening unnoticed.
+   * assert the mismatch is desirable.
+   *
+   * BOTH edges are pinned, and they need different instruments. The rail edge is a
+   * number this test can read (`WORKSPACE_WIDTH_BREAKPOINTS.rail`). The Sheet edge
+   * is CSS: jsdom applies no Tailwind, so no rendered assertion can observe it, and
+   * a bare `const SHEET_MOBILE_GEOMETRY_BREAKPOINT = 640` reads from nothing and
+   * would stay green through any change to the shared component. So that edge is
+   * held by SOURCE-TEXT assertions — the same instrument the client-boundary guard
+   * in `caring-contacts-explained-automation.dom.test.tsx` already uses in this
+   * codebase — over the two facts that together fix it at 640: the variant the Sheet
+   * flips its default geometry on, and the absence of a `--breakpoint-sm` override
+   * that would move what `sm:` means.
    */
   it("pins the 640–767 band where the stamped modality and the Sheet's own geometry breakpoint disagree", () => {
-    const SHEET_MOBILE_GEOMETRY_BREAKPOINT = 640; // Tailwind `sm:`, read off src/components/ui/sheet.tsx
+    const SHEET_MOBILE_GEOMETRY_BREAKPOINT = 640; // Tailwind `sm:`, held to that value below.
 
-    // The two breakpoints are genuinely different; the band is their difference.
+    // Edge one, the Sheet's: the exact default-placement class string that flips the
+    // backdrop from bottom-aligned (phone) to centred (dialog). Moving that variant
+    // to `md:` — or anywhere else — moves the band, and reddens this line.
+    const sheetSource = readFileSync(resolve(process.cwd(), "src/components/ui/sheet.tsx"), "utf8");
+    expect(
+      sheetSource,
+      "src/components/ui/sheet.tsx no longer flips its default geometry at `sm:` — the 640–767 band has moved",
+    ).toContain('"items-end justify-center sm:items-center sm:p-6"');
+
+    // ...and what `sm:` resolves to. Tailwind 4 lets an `@theme` block redefine a
+    // breakpoint; `--breakpoint-sm` is absent, so `sm:` is still the default 640.
+    // (`--breakpoint-phone: 640px` and friends are NAMED tokens added alongside the
+    // defaults, not overrides of them.)
+    const globalsSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+    expect(
+      globalsSource,
+      "an @theme --breakpoint-sm override now moves what `sm:` means, so 640 is no longer the Sheet's edge",
+    ).not.toMatch(/--breakpoint-sm\s*:/);
+
+    // Edge two, the contract's, read as a number rather than asserted as a literal.
     expect(WORKSPACE_WIDTH_BREAKPOINTS.rail).toBe(768);
     expect(SHEET_MOBILE_GEOMETRY_BREAKPOINT).toBeLessThan(WORKSPACE_WIDTH_BREAKPOINTS.rail);
 
@@ -292,10 +335,30 @@ describe("the overlay host", () => {
  * CLOSE an open overlay and must never walk forward into a dismissed one.
  */
 describe("the overlay URL", () => {
+  const WORKSPACE_PATH = "/caring-contacts";
+  /**
+   * The seeded prior entry deliberately has a DIFFERENT PATHNAME from the workspace.
+   *
+   * The first version of these tests seeded `/caring-contacts?marker=before` — same
+   * pathname — and that made the deep-link test unable to discriminate: under
+   * `replaceState` it ended at `/caring-contacts` with no `overlay=`, and under an
+   * unconditional `history.back()` it ended at `/caring-contacts?marker=before`,
+   * also with no `overlay=`, also pathname `/caring-contacts`, also with the overlay
+   * closed by `popstate`. Every assertion passed either way. A distinct pathname is
+   * what makes the two outcomes tell each other apart.
+   */
+  const PRIOR_PATH = "/caring-contacts/somewhere-before";
+
   /** Two distinguishable entries, so Back's destination is unambiguous. */
   function seedHistory() {
-    window.history.pushState(null, "", "/caring-contacts?marker=before");
-    window.history.pushState(null, "", "/caring-contacts");
+    window.history.pushState(null, "", `${PRIOR_PATH}?marker=before`);
+    window.history.pushState(null, "", WORKSPACE_PATH);
+    // No inherited marker: the workspace entry these tests start on was not pushed
+    // by the module under test. The open/close branch is chosen per history ENTRY
+    // from `history.state`, so there is no module-level flag to reset — but a
+    // seeded entry carrying a stale marker would still make a test lie about which
+    // branch it exercised, so it is asserted rather than assumed.
+    expect(window.history.state, "the seeded workspace entry must carry no marker").toBeNull();
   }
 
   it("does not reopen a dismissed overlay when the browser goes back", async () => {
@@ -315,7 +378,8 @@ describe("the overlay URL", () => {
     // The entry opening pushed was unwound rather than buried under a second push,
     // so Back lands on what preceded the workspace — not on the dismissed overlay.
     act(() => window.history.back());
-    await waitFor(() => expect(window.location.search).toContain("marker=before"));
+    await waitFor(() => expect(window.location.pathname).toBe(PRIOR_PATH));
+    expect(window.location.search).toContain("marker=before");
     expect(window.location.search).not.toContain("overlay=");
     expect(screen.queryByTestId("workspace-overlay-content")).toBeNull();
   });
@@ -336,15 +400,24 @@ describe("the overlay URL", () => {
   it("removes the parameter without leaving the workspace when the overlay came from a deep link", async () => {
     setViewportWidth(1440);
     seedHistory();
-    // Nobody pushed this entry: it is how the page was arrived at.
-    window.history.replaceState(null, "", "/caring-contacts?overlay=pause");
+    // Nobody pushed this entry: it is how the page was arrived at. `replaceState`
+    // with a null state also clears any marker, which is what makes this the
+    // deep-link case rather than an inherited one.
+    window.history.replaceState(null, "", `${WORKSPACE_PATH}?overlay=pause`);
+    expect(window.history.state, "the deep-linked entry must carry no marker").toBeNull();
     render(<WorkspaceOverlays />);
     expect(screen.getByTestId("workspace-overlay-content")).toBeInTheDocument();
 
     act(() => closeWorkspaceOverlay());
     await waitFor(() => expect(screen.queryByTestId("workspace-overlay-content")).toBeNull());
     expect(window.location.search).not.toContain("overlay=");
-    // Replaced, not unwound: the entry before the workspace is still one Back away.
-    expect(window.location.pathname).toBe("/caring-contacts");
+
+    // Replaced, NOT unwound. This is the discriminating pair, and it needs both
+    // halves: the seeded prior entry has a DIFFERENT pathname, so an unconditional
+    // `back()` would already have moved us there — the first assertion catches it —
+    // and the second proves that entry is still one Back away rather than consumed.
+    expect(window.location.pathname).toBe(WORKSPACE_PATH);
+    act(() => window.history.back());
+    await waitFor(() => expect(window.location.pathname).toBe(PRIOR_PATH));
   });
 });

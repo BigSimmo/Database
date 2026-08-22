@@ -72,22 +72,36 @@ function overlayUrl(id: string | null) {
 }
 
 /**
- * Whether the entry currently on top of the history stack is one this module
- * pushed to open an overlay.
+ * The marker this module writes into the history entry it pushes to open an
+ * overlay, so closing can tell "an entry I pushed" from "the entry the user
+ * arrived on".
  *
- * Module scope rather than component state on purpose: the fact belongs to the
- * browser's history stack, which outlives any one mount of this component, and
- * there is exactly one overlay host in the workspace.
+ * It lives in `history.state` rather than in a module variable, and that is a
+ * correctness choice rather than a stylistic one. A module variable describes the
+ * TOP of the stack only, and nothing keeps it true: the user pressing Back, a
+ * forward traversal, a second mount, or a test that traverses history directly all
+ * leave it stale, and a stale `true` means `back()` on an entry this module never
+ * pushed. `history.state` is per-entry, so every traversal brings its own answer
+ * with it and there is nothing to reset. It is also namespaced, because Next.js
+ * keeps its own router bookkeeping in the same object.
+ *
+ * Failure direction is the safe one: if the marker is ever lost — Next replacing
+ * state on its own navigation, say — close falls through to `replaceState`, which
+ * still removes the parameter and never navigates the user anywhere.
  */
-let pushedOverlayEntry = false;
+const OVERLAY_HISTORY_MARKER = "caringContactsOverlayEntry";
+
+function currentEntryWasPushedByThisModule(): boolean {
+  const state: unknown = window.history.state;
+  return typeof state === "object" && state !== null && OVERLAY_HISTORY_MARKER in state;
+}
 
 /**
  * Opening pushes, so Back closes the overlay — that is the browser-history
  * support rule 7 asks for.
  */
 export function openWorkspaceOverlay(id: string) {
-  window.history.pushState(null, "", overlayUrl(id));
-  pushedOverlayEntry = true;
+  window.history.pushState({ [OVERLAY_HISTORY_MARKER]: id }, "", overlayUrl(id));
   window.dispatchEvent(new Event(OVERLAY_URL_CHANGED_EVENT));
 }
 
@@ -107,8 +121,7 @@ export function openWorkspaceOverlay(id: string) {
  * and leaves the stack exactly as deep as it was.
  */
 export function closeWorkspaceOverlay() {
-  if (pushedOverlayEntry) {
-    pushedOverlayEntry = false;
+  if (currentEntryWasPushedByThisModule()) {
     // `popstate` fires from the traversal itself, so no announcement is needed
     // — and announcing here would report the pre-traversal URL.
     window.history.back();

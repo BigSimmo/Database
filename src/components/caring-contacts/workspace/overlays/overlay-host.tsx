@@ -172,15 +172,32 @@ export const NAMED_BLOCK_REASONS: readonly string[] = Object.freeze(Object.keys(
  * inventing wording for it, would both be worse than that.
  */
 export function blockReasonWording(reason: string): string {
-  const wording = BLOCK_REASON_WORDING[reason];
-  if (wording === undefined) {
+  // `Object.hasOwn`, not `map[reason] === undefined`.
+  //
+  // `BLOCK_REASON_WORDING` is an object literal, so it inherits from
+  // `Object.prototype`: `BLOCK_REASON_WORDING["toString"]` is a FUNCTION, not
+  // `undefined`, and so are `constructor`, `valueOf`, `hasOwnProperty` and
+  // `__proto__`. A `=== undefined` guard waves all of them through, TypeScript
+  // types the result `string`, and React renders a function as nothing — leaving a
+  // blocked control whose `aria-describedby` points at an EMPTY paragraph. No
+  // wording, no throw, no error boundary: a clinician told an action is unavailable
+  // and given no reason at all. That is the "plausible instead of visible" failure
+  // Ruling 61 forbids, arrived at by inheritance rather than by a default branch.
+  //
+  // `blockReason` is a pinned `string | null` supplied by an arbitrary caller, so
+  // this is not hypothetical once a later task starts passing one.
+  //
+  // Task 17 hit the identical defect in its matrix normalisation and fixed it the
+  // same way. A per-lookup fix does not travel between lookups, which is the actual
+  // lesson: every string-keyed object-literal lookup in this codebase needs its own.
+  if (!Object.hasOwn(BLOCK_REASON_WORDING, reason)) {
     throw new Error(
       `No plain-words wording for the block reason "${reason}". Ruling 61: add an entry to ` +
         `BLOCK_REASON_WORDING deliberately. Do not derive it from the identifier and do not add a ` +
         `default branch — an unwritten reason must be visible, not plausible.`,
     );
   }
-  return wording;
+  return BLOCK_REASON_WORDING[reason];
 }
 
 function actionClassFor(tone: WorkspaceOverlayDefinition["tone"]) {
@@ -408,6 +425,13 @@ export function OverlayHost({ openOverlayId, onClose, onCommit, blockReason }: O
     return <StatusBannerSurface>{body}</StatusBannerSurface>;
   }
 
+  // The other string-keyed object-literal lookup in this file, and the audit that
+  // followed the `BLOCK_REASON_WORDING` defect says it is safe where that one was
+  // not — for a reason worth writing down rather than trusting to memory. Its key
+  // type is `SheetModality`, a closed union whose only values come from the frozen
+  // table, so no caller-supplied string reaches it and `"toString"` is a compile
+  // error rather than a runtime hit. The difference is the key type, not the map
+  // shape: if this ever became keyed by `string`, it would need `Object.hasOwn` too.
   const geometry = SHEET_GEOMETRY[modality];
   return (
     <Sheet

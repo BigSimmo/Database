@@ -473,6 +473,11 @@ driven directly. Three tests in a new `describe("the overlay URL")` block:
 - **removes the parameter without leaving the workspace when the overlay came from a deep link** —
   pins the `replaceState` branch, so a later simplification to an unconditional `back()` goes red.
 
+  > **This claim was FALSE as written, and is corrected in fix round 2.** Both seeded entries shared the
+  > pathname `/caring-contacts`, so `replaceState` and an unconditional `back()` produced outcomes
+  > every assertion accepted. The test also ran the wrong branch. Round 2 gives the prior entry a
+  > distinct pathname and proves the mutation reddens it; see "Important 2" below.
+
 **Proved non-vacuous** by restoring the round-1 behaviour (`pushState` on close):
 
 ```
@@ -500,6 +505,12 @@ no className override.
   different, that `widthStateFor` still says `compact` across 640/700/767, that both sides of the band
   agree again at 639 and 768, and that a `bottom-sheet` row at 700 px stamps `bottom-sheet`. If either
   breakpoint moves, it goes red at the exact width instead of the divergence widening unnoticed.
+
+  > **"Either breakpoint" was FALSE as written, and is corrected in fix round 2.** As shipped in round
+  > 1 the pin held only the RAIL edge, which it read from `WORKSPACE_WIDTH_BREAKPOINTS.rail`. The
+  > Sheet's 640 was a bare literal read from nothing, so a change to the shared component would have
+  > left the test green while the band widened. Round 2 adds source-text assertions over `sheet.tsx`
+  > and `globals.css` for that edge; see "Important 3" below.
 
 ## Important 3 — the guard's blind spot one directory up
 
@@ -646,3 +657,185 @@ No provider-backed command was run. No push, no PR.
 3. **Ruling 60's divergence is now pinned but not resolved.** The design-record question — whether the
    frozen mapping should sample 431–767 at all, and whether it should meet the shared Sheet's 640 —
    remains open with the owner, as ruled.
+
+---
+
+# Fix round 2 — three Important findings and one line
+
+All four addressed. Two claims in the round-1 write-up were overstated; both are corrected in place
+above, next to the sentences that made them, rather than only here.
+
+## Important 1 — the Ruling 61 lookup was not total (the Task 17 defect again)
+
+**Confirmed exactly as reported, and fixed.** `BLOCK_REASON_WORDING` is an object literal, so it
+inherits from `Object.prototype`, and `map[reason] === undefined` is not a membership test. Verified in
+node before touching anything: `toString`, `constructor`, `valueOf`, `hasOwnProperty` and `__proto__`
+all return non-`undefined`.
+
+The consequence was worse than a wrong string. `blockReasonWording("toString")` returned a **function**
+typed `string`; React renders that as nothing; the result is a control that is `aria-disabled` with
+`aria-describedby` pointing at an **empty** paragraph — a clinician told an action is unavailable and
+given no reason at all, with no throw and no error boundary to catch it. That is Ruling 61's
+"plausible instead of visible" outcome reached by inheritance rather than by a default branch.
+
+Fixed with `Object.hasOwn(BLOCK_REASON_WORDING, reason)`.
+
+**RED first**, six inherited keys asserted to throw:
+
+```
+ FAIL  … > states every named refusal in plain words, and refuses to invent wording for one it has not been given
+AssertionError: toString slipped past the guard: expected [Function] to throw an error
+ ❯ tests/caring-contacts-overlay-host.dom.test.tsx:163:90
+```
+
+Then green. The test covers `toString`, `constructor`, `valueOf`, `hasOwnProperty`, `__proto__` and
+`isPrototypeOf`.
+
+### The audit — the more valuable half
+
+**I searched my own files for every other string-keyed lookup of this shape. There is exactly one
+more, and it is safe — for a reason, not by luck.**
+
+| Lookup                          | File                     | Verdict                                                                                                                                                                      |
+| ------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BLOCK_REASON_WORDING[reason]`  | `overlay-host.tsx`       | **Was the bug.** Keyed by `string` from an arbitrary caller. Fixed with `Object.hasOwn`.                                                                                     |
+| `SHEET_GEOMETRY[modality]`      | `overlay-host.tsx`       | Same map shape, but keyed by `SheetModality` — a closed union whose only values come from the frozen table. No caller string reaches it and `"toString"` is a compile error. |
+| `new URLSearchParams(…).get(…)` | `workspace-overlays.tsx` | Platform API, not an object literal. Returns `null` for anything absent.                                                                                                     |
+| `history.state` membership      | `workspace-overlays.tsx` | Uses the `in` operator on a namespaced key of an object this module wrote. Added this round; see Important 2.                                                                |
+
+`SHEET_GEOMETRY` now carries a comment at its use site recording that its safety comes from the **key
+type**, not from the map shape, and that it would need `Object.hasOwn` too if it ever became
+`string`-keyed. That is the part that does not travel on its own — which is the actual lesson of hitting
+this defect twice on one branch, in two files, weeks apart.
+
+For completeness outside my files: `overlayDefinition` in `definitions.ts` uses a `Map`, so
+`overlayDefinition("toString")` already returns `null`. I did not change it.
+
+## Important 2 — the deep-link test neither discriminated nor ran its branch
+
+**Both halves confirmed, both fixed.**
+
+**It could not discriminate.** Both seeded entries used the pathname `/caring-contacts`, so
+`replaceState` and an unconditional `back()` ended at URLs every assertion accepted. The seeded prior
+entry now has a **distinct pathname** (`/caring-contacts/somewhere-before`), and the test asserts a
+discriminating pair: after close the pathname is still the workspace (an unconditional `back()` would
+already have moved us), **and** the prior entry is still one Back away (it was replaced, not consumed).
+
+**Proved** by mutating close to an unconditional `back()`:
+
+```
+ FAIL  … > the overlay URL > removes the parameter without leaving the workspace when the overlay came from a deep link
+AssertionError: expected '/caring-contacts/somewhere-before' to be '/caring-contacts'
+ ❯ tests/caring-contacts-overlay-host.dom.test.tsx:419:38
+```
+
+Reverted. Round 1's claim that this mutation would redden the test was false as written; it is true now,
+and the report sentence that made it is corrected in place.
+
+**It ran the wrong branch.** The flag was cleared only inside the push branch, so the preceding test —
+which opens through `openWorkspaceOverlay` and then traverses with `window.history.back()` directly —
+left it `true`, and the deep-link test took the `back()` path it meant to exclude.
+
+I did not fix that by resetting a flag between tests. **I removed the flag.** The marker now lives in
+`history.state` under a namespaced key, written by `openWorkspaceOverlay` and read per entry by
+`closeWorkspaceOverlay`. That is the correct home for it: a module variable describes the top of the
+stack and nothing keeps it true — Back, Forward, a second mount, or a test traversing history directly
+all leave it stale, and a stale `true` is a `back()` on an entry this module never pushed.
+`history.state` travels with the entry, so every traversal brings its own answer and there is nothing to
+reset. It also retires the round-1 concern about module-scoped mutable state entirely.
+
+Failure direction is the safe one: if the marker is ever lost (Next replacing state on its own
+navigation, say), close falls through to `replaceState`, which removes the parameter and navigates
+nobody anywhere.
+
+The test now **proves** which branch it exercises rather than assuming it: `seedHistory` asserts the
+seeded workspace entry carries no marker, and the deep-link test asserts `history.state` is `null`
+immediately before rendering. If a marker ever leaked in, those lines fail instead of the test quietly
+covering the wrong path.
+
+## Important 3 — the band pin held one edge, not two
+
+**Confirmed.** `SHEET_MOBILE_GEOMETRY_BREAKPOINT = 640` was a literal read from nothing.
+
+A reliable source-text assertion **is** possible here, so I did not narrow the claim — I made it true.
+Two assertions now hold that edge, and together they fix it at 640:
+
+1. `src/components/ui/sheet.tsx` still contains the exact default-placement string
+   `"items-end justify-center sm:items-center sm:p-6"` — the class that flips the backdrop from
+   bottom-aligned (phone) to centred (dialog). Moving that variant moves the band.
+2. `src/app/globals.css` declares no `--breakpoint-sm` override, so `sm:` still means Tailwind's default 640. (`--breakpoint-phone: 640px` and its siblings are named tokens added **alongside** the defaults,
+   not overrides of them — I checked, because a false positive there would have been the same mistake in
+   the other direction.)
+
+This is the same instrument the client-boundary guard in the same suite already uses, which is why it is
+the honest choice rather than an improvised one: jsdom applies no Tailwind, so nothing rendered can
+observe the geometry.
+
+**Proved live** by mutating the expected class string to `md:items-center md:p-6`:
+
+```
+ FAIL  … > pins the 640–767 band where the stamped modality and the Sheet's own geometry breakpoint disagree
+AssertionError: src/components/ui/sheet.tsx no longer flips its default geometry at `sm:` — the 640–767 band has moved
+ ❯ tests/caring-contacts-overlay-host.dom.test.tsx:214
+```
+
+Reverted. I mutated the **expectation** rather than `sheet.tsx` itself: another agent is running
+Playwright against this worktree for Task 19, and editing a shared design-system component (or
+`globals.css`) mid-run could have disturbed their evidence. The two are equivalent for this purpose —
+the assertion reads the real file either way — and the choice is stated rather than glossed.
+
+## Also fixed, one line
+
+`sourceFilesUnder` now accepts `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` and `.cjs` through a named constant.
+A `.js` client file in either scan root was invisible — the same "the scan does not cover what it claims
+to" shape as the non-recursive read and the missing route directory, in a third dimension.
+
+## Files changed this round
+
+| File                                                                       | Change                                                                                                     |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `src/components/caring-contacts/workspace/overlays/overlay-host.tsx`       | `Object.hasOwn` membership test; audit note at the `SHEET_GEOMETRY` use site                               |
+| `src/components/caring-contacts/workspace/overlays/workspace-overlays.tsx` | per-entry `history.state` marker replaces the module-scoped flag                                           |
+| `tests/caring-contacts-overlay-host.dom.test.tsx`                          | inherited-key assertions; distinct prior pathname and discriminating deep-link pair; source-text band edge |
+| `tests/caring-contacts-explained-automation.dom.test.tsx`                  | scan accepts every client-capable extension                                                                |
+| `docs/caring-contacts/phase-2a-sdd-archive/task-18-report.md`              | two overstated claims corrected in place, and this section                                                 |
+
+## Verification, fix round 2
+
+| Command                                                            | Result                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------- |
+| overlay-host + explained-automation suites                         | `Test Files 2 passed (2)`; `Tests 29 passed (29)` |
+| all five suites this round touches or reads                        | `Test Files 5 passed (5)`; `Tests 50 passed (50)` |
+| `node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit` | clean, no output                                  |
+| `npx eslint <4 changed files>`                                     | clean, no output                                  |
+| `npm run format`                                                   | run; committed                                    |
+
+**The full `npm run test` was not run, and was not required: this round exports nothing new.** Every
+export in these files (`OverlayHost`, `dismissesOnEscapeOrBackdrop`, `blockReasonWording`,
+`NAMED_BLOCK_REASONS`, `openWorkspaceOverlay`, `closeWorkspaceOverlay`, `WorkspaceOverlays`,
+`WORKSPACE_OVERLAY_PARAM`) already existed at the end of round 1, and the round-1 full run covered them.
+The five suites above are the ones that read anything I changed.
+
+One note on the runs themselves: `run-vitest.mjs` refused several times with
+`Database focused-test capacity is full … playwright tests/ui-caring-contacts-workspace.spec.ts` —
+the Task 19 agent holding the heavy-run lock. Retried on the message rather than the exit code, as the
+repo's flake policy requires; every result quoted here is from a run that printed a `Test Files` summary.
+
+Mutations run and reverted this round: inherited-key lookup (Important 1, RED before the fix),
+unconditional `back()` (Important 2, red at the deep-link pathname assertion), and the expected Sheet
+class string (Important 3, red naming the moved band).
+
+No provider-backed command was run. No push, no PR.
+
+## Concerns after this round
+
+1. **`connection-unavailable` still has wording but no caller.** Unchanged from round 1, and still worth
+   a read by the first caller before it ships.
+2. **The band pin's Sheet edge is a string match.** It holds against a moved breakpoint, which is the
+   failure it exists for, but a refactor that rewrote that class list into a different but equivalent
+   form would redden it spuriously. That is the conservative direction — a false red gets read, a false
+   green does not — but the next person to touch `sheet.tsx` will meet it, and the message names the file
+   and the reason so it can be re-derived rather than deleted.
+3. **The guard's direction gap remains open**, as recorded for the whole-branch review: the scans prove
+   no file in two directories is a client boundary, but not that no client component from outside them is
+   handed the record inside `shell.tsx`. Nothing live today.

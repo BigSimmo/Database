@@ -276,9 +276,17 @@ const USE_CLIENT_DIRECTIVE = /^\s*(?:"use client"|'use client')/m;
  * client component added under `overlays/` — which is exactly where Task 18 put two —
  * would never have been seen by the check at all.
  */
+/**
+ * Every extension a `"use client"` module could ship under. `.ts`/`.tsx` alone left a
+ * `.js`, `.jsx`, `.mjs` or `.cjs` client file invisible to both scans — the same
+ * "the scan does not cover what it claims to" shape as the non-recursive read and the
+ * missing route directory, in a third dimension.
+ */
+const CLIENT_CAPABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+
 function sourceFilesUnder(root: string): { name: string; source: string }[] {
   return readdirSync(root, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")))
+    .filter((entry) => entry.isFile() && CLIENT_CAPABLE_EXTENSIONS.some((ext) => entry.name.endsWith(ext)))
     .map((entry) => {
       const absolute = path.join(entry.parentPath, entry.name);
       return {
