@@ -67,3 +67,13 @@ export const IngestionQualityConsole = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IngestionQualityConsole),
   { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading ingestion quality" /> },
 );
+
+export const ClinicalAskWorkspace = dynamic(
+  () => import("@/components/clinical-dashboard/clinical-ask-workspace").then((m) => m.ClinicalAskWorkspace),
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={5} label="Loading Clinical Ask workspace" /> },
+);
+export const ClinicalAskComposerActions = dynamic(
+  () =>
+    import("@/components/clinical-dashboard/clinical-ask-composer-actions").then((m) => m.ClinicalAskComposerActions),
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={2} label="Loading Clinical Ask actions" /> },
+);

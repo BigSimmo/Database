@@ -91,6 +91,42 @@ export function createOpenAIClient() {
   return openAIClient;
 }
 
+/** Direct, non-persistent transcription boundary for an in-memory Clinical Ask recording. */
+export async function transcribeClinicalAskAudio(file: File, signal: AbortSignal, timeoutMs: number) {
+  const result = await createOpenAIClient().audio.transcriptions.create(
+    { file, model: env.OPENAI_TRANSCRIPTION_MODEL },
+    { signal, timeout: timeoutMs, maxRetries: 0 },
+  );
+  return { transcript: result.text, model: env.OPENAI_TRANSCRIPTION_MODEL };
+}
+
+/** Server-only bounded web search used by Clinical Ask's governed authority adapter. */
+export async function createClinicalAskWebSearchResponse(args: {
+  input: Array<Record<string, unknown>>;
+  allowedDomains: readonly string[];
+  signal: AbortSignal;
+  timeoutMs: number;
+}) {
+  const client = createOpenAIClient();
+  return client.responses.create(
+    {
+      model: env.OPENAI_ANSWER_MODEL,
+      store: false,
+      input: args.input as never,
+      tools: [
+        {
+          type: "web_search",
+          filters: { allowed_domains: [...args.allowedDomains] },
+          search_context_size: "medium",
+        },
+      ],
+      include: ["web_search_call.action.sources", "web_search_call.results"],
+      metadata: { operation: "clinical_ask_external_search" },
+    } as never,
+    { signal: args.signal, timeout: args.timeoutMs, maxRetries: 0 },
+  );
+}
+
 function normalizeQueryEmbeddingText(text: string) {
   return text.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 }

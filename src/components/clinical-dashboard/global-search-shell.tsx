@@ -65,6 +65,12 @@ import {
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
+import {
+  ClinicalAskComposerActions,
+  ClinicalAskWorkspace,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { isClinicalAskModeId } from "@/lib/clinical-ask/mode-profiles";
+import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 
 // Namespaced mode homes share this client shell but never render the dashboard
 // body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
@@ -93,6 +99,8 @@ import {
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
+import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
+import { useClinicalAskShellState } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
@@ -136,6 +144,16 @@ type PendingModeNavigation = {
 
 export function GlobalSearchShell(props: GlobalSearchShellProps) {
   const pathname = usePathname() ?? "/";
+
+  return (
+    <ClinicalAskSessionProvider>
+      <GlobalSearchShellRoute {...props} pathname={pathname} />
+    </ClinicalAskSessionProvider>
+  );
+}
+
+function GlobalSearchShellRoute(props: GlobalSearchShellProps & { pathname: string }) {
+  const { pathname } = props;
 
   // Pathname-only gate: never wrap always-standalone routes in the outer
   // useSearchParams Suspense. That nested the route segment (loading.tsx + page)
@@ -414,6 +432,7 @@ function GlobalStandaloneSearchShellBody({
     [query, searchMode],
   );
   const auth = useAuthSession();
+  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(auth.session?.user.id);
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
@@ -423,6 +442,14 @@ function GlobalStandaloneSearchShellBody({
     // `/differentials` is absent on purpose: it redirects to the shared home, so a
     // branch naming it can never be true and would only read as live ownership.
     (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
+  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const showClinicalAskDockChrome = Boolean(clinicalAskMode) && !isToolDetailWithFooterSearch(pathname);
+  const runModeClinicalAsk = useClinicalAskRunner({
+    clinicalAskMode,
+    clinicalAskOnline,
+    clinicalAskSession,
+    query,
+  });
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -480,6 +507,7 @@ function GlobalStandaloneSearchShellBody({
       heroOwnsPhoneComposer,
       searchMode,
       differentialsCompareAddonActive,
+      clinicalAskActionsVisible: showClinicalAskDockChrome,
     }),
   );
 
@@ -715,6 +743,7 @@ function GlobalStandaloneSearchShellBody({
   }
 
   function startNewAnswerChat() {
+    clinicalAskSession.clear();
     setQuery("");
     setMobileMenuOpen(false);
     setQueryMode("auto");
@@ -871,6 +900,21 @@ function GlobalStandaloneSearchShellBody({
               openAccountSetup("favourites");
             }}
             onAsk={submitSearch}
+            clinicalAskMode={clinicalAskMode ?? undefined}
+            onClinicalAsk={runModeClinicalAsk}
+            clinicalAskActive={clinicalAskSession.submitted}
+            clinicalAskActions={
+              showClinicalAskDockChrome ? (
+                <ClinicalAskComposerActions
+                  mode={clinicalAskMode}
+                  draft={query}
+                  active={clinicalAskSession.submitted}
+                  offline={!clinicalAskOnline}
+                  onDraftChange={setQuery}
+                  onAsk={runModeClinicalAsk}
+                />
+              ) : undefined
+            }
             onClearQuery={() => {
               setQuery("");
               if (isStandaloneModeHome || searchMode === "calculators") {
@@ -1014,6 +1058,7 @@ function GlobalStandaloneSearchShellBody({
             {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
             <SearchCommandProvider value={searchCommandContextValue}>
+              {clinicalAskMode || clinicalAskSession.submitted ? <ClinicalAskWorkspace /> : null}
               {pendingModeNavigation ? (
                 <div aria-busy="true" aria-live="polite" data-testid="mode-navigation-loading">
                   <span className="sr-only">Loading {appModeDefinition(pendingModeNavigation.mode).label}</span>
@@ -1032,7 +1077,10 @@ function GlobalStandaloneSearchShellBody({
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
-        onSignOut={auth.signOut}
+        onSignOut={async () => {
+          clinicalAskSession.clear();
+          await auth.signOut();
+        }}
         onOpenGuide={openGuideFromSettings}
         onPrefetchGuide={loadGuideDialog}
         initialFocus={settingsInitialFocus}

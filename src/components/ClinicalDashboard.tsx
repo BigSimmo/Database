@@ -48,6 +48,11 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
+import { useClinicalAskShellState } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import { ClinicalAskComposerActions } from "@/components/clinical-dashboard/clinical-ask-composer-actions";
+import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
+import { isClinicalAskModeId } from "@/lib/clinical-ask/mode-profiles";
+import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -543,6 +548,7 @@ export function ClinicalDashboard({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
+  const { clinicalAskSession, clinicalAskOnline } = useClinicalAskShellState(auth.session?.user.id);
   const {
     status: authStatus,
     authorizationHeader,
@@ -2668,6 +2674,7 @@ export function ClinicalDashboard({
   }
 
   function startNewChat() {
+    clinicalAskSession.clear();
     modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
@@ -3082,8 +3089,16 @@ export function ClinicalDashboard({
           differentialsCompareAddonActive,
           patientDetailsAddonActive,
           heroOwnsPhoneComposer,
+          clinicalAskActionsVisible: isClinicalAskModeId(searchMode),
         }),
   );
+  const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const runModeClinicalAsk = useClinicalAskRunner({
+    clinicalAskMode,
+    clinicalAskOnline,
+    clinicalAskSession,
+    query,
+  });
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
   const activeIndexingWorkCount =
@@ -3314,6 +3329,21 @@ export function ClinicalDashboard({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
+          clinicalAskMode={clinicalAskMode ?? undefined}
+          onClinicalAsk={runModeClinicalAsk}
+          clinicalAskActive={clinicalAskSession.submitted}
+          clinicalAskActions={
+            clinicalAskMode ? (
+              <ClinicalAskComposerActions
+                mode={clinicalAskMode}
+                draft={query}
+                active={clinicalAskSession.submitted}
+                offline={!clinicalAskOnline}
+                onDraftChange={setQuery}
+                onAsk={runModeClinicalAsk}
+              />
+            ) : undefined
+          }
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
@@ -3649,6 +3679,7 @@ export function ClinicalDashboard({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
+                <ClinicalAskWorkspace />
                 {showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
@@ -4065,7 +4096,10 @@ export function ClinicalDashboard({
           open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
-          onSignOut={auth.signOut}
+          onSignOut={async () => {
+            clinicalAskSession.clear();
+            await auth.signOut();
+          }}
           onOpenGuide={settingsGuideFlow.openGuideFromSettings}
           onPrefetchGuide={loadGuideDialog}
           initialFocus={settingsGuideFlow.settingsInitialFocus}
