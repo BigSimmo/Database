@@ -65,6 +65,9 @@ export const carePlanRoute = {
   managementPlan(patientId: string) {
     return `${patientPath(patientId)}/management-plan`;
   },
+  managementPlanPrint(patientId: string) {
+    return `${patientPath(patientId)}/management-plan/print`;
+  },
   patientPlan(patientId: string) {
     return `${patientPath(patientId)}/patient-plan`;
   },

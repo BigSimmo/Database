@@ -6,6 +6,8 @@ import { useMemo } from "react";
 import { CarePlanShellFrame } from "./care-plan-shell-frame";
 import styles from "./care-plan.module.css";
 import { ClinicalSnapshotSurface, type ClinicalSnapshotVariant } from "./clinical-snapshot-page";
+import { ManagementPlanPrintSurface } from "./management-plan-print";
+import { ManagementPlanSurface } from "./management-plan-read";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { CARE_PLAN_BASE, CARE_PLAN_ROUTES, isSyntheticPatientId, type CarePlanDestination } from "./routes";
 import type { PrototypeScenario } from "./types";
@@ -271,6 +273,12 @@ export function carePlanPatientIdFromPathname(pathname: string): string | null {
  * The three routes Task 4 gave real content. Each owns a Clinical Snapshot
  * variant instead of the Task 3 purpose surface, and Home and Patients own their
  * own directory search rather than borrowing the shell composer.
+ *
+ * Task 5 added two more, the Management Plan and its clinician copy, which own
+ * their own surfaces rather than a snapshot variant. Every remaining route still
+ * renders its route-purpose specimen, including `/management-plan/edit` and
+ * `/management-plan/review`: reading comes first, and an authoring surface
+ * sketched early would reserve attention for controls nobody can use yet.
  */
 const SNAPSHOT_VARIANT_BY_ROUTE_KEY: Partial<Record<string, ClinicalSnapshotVariant>> = {
   home: "home",
@@ -308,10 +316,14 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
       // its own composer down rather than putting two search fields on one page.
       routeOwnsSearch={snapshotVariant === "home" || snapshotVariant === "patients"}
     >
-      {snapshotVariant === undefined ? (
-        <RoutePurposeSurface purpose={route.purpose} />
-      ) : (
+      {snapshotVariant !== undefined ? (
         <ClinicalSnapshotSurface variant={snapshotVariant} patientId={patientId ?? undefined} scenario={scenario} />
+      ) : route.key === ROUTE_DEFINITIONS.managementPlan.key ? (
+        <ManagementPlanSurface patientId={patientId} scenario={scenario} />
+      ) : route.key === ROUTE_DEFINITIONS.managementPlanPrint.key ? (
+        <ManagementPlanPrintSurface patientId={patientId} scenario={scenario} />
+      ) : (
+        <RoutePurposeSurface purpose={route.purpose} />
       )}
     </CarePlanShellFrame>
   );

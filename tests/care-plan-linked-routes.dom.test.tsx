@@ -8,8 +8,10 @@ import { PROTOTYPE_NOW } from "@/components/care-plan/mockups/fixtures";
 import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
 import { CarePlanPrototypeProvider } from "@/components/care-plan/mockups/prototype-provider";
 import { createInitialPrototypeState } from "@/components/care-plan/mockups/prototype-state";
+import { FIRST_MINUTE_SECTION_LABEL } from "@/components/care-plan/mockups/prototype-ui";
 import { CarePlanRouteSurface } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
+import { FIRST_MINUTE_CONTENT_KEYS } from "@/components/care-plan/mockups/types";
 
 function renderRoute(pathname: string, query = "") {
   const navigate = vi.fn();
@@ -21,8 +23,18 @@ function renderRoute(pathname: string, query = "") {
   return navigate;
 }
 
+/**
+ * Generated from the domain constant rather than transcribed. A sixth content
+ * section, a reordering, or a renamed key is a defect the specification names
+ * explicitly, and a hand-written list here could be "corrected" to match the bug.
+ */
+const FIRST_MINUTE_HEADINGS_FROM_DOMAIN = FIRST_MINUTE_CONTENT_KEYS.map(
+  (key, index) => `${index + 1}. ${FIRST_MINUTE_SECTION_LABEL[key]}`,
+);
+
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Care Plan route shell", () => {
@@ -220,24 +232,17 @@ describe("Care Plan route shell", () => {
   });
 
   // Home, Patients and the patient Overview are deliberately absent: Task 4
-  // replaced their purpose surface with the real Clinical Snapshot, and the
-  // block below asserts they no longer render a purpose surface at all.
+  // replaced their purpose surface with the real Clinical Snapshot. The
+  // Management Plan and its print route are absent for the same reason from
+  // Task 5, and the block below asserts none of the five renders a purpose
+  // surface at all. `/management-plan/edit` and `/management-plan/review` stay
+  // on their specimens until the authoring task builds them.
   it.each([
-    [
-      CARE_PLAN_ROUTES.managementPlan,
-      "Management Plan",
-      "Full Current Plan, draft summary, review state, and version history entry points",
-    ],
     [CARE_PLAN_ROUTES.managementPlanEdit, "Draft Management Plan Version", "Create or edit a draft version"],
     [
       CARE_PLAN_ROUTES.managementPlanReview,
       "Review submitted version",
       "Compare, return for changes, and approve a submitted version",
-    ],
-    [
-      CARE_PLAN_ROUTES.managementPlanPrint,
-      "Print Management Plan",
-      "Print-optimised clinician summary to carry to the bedside or send with a handover",
     ],
     [
       CARE_PLAN_ROUTES.patientPlan,
@@ -321,8 +326,14 @@ describe("Care Plan route shell", () => {
     expect(document.querySelector("[aria-disabled='true']")).toBeNull();
   });
 
-  it("replaces the route-purpose surface on the three Clinical Snapshot routes", () => {
-    for (const route of [CARE_PLAN_ROUTES.home, CARE_PLAN_ROUTES.patients, CARE_PLAN_ROUTES.patient]) {
+  it("replaces the route-purpose surface on every route that now has real content", () => {
+    for (const route of [
+      CARE_PLAN_ROUTES.home,
+      CARE_PLAN_ROUTES.patients,
+      CARE_PLAN_ROUTES.patient,
+      CARE_PLAN_ROUTES.managementPlan,
+      CARE_PLAN_ROUTES.managementPlanPrint,
+    ]) {
       const { unmount } = render(
         <CarePlanPrototypeProvider>
           <CarePlanRouteSurface pathname={route} query="" navigate={vi.fn()} />
@@ -909,6 +920,284 @@ describe("Care Plan CMHT contact actions", () => {
     // The contact details themselves are still on screen.
     const contacts = screen.getByRole("region", { name: "Community mental health team" });
     expect(within(contacts).getByRole("link", { name: "Call North River CMHT" })).toBeInTheDocument();
+  });
+});
+
+describe("Care Plan Management Plan reading", () => {
+  it("keeps the generated heading list identical to the approved copy", () => {
+    // The other tests in this file generate their expectation from
+    // `FIRST_MINUTE_CONTENT_KEYS`, which cannot catch a renamed label. This one
+    // pins the words themselves, so the two together catch both a reordering and
+    // a rewording.
+    expect(FIRST_MINUTE_HEADINGS_FROM_DOMAIN).toEqual([
+      "1. How to approach this person",
+      "2. What helps",
+      "3. What makes it worse",
+      "4. What we have agreed to do",
+      "5. What would make this presentation different",
+    ]);
+  });
+
+  it("renders the summary card as exactly the first-minute keys, in order", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    const sections = screen.getByTestId("care-plan-first-minute-sections");
+    expect(
+      within(sections)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(FIRST_MINUTE_HEADINGS_FROM_DOMAIN);
+  });
+
+  // The brief's worked example, corrected against the committed code: the test
+  // identifier is `care-plan-pinned-safety-boundary` and the first heading is
+  // `1. How to approach this person`, not a per-patient heading.
+  it("pins the safety boundary above all plan content", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    const pinned = screen.getByTestId("care-plan-pinned-safety-boundary");
+    const firstSection = screen.getByRole("heading", { level: 3, name: "1. How to approach this person" });
+    expect(pinned.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pinned).toHaveTextContent(/assess afresh/i);
+    expect(pinned.closest("[data-print-hide='true']")).toBeNull();
+  });
+
+  it("puts the pinned boundary beneath the patient identity block and above every other plan element", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    const identity = screen.getByTestId("care-plan-plan-identity");
+    const pinned = screen.getByTestId("care-plan-pinned-safety-boundary");
+    expect(identity.compareDocumentPosition(pinned) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const testId of ["care-plan-current-plan-metadata", "care-plan-full-plan", "care-plan-plan-governance"]) {
+      expect(
+        pinned.compareDocumentPosition(screen.getByTestId(testId)) & Node.DOCUMENT_POSITION_FOLLOWING,
+        `${testId} must follow the pinned safety boundary`,
+      ).toBeTruthy();
+    }
+  });
+
+  it("renders the full-plan tier and says Not recorded rather than omitting an empty section", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    const full = screen.getByTestId("care-plan-full-plan");
+    expect(within(full).getByRole("heading", { level: 3, name: "Why this plan exists" })).toBeInTheDocument();
+    expect(within(full).getByText(/Mira is known to the Coastal Plains Older Adult CMHT/)).toBeInTheDocument();
+
+    // Mira's Current version records neither practical needs nor anything that
+    // should prompt a review. Both must still appear, saying so.
+    for (const heading of ["Practical needs", "What should prompt a review"]) {
+      const section = within(full).getByRole("heading", { level: 3, name: heading }).closest("section");
+      expect(section, `${heading} must be rendered`).not.toBeNull();
+      expect(section).toHaveTextContent("Not recorded");
+    }
+    // …and a section that does have content shows it rather than Not recorded.
+    const involved = within(full).getByRole("heading", { level: 3, name: "Who else is involved" }).closest("section");
+    expect(involved).toHaveTextContent(/Coastal Plains Older Adult CMHT is the durable service contact/);
+    expect(involved).not.toHaveTextContent("Not recorded");
+  });
+
+  it("presents version, approval, ownership, review and sharing facts as metadata", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    // Approval and ownership belong to the shared summary card, which the
+    // Clinical Snapshot renders too. Repeating them below would be a second
+    // copy of the same facts on one page.
+    const summary = screen.getByTestId("care-plan-current-plan-metadata");
+    expect(summary).toHaveTextContent("Current version 2");
+    expect(summary).toHaveTextContent("Morgan Sample");
+    expect(summary).toHaveTextContent("Dr Taylor Fiction");
+    expect(summary).toHaveTextContent("20/05/2026");
+    expect(summary).toHaveTextContent("20/05/2027");
+    expect(summary).toHaveTextContent("Within review");
+
+    const governance = screen.getByTestId("care-plan-plan-governance");
+    expect(governance).toHaveTextContent("Current version 2");
+    expect(governance).toHaveTextContent("Within review");
+    expect(governance).toHaveTextContent("22/05/2026");
+    expect(governance).toHaveTextContent(/1 open Review Trigger/);
+    expect(governance).toHaveTextContent(/No current Patient Plan/i);
+    // Metadata, never a sixth content section.
+    expect(within(governance).queryAllByRole("heading", { level: 3 })).toEqual([]);
+  });
+
+  it("derives the review state at render rather than reading a stored one", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    const warning = screen.getByTestId("care-plan-review-warning");
+    expect(warning).toHaveTextContent(/Review overdue/i);
+    expect(warning).toHaveTextContent("16/07/2026");
+    // An overdue plan stays fully readable below the warning.
+    const card = screen.getByRole("region", { name: "Current Plan" });
+    expect(warning.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(card).getAllByRole("heading", { level: 3 })).toHaveLength(5);
+  });
+
+  it("marks a version written without this person's involvement", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    expect(
+      within(screen.getByTestId("care-plan-awaiting-version")).getByText("Written without this person's involvement"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a separate Awaiting Approval version clearly subordinate to the Current one", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    const card = screen.getByRole("region", { name: "Current Plan" });
+    const awaiting = screen.getByTestId("care-plan-awaiting-version");
+    expect(card.compareDocumentPosition(awaiting) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(awaiting).toHaveTextContent(/Awaiting Approval version 2/);
+    expect(awaiting).toHaveTextContent(/not a plan in use/i);
+    expect(within(awaiting).queryAllByRole("heading", { level: 3 })).toEqual([]);
+  });
+
+  // The brief's second worked example. Its three pinned fixture values —
+  // SYN-PATIENT-004, the withdrawal date, and Dr Taylor Fiction — were checked
+  // against the fixtures and all three hold.
+  it("shows a withdrawn plan as withdrawn, never as no plan at all", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-004"), "scenario=withdrawn-plan");
+    const withdrawn = screen.getByTestId("care-plan-withdrawn-notice");
+    expect(withdrawn).toHaveTextContent("Plan withdrawn on 04/07/2026 by Dr Taylor Fiction");
+    expect(withdrawn).toHaveTextContent(/Evelyn's circumstances have changed substantially/);
+    expect(screen.queryByText("No Current Plan")).toBeNull();
+  });
+
+  it("keeps the withdrawn version's content readable without putting it back in use", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-004"), "scenario=withdrawn-plan");
+    const superseded = screen.getByTestId("care-plan-superseded-content");
+    expect(superseded).toHaveTextContent(/Ask Evie how she would like to be addressed/);
+    expect(superseded).toHaveTextContent(/not in use/i);
+    // A withdrawn version is never dressed as the Current Plan.
+    expect(screen.queryByRole("region", { name: "Current Plan" })).toBeNull();
+  });
+
+  it("reserves no space, depth or attention for the authoring controls of a later task", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    expect(screen.queryByTitle(/coming soon/i)).toBeNull();
+    expect(document.querySelector("[aria-disabled='true']")).toBeNull();
+    for (const link of screen.getAllByRole("link")) {
+      const href = link.getAttribute("href") ?? "";
+      expect(/\/management-plan\/(?:edit|review)$/.test(href), `${href} is an authoring surface`).toBe(false);
+    }
+    expect(screen.queryAllByRole("button", { name: /edit|approve|withdraw|submit|return for changes/i })).toEqual([]);
+  });
+
+  it("offers the printed copy as navigation to the print route rather than an action here", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    expect(screen.getByRole("link", { name: /Print this plan/i })).toHaveAttribute(
+      "href",
+      carePlanRoute.managementPlanPrint("SYN-PATIENT-001"),
+    );
+  });
+});
+
+describe("Care Plan Management Plan print", () => {
+  it("carries the identifiers, the pinned boundary and exactly the five sections in order", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-print-output");
+    expect(paper).toHaveAttribute("data-print-output");
+    expect(paper).toHaveTextContent("Rowan Sample");
+    expect(paper).toHaveTextContent("SYN-MRN-0001");
+    expect(paper).toHaveTextContent("12/04/1986");
+    expect(within(paper).getByTestId("care-plan-pinned-safety-boundary")).toHaveTextContent(/assess afresh/i);
+    expect(
+      within(paper)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(FIRST_MINUTE_HEADINGS_FROM_DOMAIN);
+  });
+
+  it("carries the version and approval metadata and the team contact block", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-print-output");
+    expect(paper).toHaveTextContent("Current version 2");
+    expect(paper).toHaveTextContent("Dr Taylor Fiction");
+    expect(paper).toHaveTextContent("20/05/2026");
+    const cmht = within(paper).getByTestId("care-plan-print-cmht");
+    expect(cmht).toHaveTextContent("North River CMHT");
+    expect(cmht).toHaveTextContent("north-river.cmht@example.org");
+    expect(cmht).toHaveTextContent("0491 570 101");
+    expect(cmht).toHaveTextContent("1300 555 788");
+  });
+
+  it("states the record warning, the deterministic stamp, the synthetic marker and a confidential footer", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-print-output");
+    expect(within(paper).getByTestId("care-plan-print-record-warning")).toHaveTextContent(
+      /check the electronic record/i,
+    );
+    // Deterministic: PROTOTYPE_NOW, never a wall clock.
+    expect(paper.querySelector("[data-print-stamp]")).toHaveTextContent("20/08/2026");
+    // The synthetic marker must live inside the printed subtree. Everything
+    // outside `[data-print-output]` is made invisible by the shared print rule,
+    // so the shell header's marker does not reach the paper.
+    expect(within(paper).getByText("Synthetic prototype — fictional people, teams, and hospitals")).toBeInTheDocument();
+    expect(paper.querySelector("[data-print-confidential]")).toHaveTextContent(/Confidential clinical document/i);
+  });
+
+  it("omits navigation, actions, audit history and drafts from the printed copy", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-002"));
+    const paper = screen.getByTestId("care-plan-print-output");
+    const text = paper.textContent ?? "";
+
+    expect(within(paper).queryAllByRole("navigation")).toEqual([]);
+    expect(within(paper).queryAllByRole("button")).toEqual([]);
+    // SYN-PATIENT-002 has an Awaiting Approval version 2 on screen. It is not
+    // the plan in use, so it never travels to a bedside.
+    expect(text).not.toMatch(/Awaiting Approval|Version in progress|Draft version/i);
+    // Audit history is a screen surface: a chronology is unreadable on paper and
+    // is not what a reader at a bedside needs. Deliberately not a bare /history/
+    // match — Mira's own plan content says "repeating the whole history", which
+    // is clinical text, not an audit trail.
+    expect(within(paper).queryAllByRole("link", { name: /history/i })).toEqual([]);
+    expect(text).not.toMatch(/audit|amendment|Review Trigger|presentation activity/i);
+    expect(within(paper).queryAllByRole("link", { name: /^(?:Email|Call) /i })).toEqual([]);
+    // The whole patient-section navigation is absent from the route, not merely
+    // from the paper.
+    expect(screen.queryByRole("navigation", { name: "Patient sections" })).toBeNull();
+  });
+
+  it("records a print intent that claims only that the print view was opened", async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.fn();
+    vi.stubGlobal("print", printSpy);
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+
+    await user.click(screen.getByRole("button", { name: /Print this plan/i }));
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    const outcome = screen.getByTestId("care-plan-print-outcome");
+    expect(outcome).toHaveTextContent("The print view was opened.");
+    for (const overclaim of [/printed successfully/i, /sent to the printer/i, /copy was produced/i]) {
+      expect(outcome.textContent ?? "").not.toMatch(overclaim);
+    }
+    // The outcome notice is screen chrome and never travels onto the paper.
+    expect(outcome.closest("[data-print-hide='true']")).not.toBeNull();
+  });
+
+  it("keeps the print control off the paper", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    const control = screen.getByRole("button", { name: /Print this plan/i });
+    expect(control.closest("[data-print-hide='true']")).not.toBeNull();
+    expect(control.closest("[data-print-output]")).toBeNull();
+  });
+
+  it("says plainly when there is no Current Plan to print", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-004"), "scenario=withdrawn-plan");
+    expect(screen.getByTestId("care-plan-print-unavailable")).toHaveTextContent(/Plan withdrawn on 04\/07\/2026/);
+    expect(screen.queryByTestId("care-plan-print-output")).toBeNull();
+  });
+
+  // No component added by this task calls `focus()`, and the shell's
+  // pathname-keyed effect commits last — so a final-state assertion here could
+  // never fail. This watches the focus events instead.
+  it("leaves the mount-time focus to the shell heading", () => {
+    const focusedNames: string[] = [];
+    const listener = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      focusedNames.push(target?.getAttribute("aria-label") ?? target?.tagName ?? "");
+    };
+    document.addEventListener("focusin", listener);
+    try {
+      renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    } finally {
+      document.removeEventListener("focusin", listener);
+    }
+
+    expect(focusedNames).toEqual(["H1"]);
+    expect(screen.getByRole("heading", { level: 1, name: "Print Management Plan" })).toHaveFocus();
   });
 });
 

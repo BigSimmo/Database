@@ -868,6 +868,66 @@ describe("Care Plan Personal Safety Plan", () => {
   });
 });
 
+// --- Management Plan print intent -------------------------------------------------
+
+describe("Care Plan management plan print intent", () => {
+  it("records only that a print view was opened, against the Current version", () => {
+    const state = createInitialPrototypeState();
+    const next = prototypeReducer(state, { type: "record-management-plan-print-intent", patientId: ROWAN });
+
+    expect(next.auditEvents).toHaveLength(1);
+    expect(next.auditEvents[0]).toMatchObject({
+      type: "management_plan_print_intent_opened",
+      patientId: ROWAN,
+      objectId: ROWAN_CURRENT_VERSION,
+    });
+    // It never claims paper, a printer, or a reader — this application sees none
+    // of them.
+    expect(overclaims(next.auditEvents[0]!.evidence)).toBe(false);
+    expect(next.auditEvents[0]!.evidence).toMatch(/not evidence that anything reached a printer/i);
+    expect(next.lastOutcome?.kind).toBe("info");
+  });
+
+  it("changes no clinical record", () => {
+    const state = createInitialPrototypeState();
+    const next = prototypeReducer(state, { type: "record-management-plan-print-intent", patientId: ROWAN });
+
+    expect(next.managementPlanVersions).toEqual(state.managementPlanVersions);
+    expect(next.managementPlans).toEqual(state.managementPlans);
+    expect(next.reviewTriggers).toEqual(state.reviewTriggers);
+    expect(next.edPresentations).toEqual(state.edPresentations);
+  });
+
+  // A withdrawn plan is not a plan in use, and paper cannot be recalled once it
+  // has left the room.
+  it("refuses when there is no Current Plan to print", () => {
+    const state = createInitialPrototypeState();
+    const withdrawn = prototypeReducer(state, { type: "record-management-plan-print-intent", patientId: EVELYN });
+    expect(withdrawn.auditEvents).toEqual([]);
+    expect(withdrawn.lastOutcome?.message).toMatch(/no Current Plan to print/i);
+
+    const never = prototypeReducer(state, { type: "record-management-plan-print-intent", patientId: JORDAN });
+    expect(never.auditEvents).toEqual([]);
+    expect(never.lastOutcome?.message).toMatch(/no Current Plan to print/i);
+  });
+
+  it("refuses an unknown synthetic patient and a record not confirmed as the right person", () => {
+    const unknown = prototypeReducer(createInitialPrototypeState(), {
+      type: "record-management-plan-print-intent",
+      patientId: "SYN-PATIENT-999",
+    });
+    expect(unknown.auditEvents).toEqual([]);
+    expect(unknown.lastOutcome?.kind).toBe("error");
+
+    const uncertain = prototypeReducer(createInitialPrototypeState("identity-uncertain"), {
+      type: "record-management-plan-print-intent",
+      patientId: ROWAN,
+    });
+    expect(uncertain.auditEvents).toEqual([]);
+    expect(uncertain.lastOutcome?.kind).toBe("blocked");
+  });
+});
+
 // --- Identification review and contact actions ------------------------------------
 
 describe("Care Plan identification review", () => {

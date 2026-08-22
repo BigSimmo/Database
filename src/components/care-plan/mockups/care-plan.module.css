@@ -727,6 +727,79 @@
   line-height: 1.55;
 }
 
+/*
+ * Management Plan reading and the clinician copy.
+ *
+ * Nothing below clips, truncates, collapses, or hides plan content. The
+ * full-plan tier is the part a reader turns to when there is time, so it is laid
+ * out for reading at 320px in one column and never behind a disclosure.
+ */
+
+.appRoot .fullPlanSection {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.appRoot .fullPlanProse {
+  color: var(--text);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.appRoot .planFooterLink {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.appRoot .printControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/*
+ * The paper. On screen it reads as a sheet so a clinician can see what will
+ * come out of the printer; the shared print rules take over from there.
+ */
+.appRoot .printPaper {
+  display: grid;
+  gap: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  padding: var(--pad-panel);
+}
+
+.appRoot .printIdentity {
+  display: grid;
+  gap: 0.375rem;
+  border-block-end: 1px solid var(--border);
+  padding-block-end: 0.75rem;
+}
+
+.appRoot .printCmht {
+  display: grid;
+  gap: 0.5rem;
+  border-block-start: 1px solid var(--border);
+  padding-block-start: 0.75rem;
+}
+
+/*
+ * Paper goes stale the moment it is printed, and a reader holding it cannot see
+ * that a newer version exists. The warning is weighted accordingly and prints.
+ */
+.appRoot .printRecordWarning {
+  border: 2px solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--warning-soft);
+  padding: 0.625rem 0.875rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
 @media (min-width: 40rem) {
   .appRoot .definitionGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -781,6 +854,8 @@
   .appRoot .currentPlanCard,
   .appRoot .identityBand,
   .appRoot .pinnedBoundary,
+  .appRoot .printPaper,
+  .appRoot .printRecordWarning,
   .appRoot .firstMinuteSectionBoundary {
     border-color: CanvasText;
     background: none;
@@ -789,8 +864,16 @@
 
   /* The pinned boundary and the fifth section print in full, never clipped. */
   .appRoot .pinnedBoundary,
-  .appRoot .firstMinuteSection {
+  .appRoot .firstMinuteSection,
+  .appRoot .fullPlanSection {
     max-height: none;
     overflow: visible;
+  }
+}
+
+@media (forced-colors: active) {
+  .appRoot .printPaper,
+  .appRoot .printRecordWarning {
+    border-color: CanvasText;
   }
 }

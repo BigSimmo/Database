@@ -351,7 +351,14 @@ describe("Care Plan synthetic, memory-only boundary", () => {
         return head !== undefined && body !== undefined ? [{ selector: head.trim(), body }] : [];
       });
 
-    const protectedSelector = /\.(?:firstMinuteSection\w*|pinnedBoundary\w*)\b/;
+    // Extended in Task 5 to the full-plan tier and the printed clinician copy.
+    // Vitest runs with `css: false`, so a DOM test can only see that a class
+    // token was applied — a print rule that clipped the paper, or a `@media
+    // print` rule that hid the full-plan tier, would leave every DOM assertion
+    // in `care-plan-linked-routes.dom.test.tsx` green while the content nobody
+    // may lose became unreadable on paper.
+    const protectedSelector =
+      /\.(?:firstMinuteSection\w*|pinnedBoundary\w*|fullPlanSection\w*|printPaper|printRecordWarning|printIdentity|printCmht)\b/;
 
     /**
      * Declarations are parsed rather than pattern-matched over the block text.
@@ -411,7 +418,7 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     const guarded = blocks.filter(({ selector }) => protectedSelector.test(selector));
     // Fails closed: if the class names are ever renamed, this guard must stop
     // silently matching nothing rather than quietly passing.
-    expect(guarded.length, "no protected selector matched — has the class naming changed?").toBeGreaterThanOrEqual(4);
+    expect(guarded.length, "no protected selector matched — has the class naming changed?").toBeGreaterThanOrEqual(8);
 
     for (const { selector, body } of guarded) {
       for (const declaration of declarationsOf(body)) {

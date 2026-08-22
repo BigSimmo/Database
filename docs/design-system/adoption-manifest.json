@@ -1638,6 +1638,7 @@
         "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
+        "tests/print-output-capabilities.dom.test.tsx",
         "tests/rag-answer-fallback.test.ts",
         "tests/settings-dialog-actions.dom.test.tsx",
         "tests/sheet-focus-stress.dom.test.tsx",

@@ -545,7 +545,7 @@ export type PrototypeCapability =
  * branch is where an unenforced transition hides.
  *
  * Deferred to their own tasks, deliberately absent here: the Management Plan
- * print intent and patient-sharing record, and the four Patient Plan actions.
+ * patient-sharing record, and the four Patient Plan actions.
  */
 export type CarePlanPrototypeAction =
   | { type: "select-patient"; patientId: SyntheticId }
@@ -574,6 +574,7 @@ export type CarePlanPrototypeAction =
   | { type: "save-safety-plan-draft"; versionId: SyntheticId; input: SafetyPlanDraftInput }
   | { type: "make-safety-plan-current"; versionId: SyntheticId }
   | { type: "record-safety-plan-print-intent"; patientId: SyntheticId }
+  | { type: "record-management-plan-print-intent"; patientId: SyntheticId }
   | { type: "record-contact-intent"; patientId: SyntheticId; cmhtId: SyntheticId; channel: "email" | "call" }
   | { type: "create-identification-review"; patientId: SyntheticId; reason: string }
   | {

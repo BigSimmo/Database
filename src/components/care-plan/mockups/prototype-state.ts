@@ -226,6 +226,7 @@ const CAPABILITY_BY_ACTION: Record<CarePlanPrototypeAction["type"], PrototypeCap
   "save-safety-plan-draft": "author_safety_plan",
   "make-safety-plan-current": "author_safety_plan",
   "record-safety-plan-print-intent": "read_plan",
+  "record-management-plan-print-intent": "read_plan",
   "record-contact-intent": "contact_cmht",
   "create-identification-review": "refer_for_identification_review",
   "close-identification-review": "close_identification_review",
@@ -1244,6 +1245,34 @@ export function prototypeReducer(
           patientId: patient.id,
           objectId: current.id,
           evidence: `The browser print view was opened for Personal Safety Plan version ${current.version}. This records the request only, and is not evidence that anything reached a printer.`,
+        }),
+        lastOutcome: {
+          kind: "info",
+          message:
+            "The print view was opened. What happens after that is handled by the browser and is not recorded here.",
+        },
+      };
+    }
+
+    case "record-management-plan-print-intent": {
+      const patient = findPatient(state, action.patientId);
+      if (patient === null) return refuse(state, "That synthetic patient record does not exist.");
+      const plan = findManagementPlan(state, patient);
+      const current = plan === null ? null : getCurrentManagementPlanVersion(state.managementPlanVersions, plan.id);
+      if (current === null) {
+        return refuse(state, `${patient.preferredName} has no Current Plan to print.`);
+      }
+
+      return {
+        ...state,
+        // A print intent changes no clinical record. It appends an attributed
+        // note that a print view was opened, which is all this application can
+        // honestly know: it never sees a printer, a sheet of paper, or a reader.
+        auditEvents: withAudit(state, {
+          type: "management_plan_print_intent_opened",
+          patientId: patient.id,
+          objectId: current.id,
+          evidence: `The browser print view was opened for Management Plan version ${current.version}. This records the request only, and is not evidence that anything reached a printer.`,
         }),
         lastOutcome: {
           kind: "info",
