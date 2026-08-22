@@ -7,7 +7,9 @@ That design has not been built yet — Phase 2 is what actually retires these mo
 document still describes the routes as they exist today. Read the design spec for where the
 product is headed; read this document for what is currently live.
 
-**Phase 2 update (Task 9):** Constellation (`/ward-management/constellation`) is retired. Command
+**Phase 2 update (Task 9):** Constellation (`/ward-management/constellation`) is retired. The
+route remains as a server `redirect()` to `/ward-management/network` so live-main bookmarks do
+not 404. Command
 is rebuilt as the coordinator screen (`CoordinatorScreen`) — priority queue, statewide flow
 diagram and explainable shortlist in one view — and absorbs the working-surface role Constellation
 used to carry; the table below is corrected to drop the Constellation row. The eight remaining

@@ -318,7 +318,7 @@
 .confirmButton,
 .confirmedButton {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: var(--spacing-tap);
   align-items: center;
   justify-content: center;
   gap: var(--ward-space-8);
@@ -474,7 +474,7 @@
 }
 
 .workspaceTabs button {
-  min-height: 2.75rem;
+  min-height: var(--spacing-tap);
   flex: 0 0 auto;
   border: 0.0625rem solid transparent;
   border-radius: var(--radius-md);
