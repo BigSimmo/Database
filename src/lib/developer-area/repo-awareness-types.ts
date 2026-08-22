@@ -28,3 +28,9 @@ export type RoutesSection = {
     api: number;
   };
 };
+
+export type DocumentationSection = {
+  documents: { path: string; section: string; catalogued: boolean }[];
+  sections: { name: string; documents: number; uncatalogued: number }[];
+  counts: { documents: number; catalogued: number; uncatalogued: number; sections: number };
+};
