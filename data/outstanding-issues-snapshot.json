@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 38,
+    "pending": 41,
     "resolved": 359
   },
   "queue": [
@@ -980,6 +980,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "8db683bd-8be5-4f86-912a-bcf40eb0404c",
+      "action": "cancel",
+      "summary": "Cancel request 54bbb5e0-a573-47e5-9daa-f7eedc4e6b73: Reissued as a single closure that also carries the evidence from cancelled request 993f7ca7, which had independently re-proven the defect in another session. Requests are immutable, so folding that evidence into the outcome means replacing this one rather than editing it.",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "993f7ca7-5277-4399-82fc-19ff981823e4",
       "action": "update",
       "summary": "#M6JNR8: priority → P1; source → PR #2260 review thread discussion_r3833600137; RE-CONFIRMED AND EMPIRICALLY RE-PROVEN 2026-08-22 in a second session that was tasked with fixing the #231 queue row and could not: a probe commit changing queue row 1 from A1 to A2 was refused by npm run check:ledger-write-discipline with 'docs/outstanding-issues.md does not exactly match the audited application of 0 moved inbox request(s) from the base', and the probe was reverted; re-graded P2 -> P1 because the stale row is the first thing the session-start hook surfaces and has now mis-directed two sessions; docs/outstanding-issues.md queue row 1 and row #231; scripts/outstanding-issues.mjs:255-279; scripts/check-ledger-write-discipline.mjs:130-175",
@@ -996,6 +1002,12 @@
       "action": "cancel",
       "summary": "Cancel request 3552c196-bf4f-49c8-a39b-28f8876d8caf: Duplicate done request created by overlapping command completion; retain 4bc642e9-5fba-4b43-90e8-407fe2c11408.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "acc8b0f7-b363-4888-9eb8-1712f48e2779",
+      "action": "cancel",
+      "summary": "Cancel request 993f7ca7-5277-4399-82fc-19ff981823e4: Superseded: this request re-grades #M6JNR8 to P1 so the queue-edit gap gets fixed sooner, and the fix has now landed in this PR (updateQueueRow plus the 'queue' inbox action), so the row is being closed rather than re-prioritised. Nothing from it is lost: its empirical proof — that a probe commit changing queue row 1 from A1 to A2 was refused by check:ledger-write-discipline with 'does not exactly match the audited application of 0 moved inbox request(s) from the base', and that the stale row had by then mis-directed two sessions — is carried verbatim into the closure outcome, which is the durable record. Cancelled only because two mutations on one row need an explicit decision, not because the finding was wrong; it was correct and it is the reason this was built.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "ae7596a8-9064-4554-9530-4d145a02672c",
@@ -1050,6 +1062,12 @@
       "action": "done",
       "summary": "#0HFDWD: Resolved 2026-08-21: CI and PR-policy UI classifiers include the narrow mode, route, copy, navigation, and therapies library owners; self-tests pin app-modes and route ownership as UI.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "f046ea4a-214f-4917-8740-4f56565fee0b",
+      "action": "done",
+      "summary": "#M6JNR8: Resolved 2026-08-22: scripts/outstanding-issues.mjs gains updateQueueRow and scripts/ledger-inbox.mjs gains a 'queue' action (npm run issues:queue), so a recommended-execution-queue row can be corrected through the same immutable-request + serial-reconcile transaction as every other ledger mutation — option (a) of the two this row offered, not the audited hand-edit path. Acuity, Capability, When, Estimate and Outcome are editable; Order and the ID(s) cell deliberately are not, since Order is renumbered on every close and changing queue membership is an add or a done. Queue edits carry their own queueRowFingerprint, so they are optimistic against the QUEUE row rather than the Open-items row, and mutationConflicts namespaces queue targets separately so a re-grade and a detail update for the same id can land in one batch. Both writers gained mutation-tested self-tests. EVIDENCE CARRIED FROM CANCELLED REQUEST 993f7ca7 (a second session, 2026-08-22, independently tasked with fixing the #231 queue row and unable to): a probe commit changing queue row 1 from A1 to A2 was refused by npm run check:ledger-write-discipline with 'docs/outstanding-issues.md does not exactly match the audited application of 0 moved inbox request(s) from the base', and the probe was reverted; that session re-graded this row P2 -> P1 on the grounds that the stale queue row is the first thing the session-start hook surfaces and had by then mis-directed two sessions. That re-grade is superseded by this closure, not rejected. The #231 instance is corrected by a 'queue' request in the same PR.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "f7a561a7-1fe2-4aaa-bbfc-90d24baecc7a",
