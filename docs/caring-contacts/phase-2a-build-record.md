@@ -1870,3 +1870,74 @@ immediately. That is a control advertising an action it does not perform, which 
 the button-wiring convention exists to catch. Consistency with older `reset` call sites is not a reason
 to ship it. — Cost if wrong: one file differs in idiom from older error boundaries, which the comment
 explains.
+
+### Task 15 — the browser proof was brought forward by Ruling 51, and it immediately earned its cost
+
+Bringing Task 19's shell half into Task 15 was justified as a gate-honesty decision. It turned out to be
+worth far more than that: **the browser proof caught three real defects that no unit test on this branch
+could have found.**
+
+1. **The shell rendered TWICE in production** — React streaming under `loading.tsx`. `next/dynamic` was
+   tested and exonerated rather than blamed.
+2. **`wide` never activated at 1440px**, because an arbitrary `min-[…]` variant is not guaranteed to sort
+   after a named breakpoint. The fix reduces it to `hidden` plus exactly one non-overlapping variant, so
+   only variant-versus-base ordering is relied on — the one ordering Tailwind actually guarantees.
+3. **The synthetic-data marker VANISHED WHEN PRINTED.** A transitional global print rule hides
+   `header, nav, button`, and the marker went with it. A printed page of invented patients with nothing
+   on it saying they are invented. This is the safeguard that makes listing this workspace in the live
+   catalogue defensible at all, and it was silently absent in one medium.
+
+Defect 3 alone justifies the ruling. It would otherwise have waited until Task 19, or shipped.
+
+### Task 15 task review — APPROVED
+
+Verified rather than accepted:
+
+- **Ruling 51 checked category by category.** All five proof citations point at the one new spec, and
+  that spec genuinely visits the route for each: six per-width tests, the 320 member for compact, a
+  light-then-dark navigation comparing rail surface and heading and marker ink, a `forcedColors: active`
+  run, and a `media: print` run. **No citation points at a suite that does not cover its category**, and
+  the implementer's own table correctly identified the two generic pointers that would have been false
+  and did not use them.
+- **Registration in all three lists** — `testMatch`, `productionSpecPattern`, and the third list the
+  implementer discovered (`scripts/playwright-pr-shards.mjs`), which only a pre-existing guard found.
+  Correctly absent from the mockup pattern, and all four facts pinned by a test.
+- **Ruling 52 verified**: the only internal href in the whole shell is `/caring-contacts`, pinned as an
+  exact set; every unbuilt destination carries the complete stated-reason convention and never native
+  `disabled`. **No dead navigation control exists.** Both navigations are pinned as ordered
+  `{label, kind}` lists with kind derived from the DOM rather than from a shell-controlled attribute —
+  which is what stops the test agreeing with the component by construction.
+- **The authorised rescope is exactly one line.** A mechanical sweep of every removed line across the
+  whole diff accounts for each: the non-existence assertion, the disclosed census, three regex lines
+  re-added with one added alternative, and a refactor into a helper. **No other assertion was edited,
+  deleted or weakened.** The storage ban, the provider-import ban and the `fetch(` ban all survive
+  verbatim and still scope to the mockup roots.
+- **One front door only.** The catalogue record's four consumers were checked; `app-modes.ts` and
+  `universal-search.ts` are untouched. The owner's standalone-sidebar clarification holds.
+
+### Ruling 54 — the two route builders are compliant
+
+`patientRoute` yields `/caring-contacts/patients/{id}` and `pathwayRoute` yields
+`/caring-contacts/templates/{id}`, which resemble entries in the superseded-pattern list. Ruling: [54]
+compliant, no change. — Why: what was rejected during design was **episode-id addressing and its deep
+nesting** (`/patients/[episodeId]/plan`, `/patients/[episodeId]/contacts/[contactId]`), none of which
+either builder produces; both mirror the approved mockup identities with the `/mockups` prefix removed,
+which is exactly what the brief mandates. Textual resemblance to a superseded pattern is not use of it.
+— Cost if wrong: two route shapes would need renaming before Plan 2B builds pages at them, while no page
+exists at either today.
+
+### The one Important finding, and it is a missing assertion rather than a defect
+
+**The safeguard's WORDING is pinned nowhere in production.** The shell correctly redeclares
+`FICTIONAL_DATA_MARKER` (the two trees may not import each other), but the DOM test checks presence by
+test id and the browser spec checks visibility only — and `toBeVisible()` does not read text. So the
+marker could be changed to anything at all, **including something that no longer says the data is
+invented**, and every gate on this branch would pass.
+
+The prototype side is strictly better guarded: two of its tests assert the exact string. Production's
+copy of the highest-consequence safeguard on this branch did not. Sent for fixing with a required
+falsifiability proof.
+
+Also sent: the forced-colours assertion has no discriminating power — both its checks pass even with the
+forced-colours rule deleted, because the marker carries an unconditional border and the token maps to
+`ButtonBorder` anyway. That is the decorative-assertion class this branch has now met ten times.
