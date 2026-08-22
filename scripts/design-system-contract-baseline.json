@@ -4,8 +4,8 @@
     "literalShadowClasses": 0,
     "legacyTapClasses": 0,
     "interactiveTapFloorDeclarations": 33,
-    "colourOnlyStatusIndicators": 3,
-    "statusColouredNumerals": 1,
+    "colourOnlyStatusIndicators": 0,
+    "statusColouredNumerals": 0,
     "edgeOwnershipConflicts": 18,
     "onePixelShadowSpreads": 2,
     "hardcodedCssMotionDurations": 42,
@@ -47,13 +47,8 @@
       "src/components/forms/forms-search-results-page.tsx": 2,
       "src/components/ui/chip.tsx": 1
     },
-    "colourOnlyStatusIndicators": {
-      "src/components/calculators/calculator-ui.tsx": 1,
-      "src/components/ui-primitives.tsx": 2
-    },
-    "statusColouredNumerals": {
-      "src/components/clinical-dashboard/visual-evidence.tsx": 1
-    },
+    "colourOnlyStatusIndicators": {},
+    "statusColouredNumerals": {},
     "edgeOwnershipConflicts": {
       "src/components/DocumentTagCloud.tsx": 3,
       "src/components/clinical-dashboard/dashboard-nav.tsx": 1,
