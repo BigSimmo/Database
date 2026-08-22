@@ -1098,6 +1098,12 @@ test.describe("Ward Flow coordinator screen", () => {
     const queue = page.getByRole("region", { name: "Priority queue" });
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
 
+    // Whole-branch review I4: before any refusal, the closed drawer's trigger carries no
+    // refusal badge at all — not a zero, absent entirely (see exception-drawer.tsx's
+    // `rejections.length > 0` guard).
+    const refusalBadge = page.getByTestId("ward-exceptions-toggle-refusal-count");
+    await expect(refusalBadge).toHaveCount(0);
+
     await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
     await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf004Default.unit.id}"]`).click();
 
@@ -1110,8 +1116,10 @@ test.describe("Ward Flow coordinator screen", () => {
     // The override never claims success — it was refused, and nothing here may say otherwise.
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
 
-    // The refusal is visible, with its own real content — not merely the word "refus" surviving
-    // from an empty-state placeholder.
+    // Whole-branch review I4: the refusal is now visible on the COLLAPSED trigger, before the
+    // drawer is ever opened — the exact gap the review's own Proof 2 found (a refused HOLD_BED
+    // was invisible until the drawer was explicitly clicked open, and the badge never moved).
+    await expect(refusalBadge).toHaveText("1 refused");
     const drawer = page.getByRole("button", { name: /Exceptions/ });
     await drawer.click();
     const exceptions = page.getByRole("region", { name: "Exceptions" });

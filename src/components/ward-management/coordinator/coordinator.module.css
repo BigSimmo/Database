@@ -1596,6 +1596,30 @@
   font-weight: 700;
 }
 
+/*
+ * Whole-branch review I4: a separate, danger-toned badge for refused transitions — never merged
+ * into `.exceptionsToggleCount` above, which is `items.length`, a different fact (the action
+ * inbox). Rendered only while `rejections.length > 0` (see exception-drawer.tsx), so the trigger
+ * carries no extra chrome until the first refusal and then never goes quiet again — the same
+ * "present the moment the fact is real" rule `.refusalsSection` already applies to the panel
+ * beneath it. Danger tokens, not the neutral accent above: a refusal is the reducer stating an
+ * action did NOT happen, which is a sharper fact than an open work-list item.
+ */
+.exceptionsToggleRefusalCount {
+  display: inline-flex;
+  min-height: var(--co-space-20);
+  align-items: center;
+  gap: var(--co-space-6);
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--danger-bg);
+  padding: 0 var(--co-space-8);
+  color: var(--danger-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .exceptionsDrawer[data-open="true"] .placeholder {
   margin-top: var(--co-space-8);
 }
