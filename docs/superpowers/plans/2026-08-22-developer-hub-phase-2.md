@@ -1233,6 +1233,18 @@ describe("the real review record corpus", () => {
       expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(record.ref.length).toBeGreaterThan(0);
       expect(record.head).toMatch(/^[0-9a-f]{7,40}$/);
+      // Without these two, swapping `scope` and `outcome` in the destructure
+      // passes over all 454 records without a single red assertion — this test
+      // exists to catch corpus-shaped bugs a two-row fixture cannot.
+      //
+      // A "refs never contain a space" check was tried and REJECTED against the
+      // real corpus: 106 of the 454 refs legitimately do, taking forms such as
+      // `PR #1888 (claude/filter-contract-factsheets-pr-d)`. No length or shape
+      // threshold separates a ref from a scope either. Column swaps are caught
+      // instead by the pinned six-field `toEqual` in the fixture tests above,
+      // which was verified red for both the scope/outcome and ref/scope swaps.
+      expect(record.scope.length).toBeGreaterThan(0);
+      expect(record.outcome.length).toBeGreaterThan(0);
       expect(record.checks).not.toMatch(/\\\|/);
     }
   });
@@ -1339,11 +1351,23 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
       // rejecting them would drop real reviews from the panel.
       return { date, ref, head, scope, outcome, checks };
     })
-    // Newest first, then ref, then head — a total order, so two records sharing
-    // a date cannot swap places between runs and fail the staleness gate.
+    // Newest first, then ref, head and scope. That is NOT guaranteed to be a
+    // total order: 21 records in the current corpus share a date, ref AND head,
+    // because one branch can be reviewed twice at one commit under different
+    // scopes, and nothing structurally prevents two records sharing all four.
+    //
+    // Determinism therefore rests on two further facts, not on the comparator:
+    // `readReviewRecordRows` sorts filenames, so its output order is the same on
+    // every platform, and `Array.prototype.sort` is specified stable, so ties
+    // keep that order. If either ever stops holding — records merged from a
+    // second source, or an unsorted glob — this comparator will start flapping
+    // the staleness gate for exactly those records, and no test will say why.
     .sort(
       (left, right) =>
-        right.date.localeCompare(left.date) || left.ref.localeCompare(right.ref) || left.head.localeCompare(right.head),
+        right.date.localeCompare(left.date) ||
+        left.ref.localeCompare(right.ref) ||
+        left.head.localeCompare(right.head) ||
+        left.scope.localeCompare(right.scope),
     );
 
   return {
@@ -1356,7 +1380,7 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
 - [ ] **Step 5: Run the test to verify it passes**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 27 tests, including the real-corpus parse over 454 records.
+Expected: PASS, 28 tests, including the real-corpus parse over 454 records.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
@@ -1552,7 +1576,7 @@ non-empty diff means something in the snapshot is not deterministic; find it bef
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `npm run test -- tests/repo-awareness-generator.test.ts`
-Expected: PASS, 31 tests, including the no-git proof.
+Expected: PASS, 32 tests, including the no-git proof.
 
 Run: `npm run typecheck:source`
 Expected: exit 0.
@@ -2871,11 +2895,14 @@ export default function DeveloperReviewStatePage() {
           one.
         </p>
         <ol data-testid="developer-review-state-records" className="grid gap-3">
-          {records.map((record) => (
+          {records.map((record, index) => (
             <li
-              // `head` alone is not unique: a branch can be reviewed twice at
-              // the same commit under different scopes.
-              key={`${record.date}-${record.ref}-${record.head}-${record.scope}`}
+              // `head` alone is not unique — 21 records in the corpus share a
+              // date, ref AND head, because one branch can be reviewed twice at one
+              // commit under different scopes. Adding `scope` disambiguates every
+              // record today, but nothing structurally guarantees it, so the index
+              // carries uniqueness and the fields carry readability.
+              key={`${record.date}-${record.ref}-${record.head}-${record.scope}-${index}`}
               className="grid gap-1 rounded-xl border border-[color:var(--border)] p-4"
             >
               <div className="flex flex-wrap items-baseline gap-2">
