@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 32,
+    "pending": 34,
     "resolved": 359
   },
   "queue": [
@@ -914,6 +914,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "4df11bb5-3d3a-46bc-bf82-3be1bed87663",
+      "action": "add",
+      "summary": "Common cardiovascular drugs are absent from the medication catalogue, so patients taking them get silence rather than an interaction check",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "4f754fec-20c4-4ca8-8e07-0d948089eaf1",
       "action": "done",
       "summary": "#0HFDWD: Resolved 2026-08-21: CI and PR-policy UI classifiers include the narrow mode, route, copy, navigation, and therapies library owners; self-tests pin app-modes and route ownership as UI.",
@@ -978,6 +984,12 @@
       "action": "cancel",
       "summary": "Cancel request 3552c196-bf4f-49c8-a39b-28f8876d8caf: Duplicate done request created by overlapping command completion; retain 4bc642e9-5fba-4b43-90e8-407fe2c11408.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "a4a993d4-2326-4150-b9df-1ccf4f5433a3",
+      "action": "done",
+      "summary": "#1YPV51: Resolved 2026-08-22 by the Repository Lead's sign-off, recorded in docs/medication-interaction-lexicon-review.md. All 37 catalogue terms were expanded to their resolved drug lists and reviewed alongside the text of the rows each fires on. 34 were confirmed correct; 3 were narrowed. (1) antihistamines: every row is about additive ANTICHOLINERGIC burden -- one says 'sedating antihistamines' in its own words -- yet cetirizine, fexofenadine and loratadine resolved into it, so benzatropine + loratadine produced a CRITICAL 'anticholinergic toxidrome ... toxic megacolon' alert and oxybutynin + cetirizine 'frank delirium and bowel impaction'; the three second-generation agents are now denied. (2) corticosteroids: every row is a systemic effect (insulin resistance x5, tendon rupture with ciprofloxacin, additive hypokalaemia), so the four purely topical glucocorticoids are denied; inhaled agents are deliberately kept because the hypokalaemia row concerns a formoterol inhaler and names high-dose corticosteroids. (3) oral-contraceptives: the rows are about enzyme inducers destroying the COMBINED pill, and depot medroxyprogesterone is the method a woman is switched TO on an inducer -- its own catalogue row already states inducers 'accelerate the clearance of the oral tablets, but the massive 150mg IM depot is generally resistant to clinically failing from this', so the generic term was flattening a nuance the catalogue records correctly; it is removed from the term and its own row still fires. Two classification questions answered: moclobemide correctly excluded from maois (reversible inhibition does not carry the tyramine/washout risks the rows describe), atomoxetine correctly classed SNRI. Measured: 23 medications changed, removals only, nothing added, all 328 medications intact, resolved/unresolved unchanged at 392/133; each change mutation-tested. HOW IT WAS DONE, stated because this row exists over an earlier closure that claimed a review that had not happened: an assistant analysis proposed a verdict per term with its evidence, and the Repository Lead read and accepted them. It is a reviewed-and-accepted sign-off, NOT an independent re-derivation from primary sources, and must not be described as one. NOT resolved by this: acei resolves to perindopril alone, arbs to candesartan alone, statins to atorvastatin and rosuvastatin -- ramipril, lisinopril, irbesartan and simvastatin are absent from the catalogue entirely, so a patient on one produces silence rather than safety. That is a catalogue coverage gap, recorded in the sign-off, and is not fixable in the lexicon.",
+      "created_at": "2026-08-22"
     },
     {
       "request_id": "afaa753b-41ae-4bee-8c63-89c649cdcfd5",
