@@ -156,9 +156,13 @@ reverted.
 
 ### Mutation A — always use `desktopModality`
 
-Changes `data-overlay-modality`, which the first test reads. Confirmed non-vacuous by inspection: 13
-of the 24 rows have `phoneModality !== desktopModality` (e.g. `verify-identity` is
-`full-screen-stage` on a phone and `dialog` on a desktop).
+Changes `data-overlay-modality`, which the first test reads. Confirmed non-vacuous by inspection: **22**
+of the 24 rows have `phoneModality !== desktopModality` — only `session-expiry` and `offline-banner`
+match on both widths (e.g. `verify-identity` is `full-screen-stage` on a phone and `dialog` on a
+desktop).
+
+> Corrected in fix round 1 (Minor 6). This paragraph originally said 13, which understated the
+> mutation: it is more non-vacuous than claimed, not less. Counted mechanically this time, not by eye.
 
 ```
  FAIL  … > renders every one of the 24 overlays with its frozen modality at both widths
@@ -443,3 +447,202 @@ openOverlayId) setCheckpoint(null)`). That is React's documented "adjusting stat
    worth knowing about.
 4. **Two tests intermittently time out in this worktree** (`tests/codex-cloud-setup.test.ts`,
    `tests/design-sync-contract.test.ts`). Both passed in the full run reported above.
+
+---
+
+# Fix round 1 — three Important findings and six Minors
+
+All nine addressed. Nothing was deferred. One assertion was removed, under the single authorisation
+granted (Minor 5), and it is disclosed in full below.
+
+## Important 1 — Back after closing reopened the overlay
+
+**Confirmed and fixed.** `closeWorkspaceOverlay` no longer pushes. It **unwinds** the entry that
+opening pushed, via `history.back()`, and falls back to `replaceState` only when this module did not
+put that entry there — a deep link, or the workspace as the first entry, where `back()` would take the
+user out of the workspace entirely. A module-scoped `pushedOverlayEntry` flag records which case
+applies; module scope rather than component state because the fact belongs to the browser's history
+stack, which outlives any one mount.
+
+`openWorkspaceOverlay` and `closeWorkspaceOverlay` are now exported so the history behaviour can be
+driven directly. Three tests in a new `describe("the overlay URL")` block:
+
+- **does not reopen a dismissed overlay when the browser goes back** — the required proof.
+- **closes the overlay when the browser goes back from an open one** — the other half of rule 7, which
+  nothing had covered.
+- **removes the parameter without leaving the workspace when the overlay came from a deep link** —
+  pins the `replaceState` branch, so a later simplification to an unconditional `back()` goes red.
+
+**Proved non-vacuous** by restoring the round-1 behaviour (`pushState` on close):
+
+```
+ FAIL  … > the overlay URL > does not reopen a dismissed overlay when the browser goes back
+Expected: "marker=before"
+Received: "?overlay=pause"
+ ❯ tests/caring-contacts-overlay-host.dom.test.tsx:320:56
+```
+
+That is the reported defect reproduced exactly — Back landing on the dismissed overlay. Reverted.
+
+## Important 2 — Ruling 60, the 640–767 band
+
+Implemented as ruled: **no behaviour change**, nothing touched in `sheet.tsx` or `widthStateFor`, and
+no className override.
+
+- **Comment at the stamping site** (the element `OverlayBody` returns) stating precisely what
+  `data-overlay-modality` means: the frozen contract's modality choice, authoritative below 640 and at
+  768 and above; between 640 and 767 the shared Sheet's own `sm:` breakpoint governs rendered
+  geometry. It records why the divergence is left alone, that `full-screen-stage` is unaffected
+  (`fullscreen` transitions at `lg:` = 1024), and that the reconciliation question is a design-record
+  matter for the owner.
+- **A test pinning the band and naming its cause** — "pins the 640–767 band where the stamped modality
+  and the Sheet's own geometry breakpoint disagree". It asserts the two breakpoints are genuinely
+  different, that `widthStateFor` still says `compact` across 640/700/767, that both sides of the band
+  agree again at 639 and 768, and that a `bottom-sheet` row at 700 px stamps `bottom-sheet`. If either
+  breakpoint moves, it goes red at the exact width instead of the divergence widening unnoticed.
+
+## Important 3 — the guard's blind spot one directory up
+
+**Confirmed and closed.** `src/app/caring-contacts/page.tsx` awaits the record and hands it to the
+shell, and sat outside the scan root. The workspace scan is now a parameterised `sourceFilesUnder(root)`
+called for two roots, and a second assertion — "keeps the route segment that reads the record a Server
+Component" — scans `src/app/caring-contacts/**` with its own allowlist.
+
+That allowlist has exactly one entry, `error.tsx`, and it is not a judgement call: Next.js **requires**
+an error boundary to be a Client Component. It takes only `error` and `reset`, and the same companion
+proof applies to it — it must carry the directive, and must name neither the service-state module nor
+its type.
+
+**Proved** by adding `"use client"` to `page.tsx`:
+
+```
+ FAIL  … > the service-state path stays on the server > keeps the route segment that reads the record a Server Component
+AssertionError: A Client Component appeared under src/app/caring-contacts/. `page.tsx` awaits the whole ServiceState …
+  [
+    "error.tsx",
++   "page.tsx",
+  ]
+ ❯ tests/caring-contacts-explained-automation.dom.test.tsx:364:7
+```
+
+Reverted; `git diff src/app/caring-contacts/page.tsx` is empty.
+
+## Minor 4 — the duplicated prohibited-vocabulary regex
+
+One source now: `tests/helpers/caring-contacts-prohibited-language.ts` exports
+`CARING_CONTACTS_PROHIBITED_LANGUAGE`, and both `caring-contacts-overlay-definitions.test.ts` and
+`caring-contacts-overlay-host.dom.test.tsx` import it. `tests/helpers/` is the existing convention in
+this repo. The helper's docblock also records why the list is deliberately wider than
+`PROVISIONAL_MESSAGE_RULES.prohibitedTerms`, which governs message text rather than interface copy — so
+the next reader does not "reconcile" two lists that are different on purpose.
+
+## Minor 5 — the assertion that could not fail (REMOVAL, disclosed)
+
+**Removed**, under the single authorisation granted:
+
+```tsx
+expect(screen.getByTestId("workspace-overlay-content")).toBeInTheDocument();
+```
+
+from "keeps the session gate open through Escape". The host is uncontrolled in that test and `open` is
+hard-coded true, so no implementation of the renderer could have made that line fail. The `onClose`
+assertion beside it is and was the real one.
+
+In its place I added a **discriminating** one: the gate offers no control named "Close". That is the
+observable half of "recovery action only" — it fails if the gate ever renders a Sheet header — and it is
+an addition, not a replacement for the removed line's (absent) coverage.
+
+## Minor 7 — the Ruling 58 fail-loud branch was unproven
+
+`dismissesOnEscapeOrBackdrop` is now exported and tested directly: `escape-backdrop-close` → true,
+`recovery-only` → false, and `action-only` throws with a message naming Ruling 58. Reaching it through
+`OverlayHost` is impossible by construction — the frozen table forbids the value — which is exactly why
+a direct test was the only way to prove the conservative path at all.
+
+## Minor 8 — the checkpoint copy was outside the vocabulary test
+
+The vocabulary test now renders every overlay **twice**: once refused (the only state that shows the
+refusal sentence) and once live, clicking through to the fresh-authentication checkpoint on the two rows
+that have one. It asserts the checkpoint is actually on screen before checking the text, and counts the
+rows it covered, asserting that count equals the table's own `requiresFreshAuthentication` count — so the
+added coverage cannot silently become vacuous if the click stops working.
+
+## Ruling 61 — `blockReason` must not render verbatim
+
+`BLOCK_REASON_WORDING` is an explicit, hand-written, frozen map, and `blockReasonWording` throws — in
+**every** environment, not only outside production — on a key with no entry. No default branch, and no
+derivation from the identifier.
+
+The throw is unconditional on purpose: a render-time throw here lands on
+`src/app/caring-contacts/error.tsx`, which says plainly that nothing was sent and nothing was changed.
+That is a true statement and the conservative outcome; showing a clinician a machine identifier, or
+inventing a plausible sentence for one nobody wrote, are both worse.
+
+**Two entries, not more** — `permission-unavailable` and `connection-unavailable`, matching the two
+categories the pinned prop documents ("a named permission/connectivity refusal"). I drafted four and cut
+two: pre-writing wording for refusals nothing produces yet is speculative copy nobody reviewed against a
+real screen, and the throw is what makes the next one get written deliberately.
+
+The rendered paragraph is now the mapped sentence alone, with no identifier anywhere in it. The brief's
+original `getByText(/permission/i)` assertion is untouched and still passes — the wording was chosen so
+it would be, rather than the assertion being adjusted to fit the wording. Two assertions were **added**
+beside it: the exact mapped sentence is on screen, and the content element's text does not contain the
+string `permission-unavailable`.
+
+A new test walks `NAMED_BLOCK_REASONS` and checks each wording is a sentence, does not leak its own key,
+and carries no prohibited vocabulary — plus that an unmapped key throws naming Ruling 61.
+
+## Minor 6 — the report understated its own mutation
+
+Corrected in place at §4 Mutation A: **22** of the 24 rows differ across the two widths, not 13. Only
+`session-expiry` and `offline-banner` match on both. Counted mechanically this round rather than by eye,
+which is how the first number came to be wrong.
+
+## Also noted, and taken
+
+The report's Next 16 justification listed three reasons; the reviewer is right that "it saved me editing
+two test files" is not one. The Suspense/prerender-build-failure reason carries the decision alone, and
+the router-context observation is a fact about the test environment rather than an argument for the
+design. Left in §2 as written because it is accurate, but it should not have been given equal billing.
+
+## Files changed this round
+
+| File                                                                       | Change                                                                                                                                                                                         |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/caring-contacts/workspace/overlays/overlay-host.tsx`       | Ruling 61 map and throw; exported `dismissesOnEscapeOrBackdrop`, `blockReasonWording`, `NAMED_BLOCK_REASONS`; Ruling 60 comment at the stamping site; `data-testid="workspace-overlay-action"` |
+| `src/components/caring-contacts/workspace/overlays/workspace-overlays.tsx` | close unwinds instead of pushing; `openWorkspaceOverlay` / `closeWorkspaceOverlay` exported                                                                                                    |
+| `tests/caring-contacts-overlay-host.dom.test.tsx`                          | history block (3 tests), band pin, dismissal-throw test, refusal-wording test, vocabulary test rewritten, Minor 5 removal                                                                      |
+| `tests/caring-contacts-explained-automation.dom.test.tsx`                  | second scan root and assertion for `src/app/caring-contacts/**`                                                                                                                                |
+| `tests/caring-contacts-overlay-definitions.test.ts`                        | imports the shared regex instead of keeping its own copy                                                                                                                                       |
+| `tests/helpers/caring-contacts-prohibited-language.ts`                     | new — the one copy of the vocabulary                                                                                                                                                           |
+| `docs/design-system/adoption-manifest.json`                                | regenerated: the overlay-host suite is now recorded as a `Sheet` test file                                                                                                                     |
+
+## Verification, fix round 1
+
+| Command                                                                           | Result                                                                           |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `node scripts/run-vitest.mjs run tests/caring-contacts-overlay-host.dom.test.tsx` | `Test Files 1 passed (1)`; `Tests 13 passed (13)`                                |
+| the four suites this round touches, together                                      | `Test Files 4 passed (4)`; `Tests 46 passed (46)`                                |
+| `node scripts/run-vitest.mjs run tests/design-system-adoption.test.ts`            | `Test Files 1 passed (1)`; `Tests 51 passed (51)`                                |
+| `node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit`                | clean, no output                                                                 |
+| `npx eslint <6 changed files>`                                                    | clean, no output                                                                 |
+| `npm run test`                                                                    | `Test Files 701 passed, 2 skipped (703)`; `Tests 7776 passed, 29 skipped (7805)` |
+| `npm run format`                                                                  | run; committed                                                                   |
+
+Mutations run and reverted this round: push-on-close (Important 1, red at exactly the reported symptom),
+and `"use client"` on `page.tsx` (Important 3, red naming the file).
+
+No provider-backed command was run. No push, no PR.
+
+## Concerns after this round
+
+1. **`connection-unavailable` has wording but no caller.** It is one of the two categories the pinned
+   prop names, so it is not speculative in the way the two entries I cut were — but it is untested
+   against a real screen, and the first caller should read it before shipping.
+2. **`pushedOverlayEntry` is module-scoped mutable state.** Correct today, because there is exactly one
+   overlay host in the workspace and the fact it tracks belongs to the history stack rather than to a
+   component. A second host mounted in the same document would share it. Worth a guard if a second host
+   is ever contemplated.
+3. **Ruling 60's divergence is now pinned but not resolved.** The design-record question — whether the
+   frozen mapping should sample 431–767 at all, and whether it should meet the shared Sheet's 640 —
+   remains open with the owner, as ruled.

@@ -249,25 +249,47 @@ const ALLOWED_CLIENT_COMPONENTS = [
   "overlays/workspace-overlays.tsx",
 ];
 
+/**
+ * The route segment that READS the record and hands it to the shell.
+ *
+ * The workspace scan above stopped at the component tree, one directory short of the
+ * file that actually performs the read: `src/app/caring-contacts/page.tsx` awaits the
+ * whole state and passes it down. If that file ever gained `"use client"` the note
+ * would serialise into the payload and the workspace scan would stay green — the same
+ * class of hole the recursive fix closed, one level up. So it is scanned too.
+ */
+const ROUTE_DIR = path.join(process.cwd(), "src", "app", "caring-contacts");
+
+/**
+ * Next.js REQUIRES an `error.tsx` boundary to be a Client Component, so this entry is
+ * not a judgement call; it is the framework's contract. It takes only `error` and
+ * `reset`, never the record, and the companion test below holds it to that.
+ */
+const ALLOWED_ROUTE_CLIENT_FILES = ["error.tsx"];
+
 const USE_CLIENT_DIRECTIVE = /^\s*(?:"use client"|'use client')/m;
 
 /**
- * Every source file in the workspace tree, subdirectories included.
+ * Every source file under `root`, subdirectories included.
  *
  * Recursive on purpose: a flat `readdirSync` would have scanned only the top level, so a
  * client component added under `overlays/` — which is exactly where Task 18 put two —
  * would never have been seen by the check at all.
  */
-function workspaceSourceFiles(): { name: string; source: string }[] {
-  return readdirSync(WORKSPACE_DIR, { recursive: true, withFileTypes: true })
+function sourceFilesUnder(root: string): { name: string; source: string }[] {
+  return readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")))
     .map((entry) => {
       const absolute = path.join(entry.parentPath, entry.name);
       return {
-        name: path.relative(WORKSPACE_DIR, absolute).split(path.sep).join("/"),
+        name: path.relative(root, absolute).split(path.sep).join("/"),
         source: readFileSync(absolute, "utf8"),
       };
     });
+}
+
+function workspaceSourceFiles() {
+  return sourceFilesUnder(WORKSPACE_DIR);
 }
 
 /**
@@ -318,6 +340,31 @@ describe("the service-state path stays on the server", () => {
     for (const name of ALLOWED_CLIENT_COMPONENTS) {
       const source = readFileSync(path.join(WORKSPACE_DIR, name), "utf8");
       // A stale entry would silently widen the allowlist without covering anything.
+      expect(source, `${name} is allowlisted but is not a Client Component`).toMatch(USE_CLIENT_DIRECTIVE);
+      expect(source, `${name} references the service-state module`).not.toMatch(/service-state/);
+      expect(source, `${name} names ServiceState`).not.toMatch(/ServiceState/);
+    }
+  });
+
+  it("keeps the route segment that reads the record a Server Component", () => {
+    // The workspace scan cannot see this directory, and this is the file that performs
+    // the read. `error.tsx` is allowed because Next.js requires an error boundary to be
+    // a Client Component; nothing else here may be one, and `page.tsx` least of all.
+    const routeClientFiles = sourceFilesUnder(ROUTE_DIR)
+      .filter(({ source }) => USE_CLIENT_DIRECTIVE.test(source))
+      .map(({ name }) => name)
+      .sort();
+
+    expect(
+      routeClientFiles,
+      "A Client Component appeared under src/app/caring-contacts/. `page.tsx` awaits the whole " +
+        "ServiceState and hands it to the shell, so a client boundary anywhere on that path " +
+        "serialises a responder's free-text note into the payload every team can read in the page " +
+        "source. Only Next's mandatory error boundary belongs on this list.",
+    ).toEqual([...ALLOWED_ROUTE_CLIENT_FILES].sort());
+
+    for (const name of ALLOWED_ROUTE_CLIENT_FILES) {
+      const source = readFileSync(path.join(ROUTE_DIR, name), "utf8");
       expect(source, `${name} is allowlisted but is not a Client Component`).toMatch(USE_CLIENT_DIRECTIVE);
       expect(source, `${name} references the service-state module`).not.toMatch(/service-state/);
       expect(source, `${name} names ServiceState`).not.toMatch(/ServiceState/);

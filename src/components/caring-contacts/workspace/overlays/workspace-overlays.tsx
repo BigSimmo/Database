@@ -11,8 +11,7 @@ import { OverlayHost } from "./overlay-host";
  * service-wide safety-stop record, whose incident note is free text a responder
  * typed mid-incident. A `"use client"` boundary serialises its props into the
  * payload the browser can read, so the shell cannot become a client component
- * and cannot pass functions
- * across the boundary either — `OverlayHostProps` takes `onClose` and `onCommit`,
+ * and cannot pass functions across the boundary either — `OverlayHostProps` takes `onClose` and `onCommit`,
  * and functions are not serialisable (Next 16, "Server and Client Components":
  * props passed to Client Components must be serializable).
  *
@@ -64,12 +63,58 @@ function noOverlayParam(): string | null {
   return null;
 }
 
-function writeOverlayParam(id: string | null) {
+function overlayUrl(id: string | null) {
   const params = new URLSearchParams(window.location.search);
   if (id === null) params.delete(WORKSPACE_OVERLAY_PARAM);
   else params.set(WORKSPACE_OVERLAY_PARAM, id);
   const query = params.toString();
-  window.history.pushState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  return `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+}
+
+/**
+ * Whether the entry currently on top of the history stack is one this module
+ * pushed to open an overlay.
+ *
+ * Module scope rather than component state on purpose: the fact belongs to the
+ * browser's history stack, which outlives any one mount of this component, and
+ * there is exactly one overlay host in the workspace.
+ */
+let pushedOverlayEntry = false;
+
+/**
+ * Opening pushes, so Back closes the overlay — that is the browser-history
+ * support rule 7 asks for.
+ */
+export function openWorkspaceOverlay(id: string) {
+  window.history.pushState(null, "", overlayUrl(id));
+  pushedOverlayEntry = true;
+  window.dispatchEvent(new Event(OVERLAY_URL_CHANGED_EVENT));
+}
+
+/**
+ * Closing UNWINDS the entry opening pushed; it never pushes another.
+ *
+ * Pushing on close was the first version and it was wrong in two ways at once:
+ * the stack became `[page, ?overlay=x, page]`, so pressing Back after dismissing
+ * walked forward into the dismissed modal and reopened it, and every open/close
+ * cycle grew the stack by two entries with nothing to unwind them.
+ *
+ * `history.back()` is correct only when this module put that entry there. A
+ * deep link — someone arriving on `?overlay=x` directly, or with the workspace
+ * as their first entry — has no entry of ours to unwind, and calling `back()`
+ * would take them out of the workspace entirely. That case replaces the current
+ * entry instead, which still satisfies rule 7's "closing removes the parameter"
+ * and leaves the stack exactly as deep as it was.
+ */
+export function closeWorkspaceOverlay() {
+  if (pushedOverlayEntry) {
+    pushedOverlayEntry = false;
+    // `popstate` fires from the traversal itself, so no announcement is needed
+    // — and announcing here would report the pre-traversal URL.
+    window.history.back();
+    return;
+  }
+  window.history.replaceState(null, "", overlayUrl(null));
   window.dispatchEvent(new Event(OVERLAY_URL_CHANGED_EVENT));
 }
 
@@ -77,7 +122,7 @@ export function WorkspaceOverlays() {
   const openOverlayId = useSyncExternalStore(subscribeToOverlayParam, readOverlayParam, noOverlayParam);
 
   const close = useCallback(() => {
-    writeOverlayParam(null);
+    closeWorkspaceOverlay();
   }, []);
 
   /**
@@ -90,7 +135,7 @@ export function WorkspaceOverlays() {
    * advertises an action this does not perform.
    */
   const commit = useCallback(() => {
-    writeOverlayParam(null);
+    closeWorkspaceOverlay();
   }, []);
 
   return <OverlayHost openOverlayId={openOverlayId} onClose={close} onCommit={commit} blockReason={null} />;

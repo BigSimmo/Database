@@ -115,7 +115,7 @@ function modalityFor(definition: WorkspaceOverlayDefinition, viewportWidth: numb
  * (non-dismissible) answer in production, where the recovery action is still on
  * screen.
  */
-function dismissesOnEscapeOrBackdrop(dismissal: OverlayDismissal): boolean {
+export function dismissesOnEscapeOrBackdrop(dismissal: OverlayDismissal): boolean {
   if (dismissal === "escape-backdrop-close") return true;
   if (dismissal === "recovery-only") return false;
   if (process.env.NODE_ENV !== "production") {
@@ -127,6 +127,60 @@ function dismissesOnEscapeOrBackdrop(dismissal: OverlayDismissal): boolean {
     );
   }
   return false;
+}
+
+/**
+ * Ruling 61: the plain words each named refusal is shown as.
+ *
+ * `blockReason` is an identifier — `permission-unavailable` is a key, not a
+ * sentence, and spec §4.4 requires the reason a clinician reads to be in plain
+ * words. The mapping is explicit and TOTAL: every reason this workspace can
+ * refuse an action for has an entry written by hand, and an unmapped key throws
+ * rather than falling back.
+ *
+ * Both prohibitions in that ruling are load-bearing and neither is stylistic:
+ *
+ *  - No default branch. A default would let a future reason ship unnoticed,
+ *    reading as though somebody had chosen its wording.
+ *  - No derivation from the identifier. Turning `permission-unavailable` into
+ *    "Permission unavailable" produces a plausible-looking sentence nobody
+ *    wrote, which is worse than an obviously missing one — the same reason
+ *    Ruling 57 made the matrix normalisation explicit rather than mechanical.
+ *
+ * `OverlayHostProps.blockReason` is a pinned `string | null`, so this cannot be
+ * total at the type level; `blockReasonWording` closes it at runtime instead.
+ *
+ * Exactly two entries, matching the two categories the pinned prop names — "a
+ * named permission/connectivity refusal" — and no more. Pre-writing wording for
+ * refusals nothing produces yet would be speculative copy nobody reviewed against
+ * a real screen; the throw is what makes the next one get written deliberately.
+ */
+const BLOCK_REASON_WORDING: Readonly<Record<string, string>> = Object.freeze({
+  "permission-unavailable": "You do not have permission to carry out this action.",
+  "connection-unavailable": "There is no connection, so nothing can be changed from here.",
+});
+
+/** The reasons `blockReasonWording` can render. Exported so a test can walk all of them. */
+export const NAMED_BLOCK_REASONS: readonly string[] = Object.freeze(Object.keys(BLOCK_REASON_WORDING));
+
+/**
+ * Throws, deliberately and in every environment, on a reason with no wording.
+ *
+ * A render-time throw here lands on `src/app/caring-contacts/error.tsx`, which
+ * says plainly that nothing was sent and nothing was changed — a true statement,
+ * and the conservative outcome. Showing a machine identifier to a clinician, or
+ * inventing wording for it, would both be worse than that.
+ */
+export function blockReasonWording(reason: string): string {
+  const wording = BLOCK_REASON_WORDING[reason];
+  if (wording === undefined) {
+    throw new Error(
+      `No plain-words wording for the block reason "${reason}". Ruling 61: add an entry to ` +
+        `BLOCK_REASON_WORDING deliberately. Do not derive it from the identifier and do not add a ` +
+        `default branch — an unwritten reason must be visible, not plausible.`,
+    );
+  }
+  return wording;
 }
 
 function actionClassFor(tone: WorkspaceOverlayDefinition["tone"]) {
@@ -163,9 +217,43 @@ function OverlayBody({ definition, modality, headingId, blockReason, checkpointO
   // the named reason visible, and a read-only overlay stays fully usable —
   // blocking a preview nobody can change would be the same defect pointing the
   // other way. `mutatesState` is read from the table, never re-decided here.
-  const blocked = blockReason !== null && definition.mutatesState;
+  // Resolved once, here, so the plain-words lookup runs only for an overlay that
+  // is actually refused — a read-only overlay never reaches Ruling 61's throw.
+  const refusal = blockReason !== null && definition.mutatesState ? blockReasonWording(blockReason) : null;
+  const blocked = refusal !== null;
   const reasonId = `caring-contacts-overlay-${definition.id}-reason`;
   return (
+    /*
+      What `data-overlay-modality` means, exactly (Ruling 60).
+
+      It reports the modality the FROZEN CONTRACT chose for this row at this
+      width — `widthStateFor(viewportWidth) === "compact" ? phoneModality :
+      desktopModality`. That is the authoritative statement of the contract, and
+      it matches rendered geometry below 640px and at 768px and above.
+
+      Between 640 and 767 it does not, and cannot: `widthStateFor` switches
+      compact→rail at 768, while the shared `Sheet` switches its mobile geometry
+      to a centred dialog at Tailwind `sm:` = 640, entirely in CSS with no prop
+      to override it. So a `bottom-sheet` row in that band stamps
+      `bottom-sheet` and renders as a dialog. `full-screen-stage` rows are
+      unaffected — `mobilePlacement="fullscreen"` transitions at `lg:` (1024),
+      so they stay fullscreen right across the band.
+
+      Ruling 60 leaves that divergence in place rather than fighting it:
+      `sheet.tsx` is a design-system component the whole application uses,
+      `widthStateFor` is frozen design non-regression, and a className override
+      forcing bottom geometry to 768 would fight the shared component's own
+      cascade and break silently the next time it changed. Nothing in the
+      24-overlay contract's SAFETY properties — dismissal, fresh authentication,
+      blocking — depends on geometry, and the frozen mapping never samples
+      431–767 (its review widths are 320/390/430, then 768, 1024, 1440).
+
+      The band is pinned by "the stamped modality and the Sheet's own geometry
+      breakpoint disagree only between 640 and 767" in
+      `tests/caring-contacts-overlay-host.dom.test.tsx`, so it cannot widen
+      unnoticed. Whether the two breakpoints should be reconciled at all is a
+      design-record question for the owner, not a fix.
+    */
     <div
       data-testid="workspace-overlay-content"
       data-overlay-id={definition.id}
@@ -186,15 +274,16 @@ function OverlayBody({ definition, modality, headingId, blockReason, checkpointO
         </p>
       ) : null}
 
-      {blocked ? (
+      {refusal ? (
         <p id={reasonId} className="max-w-[var(--measure)] text-sm font-medium leading-6 text-[color:var(--danger)]">
-          This action is unavailable. The reason given is {blockReason}.
+          {refusal}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
+          data-testid="workspace-overlay-action"
           aria-disabled={blocked ? "true" : undefined}
           aria-describedby={blocked ? reasonId : undefined}
           onClick={blocked ? ignoreUnavailableActivation : onActivate}

@@ -12,6 +12,8 @@ import {
   type OverlayPhoneModality,
 } from "@/components/caring-contacts/workspace/overlays/definitions";
 
+import { CARING_CONTACTS_PROHIBITED_LANGUAGE } from "./helpers/caring-contacts-prohibited-language";
+
 const MATRIX_PATH = "docs/caring-contacts/interaction-matrix.md";
 
 /**
@@ -120,11 +122,15 @@ function frozenMatrixRows() {
 
 /**
  * The full prohibited vocabulary, not the subset any one surface happens to
- * render. Word boundaries keep `lead` from firing on `already` while still
- * catching the sales sense of the word.
+ * render.
+ *
+ * It now lives in `tests/helpers/caring-contacts-prohibited-language.ts`: the
+ * overlay-host suite checks the same list against the words the RENDERER adds on
+ * top of these definitions, and it had been a byte-for-byte second copy. Two
+ * hand-kept copies of a safety list drift apart silently, and the failure mode is
+ * a green suite that no longer covers what it says it covers.
  */
-const PROHIBITED_LANGUAGE =
-  /\bhigh risk\b|\bsafe\b|\bengagement scores?\b|\bcampaigns?\b|\bleads?\b|\bconversions?\b|\bbest match\b|\binbox(es)?\b|\bconversations?\b|\bclinical risk\b|\brisk scores?\b|\bwellbeing scores?\b|monitor(s|ed|ing)? (the )?repl(y|ies)|repl(y|ies) (are|is) monitored/i;
+const PROHIBITED_LANGUAGE = CARING_CONTACTS_PROHIBITED_LANGUAGE;
 
 describe("the frozen 24-overlay contract", () => {
   it("holds exactly 24 unique overlays, 16 of which mutate", () => {

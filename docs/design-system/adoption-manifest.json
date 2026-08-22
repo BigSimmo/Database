@@ -1609,6 +1609,7 @@
       },
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
+        "tests/caring-contacts-overlay-host.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
