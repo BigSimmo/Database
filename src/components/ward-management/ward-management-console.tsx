@@ -102,7 +102,7 @@ function MovementPipeline({
 }
 
 export function WardPatientWorkspace({ patientId }: { patientId: string }) {
-  const { movements, now } = useWardFlow();
+  const { movements, now, units } = useWardFlow();
   // Read the live, single source of truth rather than the frozen fixture — a patient just
   // referred on the coordinator screen must resolve here too, and a missing id must render an
   // explicit "not found" rather than ever substituting a different movement.
@@ -140,7 +140,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
   // or nothing.
   const destination = destinationUnit(patient);
   const verdict = destination ? eligibility(patient, destination, now) : undefined;
-  const candidates = eligibleCandidates(patient, now).filter((candidate) => candidate.unit.id !== destination?.id);
+  const candidates = eligibleCandidates(patient, now, 3, units).filter(
+    (candidate) => candidate.unit.id !== destination?.id,
+  );
   const timeline = movementTimeline(patient);
 
   return (
