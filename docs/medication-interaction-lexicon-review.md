@@ -199,7 +199,15 @@ medications intact, and resolved/unresolved row counts unchanged at 392 / 133.
 rosuvastatin. Ramipril, lisinopril, irbesartan and simvastatin are absent from the catalogue
 entirely, so a patient taking one of them produces **silence, not safety**. That is a catalogue
 coverage gap rather than a mapping fault, and it is not fixable in this file. The same caveat applies
-to the 20 medications listed under "What this tool can never warn about" above.
+to the 26 medications listed under "What this tool can never warn about" above.
+
+**That count rose from 20 to 26 because of this review, and the six are named here rather than left
+in a total.** Betamethasone, clobetasol, hydrocortisone 1%, triamcinolone, cetirizine and loratadine
+now sit outside every resolved interaction row, so entering one of them produces no alert at all.
+That is the intended result — the alerts they used to fire were the false ones this review removed —
+but the consequence must be stated plainly, because on screen "no applicable interaction was found"
+and "this drug reaches no interaction row" look identical. A clinician checking clobetasol against a
+patient's insulin is now told nothing, where before they were told something wrong.
 
 ### How this review was conducted
 
@@ -218,6 +226,7 @@ interaction wording, which is verbatim from the source catalogue, nor of the `ex
 `mechanism` terms, which resolve to no catalogue drug and therefore raise no alert. Any later change
 to the lexicon falls outside it and must be re-checked.
 
-Until this is filled in, treat every interaction alert as unvalidated mapping over source-backed text.
-The wording shown to the clinician is always verbatim from the catalogue; what is unreviewed is _which
-drugs a phrase was taken to mean_.
+The mappings above were reviewed on the date recorded in this block. The wording shown to the
+clinician is always verbatim from the catalogue; what this sign-off covers is _which drugs a phrase
+was taken to mean_, as of that date and no later. Treat any term changed since as unvalidated until
+this block is updated.

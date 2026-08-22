@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "9a382a0504632186bab075b53633cb69a6f92446",
-    "committed_at": "2026-08-22T15:25:05+00:00"
+    "committed_at": "2026-08-22T15:25:05Z"
   },
   "counts": {
     "open": 66,
@@ -10,7 +10,7 @@
     "p2": 36,
     "p3": 29,
     "queued": 10,
-    "pending": 2,
+    "pending": 3,
     "resolved": 375
   },
   "queue": [
@@ -732,6 +732,12 @@
       "request_id": "4df11bb5-3d3a-46bc-bf82-3be1bed87663",
       "action": "add",
       "summary": "Common cardiovascular drugs are absent from the medication catalogue, so patients taking them get silence rather than an interaction check",
+      "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "aca88c5d-9fd4-4e6b-8e0b-e4d789e1d46c",
+      "action": "add",
+      "summary": "The pre-push ledger guard uses the previous branch tip as its baseline, so it false-positives after a branch merges main",
       "created_at": "2026-08-22"
     }
   ]
