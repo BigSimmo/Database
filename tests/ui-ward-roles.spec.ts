@@ -311,3 +311,148 @@ test.describe("Emergency department screen", () => {
     await expect(page.locator('[data-testid^="ward-ed-police-"]')).toHaveCount(1);
   });
 });
+
+test.describe("Role switcher — the loop", () => {
+  test.describe.configure({ timeout: 60_000 });
+
+  /**
+   * Task 12 (addendum R41/R42/R48/R52/R67). One patient, WF-315, walked through all four roles
+   * in a single browser window — the journey that proves Ward Flow Phase 3 actually works, not
+   * just that eleven screens each work in isolation.
+   *
+   * WF-315 was chosen and verified against the real fixture and reducer, not assumed (see the
+   * task report): seed stage `placement_requested`, `originEdId: "arm-ed"`, a 1A form with no
+   * examination recorded yet, and exactly three eligible candidates
+   * (`rph-adult-secure`/`fsh-adult-secure`/`rgh-adult-secure`). The whole ten-dispatch chain
+   * below was driven through `wardFlowReducer` directly from a fresh seed before this test was
+   * written, with `state.rejections` staying empty at every step.
+   *
+   * THE ONE RULE THAT MATTERS MORE THAN ANY SINGLE ASSERTION HERE: this journey navigates by
+   * CLICKING the role switcher, never by `page.goto()`. A `goto` is a full page load — it
+   * re-mounts `WardFlowProvider` and resets every movement back to the seed fixture, so the
+   * journey would pass or fail for reasons entirely unrelated to the code while still looking
+   * like it proved the loop. The one permitted `goto` below is the very first navigation, which
+   * opens the ED screen the journey starts from (R67: a patient is reviewed before a bed is
+   * sought).
+   */
+  test("walks WF-315 through all four roles in one browser window without ever reloading", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1024 });
+
+    // Fixture assumptions, checked against the real data rather than assumed — if either ever
+    // stops resolving, this test should fail loudly here rather than several steps later against
+    // a confusing downstream symptom.
+    const originEd = edById("arm-ed");
+    const destinationUnit = unitById("rph-adult-secure");
+    expect(originEd, "fixture assumption: arm-ed resolves to a real department").toBeDefined();
+    expect(destinationUnit, "fixture assumption: rph-adult-secure resolves to a real unit").toBeDefined();
+
+    function switcherTrigger() {
+      return page.getByRole("button", { name: "Switch role" });
+    }
+
+    /**
+     * Opens the switcher and clicks the named menu item — never a rank (ruling R41 retired
+     * `.first()` for the whole phase). Each name passed below is checked, immediately below this
+     * function, to be a substring of exactly one menu item's accessible name, so a Playwright
+     * substring match here can never silently resolve to the wrong destination.
+     */
+    async function switchTo(menuItemName: string) {
+      await switcherTrigger().click();
+      const matches = page.getByRole("menuitem", { name: menuItemName });
+      await expect(matches, `"${menuItemName}" must resolve to exactly one menu item`).toHaveCount(1);
+      await matches.click();
+    }
+
+    // --- Step 1: ED — record the examination (R67). The one permitted `goto`. ---
+    await page.goto("/ward-management/ed/arm-ed", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    await page.getByTestId("ward-ed-examine-toggle-WF-315").click();
+    const examineForm = page.getByTestId("ward-ed-examine-form-WF-315");
+    await expect(examineForm).toBeVisible();
+    await examineForm.getByRole("radio", { name: "Inpatient treatment order" }).check();
+    await examineForm.getByRole("button", { name: "Confirm examination outcome" }).click();
+    // The examination flips the form 1A -> 3B and the movement remains referable — proven by
+    // the reducer walk in the task report, and re-proven here on screen: the outstanding item
+    // for WF-315 must no longer read "Examination" once this submits.
+    await expect(page.getByTestId("ward-ed-outstanding-WF-315")).not.toHaveAttribute("data-kind", "examination");
+
+    // --- Step 2: Coordinator — select WF-315, refer to all three candidates. ---
+    await switchTo("Coordinator");
+    await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    await queue.getByTestId("ward-queue-row-WF-315").click();
+    await shortlist.getByTestId("ward-shortlist-candidate-rph-adult-secure").click();
+    await shortlist.getByTestId("ward-shortlist-candidate-fsh-adult-secure").click();
+    await shortlist.getByTestId("ward-shortlist-candidate-rgh-adult-secure").click();
+    await shortlist.getByTestId("ward-shortlist-refer").click();
+    // Three live referrals — exactly why the ward hop below cannot be inferred and must use the
+    // picker (addendum R52).
+    await expect(shortlist).toContainText(/Parallel referral|referred to 3/i);
+
+    // --- Step 3: Ward, reached via the picker (three live referrals — R52). ---
+    await switchTo("RPH Adult Secure");
+    await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    const incoming = page.getByTestId("ward-incoming-WF-315");
+    await expect(incoming).toBeVisible();
+    await incoming.getByRole("button", { name: "Accept in principle" }).click();
+
+    // --- Step 4: Ward — hold a bed. ---
+    const accepted = page.getByTestId("ward-accepted-WF-315");
+    await expect(accepted).toBeVisible();
+    await accepted.getByRole("button", { name: "Hold a bed" }).click();
+
+    // --- Step 5 (recommended): Coordinator — confirm the acceptance is visible from another
+    // role. The shared `focusMovementId` (ward-flow-provider.tsx) re-selects WF-315 on this
+    // remount without another click — proving the selection itself, not just the movement data,
+    // survived the two role switches so far. ---
+    await switchTo("Coordinator");
+    await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("complementary", { name: "Explainable shortlist" })).toContainText(
+      "Accepted destination: RPH Adult Secure",
+    );
+
+    // --- Step 6: ED — mark handover ready. The only producer of the transport job; without it
+    // every officer action below would be refused (addendum R42). ---
+    await switchTo("Armadale Hospital Emergency Department");
+    await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await page.getByTestId("ward-ed-handover-WF-315").click();
+    await expect(page.getByTestId("ward-ed-outstanding-WF-315")).toHaveAttribute("data-kind", "transport");
+
+    // --- Steps 7-10: Officer — Accepted, En route, Collected, Arrived. ---
+    await switchTo("Officer");
+    await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    const job = page.getByTestId("ward-officer-job-WF-315");
+    const selectJob = page.getByTestId("ward-officer-select-WF-315");
+    // WF-315's transport job was only just created (step 6), so it is very unlikely to already
+    // be the screen's default-selected job — the default is the first job in fixture array
+    // order among the seed jobs (`ui-ward-roles.spec.ts`'s own "gives the officer four actions"
+    // test pins that default to WF-005). Checked rather than assumed, so this journey does not
+    // silently depend on an ordering coincidence either way.
+    if (await selectJob.count()) {
+      await selectJob.click();
+    }
+    await expect(job.getByRole("button")).toHaveCount(4);
+    for (const label of ["Accepted", "En route", "Collected", "Arrived"]) {
+      await job.getByRole("button", { name: label }).click();
+    }
+
+    // --- Step 11: Coordinator — the patient has left the system. ---
+    await switchTo("Coordinator");
+    await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("region", { name: "Priority queue" }).getByTestId("ward-queue-row-WF-315")).toHaveCount(
+      0,
+    );
+  });
+});

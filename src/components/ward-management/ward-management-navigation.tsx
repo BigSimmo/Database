@@ -28,6 +28,7 @@ import { BrandMark } from "@/components/clinical-dashboard/brand";
 
 import shellStyles from "./ward-management.module.css";
 import modeStyles from "./ward-management-modes.module.css";
+import { WardRoleSwitcher } from "./ward-role-switcher";
 
 export type WardMode =
   "command" | "network" | "queue" | "capacity" | "movements" | "exceptions" | "transport" | "governance";
@@ -105,6 +106,13 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         </>
       ) : null}
       <div className={shellStyles.railBottom}>
+        {/* Task 12: the role switcher — the one control the proof journey (spec §14) uses to
+            move between all four roles without ever reloading the page. Placed first among the
+            Ward-Flow-specific shortcuts below since, unlike the three static ones after it, its
+            destination is dynamic (inferred from whichever patient the coordinator last
+            selected — see `ward-role-switcher.tsx`'s own doc comment). */}
+        <WardRoleSwitcher />
+        <div className={shellStyles.railRule} aria-hidden="true" />
         {/* Task 8: the ward screen's own route (`/ward-management/ward/[unitId]`) is not one of
             the eight `WardModeNavigation` links above — that nav's own Playwright test
             (`tests/ui-ward-management.spec.ts`) asserts an exact count of 8 links, so a ninth

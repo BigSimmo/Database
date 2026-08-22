@@ -39,8 +39,27 @@ export function CoordinatorScreen() {
   // wrapping every `/ward-management` route via `src/app/ward-management/layout.tsx`). `units`
   // is not destructured here — nothing this screen renders yet reads live unit state, and an
   // unused destructured value would be dead weight rather than real wiring.
-  const { movements, rejections, now, dispatch } = useWardFlow();
-  const [selectedMovementId, setSelectedMovementId] = useState<string | undefined>(undefined);
+  const { movements, rejections, now, dispatch, focusMovementId, setFocusMovementId } = useWardFlow();
+  // Task 12: seeded from the shared `focusMovementId` (not always `undefined`) so a coordinator
+  // who switched away to answer a referral as another role and switches back finds the same
+  // patient still selected — this screen remounts on every route change (it is a route
+  // segment under the persistent `WardFlowProvider` layout, not the layout itself), so a plain
+  // `useState(undefined)` would otherwise forget the selection on every round trip. See
+  // `ward-flow-provider.tsx`'s doc comment on `focusMovementId` for why this lives in the shared
+  // context rather than only here.
+  //
+  // Restored only while that movement is still OPEN. Found while reviewing the journey's own
+  // final screenshot: an arrived movement is never reachable through the queue (`queueOrder`
+  // filters to `isOpen` before this screen ever renders a row for it to click), so restoring the
+  // selection unconditionally re-selected WF-315 after its own arrival and left the shortlist
+  // showing "Currently at ARM" / "waiting in the emergency department" for a patient who had, in
+  // fact, already left the department — stale copy for a record this screen has no other way to
+  // select. Gating on `isOpen` keeps the restore doing its actual job (surviving a role switch
+  // mid-journey) without inventing a selection path a live click could never produce.
+  const [selectedMovementId, setSelectedMovementId] = useState<string | undefined>(() => {
+    const restored = focusMovementId ? movements.find((movement) => movement.id === focusMovementId) : undefined;
+    return restored && isOpen(restored) ? restored.id : undefined;
+  });
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
   const [selectedEdId, setSelectedEdId] = useState<string | undefined>(undefined);
   const [exceptionsOpen, setExceptionsOpen] = useState(false);
@@ -84,6 +103,10 @@ export function CoordinatorScreen() {
   function selectMovement(movementId: string | undefined) {
     setSelectedMovementId(movementId);
     setSelectedUnitId(undefined);
+    // Task 12: mirrored into the shared context so `WardRoleSwitcher` — rendered on every
+    // ward-management route, not just this one — can infer a Ward/ED destination for whichever
+    // patient was last selected here, even after a role switch has unmounted this screen.
+    setFocusMovementId(movementId);
   }
 
   // The provider's own `movements` array — never `movementById`, which reads the frozen fixture

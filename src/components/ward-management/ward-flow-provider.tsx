@@ -4,6 +4,7 @@ import {
   createContext,
   type Dispatch,
   type ReactNode,
+  type SetStateAction,
   useContext,
   useEffect,
   useMemo,
@@ -21,6 +22,18 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 /**
  * The screens never see the raw reducer state or the clock's internal offsets — they see the
  * three collections plus a single resolved `now`, and the one way to raise an event.
+ *
+ * Task 12: `focusMovementId` is the one piece of UI-only state this context carries alongside
+ * the reducer's own — "which patient is currently in view", set only by the coordinator
+ * screen's own movement selection (`coordinator-screen.tsx`'s `selectMovement`). It exists here,
+ * shared, rather than as `CoordinatorScreen`'s own local state, because `WardRoleSwitcher`
+ * renders on every ward-management route (inside `ClinicalRail`) and needs to answer "where
+ * does this patient's Ward/ED role live" regardless of which screen it is currently rendered
+ * on — a route change swaps out the page under this shared layout, which would otherwise reset
+ * a screen-local selection back to nothing on every hop. It is never read by the reducer and
+ * never dispatched as an event: it is display/navigation state only, the same category as
+ * `selectedUnitId`/`selectedEdId` already are on the coordinator screen, just lifted one level
+ * because it now has more than one reader.
  */
 type WardFlowContextValue = {
   movements: Movement[];
@@ -28,6 +41,8 @@ type WardFlowContextValue = {
   rejections: Rejection[];
   now: Instant;
   dispatch: Dispatch<WardFlowEvent>;
+  focusMovementId: string | undefined;
+  setFocusMovementId: Dispatch<SetStateAction<string | undefined>>;
 };
 
 const WardFlowContext = createContext<WardFlowContextValue | null>(null);
@@ -74,9 +89,19 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
   const elapsed = initialNow !== undefined ? 0 : elapsedMinutesSinceMount(mountedAt, wallClockNow());
   const now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes;
 
+  const [focusMovementId, setFocusMovementId] = useState<string | undefined>(undefined);
+
   const value = useMemo<WardFlowContextValue>(
-    () => ({ movements: state.movements, units: state.units, rejections: state.rejections, now, dispatch }),
-    [state.movements, state.units, state.rejections, now, dispatch],
+    () => ({
+      movements: state.movements,
+      units: state.units,
+      rejections: state.rejections,
+      now,
+      dispatch,
+      focusMovementId,
+      setFocusMovementId,
+    }),
+    [state.movements, state.units, state.rejections, now, dispatch, focusMovementId],
   );
 
   return <WardFlowContext.Provider value={value}>{children}</WardFlowContext.Provider>;
