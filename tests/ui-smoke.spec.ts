@@ -1304,6 +1304,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const guideSearch = sidebar.getByRole("button", { name: "Search Clinical Guide" });
     await expect(guideSearch).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
     await guideSearch.click();
+    await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
     await expect(visibleQuestionInput(page)).toBeFocused();
     await collapseSidebar.focus();
     await page.keyboard.press("Control+K");
