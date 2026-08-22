@@ -103,7 +103,7 @@ describe("buildSnapshot", () => {
     ];
 
     const snapshot = buildSnapshot({ ledgerMarkdown: LEDGER, inboxRecords: records, revision: REVISION });
-    expect(snapshot.pending.map((request) => request.summary)).toEqual([
+    expect(snapshot.pending.map((request: { summary: string }) => request.summary)).toEqual([
       "#231: priority → P1",
       "#316: source → PR #901",
       "Cancel request 5b99217d-d500-4d4b-9bd1-543e53c00f81: Superseded request",
