@@ -51,3 +51,9 @@ docs/prompts/codex-cloud-review/
 # docs/outstanding-issues.md; keep the generator's formatting so regeneration
 # stays churn-free and check:outstanding-issues-snapshot compares like with like.
 data/outstanding-issues-snapshot.json
+# Vendored third-party skills, copied verbatim from ~/.claude/skills so a Claude Code web container
+# gets the same user skills as the workstation (docs/claude-cloud.md). Reformatting ~400 upstream
+# files would turn every future refresh of that snapshot into an unreadable diff, and their formatting
+# is not this repository's to own. Everything in `.claude/cloud-profile/` outside `skills/` is ours
+# and stays formatted.
+.claude/cloud-profile/skills/

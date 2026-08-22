@@ -72,7 +72,14 @@ function isStoredAnswerTurn(value: unknown): value is StoredAnswerTurn {
     Boolean(turn.answer) &&
     typeof turn.answer === "object" &&
     typeof turn.answer.answer === "string" &&
-    Array.isArray(turn.sources)
+    Array.isArray(turn.sources) &&
+    turn.sources.every(
+      (source) =>
+        Boolean(source) &&
+        typeof source === "object" &&
+        typeof source.id === "string" &&
+        typeof source.document_id === "string",
+    )
   );
 }
 

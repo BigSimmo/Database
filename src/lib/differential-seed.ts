@@ -1,5 +1,5 @@
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
-import { type DifferentialRecordInsert, type DifferentialRecordRow } from "@/lib/differential-records";
+import { type DifferentialRecordRow } from "@/lib/differential-records";
 import { safeErrorLogDetails } from "@/lib/privacy";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
@@ -57,10 +57,6 @@ export async function fetchOwnerDifferentialRowsWithSeed(
     if (rows.length === 0 && seedError) throw seedError;
   }
   return rows;
-}
-
-export function buildDifferentialSeedRows(ownerId: string): DifferentialRecordInsert[] {
-  return buildDefaultDifferentialRows(ownerId);
 }
 
 /** Seeded presentation rows whose slug the current snapshot no longer produces.

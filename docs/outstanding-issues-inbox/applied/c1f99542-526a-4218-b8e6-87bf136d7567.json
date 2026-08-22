@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c1f99542-526a-4218-b8e6-87bf136d7567",
+  "createdOn": "2026-08-21",
+  "action": "done",
+  "payload": {
+    "id": "#4TBHS8",
+    "outcome": "Resolved 2026-08-21. Re-measured first-hand on 2026-08-21 at HEAD e4df772e3712620a8d64dc28843048e32bde88ee: node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-tools-search-mode-mockup.spec.ts reported '16 passed (1.5m)' with exit code 0. Both previously-failing tests are green by name: test 1, 'desktop uses universal search and keeps results beside the selected-tool panel' (spec line 24, 10.9s), and test 9, 'phone filter sheet follows the shared local-filter behavior' (spec line 194, 4.5s). This independently reproduces the run at a341832af cited by the request cancelled as 1a175782-d9cf-4de6-a67b-d3b2da632c84, whose author explicitly recommended that a fresh done request be queued so the evidence would not be lost; that recommendation is what this request carries out. The rows are therefore closed on a reproduced measurement, not on a third-party claim. The specific failure recorded here - waiting for the exact text '2 showing' inside the tools-search-filter-sheet testid - is gone with the rewritten assertion, and the rewritten test passes. Tracked with #SZGPAH, which named the same spec file and closed on the same run.",
+    "baseRowFingerprint": "3769f42e3e4a417bbb9b3e2c30200a08eaa98eb879a95bc569b3d37dda2e95ca"
+  }
+}

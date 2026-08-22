@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "81b9bb52-9f07-496e-b12b-7795c93c8e24",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#VTEW3W",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): the count has fallen. therapyBtn now appears 21 times across 8 files under src/components/therapy-compass/, against the 30 call sites measured 2026-08-18 at adf93a75. The design question is unchanged - nothing shared covers list rows, disclosure headers, section toggles and chips - and the stop rule still stands: do not resolve this by converting the remaining sites to Button variants.",
+    "baseRowFingerprint": "4951a94557d8fc00013f1d74ac15219502aeb64e14a4f8cb566cf1a7e089bc38"
+  }
+}

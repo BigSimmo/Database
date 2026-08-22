@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "65a686fe-7165-4fc9-9f1b-4b98c1824203",
+  "createdOn": "2026-08-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A worktree sweep deleted an in-use worktree mid-session on 2026-08-21 and destroyed its uncommitted work; nothing checks whether a worktree is live before removal",
+    "detail": "Reproduced by loss, not by test. On 2026-08-21 an agent session was working in .claude/worktrees/task-ledger-review-bee095 with 25 staged-but-uncommitted files. Mid-task the directory was emptied, its .git/worktrees admin directory (and therefore its index) was deleted, and the worktree was deregistered, while the session was still running. The staged blobs became unreachable and the work was lost; only the branch ref survived, still at its unchanged base 1cc0d298774e. Every other worktree on disk carried a modification timestamp inside the same twenty-minute span, so this was a sweep across the whole directory rather than a one-off. TWO CONSEQUENCES WORTH SEPARATING. (1) Data loss: removal considered neither uncommitted/untracked content nor whether a process was live in the directory. (2) Silent corruption of the surviving session: after the removal, git commands issued from the deleted path resolved upward to the main checkout D:/Repos/Database, which was on another agent's feature branch with uncommitted modifications - so an unlucky commit would have landed in a different session's branch and working tree. NEXT: before any automated worktree removal, require all three of (a) the branch is merged or its tip is pushed, (b) git status --porcelain --untracked-files=all is empty, and (c) no live process holds the directory; and skip rather than force when any check cannot be evaluated. Prefer a report-only default with an explicit apply flag, matching how sync:pr-branches already separates dry-run from apply. RELATED: #6GW95D records the disk pressure that motivates sweeping, and now carries the same safety caveat.",
+    "source": "Session 2026-08-21; worktree task-ledger-review-bee095 removed while in use",
+    "issueUlid": "01M0G9797CXCAX0131B8H9J2PM"
+  }
+}

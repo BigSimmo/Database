@@ -591,7 +591,7 @@ export function SettingsDialog({
               // (forced-colors Canvas / reduced-transparency `--surface`).
               // Scroll-hide stays phone-only via `lg:translate-y-0`.
               "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:translate-y-0 lg:pb-3 lg:pt-6 lg:bg-[color:var(--surface-lux)] lg:px-0",
-              headerHidden ? "-translate-y-full" : "translate-y-0",
+              headerHidden && "-translate-y-full",
             )}
           >
             <div className="edge-glass-header-backdrop lg:hidden" aria-hidden="true" />

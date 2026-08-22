@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "01cacbb4-9d47-4d05-bf34-becd134b9075",
+  "createdOn": "2026-08-20",
+  "action": "update",
+  "payload": {
+    "id": "#SZGPAH",
+    "detail": "UPDATE 2026-08-21 (repo read on main at 1cc0d2987): one of the two named assertions is provably gone. The phone test for the shared local-filter behaviour still exists but no longer asserts the exact text 2 showing anywhere in the file - that string has zero occurrences in tests/ui-tools-search-mode-mockup.spec.ts. The desktop test that keeps results beside the selected-tool panel still exists at line 24. NOT VERIFIED: whether the spec now passes - that needs node scripts/run-playwright.mjs --project=chromium-mockups on this file, which was not run. Re-measure before closing or quarantining.",
+    "baseRowFingerprint": "91c2e882526fd9783e8deea3a2261efda6879c336b108101424dcbdcb6e2c961"
+  }
+}

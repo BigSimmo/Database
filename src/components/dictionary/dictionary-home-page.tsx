@@ -1,4 +1,4 @@
-import { GitCompareArrows, LibraryBig, List, Quote, Tags } from "lucide-react";
+import { GitCompareArrows, LibraryBig, List, Tags } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -18,22 +18,20 @@ export function DictionaryHomePage() {
         actionsLabel="Dictionary tasks"
         actions={[
           {
-            title: "Search terms",
-            description: "Find definitions, abbreviations, and topics",
-            icon: Quote,
-            href: "/dictionary/search",
-          },
-          {
-            title: "Browse A–Z",
-            description: `Scan all ${dictionaryEntries.length} canonical entries`,
+            // Search and Browse are one destination: an empty query lists the
+            // whole catalogue, a typed one narrows the same list. Two tiles
+            // pointing at the same page would only make the reader choose
+            // between two words for the same thing.
+            title: "Clinical terms",
+            description: `Search or browse all ${dictionaryEntries.length} canonical entries`,
             icon: List,
-            href: "/dictionary/browse",
+            href: "/dictionary/search",
           },
           {
             title: "Abbreviations",
             description: "Resolve governed abbreviations and ambiguity",
             icon: Tags,
-            href: "/dictionary/browse?view=abbreviations",
+            href: "/dictionary/search?view=abbreviations",
           },
           {
             title: "Clinical topics",

@@ -1040,7 +1040,7 @@ export function DocumentDrawer({
             title={documents.length === 0 ? emptyStates.documentsNoneIndexed.title : emptyStates.documentsNoMatch.title}
             body={
               documents.length === 0
-                ? "Upload a guideline to start indexing."
+                ? "Documents are added through the administrator backend before indexing."
                 : "Try another document title or file name."
             }
             live="polite"
@@ -1131,7 +1131,7 @@ export function DocumentDrawer({
 
 export type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 export type IndexingMonitorFilter = "all" | "active" | "failed";
-export type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
+export type IndexingAdministrationTab = "setup" | "jobs" | "quality";
 
 function documentStatusMatchesFilter(document: ClinicalDocument, filter: DocumentDrawerStatusFilter) {
   if (filter === "all") return true;

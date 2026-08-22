@@ -17,6 +17,142 @@ Playwright workers or revive the refuted cache/shard hacks listed there.
 - Repeated low-yield provider work was removed from ordinary PRs: dependency audit runs when a lockfile/npm configuration can change the dependency tree (and on the scheduled full-run sentinel), eval-canary liveness moved to the daily Ops Digest cadence, and PR-body synchronization runs only when the current PR's own diff changes `PR_POLICY_BODY.md`.
 - The operating rule is incremental value, not a fixed command count: each added check must cover a distinct plausible failure path. Never rerun an unchanged pass, and do not stack broad gates when one suitable gate already covers the risk.
 
+## Gate receipts: never pay twice for the same local proof (2026-08-21)
+
+"Never rerun an unchanged pass" was policy in `AGENTS.md` and in the bullet above, but nothing
+enforced it, so it held only as well as a session remembered what it had already run. The costly
+shape is ordinary: `verify:pr-local` runs `lint`, `typecheck` and the full Vitest suite, then
+`verify:cheap` runs all three again on identical content, and GitHub then runs them a third time.
+Only the third one is unavoidable.
+
+`scripts/gate-receipts.mjs` removes the local repeats. Before an allowlisted gate runs, its wrapper
+hashes the content that gate reads; if a receipt records the same gate exiting 0 on that exact
+signature, the wrapper prints the reuse and exits 0 without re-running. Measured on this checkout:
+~45 ms to sign 3.8k files, against gates that cost minutes.
+
+- **Wired into** `run-heavy.mjs` (`lint`, `typecheck`, `typecheck:source`) and `run-vitest.mjs`
+  (every non-coverage, non-watch, non-snapshot-update run, so `test` and `test:focused` included).
+  `verify:pr-local` and `verify:cheap` inherit the behaviour because they shell out to those scripts.
+- **Signature** = the git blob hash of every in-scope file, with working-tree modifications,
+  untracked non-ignored files and deletions overlaid, plus a toolchain component (Node version,
+  platform, and the `node_modules/.package-lock.json` install stamp). An unstaged edit invalidates
+  the receipt; restoring the content revalidates it.
+- **Scopes are whole-tree today, deliberately.** Both narrowing candidates read more than they look
+  like they read: `tsconfig.typecheck.json` includes every root `.ts` file with `resolveJsonModule`,
+  and the Vitest suite holds contract tests over `.github/workflows/`, `docs/` and `supabase/`.
+  A narrower scope is a declared path list whose existence and non-emptiness the self-test asserts.
+- **Store** is `node_modules/.cache/database-gate-receipts.json`: per-worktree, never committed,
+  destroyed by `npm ci` — correct, because a reinstall changes the toolchain the receipt vouched for.
+
+Boundaries, each of which is a test in `tests/gate-receipts.test.ts`:
+
+- **CI never reuses a receipt.** `receiptsEnabled()` returns false whenever `CI` is set, and no
+  receipt from any machine reaches CI. GitHub stays the authoritative merge gate.
+- **Failures are never memoised**, and a tree that changed while the gate was running is not recorded.
+- **Fail open.** Unreadable git state, or a scope resolving to zero files, runs the gate. A bug here
+  costs a redundant run, never a skipped one.
+- **Artefact-producing gates are excluded.** `build` and `test:coverage` leave `.next/` and
+  `coverage/` behind, which downstream gates read; skipping them would serve stale output — the
+  stale-`.next` trap `AGENTS.md` already documents under "Bundle budget".
+
+Three false-skip holes were found by Codex review on PR #2216 and closed there, each now a
+regression test. They are worth stating because they are the shape this mechanism fails in:
+
+- **File modes are content.** `git update-index --chmod=+x` leaves the blob SHA untouched, so a
+  signature over SHAs alone could not see a hook's executable bit being fixed — the exact bit
+  `tests/session-start-hook.test.ts` guards. The signature now carries the index mode _and_ the
+  working-tree mode: overwriting one with the other cancels the change being detected, which the
+  first attempt at the fix did.
+- **`--coverage` has more than one spelling.** Vitest accepts `--coverage.enabled` and
+  `--coverage=true`; an exact-match exclusion list memoised those, after which a later run would
+  skip and leave `coverage/` stale. Matching is by prefix now.
+- **Some environment variables change the verdict.** `FAST_CHECK_SEED` is read by
+  `tests/property-seed.ts` at import time and exists precisely so a developer can reproduce a
+  property failure; without it in the key, `FAST_CHECK_SEED=123 npm run test` served the default
+  seed's pass. `OUTCOME_AFFECTING_ENV_VARS` declares the set; performance-only knobs stay out.
+
+Reporting: a reused receipt proves the gate passed on this content, not that it ran just now. Say
+"reused receipt from <time>", never "I ran it". `GATE_RECEIPTS=refresh` forces a real run when fresh
+evidence is what is wanted; `GATE_RECEIPTS=off` disables the mechanism; `npm run receipts` shows the
+current signature and stored receipts; `npm run receipts:clear` empties the store.
+
+**What this does not do.** It does not reduce GitHub's work, and it should not: CI must re-verify
+what it is scoped to verify, and `ci-change-scope.mjs` already keeps that scoped. The local run is
+not waste either — it is what stops a red push costing a full CI cycle plus a fix round. The waste
+was only ever the _repeat_, and that is what is now gone.
+
+## Gate arbitration: stop paying for a verdict GitHub is about to reach (2026-08-21)
+
+The receipts section above closes by saying the local run "is not waste either — it is what stops a
+red push costing a full CI cycle". True, and incomplete. `check:gate-manifest` enforces that CI never
+runs less of the local `verify:cheap` static set than the local chain does, which read the other way
+says **every local run of a gate in that chain is work GitHub is about to repeat**. Receipts cannot
+touch that duplication by design: `receiptsEnabled()` is false whenever `CI` is set.
+
+So the local run is a bet, not a certainty. It pays when it fails (a red push costs a CI cycle plus a
+fix round, and ~40% of PR CI runs measured 2026-07-30 were cancellations); it pays nothing when it
+passes. The bet's value is therefore not fixed — it decays as a gate stops catching things on a given
+class of change, and it recovers the moment the gate catches something again. Nothing measured that,
+so the decision was made from habit in both directions: running the full suite on a docs typo, and
+skipping it on a change that deserved it.
+
+`scripts/gate-arbiter.mjs` measures it. Three inputs, none hard-coded:
+
+- **CI coverage**, parsed live from `package.json` + `.github/workflows/ci.yml` using the same
+  field-anchored `run:` regex as `check-gate-manifest.mjs` (the two must agree — a looser parse here
+  would defer to a job the manifest check knows does not exist). Resolved by the gate's own name, its
+  declared CI equivalent (`test` → `test:coverage`), or a CI-invoked aggregate whose package.json body
+  contains it — and then **evaluated against the current change scope**. A step's presence in the YAML
+  is not coverage: `lint` and `typecheck` carry a step-level `if: needs.changes.outputs.static_heavy_changed`,
+  and the `coverage` job is gated on `coverage_changed`, so a docs-only change is covered by none of
+  the three. A name-only scan reported all three covered, which under `GATE_ARBITER=enforce` produced
+  the one outcome the module exists to prevent — local gate deferred, CI gate skipped, no verdict
+  anywhere. Raised as P1 by Codex review on PR #2245 and pinned by `tests/gate-arbiter.test.ts`.
+  Conditions that are not change-scope flags (draft state, event name) cannot be evaluated from a
+  worktree; they are reported as assumed preconditions with the decision rather than silently taken as
+  true. **A gate CI does not re-run for this change is never deferrable.**
+- **Observed yield**, a rolling window (40 observations) keyed by `(gate, change class)`, recorded by
+  `run-heavy.mjs` and `run-vitest.mjs` after every arbitrated run. Recording is pure observation and
+  never alters the run. An admission-busy exit (75) is not a verdict and is not recorded, so lock
+  contention can neither manufacture a clean window nor keep a healthy gate running forever.
+- **Content identity**, via `record-ci <sha>`: a clean worktree plus an empty `git diff <sha> HEAD`
+  proves the content GitHub judged is the content in front of us. Both halves are required — a clean
+  tree alone does not prove HEAD has not moved, and a matching diff alone cannot see an uncommitted
+  edit. Reading GitHub is provider-backed, so the arbiter never reaches for it; the session that
+  already looked at CI passes what it saw.
+
+Change class comes from `scripts/ci-change-scope.mjs` — the classifier CI itself uses to route jobs —
+rather than a second risk model, so the arbiter and CI cannot drift into two opinions about what a
+path means. Clean-window sizes: `docs` 3, `source` 12. Every other class (`db`, `rag`, `deps`,
+`container`, `workflow`, `ui`, `unknown`) is absent from the window map and never defers at any length.
+`tests/gate-arbiter.test.ts` pins that absence, so adding a risky class to the deferrable set fails.
+
+Boundaries, each of them a test in `tests/gate-arbiter.test.ts`:
+
+- **Fail open.** Unreadable CI, unknown class, missing observations, git failure — all run the gate.
+- **CI never consults it.** `arbiterMode()` returns disabled whenever `CI` is set.
+- **Advisory by default.** The wrappers act on a deferral only under `GATE_ARBITER=enforce`; a gate a
+  human typed still runs. `GATE_ARBITER=off` disables it entirely.
+- **The first catch re-arms the window**, so a gate that starts failing again is never left deferred
+  because it had a long clean run beforehand.
+- **A narrowed Vitest run records under its own identity** (`vitest(selected)`), so a clean history of
+  focused runs can never satisfy the full suite's window.
+- **`record-ci` requires an explicit gate list**, and rejects a SHA that does not resolve here, so one
+  observed green job cannot become stored proof for every arbitrated gate.
+- **Observations are re-read immediately before the write**, so two gates finishing together cannot
+  drop a catch — the unsafe direction, since a lost catch leaves a failing gate deferred.
+- **A deferred gate is not a passed gate.** The verdict prints that sentence; report it as "deferred
+  to CI", never as green.
+
+`npm run arbiter -- <gate>` gives the verdict and its evidence; `npm run arbiter:status` shows the
+yield ledger and the accumulated duplication bill; `npm run arbiter:clear` empties it. The ledger sits
+beside the receipt store under `node_modules/.cache/`, so it is per-worktree, never committed, and
+destroyed by `npm ci`.
+
+**What this does not do.** It does not reduce GitHub's work, weaken any required check, or change
+which gate is the smallest correct one for a diff. It decides only whether that gate still has
+anything left to tell you before you push.
+
 ## Multi-worktree reconciliation hardening (2026-07-23)
 
 The cloud-chat reconciliation postmortem and complete issue/fix matrix are in

@@ -35,8 +35,19 @@ function isDeveloperGatedPath(pathname: string) {
 //      API requests still pass through this refresh path because route handlers
 //      cannot write rotated SSR cookies back to the browser themselves.
 
-const documentFlowRedirects: Record<string, string> = {
+/**
+ * Retired paths that forward, query string intact, to the surface that replaced
+ * them. Resolved here as one 307 rather than left to the page's own
+ * `redirect()`, which under the streaming `(search-app)` layout emits a
+ * client-side meta refresh — a second of empty shell. Each page keeps its
+ * redirect as a backstop for anything the matcher misses.
+ */
+const staticRouteRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
+  // Dictionary's Search and Browse were one catalogue behind two destinations
+  // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
+  // thing there, so the query string travels unchanged.
+  "/dictionary/browse": "/dictionary/search",
 };
 
 const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);
@@ -77,6 +88,22 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (
+    ["POST", "PUT", "PATCH", "DELETE"].includes(request.method) &&
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/webhooks/")
+  ) {
+    const secFetchSite = request.headers.get("sec-fetch-site");
+    if (secFetchSite === "cross-site") {
+      const response = NextResponse.json(
+        { error: "Cross-site request blocked.", code: "cross_site_forbidden" },
+        { status: 403 },
+      );
+      response.headers.set("content-security-policy", csp);
+      return response;
+    }
+  }
+
   // Request headers Next.js reads during SSR: `x-nonce` for our own inline
   // <script>, and the CSP header from which Next extracts the nonce for its
   // scripts. Rebuilt from the *current* request each call so session-cookie
@@ -105,7 +132,7 @@ export async function proxy(request: NextRequest) {
   const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
   if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
 
-  const redirectTarget = documentFlowRedirects[pathname];
+  const redirectTarget = staticRouteRedirects[pathname];
 
   if (redirectTarget) {
     const url = request.nextUrl.clone();

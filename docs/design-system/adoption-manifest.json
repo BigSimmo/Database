@@ -280,6 +280,7 @@
       "directImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -295,6 +296,7 @@
       "productImportFiles": [
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -510,11 +512,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/ui/retrieval-state-banner.tsx",
         "src/components/ui/verification-notice.tsx"
       ],
       "productImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/ui/retrieval-state-banner.tsx",
         "src/components/ui/verification-notice.tsx"
       ],
@@ -559,6 +563,7 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/medication-interaction-surfaces.dom.test.tsx",
+        "tests/privacy-ui.test.ts",
         "tests/ui-forms-section-nav.spec.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -1022,7 +1027,6 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/search/page.tsx",
         "src/app/(search-app)/dictionary/topics/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/topics/page.tsx",
@@ -1035,7 +1039,6 @@
         "src/components/therapy-compass/ui.tsx"
       ],
       "productImportFiles": [
-        "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/search/page.tsx",
         "src/app/(search-app)/dictionary/topics/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/topics/page.tsx",
@@ -1153,6 +1156,7 @@
       "directImportFiles": [
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -1165,6 +1169,7 @@
       "productImportFiles": [
         "src/components/dsm/dsm-page-header.tsx",
         "src/components/information-page-shell.tsx",
+        "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/detail-screen.tsx",
@@ -1462,7 +1467,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -1473,7 +1477,6 @@
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -2285,8 +2288,8 @@
         {
           "file": "src/app/(search-app)/dictionary/browse/page.tsx",
           "exists": true,
-          "imports": ["LoadingPanel"],
-          "importedFamilies": ["feedback"],
+          "imports": [],
+          "importedFamilies": [],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
@@ -2320,7 +2323,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["SearchPage"]
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/dictionary/sources/page.tsx",

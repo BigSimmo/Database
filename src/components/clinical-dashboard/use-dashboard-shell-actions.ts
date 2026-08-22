@@ -4,7 +4,7 @@ import { useCallback } from "react";
 
 import { useFavouritesAccess, type AccountSetupIntent } from "@/components/clinical-dashboard/use-favourites-access";
 
-type TransientSurface = "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload";
+type TransientSurface = "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "indexingAdmin";
 
 /**
  * Dashboard chrome helpers: Favourites session access, account-setup intent, and
@@ -18,7 +18,7 @@ export function useDashboardShellActions(options: {
   setSettingsOpen: (open: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   setDocumentsDrawerOpen: (open: boolean) => void;
-  setUploadDrawerOpen: (open: boolean) => void;
+  setIndexingAdminDrawerOpen: (open: boolean) => void;
   prefetch: (href: string) => void;
 }) {
   const {
@@ -29,7 +29,7 @@ export function useDashboardShellActions(options: {
     setSettingsOpen,
     setMobileSidebarOpen,
     setDocumentsDrawerOpen,
-    setUploadDrawerOpen,
+    setIndexingAdminDrawerOpen,
     prefetch,
   } = options;
 
@@ -48,7 +48,7 @@ export function useDashboardShellActions(options: {
       if (except !== "accountSetup") closeAccountSetup();
       if (except !== "mobileSidebar") setMobileSidebarOpen(false);
       if (except !== "documents") setDocumentsDrawerOpen(false);
-      if (except !== "upload") setUploadDrawerOpen(false);
+      if (except !== "indexingAdmin") setIndexingAdminDrawerOpen(false);
     },
     [
       closeAccountSetup,
@@ -56,7 +56,7 @@ export function useDashboardShellActions(options: {
       setGuideOpen,
       setMobileSidebarOpen,
       setSettingsOpen,
-      setUploadDrawerOpen,
+      setIndexingAdminDrawerOpen,
     ],
   );
 

@@ -788,7 +788,14 @@ describe("Codex Cloud environment contract", () => {
     expect(rewritten).toContain("[mcp_servers.example]");
     expect(rewritten.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
     expect(rewritten.match(/BEGIN clinical-kb-codex-cloud shell policy/g)).toHaveLength(1);
-  });
+    // Two full `bash scripts/setup-codex-cloud.sh` runs. That is cheap on Linux
+    // and is not on Windows, where each spawn goes through Git Bash: measured at
+    // 24.96s on a Windows workstation running this file ALONE — 83% of the 30s
+    // default in vitest.config.mts. Under a full `npm run test` the four workers
+    // contend and it tips over, which is how this failed there while passing in
+    // isolation and passing everywhere on Linux. The sibling case below already
+    // carries this budget for the same reason; this one was missed.
+  }, 120_000);
 
   it("pins connected retrieval mode and rejects unsafe shell-policy configs", () => {
     const connectedHome = temporaryDirectory("codex-cloud-connected-");

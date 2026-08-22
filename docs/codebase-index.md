@@ -78,7 +78,7 @@ Smaller top-level directories that are easy to miss:
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                             | `src/app/(search-app)/dsm/`                                                               |
 | `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                       | `src/app/(search-app)/documents/`                                                         |
 | `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                                                                  | `src/app/(search-app)/factsheets/`                                                        |
-| `/dictionary`, Search, Browse, Topics, Definition, Compare, Sources                                                                                        | `src/app/(search-app)/dictionary/`                                                        |
+| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare, Sources                                          | `src/app/(search-app)/dictionary/`                                                        |
 | `/favourites`                                                                                                                                              | `src/app/(search-app)/favourites/page.tsx`                                                |
 | `/forms`, `/forms/[slug]`                                                                                                                                  | `src/app/(search-app)/forms/`                                                             |
 | `/medications`, `/medications/[slug]`                                                                                                                      | `src/app/(search-app)/medications/`                                                       |
@@ -169,13 +169,13 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Clinical product data
 
-| Module                                                               | Role                                                    |
-| -------------------------------------------------------------------- | ------------------------------------------------------- |
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides  |
-| `dictionary-data.ts`, `dictionary.ts`                                | Governed terminology, sources, topics, aliases, filters |
-| `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers    |
-| `formulation.ts`                                                     | Local formulation mechanism library and builder helpers |
-| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                               |
+| Module                                                               | Role                                                                                                                               |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides                                                                             |
+| `dictionary-data.ts`, `dictionary.ts`                                | Governed terminology, sources, topics, aliases, filters; `dictionaryCatalogue` is the one selector behind the merged Terms surface |
+| `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers                                                                               |
+| `formulation.ts`                                                     | Local formulation mechanism library and builder helpers                                                                            |
+| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                                                                                                          |
 
 ### Infra helpers
 
@@ -245,7 +245,7 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 | `prerequisites.ts`             | Python/PDF OCR checks                                                                   |
 | `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract)                                                |
 
-**Flow:** Upload → Storage + job queue → worker parses (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI embeddings → pgvector.
+**Flow:** Administrator backend upload → Storage + job queue → worker parses (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI embeddings → pgvector. The site does not expose a user document-upload workflow.
 
 **Run:** `npm run worker` or `npm run worker:once`
 
@@ -284,7 +284,7 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
 ### Indexing pipeline
 
-1. Upload via `/api/upload` → `clinical-documents` bucket
+1. Administrator backend upload via `/api/upload` → `clinical-documents` bucket
 2. Queue `ingestion_jobs` (+ optional `import_batches`)
 3. **Worker** (`worker/main.ts`) or **Edge agent** (`indexing-v3-agent`) processes: extract → chunk → embed → write chunks, pages, images, embedding fields, index units, table facts
 4. Quality gates: `document_index_quality`, enrichment versions, strict completion RPCs
@@ -322,7 +322,7 @@ sequenceDiagram
 ### Clinical KB surface
 
 - 13 app modes with unified search shell
-- Documents mode: upload/manage private guidelines, search, cited answers
+- Documents mode: browse indexed guidelines, search, scope, and inspect cited answers; document uploads remain in the administrator backend
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
