@@ -263,23 +263,27 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(firstRow).toContainText(`Operational ${firstRowScore}`);
 
     // The breach line is the row a coordinator must not miss, and it must be able to vanish
-    // silently for neither direction (Task 5 review Important 3). Rows are read by position
-    // (`firstRow`/`secondRow`), never pinned by id, so this proves whichever movement
-    // `queueOrder` ranks first is actually the one whose breach reaches the screen — an
-    // ordering guarantee as well as a rendering one.
+    // silently for neither direction (Task 5 review Important 3).
     //
-    // Task 6A fix round 1: corrects two errors this comment used to carry. First, it named
-    // WF-017 as "first row" — true before Task 6A deleted the fabricated Form 3B deadline that
-    // inflated WF-017's score, false now that WF-017 ranks well below row 1 (see the "shows a
-    // failing gate" test below, which now pins WF-017 explicitly by id for exactly that reason).
-    // Second, it said "Form 2A", which was wrong even before Task 6A — the deadline form has
-    // always been coded 1A. Fixture assumption this assertion now rests on: the top-ranked
-    // movement carries a breached Form 1A and must show the breach line; the second-ranked
-    // movement carries no deadline at all — not merely an unbreached one, since Task 6A removed
-    // WF-009's Form 3B `dueAt` entirely — and must not show the line.
-    await expect(firstRow).toContainText("passed its deadline");
+    // Task 6A fix round 1 corrected two errors this comment used to carry (WF-017 as "first
+    // row", and "Form 2A" instead of "1A"). The clinician's "Bed need confirmed" factor, added
+    // 2026-08-22, moves the goalposts a second time: a movement whose examination outcome is
+    // recorded as `inpatient_order` now outranks one nobody has assessed at all, inside the
+    // same tier. WF-009 and WF-017 both carry that confirmed need and both carry a Form 3B with
+    // no `dueAt` (Task 6A deleted the fabricated one, so a 3B can never be breached) — they now
+    // rank rows 1 and 2 ahead of WF-303, which carries the breached Form 1A but no confirmed
+    // need. So `firstRow`/`secondRow` can no longer be used to prove the breach line renders —
+    // by design, neither of the top two rows has one to render — and the breach-line assertion
+    // is pinned by id instead, the same pattern the "shows a failing gate" test below already
+    // uses for WF-017/WF-009 for the identical reason (a fixture fact tied to a specific
+    // movement, not to whichever row currently ranks first).
+    await expect(firstRow).not.toContainText("passed its deadline");
     const secondRow = rows.nth(1);
     await expect(secondRow).not.toContainText("passed its deadline");
+    // Fixture assumption: WF-303 carries a breached Form 1A and no confirmed bed need, so it
+    // must still show the breach line — it just no longer does so from row 1 or 2.
+    const breachedRow = queue.locator('[data-testid="ward-queue-row-WF-303"]');
+    await expect(breachedRow).toContainText("passed its deadline");
 
     // Selecting a movement drives the rest of the screen.
     await firstRow.click();
@@ -370,12 +374,18 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(diagram.locator('svg path[data-connector-kind="demand"]')).toHaveCount(8);
     await expect(diagram.locator('svg path[data-connector-kind="route"]')).toHaveCount(0);
 
+    // Excludes WF-009 by id. The clinician's "Bed need confirmed" factor (added 2026-08-22) can
+    // put WF-009 at row 1 on the current fixture — see the "orders by clinical tier" test above
+    // — and the contrast this test needs below only holds if the two clicked movements are
+    // genuinely different. Without the exclusion, "row 1" and "WF-009" could silently become the
+    // same movement and the second assertion would pass by tautology rather than by proof.
     const firstRow = page
       .getByRole("region", { name: "Priority queue" })
-      .locator('[data-testid^="ward-queue-row-"]')
+      .locator('[data-testid^="ward-queue-row-"]:not([data-testid="ward-queue-row-WF-009"])')
       .first();
     const movementId = (await firstRow.getAttribute("data-testid"))?.replace("ward-queue-row-", "");
     expect(movementId, "the first queue row must carry a real movement id").toBeTruthy();
+    expect(movementId, "the exclusion above must keep this genuinely different from WF-009").not.toBe("WF-009");
     await firstRow.click();
 
     const { movement } = await assertRoutedMatchesShortlist(diagram, String(movementId));
@@ -387,10 +397,10 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(origin).toHaveAttribute("data-testid", `ward-diagram-ed-${movement.originEdId}`);
 
     // Review Important 3: the identity assertion above must hold for more than the one movement
-    // that happens to be queue row 1. WF-009 has an entirely different shortlist (proven
-    // separately, in the ineligible-routes test below, to also be an entirely different
-    // eligibility outcome) — a hard-coded routed set that coincidentally matched row 1's
-    // shortlist would fail here instead of passing by coincidence.
+    // selected above. WF-009 has an entirely different shortlist (proven separately, in the
+    // ineligible-routes test below, to also be an entirely different eligibility outcome) — a
+    // hard-coded routed set that coincidentally matched the first movement's shortlist would
+    // fail here instead of passing by coincidence.
     await page.getByRole("region", { name: "Priority queue" }).locator('[data-testid="ward-queue-row-WF-009"]').click();
     await assertRoutedMatchesShortlist(diagram, "WF-009");
   });
@@ -683,12 +693,16 @@ test.describe("Ward Flow coordinator screen", () => {
    * rather than merely checking a button is visible (Ruling 4).
    *
    * Task 6A fix round 1: queue row 1 used to be WF-017 only because a fabricated Form 3B
-   * deadline (deleted in Task 6A) inflated its operational score. On the real fixture WF-017 no
-   * longer ranks first — WF-303 and WF-009 now rank first and second by `queueOrder` — so this
-   * test selects WF-017 explicitly by id instead of relying on row position. WF-017's default
-   * candidate still passes all eight gates (re-verified against the current fixture), so the
-   * clean-vs-failing contrast this test depends on still holds; WF-009 genuinely is queue row 2
-   * on the current fixture and is still selected below.
+   * deadline (deleted in Task 6A) inflated its operational score; WF-303 and WF-009 ranked
+   * first and second by `queueOrder` on that fixture instead. The clinician's "Bed need
+   * confirmed" factor (added 2026-08-22 — a movement whose examination outcome is recorded as
+   * `inpatient_order` now outranks one nobody has assessed, inside its tier) reorders it again:
+   * WF-009 and WF-017 both carry that confirmed need and now rank rows 1 and 2, ahead of
+   * WF-303. This test selects both WF-017 and WF-009 explicitly by id rather than by row
+   * position, so it does not depend on either fixture's ordering. WF-017's default candidate
+   * still passes all eight gates (re-verified against the current fixture), so the
+   * clean-vs-failing contrast this test depends on still holds; WF-009 still guarantees a
+   * failing gate on its own default candidate regardless of which row it renders in.
    */
   test("shows a failing gate as a failure and never auto-allocates", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
@@ -716,8 +730,9 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
     await expect(shortlist.getByRole("button", { name: /Refer/ })).toBeVisible();
 
-    // WF-009 (queue row 2): guaranteed to surface a failing gate on its default candidate, unlike
-    // WF-017 above — this is the unconditional proof the brief's own guarded assertion could skip.
+    // WF-009: guaranteed to surface a failing gate on its default candidate, unlike WF-017
+    // above — this is the unconditional proof the brief's own guarded assertion could skip.
+    // Selected by id, not by row position, so it does not matter which row it currently ranks.
     await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
     const wf009Gates = shortlist.locator('[data-testid^="ward-gate-"]');
     await expect(wf009Gates).toHaveCount(8);
