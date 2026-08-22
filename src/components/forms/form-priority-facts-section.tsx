@@ -198,6 +198,10 @@ function ActSectionsCard({
   const groupLabelId = useId();
   const visible = sections.slice(0, ACT_SECTION_CHIP_LIMIT);
   const overflow = sections.length - visible.length;
+  // Say on the card face, not only inside the sheet, that these summaries carry no
+  // clinician sign-off yet — otherwise the card reads as reviewed authority to anyone who
+  // never opens a section.
+  const awaitingReview = sections.some((entry) => entry.reviewStatus === "drafted");
 
   return (
     <DetailCardShell card={card}>
@@ -233,7 +237,7 @@ function ActSectionsCard({
         ) : null}
       </div>
       <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>
-        Tap a section for authority detail
+        {awaitingReview ? "Tap a section — awaiting clinical review" : "Tap a section for authority detail"}
       </p>
     </DetailCardShell>
   );

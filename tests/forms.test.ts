@@ -10,6 +10,7 @@ import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
 import { defaultFormSlug, formRecords, formStaticParams, getFormRecord, searchFormRecords } from "@/lib/forms";
 import { buildDefaultFormRows } from "@/lib/registry-fixtures";
+import { mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 
 describe("psychiatry form records", () => {
   it("copies the visible form details rather than only the primary contact", () => {
@@ -92,6 +93,24 @@ describe("psychiatry form records", () => {
       ).toEqual(["clock", "authority", "criteria", "act-sections"]);
       expect(formCatalogDetails(form)?.actSections?.length, form.slug).toBeGreaterThan(0);
     }
+  });
+
+  it("never lets a seeded owner row keep a superseded Act summary", () => {
+    // Reproduces the merge path an owner seeded before an Act amendment or a summary
+    // correction takes: mergeRegistryRecordWithDefaults spreads the stored payload over
+    // the baseline, so without forcing actSections from the baseline the owner would read
+    // the superseded legal summary forever and bypass the hash gate entirely.
+    const rows = buildDefaultFormRows("00000000-0000-4000-8000-000000000001");
+    const seeded = structuredClone(rows.find((row) => row.slug === "form-1b"))!;
+    const payload = seeded.catalog_payload as { actSections: { section: string; summary?: string }[] };
+    payload.actSections = payload.actSections.map((section) => ({ ...section, summary: "SUPERSEDED SUMMARY" }));
+
+    const merged = mergeRegistryRecordsWithDefaults("form", [seeded as never]);
+    const record = merged.find((entry) => entry.slug === "form-1b");
+    const summaries = formCatalogDetails(record!)?.actSections?.map((section) => section.summary);
+
+    expect(summaries).not.toContain("SUPERSEDED SUMMARY");
+    expect(summaries).toEqual(formCatalogDetails(getFormRecord("form-1b")!)?.actSections?.map((s) => s.summary));
   });
 
   it("covers the seven unindexed forms from the supplemental cue map", () => {

@@ -120,6 +120,43 @@ describe("Act sections card with many citations", () => {
     expect(await screen.findByTestId("form-act-section-sheet")).toHaveTextContent(/Summary of section 130\./);
   });
 
+  it("flags drafted sections on the card face, not only inside the sheet", () => {
+    // A reader who never opens a section must still see that the summaries behind this
+    // card carry no clinician sign-off.
+    render(
+      <FormDetailPage
+        form={formWithSections([
+          {
+            section: "66",
+            title: "Transfer from general hospital",
+            summary: "Summary of 66.",
+            reviewStatus: "drafted",
+          },
+        ])}
+      />,
+    );
+    const priorityFacts = screen.getByLabelText("Priority facts");
+    expect(within(priorityFacts).getByText(/awaiting clinical review/i)).toBeInTheDocument();
+  });
+
+  it("drops the card-face flag once every rendered section is reviewed", () => {
+    render(
+      <FormDetailPage
+        form={formWithSections([
+          {
+            section: "66",
+            title: "Transfer from general hospital",
+            summary: "Summary of 66.",
+            reviewStatus: "reviewed",
+          },
+        ])}
+      />,
+    );
+    const priorityFacts = screen.getByLabelText("Priority facts");
+    expect(within(priorityFacts).queryByText(/awaiting clinical review/i)).not.toBeInTheDocument();
+    expect(within(priorityFacts).getByText(/Tap a section for authority detail/i)).toBeInTheDocument();
+  });
+
   it("says so when a summary has not been clinically reviewed yet", async () => {
     const user = userEvent.setup();
     render(
