@@ -2325,3 +2325,82 @@ implementer said so plainly rather than hedging, and **deliberately did not pre-
 type**. The re-reviewer agreed: a consumer that only reads rows is unaffected, and a consumer that tries
 to assign to one is exactly the bug class the change exists to catch. Weakening a contract speculatively,
 against code that does not exist yet, would have reintroduced the gap on purpose.
+
+## Task 18 — one renderer, twenty-four overlays, at `435478849`. Review APPROVED.
+
+Full suite `701 files / 7769 tests passed, 29 skipped`. All nine rules implemented against the frozen
+table rather than around it: no `switch` on overlay id anywhere, modality originating in exactly one
+place, and `SHEET_GEOMETRY` type-keyed so an added modality is a compile error rather than a silent
+default. Seven removed lines across the whole diff, each accounted for; no assertion deleted or weakened.
+
+### THE FINDING THAT MATTERS MOST, and it is against ME
+
+**The Task 16 client-boundary guard did not guard.** I authorised Task 18 to widen its allowlist and told
+the implementer the guard _would_ go red — "that is the guard working exactly as intended". It did not go
+red. Its `readdirSync` was **top-level only**, so nothing under `overlays/` was ever scanned.
+
+The reviewer reproduced both scans against the live tree: the old one returned exactly **six** files and
+never saw the subdirectory; the recursive replacement returns all **nine**. So a `"use client"` file in
+any subdirectory would have passed silently — and the guard whose whole purpose is to stop a responder's
+free-text incident note being serialised into the HTML payload for every team to read was, in that
+respect, decorative.
+
+Two things are worth recording beyond the fix:
+
+1. **The implementer found it by noticing the guard did NOT fire when its controller had said it would.**
+   That is harder to notice than a failure, and it is the opposite of the usual failure mode — nobody
+   investigates an unexpected green. It reported it as its first concern rather than quietly widening the
+   allowlist and moving on.
+2. **This is the sharpest form of the branch's recurring defect.** Eleven tests unable to fail, then a
+   twelfth — and now a _safeguard_ reporting protection it did not provide. A test that cannot fail wastes
+   a slot; a guard that cannot fire while carrying a privacy rationale is worse, because it is cited as
+   evidence. My Task 16 sign-off cited it.
+
+**The rule this hardens, and it generalises past this branch: a guard must be proven to fire, at the
+moment it is introduced, by making the thing it forbids and watching it object.** Task 16's guard was
+proven falsifiable by adding `"use client"` to a file **in the directory root** — which is exactly the
+case its flat scan covered. The proof was real and the coverage was still partial, because the mutation
+and the blind spot were the same shape. **A falsifiability proof only certifies the path it took.**
+
+### Ruling 60 — the stamped modality and the rendered geometry disagree between 640 and 767 px
+
+`widthStateFor` switches compact→rail at 768; the shared design-system `Sheet` switches mobile→desktop
+geometry at Tailwind `sm:` = 640. So at 700 px a `bottom-sheet` row stamps `bottom-sheet` and renders as
+a centred dialog. I read `sheet.tsx` before ruling: the geometry is CSS-driven with no prop to force
+mobile layout above 640, and `full-screen-stage` is unaffected because it transitions at `lg:` (1024). The
+mismatch is confined to `bottom-sheet` rows in a 128 px band.
+
+Ruling: [60] Make the claim honest rather than fight the shared component. No change to `sheet.tsx` (a
+design-system component the whole application uses — the blast radius dwarfs the defect), no change to the
+frozen `widthStateFor` mapping, and **no className override** forcing the geometry, which would fight the
+shared cascade and break silently the next time that component changes. Instead: a test pinning the band
+and naming its cause so it cannot widen unnoticed, and a comment at the stamping site stating exactly what
+the attribute means — the frozen contract's modality choice, authoritative below 640 and at 768 and above.
+— Why: nothing in the 24-overlay contract's SAFETY properties — dismissal, fresh authentication, blocking
+— depends on geometry, and the band is one the frozen four-state mapping never samples. Its review widths
+are 320/390/430, then 768, 1024, 1440; **nothing between 431 and 767 was ever specified.** — Cost if
+wrong: a clinician on a small tablet sees a centred dialog where the contract names a bottom sheet, which
+is cosmetic. Reconciling it properly is a design-record decision.
+
+**FLAGGED FOR THE OWNER as a design-record question:** the frozen four-state mapping does not sample
+431–767, and the shared Sheet's own breakpoint is 640. Whether the two should be reconciled is a design
+decision, not one to take inside a fix round.
+
+### Ruling 61 — a machine identifier was being shown to a clinician
+
+`blockReason` rendered verbatim: "The reason given is permission-unavailable." Spec §4.4 requires the
+reason in **plain words**, and an identifier is not plain words — this is the explained-automation
+contract failing on its own terms.
+
+Ruling: [61] Map each reason to human wording through an **explicit and total** lookup that fails loudly
+on an unknown key, exactly as Ruling 57 required for the matrix normalisation. No default branch, and no
+deriving the wording by transforming the identifier — that would turn a future unmapped reason into a
+plausible-looking sentence, which is the same failure Ruling 57 exists to prevent one layer down.
+— Cost if wrong: a new refusal reason must be given wording before it can be shown, which is the
+intended burden.
+
+### The guard's blind spot moved rather than closed
+
+`src/app/caring-contacts/page.tsx` holds the whole `ServiceState` and sits **outside** the scan root, so
+if that route file ever became a Client Component the note would serialise and the recursive guard would
+stay green. Same class of hole, one directory up. Sent for fixing with a required falsifiability proof.
