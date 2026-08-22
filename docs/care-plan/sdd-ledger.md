@@ -98,14 +98,15 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 
 ## Progress
 
-| Task                             | State                      | Commits                | Evidence                                                                               |
-| -------------------------------- | -------------------------- | ---------------------- | -------------------------------------------------------------------------------------- |
-| 1. Domain, fixtures, selectors   | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                         |
-| 2. Reducer, provider, lifecycle  | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                  |
-| 3. Routes, gate, shell           | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                  |
-| 4. Snapshot, search, contacts    | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                  |
-| 5. Plan reading, boundary, print | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red |
-| 6–11                             | not started                | —                      | —                                                                                      |
+| Task                               | State                      | Commits                | Evidence                                                                                                        |
+| ---------------------------------- | -------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1. Domain, fixtures, selectors     | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                                                  |
+| 2. Reducer, provider, lifecycle    | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                                           |
+| 3. Routes, gate, shell             | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                                           |
+| 4. Snapshot, search, contacts      | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                           |
+| 5. Plan reading, boundary, print   | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                          |
+| 6. Authoring, approval, withdrawal | **complete, review clean** | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
+| 7–11                               | not started                | —                      | —                                                                                                               |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
 lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
@@ -243,6 +244,36 @@ Pagination, cascade order against Tailwind utilities, whether the monochrome rul
 wins, and real print preview are all Task 11 work. No Chromium journey, no accessibility
 audit, no responsive observation at 320 px or 390 px, no production build, and no
 provider-backed gate has run for this feature.
+
+### Task 6 — complete. Stage B opens here.
+
+- Dispatched opus. Returned `DONE_WITH_CONCERNS` at `01f386ace`. Task review (opus) returned
+  Spec ❌ with **two Critical**, three Important and several Minor. Two fix rounds
+  (`65f930994`, `2113fe97f`); the scoped re-review verdicted every finding ADDRESSED with no
+  new breakage, and confirmed each new guard would catch its original defect if reintroduced.
+- Final: `Test Files 4 passed (4)` / `Tests 306 passed (306)`, plus `form-field.tsx`'s other
+  consumers at 161/161. Typecheck and lint clean. 28 mutations, 27 killed and one honestly
+  reported as **equivalent rather than killed**.
+- The whole offline suite ran at 2 failed / 8036 passed. Both failures are `gate-receipts`
+  file-mode tests, environmental on this Dev Drive (`fs.chmodSync` reports
+  `mode before: 100666 after: 100666 changed: false`) and untouched by a diff that goes
+  nowhere near `scripts/` or `.githooks/`. Recorded as red, not rounded to green.
+
+**Both Critical findings reached the user and neither was visible to any gate.** The first was
+a stylesheet block inserted between a selector list's comma and its continuation, which
+silently rebound `.pinnedBoundaryLink` — the jump link inside the pinned safety boundary — so
+it lost its colour, weight and underline and rendered as plain text with no affordance at all.
+Three existing guards all passed it: Vitest runs `css: false` so no DOM test can see styling;
+the protected-selector guard inspects declarations only for _suppression_, so a rebinding is
+invisible to it; and the `.appRoot` scoping test splits on the comma and finds both halves
+correctly scoped. The second told an approving senior clinician that **nothing had changed in
+any section of a patient's first plan**, comparing the proposed content against itself under
+the heading `Comparing Current version 0`. Reachable today on `SYN-PATIENT-005`.
+
+**The implementer caught the sixth guard-that-cannot-fail itself**, which is the first time
+that has happened on this project rather than a reviewer finding it. Its scenario-sync test
+navigated only the pathname, leaving every effect dependency untouched, so the effect never
+re-ran and the test would have passed whatever the guard did.
 
 ---
 
@@ -551,6 +582,61 @@ text against itself. Six conflicts found, six ruled.
     risk is gone by deletion instead of by coupling. _Cost if wrong:_ a future surface needing
     the tone exports it then, which is the cheaper moment to decide the shape.
 
+### Task 6
+
+37. **A third worked example pinned version 3 against a fixture that says 2 — the fixtures
+    win, and this is now a pattern rather than an incident.** Rulings 21 and 30 recorded the
+    same defect for Tasks 2 and 4; Task 6's example asserted `Approve version 3` /
+    `Current version 3` for `SYN-PATIENT-002` when `SYN-MGMT-VERSION-004` is
+    `awaiting_approval` at version 2 over a Current at version 1. Every remaining task brief
+    that names a version number should be checked against the fixtures before dispatch, not
+    after. _Cost if wrong:_ none — the rest of the example verified exactly.
+
+38. **Task 6 builds the role switcher, which no earlier task built.** The brief's example
+    selects a `Prototype role` combobox that did not exist: the shell displayed the active
+    synthetic user as static text and offered no way to change it, though the `set-active-user`
+    action had existed since Task 2. Approval is role-gated and withdrawal is
+    `senior_clinician`-only, so a prototype that cannot switch between a senior and a
+    non-senior view cannot demonstrate its own central governance rule, and every later queue
+    and permission surface needs the same control. It is interaction modelling, not
+    authentication — the displayed user explains why an action is available and the reducer
+    remains the final guard. _Cost if wrong:_ a control in the rail that a later task would
+    have had to build anyway.
+
+39. **The URL-to-reducer scenario sync lands in Task 6, not deferred.** Every reducer-gated
+    refusal across Tasks 4, 5 and 6 was **dead in the running application**: the provider is
+    mounted in a server layout that cannot read a query string, so `state.scenario` was always
+    `normal` and every branch of `getPrototypeMutationBlockReason` was unreachable. Three tasks
+    had shipped refusals no user could ever see, and each further task would add more. The
+    implementer's reason for deferring — that a route-level effect resets the whole world and
+    might collide with a later task's design — was weaker than it looked: the sibling Caring
+    Contacts prototype already implements the same guarded sync in about eight lines.
+
+    **The guard is the substance of the ruling.** `apply-scenario` reconstructs fixtures, and
+    Ruling 20 removed an online/offline listener precisely because routing through it discards
+    a clinician's in-session draft. So the effect dispatches **only when the scenario named in
+    the URL differs from `state.scenario`** — never on every render, never on an ordinary
+    navigation within one scenario. Both directions are tested. What is genuinely prop-driven
+    was never at risk: `identity-uncertain` and `launch-failure` were always reachable, and
+    `unverified-contact` comes from the fixture rather than the query, so Task 4's
+    contact-failure behaviours were intact throughout. _Cost if wrong:_ an effect in the route
+    surface that Task 10 may want to reshape when it builds the System states controls — that
+    screen now owns the question of whether a hand-toggled scenario also updates the URL.
+
+40. **The shared `ErrorSummary` keeps focus on a failed submit; the round-1 opt-out was
+    reverted.** The brief says to focus the first invalid field, and the repository primitive
+    focuses itself, so the combination gave a screen-reader user two focus events and moved
+    them off a summary of up to seven linked errors before it could be read. Round 1 resolved
+    it by opting the summary out. Overruled: the primitive already made this decision for
+    every form in the product, and a Care Plan form behaving differently from every other form
+    is worse for a user than either target on its own. With this many errors the summary is
+    also the more useful landing place — the user hears how many problems there are and
+    chooses — and its links are how they reach the field, so the brief's requirement is
+    satisfied by their choice rather than pre-empted. Reverting also returned
+    `src/components/ui/form-field.tsx` to **untouched**, which the re-reviewer confirmed from
+    the diff rather than from the implementer's word. _Cost if wrong:_ a one-line flip, and the
+    ordering test pins whichever way it points.
+
 ---
 
 ## Deferred minors — for the whole-branch review to triage
@@ -602,6 +688,23 @@ Recorded, not fixed. None blocks a later task.
 
 The hand-rolled `aria-live` region was **not** deferred: it was removed as part of Important #3,
 because it double-announced against the focus move that fix depends on.
+
+**Task 6** — recorded rather than fixed.
+
+- `management-plan-form.tsx` is 661 lines with nine pure helpers (`toDateValue`,
+  `toPerthTimestamp`, `textOf`, `linesFrom`, `valuesFrom`, `contentFrom`, `draftInputFrom`,
+  `bannedConstructionIn`, `validate`) reachable only through a rendered form — the same
+  argument that correctly earned `diffManagementPlanContent` its own export.
+- `.appRoot .roleSwitcher` sets a redundant `min-height`; `fieldControl` already applies
+  `h-tap` and `--spacing-tap` is `3rem`, so the target is 48 px either way.
+- The review route renders the Current Plan in full above the change table. That is correct
+  under read primacy, but it means scrolling past five sections on a phone; a jump link is
+  worth considering, not a reordering.
+- The blocked-reason pattern on the plan actions uses a visible `role="alert"` paragraph plus
+  `aria-describedby` rather than the generic `title="… — coming soon"` plus `sr-only` shape.
+  It matches the already-reviewed `shareBlockedReason` convention in the same file, so it is a
+  consistent extension rather than a new deviation — but the two patterns should be
+  reconciled before handoff.
 
 **Stage A checkpoint** — found by the controller's own run, not by any task review.
 
