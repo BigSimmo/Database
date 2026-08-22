@@ -27,7 +27,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   calculators: [],
   "therapy-compass": ["Search", "Recommend", "Compare", "Pathways"],
   factsheets: ["Topics", "Search"],
-  dictionary: ["Search", "Browse", "Topics", "Compare", "Sources"],
+  dictionary: ["Terms", "Topics", "Compare", "Sources"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -230,6 +230,18 @@ describe("mode secondary navigation registry", () => {
       }),
     ).toBe("/factsheets");
 
+    // Terms is the current tab on /dictionary/search, so its own link carries
+    // the catalogue's whole state — scope, letter and facets as well as the
+    // query — rather than resetting the surface the reader is already on.
+    expect(
+      modeSecondaryNavigationHref({
+        modeId: "dictionary",
+        itemId: "search",
+        href: "/dictionary/search",
+        currentSearchParams: new URLSearchParams("q=tardive&run=1&view=abbreviations&letter=T&kind=therapy"),
+      }),
+    ).toBe("/dictionary/search?q=tardive&run=1&view=abbreviations&letter=T&kind=therapy");
+
     expect(
       modeSecondaryNavigationHref({
         modeId: "therapy-compass",
@@ -291,6 +303,17 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/compare")).toBe("compare");
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/pathways")).toBe("pathways");
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/cbt")).toBeNull();
+
+    // Dictionary's Search and Browse were one catalogue behind two routes and
+    // are now one. `/dictionary/browse` redirects before a page renders, so no
+    // destination may claim it — and Terms must not be marked current on a
+    // dictionary record either.
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/search")).toBe("search");
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/browse")).toBeNull();
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/auditory-hallucination")).toBeNull();
+    expect(activeModeSecondaryNavigationId("dictionary", "/dictionary/topics/assessment-and-measurement")).toBe(
+      "topics",
+    );
 
     // The `registry[modeId][0]?.id` fallback is gone. A mode with no branch and
     // no entries has no current destination, rather than silently lighting its

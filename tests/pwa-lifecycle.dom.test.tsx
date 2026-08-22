@@ -301,6 +301,58 @@ describe("notice-stack swap settling", () => {
   });
 });
 
+describe("notice stack waits out the app-shell gap", () => {
+  // `#TYZK23`, root-caused and reproduced. Every phone geometry rule for this
+  // component selects on `body:has(#main-content[data-phone-footer-owner=
+  // "hero"])`, and `#main-content` is not merely late — it briefly STOPS
+  // EXISTING while React swaps the route in and hydrates. Measured on `/` at
+  // Lighthouse's 412x823 mobile emulation, install prompt firing early on a
+  // throttled connection: shell at 4726ms, gone at 7855ms, the install card
+  // mounts at 9083ms inside the gap (401px tall, bottom 731), the shell returns
+  // at 9930ms and the card is restyled to 161px at bottom 815 — one shift,
+  // 0.2230, matching CI's mobile-root breach. With the gate the same run
+  // measures 0.000 and the card mounts straight at its settled 161px.
+  //
+  // NOTE ON ORDER: releasing on `load` is deliberately limited to a document
+  // whose shell has NEVER appeared (a 404 or error page renders no
+  // `#main-content`), which the earlier cases in this file cover — they render
+  // with no shell and still receive notices. These cases mount one, so they run
+  // after those by declaration order.
+  function mountAppShell() {
+    const main = document.createElement("main");
+    main.id = "main-content";
+    main.setAttribute("data-phone-footer-owner", "hero");
+    document.body.appendChild(main);
+    return main;
+  }
+
+  it("holds the stack while the shell is momentarily absent, even after load", async () => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    const shell = mountAppShell();
+    try {
+      render(<PwaLifecycle />);
+      await screen.findByRole("region", { name: "You\u2019re offline" });
+
+      // The hydration gap. `document.readyState` is already "complete" here,
+      // which is exactly why a bare readyState fallback does not hold: it
+      // released the stack into this window and the restyle followed.
+      expect(document.readyState).toBe("complete");
+      await act(async () => {
+        shell.remove();
+      });
+      expect(screen.queryByRole("region", { name: "You\u2019re offline" })).not.toBeInTheDocument();
+
+      await act(async () => {
+        mountAppShell();
+      });
+      await screen.findByRole("region", { name: "You\u2019re offline" });
+    } finally {
+      document.getElementById("main-content")?.remove();
+      Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    }
+  });
+});
+
 describe("notice stack positioning", () => {
   it("does not gate the mobile-home stack position on an asynchronously mounted install card", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
