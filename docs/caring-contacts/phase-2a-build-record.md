@@ -2404,3 +2404,53 @@ intended burden.
 `src/app/caring-contacts/page.tsx` holds the whole `ServiceState` and sits **outside** the scan root, so
 if that route file ever became a Client Component the note would serialise and the recursive guard would
 stay green. Same class of hole, one directory up. Sent for fixing with a required falsifiability proof.
+
+### Task 18 fix round 1 re-review — all nine addressed, two NEW Important issues found in the fix itself
+
+The re-review confirmed every original finding closed, and the assertion sweep found exactly two removed
+assertion lines across the whole diff, both disclosed. It also independently traced the deep-link history
+branch and confirmed it **cannot** navigate a user off the page — checking the stale-flag cases rather
+than reasoning about the happy path.
+
+Then it found two defects introduced by the fix, and one overstatement in the report.
+
+**1. Ruling 61's lookup was not total — and it is the SAME defect Task 17 fixed, in a different file.**
+`BLOCK_REASON_WORDING` is an object literal, so it inherits from `Object.prototype`. `M["toString"]`,
+`M["constructor"]`, `M["valueOf"]`, `M["hasOwnProperty"]` and `M["__proto__"]` all return non-`undefined`,
+so the unknown-reason throw is skipped and a **function** is returned typed as `string`. React drops it
+silently: the result is a blocked control whose reason paragraph is **empty**. A clinician sees an action
+they cannot take and no explanation at all — precisely the "plausible instead of visible" failure Ruling
+61 exists to prevent, reached through an inherited-property fallback rather than a default branch.
+
+**This is worth recording as a pattern, not just a bug.** Task 17's Minor 3 was the identical shape — a
+normalisation lookup on a plain object literal where `constructor` resolved to a function — and was fixed
+with `Object.hasOwn`. **The fix did not travel.** Two implementers, two files, one week apart, same
+mistake. When a defect class is found on this branch, the question "where else does this shape exist?" is
+now part of the fix, not an optional extra.
+
+**2. The deep-link history test neither discriminates nor runs its own branch.** Two independent reasons:
+the seeded prior entry shares a pathname with the deep-linked one, so `replaceState` and an unconditional
+`back()` produce outcomes all three assertions accept; and `pushedOverlayEntry` is cleared only inside one
+branch, so the **preceding** test leaks the flag in as true and the deep-link test takes the `back()` path
+rather than the `replaceState` path it means to exercise. The report's claim that a later simplification
+"goes red" is false.
+
+**3. The Ruling 60 band pin holds one of its two breakpoints.** It reads the rail breakpoint from the
+module, but hard-codes the Sheet's 640 as a literal read from nothing. If the shared component's
+transition moved, the band would widen and the test would stay green. The report claimed "if either
+breakpoint moves, this goes red" — true of one only. **An honest one-sided pin is fine; a two-sided claim
+over a one-sided pin is not**, and the report has been sent back to correct it.
+
+### The guard's remaining gap — carried to the final review
+
+The client-boundary guard now scans two directories recursively with total-equality assertions. What it
+still cannot see is a client component imported from **outside** those directories and handed the record
+inside `shell.tsx`. The reviewer framed it precisely: the earlier misses were about **depth** (top-level
+only, then one directory up); this one is about **direction**. There is no live hole — `shell.tsx` imports
+nothing client from outside — but closing it needs a prop-flow or import-graph check rather than a wider
+directory scan, which is more than a fix round should attempt.
+
+Also outside the scan by design, and correctly so: the server-side modules that hold a whole `ServiceState`
+(`service-state-view.ts`, the API route, the stores). A route handler cannot be a Client Component, so a
+directive scan is the wrong instrument there — those are governed by Ruling 43's narrowing instead. Worth
+naming so a later reader does not mistake deliberate scope for an oversight.
