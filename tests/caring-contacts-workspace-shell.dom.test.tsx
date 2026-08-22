@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { CaringContactsShell } from "@/components/caring-contacts/workspace/shell";
 import { FICTIONAL_DATA_MARKER } from "@/components/caring-contacts/workspace/synthetic-marker";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { teamId } from "@/lib/caring-contacts/ids";
+import { runningService } from "@/lib/caring-contacts/service-state";
 
 /**
  * Ruling 52: the workspace navigation renders its whole destination set now, and
@@ -51,7 +53,14 @@ function expectStatesItsReason(control: Element) {
 }
 
 function renderShell() {
-  return render(<CaringContactsShell title="Today">content</CaringContactsShell>);
+  // `serviceState` became required in Task 16 (Ruling 56), so this call site gains
+  // an argument. A running service renders no banner, so every expectation below --
+  // including the exact count of unavailable controls -- is unchanged.
+  return render(
+    <CaringContactsShell title="Today" serviceState={runningService(teamId("shell-test-team"))}>
+      content
+    </CaringContactsShell>,
+  );
 }
 
 describe("caring-contacts workspace shell", () => {

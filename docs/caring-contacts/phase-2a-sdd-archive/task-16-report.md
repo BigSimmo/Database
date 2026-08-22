@@ -320,3 +320,153 @@ No migration. No mockup file touched. `synthetic-marker.tsx` untouched.
    yet. Worth an `/issues` capture when Task 17 or 18 introduces the first real read.
 4. **Two "Service stop" controls appear while stopped** — one in the banner, one in the More panel.
    Both state their own reason and both are legitimate, but a reviewer may prefer one.
+
+---
+
+# Follow-up — Rulings 55 and 56
+
+Second pass, after the coordinator's review of the first. Ruling 55 confirmed the sentinel
+arrangement already shipped (nothing to change); Ruling 52 confirmed the service-stop control stays
+an unavailable control (nothing to change); concerns 4 and 5 were accepted as-is. Ruling 56 is the
+one that changed code. **Concern 3 in §9 above is closed by Ruling 56 — see §10 and §12.**
+
+## 10. Ruling 56 — `serviceState` is now required, and the page reads it for real
+
+### What `page.tsx` now reads, and how
+
+`src/app/caring-contacts/page.tsx` became an `async` Server Component and performs the same
+three-line server-side read every other consumer of this seam performs:
+
+```ts
+const actor = await resolveDemoActor(); // caring-contacts-server/session.ts
+const store = await caringContactsStore(); // caring-contacts-server/store.ts
+const serviceState = await store.getServiceState({ actor });
+```
+
+- `resolveDemoActor()` reads the demo role cookie and resolves the acting actor, falling back to
+  the coordinator on anything unreadable. This is the identical call
+  `caring-contacts-server/handler.ts` makes at lines 157 and 279.
+- `caringContactsStore()` is memoised at module scope and returns the in-memory reference
+  repository when `CARING_CONTACTS_DATABASE_URL` is absent — which is the case locally and in the
+  offline suite, so this reads a genuinely running service rather than a fabricated one.
+- `getServiceState` is deliberately not capability-checked in either store, by design: a stop
+  raised by one team halts sending for every team, so every actor of every team must see it.
+
+No literal was typed. There is no `{ stopped: false }` anywhere in `page.tsx`; the running state it
+renders today is the state the store actually holds.
+
+**A failed read is deliberately not caught.** There is no honest fallback — rendering "running"
+because the store was unreachable is precisely the claim spec §4.2 forbids — so the read is allowed
+to reach `error.tsx`, whose copy already says nothing was sent and nothing was changed.
+
+**Reading the cookie makes the route dynamic.** That is the correct direction: a cached copy of a
+page asserting nothing is stopped would outlive the stop.
+
+### Why the read does not route through `narrowServiceStateForActor`
+
+**Flagging this as a judgement call**, since the ruling named that module.
+
+`narrowServiceStateForActor` returns `ServiceStateView`, a JSON-releasable shape built for the HTTP
+boundary — it is what `src/app/api/caring-contacts/service-state/route.ts` releases over the wire,
+and it decides whether the incident note may cross to a client. It cannot feed the shell, because
+the pinned banner signature is `{ state: ServiceState }` and a `ServiceStateView` cannot be widened
+back into one (it drops `reportedByTeamId`, `stoppedBy` and `note`). Routing through it and then
+discarding the result would be theatre.
+
+Page to shell to banner is not the HTTP boundary; it is entirely server-side, and its narrowing is
+the banner's own parameter type, `ServiceStopBannerFacts`, which omits `note` by construction and
+is _stricter_ than the view (the view may release the note to a capable actor; the banner may never
+render it to anyone). So both narrowings exist, at their own boundaries, and neither is bypassed.
+
+I confirmed the server-side claim against the framework rather than from memory:
+`node_modules/next/dist/docs/01-app/02-guides/lazy-loading.md` states that dynamically importing a
+Server Component lazy-loads only the Client Components beneath it, not the Server Component itself.
+The shell therefore stays a Server Component under `next/dynamic`, and its props are never
+serialised into the RSC payload.
+
+### Call sites
+
+Two, both fixed by _adding_ an argument — no existing expectation was altered:
+
+1. `src/app/caring-contacts/page.tsx` — the real read above.
+2. `tests/caring-contacts-workspace-shell.dom.test.tsx`'s `renderShell()` helper now passes
+   `runningService(teamId("shell-test-team"))`. A running service renders no banner, so every
+   assertion in that file is unchanged — including the exact count of sixteen unavailable controls,
+   which would have moved to seventeen had a stopped state been used.
+
+### The new tests
+
+- **`cannot be rendered by a screen that never read the service state`** — a **type** assertion,
+  enforced by `tsc --noEmit`, not by the runtime body. `@ts-expect-error` on a shell element that
+  omits `serviceState` fails compilation the moment that error stops occurring, so making the prop
+  optional again turns the typecheck red.
+- **`keeps the banner on every screen the shell renders`** (from the first pass) covers the second
+  half of the ruling: a stopped state reaching the shell puts `role="status"` on the page.
+
+### Mutation C — proving the required-prop test can fail
+
+**Confirmed first that it reads something that changes:** the directive's own validity is the value,
+and it is valid only while the omission is an error.
+
+Mutation: changed `serviceState: ServiceState;` back to `serviceState?: ServiceState;`.
+
+```
+src/components/caring-contacts/workspace/shell.tsx(240,29): error TS2322: Type 'ServiceState | undefined' is not assignable to type 'ServiceState'.
+tests/caring-contacts-explained-automation.dom.test.tsx(146,7): error TS2578: Unused '@ts-expect-error' directive.
+```
+
+Both the intended line (the test, TS2578) and a second site went red. **Reverted**; `grep` confirms
+`serviceState: ServiceState;` and a clean `tsc`.
+
+## 11. Follow-up gate evidence
+
+```
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit          -> exit 0, no diagnostics
+
+$ npx eslint src/app/caring-contacts/page.tsx src/components/caring-contacts/workspace/shell.tsx \
+    src/components/caring-contacts/workspace/service-state-banner.tsx \
+    src/components/caring-contacts/workspace/automated-state.tsx \
+    tests/caring-contacts-explained-automation.dom.test.tsx \
+    tests/caring-contacts-workspace-shell.dom.test.tsx                      -> exit 0, no findings
+
+$ node scripts/run-vitest.mjs run tests/caring-contacts-explained-automation.dom.test.tsx \
+    tests/caring-contacts-workspace-shell.dom.test.tsx tests/caring-contact-route-files.test.ts \
+    tests/route-reachability.test.ts tests/caring-contact-linked-routes.dom.test.tsx --reporter=dot
+
+ Test Files  5 passed (5)
+      Tests  55 passed (55)
+
+$ npm run test
+
+ Test Files  699 passed | 2 skipped (701)
+      Tests  7751 passed | 29 skipped (7780)
+   Duration  224.25s
+```
+
+That is every suite that renders the shell (`caring-contacts-workspace-shell`,
+`caring-contacts-explained-automation`), every suite that reads the route files
+(`caring-contact-route-files`, `route-reachability`, `caring-contact-linked-routes`), and then the
+whole offline suite. One test more than the first pass (7751 vs 7750) — the new type assertion.
+
+`npm run format` was run and its result committed. A Python-written edit had left CRLF endings in
+two files, which Prettier normalised to LF before the commit (`.gitattributes` sets `eol=lf`).
+Verified at byte level: zero CRLF pairs in all four changed source and test files.
+
+## 12. Follow-up self-review and residual concerns
+
+- **`page.tsx` is now dynamic and async.** No unit test renders it (none imports the module), and
+  `route-reachability` and `caring-contact-route-files` both pass. The Playwright spec
+  `tests/ui-caring-contacts-workspace.spec.ts` does drive the real page in a browser and was **not**
+  run — `verify:ui` is outside this task's permitted commands. Stated plainly: the browser behaviour
+  of the now-async page is **unverified by me**. The change is a data read above an unchanged tree,
+  and the in-memory store returns a running service, so the rendered output should be identical to
+  before; that is reasoning, not evidence.
+- **`store.ts` is `server-only` and statically imports the Postgres repository**, so `page.tsx` now
+  pulls `pg` into its _server_ bundle. The API routes already did, and nothing client-side changed,
+  so Ruling 13's client-payload guarantee is untouched.
+- **The banner is unreachable in normal local use**, because the in-memory store starts running and
+  nothing in Phase 2A stops it. That is honest rather than convenient — the screen shows what the
+  store holds. The stopped path is exercised by the DOM tests, not by clicking about.
+- **Concern 3 from the first pass is closed by Ruling 56** and needs no `/issues` capture.
+- Concerns 1, 2, 4 and 5 from the first pass were ruled on by the coordinator and need no further
+  action; the code is unchanged for all four.

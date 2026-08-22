@@ -132,6 +132,23 @@ describe("explained automation", () => {
     expect(banner.querySelector("a")).toBeNull();
   });
 
+  it("cannot be rendered by a screen that never read the service state", () => {
+    // Ruling 56. Spec 4.2 puts the banner on EVERY screen while a stop is active,
+    // and "everywhere" cannot rest on each page author remembering an optional
+    // prop: a screen whose author forgot would show no banner at all during a live
+    // stop, and a clinician would keep working believing sending was fine.
+    //
+    // This assertion is a TYPE assertion, checked by `tsc --noEmit`, not by the
+    // runtime below. `@ts-expect-error` fails compilation when the error it expects
+    // stops occurring — so if anyone makes `serviceState` optional again, the
+    // typecheck goes red here rather than the omission going unnoticed.
+    const omitted = (
+      // @ts-expect-error serviceState is required — a screen must read it, not omit it.
+      <CaringContactsShell title="Today">content</CaringContactsShell>
+    );
+    expect(omitted).toBeTruthy();
+  });
+
   it("keeps the banner on every screen the shell renders", () => {
     render(
       <CaringContactsShell title="Today" serviceState={stoppedServiceState()}>

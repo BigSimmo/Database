@@ -122,15 +122,22 @@ export type CaringContactsShellProps = {
   /** Optional plain-words statement of what this screen is for. */
   description?: string;
   /**
-   * The service-wide safety stop, if the screen has read it.
+   * The service-wide safety stop, read from the store by the screen.
    *
-   * Spec §4.2 requires the banner on EVERY screen while a stop is active, so
-   * every screen that can read the state must pass it here. It is optional
-   * rather than required only because the Phase 2A screens are still static and
-   * do not yet read the store; the shell renders nothing at all when it is
-   * absent or when the service is running.
+   * REQUIRED, and required for a safety reason rather than a tidiness one
+   * (Ruling 56). Spec §4.2 puts the banner on EVERY screen while a stop is
+   * active, and "everywhere" is not a property that can rest on each page
+   * author remembering an optional prop: a screen whose author forgot would
+   * show no banner at all during a live stop, and a clinician would keep
+   * working believing sending was fine. Making it required means the compiler
+   * refuses a new screen that omits it.
+   *
+   * It must be a state the screen actually READ. Passing a literal
+   * `{ stopped: false }` to satisfy the type would be worse than leaving the
+   * prop optional — it would render a confident "service running" during an
+   * incident.
    */
-  serviceState?: ServiceState;
+  serviceState: ServiceState;
   children: ReactNode;
 };
 
@@ -230,7 +237,7 @@ export function CaringContactsShell({ title, description, serviceState, children
           the first thing read on every screen rather than something to scroll to.
           It renders nothing while the service is running.
         */}
-        {serviceState ? <ServiceStateBanner state={serviceState} /> : null}
+        <ServiceStateBanner state={serviceState} />
 
         <main className="min-w-0 px-4 pb-28 pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
           <div className="mx-auto w-full max-w-6xl min-[1440px]:max-w-[90rem]">
