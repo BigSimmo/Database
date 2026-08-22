@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import styles from "./care-plan.module.css";
-import { getPresentationAmendments } from "./domain";
+import { getEffectivePresentationValue, getPresentationAmendments } from "./domain";
 import { DefinitionRow, MANAGEMENT_VERSION_STATE_LABEL, NOT_RECORDED, formatPerthDateTime } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type {
@@ -73,8 +73,8 @@ export const CMHT_CONTACT_ATTEMPT_LABEL: Record<EdPresentation["cmhtContactAttem
 
 /**
  * The label each amendable field wears wherever it is shown. One record, so the
- * recording form, the episode, and the correction sheet cannot call the same
- * field three different things.
+ * recording form, the timeline, the episode, and the correction sheet cannot
+ * call the same field four different things.
  */
 export const AMENDABLE_FIELD_LABEL: Record<AmendableField, string> = {
   assessmentOutcome: "Assessment outcome",
@@ -84,6 +84,13 @@ export const AMENDABLE_FIELD_LABEL: Record<AmendableField, string> = {
   planUse: "Was the Current Plan used?",
   planHelpfulness: "Was the plan helpful?",
 };
+
+/** The two labels that are not one amendable field but are still repeated across
+ *  surfaces, and so are still written down exactly once. */
+export const PRESENTING_INDICATION_LABEL = "Presenting indication";
+export const REVIEW_REASON_TERM = "Why the team should look again";
+
+export const AMENDABLE_FIELDS = Object.keys(AMENDABLE_FIELD_LABEL) as readonly AmendableField[];
 
 /** Options are read back off the label records, so a seventh disposition cannot
  *  appear in the domain without appearing in every control that offers one. */
@@ -149,6 +156,46 @@ export function correctionCountLabel(count: number): string {
   return count === 1 ? "1 correction recorded" : `${count} corrections recorded`;
 }
 
+/**
+ * A count on its own says a correction exists but not which answer moved, which
+ * leaves a reader unable to tell a corrected timeline entry from an uncorrected
+ * one without opening it. This names the fields, once each, in field order.
+ */
+export function correctionSummaryLabel(corrections: readonly PresentationAmendment[]): string {
+  if (corrections.length === 0) return correctionCountLabel(0);
+  const fields = AMENDABLE_FIELDS.filter((field) => corrections.some((correction) => correction.field === field)).map(
+    (field) => AMENDABLE_FIELD_LABEL[field],
+  );
+  return `${correctionCountLabel(corrections.length)} — ${fields.join("; ")}`;
+}
+
+/**
+ * The episode as it reads now: the stored record with every corrected field
+ * replaced by its latest correction.
+ *
+ * The episode page shows the value first recorded beside each correction,
+ * because that is where the full history belongs. A timeline entry has no room
+ * for that and would otherwise show only pre-correction values with a bare "1
+ * correction recorded" beside them — the one arrangement that is actively
+ * misleading, because it reads as current and is not. So the timeline shows what
+ * the record says today and names which answers moved.
+ *
+ * The cast is safe because the reducer validates an enum replacement against the
+ * recorded answers for that field before it appends the correction; a value that
+ * is not one of them never reaches the state.
+ */
+export function effectivePresentation(
+  presentation: EdPresentation,
+  amendments: readonly PresentationAmendment[],
+): EdPresentation {
+  const corrections = getPresentationAmendments(amendments, presentation.id);
+  if (corrections.length === 0) return presentation;
+  const corrected = Object.fromEntries(
+    AMENDABLE_FIELDS.map((field) => [field, getEffectivePresentationValue(amendments, presentation, field)]),
+  );
+  return { ...presentation, ...corrected } as EdPresentation;
+}
+
 export type PresentationTimelineProps = {
   patientId: string;
   /** Already filtered and ordered by the caller; rendered exactly as given. */
@@ -167,8 +214,12 @@ export function PresentationTimeline({
 }: PresentationTimelineProps) {
   return (
     <ol data-testid="care-plan-presentation-timeline" className={styles.timeline}>
-      {presentations.map((presentation) => {
-        const corrections = getPresentationAmendments(amendments, presentation.id).length;
+      {presentations.map((recorded) => {
+        const corrections = getPresentationAmendments(amendments, recorded.id);
+        // What the record says today. The episode page carries the full history
+        // beside each value; a timeline entry states the current answer and names
+        // which ones moved.
+        const presentation = effectivePresentation(recorded, amendments);
         return (
           <li key={presentation.id} className={styles.timelineEntry}>
             {/* Decoration only. Every fact it implies is in the entry beside it. */}
@@ -179,27 +230,29 @@ export function PresentationTimeline({
               </p>
               <p className={styles.timelineSite}>{siteName(sites, presentation.siteId)}</p>
               <dl className={styles.definitionGrid}>
-                <DefinitionRow term="Why they came and what happened">
+                <DefinitionRow term={AMENDABLE_FIELD_LABEL.note}>
                   {presentation.note.trim() === "" ? undefined : presentation.note}
                 </DefinitionRow>
-                <DefinitionRow term="Presenting indication">
+                <DefinitionRow term={PRESENTING_INDICATION_LABEL}>
                   {presentation.presentingIndication.trim() === "" ? undefined : presentation.presentingIndication}
                 </DefinitionRow>
-                <DefinitionRow term="Assessment outcome">
+                <DefinitionRow term={AMENDABLE_FIELD_LABEL.assessmentOutcome}>
                   {presentation.assessmentOutcome.trim() === "" ? undefined : presentation.assessmentOutcome}
                 </DefinitionRow>
-                <DefinitionRow term="Disposition">{DISPOSITION_LABEL[presentation.disposition]}</DefinitionRow>
+                <DefinitionRow term={AMENDABLE_FIELD_LABEL.disposition}>
+                  {DISPOSITION_LABEL[presentation.disposition]}
+                </DefinitionRow>
                 <DefinitionRow term="Plan available at the time">
                   {linkedPlanLabel(presentation.managementPlanVersionId, versions)}
                 </DefinitionRow>
                 <DefinitionRow term="Plan-use feedback">{planUseSummary(presentation)}</DefinitionRow>
                 <DefinitionRow term="Community mental health team">{cmhtContactSummary(presentation)}</DefinitionRow>
-                <DefinitionRow term="Review suggested">
+                <DefinitionRow term={REVIEW_REASON_TERM}>
                   {presentation.reviewSuggested && presentation.reviewReason !== null
                     ? presentation.reviewReason
                     : "Not suggested for this episode"}
                 </DefinitionRow>
-                <DefinitionRow term="Corrections">{correctionCountLabel(corrections)}</DefinitionRow>
+                <DefinitionRow term="Corrections">{correctionSummaryLabel(corrections)}</DefinitionRow>
               </dl>
               <Link href={carePlanRoute.presentation(patientId, presentation.id)} className={styles.timelineLink}>
                 Open this ED Presentation

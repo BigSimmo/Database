@@ -728,7 +728,7 @@ describe("Care Plan fixture safety", () => {
     }
   });
 
-  it("records one attributed amendment per amendable field, matching the corrected record", () => {
+  it("records one attributed amendment per amendable field, preserving the value first recorded", () => {
     const amendableFields = [
       "assessmentOutcome",
       "disposition",
@@ -745,9 +745,62 @@ describe("Care Plan fixture safety", () => {
 
       const presentation = syntheticEdPresentations.find(({ id }) => id === amendment.presentationId);
       expect(presentation).toBeDefined();
-      expect(String(presentation?.[amendment.field])).toBe(amendment.replacementValue);
+      /*
+       * The episode holds what was FIRST recorded, not what the correction made
+       * it. This assertion used to say the opposite, and the two seeded episodes
+       * were written to match it — which put the fixtures in direct conflict
+       * with the reducer, whose `amend-presentation` never touches
+       * `edPresentations`, and with the glossary, which defines a Presentation
+       * Amendment as preserving the original record. Fixtures on this project
+       * are written to be imitated, so the wrong convention was the more
+       * expensive half of the contradiction. Corrected 2026-08-22.
+       */
+      const earliest = syntheticPresentationAmendments.find(
+        (candidate) => candidate.presentationId === amendment.presentationId && candidate.field === amendment.field,
+      );
+      expect(String(presentation?.[amendment.field])).toBe(earliest?.originalValue);
       expect(amendment.originalValue).not.toBe(amendment.replacementValue);
       expect(amendment.reason.trim()).not.toBe("");
+    }
+  });
+
+  /**
+   * The invariant the assertion above is one half of, stated on its own because
+   * this is exactly the divergence that went unnoticed: two committed test files
+   * pinned opposite models of the same record for six tasks, and nothing went
+   * red because neither one asserted the chain.
+   *
+   * An ED Presentation is append-only. So for every field that has ever been
+   * corrected: the episode still holds the value it was first recorded as, and
+   * each later correction replaces the one before it — an unbroken chain from
+   * the stored value to whatever the field reads now.
+   */
+  it("keeps every corrected fixture field on an unbroken chain from the value first recorded", () => {
+    const chains = new Map<string, typeof syntheticPresentationAmendments>();
+    for (const amendment of syntheticPresentationAmendments) {
+      const key = `${amendment.presentationId}|${amendment.field}`;
+      chains.set(key, [...(chains.get(key) ?? []), amendment]);
+    }
+    // Fails closed: a fixture set with no corrections at all would make every
+    // assertion below vacuous.
+    expect(chains.size, "no fixture ED Presentation carries a correction").toBeGreaterThan(1);
+
+    for (const [key, chain] of chains) {
+      const [presentationId, field] = key.split("|") as [string, keyof (typeof syntheticEdPresentations)[number]];
+      const presentation = syntheticEdPresentations.find(({ id }) => id === presentationId);
+      expect(presentation, `${presentationId} does not exist`).toBeDefined();
+
+      expect(
+        String(presentation?.[field]),
+        `${presentationId}.${String(field)} must still hold the value it was first recorded as`,
+      ).toBe(chain[0]?.originalValue);
+
+      for (let index = 1; index < chain.length; index += 1) {
+        expect(
+          chain[index]?.originalValue,
+          `${chain[index]?.id} must replace the value ${chain[index - 1]?.id} left behind`,
+        ).toBe(chain[index - 1]?.replacementValue);
+      }
     }
   });
 

@@ -893,7 +893,9 @@ export const syntheticEdPresentations = [
     arrivedAt: daysAgo(34, "19:05"),
     siteId: "SYN-ED-001",
     presentingIndication: "Distress after a conflict at home",
-    assessmentOutcome: "Settled with a quiet room and a call to the CMHT; home the same evening",
+    // The value first recorded. `SYN-AMENDMENT-001` carries the correction that
+    // added the CMHT call; the episode itself is never rewritten.
+    assessmentOutcome: "Settled with a quiet room; home the same evening",
     note: "Arrived upset after an argument at home; settled once moved out of the corridor, and went home with the CMHT to call the next morning.",
     disposition: "discharged_home",
     cmhtContactAttempt: "attempted",
@@ -923,7 +925,9 @@ export const syntheticEdPresentations = [
     managementPlanVersionId: "SYN-MGMT-VERSION-002",
     planAvailability: "available",
     planUse: "partially_used",
-    planHelpfulness: "mixed",
+    // The value first recorded, at the end of the shift. `SYN-AMENDMENT-002`
+    // carries the correction to `mixed`; the episode itself is never rewritten.
+    planHelpfulness: "helpful",
     deviationOccurred: true,
     deviationReason: "No side room was free, so the low-stimulus space the plan asks for could not be offered.",
     reviewSuggested: false,

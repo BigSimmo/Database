@@ -22,6 +22,7 @@ import {
   PLAN_AVAILABILITY_OPTIONS,
   PLAN_HELPFULNESS_OPTIONS,
   PLAN_USE_OPTIONS,
+  PRESENTING_INDICATION_LABEL,
   linkedPlanLabel,
   planUseSummary,
   siteName,
@@ -106,7 +107,6 @@ const ARRIVAL_DATE_LABEL = "Arrival date";
 const ARRIVAL_TIME_LABEL = "Arrival time";
 const REVIEW_REASON_LABEL = "Why is review suggested?";
 const DEVIATION_REASON_LABEL = "Why was the agreed approach not followed?";
-const PRESENTING_INDICATION_LABEL = "Presenting indication";
 const CMHT_ATTEMPT_LABEL = "Was the community mental health team contacted?";
 const CMHT_OUTCOME_LABEL = "What happened when the team was contacted?";
 
@@ -154,8 +154,23 @@ function validate(values: FormValues): FieldEntry[] {
   if (values.siteId === "") {
     add("siteId", SITE_LABEL, "Choose which fictional emergency department this episode happened in.");
   }
-  if (Number.isNaN(Date.parse(toPerthTimestamp(values.arrivalDate, values.arrivalTime)))) {
-    add("arrivedAt", ARRIVAL_DATE_LABEL, "Enter the date and time the person arrived.");
+  /*
+   * Date and time are reported separately. They are two controls, and the error
+   * summary is the sole focus owner in this form — an error raised on the date
+   * field for a bad time would link a reader to the control that is not wrong.
+   */
+  if (values.arrivalDate.trim() === "") {
+    add("arrivedAt", ARRIVAL_DATE_LABEL, "Enter the date the person arrived.");
+  }
+  if (values.arrivalTime.trim() === "") {
+    add("arrivalTime", ARRIVAL_TIME_LABEL, "Enter the time the person arrived.");
+  }
+  if (
+    values.arrivalDate.trim() !== "" &&
+    values.arrivalTime.trim() !== "" &&
+    Number.isNaN(Date.parse(toPerthTimestamp(values.arrivalDate, values.arrivalTime)))
+  ) {
+    add("arrivedAt", ARRIVAL_DATE_LABEL, "That arrival date and time could not be read as a date.");
   }
   if (values.disposition === "") {
     add("disposition", AMENDABLE_FIELD_LABEL.disposition, "Choose what happened at the end of this episode.");
@@ -439,6 +454,7 @@ export function PresentationFormSurface({
               type="time"
               required
               value={values.arrivalTime}
+              error={errorByFieldId.get(presentationFieldId("arrivalTime"))}
               onChange={(event) => set("arrivalTime", event.target.value)}
             />
             <Select

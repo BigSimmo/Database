@@ -194,16 +194,44 @@ describe("Care Plan route registration", () => {
     expect(found.length).toBe(pageFiles.length);
   });
 
+  /**
+   * Every dynamic segment is validated — each one, by name.
+   *
+   * This used to accept any file matching `isSyntheticPatientId|isSyntheticPresentationForPatient`,
+   * which was one alternation for two different parameters. When Task 7 moved the
+   * episode page from the fixture-pairing check to a shape check plus a
+   * state-side identity refusal, the patient half alone kept satisfying the
+   * alternation: deleting the presentation-identifier check outright left the
+   * parameter unvalidated at the server with nothing going red. A guard that
+   * cannot fail is worse than no guard, because it is counted as coverage.
+   *
+   * The rule is now per parameter, so a page can only satisfy it by validating
+   * the exact segment its own path declares.
+   */
+  const PARAMETER_GUARDS: readonly { segment: string; guard: RegExp; name: string }[] = [
+    { segment: "[patientId]", guard: /isSyntheticPatientId\s*\(\s*patientId\s*\)/, name: "patientId" },
+    {
+      segment: "[presentationId]",
+      guard: /isSyntheticPresentation(?:Id|ForPatient)\s*\(/,
+      name: "presentationId",
+    },
+  ];
+
   it("validates every dynamic parameter and repeats no synthetic identifier in a page file", () => {
     const dynamicPages = pageFiles.filter((file) => file.includes("["));
     expect(dynamicPages.length).toBe(15);
+    // Fails closed: if the route family ever stops carrying an episode page,
+    // the presentation guard below would silently stop being exercised.
+    expect(dynamicPages.filter((file) => file.includes("[presentationId]")).length).toBe(1);
+
     for (const file of dynamicPages) {
       const source = readFileSync(resolve(process.cwd(), file), "utf8");
       expect(source, `${file} must refuse an unknown parameter`).toContain("notFound()");
       expect(source, `${file} must prerender its finite parameter list`).toContain("generateStaticParams");
-      expect(source, `${file} must check the parameter against the fixtures`).toMatch(
-        /isSyntheticPatientId|isSyntheticPresentationForPatient/,
-      );
+      for (const { segment, guard, name } of PARAMETER_GUARDS) {
+        if (!file.includes(segment)) continue;
+        expect(source, `${file} must validate its ${name} parameter, by name`).toMatch(guard);
+      }
     }
     for (const file of pageFiles) {
       const source = readFileSync(resolve(process.cwd(), file), "utf8");

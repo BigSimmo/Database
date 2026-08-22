@@ -2102,6 +2102,9 @@ describe("Care Plan ED Presentation timeline", () => {
 
     const amended = entries.find((entry) => entry.textContent?.includes("Presented while staying with family"))!;
     expect(within(amended).getByText(/1 correction recorded/i)).toBeInTheDocument();
+    // A bare count says an answer moved but not which one, which leaves a reader
+    // unable to tell a corrected entry from an uncorrected one without opening it.
+    expect(within(amended).getByText(/1 correction recorded — Was the plan helpful\?/i)).toBeInTheDocument();
 
     const unamended = entries.find((entry) => entry.textContent?.includes("Came in by taxi late evening"))!;
     expect(within(unamended).getByText(/No corrections recorded/i)).toBeInTheDocument();
@@ -2114,6 +2117,28 @@ describe("Care Plan ED Presentation timeline", () => {
       "href",
       carePlanRoute.newPresentation(ROWAN_PATIENT),
     );
+  });
+
+  /**
+   * The episode is append-only, so the record still holds the answer first
+   * given and the correction sits beside it. The episode page shows both. A
+   * timeline entry has no room for that, and showing only the pre-correction
+   * value with a bare count beside it is the one arrangement that actively
+   * misleads — it reads as current and is not. So the timeline shows what the
+   * record says today.
+   */
+  it("shows the corrected answer on a timeline entry, not the value it replaced", () => {
+    renderRoute(carePlanRoute.presentations(ROWAN_PATIENT));
+    const entries = within(screen.getByTestId("care-plan-presentation-timeline")).getAllByRole("listitem");
+    const amended = entries.find((entry) => entry.textContent?.includes("Presented while staying with family"))!;
+
+    // SYN-PRESENTATION-003 was recorded `helpful` and corrected to `mixed`.
+    expect(within(amended).getByText(/Available · Partly used · Helped in part/)).toBeInTheDocument();
+    expect(within(amended).queryByText(/Available · Partly used · Helpful/)).toBeNull();
+
+    // …and an uncorrected entry still shows exactly what was recorded.
+    const untouched = entries.find((entry) => entry.textContent?.includes("Came in by taxi late evening"))!;
+    expect(within(untouched).getByText(/Available · Used · Helpful/)).toBeInTheDocument();
   });
 });
 
@@ -2430,6 +2455,42 @@ describe("Care Plan ED Presentation detail and corrections", () => {
     expect(within(sheet).getByTestId("care-plan-amendment-error")).toHaveTextContent(
       /Change at least one answer before recording a correction/i,
     );
+  });
+
+  /**
+   * The reducer refuses a blank replacement and records that only in
+   * `lastOutcome`, which the next successful correction in the same batch
+   * overwrites. A sheet that dispatched per field and closed regardless would
+   * therefore drop one correction, keep another, and report success — and on a
+   * record whose whole purpose is that corrections stay visible and attributed,
+   * a silently discarded correction is the worst available outcome.
+   *
+   * `note` precedes `planHelpfulness` in the field order, so this is exactly the
+   * ordering that hides the loss.
+   */
+  it("refuses the whole correction rather than dropping a blanked answer behind a success banner", async () => {
+    const user = userEvent.setup();
+    renderRoute(NEWEST);
+    await user.click(screen.getByRole("button", { name: "Amend recorded outcome" }));
+    const sheet = screen.getByRole("dialog", { name: /Correct this ED Presentation/i });
+
+    await user.clear(within(sheet).getByLabelText(/^In one line: why they came and what happened/));
+    await user.selectOptions(within(sheet).getByLabelText(/^Was the plan helpful\?/), "mixed");
+    await user.type(
+      within(sheet).getByLabelText(/^Why is this being corrected\?/),
+      "Tidying the record at the end of the shift.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Record correction" }));
+
+    expect(within(sheet).getByTestId("care-plan-amendment-error")).toHaveTextContent(
+      /In one line: why they came and what happened cannot be corrected to nothing/i,
+    );
+    // The sheet stays open holding the clinician's work…
+    expect(screen.getByRole("dialog", { name: /Correct this ED Presentation/i })).toBeInTheDocument();
+    // …nothing was appended, not even the answer that would have been accepted…
+    expect(screen.getByTestId("care-plan-presentation-amendments")).toHaveTextContent(/No corrections recorded/i);
+    // …and nothing anywhere claims a correction was recorded.
+    expect(screen.queryByText(/Correction recorded beside the original/i)).toBeNull();
   });
 
   it("refuses to show an episode recorded against another patient", () => {

@@ -21,11 +21,14 @@ import { PROTOTYPE_NOW } from "./fixtures";
 import { PatientNavigation } from "./patient-navigation";
 import {
   AMENDABLE_FIELD_LABEL,
+  AMENDABLE_FIELDS,
   DISPOSITION_OPTIONS,
   PLAN_AVAILABILITY_OPTIONS,
   PLAN_HELPFULNESS_OPTIONS,
   PLAN_USE_OPTIONS,
+  PRESENTING_INDICATION_LABEL,
   PresentationTimeline,
+  REVIEW_REASON_TERM,
   cmhtContactSummary,
   correctionCountLabel,
   linkedPlanLabel,
@@ -64,8 +67,6 @@ import type {
  * attends. An episode is append-only: a correction is shown beside the value
  * first recorded, attributed and dated, and never in place of it.
  */
-
-const AMENDABLE_FIELDS = Object.keys(AMENDABLE_FIELD_LABEL) as readonly AmendableField[];
 
 const ALL_SITES = "";
 const ALL_DISPOSITIONS = "";
@@ -152,11 +153,15 @@ export function PresentationTimelineSurface({
         }
       >
         <p className={styles.sectionDescription}>
-          {`${presentationActivity.total} ED Presentations recorded in the ${PRESENTATION_ACTIVITY_WINDOW_MONTHS} months to ${formatPerthDate(presentationActivity.windowEnd)}.`}
+          {`${presentationActivity.total} ${presentationActivity.total === 1 ? "ED Presentation" : "ED Presentations"} recorded in the ${PRESENTATION_ACTIVITY_WINDOW_MONTHS} months to ${formatPerthDate(presentationActivity.windowEnd)}.`}
         </p>
         <ul className={styles.contentList}>
           {presentationActivity.bySite.length === 0 ? (
-            <li>{`No ED Presentation was recorded in that window. ${snapshot.presentations.length} older episodes are listed below.`}</li>
+            <li>
+              {snapshot.presentations.length === 0
+                ? "No ED Presentation has been recorded for this person in this synthetic session."
+                : `No ED Presentation was recorded in that window. ${snapshot.presentations.length === 1 ? "One older episode is" : `${snapshot.presentations.length} older episodes are`} listed below.`}
+            </li>
           ) : (
             presentationActivity.bySite.map(({ siteId, count }) => (
               <li key={siteId}>{`${siteName(state.edSites, siteId)}: ${count}`}</li>
@@ -202,8 +207,12 @@ export function PresentationTimelineSurface({
 
         {visible.length === 0 ? (
           <p data-testid="care-plan-presentation-none-matching" className={styles.sectionEmpty}>
-            No recorded ED Presentation matches those filters. Nothing has been hidden from the record; widen a filter
-            to see the rest.
+            {/* Only tell a reader to widen a filter when one is actually set.
+                With neither filter chosen there is nothing to widen, and the
+                honest statement is that nothing has been recorded. */}
+            {siteFilter === ALL_SITES && dispositionFilter === ALL_DISPOSITIONS
+              ? "No ED Presentation has been recorded for this person in this synthetic session."
+              : "No recorded ED Presentation matches those filters. Nothing has been hidden from the record; widen a filter to see the rest."}
           </p>
         ) : (
           <PresentationTimeline
@@ -401,19 +410,54 @@ export function PresentationDetailSurface({
       : `Recorded as ${recordedValue}. Already corrected to ${currentValue}.`;
   }
 
+  /**
+   * A correction is refused here, as a whole, or it is recorded in full. There is
+   * deliberately no partial save.
+   *
+   * The reducer refuses a blank replacement and records that refusal only in
+   * `lastOutcome` — which the very next successful correction in the same batch
+   * overwrites with a success message. So a sheet that dispatched per field and
+   * closed regardless could drop one correction, keep another, and report that
+   * it worked: clear the one-line account, change the helpfulness answer, save,
+   * and the account correction is gone with nothing on screen saying so. On a
+   * record whose entire purpose is that corrections stay visible and attributed,
+   * that is the worst available outcome — worse than refusing the save.
+   *
+   * Everything the reducer would refuse is therefore checked before anything is
+   * dispatched, and the sheet stays open, holding the clinician's work, whenever
+   * a refusal applies.
+   */
   function recordCorrection() {
     if (draft === null || presentation === null) return;
+    if (amendBlockedReason !== null) {
+      setAmendmentError(amendBlockedReason);
+      return;
+    }
     if (reason.trim() === "") {
       setAmendmentError(
         "A correction needs a reason, so a later reader can see why the record changed. Nothing was changed.",
       );
       return;
     }
-    const changed = AMENDABLE_FIELDS.filter((field) => draft[field] !== effectiveValues[field]);
+    // Trimmed before comparison as well as before dispatch, so trailing
+    // whitespace is never mistaken for a change and never lands in the record.
+    const replacements = Object.fromEntries(AMENDABLE_FIELDS.map((field) => [field, draft[field].trim()])) as Record<
+      AmendableField,
+      string
+    >;
+    const changed = AMENDABLE_FIELDS.filter((field) => replacements[field] !== effectiveValues[field]);
     if (changed.length === 0) {
       setAmendmentError("Change at least one answer before recording a correction. Nothing was changed.");
       return;
     }
+    const blanked = changed.filter((field) => replacements[field] === "");
+    if (blanked.length > 0) {
+      setAmendmentError(
+        `${blanked.map((field) => AMENDABLE_FIELD_LABEL[field]).join(" and ")} cannot be corrected to nothing. A correction replaces a value; it never deletes one. Nothing was changed.`,
+      );
+      return;
+    }
+
     // One amendment per changed answer, all under the one reason. The three
     // plan-use answers are asked as a group and corrected as a group, but the
     // evidence stored is still exactly one field per record.
@@ -422,7 +466,7 @@ export function PresentationDetailSurface({
         type: "amend-presentation",
         presentationId: presentation.id,
         field,
-        replacementValue: draft[field],
+        replacementValue: replacements[field],
         reason: reason.trim(),
       });
     }
@@ -471,7 +515,7 @@ export function PresentationDetailSurface({
         <dl className={styles.definitionGrid}>
           <DefinitionRow term="Arrived">{formatPerthDateTime(presentation.arrivedAt)}</DefinitionRow>
           <DefinitionRow term="Emergency department">{siteName(state.edSites, presentation.siteId)}</DefinitionRow>
-          <DefinitionRow term="Presenting indication">
+          <DefinitionRow term={PRESENTING_INDICATION_LABEL}>
             {presentation.presentingIndication.trim() === "" ? undefined : presentation.presentingIndication}
           </DefinitionRow>
           <AmendableRow state={state} presentation={presentation} field="assessmentOutcome" />
@@ -489,7 +533,7 @@ export function PresentationDetailSurface({
               ? `Could not be followed — ${presentation.deviationReason ?? NOT_RECORDED}`
               : "No deviation recorded"}
           </DefinitionRow>
-          <DefinitionRow term="Why the team should look again">
+          <DefinitionRow term={REVIEW_REASON_TERM}>
             {presentation.reviewSuggested && presentation.reviewReason !== null
               ? presentation.reviewReason
               : "Not suggested for this episode"}

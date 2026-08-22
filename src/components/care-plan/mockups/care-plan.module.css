@@ -974,6 +974,16 @@
   line-height: 1.45;
 }
 
+/* Colour, weight and underline come from the shared link rule above; this adds
+   only the production tap floor, because this link is repeated once per episode
+   and is the commonest thing a reader taps on a phone. */
+.appRoot .timelineLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: start;
+  min-height: var(--spacing-tap);
+}
+
 /* The one action on the timeline: it is a tap target, so it carries the full
    production tap height rather than sitting as a bare inline link. */
 .appRoot .timelineRecordLink {
