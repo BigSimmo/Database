@@ -614,3 +614,270 @@ test.describe("caring-contacts workspace accessibility modes", () => {
     });
   }
 });
+
+/* ------------------------------------------------------------------------- *
+ * The condensed service-stop bar.
+ *
+ * Nothing above this line is weakened; this file only grows again.
+ *
+ * Task 19 measured the defect this closes: with a stop active, the full banner
+ * sits in normal flow beneath a sticky header, so at 320, 390, 430 and 768px it
+ * scrolls completely out of view (y from -285 to -602). Spec 4.2 requires the
+ * stop to be stated on every screen for as long as it is active, and a
+ * statement that has scrolled away states nothing. The owner's decision was a
+ * condensed one-line bar pinned under the header once the full banner has gone
+ * — not the full banner pinned, which costs about a quarter of a phone screen
+ * at all times, on every screen.
+ *
+ * Only a browser can check this. Every unit test on the branch stayed green
+ * while the banner was scrolling off screen, because JSDOM has no scroll
+ * position and no sticky header. So the assertions below are geometric: is the
+ * stop ON SCREEN, and is it stated ONCE.
+ *
+ * Ordering matters and is deliberate. Raising a stop is irreversible in the
+ * demo: restarting needs three approvals from three DIFFERENT people, and only
+ * two demo roles hold `approveServiceRestart`, so nothing can undo it in this
+ * process. `run-playwright.mjs` starts a fresh server for every run, and this
+ * config is `fullyParallel: false` with one worker, so declaring this block last
+ * means every test above it runs against a running service exactly as before.
+ * ------------------------------------------------------------------------- */
+
+/** The state word the workspace uses. Deliberately not a transport word. */
+const STOPPED_STATE_LABEL = "Sending stopped";
+
+/** The scope half of the claim — the half an abbreviation must not drop. */
+const STOPPED_SCOPE_WORDING = "the whole service";
+
+const SERVICE_STATE_ROUTE = "/api/caring-contacts/service-state";
+
+const FULL_BANNER_SELECTOR = "#caring-contacts-service-stop-banner";
+const CONDENSED_BAR_SELECTOR = "#caring-contacts-condensed-service-stop";
+const WORKSPACE_HEADER_SELECTOR = "#caring-contacts-workspace-header";
+
+/**
+ * Raises the service-wide stop through the real HTTP boundary — the only route
+ * to a stopped service that does not put a test-only hook into production code.
+ *
+ * `service-already-stopped` is accepted rather than treated as a failure: the
+ * first record of an incident is permanent by design, so a second run of this
+ * spec against a still-running server finds the same arranged condition it
+ * asked for. Any other refusal is a real failure and is surfaced with its reason.
+ */
+async function arrangeServiceStop(page: Page) {
+  const response = await page.request.post(SERVICE_STATE_ROUTE, {
+    data: {
+      type: "stop",
+      reason: "wrong-recipient",
+      note: "Browser proof of the condensed service-stop bar. Synthetic prototype; nothing was sent.",
+      idempotencyKey: "ui-condensed-service-stop-bar",
+    },
+  });
+  if (response.status() !== 200) {
+    const refusal = (await response.json()) as { refusal?: string };
+    expect(refusal.refusal, `could not arrange a stopped service (HTTP ${response.status()})`).toBe(
+      "service-already-stopped",
+    );
+  }
+
+  const state = (await (await page.request.get(SERVICE_STATE_ROUTE)).json()) as { stopped?: boolean };
+  expect(state.stopped, "the service-state route does not report a stopped service").toBe(true);
+}
+
+/**
+ * Every statement of the stopped state that is actually ON SCREEN, with its box.
+ *
+ * "On screen" is not `toBeVisible()`. Playwright counts an element with a box as
+ * visible even when it has scrolled far above the viewport — which is exactly
+ * the defect being fixed, so it would report the broken page as fine. On screen
+ * here means: displayed, and overlapping the region below the sticky header,
+ * which is the only region a reader can see.
+ */
+function statementsOnScreen(page: Page) {
+  return page.evaluate(
+    ({ full, condensed, header, label }) => {
+      const headerBottom = document.querySelector(header)?.getBoundingClientRect().bottom ?? 0;
+      const viewportBottom = window.innerHeight;
+      return [full, condensed]
+        .map((selector) => ({ selector, node: document.querySelector(selector) }))
+        .filter(({ node }) => node !== null && getComputedStyle(node).display !== "none")
+        .map(({ selector, node }) => ({ selector, rect: node!.getBoundingClientRect(), text: node!.textContent ?? "" }))
+        .filter(({ rect }) => Math.min(rect.bottom, viewportBottom) - Math.max(rect.top, headerBottom) > 0)
+        .filter(({ text }) => text.includes(label))
+        .map(({ selector, rect, text }) => ({
+          selector,
+          text,
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+        }));
+    },
+    {
+      full: FULL_BANNER_SELECTOR,
+      condensed: CONDENSED_BAR_SELECTOR,
+      header: WORKSPACE_HEADER_SELECTOR,
+      label: STOPPED_STATE_LABEL,
+    },
+  );
+}
+
+/** Scrolls the document and lets the watcher's one-read-per-frame land. */
+async function scrollDocumentTo(page: Page, offset: number) {
+  await page.evaluate((y) => window.scrollTo(0, y), offset);
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+  );
+}
+
+function maxScrollOffset(page: Page) {
+  return page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight);
+}
+
+test.describe("caring-contacts service stop, stated on every screen", () => {
+  for (const width of REVIEW_WIDTHS) {
+    test(`keeps the stop stated exactly once at every scroll position at ${width}px`, async ({ page }) => {
+      await arrangeServiceStop(page);
+      await openWorkspace(page, width);
+
+      // The page renders the arrangement at all: without this, a store the page
+      // cannot see would leave every assertion below trivially satisfied by a
+      // page that simply never mentions a stop.
+      await expect(page.locator(FULL_BANNER_SELECTOR)).toHaveCount(1);
+      await expect(page.locator(CONDENSED_BAR_SELECTOR)).toHaveCount(1);
+
+      // At rest the full banner owns the statement and the condensed bar is not
+      // displayed at all — two statements of one stop is the failure mode here.
+      await scrollDocumentTo(page, 0);
+      expect(await statementsOnScreen(page), `statements at rest at ${width}px`).toMatchObject([
+        { selector: FULL_BANNER_SELECTOR },
+      ]);
+      await expect(page.locator(CONDENSED_BAR_SELECTOR)).toBeHidden();
+
+      // Then across the whole scroll range. Sampling rather than asserting only
+      // the ends is what covers the handover: the banner leaving and the bar
+      // arriving are one exchange, and a gap or an overlap in it would be a
+      // moment with no statement, or with two.
+      const maxOffset = await maxScrollOffset(page);
+      const offsets = [40, 80, 120, 200, 320, 480, maxOffset].filter((offset) => offset <= maxOffset);
+      for (const offset of offsets) {
+        await scrollDocumentTo(page, offset);
+        const statements = await statementsOnScreen(page);
+        expect(statements, `statements at scroll ${offset} at ${width}px`).toHaveLength(1);
+        expect(statements[0]!.text, `the statement at scroll ${offset} at ${width}px drops its scope`).toContain(
+          STOPPED_SCOPE_WORDING,
+        );
+      }
+    });
+  }
+
+  for (const width of REVIEW_WIDTHS) {
+    test(`pins the condensed bar under the header once the banner has gone at ${width}px`, async ({ page }) => {
+      await arrangeServiceStop(page);
+      await openWorkspace(page, width);
+      await scrollDocumentTo(page, await maxScrollOffset(page));
+
+      const geometry = await page.evaluate(
+        ({ full, condensed, header, dock }) => {
+          const box = (selector: string) => {
+            const node = document.querySelector(selector);
+            if (!node) return null;
+            const rect = node.getBoundingClientRect();
+            return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, height: rect.height };
+          };
+          const bar = document.querySelector(condensed);
+          const displayed = bar ? getComputedStyle(bar).display !== "none" : false;
+          const barRect = bar?.getBoundingClientRect();
+          // What a reader's eye would actually meet at the bar's centre. Nothing
+          // may be painted over it — not the header, not the page content.
+          const covering =
+            displayed && barRect
+              ? document.elementFromPoint(barRect.left + barRect.width / 2, barRect.top + barRect.height / 2)
+              : null;
+          return {
+            bannerBox: box(full),
+            barBox: box(condensed),
+            headerBox: box(header),
+            dockBox: box(dock),
+            viewportHeight: window.innerHeight,
+            overflow: document.documentElement.scrollWidth - window.innerWidth,
+            barIsTopmostAtItsCentre: covering ? covering.closest(condensed) !== null : false,
+            barDisplayed: displayed,
+          };
+        },
+        {
+          full: FULL_BANNER_SELECTOR,
+          condensed: CONDENSED_BAR_SELECTOR,
+          header: WORKSPACE_HEADER_SELECTOR,
+          dock: "[data-testid='caring-contacts-phone-dock']",
+        },
+      );
+
+      const bannerGone = geometry.bannerBox!.bottom <= geometry.headerBox!.bottom;
+      // 1024 and 1440 currently hold a page short enough that the banner may
+      // never leave — which is the reason the defect looked survivable there.
+      // The invariant test above still covers those widths; this one asserts the
+      // pinned bar only where there is something to pin it for, and asserts the
+      // bar stays away otherwise.
+      if (!bannerGone) {
+        expect(geometry.barDisplayed, `the bar showed at ${width}px while the banner was still on screen`).toBe(false);
+        return;
+      }
+
+      expect(geometry.barDisplayed, `the condensed bar did not appear at ${width}px`).toBe(true);
+      // Under the header, not behind it. The header measures 87.5px at 320 and
+      // 390 and 65px above that, against a 64px --header-h token, so a bar
+      // pinned by that token would have been buried at every width.
+      expect(geometry.barBox!.top, `the condensed bar is behind the header at ${width}px`).toBeGreaterThanOrEqual(
+        geometry.headerBox!.bottom - 1,
+      );
+      expect(geometry.barBox!.bottom, `the condensed bar is off screen at ${width}px`).toBeLessThanOrEqual(
+        geometry.viewportHeight,
+      );
+      expect(geometry.barIsTopmostAtItsCentre, `something is painted over the condensed bar at ${width}px`).toBe(true);
+      // It spans the header rather than sitting inside the header's padding.
+      expect(Math.round(geometry.barBox!.left), `condensed bar left edge at ${width}px`).toBe(
+        Math.round(geometry.headerBox!.left),
+      );
+      expect(Math.round(geometry.barBox!.right), `condensed bar right edge at ${width}px`).toBe(
+        Math.round(geometry.headerBox!.right),
+      );
+      // A pinned bar is exactly where a stray z-index buries the phone dock.
+      if (geometry.dockBox && geometry.dockBox.height > 0) {
+        expect(geometry.barBox!.bottom, `the condensed bar reaches the phone dock at ${width}px`).toBeLessThanOrEqual(
+          geometry.dockBox.top,
+        );
+      }
+      expect(geometry.overflow, `horizontal overflow with the condensed bar shown at ${width}px`).toBeLessThanOrEqual(
+        2,
+      );
+    });
+  }
+
+  test("keeps the condensed bar readable in dark and under forced colours", async ({ page, browserName }) => {
+    await arrangeServiceStop(page);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 390);
+    await scrollDocumentTo(page, await maxScrollOffset(page));
+    const dark = await page.evaluate((selector) => {
+      const node = document.querySelector(selector)!;
+      const style = getComputedStyle(node);
+      return { display: style.display, colour: style.color, surface: style.backgroundColor };
+    }, CONDENSED_BAR_SELECTOR);
+    expect(dark.display, "the condensed bar is not shown in dark").not.toBe("none");
+    expect(dark.colour, "the condensed bar's ink resolved to nothing in dark").not.toBe("rgba(0, 0, 0, 0)");
+    expect(dark.surface, "the condensed bar's surface resolved to nothing in dark").not.toBe("rgba(0, 0, 0, 0)");
+    await page.emulateMedia({ colorScheme: "light" });
+
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390);
+    await scrollDocumentTo(page, await maxScrollOffset(page));
+    // Forced colours drop the author's tint, so the words are all that is left
+    // to carry the state. This is the assertion that makes the bar independent
+    // of colour rather than merely accompanied by an icon.
+    const forced = await statementsOnScreen(page);
+    expect(forced, "the stop is not stated under forced colours").toHaveLength(1);
+    expect(forced[0]!.text).toContain(STOPPED_STATE_LABEL);
+    expect(forced[0]!.text).toContain(STOPPED_SCOPE_WORDING);
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+  });
+});

@@ -10,6 +10,7 @@ import { CaringContactsShell } from "@/components/caring-contacts/workspace/shel
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { actorId, teamId } from "@/lib/caring-contacts/ids";
 import {
+  applyServiceRestartApproval,
   applyServiceStop,
   REQUIRED_RESTART_APPROVAL_ROLES,
   runningService,
@@ -247,6 +248,15 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // props cannot cross a Server → Client boundary. It takes no props at all, which is
   // what keeps the service-state record on the server side of this seam.
   "overlays/workspace-overlays.tsx",
+  // Decides WHEN the condensed stop bar is shown, and never what it says. A scroll position
+  // and two element rectangles are browser facts, so this one cannot be answered on the
+  // server — and the header is not the height of its token (87.5px at 320/390, 65px above,
+  // against 64px), so a fixed offset was not an option either. Added on the same three
+  // conditions as the entries above: it takes NO PROPS AT ALL, so nothing derived from the
+  // record crosses this boundary; the companion test below proves its source never names
+  // that module or type; and it toggles one attribute on an element the server rendered from
+  // the note-free facts type, so the bar's wording never enters the client module graph.
+  "service-stop-scroll-watcher.tsx",
 ];
 
 /**
@@ -377,5 +387,115 @@ describe("the service-state path stays on the server", () => {
       expect(source, `${name} references the service-state module`).not.toMatch(/service-state/);
       expect(source, `${name} names ServiceState`).not.toMatch(/ServiceState/);
     }
+  });
+});
+
+/* ------------------------------------------------------------------------- *
+ * The condensed service-stop bar.
+ *
+ * The full banner sits in normal flow beneath a sticky header, so the browser
+ * proof measured it scrolling completely out of view at 320, 390, 430 and 768px
+ * (y from -285 to -602). Spec 4.2 requires the stop to be visible on every
+ * screen while it is active, so a condensed one-line bar is pinned under the
+ * header once the full banner has gone.
+ *
+ * These are the structural guarantees. Whether the bar is actually ON SCREEN
+ * when scrolled is a geometry question no JSDOM test can answer, and is proved
+ * in tests/ui-caring-contacts-workspace.spec.ts.
+ * ------------------------------------------------------------------------- */
+
+/** A stopped service with `recorded` restart approvals already on it. */
+function stoppedServiceWithApprovals(recorded: number): ServiceState {
+  let state = stoppedServiceState();
+  for (const role of REQUIRED_RESTART_APPROVAL_ROLES.slice(0, recorded)) {
+    const approved = applyServiceRestartApproval(state, { role, actorId: actorId(`ACTOR-${role}`) }, INCIDENT_CLOCK);
+    if (!approved.ok) throw new Error(`fixture could not record ${role}: ${approved.reason}`);
+    state = approved.value;
+  }
+  return state;
+}
+
+const CONDENSED_BAR_TEST_ID = "caring-contacts-condensed-service-stop";
+
+describe("the condensed service-stop bar", () => {
+  it("renders nothing at all while the service is running", () => {
+    render(
+      <CaringContactsShell title="Today" serviceState={runningService(teamId("TEAM-A"))}>
+        content
+      </CaringContactsShell>,
+    );
+    expect(screen.queryByTestId(CONDENSED_BAR_TEST_ID)).toBeNull();
+  });
+
+  it("states that sending is stopped for the whole service, in words", () => {
+    render(
+      <CaringContactsShell title="Today" serviceState={stoppedServiceState()}>
+        content
+      </CaringContactsShell>,
+    );
+    const bar = screen.getByTestId(CONDENSED_BAR_TEST_ID);
+    // Text, not colour. This is what survives greyscale and forced colours.
+    expect(bar.textContent ?? "").toContain("Sending stopped");
+    // Abbreviated, but never vaguer: "sending stopped" alone could be read as one
+    // patient's plan. The service-wide scope is the load-bearing half of the claim.
+    expect(bar.textContent ?? "").toContain("the whole service");
+    // The icon decorates the text; it never carries the state on its own.
+    for (const icon of bar.querySelectorAll("svg")) {
+      expect(icon.getAttribute("aria-hidden")).toBe("true");
+    }
+  });
+
+  it("carries the same restart-approval count the full banner carries", () => {
+    // Not a fixed "0 of 3": an abbreviated bar that froze the count would state a
+    // weaker, staler claim than the banner directly above it.
+    for (const recorded of [0, 1, 2]) {
+      const { unmount } = render(
+        <CaringContactsShell title="Today" serviceState={stoppedServiceWithApprovals(recorded)}>
+          content
+        </CaringContactsShell>,
+      );
+      const bar = screen.getByTestId(CONDENSED_BAR_TEST_ID);
+      expect(bar.textContent ?? "").toContain(`${recorded} of ${REQUIRED_RESTART_APPROVAL_ROLES.length}`);
+      expect(screen.getByRole("status").textContent ?? "").toContain(
+        `${recorded} of ${REQUIRED_RESTART_APPROVAL_ROLES.length}`,
+      );
+      unmount();
+    }
+  });
+
+  it("cannot put the responder's incident note in the condensed bar either", () => {
+    // The same guarantee as the full banner's, and held the same way: the bar is
+    // rendered from `ServiceStopBannerFacts`, which omits `note` by construction,
+    // so interpolating it is a type error rather than a judgement call.
+    const { container } = render(
+      <CaringContactsShell title="Today" serviceState={stoppedServiceState()}>
+        content
+      </CaringContactsShell>,
+    );
+    expect(screen.getByTestId(CONDENSED_BAR_TEST_ID)).toBeInTheDocument();
+    expect(container.innerHTML).not.toContain(NOTE_SENTINEL);
+    expect(container.innerHTML).not.toMatch(/Rowan|Mira|\+61/);
+  });
+
+  it("adds no second announced statement of the same stop", () => {
+    // Two live regions saying the same thing is the failure mode this bar has to
+    // avoid in the aural channel as well as the visual one. The full banner is
+    // still in the document and still announces; the pinned duplicate is scenery.
+    render(
+      <CaringContactsShell title="Today" serviceState={stoppedServiceState()}>
+        content
+      </CaringContactsShell>,
+    );
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByTestId(CONDENSED_BAR_TEST_ID)).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("adds no second control competing with the banner's service-stop control", () => {
+    render(
+      <CaringContactsShell title="Today" serviceState={stoppedServiceState()}>
+        content
+      </CaringContactsShell>,
+    );
+    expect(screen.getByTestId(CONDENSED_BAR_TEST_ID).querySelector("button, a")).toBeNull();
   });
 });

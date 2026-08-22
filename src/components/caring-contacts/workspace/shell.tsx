@@ -6,7 +6,8 @@ import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 import { WorkspaceOverlays } from "./overlays/workspace-overlays";
-import { ServiceStateBanner } from "./service-state-banner";
+import { CondensedServiceStopBar, ServiceStateBanner } from "./service-state-banner";
+import { WORKSPACE_HEADER_ID } from "./service-stop-bar-anchors";
 import { SyntheticMarker } from "./synthetic-marker";
 import { UnavailableDestination } from "./unavailable-destination";
 import type { WorkspaceWidthState } from "./width-state";
@@ -219,6 +220,7 @@ export function CaringContactsShell({ title, description, serviceState, children
 
       <div className="min-w-0 flex-1">
         <header
+          id={WORKSPACE_HEADER_ID}
           data-synthetic-marker-host
           className="sticky top-0 z-[var(--z-raised)] border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-4 sm:px-6 lg:px-8 forced-colors:bg-[Canvas]"
         >
@@ -231,6 +233,16 @@ export function CaringContactsShell({ title, description, serviceState, children
             </div>
             <SyntheticMarker className="ml-auto" />
           </div>
+
+          {/*
+            The condensed statement of a service-wide stop, pinned under this header once the
+            full banner below has scrolled out of view. It renders nothing while the service is
+            running, and never at the same time as the banner. It lives INSIDE the header, and
+            absolutely positioned, so it rides the sticky header without a second sticky element,
+            without a magic offset the measured header height would not match, and without
+            moving any content as it appears. See `service-state-banner.tsx`.
+          */}
+          <CondensedServiceStopBar state={serviceState} />
         </header>
 
         {/*
