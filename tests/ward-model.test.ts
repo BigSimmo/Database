@@ -40,11 +40,12 @@ describe("ward model constants", () => {
   it("pins the ED access target as a departmental performance measure, not a legal clock", () => {
     // Task 6A: the Mental Health Act imposes no post-examination deadline — the clinician
     // confirmed the post-examination clock is elapsed ED wait, counting up, not a legal
-    // countdown. This constant is the real, separately named figure from spec §7 (the four-hour
-    // access target departments are judged on); Task 11's ED screen renders it against
-    // `openedAt`. Pinned here so a later task cannot silently redefine it as, or attach it to, a
-    // legal deadline — see the constant's own doc comment.
-    expect(ED_ACCESS_TARGET_MINUTES).toBe(240);
+    // countdown. This constant is the real, separately named figure from spec §7 (originally the
+    // four-hour access target departments are judged on; the product owner superseded that
+    // figure to 24 hours on 2026-08-22 — see the constant's own doc comment); Task 11's ED
+    // screen renders it against `openedAt`. Pinned here so a later task cannot silently redefine
+    // it as, or attach it to, a legal deadline.
+    expect(ED_ACCESS_TARGET_MINUTES).toBe(1440);
   });
 });
 

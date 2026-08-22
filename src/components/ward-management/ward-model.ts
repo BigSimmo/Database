@@ -53,16 +53,23 @@ export type LegalForm = {
 };
 
 /**
- * The emergency department's four-hour access target, in minutes. This is a real, named figure
- * from spec §7 — but it is a **departmental performance measure**, counted UP from
- * `Movement.openedAt` (how long the patient has been in the department), because that is the
- * number a department is judged on and mental health patients are its largest breachers. It is
- * **not** a Mental Health Act deadline: it must never be attached to a `LegalForm`, never gain a
- * `dueAt`, and never feed a legal-breach count or an eligibility gate. Task 6A only introduces
- * and pins this constant (see `tests/ward-model.test.ts`); Task 11's emergency department screen
- * is what actually renders it against `openedAt`.
+ * The emergency department's access target, in minutes. This is a real, named figure from spec
+ * §7 — but it is a **departmental performance measure**, counted UP from `Movement.openedAt`
+ * (how long the patient has been in the department), because that is the number a department is
+ * judged on and mental health patients are its largest breachers. It is **not** a Mental Health
+ * Act deadline: it must never be attached to a `LegalForm`, never gain a `dueAt`, and never feed
+ * a legal-breach count or an eligibility gate. Task 6A only introduces and pins this constant
+ * (see `tests/ward-model.test.ts`); Task 11's emergency department screen is what actually
+ * renders it against `openedAt`.
+ *
+ * The spec originally named this figure four hours (240 minutes). The product owner — the
+ * spec's own author — superseded that figure for this prototype on 2026-08-22, in response to a
+ * direct clinical question, and set it to 24 hours (1440 minutes) instead. Nothing about *how*
+ * this figure is counted, rendered or safeguarded changed: it is still counted up from
+ * `openedAt`, never a deadline, and still barred from every `LegalForm`/`dueAt`/breach/
+ * eligibility surface listed above.
  */
-export const ED_ACCESS_TARGET_MINUTES = 240;
+export const ED_ACCESS_TARGET_MINUTES = 1440;
 
 /**
  * A capacity number is meaningless without where it came from and when.

@@ -231,7 +231,7 @@ export function EdScreen({ edId }: EdScreenProps) {
         <div className={styles.governanceBanner} data-testid="ward-ed-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
-            This is {department.name}&apos;s own view. The four-hour figure below is this department&apos;s own access
+            This is {department.name}&apos;s own view. The 24-hour figure below is this department&apos;s own access
             target — a performance measure it is judged on, not a Mental Health Act deadline. No bed is ever allocated
             automatically; a human here confirms every step.
           </p>

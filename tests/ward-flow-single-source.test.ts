@@ -179,8 +179,10 @@ function readsNowAnchor(source: string, fileName: string): boolean {
 
 /**
  * Task 6A Minor 1 (fix round 1): `ED_ACCESS_TARGET_MINUTES` (`ward-model.ts`) is the emergency
- * department's four-hour access target — a departmental performance measure counted UP from
- * `openedAt`. Its own doc comment forbids it from ever touching a `LegalForm`, gaining a
+ * department's access target (four hours when this guard was written; the product owner
+ * superseded that figure to 24 hours on 2026-08-22 — see the constant's own doc comment) — a
+ * departmental performance measure counted UP from `openedAt`. Its own doc comment forbids it
+ * from ever touching a `LegalForm`, gaining a
  * `dueAt`, or feeding a legal-breach count, but Task 6A only pinned its numeric value
  * (`tests/ward-model.test.ts`). Nothing structural stopped a later change — Task 11's emergency
  * department screen is the first real consumer — from wiring it back onto a legal form, which is

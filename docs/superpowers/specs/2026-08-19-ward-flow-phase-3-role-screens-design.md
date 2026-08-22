@@ -228,11 +228,17 @@ and its pass/fail semantics do not change.
 
 Its own patients only. Each carries **both clocks** — time in the department, and the legal clock
 running from `formedAt` where that is earlier — its referral state, and **the single outstanding
-item**: a form, an examination, a transport request, or handover. Time against the four-hour access
-target is shown, because that is the number a department is judged on and mental health patients
-are its largest breachers. Police attendance is flagged where `arrivalMode` says so. Statewide
-capacity is visible and read-only — hiding it would recreate the problem this system exists to
-remove.
+item**: a form, an examination, a transport request, or handover. Time against the departmental
+access target is shown, because that is the number a department is judged on and mental health
+patients are its largest breachers. Police attendance is flagged where `arrivalMode` says so.
+Statewide capacity is visible and read-only — hiding it would recreate the problem this system
+exists to remove.
+
+> **Superseded 2026-08-22.** This section originally named the access target as four hours (240
+> minutes). The product owner — this spec's own author — changed it to 24 hours (1440 minutes)
+> for this prototype, in response to a direct clinical question. `ED_ACCESS_TARGET_MINUTES` in
+> `ward-model.ts` and its tests carry the current value; nothing else about how the figure is
+> counted, rendered or safeguarded changed.
 
 It can raise a new referral, and record an examination and its outcome.
 
