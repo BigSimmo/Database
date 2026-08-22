@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "993f7ca7-5277-4399-82fc-19ff981823e4",
+  "createdOn": "2026-08-22",
+  "action": "update",
+  "payload": {
+    "id": "#M6JNR8",
+    "pri": "P1",
+    "source": "PR #2260 review thread discussion_r3833600137; RE-CONFIRMED AND EMPIRICALLY RE-PROVEN 2026-08-22 in a second session that was tasked with fixing the #231 queue row and could not: a probe commit changing queue row 1 from A1 to A2 was refused by npm run check:ledger-write-discipline with 'docs/outstanding-issues.md does not exactly match the audited application of 0 moved inbox request(s) from the base', and the probe was reverted; re-graded P2 -> P1 because the stale row is the first thing the session-start hook surfaces and has now mis-directed two sessions; docs/outstanding-issues.md queue row 1 and row #231; scripts/outstanding-issues.mjs:255-279; scripts/check-ledger-write-discipline.mjs:130-175",
+    "baseRowFingerprint": "79e97b657c60f6571e31dab7b2e0e088dd7c34a1dfac53a769532110e1e548ff"
+  }
+}
