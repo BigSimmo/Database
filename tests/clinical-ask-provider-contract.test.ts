@@ -27,4 +27,10 @@ describe("Clinical Ask provider placement", () => {
     expect(workspace).toContain("loading: () => null");
     expect(workspace).not.toContain("LoadingPanel");
   });
+
+  it("keeps Clinical Ask composer actions in the first client paint", () => {
+    const lazy = source("src/components/clinical-dashboard/clinical-dashboard-lazy.tsx");
+    expect(lazy).toMatch(/export \{ ClinicalAskComposerActions \} from "\.\/clinical-ask-composer-actions"/);
+    expect(lazy).not.toMatch(/ClinicalAskComposerActions = dynamic/);
+  });
 });

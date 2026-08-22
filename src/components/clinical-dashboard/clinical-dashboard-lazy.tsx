@@ -74,8 +74,8 @@ export const ClinicalAskWorkspace = dynamic(
   // (Lighthouse CLS on `/`) and pushes the in-flow composer into the PWA sheet.
   { ssr: false, loading: () => null },
 );
-export const ClinicalAskComposerActions = dynamic(
-  () =>
-    import("@/components/clinical-dashboard/clinical-ask-composer-actions").then((m) => m.ClinicalAskComposerActions),
-  { ssr: false, loading: () => null },
-);
+// Composer actions sit *above* the in-flow hero form. `dynamic(..., loading: null)`
+// leaves that row missing on the first Clinical Ask mode, then present after the
+// chunk caches — a vertically centered hero then moves `formTop` by half the
+// 48px tap row (~24px). Production UI (3) caught that on specifiers → formulation.
+export { ClinicalAskComposerActions } from "./clinical-ask-composer-actions";
