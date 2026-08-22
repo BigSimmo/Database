@@ -1,6 +1,7 @@
+import type { Instant } from "@/components/ward-management/ward-clock";
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
-import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
+import { EXAMINATION_REFERRAL_WINDOW_MINUTES, PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import type { LegalForm, LegalStatus, Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 
@@ -104,6 +105,31 @@ function nextReferralId(sequence: number): string {
   return `WF-9${String(sequence).padStart(2, "0")}`;
 }
 
+/**
+ * The 1A/3B invariant (spec "Model changes this phase requires": a movement on 1A has no
+ * `examination` recorded, a movement on 3B has one) applies at creation too, and every other
+ * constructor of a `Movement` already honours it — the hand-authored fixture, the generated
+ * fixture (`ward-movements.ts`'s `routineMovements`), and `RECORD_EXAMINATION`'s own 1A-to-3B
+ * transition. `RAISE_REFERRAL` was the one runtime constructor that did not (whole-branch review
+ * I5): it wrote no `legalForm` at all, whatever `legalStatus` the draft carried, so a non-voluntary
+ * referral's own card could read "Referred for psychiatric examination" beside "No legal form
+ * recorded for this movement" — the same fact, disagreeing — and its examination could never be
+ * recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`).
+ *
+ * A brand-new referral has never been examined, so the rule collapses to one condition:
+ * non-voluntary means a fresh 1A (with a real statutory `dueAt` — `LegalForm`'s own doc comment
+ * says a 1A always carries one); voluntary means no form at all, exactly like every fixture entry.
+ */
+function initialLegalForm(legalStatus: LegalStatus, now: Instant): LegalForm | undefined {
+  if (legalStatus === "Voluntary") return undefined;
+  return {
+    code: "1A",
+    label: "Referral for examination",
+    kind: "examination",
+    dueAt: now + EXAMINATION_REFERRAL_WINDOW_MINUTES,
+  };
+}
+
 export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): WardFlowState {
   // 1. Role check first, before the event's payload is inspected at all.
   const requiredRole: WardFlowRole = EVENT_ROLE[event.type];
@@ -134,6 +160,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         sex: event.draft.sex,
         specialling: event.draft.specialling,
         legalStatus: event.draft.legalStatus,
+        legalForm: initialLegalForm(event.draft.legalStatus, event.now),
         statusChanges: [],
         stage: "placement_requested",
         owner: department.name,

@@ -72,6 +72,20 @@ export type LegalForm = {
 export const ED_ACCESS_TARGET_MINUTES = 1440;
 
 /**
+ * How long a Form 1A referral order remains valid before the examination it refers the person for
+ * must happen — the real statutory figure under the WA Mental Health Act 2014 (a Form 1A referral
+ * order remains valid for up to 72 hours to enable the person to be taken to the place of
+ * examination). This is a **legal clock**, the opposite of `ED_ACCESS_TARGET_MINUTES` immediately
+ * above: it is exactly the kind of figure that constant must never become, and this constant must
+ * never be used the way that one is (counted against `openedAt`, rendered as a departmental
+ * measure). It exists to give a freshly raised referral's Form 1A a real `dueAt` — see
+ * `LegalForm`'s own doc comment ("a Form 1A ... always carries a real statutory examination
+ * window") and `wardFlowReducer`'s `RAISE_REFERRAL` case, the only runtime constructor of a
+ * `LegalForm`.
+ */
+export const EXAMINATION_REFERRAL_WINDOW_MINUTES = 72 * 60;
+
+/**
  * A capacity number is meaningless without where it came from and when.
  * `feed` knows which beds are physically empty; `ward` knows which are actually allocatable
  * once staffing, sex mix, acuity mix, single rooms and holds are accounted for.

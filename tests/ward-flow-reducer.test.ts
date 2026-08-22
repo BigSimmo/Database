@@ -262,6 +262,58 @@ describe("new referrals", () => {
     expect(created.stage).toBe("placement_requested");
     expect(created.withdrawnReferrals).toEqual([]);
   });
+
+  /**
+   * Whole-branch review I5: RAISE_REFERRAL used to write no `legalForm` at all, whatever
+   * `legalStatus` the draft carried, so a non-voluntary referral could never have its examination
+   * recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`). This pins the
+   * 1A/3B invariant at creation, the same rule the fixture's own `routineMovements` generator
+   * already follows, so the runtime creator can never drift from it again.
+   */
+  it("gives a non-voluntary referral a fresh Form 1A, and a voluntary one no form at all", () => {
+    const voluntary = wardFlowReducer(seeded(), {
+      type: "RAISE_REFERRAL",
+      role: "ed",
+      now: NOW,
+      edId: "jhc-ed",
+      draft: {
+        cohort: "Adult",
+        security: "Open",
+        sex: "Female",
+        specialling: false,
+        legalStatus: "Voluntary",
+        urgency: 2,
+      },
+    });
+    const voluntaryCreated = voluntary.movements[voluntary.movements.length - 1];
+    expect(voluntaryCreated.legalForm).toBeUndefined();
+
+    for (const legalStatus of [
+      "Referred for psychiatric examination",
+      "Detained awaiting examination",
+      "Involuntary inpatient",
+    ] as const) {
+      const state = wardFlowReducer(seeded(), {
+        type: "RAISE_REFERRAL",
+        role: "ed",
+        now: NOW,
+        edId: "jhc-ed",
+        draft: {
+          cohort: "Adult",
+          security: "Open",
+          sex: "Female",
+          specialling: false,
+          legalStatus,
+          urgency: 2,
+        },
+      });
+      const created = state.movements[state.movements.length - 1];
+      expect(created.legalForm?.code).toBe("1A");
+      expect(created.legalForm?.dueAt).toBeGreaterThan(NOW);
+      // The 1A/3B invariant's other half: a movement on 1A never carries an examination.
+      expect(created.examination).toBeUndefined();
+    }
+  });
 });
 
 describe("purity", () => {
