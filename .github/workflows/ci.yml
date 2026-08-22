@@ -365,6 +365,13 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:cross-mode-index
 
+      # Guards the sign-off binding: a reviewed Act-section summary is pinned by hash to
+      # the statutory text its reviewer read, so changed law fails the gate instead of
+      # silently shipping a stale clinical claim.
+      - name: Act section summary drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:mha-act-sections
+
       - name: Design-system contract
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:design-system-contract

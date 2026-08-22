@@ -784,6 +784,15 @@ describe("outstanding-issues inbox", () => {
       action: "done",
       payload: { id: "#6BG9X2", outcome: "closed by test", baseRowFingerprint: fingerprint },
     };
+    const update = {
+      version: 2,
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      createdOn: "2026-08-17",
+      action: "update",
+      payload: { id: "#6BG9X2", summary: "updated by test", baseRowFingerprint: fingerprint },
+    };
+    expect(validateRequest(update)).toEqual([]);
+    expect(applyRequest(ledger, update)).toContain("| updated by test | reconciled detail |");
     expect(validateRequest(done)).toEqual([]);
     const applied = applyRequest(ledger, done);
     expect(applied).not.toContain("| #6BG9X2 <!-- issue-ulid:01M07SS71R6BG9X2VAGXMM1A1G --> | P2 |");

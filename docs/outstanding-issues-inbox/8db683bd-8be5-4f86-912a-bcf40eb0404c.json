@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "8db683bd-8be5-4f86-912a-bcf40eb0404c",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "54bbb5e0-a573-47e5-9daa-f7eedc4e6b73",
+    "reason": "Reissued as a single closure that also carries the evidence from cancelled request 993f7ca7, which had independently re-proven the defect in another session. Requests are immutable, so folding that evidence into the outcome means replacing this one rather than editing it."
+  }
+}

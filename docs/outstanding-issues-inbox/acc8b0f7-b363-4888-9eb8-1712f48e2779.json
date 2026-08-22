@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "acc8b0f7-b363-4888-9eb8-1712f48e2779",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "993f7ca7-5277-4399-82fc-19ff981823e4",
+    "reason": "Superseded: this request re-grades #M6JNR8 to P1 so the queue-edit gap gets fixed sooner, and the fix has now landed in this PR (updateQueueRow plus the 'queue' inbox action), so the row is being closed rather than re-prioritised. Nothing from it is lost: its empirical proof — that a probe commit changing queue row 1 from A1 to A2 was refused by check:ledger-write-discipline with 'does not exactly match the audited application of 0 moved inbox request(s) from the base', and that the stale row had by then mis-directed two sessions — is carried verbatim into the closure outcome, which is the durable record. Cancelled only because two mutations on one row need an explicit decision, not because the finding was wrong; it was correct and it is the reason this was built."
+  }
+}
