@@ -11,6 +11,10 @@
 #   test:live, check:supabase-project) still need explicit confirmation per AGENTS.md
 # Hosted ChatGPT/Codex tools come only from installed, authenticated apps; this file is not runtime proof.
 
+# Repository baseline for trusted Codex clients. A task-specific model or effort selection still wins.
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+
 [mcp_servers.figma_cloud]
 url = "https://mcp.figma.com/mcp"
 enabled = false
