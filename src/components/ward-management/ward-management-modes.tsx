@@ -98,6 +98,7 @@ function inboxAction(item: InboxItem) {
   if (item.id.startsWith("legal-")) return "Escalate legal timing";
   if (item.id.startsWith("declines-")) return "Expand destination search";
   if (item.id.startsWith("transport-")) return "Follow up transport provider";
+  if (item.id.startsWith("bed-hold-")) return "Reconfirm or release bed hold";
   return "Review movement";
 }
 

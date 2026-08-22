@@ -267,8 +267,12 @@ export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNo
  * frozen fixture on every live surface (a ward's own confirmed capacity could drop to zero and
  * the coordinator's shortlist would still read "Eligible now" for it). It now takes `units` as a
  * parameter instead of reading `allUnits()` itself — every live caller must pass the provider's
- * live `units`, never the frozen fixture. `eligibleCandidates` below is a narrow, deliberately
- * frozen exception kept only for a test file this fix could not touch; see its own doc comment.
+ * live `units`, never the frozen fixture. `units` is REQUIRED and deliberately has no default —
+ * a defaulted `units = allUnits()` would let every existing call site keep compiling while
+ * silently reading frozen capacity again, which is precisely how the original defect survived.
+ * The frozen wrapper this comment used to point at was deleted in R70; nothing reads the fixture
+ * at render time any more, and `tests/ward-flow-single-source.test.ts` enforces that with a
+ * TypeScript-parser walk rather than a text scan.
  */
 export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: Instant, limit = 3) {
   // Eligible-first cut FIRST, restrictiveness reorder SECOND, deliberately in two passes rather
@@ -356,6 +360,23 @@ export function buildActionInbox(movements: Movement[], now: Instant): InboxItem
       icon: CircleAlert,
       title: "Legal timing breached",
       detail: `${movement.id} · ${formatRemaining(minutesUntil(dueAt, now))}`,
+      owner: movement.owner,
+      movementId: movement.id,
+    });
+  }
+
+  const expiredBedHolds = movements.filter(
+    (movement) => movement.stage === "bed_held" && movement.bedHeldUntil !== undefined && movement.bedHeldUntil < now,
+  );
+  for (const movement of expiredBedHolds) {
+    const bedHeldUntil = movement.bedHeldUntil;
+    if (bedHeldUntil === undefined) continue;
+    items.push({
+      id: `bed-hold-${movement.id}`,
+      tone: "danger",
+      icon: CircleAlert,
+      title: "Bed hold expired",
+      detail: `${movement.id} · ${formatRemaining(minutesUntil(bedHeldUntil, now))}`,
       owner: movement.owner,
       movementId: movement.id,
     });

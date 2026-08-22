@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
+import { FORM_1A_REFERRAL_EXPIRY_MINUTES } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
@@ -315,6 +316,22 @@ describe("new referrals", () => {
       expect(created.legalForm?.dueAt).toBeUndefined();
       // The 1A/3B invariant's other half: a movement on 1A never carries an examination.
       expect(created.examination).toBeUndefined();
+
+      // R79, adopted from the diverged branch (`2c9c56e24`) and adapted: asserting the 1A exists
+      // is weaker than I5's actual claim, which is that the form is EXAMINABLE. `RECORD_EXAMINATION`
+      // refuses unless `legalForm?.code === "1A"`, so driving the round trip here is what proves
+      // the created form is the real thing rather than a shaped object that merely looks like one.
+      const examined = wardFlowReducer(state, {
+        type: "RECORD_EXAMINATION",
+        role: "ed",
+        now: NOW + 1,
+        movementId: created.id,
+        outcome: "inpatient_order",
+      });
+      expect(examined.rejections).toEqual([]);
+      const afterExamination = examined.movements.find((candidate) => candidate.id === created.id)!;
+      expect(afterExamination.legalForm?.code).toBe("3B");
+      expect(afterExamination.legalForm?.dueAt).toBeUndefined();
     }
   });
 });
@@ -364,6 +381,41 @@ describe("examination", () => {
     const target = movement(next, "WF-001");
     expect(target.legalForm).toBeUndefined();
     expect(target.closure?.outcome).toBe("did_not_proceed");
+  });
+
+  it("cancels downstream transport, releases the held bed, and refuses further transitions when a movement closes", () => {
+    // WF-005 is seeded at handover_ready, accepted at fre-adult-open, with a transport job
+    // already accepted (but not yet en route). fre-adult-open's allocatable count reflects an
+    // earlier HOLD_BED on this same movement.
+    const before = seeded();
+    const beforeUnit = before.units.find((candidate) => candidate.id === "fre-adult-open")!;
+
+    const next = wardFlowReducer(before, {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW,
+      movementId: "WF-005",
+      outcome: "revoked",
+    });
+    const target = movement(next, "WF-005");
+    expect(target.closure?.outcome).toBe("did_not_proceed");
+    // Transport is cancelled, not silently left in its last live state.
+    expect(target.transport?.cancelledAt).toBe(NOW);
+    // The bed reserved by the earlier HOLD_BED is given back to the unit.
+    const afterUnit = next.units.find((candidate) => candidate.id === "fre-adult-open")!;
+    expect(afterUnit.allocatable.value).toBe(beforeUnit.allocatable.value + 1);
+
+    // A closed movement can no longer be moved along the transport pathway — this reproduces
+    // the reported defect, where TRANSPORT_EN_ROUTE was still accepted after the movement had
+    // already been recorded as revoked.
+    const enRoute = wardFlowReducer(next, {
+      type: "TRANSPORT_EN_ROUTE",
+      role: "officer",
+      now: NOW + 5,
+      movementId: "WF-005",
+    });
+    expect(enRoute.rejections).toHaveLength(1);
+    expect(movement(enRoute, "WF-005").transport?.enRouteAt).toBeUndefined();
   });
 });
 

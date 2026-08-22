@@ -104,7 +104,20 @@ describe("buildActionInbox", () => {
   // The drawer's toggle count and the drawer's own rendered rows must agree (Task 8 ruling 3).
   // This is the model-side half of that guarantee: the total item count really is the sum of
   // every category's own real count, never a number computed independently of the rows below it.
-  it("returns exactly as many items as the three categories combined — no more, no fewer", () => {
+  it("lists expired bed holds so a lapsed reservation cannot disappear silently", () => {
+    const expired = wardMovements.find((movement) => movement.id === "WF-004")!;
+    expect(expired.bedHeldUntil).toBeLessThan(NOW_ANCHOR);
+
+    expect(buildActionInbox(wardMovements, NOW_ANCHOR)).toContainEqual(
+      expect.objectContaining({
+        id: "bed-hold-WF-004",
+        title: "Bed hold expired",
+        movementId: "WF-004",
+      }),
+    );
+  });
+
+  it("returns exactly as many items as the four categories combined — no more, no fewer", () => {
     const legalCount = wardMovements.filter(
       (movement) =>
         movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached",
@@ -116,8 +129,14 @@ describe("buildActionInbox", () => {
         movement.transport.enRouteAt === undefined &&
         movement.transport.cancelledAt === undefined,
     ).length;
+    const expiredHoldCount = wardMovements.filter(
+      (movement) =>
+        movement.stage === "bed_held" && movement.bedHeldUntil !== undefined && movement.bedHeldUntil < NOW_ANCHOR,
+    ).length;
 
-    expect(buildActionInbox(wardMovements, NOW_ANCHOR)).toHaveLength(legalCount + declineCount + transportCount);
+    expect(buildActionInbox(wardMovements, NOW_ANCHOR)).toHaveLength(
+      legalCount + declineCount + transportCount + expiredHoldCount,
+    );
   });
 
   it("gives every item a unique id even with several movements in the same category", () => {
@@ -139,7 +158,33 @@ describe("buildActionInbox", () => {
   });
 });
 
-describe("eligibleCandidates", () => {
+describe("eligibleCandidatesAmong", () => {
+  /**
+   * R79, adopted from the diverged branch (`5ae4fbf43`) and adapted to this side's signature —
+   * theirs called `eligibleCandidates(movement, now, limit, units)`, which no longer exists here.
+   * Whole-branch review Critical 1 at unit level: this side proves the same property in Playwright
+   * (`ui-ward-roles.spec.ts`, "live capacity"), but a vitest assertion is sharper and cheaper, so
+   * both are kept. The mutation that kills it is reverting `eligibleCandidatesAmong` to read
+   * `allUnits()` internally — then the exhausted copy is never consulted and the second
+   * expectation reads `true`.
+   */
+  it("evaluates candidates against the caller's live unit state, not the frozen fixture", () => {
+    const movement = wardMovements.find((candidate) => candidate.id === "WF-001")!;
+    const liveUnits = allUnits();
+    const original = eligibleCandidatesAmong(movement, liveUnits, NOW_ANCHOR, Number.POSITIVE_INFINITY).find(
+      (candidate) => candidate.unit.id === "rph-adult-secure",
+    );
+    expect(original?.verdict.eligible).toBe(true);
+
+    const exhaustedUnits = liveUnits.map((unit) =>
+      unit.id === "rph-adult-secure" ? { ...unit, allocatable: { ...unit.allocatable, value: 0 } } : unit,
+    );
+    const exhausted = eligibleCandidatesAmong(movement, exhaustedUnits, NOW_ANCHOR, Number.POSITIVE_INFINITY).find(
+      (candidate) => candidate.unit.id === "rph-adult-secure",
+    );
+    expect(exhausted?.verdict.eligible).toBe(false);
+  });
+
   // Fix round 1, Finding 2. The two-pass truncate-then-reorder fix only had incidental coverage
   // before this: one Playwright assertion on one unit name for one movement, and the vitest
   // contract test that also exercises this function calls it with `Number.POSITIVE_INFINITY`, so

@@ -209,19 +209,45 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
 
       // community_order or revoked: the patient does not proceed to an inpatient bed. The
       // record closes and the detention form is cleared rather than left dangling on a
-      // movement that is no longer going anywhere.
+      // movement that is no longer going anywhere. A closure also has to unwind whatever
+      // downstream placement state the movement was carrying — an in-flight transport job and
+      // a bed already held at the accepted unit — rather than leaving both dangling: every
+      // downstream handler below now also rejects once `movement.closure` is set (the same
+      // signal `isOpenMovement` in ward-derivations.ts already treats as authoritative), but
+      // that only stops *further* progress; it does not by itself give back capacity already
+      // reserved by an earlier HOLD_BED.
+      const heldStages: MovementStage[] = ["bed_held", "handover_ready", "moving"];
+      const releasedState =
+        movement.acceptedUnitId && heldStages.includes(movement.stage)
+          ? (() => {
+              const heldUnit = findUnit(state, movement.acceptedUnitId!);
+              if (!heldUnit) return state;
+              const releasedUnit: Unit = {
+                ...heldUnit,
+                allocatable: { ...heldUnit.allocatable, value: heldUnit.allocatable.value + 1, confirmedAt: event.now },
+              };
+              return replaceUnit(state, heldUnit.id, releasedUnit);
+            })()
+          : state;
       const updated: Movement = {
         ...movement,
         examination: { at: event.now, outcome: event.outcome },
         legalForm: undefined,
+        transport:
+          movement.transport && movement.transport.cancelledAt === undefined
+            ? { ...movement.transport, cancelledAt: event.now }
+            : movement.transport,
         closure: { at: event.now, outcome: "did_not_proceed", reason: `examination outcome ${event.outcome}` },
       };
-      return replaceMovement(state, movement.id, updated);
+      return replaceMovement(releasedState, movement.id, updated);
     }
 
     case "REFER_TO_UNITS": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot refer a closed movement (${movement.closure.reason})`);
+      }
       if (event.unitIds.length > PARALLEL_REFERRAL_CAP) {
         return reject(
           state,
@@ -247,6 +273,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "ACCEPT_IN_PRINCIPLE": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot accept a closed movement (${movement.closure.reason})`);
+      }
       if (movement.acceptedUnitId) {
         const already = findUnit(state, movement.acceptedUnitId);
         const attemptedUnit = findUnit(state, event.unitId);
@@ -282,6 +311,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "HOLD_BED": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot hold a bed for a closed movement (${movement.closure.reason})`);
+      }
       if (movement.stage !== "accepted_awaiting_bed") {
         return reject(state, event, `cannot hold a bed while the movement is ${movement.stage}`);
       }
@@ -314,6 +346,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "DECLINE": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot decline for a closed movement (${movement.closure.reason})`);
+      }
       if (movement.stage !== "destination_review") {
         return reject(state, event, `cannot decline while the movement is ${movement.stage}`);
       }
@@ -335,6 +370,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "HANDOVER_READY": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot ready a handover for a closed movement (${movement.closure.reason})`);
+      }
       if (movement.stage !== "bed_held") {
         return reject(state, event, `cannot ready a handover while the movement is ${movement.stage}`);
       }
@@ -353,6 +391,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "TRANSPORT_ACCEPTED": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot accept transport for a closed movement (${movement.closure.reason})`);
+      }
       if (movement.stage !== "handover_ready" || !movement.transport) {
         return reject(state, event, `cannot accept transport while the movement is ${movement.stage}`);
       }
@@ -369,6 +410,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "TRANSPORT_EN_ROUTE": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot move transport for a closed movement (${movement.closure.reason})`);
+      }
       if (movement.stage !== "handover_ready" || !movement.transport?.acceptedAt) {
         return reject(state, event, `cannot mark transport en route before it has been accepted`);
       }
@@ -385,6 +429,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "PATIENT_COLLECTED": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot collect a patient for a closed movement (${movement.closure.reason})`);
+      }
       if (movement.stage !== "handover_ready" || !movement.transport?.enRouteAt) {
         return reject(state, event, `cannot collect a patient before transport is en route`);
       }
@@ -399,6 +446,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "PATIENT_ARRIVED": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot arrive a patient for a closed movement (${movement.closure.reason})`);
+      }
       if (movement.stage !== "moving" || !movement.transport?.collectedAt) {
         return reject(state, event, `cannot arrive a patient while the movement is ${movement.stage}`);
       }
@@ -443,6 +493,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "RECORD_ESCALATION": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot escalate a closed movement (${movement.closure.reason})`);
+      }
       const updated: Movement = {
         ...movement,
         escalation: { at: event.now, triedUnitIds: [...event.triedUnitIds], contact: event.contact },

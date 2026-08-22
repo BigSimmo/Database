@@ -1,8 +1,16 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MINUTES_PER_DAY, wallClockNow } from "@/components/ward-management/ward-clock";
 import { WardFlowProvider, useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+
+// Only `wallClockNow` is mocked — `elapsedMinutesSinceMount` and every other export stay real,
+// so this proves the provider's own accumulation logic, not a stand-in for it.
+vi.mock("@/components/ward-management/ward-clock", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/ward-management/ward-clock")>();
+  return { ...actual, wallClockNow: vi.fn(actual.wallClockNow) };
+});
 
 function Probe() {
   const { movements, units, now, rejections } = useWardFlow();
@@ -88,5 +96,47 @@ describe("WardFlowProvider", () => {
     // A second dispatch must accumulate onto the first, not restart from the seeded state.
     fireEvent.click(button);
     expect(screen.getByTestId("now")).toHaveTextContent(String(NOW_ANCHOR + 30));
+  });
+
+  describe("wall-clock elapsed time beyond one day", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.mocked(wallClockNow).mockReset();
+    });
+
+    it("keeps accumulating elapsed minutes past a full day instead of resetting on an exact-24h reading", () => {
+      // Reproduces the reported defect directly: 50 ticks of 30 minutes-of-day each (never more
+      // than a single midnight rollover per tick, matching the real 30s cadence's own safety
+      // margin) total 1,500 minutes — just past one full day (1,440). The OLD implementation
+      // compared every reading against the ORIGINAL mount instant: at tick 48 (1,440 minutes
+      // later) the wall clock reads the same minute-of-day as the mount, `raw` lands on exactly
+      // 0, and elapsed silently resets to 0 instead of continuing to grow.
+      const startMinute = 600; // 10:00
+      const stepMinutes = 30;
+      const ticks = 50; // 50 * 30 = 1,500 minutes, past one full day.
+      const mockedWallClockNow = vi.mocked(wallClockNow);
+      mockedWallClockNow.mockImplementation(() => startMinute);
+
+      render(
+        <WardFlowProvider>
+          <Probe />
+        </WardFlowProvider>,
+      );
+      expect(screen.getByTestId("now")).toHaveTextContent(String(NOW_ANCHOR));
+
+      for (let tick = 1; tick <= ticks; tick += 1) {
+        const reading = (startMinute + tick * stepMinutes) % MINUTES_PER_DAY;
+        mockedWallClockNow.mockImplementation(() => reading);
+        act(() => {
+          vi.advanceTimersByTime(30_000);
+        });
+      }
+
+      expect(screen.getByTestId("now")).toHaveTextContent(String(NOW_ANCHOR + ticks * stepMinutes));
+    });
   });
 });

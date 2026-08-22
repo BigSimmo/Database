@@ -62,31 +62,42 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
   const [state, dispatch] = useReducer(wardFlowReducer, undefined, seedWardFlowState);
 
   // `wallClockNow()` — the only wall-clock read this component is allowed to make (see
-  // ward-clock.ts) — is called here on every unpinned render, not just once per mount: the
-  // `elapsed` line below calls it again to compute the live offset. A pinned `initialNow`
-  // (tests, deterministic renders) never touches the wall clock at all. `mountedAt` itself is
-  // still captured exactly once, via a lazy `useState` initializer — reading `ref.current`
-  // back out during render (the brief's original ref-based sketch) is what this repo's
-  // `react-hooks/refs` lint rule (eslint.config.mjs) forbids; `useState` gives the same
-  // once-per-mount guarantee without it.
-  const [mountedAt] = useState<Instant>(() => initialNow ?? wallClockNow());
+  // ward-clock.ts) — only ever returns a minute-of-day (0–1439), so two readings on their own
+  // can never carry more than one day's worth of information: `elapsedMinutesSinceMount` can
+  // correctly unwrap a SINGLE midnight rollover between two readings, but a dashboard left
+  // mounted for exactly 24h (or any multiple of it) reads the same minute-of-day again, so a
+  // plain two-reading comparison against the ORIGINAL mount instant goes back to `raw === 0`
+  // and silently resets elapsed time to zero instead of continuing to grow — moving every
+  // deadline, wait and expired hold on every screen backward by up to a day. Fixed by never
+  // comparing against the original mount instant again: each 30s tick folds its own delta
+  // (never more than 30s + scheduling jitter, so always safely inside one midnight rollover)
+  // into `elapsedBefore`, an accumulator that only ever grows — so the total is correct no
+  // matter how many midnights the session spans, not just the first one.
+  const [clockCheckpoint, setClockCheckpoint] = useState<{ reading: Instant; elapsedBefore: number }>(() => ({
+    reading: initialNow ?? wallClockNow(),
+    elapsedBefore: 0,
+  }));
 
-  // The tick count itself is never read: `setTicks` exists only to force a re-render every
-  // 30s so `now` (below) gets recomputed against the live wall clock.
-  const [, setTicks] = useState(0);
   useEffect(() => {
     if (initialNow !== undefined) return; // pinned: never tick in a test
-    const id = setInterval(() => setTicks((value) => value + 1), 30_000);
+    const id = setInterval(() => {
+      setClockCheckpoint((previous) => {
+        const reading = wallClockNow();
+        return { reading, elapsedBefore: previous.elapsedBefore + elapsedMinutesSinceMount(previous.reading, reading) };
+      });
+    }, 30_000);
     return () => clearInterval(id);
   }, [initialNow]);
 
-  // `ticks` only exists to force a re-render on the interval; the actual elapsed time is
-  // recomputed from the wall clock each time so a missed/delayed timer tick still reports the
-  // true elapsed minutes rather than a fixed 30s-per-tick approximation. A plain subtraction
-  // here would go negative — and silently freeze every deadline on every screen — for any
-  // session left open across midnight, because `wallClockNow()` wraps to 0 at 24:00;
-  // `elapsedMinutesSinceMount` unwraps that rollover.
-  const elapsed = initialNow !== undefined ? 0 : elapsedMinutesSinceMount(mountedAt, wallClockNow());
+  // Recomputed from the live wall clock on every unpinned render (not only on a tick, so a
+  // missed/delayed timer tick still reports the true elapsed minutes rather than a fixed
+  // 30s-per-tick approximation) — but layered on top of the last checkpoint's accumulated
+  // total rather than the original mount instant, which is what keeps this correct beyond one
+  // day. A pinned `initialNow` (tests, deterministic renders) never touches the wall clock.
+  const elapsed =
+    initialNow !== undefined
+      ? 0
+      : clockCheckpoint.elapsedBefore + elapsedMinutesSinceMount(clockCheckpoint.reading, wallClockNow());
   const now = NOW_ANCHOR + elapsed + state.clockOffsetMinutes;
 
   const [focusMovementId, setFocusMovementId] = useState<string | undefined>(undefined);
