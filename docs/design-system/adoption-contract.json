@@ -495,6 +495,42 @@
       "sanctionedSpecialPatterns": ["ToolsSearchResultsPage", "CalculatorsSearchPage"]
     },
     {
+      "id": "caring-contacts-workspace",
+      "disposition": "owned",
+      "routes": ["src/app/caring-contacts/page.tsx"],
+      "routeRoots": true,
+      "roots": [],
+      "permittedComponentFamilies": [],
+      "expectedShellState": "v2",
+      "proof": {
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-caring-contacts-workspace.spec.ts"]
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
+      "sanctionedSpecialPatterns": ["CaringContactsShell"]
+    },
+    {
       "id": "privacy-safety-and-reference",
       "disposition": "owned",
       "routes": [

@@ -1,45 +1,57 @@
 "use client";
 
-import { ignoreUnavailableActivation } from "@/components/ui-primitives";
+import type { ReactNode } from "react";
+
+import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 export type UnavailableDestinationProps = {
-  /** Stable id fragment; also names the screen-reader note this control points at. */
+  /** Unique within one render; also names the screen-reader note this control points at. */
   id: string;
   /** Sentence-case destination name, exactly as it will read once built. */
   label: string;
   /** Plain-words statement of what the destination will hold once it is built. */
   reason: string;
+  className?: string;
+  /** Presentation for the destination; defaults to its label. */
+  children?: ReactNode;
 };
 
 /**
  * A workspace destination that is declared but not built yet.
  *
- * `docs/wiring-conventions.md`: a control unavailable for a *stated reason*
- * carries `aria-disabled="true"` plus an inert handler, never the native
- * `disabled` attribute — native `disabled` removes the tab stop, so the stated
- * reason could never be reached by keyboard. The two attributes are never used
- * together; `eslint-rules/require-button-wiring.mjs` fails on the pair.
+ * Ruling 52: the navigation renders its whole destination set now, and an
+ * unbuilt destination is an unavailable control with a stated reason — never a
+ * link to a route that would 404.
+ *
+ * `docs/wiring-conventions.md`: such a control carries `aria-disabled="true"`
+ * plus an inert handler, never the native `disabled` attribute, because native
+ * `disabled` removes the tab stop and the stated reason could then never be
+ * reached by keyboard. The two attributes are never used together;
+ * `eslint-rules/require-button-wiring.mjs` fails on the pair.
  *
  * This is the only client component the production workspace ships, which is
  * what keeps the route's client payload to a rounding error (Ruling 13).
  */
-export function UnavailableDestination({ id, label, reason }: UnavailableDestinationProps) {
+export function UnavailableDestination({ id, label, reason, className, children }: UnavailableDestinationProps) {
   const noteId = `caring-contacts-unavailable-${id}`;
   return (
-    <li className="min-w-0">
+    <>
       <button
         type="button"
         aria-disabled="true"
         aria-describedby={noteId}
         title={`${label} — coming soon`}
         onClick={ignoreUnavailableActivation}
-        className="flex min-h-tap w-full min-w-0 items-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-left text-sm font-medium text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border"
+        className={cn(
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border",
+          className,
+        )}
       >
-        <span className="truncate">{label}</span>
+        {children ?? <span className="truncate">{label}</span>}
       </button>
       <span id={noteId} className="sr-only">
-        {reason} This screen is not built yet.
+        {label} is not built yet. {reason}
       </span>
-    </li>
+    </>
   );
 }

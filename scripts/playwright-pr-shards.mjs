@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|dictionary|document-canvas|tools|overlap|universal-search|specifiers|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * One source of truth for shard membership and its latest hosted timing sample.
@@ -49,6 +49,10 @@ export const prUiSpecProfiles = Object.freeze([
   // Added after the timing sample. Measured locally at ~4.8s for 3 tests; replace
   // with hosted evidence at the next timing refresh.
   { file: "tests/ui-phone-motion.spec.ts", shard: 2, fullSeconds: 5.0, criticalSeconds: 0 },
+  // Added by Task 15 with the production Caring Contacts workspace. Measured
+  // locally at ~10.0s for 9 tests; replace with hosted evidence at the next
+  // timing refresh.
+  { file: "tests/ui-caring-contacts-workspace.spec.ts", shard: 2, fullSeconds: 10.0, criticalSeconds: 0 },
 
   { file: "tests/ui-tools.spec.ts", shard: 3, fullSeconds: 110.5, criticalSeconds: 3.1 },
   { file: "tests/ui-chrome-scroll.spec.ts", shard: 3, fullSeconds: 60.7, criticalSeconds: 0 },

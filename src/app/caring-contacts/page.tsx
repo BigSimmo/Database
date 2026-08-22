@@ -4,12 +4,26 @@ import dynamic from "next/dynamic";
  * The workspace's lazy route boundary (Ruling 13), present from its first commit.
  *
  * The Clinical KB dashboard must never download this workspace's client code.
- * Two things hold that: the workspace is imported by nothing outside this route
- * segment — the tools catalogue names it by href, not by import — and the shell
- * is loaded here through `next/dynamic`. Next 16's lazy-loading guide is
- * explicit that dynamically importing a Server Component lazy-loads the Client
- * Components underneath it, which is the only client payload the workspace has.
- * Later screens land behind this same boundary rather than beside it.
+ * Two things hold that, and they are not equally load-bearing:
+ *
+ *  1. The module boundary, which is what actually gives the guarantee. Nothing
+ *     outside this route segment imports the workspace — the tools catalogue
+ *     names it by href, never by import, which is why `caring-contacts-routes.ts`
+ *     is deliberately React-free. Each route downloads only the chunks in its own
+ *     client-reference manifest, so a module the dashboard cannot reach is a
+ *     chunk it cannot download. Measured: the dashboard route references zero
+ *     chunks exclusive to `/caring-contacts`.
+ *  2. This `next/dynamic` boundary. Next 16's lazy-loading guide is explicit that
+ *     dynamically importing a Server Component lazy-loads the Client Components
+ *     beneath it, which is where Tasks 16-18 add theirs. Today the workspace has
+ *     one client component, so this buys structure for later rather than bytes
+ *     now — stated plainly because the same guide also notes that a Server
+ *     Component dynamically importing a Client Component does not auto-split.
+ *
+ * Not a cause of anything: this boundary was tested against a plain static import
+ * while diagnosing a duplicated shell in the production build, and both spellings
+ * behaved identically. The duplicate was React streaming the segment into a hidden
+ * holder before moving it, not this import.
  */
 const CaringContactsShell = dynamic(() =>
   import("@/components/caring-contacts/workspace/shell").then((module) => module.CaringContactsShell),

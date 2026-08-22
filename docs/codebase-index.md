@@ -73,6 +73,7 @@ Smaller top-level directories that are easy to miss:
 | `/`                                                                                                       | `src/app/(search-app)/page.tsx`                                                           |
 | Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                                                                   |
 | Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group                                                |
+| `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                    | `src/app/caring-contacts/`                                                                |
 | `/applications`                                                                                           | `src/app/applications/route.ts`                                                           |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                              | `src/app/(search-app)/differentials/`                                                     |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                                                               |

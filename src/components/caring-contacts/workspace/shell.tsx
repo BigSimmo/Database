@@ -1,10 +1,11 @@
-import { CalendarDays, FileText, HeartHandshake, LayoutDashboard, MoreHorizontal, Users } from "lucide-react";
+import { CalendarDays, FileText, HeartHandshake, LayoutDashboard, MoreHorizontal, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 
 import { UnavailableDestination } from "./unavailable-destination";
+import type { WorkspaceWidthState } from "./width-state";
 
 /**
  * The safeguard wording, repeated verbatim from the frozen prototype baseline.
@@ -24,27 +25,55 @@ const MORE_DESTINATIONS_ID = "caring-contacts-more";
 
 type NavigationIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
+type WorkspaceDestination = {
+  id: string;
+  label: string;
+  icon: NavigationIcon;
+  /** Present only once the destination has a page. Absent means unavailable. */
+  href?: string;
+  /** Plain words: what this destination holds, or will hold. */
+  reason: string;
+};
+
 /**
  * The four primary destinations, frozen by the approved route identities.
- * Only `Today` has a page in Phase 2A; Plan 2B builds the other three, and the
- * More panel below states that in plain words in the meantime.
+ *
+ * Only `Today` has a page in Phase 2A, so only `Today` carries an `href`. The
+ * other three render as unavailable controls that state their reason rather
+ * than as links into a not-found page (Ruling 52). Plan 2B gives them pages,
+ * and adding an `href` here is the whole of that change.
  */
-const primaryDestinations: readonly { label: string; href: string; icon: NavigationIcon }[] = [
-  { label: "Today", href: CARING_CONTACTS_ROUTES.today, icon: LayoutDashboard },
-  { label: "Patients", href: CARING_CONTACTS_ROUTES.patients, icon: Users },
-  { label: "Schedule", href: CARING_CONTACTS_ROUTES.schedule, icon: CalendarDays },
-  { label: "Templates", href: CARING_CONTACTS_ROUTES.templates, icon: FileText },
+const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
+  {
+    id: "today",
+    label: "Today",
+    icon: LayoutDashboard,
+    href: CARING_CONTACTS_ROUTES.today,
+    reason: "The day's caring-contact work for this team.",
+  },
+  {
+    id: "patients",
+    label: "Patients",
+    icon: Users,
+    reason: "Every patient with a caring-contact plan, and where each plan has got to.",
+  },
+  { id: "schedule", label: "Schedule", icon: CalendarDays, reason: "Contacts due, day by day." },
+  {
+    id: "templates",
+    label: "Templates",
+    icon: FileText,
+    reason: "Governed pathways, message wording and approval history.",
+  },
 ];
 
 /** The phone bar carries three destinations plus a jump to the More panel. */
-const phoneDestinations = primaryDestinations.filter((destination) => destination.label !== "Templates");
+const PHONE_DESTINATIONS = PRIMARY_DESTINATIONS.filter((destination) => destination.label !== "Templates");
 
 /**
- * Every declared destination that has no page yet, with what it will hold.
+ * Every remaining declared destination, with what it will hold.
  * `docs/wiring-conventions.md` requires the reason to be stated, not implied.
  */
-const unbuiltDestinations: readonly { id: string; label: string; reason: string }[] = [
-  { id: "new-plan", label: "New plan", reason: "Starting a caring-contact plan for a patient." },
+const MORE_DESTINATIONS: readonly { id: string; label: string; reason: string }[] = [
   { id: "team", label: "Team", reason: "Ownership, capacity and unclaimed work." },
   { id: "guidance", label: "Guidance", reason: "Programme boundaries and operational guidance." },
   { id: "reports", label: "Reports", reason: "Aggregate operational reporting." },
@@ -57,6 +86,38 @@ const unbuiltDestinations: readonly { id: string; label: string; reason: string 
   { id: "coverage", label: "Coverage", reason: "Who is covering while someone is away." },
 ];
 
+/**
+ * The four width states of coordination design spec §7, made observable.
+ *
+ * The layout is pure Tailwind media classes and needs no JavaScript, but that
+ * also means nothing in the DOM records which state is active — so a browser
+ * proof would have had to re-derive the very breakpoints it is meant to check.
+ * Exactly one of these markers is displayed at any width, which lets
+ * `tests/ui-caring-contacts-workspace.spec.ts` compare the rendered state
+ * against `widthStateFor()` itself rather than against a second copy of the
+ * numbers.
+ *
+ * `wide` is `min-[1440px]:`, not `xl:`: Tailwind's `xl` is 1280px and the frozen
+ * boundary is 1440. Design-system GATES §3b forbids adding a named
+ * `--breakpoint-*` token for these states, so the arbitrary variant is the
+ * correct expression of the frozen number.
+ *
+ * Each marker is `hidden` plus exactly ONE variant that turns it back on, over a
+ * range that no other marker's range overlaps. The obvious spelling —
+ * `hidden lg:block min-[1440px]:hidden` — is wrong, and wrong silently: Tailwind
+ * sorts named breakpoints against each other, but an arbitrary `min-[…]` variant
+ * is not guaranteed to be emitted after a named one, so at 1440px `lg:block` won
+ * and both `split` and `wide` showed at once. Variant-versus-base ordering is
+ * guaranteed; variant-versus-variant is not. Caught by the browser proof at
+ * 1440px, which is the width the four-state mapping exists for.
+ */
+const WIDTH_STATE_MARKERS: readonly { state: WorkspaceWidthState; className: string; label: string }[] = [
+  { state: "compact", className: "hidden max-[767.98px]:block", label: "Compact layout" },
+  { state: "rail", className: "hidden min-[768px]:max-[1023.98px]:block", label: "Rail layout" },
+  { state: "split", className: "hidden min-[1024px]:max-[1439.98px]:block", label: "Split layout" },
+  { state: "wide", className: "hidden min-[1440px]:block", label: "Wide layout" },
+];
+
 export type CaringContactsShellProps = {
   /** The screen's own name; rendered as the one and only `h1`. */
   title: string;
@@ -65,25 +126,30 @@ export type CaringContactsShellProps = {
   children: ReactNode;
 };
 
-const navigationItemClass =
-  "flex min-h-tap min-w-0 items-center gap-3 rounded-[var(--radius-md)] px-3 text-sm font-medium text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none";
+const railItemClass =
+  "flex min-h-tap w-full min-w-0 items-center gap-3 rounded-[var(--radius-md)] px-3 text-left text-sm font-medium text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] motion-reduce:transition-none";
 
 const phoneItemClass =
-  "flex min-h-tap min-w-0 flex-col items-center justify-center gap-1 px-1 text-2xs font-medium text-[color:var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-0.125rem] focus-visible:outline-[color:var(--focus)]";
+  "flex min-h-tap w-full min-w-0 flex-col items-center justify-center gap-1 px-1 text-2xs font-medium text-[color:var(--text-muted)]";
+
+const morePanelItemClass =
+  "flex min-h-tap w-full min-w-0 items-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-left text-sm font-medium text-[color:var(--text-muted)]";
+
+const focusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 /**
  * The Caring Contacts workspace shell.
  *
- * A Server Component by design. The four width states of coordination design
- * spec §7 are expressed entirely in Tailwind media classes, so the layout needs
- * no JavaScript at all:
+ * A Server Component by design. The four width states are expressed entirely in
+ * Tailwind media classes, so the layout needs no JavaScript:
  *
- * | state   | width       | classes                                          |
- * | ------- | ----------- | ------------------------------------------------ |
- * | compact | below 768   | base — phone bar, no rail, one column            |
+ * | state   | width       | expression                                        |
+ * | ------- | ----------- | ------------------------------------------------- |
+ * | compact | below 768   | base — phone dock, no rail, one column            |
  * | rail    | 768-1023    | `md:` — icon rail, labels kept for screen readers |
- * | split   | 1024-1439   | `lg:` — labelled rail, More panel as a column    |
- * | wide    | 1440 and up | `xl:` — the same split at a wider measure        |
+ * | split   | 1024-1439   | `lg:` — labelled rail, More panel as a column     |
+ * | wide    | 1440 and up | `min-[1440px]:` — the same split, wider measure   |
  *
  * `width-state.ts` holds the same boundaries as numbers for the overlay
  * modality decision; nothing here re-derives them.
@@ -91,7 +157,16 @@ const phoneItemClass =
 export function CaringContactsShell({ title, description, children }: CaringContactsShellProps) {
   return (
     <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] md:flex">
-      <aside className="sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-chrome)] md:flex md:w-20 lg:w-64">
+      {WIDTH_STATE_MARKERS.map(({ state, className, label }) => (
+        <span key={state} data-workspace-width-state={state} className={`sr-only ${className}`}>
+          {label}
+        </span>
+      ))}
+
+      <aside
+        data-testid="caring-contacts-rail"
+        className="sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-[color:var(--border)] bg-[color:var(--surface-chrome)] md:flex md:w-20 lg:w-64"
+      >
         <div className="flex min-h-[var(--header-h)] items-center gap-3 border-b border-[color:var(--border)] px-4 lg:px-5">
           <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]">
             <HeartHandshake aria-hidden="true" className="size-icon-lg" />
@@ -104,17 +179,33 @@ export function CaringContactsShell({ title, description, children }: CaringCont
         </div>
 
         <nav aria-label="Workspace" className="mt-3 flex flex-1 flex-col gap-1 px-3">
-          {primaryDestinations.map(({ label, href, icon: Icon }) => (
-            <Link key={label} href={href} data-internal-link="true" className={navigationItemClass}>
-              <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
-              <span className="truncate sr-only lg:not-sr-only">{label}</span>
-            </Link>
-          ))}
+          {PRIMARY_DESTINATIONS.map(({ id, label, href, icon: Icon, reason }) =>
+            href ? (
+              <Link key={id} href={href} data-internal-link="true" className={`${railItemClass} ${focusRing}`}>
+                <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
+                <span className="truncate sr-only lg:not-sr-only">{label}</span>
+              </Link>
+            ) : (
+              <UnavailableDestination
+                key={id}
+                id={`rail-${id}`}
+                label={label}
+                reason={reason}
+                className={railItemClass}
+              >
+                <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
+                <span className="truncate sr-only lg:not-sr-only">{label}</span>
+              </UnavailableDestination>
+            ),
+          )}
         </nav>
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-[var(--z-raised)] border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-4 sm:px-6 lg:px-8 forced-colors:bg-[Canvas]">
+        <header
+          data-synthetic-marker-host
+          className="sticky top-0 z-[var(--z-raised)] border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-4 sm:px-6 lg:px-8 forced-colors:bg-[Canvas]"
+        >
           <div className="flex min-h-[var(--header-h)] flex-wrap items-center justify-between gap-2 py-2">
             <div className="flex min-w-0 items-center gap-3 md:hidden">
               <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] forced-colors:border forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]">
@@ -123,6 +214,7 @@ export function CaringContactsShell({ title, description, children }: CaringCont
               <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">Caring Contacts</span>
             </div>
             <span
+              data-synthetic-marker
               data-testid="caring-contacts-synthetic-marker"
               className="ml-auto inline-flex items-center rounded-[var(--radius-sm)] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--clinical-accent)] sm:text-xs forced-colors:border-[CanvasText]"
             >
@@ -132,18 +224,31 @@ export function CaringContactsShell({ title, description, children }: CaringCont
         </header>
 
         <main className="min-w-0 px-4 pb-28 pt-5 sm:px-6 sm:pt-7 md:pb-8 lg:px-8">
-          <div className="mx-auto w-full max-w-6xl xl:max-w-[90rem]">
+          <div className="mx-auto w-full max-w-6xl min-[1440px]:max-w-[90rem]">
             <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-8">
               <div className="min-w-0">
-                <div className="mb-6 border-b border-[color:var(--border)] pb-5">
-                  <h1 className="text-[length:var(--text-hero)] font-semibold leading-[var(--text-hero--line-height)] tracking-[var(--text-hero-tr)] text-[color:var(--text-heading)]">
-                    {title}
-                  </h1>
-                  {description ? (
-                    <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
-                      {description}
-                    </p>
-                  ) : null}
+                <div className="mb-6 flex flex-col gap-4 border-b border-[color:var(--border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
+                  <div className="min-w-0">
+                    <h1 className="text-balance text-hero font-semibold leading-display tracking-normal text-[color:var(--text-heading)]">
+                      {title}
+                    </h1>
+                    {description ? (
+                      <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)] sm:text-base">
+                        {description}
+                      </p>
+                    ) : null}
+                  </div>
+                  <UnavailableDestination
+                    id="primary-new-plan"
+                    label="New plan"
+                    reason="Starting a caring-contact plan for a patient."
+                    className="inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text-muted)]"
+                  >
+                    <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+                    <span data-testid="caring-contacts-primary-control" className="truncate">
+                      New plan
+                    </span>
+                  </UnavailableDestination>
                 </div>
                 {children}
               </div>
@@ -163,8 +268,15 @@ export function CaringContactsShell({ title, description, children }: CaringCont
                   These destinations are planned. Each one states what it will hold once it is built.
                 </p>
                 <ul className="mt-3 flex flex-col gap-2">
-                  {unbuiltDestinations.map((destination) => (
-                    <UnavailableDestination key={destination.id} {...destination} />
+                  {MORE_DESTINATIONS.map(({ id, label, reason }) => (
+                    <li key={id} className="min-w-0">
+                      <UnavailableDestination
+                        id={`more-${id}`}
+                        label={label}
+                        reason={reason}
+                        className={morePanelItemClass}
+                      />
+                    </li>
                   ))}
                 </ul>
               </section>
@@ -175,20 +287,34 @@ export function CaringContactsShell({ title, description, children }: CaringCont
 
       <nav
         aria-label="Phone workspace"
+        data-testid="caring-contacts-phone-dock"
         className="fixed inset-x-0 bottom-0 z-[var(--z-chrome)] grid grid-cols-4 border-t border-[color:var(--border)] bg-[color:var(--surface-chrome)] pb-[var(--safe-area-bottom)] md:hidden"
       >
-        {phoneDestinations.map(({ label, href, icon: Icon }) => (
-          <Link key={label} href={href} data-internal-link="true" className={phoneItemClass}>
-            <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
-            <span className="truncate">{label}</span>
-          </Link>
-        ))}
+        {PHONE_DESTINATIONS.map(({ id, label, href, icon: Icon, reason }) =>
+          href ? (
+            <Link key={id} href={href} data-internal-link="true" className={`${phoneItemClass} ${focusRing}`}>
+              <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
+              <span className="truncate">{label}</span>
+            </Link>
+          ) : (
+            <UnavailableDestination
+              key={id}
+              id={`phone-${id}`}
+              label={label}
+              reason={reason}
+              className={phoneItemClass}
+            >
+              <Icon aria-hidden="true" className="size-icon-lg shrink-0" />
+              <span className="truncate">{label}</span>
+            </UnavailableDestination>
+          ),
+        )}
         {/*
           An in-page jump, not a route: the More panel is rendered in this same
           document, so this is deliberately a fragment anchor rather than a
           `<Link>`. The internal-navigation rule covers `href="/…"` targets.
         */}
-        <a href={`#${MORE_DESTINATIONS_ID}`} className={phoneItemClass}>
+        <a href={`#${MORE_DESTINATIONS_ID}`} className={`${phoneItemClass} ${focusRing}`}>
           <MoreHorizontal aria-hidden="true" className="size-icon-lg shrink-0" />
           <span className="truncate">More</span>
         </a>
