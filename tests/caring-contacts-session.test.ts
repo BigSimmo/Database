@@ -68,6 +68,45 @@ describe("demo role switcher", () => {
     vi.stubEnv("NODE_ENV", "production");
     await expect(resolveDemoActor()).rejects.toBeInstanceOf(CaringContactsDemoUnavailableError);
   });
+
+  // The production lock. The gate has exactly one exception -- the repository-owned
+  // isolated Playwright server -- and these pin its shape so it cannot be widened by
+  // accident. Each case names the whole runtime rather than relying on ambient
+  // process.env, so a stray flag in the test environment cannot make one pass.
+  describe("the production lock", () => {
+    const playwright = { PLAYWRIGHT_OFFLINE_MODE: "true", NEXT_PUBLIC_DEMO_MODE: "true" } as const;
+
+    it("opens for the isolated Playwright server, which is the only exception", () => {
+      expect(isCaringContactsDemoEnabled("production", playwright)).toBe(true);
+    });
+
+    it("stays shut when either half of the exception is missing", () => {
+      // Neither flag alone opens it. A real deployment that happened to carry one --
+      // a demo-flagged deploy, or a stray runner variable -- must still fail closed.
+      expect(isCaringContactsDemoEnabled("production", { NEXT_PUBLIC_DEMO_MODE: "true" })).toBe(false);
+      expect(isCaringContactsDemoEnabled("production", { PLAYWRIGHT_OFFLINE_MODE: "true" })).toBe(false);
+      expect(isCaringContactsDemoEnabled("production", {})).toBe(false);
+    });
+
+    it("requires the exact string true, not merely a set variable", () => {
+      // Env vars are strings; "false", "1" and "" are all truthy-looking mistakes.
+      for (const value of ["false", "1", "", "TRUE", "yes"]) {
+        expect(
+          isCaringContactsDemoEnabled("production", {
+            PLAYWRIGHT_OFFLINE_MODE: value,
+            NEXT_PUBLIC_DEMO_MODE: value,
+          }),
+        ).toBe(false);
+      }
+    });
+
+    it("does not need the exception outside production", () => {
+      // Development and test are open on NODE_ENV alone; the flags are irrelevant
+      // there, so removing them must not close a developer's workspace.
+      expect(isCaringContactsDemoEnabled("development", {})).toBe(true);
+      expect(isCaringContactsDemoEnabled("test", {})).toBe(true);
+    });
+  });
 });
 
 /**

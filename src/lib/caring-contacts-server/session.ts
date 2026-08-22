@@ -23,10 +23,30 @@ export const CARING_CONTACTS_ROLE_COOKIE = "caring-contacts-demo-role";
  *
  * A caller can forge a role-only cookie outside a browser, so `httpOnly` is not
  * an authorization boundary. Until enterprise authentication supplies a real
- * actor, all Caring Contacts routes must fail closed in production.
+ * actor, all Caring Contacts routes must fail closed in production — with one
+ * narrow, doubly-flagged exception for the isolated Playwright server, argued in
+ * full at the return below and pinned by the "the production lock" tests.
  */
-export function isCaringContactsDemoEnabled(environment = process.env.NODE_ENV): boolean {
-  return environment !== "production";
+export function isCaringContactsDemoEnabled(
+  environment = process.env.NODE_ENV,
+  // Same shape `shouldBlockProductionMockups` uses for the same reason: `process.env`
+  // is an index signature, so a named-optional type is rejected as a weak type.
+  runtime: Record<string, string | undefined> = process.env,
+): boolean {
+  if (environment !== "production") return true;
+
+  // The single exception, and it is the same one `shouldBlockProductionMockups`
+  // (src/proxy.ts) already makes for /mockups: the repository-owned isolated
+  // Playwright server builds a real production app so the browser gate tests what
+  // ships, and that gate is the only check that has ever caught this workspace's
+  // rendering defects. Both flags are required, and neither is reachable by a real
+  // deployment: `instrumentation.ts` refuses to start a production process with
+  // PLAYWRIGHT_OFFLINE_MODE unless NEXT_DIST_DIR is the runner's isolated output
+  // AND the process is provider-free (inert loopback Supabase, no service-role key,
+  // no OpenAI key), and it throws outright on demo mode in any other production
+  // build. So this widens reachability only inside a process that has no providers
+  // and no real data to reach.
+  return runtime.PLAYWRIGHT_OFFLINE_MODE === "true" && runtime.NEXT_PUBLIC_DEMO_MODE === "true";
 }
 
 /** Thrown when code tries to resolve a demo actor in a production process. */
