@@ -150,7 +150,12 @@ export function ContactActions({
       )}
 
       {blockedReason === null ? null : (
-        <p id="care-plan-contact-blocked" role="alert" data-testid="care-plan-contact-blocked" className={styles.contactWarning}>
+        <p
+          id="care-plan-contact-blocked"
+          role="alert"
+          data-testid="care-plan-contact-blocked"
+          className={styles.contactWarning}
+        >
           {blockedReason}
         </p>
       )}
