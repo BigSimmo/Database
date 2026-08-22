@@ -126,6 +126,9 @@ export function ClinicalSnapshotSurface({
   return (
     <div className={styles.snapshotSplit}>
       <PatientDirectory
+        // A shell-submitted query changes the key so the directory's deliberately
+        // local editing state is seeded on navigation without a state-setting effect.
+        key={`${variant}:${initialSearchQuery}`}
         patients={state.patients}
         presentations={state.edPresentations}
         now={PROTOTYPE_NOW}

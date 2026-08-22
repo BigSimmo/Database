@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 
 import { SearchField } from "@/components/ui/text-field";
 import { EmptyState, cn } from "@/components/ui-primitives";
@@ -59,10 +59,6 @@ export function PatientDirectory({
   planStatusFor,
 }: PatientDirectoryProps) {
   const [query, setQuery] = useState(initialQuery);
-
-  useEffect(() => {
-    setQuery(initialQuery);
-  }, [initialQuery]);
   const trimmed = query.trim();
 
   /** Most recently seen first. Recency is not a ranking by how often someone
