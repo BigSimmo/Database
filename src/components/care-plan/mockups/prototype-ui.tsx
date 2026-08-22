@@ -13,9 +13,11 @@ import {
   type ManagementPlanContent,
   type ManagementPlanVersion,
   type ParticipationState,
+  type PatientConfirmationState,
   type PrototypeOutcome,
   type PrototypeRole,
   type ReviewState,
+  type SafetyPlanContent,
 } from "./types";
 
 /**
@@ -83,6 +85,63 @@ export const FULL_PLAN_SECTION_KEYS = Object.keys(FULL_PLAN_SECTION_LABEL) as re
 /** The heading of the one required full-plan field, which the tier renders in
  *  its own right above the five optional ones. */
 export const WHY_THIS_PLAN_EXISTS_LABEL = "Why this plan exists";
+
+/**
+ * The seven headings of the Personal Safety Plan, in the one approved order, in
+ * the person's own voice. This is the patient's document, so every heading is
+ * written as the person would say it — never as a clinical field name.
+ *
+ * Keyed by `SafetyPlanContent` rather than transcribed into a list. Because the
+ * record is exhaustive over the content type, an eighth section cannot be added
+ * by hand without a heading, a renamed key stops the file compiling, and every
+ * surface generates its sections by iterating these keys rather than by copying
+ * the list out again — which is how the fifth Management Plan section came to be
+ * generated for exactly the same reason.
+ */
+export const SAFETY_PLAN_SECTION_LABEL: Record<keyof SafetyPlanContent, string> = {
+  warningSigns: "My warning signs",
+  saferSurroundings: "Making my surroundings safer",
+  reasonsForLiving: "My reasons for living",
+  selfStrategies: "Things I can do myself",
+  connectionPeopleAndPlaces: "People and places that help me feel connected",
+  personalSupports: "Family, friends, and supports I can contact",
+  professionalAndEmergencySupport: "Professional and emergency support",
+};
+
+/** The order of the literal above is the order every surface renders. */
+export const SAFETY_PLAN_SECTION_KEYS = Object.keys(SAFETY_PLAN_SECTION_LABEL) as readonly (keyof SafetyPlanContent)[];
+
+/**
+ * The one section that is a list of people rather than a list of lines, so a
+ * surface can branch on it without knowing anything else about the shape.
+ */
+export const SAFETY_PLAN_SUPPORTS_KEY = "personalSupports" as const;
+
+/**
+ * How the person's part in this version is described. None of the four is a
+ * failure, and none of them is ever rendered as non-compliance: a person who
+ * declines has made a decision about their own document, and a person nobody has
+ * asked yet is a record with nothing in it, not a person who did something
+ * wrong.
+ */
+export const PATIENT_CONFIRMATION_LABEL: Record<PatientConfirmationState, string> = {
+  confirmed: "Confirmed by this person",
+  discussed_not_confirmed: "Discussed, not yet confirmed",
+  declined: "This person chose not to make a safety plan",
+  unavailable: "No confirmation recorded",
+};
+
+/** The sentence that goes with each, so the mark is never left to be read as a
+ *  verdict on the person. */
+export const PATIENT_CONFIRMATION_EXPLANATION: Record<PatientConfirmationState, string> = {
+  confirmed: "This person has read this version and confirmed that the wording is theirs.",
+  discussed_not_confirmed:
+    "This person has talked this version through and has not yet confirmed the wording. Ask again at the next contact.",
+  declined:
+    "This person chose not to write a safety plan. That is their decision about their own document, and it is recorded as a decision rather than as a gap.",
+  unavailable:
+    "Nothing has been recorded about this person's part in this version, so nothing here says whether they have seen it.",
+};
 
 export const FIRST_MINUTE_SECTION_ID_PREFIX = "care-plan-first-minute";
 

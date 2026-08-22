@@ -1,10 +1,15 @@
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CarePlanErrorBoundary } from "@/components/care-plan/mockups/care-plan-error-boundary";
 import { BANNED_ADMISSION_CONSTRUCTIONS, buildPatientSnapshot } from "@/components/care-plan/mockups/domain";
-import { PROTOTYPE_NOW, syntheticManagementPlanVersions } from "@/components/care-plan/mockups/fixtures";
+import {
+  PROTOTYPE_NOW,
+  publicCrisisContacts,
+  syntheticManagementPlanVersions,
+  syntheticPersonalSafetyPlanVersions,
+} from "@/components/care-plan/mockups/fixtures";
 import { diffManagementPlanContent } from "@/components/care-plan/mockups/management-plan-diff";
 import { managementPlanFieldId } from "@/components/care-plan/mockups/management-plan-form";
 import { PatientWorkspace } from "@/components/care-plan/mockups/patient-workspace";
@@ -14,9 +19,14 @@ import {
   FIRST_MINUTE_SECTION_LABEL,
   FULL_PLAN_SECTION_KEYS,
   FULL_PLAN_SECTION_LABEL,
+  PATIENT_CONFIRMATION_LABEL,
+  SAFETY_PLAN_SECTION_KEYS,
+  SAFETY_PLAN_SECTION_LABEL,
+  formatPerthDate,
 } from "@/components/care-plan/mockups/prototype-ui";
 import { CarePlanRouteSurface, scenarioFromQuery } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
+import { safetyPlanFieldId } from "@/components/care-plan/mockups/safety-plan-form";
 import { FIRST_MINUTE_CONTENT_KEYS } from "@/components/care-plan/mockups/types";
 
 /**
@@ -292,9 +302,10 @@ describe("Care Plan route shell", () => {
   // Home, Patients and the patient Overview are deliberately absent: Task 4
   // replaced their purpose surface with the real Clinical Snapshot. The
   // Management Plan and its print route went the same way in Task 5, the two
-  // Management Plan authoring routes in Task 6, and the three ED Presentation
-  // routes in Task 7. The block below asserts that none of those ten renders a
-  // purpose surface at all.
+  // Management Plan authoring routes in Task 6, the three ED Presentation
+  // routes in Task 7, and the three Personal Safety Plan routes in Task 8. The
+  // block below asserts that none of those thirteen renders a purpose surface
+  // at all.
   it.each([
     [
       CARE_PLAN_ROUTES.patientPlan,
@@ -311,13 +322,6 @@ describe("Care Plan route shell", () => {
       "Print Patient Plan",
       "Print-optimised patient copy, including their resources",
     ],
-    [CARE_PLAN_ROUTES.safetyPlan, "Personal Safety Plan", "Current patient-owned Personal Safety Plan"],
-    [
-      CARE_PLAN_ROUTES.safetyPlanEdit,
-      "Draft Personal Safety Plan Version",
-      "Co-produce or revise a Personal Safety Plan Version",
-    ],
-    [CARE_PLAN_ROUTES.safetyPlanPrint, "Print Personal Safety Plan", "Print-optimised patient copy"],
     [
       CARE_PLAN_ROUTES.history,
       "History",
@@ -387,6 +391,9 @@ describe("Care Plan route shell", () => {
       CARE_PLAN_ROUTES.presentations,
       CARE_PLAN_ROUTES.newPresentation,
       CARE_PLAN_ROUTES.presentation,
+      CARE_PLAN_ROUTES.safetyPlan,
+      CARE_PLAN_ROUTES.safetyPlanEdit,
+      CARE_PLAN_ROUTES.safetyPlanPrint,
     ]) {
       const { unmount } = render(
         <CarePlanPrototypeProvider>
@@ -2502,6 +2509,514 @@ describe("Care Plan ED Presentation detail and corrections", () => {
     );
     expect(screen.queryByTestId("care-plan-presentation-episode")).toBeNull();
     expect(screen.queryByText(/Fell at home in the morning/)).toBeNull();
+  });
+});
+
+// --- Stage C: the patient's own document ---------------------------------------
+
+/**
+ * Generated from the shared vocabulary rather than transcribed, for the same
+ * reason the first-minute headings are: an eighth section, a reordering, or a
+ * renamed key is a defect, and a hand-written list here could be "corrected" to
+ * match the bug rather than catch it.
+ */
+const SAFETY_HEADINGS_FROM_DOMAIN = SAFETY_PLAN_SECTION_KEYS.map((key) => SAFETY_PLAN_SECTION_LABEL[key]);
+
+const ROWAN_SAFETY_VERSION = syntheticPersonalSafetyPlanVersions[0];
+
+/** Wording that would read a person's own decision about their own document as a
+ *  failure to comply with something. None of it may appear on any of the four
+ *  confirmation states, on screen or on paper. */
+const NON_COMPLIANCE_WORDING =
+  /non[- ]?complian|did not comply|failed to|refus(?:ed|es|al)|unco[- ]?operative|non[- ]?engage|declined to engage|missing|incomplete/i;
+
+describe("Care Plan Personal Safety Plan reading", () => {
+  it("renders exactly the seven patient-voice sections, in the specified order", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    const sections = screen.getByTestId("care-plan-safety-sections");
+    expect(
+      within(sections)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(SAFETY_HEADINGS_FROM_DOMAIN);
+    expect(SAFETY_HEADINGS_FROM_DOMAIN).toHaveLength(7);
+    // The person's own words, rendered as written.
+    expect(sections).toHaveTextContent("Two or three nights of broken sleep in a row.");
+    // Personal supports are structured entries, not a line of free text.
+    expect(sections).toHaveTextContent("Jess Sample");
+    expect(sections).toHaveTextContent("Sister");
+    expect(sections).toHaveTextContent("0491 570 131");
+  });
+
+  it("says whose document this is, and that it is neither a Management Plan nor a risk assessment", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    const ownership = screen.getByTestId("care-plan-safety-ownership");
+    expect(ownership).toHaveTextContent(/Rowan/);
+    expect(ownership).toHaveTextContent(/own Personal Safety Plan/i);
+    expect(ownership).toHaveTextContent(/not a Management Plan/i);
+    expect(ownership).toHaveTextContent(/not a risk assessment/i);
+    expect(ownership).toHaveTextContent(/never replaces fresh assessment/i);
+  });
+
+  it("states the version, last-confirmed date, review currency and who wrote it with them", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    const metadata = screen.getByTestId("care-plan-safety-version");
+    expect(metadata).toHaveTextContent("Version 1");
+    expect(metadata).toHaveTextContent(formatPerthDate(ROWAN_SAFETY_VERSION.confirmedAt));
+    expect(metadata).toHaveTextContent(formatPerthDate(ROWAN_SAFETY_VERSION.reviewDueAt));
+    expect(metadata).toHaveTextContent("Morgan Sample");
+    expect(metadata).toHaveTextContent(/Rowan chose the wording/);
+  });
+
+  it("derives review currency at render rather than reading a stored one", () => {
+    // Two versions, one code path, two answers derived from their own dates.
+    // Rowan's falls inside the warning window, and the plan stays fully readable
+    // below the warning rather than being replaced or collapsed by it.
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    expect(screen.getByTestId("care-plan-safety-version")).toHaveTextContent("Review due soon");
+    expect(screen.getByTestId("care-plan-review-warning")).toHaveTextContent(/due for review on/i);
+    expect(screen.getByTestId("care-plan-safety-sections")).toHaveTextContent(
+      "Two or three nights of broken sleep in a row.",
+    );
+    cleanup();
+
+    // Mira's is five months old against a twelve-month interval.
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-002"));
+    expect(screen.getByTestId("care-plan-safety-version")).toHaveTextContent("Within review");
+    expect(screen.queryByTestId("care-plan-review-warning")).toBeNull();
+  });
+
+  it("describes every patient-confirmation state without reading any of them as non-compliance", () => {
+    for (const [state, label] of Object.entries(PATIENT_CONFIRMATION_LABEL)) {
+      expect(label, `${state} is labelled as non-compliance`).not.toMatch(NON_COMPLIANCE_WORDING);
+    }
+
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-004"));
+    const confirmation = screen.getByTestId("care-plan-safety-confirmation");
+    expect(confirmation).toHaveTextContent(PATIENT_CONFIRMATION_LABEL.declined);
+    expect(confirmation).toHaveTextContent(/their decision about their own document/i);
+    expect(confirmation.textContent ?? "").not.toMatch(NON_COMPLIANCE_WORDING);
+    // Evie's version deliberately holds only the crisis numbers. Empty sections
+    // are her decision, so they read as `Not recorded`, never as a gap she owes.
+    expect(screen.getByTestId("care-plan-safety-sections")).toHaveTextContent("Not recorded");
+  });
+
+  it("shows a discussed-but-unconfirmed version as this person's plan all the same", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-002"));
+    const confirmation = screen.getByTestId("care-plan-safety-confirmation");
+    expect(confirmation).toHaveTextContent(PATIENT_CONFIRMATION_LABEL.discussed_not_confirmed);
+    expect(confirmation.textContent ?? "").not.toMatch(NON_COMPLIANCE_WORDING);
+    expect(screen.getByTestId("care-plan-safety-sections")).toBeInTheDocument();
+  });
+
+  it("offers no senior-approval control anywhere on the Personal Safety Plan", () => {
+    for (const route of [
+      carePlanRoute.safetyPlan("SYN-PATIENT-001"),
+      carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"),
+    ]) {
+      const { unmount } = render(
+        <CarePlanPrototypeProvider>
+          <CarePlanRouteSurface pathname={route} query="" navigate={vi.fn()} />
+        </CarePlanPrototypeProvider>,
+      );
+      const surface = screen.getByTestId(
+        route.endsWith("/edit") ? "care-plan-safety-form-surface" : "care-plan-safety-surface",
+      );
+      expect(
+        within(surface).queryByRole("button", { name: /approv/i }),
+        `${route} offers an approval control`,
+      ).toBeNull();
+      expect(within(surface).queryByRole("link", { name: /approv/i })).toBeNull();
+      expect(surface.textContent ?? "", `${route} mentions senior approval`).not.toMatch(
+        /approval|approve|senior clinician/i,
+      );
+      unmount();
+    }
+  });
+
+  it("says plainly when there is no current version, and keeps a draft visibly subordinate", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-003"));
+    expect(screen.getByTestId("care-plan-safety-no-current")).toHaveTextContent(
+      /Jordan has no current Personal Safety Plan/i,
+    );
+    const draft = screen.getByTestId("care-plan-safety-draft-notice");
+    expect(draft).toHaveTextContent(/Draft version 1/);
+    expect(draft).toHaveTextContent(/not (?:his|their) plan yet/i);
+    expect(draft).toHaveTextContent(PATIENT_CONFIRMATION_LABEL.unavailable);
+    // A draft is not a plan, so its content is never rendered as one.
+    expect(screen.queryByTestId("care-plan-safety-sections")).toBeNull();
+  });
+
+  it("refuses to show the plan when the record is not confirmed as the right person", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"), "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-identity-uncertain")).toHaveTextContent(
+      /not been confirmed as the right person/i,
+    );
+    expect(screen.queryByTestId("care-plan-safety-sections")).toBeNull();
+  });
+
+  it("links the printed patient copy and the authoring route without an approval step", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    expect(screen.getByRole("link", { name: /Print this plan/i })).toHaveAttribute(
+      "href",
+      carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"),
+    );
+    // Every clinical role may write one, including the emergency department
+    // clinician who is signed in by default — 2am in ED is when a safety plan
+    // most often gets made.
+    expect(screen.getByRole("link", { name: /Start a new version/i })).toHaveAttribute(
+      "href",
+      carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"),
+    );
+
+    await signInAs(user, "SYN-USER-COORD-001");
+    expect(screen.queryByRole("link", { name: /Start a new version/i })).toBeNull();
+    expect(screen.getByTestId("care-plan-safety-authoring-unavailable")).toHaveTextContent(/Riley Demo/);
+  });
+});
+
+describe("Care Plan Personal Safety Plan authoring", () => {
+  it("starts a new version from the current one without displacing it", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"));
+
+    await user.click(screen.getByRole("button", { name: /Start a new version/i }));
+
+    expect(screen.getByTestId("care-plan-safety-form-outcome")).toHaveTextContent(
+      /draft version 2 created. It is not in use until it is made current/i,
+    );
+    // Seeded from the version in use, so nothing already agreed has to be typed
+    // again, and the version in use is untouched.
+    expect(screen.getByLabelText(SAFETY_PLAN_SECTION_LABEL.reasonsForLiving)).toHaveValue(
+      "My nephew.\nThe allotment, especially in spring.\nFinishing the course I started.",
+    );
+    expect(screen.getByTestId("care-plan-safety-current-notice")).toHaveTextContent(/version 1 stays in use/i);
+  });
+
+  it("opens the draft that already exists rather than offering to start a second one", () => {
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-003"));
+    expect(screen.queryByRole("button", { name: /Start a new version/i })).toBeNull();
+    expect(screen.getByLabelText(SAFETY_PLAN_SECTION_LABEL.warningSigns)).toHaveValue("Long stretches awake at night.");
+  });
+
+  it("names every incomplete section in a linked summary before a version can be made current", async () => {
+    const user = userEvent.setup();
+    // Jordan's open draft carries one warning sign and one coping strategy and
+    // nothing else, and no review date at all.
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-003"));
+
+    await user.selectOptions(screen.getByLabelText(/What this person has confirmed/i), "confirmed");
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+
+    const summary = screen.getByTestId("error-summary");
+    const links = within(summary).getAllByTestId("error-summary-link");
+    // Each entry reads `<field>: <what to do>`; the field is what identifies it.
+    const named = links.map((node) => (node.textContent ?? "").split(":")[0]);
+    expect(named).toContain(SAFETY_PLAN_SECTION_LABEL.saferSurroundings);
+    expect(named).toContain(SAFETY_PLAN_SECTION_LABEL.reasonsForLiving);
+    expect(named).toContain(SAFETY_PLAN_SECTION_LABEL.personalSupports);
+    expect(named).toContain("Next review date");
+    expect(named).not.toContain(SAFETY_PLAN_SECTION_LABEL.warningSigns);
+    expect(links[named.indexOf(SAFETY_PLAN_SECTION_LABEL.reasonsForLiving)]).toHaveAttribute(
+      "href",
+      `#${safetyPlanFieldId("reasonsForLiving")}`,
+    );
+    // Nothing was written, so the draft is still a draft and no confirmation was
+    // ever asked for.
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not require the person's own words when they declined or were not available", async () => {
+    const user = userEvent.setup();
+    const navigate = renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-003"));
+
+    await user.selectOptions(screen.getByLabelText(/What this person has confirmed/i), "declined");
+    await user.type(screen.getByLabelText(/Next review date/i), "2027-08-20");
+    await user.clear(screen.getByLabelText(/How this version was written/i));
+    await user.type(
+      screen.getByLabelText(/How this version was written/i),
+      "Jordan chose not to write one and asked that the crisis numbers alone be kept.",
+    );
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+    await user.click(screen.getByRole("button", { name: /Make it the current plan/i }));
+
+    expect(screen.queryByTestId("error-summary")).toBeNull();
+    expect(navigate).toHaveBeenCalledWith(carePlanRoute.safetyPlan("SYN-PATIENT-003"));
+  });
+
+  it("still requires the professional and emergency contacts when this person declined", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-003"));
+
+    await user.selectOptions(screen.getByLabelText(/What this person has confirmed/i), "declined");
+    // A required field's label carries the shared shell's `(required)` marker,
+    // so this matches the heading rather than the whole label text.
+    await user.clear(
+      screen.getByLabelText(new RegExp(`^${SAFETY_PLAN_SECTION_LABEL.professionalAndEmergencySupport}`)),
+    );
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+
+    // Nobody's own words can be required of a person who declined. Who to ring
+    // is a different question, and it is the whole reason the sheet exists.
+    expect(
+      within(screen.getByTestId("error-summary"))
+        .getAllByTestId("error-summary-link")
+        .map((node) => (node.textContent ?? "").split(":")[0]),
+    ).toEqual(["Next review date", SAFETY_PLAN_SECTION_LABEL.professionalAndEmergencySupport]);
+  });
+
+  it("requires a name, a relationship and a telephone number for every person listed", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /Start a new version/i }));
+
+    await user.clear(screen.getByLabelText(/Telephone number for Jess Sample/i));
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+
+    expect(
+      within(screen.getByTestId("error-summary"))
+        .getAllByTestId("error-summary-link")
+        .map((node) => (node.textContent ?? "").split(":")[0]),
+    ).toContain(SAFETY_PLAN_SECTION_LABEL.personalSupports);
+    expect(screen.getByTestId("error-summary")).toHaveTextContent(/telephone number/i);
+  });
+
+  it("makes a version current through a plain confirmation and supersedes the one it replaces", async () => {
+    const user = userEvent.setup();
+    const navigate = renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /Start a new version/i }));
+    await user.selectOptions(screen.getByLabelText(/What this person has confirmed/i), "confirmed");
+    // A new version starts with no note of its own: the last version's note
+    // describes the conversation that produced the last version, not this one.
+    await user.type(
+      screen.getByLabelText(/How this version was written/i),
+      "Read back through with Rowan, who confirmed the wording is still theirs.",
+    );
+
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent ?? "").not.toMatch(/approval|approve|senior/i);
+    await user.click(within(dialog).getByRole("button", { name: /Make it the current plan/i }));
+
+    expect(screen.getByTestId("care-plan-safety-form-outcome")).toHaveTextContent(/version 2 is now the current one/i);
+    expect(navigate).toHaveBeenCalledWith(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+  });
+
+  it("refuses to write against a record that is not confirmed as the right person", () => {
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"), "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-identity-uncertain")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Start a new version/i })).toBeNull();
+  });
+
+  it("says plainly when the signed-in role does not carry safety-plan authoring", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"));
+    await signInAs(user, "SYN-USER-COORD-001");
+
+    expect(screen.getByTestId("care-plan-safety-form-unavailable")).toHaveTextContent(/care planning coordinator/i);
+    expect(screen.queryByRole("button", { name: /Start a new version/i })).toBeNull();
+  });
+});
+
+describe("Care Plan Personal Safety Plan print", () => {
+  it("prints the patient-facing document with exactly the seven sections, in order", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-safety-print-output");
+    expect(paper).toHaveAttribute("data-print-output");
+    expect(within(paper).getByRole("heading", { level: 2, name: "My Personal Safety Plan" })).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("care-plan-safety-sections"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(SAFETY_HEADINGS_FROM_DOMAIN);
+    // Every section is a block the browser is asked not to split, so a person's
+    // reasons for living cannot end up half on one sheet and half on the next.
+    for (const heading of within(screen.getByTestId("care-plan-safety-sections")).getAllByRole("heading", {
+      level: 3,
+    })) {
+      expect(heading.closest("[data-print-break-inside='avoid']")).not.toBeNull();
+    }
+  });
+
+  /**
+   * The defect this exists for has happened twice. Task 3 put `data-print-hide`
+   * on the shell header, which carried the only synthetic marker; Task 5 found
+   * that on a `PrintOutput` route everything outside `[data-print-output]` is
+   * invisible anyway, so the shell's marker cannot reach paper at all. This is
+   * the patient's own document, it leaves the building, and it lists real crisis
+   * telephone numbers — so the marker must be inside the printed subtree AND
+   * must have no print-hidden ancestor. Asserting only that the element itself
+   * lacks the attribute would have missed the original defect, which was
+   * inherited from an ancestor.
+   */
+  it("carries the synthetic watermark inside the printed subtree, under no hidden ancestor", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-safety-print-output");
+    const marker = within(paper).getByText("Synthetic prototype — fictional people, teams, and hospitals");
+    expect(marker.closest("[data-print-output]")).toBe(paper);
+    expect(marker.closest("[data-print-hide='true']")).toBeNull();
+    expect(paper.closest("[data-print-hide='true']")).toBeNull();
+    expect(paper.querySelector("[data-print-confidential]")).toHaveTextContent(/Confidential clinical document/i);
+    // Deterministic: derived from PROTOTYPE_NOW, never a wall clock.
+    expect(paper.querySelector("[data-print-stamp]")).toHaveTextContent("20/08/2026");
+    expect(paper.querySelector("[data-print-stamp]")?.closest("[data-print-hide='true']")).toBeNull();
+  });
+
+  it("carries the preferred name and the synthetic record number and no other identifier", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-safety-print-output");
+    const text = paper.textContent ?? "";
+    expect(text).toContain("Rowan");
+    expect(text).toContain("SYN-MRN-0001");
+    expect(text).not.toContain("Rowan Sample");
+    expect(text).not.toMatch(/12\/04\/1986|1986-04-12|date of birth/i);
+    expect(text).not.toContain("they/them");
+    expect(text).not.toContain("North River Health Service");
+  });
+
+  it("omits ED Presentation content, audit history and Management Plan metadata", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-safety-print-output");
+    const text = paper.textContent ?? "";
+    expect(text).not.toMatch(/Management Plan|risk assessment|mental[- ]state/i);
+    expect(text).not.toMatch(/ED Presentation|presentation activity|disposition|admission|arrived at/i);
+    expect(text).not.toMatch(/audit|Review Trigger|Draft|Superseded|plan owner|Approved (?:by|on)/i);
+    expect(within(paper).queryAllByRole("button")).toEqual([]);
+    expect(within(paper).queryAllByRole("navigation")).toEqual([]);
+  });
+
+  it("prints the real public crisis lines with their caveats, hours and official sources", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    const crisis = screen.getByTestId("care-plan-safety-crisis");
+    expect(crisis.closest("[data-print-output]")).not.toBeNull();
+
+    for (const contact of publicCrisisContacts) {
+      expect(crisis, `${contact.name} is missing from the printed copy`).toHaveTextContent(contact.telephoneDisplay);
+      expect(crisis).toHaveTextContent(contact.availability);
+      // The two MHERL entries share one official page, so this asks whether the
+      // source is reachable rather than whether it is unique.
+      expect(
+        crisis.querySelector(`a[href="${contact.sourceUrl}"]`),
+        `${contact.name} is printed with no official source`,
+      ).not.toBeNull();
+      if (contact.caveat !== null) expect(crisis).toHaveTextContent(contact.caveat);
+    }
+    // The four public numbers stay real, and are the only real ones here.
+    expect(crisis).toHaveTextContent("000");
+    expect(crisis).toHaveTextContent("1300 555 788");
+    expect(crisis).toHaveTextContent("1800 676 822");
+    expect(crisis).toHaveTextContent("1800 552 002");
+    expect(crisis).toHaveTextContent(/not an emergency service/i);
+    // The person's own team, so the sheet answers "who do I ring first".
+    expect(crisis).toHaveTextContent("North River CMHT");
+    expect(crisis).toHaveTextContent("0491 570 101");
+  });
+
+  it("records a print intent that claims only that the print view was opened", async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.fn();
+    vi.stubGlobal("print", printSpy);
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+
+    await user.click(screen.getByRole("button", { name: "Print Personal Safety Plan" }));
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    const outcome = screen.getByTestId("care-plan-safety-print-outcome");
+    expect(outcome).toHaveTextContent("The print view was opened.");
+    for (const overclaim of [/printed successfully/i, /sent to the printer/i, /copy was produced/i]) {
+      expect(outcome.textContent ?? "").not.toMatch(overclaim);
+    }
+    const control = screen.getByRole("button", { name: "Print Personal Safety Plan" });
+    expect(control.closest("[data-print-hide='true']")).not.toBeNull();
+    expect(control.closest("[data-print-output]")).toBeNull();
+    expect(outcome.closest("[data-print-hide='true']")).not.toBeNull();
+  });
+
+  it("keeps printing available while the device is offline", async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.fn();
+    vi.stubGlobal("print", printSpy);
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"), "scenario=offline");
+
+    const control = screen.getByRole("button", { name: "Print Personal Safety Plan" });
+    expect(control).not.toHaveAttribute("aria-disabled");
+    expect(screen.queryByTestId("care-plan-safety-print-blocked")).toBeNull();
+    await user.click(control);
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("still refuses to print when the record is not confirmed as the right person", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"), "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-identity-uncertain")).toHaveTextContent(/cannot be taken back/i);
+    expect(screen.queryByTestId("care-plan-safety-print-output")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Print Personal Safety Plan" })).toBeNull();
+  });
+
+  it("states why printing is unavailable when permission could not be confirmed", async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.fn();
+    vi.stubGlobal("print", printSpy);
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"), "scenario=permission-unavailable");
+
+    const control = screen.getByRole("button", { name: "Print Personal Safety Plan" });
+    expect(control).toHaveAttribute("aria-disabled", "true");
+    expect(control).not.toHaveAttribute("disabled");
+    expect(screen.getByTestId("care-plan-safety-print-blocked")).toHaveTextContent(/Permission for this action/i);
+    await user.click(control);
+    expect(printSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not ask the browser to print in the print-failure specimen, and keeps the whole plan on screen", async () => {
+    const user = userEvent.setup();
+    const printSpy = vi.fn();
+    vi.stubGlobal("print", printSpy);
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"), "scenario=print-failure");
+
+    await user.click(screen.getByRole("button", { name: "Print Personal Safety Plan" }));
+
+    expect(printSpy).not.toHaveBeenCalled();
+    const failure = screen.getByTestId("care-plan-safety-print-failure");
+    // Three parts: what happened, what it means, and what the reader can do.
+    expect(failure).toHaveTextContent(/could not be opened/i);
+    expect(failure).toHaveTextContent(/Nothing was printed, and nothing was recorded/i);
+    expect(failure).toHaveTextContent(/still on this page/i);
+    // The plan itself is never withheld because the printer could not be reached.
+    expect(
+      within(screen.getByTestId("care-plan-safety-sections"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(SAFETY_HEADINGS_FROM_DOMAIN);
+    expect(screen.getByTestId("care-plan-safety-crisis")).toHaveTextContent("1300 555 788");
+    expect(screen.queryByTestId("care-plan-safety-print-outcome")).toBeNull();
+  });
+
+  it("says plainly when there is no current version to print", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-003"));
+    expect(screen.getByTestId("care-plan-safety-print-unavailable")).toHaveTextContent(
+      /no current Personal Safety Plan/i,
+    );
+    expect(screen.queryByTestId("care-plan-safety-print-output")).toBeNull();
+  });
+
+  // No component added by this task calls `focus()`, and the shell's
+  // pathname-keyed effect commits last, so a final-state assertion here could
+  // never fail. This watches the focus events instead.
+  it("leaves the mount-time focus to the shell heading", () => {
+    const focusedNames: string[] = [];
+    const listener = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      focusedNames.push(target?.getAttribute("aria-label") ?? target?.tagName ?? "");
+    };
+    document.addEventListener("focusin", listener);
+    try {
+      renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    } finally {
+      document.removeEventListener("focusin", listener);
+    }
+
+    expect(focusedNames).toEqual(["H1"]);
+    expect(screen.getByRole("heading", { level: 1, name: "Print Personal Safety Plan" })).toHaveFocus();
   });
 });
 

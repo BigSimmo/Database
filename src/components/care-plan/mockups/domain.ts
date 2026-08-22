@@ -231,6 +231,24 @@ export function getCurrentSafetyPlanVersion(
   return versions.find((version) => version.planId === planId && version.state === "current") ?? null;
 }
 
+/**
+ * The Personal Safety Plan version being worked on. There is at most one — the
+ * reducer refuses to open a second — and it never displaces the version in use:
+ * a draft is not this person's plan yet, and both the reading surface and the
+ * authoring form show that plainly.
+ *
+ * Unlike the Management Plan there is no `awaiting_approval` state to consider,
+ * because this document is the person's own and waits on no senior decision.
+ */
+export function getOpenSafetyPlanDraft(
+  versions: readonly PersonalSafetyPlanVersion[],
+  planId: SyntheticId,
+): PersonalSafetyPlanVersion | null {
+  const open = versions.filter((version) => version.planId === planId && version.state === "draft");
+  if (open.length === 0) return null;
+  return open.reduce((latest, version) => (version.version > latest.version ? version : latest));
+}
+
 /** The most recent withdrawn version, used only to keep a withdrawn plan from
  *  rendering identically to a patient who never had one. */
 function getWithdrawnManagementVersion(

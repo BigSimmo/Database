@@ -13,6 +13,7 @@ import {
   getCurrentManagementPlanVersion,
   getCurrentSafetyPlanVersion,
   getOpenManagementDraft,
+  getOpenSafetyPlanDraft,
   getPatientById,
   getReviewQueues,
   searchPatients,
@@ -220,6 +221,31 @@ describe("Care Plan management plan version selection", () => {
     expect(getCurrentManagementPlanVersion(syntheticManagementPlanVersions, "SYN-MGMT-PLAN-004")).toBeNull();
 
     expect(getCurrentSafetyPlanVersion(syntheticPersonalSafetyPlanVersions, "SYN-SAFETY-PLAN-003")).toBeNull();
+  });
+
+  it("finds the open Personal Safety Plan draft without letting it stand in for a plan", () => {
+    // Jordan has a draft and no current version. The two questions have to be
+    // answerable separately, because a surface that showed the draft's content
+    // whenever there was no current version would be putting words in someone's
+    // mouth that they left the department before agreeing.
+    const draft = getOpenSafetyPlanDraft(syntheticPersonalSafetyPlanVersions, "SYN-SAFETY-PLAN-003");
+    expect(draft?.state).toBe("draft");
+    expect(getCurrentSafetyPlanVersion(syntheticPersonalSafetyPlanVersions, "SYN-SAFETY-PLAN-003")).toBeNull();
+
+    // Rowan has a current version and nothing being written.
+    expect(getOpenSafetyPlanDraft(syntheticPersonalSafetyPlanVersions, "SYN-SAFETY-PLAN-001")).toBeNull();
+    expect(getCurrentSafetyPlanVersion(syntheticPersonalSafetyPlanVersions, "SYN-SAFETY-PLAN-001")?.version).toBe(1);
+
+    // A plan with no versions at all is neither.
+    expect(getOpenSafetyPlanDraft(syntheticPersonalSafetyPlanVersions, "SYN-SAFETY-PLAN-005")).toBeNull();
+
+    // With more than one open draft the highest version number wins, matching
+    // the Management Plan selector rather than depending on array order.
+    const twoDrafts = [
+      { ...draft!, id: "SYN-SAFETY-VERSION-901" as const, version: 4 },
+      { ...draft!, id: "SYN-SAFETY-VERSION-902" as const, version: 9 },
+    ];
+    expect(getOpenSafetyPlanDraft(twoDrafts, "SYN-SAFETY-PLAN-003")?.version).toBe(9);
   });
 });
 

@@ -100,6 +100,19 @@ describe("Care Plan route registry", () => {
     expect(carePlanRoute.managementPlanEdit("SYN-PATIENT-001")).toBe(CARE_PLAN_ROUTES.managementPlanEdit);
     expect(carePlanRoute.managementPlanReview("SYN-PATIENT-001")).toBe(CARE_PLAN_ROUTES.managementPlanReview);
     expect(carePlanRoute.safetyPlan("SYN-PATIENT-003")).toBe("/mockups/care-plan/patients/SYN-PATIENT-003/safety-plan");
+    // The Personal Safety Plan's own two addresses were in `CARE_PLAN_ROUTES`
+    // from Task 3 with no builder beside them, exactly as the Management Plan's
+    // authoring addresses were until Task 6 and the recording address until
+    // Task 7. A print link hand-written from a string is how a patient-facing
+    // sheet ends up addressed to a different person.
+    expect(carePlanRoute.safetyPlanEdit("SYN-PATIENT-003")).toBe(
+      "/mockups/care-plan/patients/SYN-PATIENT-003/safety-plan/edit",
+    );
+    expect(carePlanRoute.safetyPlanPrint("SYN-PATIENT-003")).toBe(
+      "/mockups/care-plan/patients/SYN-PATIENT-003/safety-plan/print",
+    );
+    expect(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001")).toBe(CARE_PLAN_ROUTES.safetyPlanEdit);
+    expect(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001")).toBe(CARE_PLAN_ROUTES.safetyPlanPrint);
     expect(carePlanRoute.presentations("SYN-PATIENT-003")).toBe(
       "/mockups/care-plan/patients/SYN-PATIENT-003/presentations",
     );
@@ -423,8 +436,12 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     // `currentPlanCard` is on this list because it is the card that *contains*
     // the five first-minute sections: a print rule hiding the card would take
     // all five with it while every per-section selector below stayed clean.
+    // Extended in Task 8 to the patient's own printed document. It leaves the
+    // building, it carries a person's own words about what keeps them safe, and
+    // it lists real crisis telephone numbers — a rule that clipped any of it
+    // would leave every DOM assertion green.
     const protectedSelector =
-      /\.(?:firstMinuteSection\w*|pinnedBoundary\w*|fullPlanSection\w*|currentPlanCard|printPaper|printRecordWarning|printIdentity|printCmht)\b/;
+      /\.(?:firstMinuteSection\w*|pinnedBoundary\w*|fullPlanSection\w*|currentPlanCard|printPaper|printRecordWarning|printIdentity|printCmht|safetyPaper\w*|safetySection\w*|safetySupport\w*|crisis\w*)\b/;
 
     /**
      * Declarations are parsed rather than pattern-matched over the block text.
@@ -484,7 +501,7 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     const guarded = blocks.filter(({ selector }) => protectedSelector.test(selector));
     // Fails closed: if the class names are ever renamed, this guard must stop
     // silently matching nothing rather than quietly passing.
-    expect(guarded.length, "no protected selector matched — has the class naming changed?").toBeGreaterThanOrEqual(9);
+    expect(guarded.length, "no protected selector matched — has the class naming changed?").toBeGreaterThanOrEqual(24);
 
     for (const { selector, body } of guarded) {
       for (const declaration of declarationsOf(body)) {
@@ -495,6 +512,131 @@ describe("Care Plan synthetic, memory-only boundary", () => {
           ).toBe(false);
         }
       }
+    }
+  });
+
+  /**
+   * Print assertions in a DOM test are the weakest kind of guard this project
+   * has. Vitest runs with `css: false`, so `expect(node).toHaveClass(...)` proves
+   * only that a class *token* reached an attribute — it says nothing about
+   * whether a single rule applies, let alone whether the rule survives to paper.
+   * The Personal Safety Plan is the document that leaves the building, so its
+   * print behaviour is asserted where it is actually visible: in the stylesheet,
+   * scoped to the `@media print` block specifically.
+   *
+   * Each assertion below fails in a way a reader would notice on paper:
+   * deleting or shrinking the printed type below 11pt, letting a safety section
+   * or a crisis contact be split across a page break, or pinning any part of the
+   * patient copy to a viewport that does not exist on a sheet of paper.
+   */
+  it("keeps the printed patient copy readable, unsplit and unpinned on paper", () => {
+    const css = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/care-plan.module.css`), "utf8").replace(
+      /\/\*[\s\S]*?\*\//g,
+      "",
+    );
+
+    /** Rules, with the at-rule chain each one sits inside. Brace-matched rather
+     *  than split on `}`, because the whole question here is which at-rule a
+     *  rule is nested in — the one thing the existing parsers deliberately
+     *  discard. */
+    function parseRules(source: string): { selectors: string[]; body: string; atRules: string[] }[] {
+      const rules: { selectors: string[]; body: string; atRules: string[] }[] = [];
+      const atRules: string[] = [];
+      let head = "";
+      for (let index = 0; index < source.length; index += 1) {
+        const character = source[index];
+        if (character === "{") {
+          const trimmed = head.trim();
+          if (trimmed.startsWith("@")) {
+            atRules.push(trimmed);
+            head = "";
+            continue;
+          }
+          // A plain rule: consume to its own closing brace.
+          const end = source.indexOf("}", index);
+          expect(end, `unterminated rule for ${trimmed}`).toBeGreaterThan(index);
+          rules.push({
+            selectors: trimmed
+              .split(",")
+              .map((part) => part.trim())
+              .filter((part) => part.length > 0),
+            body: source.slice(index + 1, end),
+            atRules: [...atRules],
+          });
+          index = end;
+          head = "";
+          continue;
+        }
+        if (character === "}") {
+          atRules.pop();
+          head = "";
+          continue;
+        }
+        head += character;
+      }
+      return rules;
+    }
+
+    const rules = parseRules(css);
+    const printRules = rules.filter((rule) => rule.atRules.some((atRule) => /^@media\s+print\b/.test(atRule)));
+    // Fails closed: if the print block is removed or renamed, this stops
+    // silently matching nothing.
+    expect(printRules.length, "no @media print rule was found in the Care Plan stylesheet").toBeGreaterThan(4);
+
+    function declarationsFor(className: string, source: typeof rules): Map<string, string> {
+      const declared = new Map<string, string>();
+      for (const rule of source) {
+        if (!rule.selectors.includes(`.appRoot .${className}`)) continue;
+        for (const declaration of rule.body.split(";")) {
+          const separator = declaration.indexOf(":");
+          if (separator === -1) continue;
+          declared.set(
+            declaration.slice(0, separator).trim().toLowerCase(),
+            declaration
+              .slice(separator + 1)
+              .trim()
+              .toLowerCase(),
+          );
+        }
+      }
+      return declared;
+    }
+
+    /** Points, from the two units this stylesheet uses. 1px is 0.75pt. */
+    function pointsOf(value: string): number {
+      const match = /^([\d.]+)(pt|rem|px)$/.exec(value);
+      if (match === null) return Number.NaN;
+      const size = Number(match[1]);
+      if (match[2] === "pt") return size;
+      return (match[2] === "rem" ? size * 16 : size) * 0.75;
+    }
+
+    const paper = declarationsFor("safetyPaper", printRules);
+    const printedSize = paper.get("font-size");
+    expect(
+      printedSize,
+      ".safetyPaper declares no printed font size, so the patient copy is not sized for paper",
+    ).toBeDefined();
+    expect(
+      pointsOf(printedSize ?? ""),
+      `.safetyPaper prints at ${printedSize ?? "nothing"}, which is too small for the document a person reads in a crisis`,
+    ).toBeGreaterThanOrEqual(11);
+
+    for (const className of ["safetySection", "crisisEntry"]) {
+      expect(
+        declarationsFor(className, printRules).get("break-inside"),
+        `.${className} may be split across a page break, so half of it can be lost on the previous sheet`,
+      ).toBe("avoid");
+    }
+
+    // Nothing on the patient copy is pinned to a viewport that does not exist on
+    // a sheet of paper — a fixed dock prints once, over the content, or not at all.
+    for (const rule of rules) {
+      if (!rule.selectors.some((selector) => /\.(?:safety|crisis)[A-Za-z]*\b/.test(selector))) continue;
+      const position = declarationsFor(rule.selectors[0]?.replace(".appRoot .", "") ?? "", [rule]).get("position");
+      expect(["fixed", "sticky"], `${rule.selectors.join(", ")} pins printed content to the viewport`).not.toContain(
+        position,
+      );
     }
   });
 
@@ -512,6 +654,8 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       `${COMPONENT_ROOT}/management-plan-print.tsx`,
       `${COMPONENT_ROOT}/management-plan-form.tsx`,
       `${COMPONENT_ROOT}/management-plan-review.tsx`,
+      `${COMPONENT_ROOT}/safety-plan-pages.tsx`,
+      `${COMPONENT_ROOT}/safety-plan-form.tsx`,
     ];
     for (const file of consumers) {
       const source = readFileSync(resolve(process.cwd(), file), "utf8");

@@ -83,6 +83,14 @@ export const carePlanRoute = {
   safetyPlan(patientId: string) {
     return `${patientPath(patientId)}/safety-plan`;
   },
+  /** Where the person's own document is written or revised. It needs no senior
+   *  approval, so this is the only authoring address the Safety Plan has. */
+  safetyPlanEdit(patientId: string) {
+    return `${patientPath(patientId)}/safety-plan/edit`;
+  },
+  safetyPlanPrint(patientId: string) {
+    return `${patientPath(patientId)}/safety-plan/print`;
+  },
   presentations(patientId: string) {
     return `${patientPath(patientId)}/presentations`;
   },
