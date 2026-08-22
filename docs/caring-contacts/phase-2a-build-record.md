@@ -2127,3 +2127,44 @@ rather than guessed.
 `loading.tsx` and `error.tsx` render outside the shell and so show no banner. Neither claims the service
 is running — the error page says nothing was sent and nothing was changed — so there is no false
 confidence.
+
+### Task 16 fix round scoped re-review — ALL SIX ADDRESSED
+
+## Task 16: COMPLETE (commits `b8f81996c`..`85ca58c4b`, review clean after 1 fix round)
+
+Full suite 699 files / 7755 tests, zero failures. Focused browser spec re-run at `9 passed`, `EXIT=0`
+rather than the `75` admission-timeout code. `tsc` exit 0, eslint clean.
+
+Both guards proven falsifiable, and the re-reviewer checked each proof against what the suites actually
+assert rather than accepting the report:
+
+- **Mutation D** (delete `describeServiceStop`'s remedy sentence) reddened **exactly one** test — the new
+  one — while the sealed-domain service-state suite ran in the same invocation and stayed green. The
+  re-reviewer confirmed that suite asserts only the approval count and the reason substring and **never**
+  the remedy, so the remedy half of spec §4.4 really was unpinned across the entire branch.
+- **Mutation E** (add `"use client"` to the banner) reddened the new allowlist guard and named the file.
+- **The allowlist guard cannot pass vacuously**, which is the failure mode for a source-scanning test:
+  the allowed set is a non-empty literal, so an empty or renamed directory yields a mismatch rather than
+  a pass, and the directory read throws loudly rather than swallowing a missing path.
+
+### The declined stronger check — and why declining was right
+
+I asked the implementer to _consider_ proving from source text that no client component ever receives a
+`serviceState`-derived prop, and told it to say so rather than ship something brittle. **It declined**,
+reasoning that JSX prop dataflow — spreads, renames, pass-through, derived values — cannot be proven by
+a regex, so such a check would look stronger than it is.
+
+The re-reviewer independently agreed and put the reason better than either of us: a check that looked
+authoritative while covering only the literal case **would be worse than an honest narrower pair, because
+it would invite false confidence exactly where the stakes are highest.** It also verified the stated
+residual gap is accurate and, today, purely theoretical: both current call sites pass only literal
+strings.
+
+It offered one incremental option not taken — asserting that the two server files pass only
+string-literal values into the client component — and then judged it **not materially stronger**, because
+it carries the same looks-stronger-than-it-is character. I agree, and record it here rather than acting
+on it, so the option is on the record for the final review rather than lost.
+
+**The principle worth keeping: an honest narrow guard beats a broad one that cannot deliver what its name
+implies.** The right response to "I cannot prove this reliably" is to say so and guard what you can — not
+to ship an approximation whose failure mode is silent.
