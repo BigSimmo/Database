@@ -256,7 +256,11 @@ export function ResultFilterTrigger({
           several times over. 414–429px is the one band that is genuinely
           single-line and short of width; there a funnel carrying a badge is
           unambiguous. The accessible name is unchanged at every width. */}
-      <span className={cn(labelVisibility === "responsive" && "min-[414px]:max-[429px]:sr-only")}>{label}</span>
+      <span
+        className={cn(labelVisibility === "responsive" && "min-filter-label-collapse:max-filter-label-restore:sr-only")}
+      >
+        {label}
+      </span>
       {activeCount > 0 ? (
         // A tinted pill, not a solid disc: a saturated filled circle is the single
         // loudest signal on a bar that is otherwise hairlines and type, and it
