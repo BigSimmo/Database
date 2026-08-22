@@ -2620,6 +2620,29 @@ summary::-webkit-details-marker {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
+  /* Guide Centre: the CTA stays above the Home Indicator while its dedicated
+     glass tray paints through the complete safe-area region. The shared search
+     dock deliberately fades to transparent at the physical edge; on this
+     fullscreen white Sheet that exposed a separate white strip below the CTA. */
+  .guide-tour-dock.answer-footer-search-dock.answer-footer-search-edge {
+    padding-top: var(--spacing-icon-xs);
+    padding-bottom: calc(var(--spacing-icon-xs) + var(--safe-area-bottom));
+  }
+
+  .guide-tour-dock.answer-footer-search-dock .answer-footer-search-backdrop {
+    height: max(7.5rem, calc(var(--safe-area-bottom) + 6rem));
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--surface-raised) 24%, transparent) 28%,
+      color-mix(in srgb, var(--surface-raised) 72%, transparent) 58%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 82%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 100%
+    );
+    mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+  }
+
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
      actually slides the bar off-screen once data-scroll-hidden is set.
      Use --safe-area-bottom (not env() alone) so Playwright/PWA inset simulation
