@@ -12,19 +12,28 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { addIssue, resolveIssue, updateIssue } from "./outstanding-issues.mjs";
+import { addIssue, resolveIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
 import {
   ISSUES_PATH,
   checkIssues,
   issueRowFingerprint,
   isValidIssueRowFingerprint,
+  queueRowFingerprint,
 } from "./check-outstanding-issues.mjs";
-import { isIssueDisplayId, isIssueUlid, issueUlid, issueUlidFromRequest } from "./issue-id.mjs";
+import {
+  isIssueDisplayId,
+  isIssueUlid,
+  issueUlid,
+  issueUlidFromRequest,
+  normalizeIssueDisplayId,
+} from "./issue-id.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX_DIR = "docs/outstanding-issues-inbox";
 const APPLIED_DIR = path.posix.join(INBOX_DIR, "applied");
-const ACTIONS = new Set(["add", "done", "update", "cancel"]);
+const ACTIONS = new Set(["add", "done", "update", "queue", "cancel"]);
+// Fields a `queue` request may carry, mirroring updateQueueRow's editable map.
+const QUEUE_FIELDS = ["acuity", "capability", "when", "estimate", "outcome"];
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECONCILE_LOCK_NAME = "outstanding-issues-reconcile.lock";
 const OWNERLESS_LOCK_GRACE_MS = 5 * 60 * 1000;
@@ -54,7 +63,7 @@ export function validateRequest(request) {
   if (![1, 2].includes(request.version)) problems.push("version must be 1 or 2");
   if (!REQUEST_ID.test(request.id ?? "")) problems.push("id must be a UUID");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(request.createdOn ?? "")) problems.push("createdOn must be YYYY-MM-DD");
-  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, update, or cancel");
+  if (!ACTIONS.has(request.action)) problems.push("action must be add, done, update, queue, or cancel");
   if (!request.payload || typeof request.payload !== "object") problems.push("payload must be an object");
   if (request.action === "add") {
     for (const field of ["pri", "type", "summary"])
@@ -92,6 +101,20 @@ export function validateRequest(request) {
       problems.push("update pri must be P1, P2, or P3");
     }
   }
+  if (request.action === "queue") {
+    if (!isIssueDisplayId(request.payload?.id)) problems.push("queue requires a canonical issue display id");
+    // A queue re-grade is usually exactly one cell (acuity), so requiring any
+    // one field rather than a prose field keeps the common correction — the
+    // #M6JNR8 instance — expressible without inventing filler text.
+    if (!QUEUE_FIELDS.some((field) => request.payload?.[field] !== undefined)) {
+      problems.push(`queue requires one of ${QUEUE_FIELDS.join(", ")}`);
+    }
+    if (
+      request.payload?.baseRowFingerprint !== undefined &&
+      !isValidIssueRowFingerprint(request.payload.baseRowFingerprint)
+    )
+      problems.push("queue requires a valid baseRowFingerprint");
+  }
   if (request.action === "cancel") {
     if (!REQUEST_ID.test(request.payload?.requestId ?? "")) {
       problems.push("cancel requires a pending request UUID");
@@ -108,6 +131,20 @@ export function applyRequest(markdown, request) {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
   const options = { date: request.createdOn };
+  if (request.action === "queue" && request.payload?.baseRowFingerprint) {
+    const id = request.payload.id;
+    const fingerprint = queueRowFingerprint(markdown, id);
+    if (!fingerprint) {
+      throw new Error(
+        `${id} no longer has exactly one queue row; reread and reissue this request from the latest ledger`,
+      );
+    }
+    if (fingerprint !== String(request.payload.baseRowFingerprint).toLowerCase()) {
+      throw new Error(
+        `${id} queue row is stale: it changed after this request was queued; reread and reissue from the latest ledger`,
+      );
+    }
+  }
   if ((request.action === "done" || request.action === "update") && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
     const fingerprint = issueRowFingerprint(markdown, id);
@@ -125,6 +162,7 @@ export function applyRequest(markdown, request) {
     return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
   }
   if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
+  if (request.action === "queue") return updateQueueRow(markdown, request.payload.id, request.payload);
   return updateIssue(markdown, request.payload.id, request.payload);
 }
 
@@ -132,10 +170,17 @@ function mutationConflicts(requests) {
   const byIssue = new Map();
   for (const request of requests) {
     if (request.action === "add" || request.action === "cancel") continue;
-    const id = request.payload.id;
-    const requestIds = byIssue.get(id) ?? [];
-    requestIds.push(request.id);
-    byIssue.set(id, requestIds);
+    const id = normalizeIssueDisplayId(request.payload.id);
+    // Key by the rows a request actually mutates. `update` changes only the
+    // Open-items row and `queue` changes only its queue row, so they can safely
+    // share a batch. `done` moves the Open-items row *and* prunes its queue
+    // citation, so it conflicts with either action on the same issue.
+    const targets = request.action === "done" ? [id, `queue ${id}`] : [request.action === "queue" ? `queue ${id}` : id];
+    for (const target of targets) {
+      const requestIds = byIssue.get(target) ?? [];
+      requestIds.push(request.id);
+      byIssue.set(target, requestIds);
+    }
   }
   return [...byIssue.entries()].filter(([, requestIds]) => requestIds.length > 1);
 }
@@ -644,23 +689,41 @@ function createRequest(action, argv) {
         ? { id: argv[1], outcome: argValue(argv, "outcome") }
         : action === "cancel"
           ? { requestId: argv[1], reason: argValue(argv, "reason") }
-          : {
-              // `pri` rides the same update request as the prose fields so a
-              // demotion and the reason for it land as one auditable mutation.
-              // Without it the CLI could not express a re-prioritisation at all,
-              // which is the half of ledger #313 the inbox would otherwise
-              // reintroduce: updateIssue accepts --pri and validateRequest
-              // permits it, but nothing could produce the payload.
-              id: argv[1],
-              pri: argValue(argv, "pri"),
-              summary: argValue(argv, "summary"),
-              detail: argValue(argv, "detail"),
-              source: argValue(argv, "source"),
-            };
+          : action === "queue"
+            ? {
+                id: argv[1],
+                acuity: argValue(argv, "acuity"),
+                capability: argValue(argv, "capability"),
+                when: argValue(argv, "when"),
+                estimate: argValue(argv, "estimate"),
+                outcome: argValue(argv, "outcome"),
+              }
+            : {
+                // `pri` rides the same update request as the prose fields so a
+                // demotion and the reason for it land as one auditable mutation.
+                // Without it the CLI could not express a re-prioritisation at all,
+                // which is the half of ledger #313 the inbox would otherwise
+                // reintroduce: updateIssue accepts --pri and validateRequest
+                // permits it, but nothing could produce the payload.
+                id: argv[1],
+                pri: argValue(argv, "pri"),
+                summary: argValue(argv, "summary"),
+                detail: argValue(argv, "detail"),
+                source: argValue(argv, "source"),
+              };
   if (["done", "update"].includes(action) && typeof payload.id === "string") {
     const currentFingerprint = issueRowFingerprint(readOutstandingIssues(), payload.id);
     if (currentFingerprint === null) {
       throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
+    }
+    payload.baseRowFingerprint = currentFingerprint;
+  }
+  if (action === "queue" && typeof payload.id === "string") {
+    const currentFingerprint = queueRowFingerprint(readOutstandingIssues(), payload.id);
+    if (currentFingerprint === null) {
+      throw new Error(
+        `ledger request rejected: ${payload.id} does not have exactly one recommended-execution-queue row`,
+      );
     }
     payload.baseRowFingerprint = currentFingerprint;
   }
@@ -911,6 +974,80 @@ function selfTest() {
     throw new Error("self-test failed: a pri-only update did not reach the Pri cell");
   }
 
+  // #M6JNR8: a queue re-grade must survive the whole path — validated, carried
+  // by a request, fingerprinted against the queue row rather than the
+  // Open-items row, and written to the Acuity cell without disturbing Order or
+  // the ID(s) linkage. The base fixture's queue is deliberately two columns
+  // wide, so this needs a fixture shaped like the real seven-column queue.
+  const queueBase = base.replace(
+    ["| Order | ID(s) |", "| --- | --- |", "| 1 | `#001` |"].join("\n"),
+    [
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| 1 | `#001` | A1 | Specialist | Immediate | 2h | investigate |",
+    ].join("\n"),
+  );
+  const regrade = {
+    version: 1,
+    id: "77777777-7777-4777-8777-777777777777",
+    createdOn: "2026-08-13",
+    action: "queue",
+    payload: {
+      id: "#001",
+      acuity: "A3",
+      when: "After the next release",
+      baseRowFingerprint: queueRowFingerprint(queueBase, "#001"),
+    },
+  };
+  if (validateRequest(regrade).length > 0) {
+    throw new Error("self-test failed: a queue re-grade request must validate");
+  }
+  if (validateRequest({ ...regrade, payload: { id: "#001" } }).length === 0) {
+    throw new Error("self-test failed: a queue request with no editable field must be rejected");
+  }
+  const regraded = applyRequest(queueBase, regrade);
+  if (!/\|\s*1\s*\|\s*`#001`\s*\|\s*A3\s*\|/.test(regraded)) {
+    throw new Error("self-test failed: a queue re-grade did not reach the Acuity cell");
+  }
+  if (!/\|\s*#001\s*\|\s*P2\s*\|/.test(regraded)) {
+    throw new Error("self-test failed: a queue re-grade must not touch the Open-items row");
+  }
+  // The whole point of the fingerprint is that it tracks the QUEUE row: an edit
+  // to the Open-items row must not invalidate a queued re-grade, and an edit to
+  // the queue row must.
+  let staleQueueRejected = false;
+  try {
+    applyRequest(queueBase.replace("| 1 | `#001` | A1 |", "| 1 | `#001` | A2 |"), regrade);
+  } catch (error) {
+    staleQueueRejected = /stale/.test(String(error));
+  }
+  if (!staleQueueRejected) throw new Error("self-test failed: stale queue request was not rejected");
+  if (!applyRequest(queueBase.replace("| #001 | P2 | issue | one |", "| #001 | P2 | issue | one prime |"), regrade)) {
+    throw new Error("self-test failed: an unrelated Open-items edit invalidated a queue re-grade");
+  }
+  // A queue edit and an Open-items update for the same id are two rows, so
+  // reconciling both in one batch must not demand a cancellation decision.
+  if (mutationConflicts([regrade, update]).length > 0) {
+    throw new Error("self-test failed: a queue edit and an open-row update were treated as conflicting");
+  }
+  if (mutationConflicts([regrade, { ...regrade, id: "88888888-8888-4888-8888-888888888888" }]).length !== 1) {
+    throw new Error("self-test failed: two queue edits for one id must conflict");
+  }
+  for (const requests of [
+    [regrade, done],
+    [done, regrade],
+  ]) {
+    let queueClosureRejected = false;
+    try {
+      applyRequestBatch(queueBase, requests);
+    } catch (error) {
+      queueClosureRejected = /explicit cancellation decision/.test(String(error));
+    }
+    if (!queueClosureRejected) {
+      throw new Error("self-test failed: a queue edit and closure must require an explicit cancellation decision");
+    }
+  }
+
   const added = applyRequest(base, add);
   const replayed = applyRequest(base, add);
   const legacyUlid = issueUlidFromRequest(add.createdOn, add.id);
@@ -1064,7 +1201,7 @@ function main() {
       );
       return;
     }
-    throw new Error("usage: ledger-inbox.mjs <add|done|update|cancel|reconcile|check> [args]");
+    throw new Error("usage: ledger-inbox.mjs <add|done|update|queue|cancel|reconcile|check> [args]");
   } catch (error) {
     console.error(`ledger inbox: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
