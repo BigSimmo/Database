@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "9a382a0504632186bab075b53633cb69a6f92446",
-    "committed_at": "2026-08-22T15:25:05+00:00"
+    "committed_at": "2026-08-22T15:25:05Z"
   },
   "counts": {
     "open": 66,
@@ -773,7 +773,7 @@
     {
       "request_id": "edebb730-91d9-42f5-bd93-ca2abb9678bc",
       "action": "add",
-      "summary": "verify:phone-chrome exit 0 after a correct selector skip is indistinguishable from a full browser pass in caller reports",
+      "summary": "Document that a bare verify:phone-chrome run proves nothing about already-merged work, because its selector reads the working-tree diff and a clean tree selects no browser stage",
       "created_at": "2026-08-22"
     }
   ]
