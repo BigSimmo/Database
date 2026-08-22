@@ -3031,6 +3031,7 @@
       "documentedDisposition": "Ward Flow is a synthetic operational coordination surface with a coordinator command home, statewide flow diagram and explainable shortlist, rail-based mode navigation, role-aware queue-first phone fallback, linked operational workspaces, and an explainable human-confirmed destination workflow.",
       "routes": [
         "src/app/ward-management/capacity/page.tsx",
+        "src/app/ward-management/ed/[edId]/page.tsx",
         "src/app/ward-management/exceptions/page.tsx",
         "src/app/ward-management/governance/page.tsx",
         "src/app/ward-management/movements/page.tsx",
@@ -3096,6 +3097,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["WardModeWorkspace"]
+        },
+        {
+          "file": "src/app/ward-management/ed/[edId]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/ward-management/exceptions/page.tsx",
@@ -3206,6 +3217,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["CoordinatorScreen", "ClinicalRail"]
+        },
+        {
+          "file": "src/components/ward-management/ed/ed-screen.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ClinicalRail"]
         },
         {
           "file": "src/components/ward-management/officer/officer-screen.tsx",
@@ -3578,6 +3599,7 @@
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
       "src/app/ward-management/capacity/page.tsx",
+      "src/app/ward-management/ed/[edId]/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
       "src/app/ward-management/movements/page.tsx",
@@ -3642,6 +3664,7 @@
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
       "src/app/ward-management/capacity/page.tsx",
+      "src/app/ward-management/ed/[edId]/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
       "src/app/ward-management/movements/page.tsx",
@@ -3659,7 +3682,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 76,
+    "inheritedCkbV2RootCount": 78,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -3668,8 +3691,8 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 32,
-    "rootCount": 77,
-    "productionRouteCount": 62,
-    "nextUiEntryCount": 115
+    "rootCount": 79,
+    "productionRouteCount": 63,
+    "nextUiEntryCount": 116
   }
 }

@@ -352,7 +352,15 @@ visible reasons and a human confirms or overrides.
   (delegating to `transportLeg`) and how long since that leg's own stamp via `stampAgeText`; a
   movement with no transport job at all is never listed as a row — the banner states the excluded
   count in real text instead, the same on-screen-honesty discipline as the officer screen's "no
-  officer identity" notice)
+  officer identity" notice), `ed/ed-screen.tsx` (Task 11: one emergency department's own view —
+  `/ward-management/ed/[edId]`, resolved via `ward-sites.ts`'s `edById`; both clocks (time in
+  department from `openedAt`, the legal clock from `formedAt` where earlier, marked
+  `data-community-formed`), the four-hour `ED_ACCESS_TARGET_MINUTES` departmental access target
+  — labelled and computed so it can never be mistaken for a legal deadline and never touches a
+  `LegalForm`/`dueAt` — a police-attendance flag, and each movement's single outstanding item; a
+  raise-referral form (`RAISE_REFERRAL`), a record-examination form (`RECORD_EXAMINATION`), and
+  the mark-handover-ready control (`HANDOVER_READY`) that is the only producer of a transport job;
+  statewide capacity shown read-only)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)

@@ -492,6 +492,7 @@
       "routes": [
         "src/app/ward-management/page.tsx",
         "src/app/ward-management/capacity/page.tsx",
+        "src/app/ward-management/ed/[edId]/page.tsx",
         "src/app/ward-management/exceptions/page.tsx",
         "src/app/ward-management/governance/page.tsx",
         "src/app/ward-management/movements/page.tsx",
@@ -505,6 +506,7 @@
       "routeRoots": true,
       "roots": [
         "src/components/ward-management/coordinator/coordinator-screen.tsx",
+        "src/components/ward-management/ed/ed-screen.tsx",
         "src/components/ward-management/officer/officer-screen.tsx",
         "src/components/ward-management/ward-management-console.tsx",
         "src/components/ward-management/ward-management-modes.tsx",

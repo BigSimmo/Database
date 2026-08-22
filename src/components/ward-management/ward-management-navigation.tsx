@@ -17,6 +17,7 @@ import {
   Route,
   Settings,
   ShieldCheck,
+  Siren,
   SlidersHorizontal,
   Truck,
   Waypoints,
@@ -136,6 +137,23 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
           className={shellStyles.railLink}
         >
           <Ambulance aria-hidden="true" />
+        </Link>
+        {/* Task 11: `/ward-management/ed/[edId]` is a dynamic detail route, same shape as the
+            ward link above — a raw `<Link>` with a literal string `href`, not `RailLink`, for the
+            exact reason documented on the Officer link immediately above: `RailLink` passes
+            `href` through as a destructured prop, which reads as a plain `Identifier` to
+            `tests/route-reachability.test.ts`'s AST scan and stays invisible to it. Peel is a
+            real, resolvable emergency department id. Labelled "Emergency department" — checked
+            against every other accessible name in this rail and `WardModeNavigation` below, none
+            of which contain that string as a substring, so Playwright's default substring
+            accessible-name match cannot collide with it the way "Transport officer" once did. */}
+        <Link
+          href="/ward-management/ed/peel-ed"
+          aria-label="Emergency department"
+          title="Emergency department"
+          className={shellStyles.railLink}
+        >
+          <Siren aria-hidden="true" />
         </Link>
         <RailLink href="/?mode=answer" label="Favourites">
           <HeartPulse aria-hidden="true" />
