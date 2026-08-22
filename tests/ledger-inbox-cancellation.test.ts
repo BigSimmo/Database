@@ -17,6 +17,26 @@ function update(id: string, issueId = "#316") {
   };
 }
 
+function done(id: string, issueId = "#316") {
+  return {
+    version: 1,
+    id,
+    createdOn: "2026-08-14",
+    action: "done",
+    payload: { id: issueId, outcome: `resolved ${issueId}` },
+  };
+}
+
+function queue(id: string, issueId = "#316") {
+  return {
+    version: 1,
+    id,
+    createdOn: "2026-08-14",
+    action: "queue",
+    payload: { id: issueId, acuity: "A2" },
+  };
+}
+
 function cancel(id: string, requestId: string) {
   return {
     version: 1,
@@ -101,6 +121,15 @@ describe("ledger inbox cancellation planning", () => {
     expect(() => plan([update(UPDATE_ID), update(CANCEL_ID)])).toThrow(
       /multiple pending mutations require an explicit cancellation decision/,
     );
+  });
+
+  it("treats a queue edit and closure as conflicting mutations in either order", () => {
+    for (const requests of [
+      [queue(UPDATE_ID), done(CANCEL_ID)],
+      [done(UPDATE_ID), queue(CANCEL_ID)],
+    ]) {
+      expect(() => plan(requests)).toThrow(/multiple pending mutations require an explicit cancellation decision/);
+    }
   });
 
   it("an ineffective cancellation does not resolve a competing-mutation conflict", () => {
