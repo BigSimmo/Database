@@ -1,7 +1,7 @@
 # Trusted Admin/Backend Document Ingestion and RAG Activation Design
 
-Date: 2026-08-21  
-Status: Approved requirements; reconciled into the RAG planning package on 2026-08-22. No implementation from another worktree is assumed or included; every task must be revalidated and implemented from the execution package's recorded current-main base.  
+Date: 2026-08-21
+Status: Approved requirements; reconciled into the RAG planning package on 2026-08-22. No implementation from another worktree is assumed or included; every task must be revalidated and implemented from the execution package's recorded current-main base.
 Scope: Administrator/backend document admission, extraction and OCR, technical quality gating, shared-corpus activation, retrieval eligibility, review operations, and Supabase control-plane ownership
 
 ## 1. Decision summary
