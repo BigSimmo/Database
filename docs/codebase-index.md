@@ -221,6 +221,25 @@ import from `../caring-contacts`, never the reverse.
 | `store.ts`   | `caringContactsStore()`: picks Postgres (validated through `assertNotClinicalKbProject`) when `CARING_CONTACTS_DATABASE_URL` is set, the in-memory reference store otherwise                                                                                                                                                                                                                                                                                    |
 | `session.ts` | The demo role switcher (decision lock: WA Health enterprise sign-on only, no Caring-Contacts-local credentials -- this is a role switcher, not a login). `DEMO_ROLES` names all five roles; `resolveDemoActor()` reads the `caring-contacts-demo-role` cookie via `await cookies()` and falls back to `coordinator` on anything unreadable rather than throwing, so a broken cookie can never lock a demo out                                                   |
 
+### `/caring-contacts` (the production workspace)
+
+A **standalone application** inside this repository: it owns its own navigation, and no
+caring-contacts destination belongs in the Clinical KB sidebar, mode list, or global search.
+The single inbound link is the `caring-contacts` Tools catalogue card — one front door, no
+second entry anywhere in the host's navigation. Never indexed (`robots: { index: false }`):
+every patient in it is invented, and it must not surface where its synthetic nature is not
+visible. The frozen prototype at `/mockups/caring-contacts` stays untouched; the two trees may
+not import each other, which `tests/caring-contact-route-files.test.ts` enforces in both
+directions.
+
+| Module                                                                 | Role                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/caring-contacts/`                                             | The route group: `layout.tsx` (metadata + `robots: noindex`), `page.tsx` (Today, the only screen in Phase 2A), `loading.tsx`, `error.tsx`. `page.tsx` loads the shell through `next/dynamic` — the lazy route boundary that keeps the workspace's client code out of every other route (Ruling 13) |
+| `src/components/caring-contacts/workspace/shell.tsx`                   | The workspace shell: one `h1`, the always-visible synthetic marker, the desktop `Workspace` rail and the phone bar. A Server Component; the four width states are Tailwind media classes (`md:`/`lg:`/`xl:`) so the layout needs no JavaScript                                                     |
+| `src/components/caring-contacts/workspace/width-state.ts`              | `widthStateFor(width)` and the frozen boundaries (`rail` 768, `split` 1024, `wide` 1440). The single source — no component re-derives a breakpoint, and these are deliberately not a `--breakpoint-*` token (design-system GATES §3b)                                                              |
+| `src/components/caring-contacts/workspace/unavailable-destination.tsx` | The only client component the workspace ships: a declared-but-unbuilt destination, wired the `docs/wiring-conventions.md` way (`aria-disabled` + inert handler + `title` + an `sr-only` reason), never native `disabled`                                                                           |
+| `src/lib/caring-contacts-routes.ts`                                    | Every production destination's href, plus the `patientRoute`/`planRoute`/`contactRoute`/`pathwayRoute`/`episodeTimelineRoute` builders. Plain strings, no React, so the tools catalogue can name the front door without importing any of the workspace                                             |
+
 ---
 
 ## Supabase

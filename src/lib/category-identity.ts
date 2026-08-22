@@ -75,6 +75,7 @@ export const CATEGORY_ICON_KEYS = [
   "route",
   "fileSignature",
   "heart",
+  "heartHandshake",
   "brainCircuit",
   "bookOpenCheck",
   "tags",
@@ -146,6 +147,7 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   "safety-plan": "clipboardList",
   calculators: "calculator",
   monitoring: "waves",
+  "caring-contacts": "heartHandshake",
   favourites: "star",
 };
 

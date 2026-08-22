@@ -52,6 +52,8 @@ const documentedRedirectTargets: Record<string, string> = {
 const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
   "/applications": "Legacy application launcher redirect to Tools.",
+  "/caring-contacts":
+    "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
   "/differentials": "Differentials home and search surface.",
   "/differentials/compare":
     "Compare queue: empty state or selected diagnosis ids (Search edit links preserve ids); Open comparison launches a catalogue presentation workflow or an ad-hoc workspace (`workspace=1`).",
@@ -154,6 +156,10 @@ const routeOwnershipRows = [
   ],
   ["Documents", "src/app/(search-app)/documents, src/lib/document-flow-routes.ts"],
   ["Tools", "src/components/applications-launcher-page.tsx"],
+  [
+    "Caring Contacts workspace",
+    "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
+  ],
   ["Mockups", "src/app/mockups"],
 ] as const;
 
