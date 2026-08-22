@@ -108,3 +108,53 @@ test.describe("Transport officer screen", () => {
     await expect(page.locator('[data-testid^="ward-officer-job-"]')).toHaveCount(8);
   });
 });
+
+test.describe("Live tracker", () => {
+  test.describe.configure({ timeout: 45_000 });
+
+  /**
+   * Task 10 brief, Step 1 — appended verbatim. On its own this only proves that the two legs
+   * ("Accepted", "Collected") the seed fixture happens to contain today render correctly; the
+   * task-10 preflight's LATE ADDITION section flags that a passing version of this exact
+   * assertion cannot tell a tracker that renders all five legs correctly apart from one that
+   * renders only the legs the fixture happens to contain. `tests/tracker-derivations.test.ts`
+   * (node environment) closes that gap by unit-testing the tracker's own leg/stamp helper across
+   * all five legs plus cancelled plus absence, none of which the seed fixture currently exercises
+   * end to end. The next test in this file strengthens the browser-level assertion further, by
+   * pinning the exact row count instead of `> 0`.
+   */
+  test("tracks every vehicle by leg and by how long since the last stamp", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1024 });
+    await page.goto("/ward-management/transport", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
+
+    const rows = page.locator('[data-testid^="ward-tracker-row-"]');
+    expect(await rows.count()).toBeGreaterThan(0);
+
+    // Every row names its leg and its age, and no row claims a leg it has not reached.
+    for (const row of await rows.all()) {
+      await expect(row).toContainText(/Requested|Accepted|En route|Collected|Arrived/);
+      await expect(row).toContainText(/ago|since/i);
+    }
+  });
+
+  /**
+   * Re-measured directly against this branch's fixture (see the task report, not the earlier
+   * preflight numbers — those predate a fixture fix that gave six "en route" jobs a
+   * `collectedAt`): 41 open movements, 8 of which carry a transport job. Pinning the row count
+   * at exactly 8 (never `> 0`) catches a filter regression that silently widens or narrows which
+   * movements count as "a vehicle" — the brief's own wording is "no row may claim a leg it has
+   * not reached", and a screen that also renders the 33 transport-less movements would either
+   * fabricate a leg for them or need a sixth, non-leg cell that this exact-count assertion would
+   * catch drifting either way. The governance banner states the excluded count in real text
+   * instead — that is the "explicit absence" the Global Constraint asks for on this screen.
+   */
+  test("lists exactly the movements that carry a transport job, and states the rest explicitly", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1024 });
+    await page.goto("/ward-management/transport", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
+
+    await expect(page.locator('[data-testid^="ward-tracker-row-"]')).toHaveCount(8);
+    await expect(page.getByTestId("ward-tracker-governance")).toContainText(/33 of 41/);
+  });
+});

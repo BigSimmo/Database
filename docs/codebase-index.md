@@ -346,7 +346,13 @@ visible reasons and a human confirms or overrides.
   arrived, since `TransportJob` carries a `provider` organisation and no officer identity;
   queue-plus-pinned-action-bar pattern inherited from `shortlist-panel.tsx`, one job "active" at a
   time with its four transport actions — accepted, en route, collected, arrived — pinned to the
-  viewport bottom on phone widths)
+  viewport bottom on phone widths), `tracker/live-tracker.tsx` (Task 10: the coordinator's live
+  tracker, rewriting the existing route — `/ward-management/transport`; every open movement that
+  carries a transport job, its leg via `tracker/tracker-derivations.ts`'s `trackerRowState`
+  (delegating to `transportLeg`) and how long since that leg's own stamp via `stampAgeText`; a
+  movement with no transport job at all is never listed as a row — the banner states the excluded
+  count in real text instead, the same on-screen-honesty discipline as the officer screen's "no
+  officer identity" notice)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)
