@@ -235,6 +235,7 @@ function main(): void {
           const consumed: string[] = [];
           for (const { surface, term } of LEXICON_SURFACES_BY_LENGTH) {
             if (!mentions(segment, surface)) continue;
+            if (term.sourceDenySlugs?.includes(record.slug)) continue;
             if (consumed.some((taken) => taken.includes(surface))) continue;
             consumed.push(surface);
             segmentTermIds.add(term.id);
