@@ -57,6 +57,45 @@ test.describe("Ward screen", () => {
     await expect(page.locator('[data-testid^="ward-unit-card-"]')).toHaveCount(0);
     await expect(page.getByTestId("ward-unit-beds")).toHaveCount(0);
   });
+
+  /**
+   * Whole-branch review I3. Spec §2 decision 5 ("Does the clock move? Yes, with a jump-forward
+   * control") and §5 ("+15 min, +1 hour … so a held bed can be watched expiring in seconds
+   * rather than in an hour") — `ADVANCE_CLOCK` was implemented and tested in the reducer from
+   * Task 3 onward but dispatched only from test-harness buttons; no product surface ever raised
+   * it. WF-003 is fixture-pinned `accepted_awaiting_bed` at `rph-adult-secure`
+   * (`ward-movements.ts`), so Hold needs no prior referral/accept steps here.
+   */
+  test("the demo clock control advances a held bed toward expiry, and reads as demo scaffolding", async ({
+    page,
+  }) => {
+    await gotoWard(page, "rph-adult-secure");
+
+    const card = page.getByTestId("ward-accepted-WF-003");
+    await expect(card).toBeVisible();
+    await card.getByTestId("ward-hold-WF-003").click();
+    await expect(card).toContainText("Bed hold 1h 00m left");
+
+    // The trigger must never be mistaken for a clinical action — checked in words, not merely by
+    // colour: its accessible name and title both say so explicitly.
+    const trigger = page.getByTestId("ward-demo-controls-trigger");
+    await expect(trigger).toHaveAttribute("aria-label", /not a clinical action/i);
+    await expect(trigger).toHaveAttribute("title", /never a clinical action/i);
+
+    await trigger.click();
+    const menu = page.locator("#ward-demo-controls-menu");
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText(/demo tool, not part of the clinical record/i);
+
+    await page.getByTestId("ward-demo-advance-15").click();
+    await page.getByTestId("ward-demo-advance-15").click();
+    await page.getByTestId("ward-demo-advance-15").click();
+
+    // The one thing spec §5 says the control exists to demonstrate: a held bed watched
+    // expiring in seconds. 45 minutes advanced against a 60-minute hold leaves 15.
+    await expect(card).toContainText("Bed hold 15m left");
+    await expect(card).not.toContainText("Bed hold 1h 00m left");
+  });
 });
 
 test.describe("Transport officer screen", () => {
