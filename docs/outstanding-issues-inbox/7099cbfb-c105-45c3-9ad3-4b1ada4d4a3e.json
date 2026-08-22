@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7099cbfb-c105-45c3-9ad3-4b1ada4d4a3e",
+  "createdOn": "2026-08-22",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Answer-quality predicates accept two incoherent grounded extractive answers; diagnose predicate strictness before changing gate reachability",
+    "detail": "Found while correcting PR #2264's #231 diagnosis. The code-path fact remains: a grounded first-choice extractive answer bypasses generatedAnswerQualityFailureReason because the call at rag.ts:3113 sits inside the !finalizedAnswer.grounded branch. But the two cited incoherent grounded outputs do not demonstrate that moving the call fixes them. The focused predicate evaluation described in the PR review returned null for both using their actual query classes: 'The guidance for metabolic is that compliance, monitoring and evaluation.' with medication_dose_risk, and 'The guidance is that aim > To effectively identify admission and discharge processes to facilitate ease of access to > 2.' with document_lookup. Therefore the present predicates accept these outputs, and a guard-only reachability edit would not catch either. NEXT: add focused tests, determine the smallest clinically defensible predicate/threshold gap, and measure eval impact. Consider a separate reachability change only after a grounded extractive candidate is shown to fail an existing predicate while bypassing the call site. STOP: protected RAG surface; do not weaken grounding, citations, numeric verification, ranking, selection or generation safeguards; a behaviour change needs a live eval-canary pair with owner approval.",
+    "source": "PR #2264 review of docs/rag-improvement/231-diagnosis-2026-08-22.md; src/lib/rag/rag-extractive-answer.ts generatedAnswerQualityFailureReason",
+    "issueUlid": "01M0KZ186QNPQJKPRVETFT19H2"
+  }
+}

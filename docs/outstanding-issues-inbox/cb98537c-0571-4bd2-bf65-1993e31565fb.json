@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "cb98537c-0571-4bd2-bf65-1993e31565fb",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "47f8e3bf-7d16-489d-b01d-962cb3b0e9df",
+    "reason": "The proposed guard-only remedy is not supported: the two cited examples return null from the current predicate. Superseded by 7099cbfb-c105-45c3-9ad3-4b1ada4d4a3e, which records the predicate-strictness investigation."
+  }
+}
