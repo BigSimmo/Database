@@ -1107,3 +1107,341 @@ Deferred minor, for the whole-branch review rather than a fix round: `data-more-
 nothing in `src`, `tests` or any CSS module reads the attribute at all. But by this phase's own
 standing lesson, a thing named for one meaning and holding another is worth a rename when someone is
 next in the file.
+
+### Pushed at `88de39285` — and the push guard's own checks did not run
+
+`19ae5c662..88de39285` is on `origin/codex/ward-management-design`; `git rev-list --left-right
+--count HEAD...@{u}` reports **0 0**, so local and remote agree exactly. **`node_modules` survived
+at 523 entries**, checked immediately after — the destruction described in R31 to R33 did not recur
+on this push.
+
+**But the guard printed this, and it is exactly the shape this phase keeps guarding against:**
+
+> `[guard-push] static: run coordinator busy — lint and typecheck NOT run (DATABASE_HEAVY_RUN_ADMISSION_BUSY … PID 37504, worktree D:\Worktrees\Database\cc-2a-live … vitest run --reporter=dot)`
+
+The push succeeded **without** its static gate running. That is a check reporting success while
+doing nothing, and it would have been trivially easy to read the exit code and record a clean push.
+Recorded here instead. The property is independently satisfied — I ran `tsc --noEmit` clean myself at
+`3b4bf4152`, the flow-diagram implementer ran `npm run lint` to a real pass at `d819ad9fd` having
+explicitly checked for the `DATABASE_HEAVY_RUN_ADMISSION_BUSY` marker, and the only commits since are
+documentation — but it is satisfied by separate evidence, **not by this push**.
+
+Incidentally this names a **third** live session on the machine: `D:\Worktrees\Database\cc-2a-live`,
+running vitest since 21:06. That is neither this session nor the docs-committing one found under R43.
+Consistent with the heavy lock contention seen all session, and per R33 and R47 it is left entirely
+alone.
+
+Ruling R54 — accept the push rather than retrying it for a green static gate. Retrying would block on
+another session's long vitest run finishing, for a verdict I already hold from two independent runs
+minutes earlier on the same content, and the only unverified delta is Markdown. GitHub remains the
+authoritative gate and this branch has no PR. Cost if wrong: a lint or type error hides in a
+documentation-only commit — bounded to zero, since documentation is neither linted nor typechecked.
+
+### Task 8 — the ward screen, landed at `171adb69a` and independently verified
+
+12 files: `ward-screen.tsx` (411 lines), `ward.module.css` (420), the `[unitId]` route, the rail link,
+both Playwright matchers, the adoption contract, a new `tests/ui-ward-roles.spec.ts` and a new
+`tests/ward-screen.dom.test.tsx`, plus regenerated `docs/site-map.md`, `codebase-index.md` and the
+adoption docs.
+
+**My own verification at `171adb69a`, run in this session:**
+
+| Gate                                         | Result                                          |
+| -------------------------------------------- | ----------------------------------------------- |
+| `ls node_modules \| wc -l`                   | **523** — intact                                |
+| `npx tsc --noEmit -p tsconfig.json`          | clean, exit 0, no output                        |
+| Node-env ward suites, 10 files               | **126 passed**                                  |
+| jsdom, one file per invocation               | ward-screen **3**, clock 1, provider 4, queue 1 |
+| Ward Chromium gate, all **three** spec files | **28 passed (1.1m)** — 26 baseline + 2 new      |
+| New route warmed over HTTP first             | `/ward-management/ward/rph-adult-secure` 200    |
+
+Both Playwright matchers were correctly extended to `ward-(?:management|coordinator|roles)`, so the
+new spec genuinely runs rather than silently collecting nothing — confirmed by the run reporting
+28 rather than 26.
+
+### The implementer reported four "pre-existing, unrelated" failures. I checked all of them.
+
+That claim is exactly the kind this phase does not accept on report, and two of the four were the
+shape a **new route** would plausibly cause. Adjudicated one at a time:
+
+**1. `tests/playwright-pr-shards.test.ts` — pre-existing, widened by exactly one. And it matters.**
+`expected [26] to deeply equal [29]`; running it verbosely names the missing three:
+`ui-ward-coordinator.spec.ts`, `ui-ward-management.spec.ts`, `ui-ward-roles.spec.ts`.
+`scripts/playwright-pr-shards.mjs` mentions the string `ward` **zero times**, and Task 8 did not
+touch it. Two of those three specs long predate this task, so the test was already red at 26-vs-28
+and Task 8 took it to 26-vs-29.
+
+**The underlying fact is worth more than the arithmetic.** That script holds its own copy of
+`productionSpecFilePattern`, commented "Same matcher as playwright.config.ts productionSpecPattern
+(keep in sync)", and that copy has **no ward alternation at all**. `test:e2e:pr:shard` is what CI's
+Production UI PR job runs. So **no Ward Flow browser spec has ever run in CI's Production UI PR
+lane** — the entire browser proof for Phases 1, 2 and 3 exists locally and nowhere else. The test
+whose job is to catch that drift has been failing rather than being fixed.
+
+Ruling R55 — record it, do not fix it here. Three reasons. The script explicitly warns "Re-measure
+after suite growth before changing group membership", and the hosted timing samples it balances on
+were taken from a specific CI run; I cannot measure hosted durations from this machine, so adding
+three specs to a shard blind risks unbalancing the very thing the file exists to balance. It is
+pre-existing repo debt on `main`, not something this phase introduced. And the user has explicitly
+prohibited GitHub Actions work this session. Cost if wrong: the ward browser suite continues not to
+run in CI until someone syncs that regex and measures — which is precisely why it is being surfaced to
+the user in plain terms rather than buried as a deferred minor.
+
+**2. `tests/design-system-adoption.test.ts` — pre-existing, widened by exactly one.**
+`expected [61] to have a length of 51`. The assertion at line 1242 hard-codes `toHaveLength(51)`
+with a comment explaining what 51 meant when it was written. Task 8 added exactly one route, so the
+count before it was **60** against an expectation of 51 — already nine routes stale. Long-running
+drift in a hard-coded literal, not a Task 8 regression.
+
+**3. `tests/contextual-back-navigation-contract.test.ts` — pre-existing, untouched.**
+One offender, `ward-management-console.tsx`, which serves the pre-existing `/patients/[patientId]`
+route and appears nowhere in Task 8's diff. Task 8 modified `ward-management-navigation.tsx`, a
+different file.
+
+**4. The Windows `session-start-hook` failure** is the known environmental failure on this machine,
+already recorded in project memory as failing here for reasons unrelated to any branch.
+
+Ruling R56 — none of the four blocks Task 8, and none is fixed in this task. Two are stale hard-coded
+literals, one is an untouched pre-existing contract violation, one is environmental. Fixing any of
+them inside a ward-screen task would mix unrelated repo maintenance into a reviewable diff, which is
+the bundling this repo's own guidance forbids. All four carry into the whole-branch review. Cost if
+wrong: four red tests stay red in a suite where they were already red before this phase began.
+
+### Task 9 — the transport officer's phone, landed at `51ed0e30c` and verified
+
+11 files: `officer-screen.tsx` (320 lines), `officer.module.css` (249), the route, a literal rail
+`<Link>`, `edById` added to `ward-sites.ts`, adoption/site-map/codebase-index regenerated, and two
+tests appended to `tests/ui-ward-roles.spec.ts`.
+
+**My own verification at `51ed0e30c`:** `node_modules` **523**; `tsc --noEmit` clean, exit 0;
+officer route warmed over HTTP (200 in 0.30s); ward Chromium gate **30 passed (1.1m)** across all
+three spec files — 28 baseline plus its two.
+
+It found and fixed two real defects mid-task, both worth carrying forward:
+
+1. Its first rail link went through the existing `RailLink` helper, which passes `href` as a
+   **variable** — invisible to `tests/route-reachability.test.ts`'s scan, so the new route read as an
+   orphan. Fixed with a raw `<Link>`. This is precisely the trap the plan warns about, and the
+   helper makes it easy to walk into.
+2. Labelling the link "Transport officer" broke an existing Task 8 test, because Playwright's
+   accessible-name matching is substring-based and the rail already has a "Transport" link.
+   Relabelled to "Officer".
+
+### It corrected two of my own preflight claims, and my probe was the thing at fault
+
+Ruling R57 — record that **my** `escortRequired` figure was wrong, and why, because the mechanism is
+the one this phase keeps naming. My preflight probe filtered on
+`escortRequired !== undefined` and reported the result as "all 8 carry `escortRequired`". That
+measures **whether the field exists**, not what it says. Measured properly: **5 are `true`, 3 are
+`false`** (WF-015, WF-313, WF-327). The brief's `/escort/i` assertion still holds — the default job
+WF-005 is `true` — but the claim I wrote was not the claim I measured.
+
+This is the sixth unmeasured-property failure in the phase and the third of mine, and it was made
+**while writing the document that records R37's rule against exactly this**. R37 is therefore
+restated in stronger terms: _write the probe to assert the proposition you intend to publish, then
+read the probe back and ask what it actually filtered on._ Cost of the error here: nil, caught by
+the implementer before it reached a test.
+
+### A genuine fixture defect: six movements are in a state the reducer cannot produce
+
+Measured myself, not taken on report. Of the 8 movements carrying a transport job:
+
+| stage            | count | ids                                            |
+| ---------------- | ----- | ---------------------------------------------- |
+| `handover_ready` | 2     | WF-005, WF-015                                 |
+| `moving`         | 6     | WF-006, WF-014, WF-306, WF-313, WF-320, WF-327 |
+
+**All six at `moving` have `collectedAt` undefined.** `PATIENT_COLLECTED` is the only producer of
+stage `moving`, and it sets `collectedAt` in the same update — so no sequence of events can reach
+this state. The fixture contradicts its own state machine.
+
+It is also clinically impossible: `moving` means the patient is in the vehicle, and you cannot be in
+a vehicle without having been collected.
+
+**The consequence lands squarely on the screen Task 9 just built.** `PATIENT_ARRIVED` requires stage
+`moving` **and** `transport.collectedAt`. All four officer actions therefore refuse on all six, so
+**six of the eight jobs on the officer's phone are permanently inert** — four dead controls each,
+with no honest route forward. Only WF-005 and WF-015 have a single available action between them
+(En route). Task 9 rendered that correctly, with stated reasons, and is not at fault; the data is.
+
+Ruling R58 — fix the fixture, before Task 10, and pin the invariant with a contract test rather than
+only correcting the six records. Three reasons. Task 10 builds the live tracker directly on this
+data, so building it on an impossible state means building the wrong thing twice. Correcting the six
+alone repeats the mistake ruling F5 named — three records fixed, the rule that produced them left
+alone — so a contract invariant asserting stage/stamp coherence travels with it. And this is the
+project's governing defect class in its purest form: not a surface overstating the data, but data
+that could not exist. Cost if wrong: six fixture timestamps shift and every derived baseline moves
+with them, which is why the fix re-runs every gate rather than the ward ones.
+
+### One assertion that cannot fail, disclosed rather than dressed up
+
+The implementer reported that **no mutation confined to its own two files could kill the
+horizontal-overflow assertion**, and diagnosed why instead of reformulating: `globals.css` sets
+`overflow-x: clip` on both `html` and `body` site-wide, and a `position: fixed` element never
+contributes to document `scrollWidth` in any case. So on this screen that assertion is structurally
+incapable of failing.
+
+Ruling R59 — keep the assertion, name it honestly, and do not manufacture a red. It is a cheap
+site-wide regression tripwire that would fire if the global `overflow-x: clip` were ever removed, so
+it has value — just not the value its position in an officer-screen test implies. It gets a comment
+saying what it does and does not prove. Manufacturing a mutation that kills it would mean weakening
+the global rule, which is real protection. Cost if wrong: one assertion in one test proves less than
+a casual reader assumes, which the comment now prevents. **The disclosure is the right outcome and
+is the fourth time an implementer has volunteered one this session.**
+
+### The fixture-coherence agent stalled mid-run, and its own guard carried the phase's signature defect
+
+The agent stopped waiting on a `npm run lint` monitor that never fired — another session holds the
+repository lock. It had committed nothing but left complete, coherent work in the tree:
+`ward-movements.ts` and `tests/ward-flow-contracts.test.ts`. **I backed both files up before reading
+them** and modified nothing, per the standing rule that destroyed a completed fix round earlier in
+this phase.
+
+The work itself is right. Two hand-authored records get an explicit `collectedAt` with per-record
+reasoning about the length of the hop, and the generated movements derive theirs as
+`enRouteAt + Math.min(NOW_ANCHOR - enRouteAt, 8 + (index % 18))` — index-varied so journeys sit at
+different points rather than sharing one constant, and clamped so no stamp can pass `NOW_ANCHOR`.
+The new invariants are each derived from a named reducer transition rather than guessed, with the
+derivation written out.
+
+**But its vacuity tripwire counts the wrong thing, and I found it by reading rather than running.**
+
+```ts
+let inspected = 0;
+for (const movement of wardMovements) {
+  inspected += 1;                    // increments for EVERY movement
+  if (movement.stage === "moving") { expect(...).toBeDefined(); }
+}
+expect(inspected).toBeGreaterThan(0);
+```
+
+The counter tracks **iterations**, not **matches**. It proves only that `wardMovements` is non-empty
+— always true — and says nothing about whether the assertion inside the `if` ever executed.
+
+For the `"moving"` invariant that is harmless today: six records match. **For the companion
+`"arrived"`-with-transport invariant it is fatal.** The agent itself documented, correctly and
+honestly, that no fixture record is stage `"arrived"` while carrying a `transport` job — so that `if`
+body executes **zero times**, the assertion never runs, and the tripwire passes regardless.
+
+That is Task 1's privacy guard again, exactly: a loop that executes zero times behind a check whose
+name promises coverage. Fourth distinct appearance of the shape in this phase, and the first found
+by reading a diff rather than by running a mutation.
+
+Ruling R60 — count matches, not iterations, and assert the honest number rather than inventing data
+to satisfy a positive one. For `"moving"`, the match count must be asserted greater than zero (it is
+six). For `"arrived"`-with-transport, a `toBeGreaterThan(0)` would fail today and the wrong fix would
+be to author a fixture record purely to satisfy a guard — so it asserts `toBe(0)` with a comment
+saying it is forward-looking, that nothing exercises it yet, and that it becomes live the moment a
+record does. **An honest zero that a future record changes is worth more than a tripwire that
+silently passes on nothing.** Cost if wrong: the arrived-branch guard stays dormant until the
+fixture grows an arrived-with-transport record — which is the true state of affairs, now stated
+rather than disguised.
+
+Also instructed on resume: do **not** block on `npm run lint`. The lock is held by another session
+and may not clear; try once, record `DATABASE_HEAVY_RUN_ADMISSION_BUSY` plainly if seen, and move on
+rather than recording a pass never observed. I verify lint separately.
+
+### The fixture-coherence fix landed at `1349c213f` — verified, and the officer's screen came alive
+
+**The number that matters, counted from the live DOM rather than reasoned from the data: 8 of 8
+transport jobs now have at least one available action, up from 2.** The officer's phone was showing
+six jobs with four dead controls each; it now shows eight jobs a driver can actually work.
+
+**My own verification at `1349c213f`:**
+
+| Gate                                | Result                                          |
+| ----------------------------------- | ----------------------------------------------- |
+| `ls node_modules \| wc -l`          | **523** — intact                                |
+| `npx tsc --noEmit -p tsconfig.json` | clean, exit 0                                   |
+| Node-env ward suites, 10 files      | **129 passed** — 126 + exactly the 3 new blocks |
+| jsdom, one file per invocation      | ward-screen 3, clock 1, provider 4, queue 1     |
+| `npm run lint`                      | **genuinely ran and passed** — see below        |
+| Ward Chromium gate, 3 spec files    | **30 passed (2.5m)**                            |
+
+**My own mutation, not the implementer's.** I removed `collectedAt` from WF-006 — printed the edited
+line back from the file (line 162 became `// MUTATION`) — and the guard **failed**, naming WF-006 and
+explaining in its own message that `PATIENT_COLLECTED` is the only producer of stage `moving`.
+Restored from backup, confirmed `git diff` byte-empty against the commit, re-ran: 10 passed.
+
+**Lint: the implementer could not run it and said so; I could and did.** Its run returned
+`DATABASE_HEAVY_RUN_ADMISSION_BUSY` naming PID 42780 in `D:\Worktrees\Database\cc-2a-live`, and it
+recorded "lint not run, lock held" rather than a pass — the correct call. Mine acquired the lock:
+the output shows `run-heavy.mjs` passing through to the real `lint:internal` eslint invocation with
+no busy marker and no findings. That distinction — inner command echoed versus busy marker printed —
+is how to tell a real lint pass from a soft skip on this repo.
+
+**The implementer's mutation reasoning was better than a clean sheet would have been.** Its
+mutation #8 pointed the `arrived` test's loop at an empty array and did **not** kill the assertion —
+correctly, because that test now asserts `matched === 0` under R60, and emptying the array leaves the
+count at zero either way. Rather than record a survivor or reformulate, it diagnosed the mutation as
+mistimed and found the one that isolates the counter: making a movement genuinely `arrived` with
+`arrivedAt` set. That one failed on the counter line, proving it live. This is the second time this
+session an agent has correctly separated a mistimed mutation from an untestable assertion.
+
+### New environment trap: the dev server dies when its launching shell exits
+
+Cost about twenty minutes. The Playwright config's `verifyLocalProjectIdentity` guard failed with
+`status: 4` — a Node `http.get` connection error — **while `curl` to the same URL succeeded**, which
+reads exactly like an IPv4/IPv6 mismatch and is not one. The server had simply died between the warm
+pass and the gate.
+
+The distinguishing evidence: `netstat` showed no LISTENING socket on 3718, only `TIME_WAIT` remnants,
+and free memory was healthy at 9.8 GB — so this was not the out-of-memory failure recorded at the
+previous handover.
+
+**The cause is how the server is launched.** Starting it with `nohup npm run ensure & disown` inside
+a foreground shell call does not survive: the server is reaped when that shell exits, even though
+`ensure` reports "Clinical KB is running". Starting the identical command as a **backgrounded tool
+task** does survive — that instance lived for hours earlier in this session.
+
+Ruling R61 — always start the dev server as a backgrounded task, never with `nohup`/`disown` from a
+foreground shell, and prove liveness with a **Node** request rather than `curl` before running
+Playwright. Node is what the config guard uses, so it is the only client whose success predicts the
+gate's. `curl` succeeding while Node fails is a real, observed state on this machine and it sends you
+hunting an IPv6 problem that does not exist. Cost if wrong: one extra readiness check per gate run.
+
+### Task 10 — the live tracker, landed at `b2e0a92aa` and verified
+
+**My own verification at `b2e0a92aa`:** `node_modules` **523**; `tsc --noEmit` clean; node-env
+suites **139 passed across 11 files** (129 baseline + the 10 new `tracker-derivations` tests);
+tracker route warmed (200); ward Chromium gate **32 passed (2.2m)** across all three spec files.
+Server liveness confirmed with a **Node** request before running Playwright, per R61.
+
+Its measured leg distribution, which I accept because it matches the fixture I fixed under R58:
+8 open movements carry a transport job — **Accepted ×2** (WF-005, WF-015) and **Collected ×6**
+(WF-006, WF-014, WF-306, WF-313, WF-320, WF-327). Nothing at Requested, En route, Arrived or
+Cancelled today.
+
+**The design decision it made on transport-less movements is the right one and worth recording.**
+33 of the 41 open movements have no transport job. It does not render them as rows — a patient with
+no vehicle is not a vehicle to track — but it does not silently drop them either: a banner states the
+exact live count, "33 of 41 open movements have no transport job at all right now and are not listed
+below: there is no vehicle yet to track for them." That is the conservative-failure rule satisfied by
+naming the absence in prose rather than by fabricating rows or by omitting the fact. It mirrors the
+officer screen's own precedent of stating that it shows every job rather than inventing an owner.
+
+It also closed the weakness I flagged in R44 rather than only satisfying the brief: the brief's leg
+assertion cannot distinguish a tracker rendering all five legs from one rendering only the two the
+fixture happens to contain, so it added a 10-test node-environment suite covering all five legs plus
+cancelled plus absence against its own rendering helper, and pinned an **exact** row count of 8
+rather than `> 0`. 6 of 6 mutations killed, none needing diagnosis.
+
+**Deferred minor, and it is a real one — I looked at the screen myself.** The `ACCEPTED` and
+`COLLECTED` badges render identically; only `Cancelled` gets distinct styling. So a coordinator
+scanning the tracker cannot tell at a glance which patients are **in a vehicle right now**
+(Collected) from those whose ambulance has merely agreed to come (Accepted) — they have to read the
+text of every badge. On a screen whose entire purpose is "which patient, which leg", that is the one
+distinction that most wants to be visible without reading.
+
+Ruling R62 — real, but deferred to the final review's fix wave rather than taken as its own round
+now. It is a CSS class, the final whole-branch review produces a fix wave regardless, and Tasks 11
+and 12 are the two largest pieces left. Recording it explicitly rather than as a passing remark,
+because a deferred minor nobody writes down is a silent discard. Cost if wrong: the tracker stays
+glanceable-by-reading rather than glanceable-by-colour for the remainder of the phase.
+
+**Second finding, correctly left alone:** `TransportView` and the `mode === "transport"` branch in
+`ward-management-modes.tsx` are now unreachable. The implementer flagged them and did **not** delete
+them, which is right — `AGENTS.md` is explicit that "nothing imports it" is necessary and nowhere
+near sufficient in this repository, and a cleanup sweep on exactly that reasoning had to be walked
+back seven times. Carried to the whole-branch review with `npm run check:dead-code-candidate` as the
+gate that would have to clear it.

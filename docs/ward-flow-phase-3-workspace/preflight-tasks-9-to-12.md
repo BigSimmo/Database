@@ -220,3 +220,54 @@ does not exist.
 If you find yourself wanting `edById`, adding it to `ward-sites.ts` alongside `unitById` and matching
 its `Unit | undefined` shape is reasonable and preferable to an inline `.find()!` — but it must
 return `EmergencyDepartment | undefined`, never a defaulted value.
+
+---
+
+## Task 9 — the pinned-bar pattern it inherits now exists. Where to read it.
+
+Added after Task 7 landed at `adbe3296f` and its fix round at `3b4bf4152`. The spec says the
+officer's screen inherits the coordinator's phone pattern, and Task 7 existed solely so that pattern
+would be built before this screen needed it. It now is — so **read it rather than reinventing it**.
+
+The implementation is **CSS-only**. `coordinator.module.css` pins `.shortlistActionRow` — the div
+already wrapping exactly the two action buttons — to the literal viewport bottom inside
+`@media (max-width: 48rem)`:
+
+- `position: fixed; left: 0; right: 0; bottom: 0;` — flush to the edge, **no non-zero `bottom` gap**.
+- Padding from two local tokens on `.screen`: a vertical pad, and a safe-area bottom computed as
+  `max(<pad>, var(--safe-area-bottom))` so the bar paints its own home-indicator inset on a notched
+  device and adds nothing on one without.
+- `z-index: var(--z-overlay)` — the **global** ladder rung, not a new local alias, because a pinned
+  bar escapes its component's stacking context and must sort against page-level chrome.
+- A third token holds the bar's own computed height (button row + pad + safe-bottom + border), and
+  drives `.main:has(.shortlistActionRow) { padding-bottom: <that token>; }` so the content behind it
+  reserves exactly the bar's height **only while the bar exists**. Reserving unconditionally would
+  leave dead space on every screen that has no bar.
+
+Two things Task 7 proved that you should not re-derive:
+
+1. **`/ward-management` is not in the `(search-app)` route group** and its layout is only
+   `WardFlowProvider` — no global search shell, no phone composer dock. So the "one composer per page"
+   rule is not engaged and there is no existing dock reserve to fight. Confirm it, then rely on it.
+2. **A `position: fixed` bar needs no ancestor to have settled its layout first.** Task 7 deleted a
+   nested double-`requestAnimationFrame` `scrollIntoView` whose whole purpose was measuring a scroll
+   target from live layout; a pinned bar never measures. It verified no ancestor between `<body>` and
+   the bar sets `transform`, `filter`, `perspective` or `contain`, any of which would create a
+   containing block and silently anchor the bar to an intermediate box instead of the viewport.
+   **Do the same check on your own tree** before trusting `position: fixed`.
+
+### The test trap Task 7 fell into, so you do not
+
+Its first version asserted `window.scrollY` was unchanged after an interaction. That assertion
+**could never fail**: the coordinator's `.screen` is `height: 100dvh; overflow: hidden`, so the
+document has no scroll range at all and `window.scrollY` is `0` before and after, forever. Mutation
+testing caught it; the fix was to assert the **real** scroll container's `scrollTop`, reached through
+its own `data-testid` rather than a CSS-module class name (which is hashed at build time and is not a
+stable selector).
+
+If your officer screen uses the same full-height/overflow-hidden shell, **the same trap applies to
+you**. Assert against whatever element genuinely scrolls, and prove it by mutation.
+
+The brief's own overflow assertion —
+`document.documentElement.scrollWidth - document.documentElement.clientWidth` — is a _horizontal_
+check and is unaffected by this; keep it.
