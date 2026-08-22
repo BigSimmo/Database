@@ -6,7 +6,6 @@ import {
   type CSSProperties,
   type ReactNode,
   type UIEvent,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -66,8 +65,10 @@ import {
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
-import { ClinicalAskComposerActions } from "@/components/clinical-dashboard/clinical-ask-composer-actions";
-import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-ask-workspace";
+import {
+  ClinicalAskComposerActions,
+  ClinicalAskWorkspace,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { isClinicalAskModeId } from "@/lib/clinical-ask/mode-profiles";
 import { useClinicalAskRunner } from "@/components/clinical-dashboard/use-clinical-ask-runner";
 
@@ -1056,7 +1057,7 @@ function GlobalStandaloneSearchShellBody({
             {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
                 blanked every standalone mode until JS mounted (hard-load LCP hit). */}
             <SearchCommandProvider value={searchCommandContextValue}>
-              <ClinicalAskWorkspace />
+              {clinicalAskMode || clinicalAskSession.submitted ? <ClinicalAskWorkspace /> : null}
               {pendingModeNavigation ? (
                 <div aria-busy="true" aria-live="polite" data-testid="mode-navigation-loading">
                   <span className="sr-only">Loading {appModeDefinition(pendingModeNavigation.mode).label}</span>
