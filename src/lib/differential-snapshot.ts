@@ -47,6 +47,12 @@ export type DifferentialComparisonCandidate = {
 export type DifferentialPresentationWorkflow = {
   id: string;
   title: string;
+  /** Original imported title retained when a clearer presentation label is applied. */
+  sourceTitle?: string;
+  /** Short, non-slash description of the clinical territory covered by the workflow. */
+  scopeLabel?: string;
+  /** Legacy and alternate terms that must continue to find this workflow. */
+  titleAliases?: string[];
   status: DifferentialRecord["status"];
   subtitle: string;
   selectedCount: number;

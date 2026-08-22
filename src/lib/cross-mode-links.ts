@@ -32,7 +32,7 @@ export type CrossModeLink = {
 
 export type CrossModeDifferentialCatalog = {
   diagnoses: Array<{ slug: string; title: string; clinicalHinge: string }>;
-  presentations: Array<{ id: string; title: string; subtitle: string }>;
+  presentations: Array<{ id: string; title: string; subtitle: string; titleAliases?: string[] }>;
   aliases: Record<string, string[]>;
 };
 
@@ -185,7 +185,11 @@ function differentialLinks(terms: string[], catalog: CrossModeDifferentialCatalo
     });
   }
   for (const presentation of catalog.presentations) {
-    const score = differentialTitleScore(presentation.title, expandedTerms, aliasDerived);
+    const score = differentialTitleScore(
+      [presentation.title, ...(presentation.titleAliases ?? [])].join(" "),
+      expandedTerms,
+      aliasDerived,
+    );
     if (score < DIFFERENTIAL_TITLE_TERM_SCORE) continue;
     candidates.push({
       ...crossModeLinkBase("differentials", presentation.title),
@@ -194,7 +198,7 @@ function differentialLinks(terms: string[], catalog: CrossModeDifferentialCatalo
       badges: [],
       detailHref: `/differentials/presentations/${presentation.id}`,
       score,
-      matchReason: "title",
+      matchReason: "title or alternate title",
     });
   }
 

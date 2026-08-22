@@ -1,0 +1,121 @@
+{
+  "terminologySources": {
+    "delirium": "https://www.nice.org.uk/guidance/cg103",
+    "firstEpisodePsychosis": "https://www.nice.org.uk/guidance/qs102/chapter/Quality-statement-1-Assessment-for-a-first-episode-of-psychosis",
+    "violenceAggression": "https://www.nice.org.uk/guidance/ng10",
+    "neurodevelopmental": "https://www.nice.org.uk/guidance/cg142",
+    "functionalNeurological": "https://www.nice.org.uk/guidance/ng127/chapter/terms-used-in-this-guideline"
+  },
+  "presentations": {
+    "acute-confusion-encephalopathy": {
+      "title": "Acute confusion and delirium",
+      "scopeLabel": "Covers delirium, acute confusion, toxic-metabolic encephalopathy, and post-ictal confusion.",
+      "aliases": ["Delirium / Acute Confusion / Encephalopathy", "acute confusional state"]
+    },
+    "psychosis-first-episode-medical-psychosis": {
+      "title": "First-episode and acute psychosis",
+      "scopeLabel": "Covers primary, mood-related, substance-induced, neurological, and medical causes.",
+      "aliases": ["Psychosis / First-Episode Medical Psychosis", "first episode psychosis"]
+    },
+    "catatonia-psychomotor-shutdown-malignant-syndromes": {
+      "title": "Catatonia and severe psychomotor syndromes",
+      "scopeLabel": "Covers catatonia, hypoactive delirium, neuroleptic malignant syndrome, serotonin toxicity, and autoimmune encephalitis.",
+      "aliases": ["Catatonia / Psychomotor Shutdown / Malignant Syndromes", "psychomotor shutdown"]
+    },
+    "suicidal-ideation-suicide-attempt-self-harm": {
+      "title": "Suicidality and self-harm",
+      "scopeLabel": "Covers suicidal thoughts, suicide attempts, recurrent self-harm, and crisis-related risk.",
+      "aliases": ["Suicidal Ideation / Suicide Attempt / Self-Harm"]
+    },
+    "aggression-violence-homicidal-ideation": {
+      "title": "Violence, aggression, and risk to others",
+      "scopeLabel": "Covers aggressive or violent behaviour, homicidal ideation, and medical or psychiatric precipitants.",
+      "aliases": ["Aggression / Violence / Homicidal Ideation"]
+    },
+    "mania-hypomania-mixed-states": {
+      "title": "Mania and mixed mood states",
+      "scopeLabel": "Covers mania, hypomania, mixed states, induced activation, and organic causes.",
+      "aliases": ["Mania / Hypomania / Mixed States"]
+    },
+    "medication-side-effects-iatrogenic-toxicity-qt-risk": {
+      "title": "Psychotropic adverse effects and toxicity",
+      "scopeLabel": "Covers medication side effects, iatrogenic toxicity, and QT-prolongation risk.",
+      "aliases": ["Medication Side Effects / Iatrogenic Toxicity / QT Risk"]
+    },
+    "akathisia-epse-tremor-sedation": {
+      "title": "Medication-related movement effects and sedation",
+      "scopeLabel": "Covers akathisia, extrapyramidal effects, tremor, dystonia, tardive syndromes, and sedation.",
+      "aliases": ["Akathisia / EPSE / Tremor / Sedation", "extrapyramidal side effects"]
+    },
+    "delusions-paranoia-thought-interference-command-phenomena": {
+      "title": "Delusions and threat-related experiences",
+      "scopeLabel": "Covers paranoia, thought interference, command phenomena, and trauma-related mistrust.",
+      "aliases": ["Delusions / Paranoia / Thought Interference / Command Phenomena"]
+    },
+    "disorganised-behaviour-disorganised-thought-or-speech": {
+      "title": "Disorganised thought, speech, and behaviour",
+      "scopeLabel": "Covers disorganisation arising from psychiatric, substance-related, neurological, developmental, or medical causes.",
+      "aliases": ["Disorganised Behaviour / Disorganised Thought or Speech"]
+    },
+    "anxiety-panic-obsessions-health-anxiety": {
+      "title": "Anxiety and obsessional presentations",
+      "scopeLabel": "Covers panic, generalised anxiety, obsessive-compulsive symptoms, health anxiety, and physiological mimics.",
+      "aliases": ["Anxiety / Panic / Obsessions / Health Anxiety"]
+    },
+    "dissociation-trauma-response-somatisation-functional-neurological-symptoms": {
+      "title": "Trauma-related, dissociative, and functional symptoms",
+      "scopeLabel": "Covers trauma responses, dissociation, somatic symptoms, and functional neurological symptoms.",
+      "aliases": ["Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms"]
+    },
+    "sleep-disturbance-insomnia-reduced-need-for-sleep": {
+      "title": "Sleep disturbance and reduced need for sleep",
+      "scopeLabel": "Covers insomnia, circadian disorders, reduced sleep need, and psychiatric or substance-related causes.",
+      "aliases": ["Sleep Disturbance / Insomnia / Reduced Need for Sleep"]
+    },
+    "mood-lability-emotional-dysregulation": {
+      "title": "Mood instability and emotional dysregulation",
+      "scopeLabel": "Covers bipolar, trauma-related, personality, neurodevelopmental, substance-related, and neurological causes.",
+      "aliases": ["Mood Lability / Emotional Dysregulation"]
+    },
+    "cognitive-impairment-memory-dementia-bpsd": {
+      "title": "Cognitive impairment and behavioural change",
+      "scopeLabel": "Covers memory problems, dementia, delirium, depression-related cognitive symptoms, and behavioural and psychological symptoms.",
+      "aliases": ["Cognitive Impairment / Memory / Dementia / BPSD"]
+    },
+    "poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport": {
+      "title": "Functional decline and reduced engagement",
+      "scopeLabel": "Covers self-neglect, negative symptoms, impaired judgement, reduced engagement, and medical or medication-related causes.",
+      "aliases": ["Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport"]
+    },
+    "treatment-refusal-non-adherence-poor-insight": {
+      "title": "Treatment refusal, non-adherence, and impaired insight",
+      "scopeLabel": "Covers psychiatric, cognitive, adverse-effect, trauma-related, cultural, and practical contributors.",
+      "aliases": ["Treatment Refusal / Non-Adherence / Poor Insight"]
+    },
+    "autism-intellectual-disability-adhd-developmental-overlap": {
+      "title": "Neurodevelopmental diagnostic overlap",
+      "scopeLabel": "Covers autism, intellectual disability, ADHD, and coexisting psychiatric or catatonic presentations.",
+      "aliases": ["Autism / Intellectual Disability / ADHD / Developmental Overlap"]
+    },
+    "food-refusal-not-eating-eating-disorder-spectrum": {
+      "title": "Reduced intake and eating-disorder presentations",
+      "scopeLabel": "Covers eating disorders, ARFID, medical causes, psychosis, depression, catatonia, and swallowing difficulty.",
+      "aliases": ["Food Refusal / Not Eating / Eating Disorder Spectrum"]
+    },
+    "personality-related-interpersonal-conflict-antisocial-conduct": {
+      "title": "Interpersonal conflict and complex behavioural presentations",
+      "scopeLabel": "Covers personality-related patterns, trauma, neurodevelopmental differences, mood or psychotic illness, neurological causes, and substance effects.",
+      "aliases": ["Personality-Related Interpersonal Conflict / Antisocial Conduct"]
+    },
+    "psychomotor-retardation-mutism-severe-withdrawal": {
+      "title": "Psychomotor slowing, mutism, and withdrawal",
+      "scopeLabel": "Covers catatonia, severe depression, hypoactive delirium, negative symptoms, medication effects, dementia, and dissociation.",
+      "aliases": ["Psychomotor Retardation / Mutism / Severe Withdrawal"]
+    },
+    "somatic-symptoms-illness-anxiety-functional-neurological-symptoms-factitious-presentation": {
+      "title": "Complex physical and functional symptom presentations",
+      "scopeLabel": "Covers somatic symptoms, illness anxiety, functional neurological symptoms, medical disease, factitious disorder, and malingering as distinct differentials.",
+      "aliases": ["Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation"]
+    }
+  }
+}

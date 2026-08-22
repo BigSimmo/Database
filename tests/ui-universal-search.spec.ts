@@ -65,8 +65,8 @@ const universalPayload = {
         {
           id: "acute-confusion-encephalopathy",
           kind: "presentations",
-          title: "Delirium / Acute Confusion / Encephalopathy",
-          subtitle: "Delirium and its encephalopathic mimics are acute medical emergencies",
+          title: "Acute confusion and delirium",
+          subtitle: "Covers delirium, acute confusion, toxic-metabolic encephalopathy, and post-ictal confusion.",
           href: "/differentials/presentations/acute-confusion-encephalopathy",
           score: 18,
           badge: "Emergent",
@@ -173,7 +173,7 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByRole("option", { name: /View all in Medication/ })).toBeVisible();
     // Presentations render as their own group borrowing the differentials mode target.
     await expect(page.getByText("Presentations · 1")).toBeVisible();
-    await expect(page.getByRole("option", { name: /Acute Confusion/ })).toBeVisible();
+    await expect(page.getByRole("option", { name: /Acute confusion and delirium/i })).toBeVisible();
     await expect(page.getByRole("option", { name: /View all in Differentials/ })).toBeVisible();
   });
 
@@ -246,7 +246,7 @@ test.describe("universal search typeahead", () => {
     const input = await openComposer(page);
     await input.fill("acute confusion");
 
-    const option = page.getByRole("option", { name: /Acute Confusion/ });
+    const option = page.getByRole("option", { name: /Acute confusion and delirium/i });
     await expect(option).toBeVisible();
     await option.click();
     await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, {
