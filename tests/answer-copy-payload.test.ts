@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  answerTextForClipboard,
   answerStateForAnswer,
   buildAnswerClipboardText,
   resolveAnswerSources,
@@ -154,5 +155,17 @@ describe("buildAnswerClipboardText · single-document provenance", () => {
 
     expect(copied).not.toContain("Designation:");
     expect(singleDocumentClipboardMetadata([currentSource, secondDoc])).toBeUndefined();
+  });
+});
+
+describe("answerTextForClipboard", () => {
+  it("uses the complete sanitized finalized lead rather than a clipped display fragment", () => {
+    const answer: RagAnswer = {
+      ...answerWith([]),
+      answer:
+        "Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.",
+    };
+
+    expect(answerTextForClipboard(answer)).toBe(answer.answer);
   });
 });

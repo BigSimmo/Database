@@ -3,6 +3,38 @@ import { primaryAnswerDisplayText } from "../src/components/clinical-dashboard/a
 import { sourceQuoteDisplayText } from "../src/components/clinical-dashboard/display-text";
 
 describe("primaryAnswerDisplayText", () => {
+  it("keeps the complete finalized five-sentence v19 lead without a generated ellipsis", () => {
+    const answer =
+      "Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.";
+
+    expect(primaryAnswerDisplayText(answer)).toBe(answer);
+  });
+
+  it("still removes source-navigation noise from the finalized lead", () => {
+    const answer = "Source excerpt: Review renal function before treatment.";
+
+    expect(primaryAnswerDisplayText(answer)).toBe("Review renal function before treatment.");
+  });
+
+  it("still strips the synthetic-demo notice from the finalized lead", () => {
+    const answer = "Review the documented plan before treatment.\nSynthetic demo only: do not use for clinical decisions.";
+
+    expect(primaryAnswerDisplayText(answer)).toBe("Review the documented plan before treatment.");
+  });
+
+  it("keeps preformatted output intact", () => {
+    const answer = "Local pathway (ABC)\nCODE-7";
+
+    expect(primaryAnswerDisplayText(answer, { preformatted: true })).toBe(answer);
+  });
+
+  it("keeps unsafe markup as literal text for SafeBoldText to escape", () => {
+    const answer = '<img src=x onerror="alert(1)"> Review the documented plan before treatment.';
+    const displayed = primaryAnswerDisplayText(answer);
+
+    expect(displayed).toBe(answer);
+  });
+
   it("keeps a safety cue in a long leading fragment beyond the compact word budget", () => {
     const lead = `${Array.from({ length: 90 }, (_, index) => `detail${index + 1}`).join(" ")} Do not administer the medicine.`;
 

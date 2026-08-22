@@ -15,6 +15,10 @@
 // retrieval layer in, and `RagAnswer` is the retrieval layer.
 
 import { answerStateFromRetrieval, type AnswerState } from "@/components/ui/answer-state";
+import {
+  isPreformattedGroundedAnswer,
+  primaryAnswerDisplayText,
+} from "@/components/clinical-dashboard/answer-content";
 import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
@@ -29,6 +33,16 @@ export type AnswerCopyInput = {
   /** Render trust, passed through rather than re-derived. */
   weakEvidence?: boolean;
 };
+
+/**
+ * Derives clipboard text from the same finalized answer projection as the
+ * primary screen surface. This deliberately avoids copying rendered DOM.
+ */
+export function answerTextForClipboard(answer: RagAnswer): string {
+  return primaryAnswerDisplayText(answer.answer, {
+    preformatted: isPreformattedGroundedAnswer(answer),
+  });
+}
 
 /**
  * Prefer the answer's cited set when it has entries; otherwise use the caller's
