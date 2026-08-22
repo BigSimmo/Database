@@ -225,16 +225,49 @@ describe("explained automation", () => {
 
 const WORKSPACE_DIR = path.join(process.cwd(), "src", "components", "caring-contacts", "workspace");
 
-/** The one component in this directory allowed to be a Client Component. Read the block below
- * before adding to this list — it is not a formality. */
-const ALLOWED_CLIENT_COMPONENTS = ["unavailable-destination.tsx"];
+/**
+ * The components in this tree allowed to be Client Components, as paths relative to
+ * `WORKSPACE_DIR` with `/` separators. Read the block below before adding to this list
+ * — it is not a formality, and each entry says why it is here.
+ *
+ * Every entry must satisfy the same three conditions (Ruling 59): it receives no
+ * `serviceState`-derived prop under any name, the companion test below proves its source
+ * never names that module or type, and it is added deliberately rather than to make a
+ * failing test pass.
+ */
+const ALLOWED_CLIENT_COMPONENTS = [
+  // A declared-but-unbuilt destination: `aria-disabled` plus an inert click handler, so
+  // the stated reason keeps its tab stop. Takes only `id`/`label`/`reason`/`className`.
+  "unavailable-destination.tsx",
+  // Task 18's one renderer for all 24 overlays. Inherently interactive — it reads the
+  // viewport width to choose a modality, traps focus, and runs the fresh-authentication
+  // checkpoint. Its `blockReason` prop is a NAMED refusal string, never a state object.
+  "overlays/overlay-host.tsx",
+  // The client boundary that owns `?overlay=<id>` and the two handlers, because function
+  // props cannot cross a Server → Client boundary. It takes no props at all, which is
+  // what keeps the service-state record on the server side of this seam.
+  "overlays/workspace-overlays.tsx",
+];
 
 const USE_CLIENT_DIRECTIVE = /^\s*(?:"use client"|'use client')/m;
 
+/**
+ * Every source file in the workspace tree, subdirectories included.
+ *
+ * Recursive on purpose: a flat `readdirSync` would have scanned only the top level, so a
+ * client component added under `overlays/` — which is exactly where Task 18 put two —
+ * would never have been seen by the check at all.
+ */
 function workspaceSourceFiles(): { name: string; source: string }[] {
-  return readdirSync(WORKSPACE_DIR)
-    .filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"))
-    .map((name) => ({ name, source: readFileSync(path.join(WORKSPACE_DIR, name), "utf8") }));
+  return readdirSync(WORKSPACE_DIR, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")))
+    .map((entry) => {
+      const absolute = path.join(entry.parentPath, entry.name);
+      return {
+        name: path.relative(WORKSPACE_DIR, absolute).split(path.sep).join("/"),
+        source: readFileSync(absolute, "utf8"),
+      };
+    });
 }
 
 /**
@@ -255,7 +288,7 @@ function workspaceSourceFiles(): { name: string; source: string }[] {
  * payload to inspect.
  */
 describe("the service-state path stays on the server", () => {
-  it("keeps every workspace component but the one allowed client control a Server Component", () => {
+  it("keeps every workspace component but the allowlisted client controls a Server Component", () => {
     const clientComponents = workspaceSourceFiles()
       .filter(({ source }) => USE_CLIENT_DIRECTIVE.test(source))
       .map(({ name }) => name)
@@ -271,14 +304,21 @@ describe("the service-state path stays on the server", () => {
     ).toEqual([...ALLOWED_CLIENT_COMPONENTS].sort());
   });
 
-  it("keeps the service state out of the one client component that does exist", () => {
+  it("keeps the service state out of every client component that does exist", () => {
     // The complement of the allowlist above, and deliberately the modest version.
     // Tracing which props a JSX element actually receives is not something source
     // text can answer reliably, so this does not attempt it. What it does answer
-    // reliably: the allowed client component never names the service-state module
+    // reliably: an allowed client component never names the service-state module
     // or its type at all, so it cannot be handed one without this going red too.
+    //
+    // Every entry is covered, not merely the first (Ruling 59): the allowlist is
+    // the whole reason a client boundary is permitted here, so each addition must
+    // carry the same proof the original one did.
+    expect(ALLOWED_CLIENT_COMPONENTS.length).toBeGreaterThan(0);
     for (const name of ALLOWED_CLIENT_COMPONENTS) {
       const source = readFileSync(path.join(WORKSPACE_DIR, name), "utf8");
+      // A stale entry would silently widen the allowlist without covering anything.
+      expect(source, `${name} is allowlisted but is not a Client Component`).toMatch(USE_CLIENT_DIRECTIVE);
       expect(source, `${name} references the service-state module`).not.toMatch(/service-state/);
       expect(source, `${name} names ServiceState`).not.toMatch(/ServiceState/);
     }

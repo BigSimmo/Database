@@ -5,6 +5,7 @@ import type { ComponentType, ReactNode, SVGProps } from "react";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
+import { WorkspaceOverlays } from "./overlays/workspace-overlays";
 import { ServiceStateBanner } from "./service-state-banner";
 import { SyntheticMarker } from "./synthetic-marker";
 import { UnavailableDestination } from "./unavailable-destination";
@@ -335,6 +336,18 @@ export function CaringContactsShell({ title, description, serviceState, children
           <span className="truncate">More</span>
         </a>
       </nav>
+
+      {/*
+        The one renderer for all twenty-four overlays (Task 18), mounted once for
+        the whole workspace rather than per screen — the interaction matrix is a
+        workspace-wide contract, and a screen that forgot to mount it would lose
+        the session gate and the offline notice with it.
+
+        It takes no props: `WorkspaceOverlays` is the client boundary, and giving
+        it none is what keeps `serviceState` on the server. It renders nothing at
+        all until the URL carries `?overlay=<id>`.
+      */}
+      <WorkspaceOverlays />
     </div>
   );
 }
