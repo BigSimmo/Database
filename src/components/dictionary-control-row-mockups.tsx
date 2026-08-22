@@ -530,37 +530,43 @@ const fitWidths = [
 function FitRow({ width, note, searching }: { width: number; note: string; searching: boolean | "long" }) {
   const state = useRowState(searching);
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const [verdict, setVerdict] = useState<{ fits: boolean; slack: number } | null>(null);
+  const [verdict, setVerdict] = useState<{ fits: boolean; slack: number; queryShortfall: number } | null>(null);
 
   useEffect(() => {
     const track = trackRef.current?.querySelector<HTMLElement>("[data-fit-track]");
     if (!track) return;
-    // Sum what the controls intrinsically want, against the track's content
-    // box. Comparing scrollWidth to clientWidth looks like the same question
-    // and is not: `ml-auto` on Filter absorbs every spare pixel, so that
-    // comparison reports a dead-heat zero at every width and hides both the
-    // real slack and, once the row wraps, the real shortfall.
+    // Intrinsic width, probed under `max-content`, never the laid-out width.
+    //
+    // Summing the children's rendered rectangles looks like the same question
+    // and is not, and it fails in both directions. `ml-auto` on Filter absorbs
+    // every spare pixel in the idle state; `flex-1` on the query chip absorbs
+    // it in the search state and then truncates its own text to whatever it was
+    // given. Either way the children sum to the track width and the verdict
+    // reads a dead-heat zero — "one row, 0px spare" while the query is being
+    // cut off, which is the exact failure this strip exists to expose.
+    //
+    // Forcing `max-content` for one synchronous read makes every child size to
+    // its content, flex or not, so `scrollWidth` is what the row actually
+    // wants. Both figures are border-box, so they compare directly.
     const measure = () => {
-      const style = getComputedStyle(track);
-      const gap = Number.parseFloat(style.columnGap) || 0;
-      const padding = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
-      const available = track.getBoundingClientRect().width - padding;
-      const children = Array.from(track.children);
-      const needed =
-        children.reduce((total, child) => total + child.getBoundingClientRect().width, 0) +
-        gap * Math.max(0, children.length - 1);
-      // QueryChip is `min-w-0 flex-1`, so it always reports the box the flex
-      // track handed it, not the width its own text wants — a truncated query
-      // silently sums to the available width and reads as "fits" even while
-      // the words themselves are being clipped. Read the clipped amount off
-      // the live text node (scrollWidth vs clientWidth) and add it back, so a
-      // truncating query shows up as a real shortfall instead of 0px spare.
-      const textOverflow = Array.from(track.querySelectorAll<HTMLElement>("[data-fit-text]")).reduce(
-        (total, el) => total + Math.max(0, el.scrollWidth - el.clientWidth),
-        0,
-      );
-      const slack = Math.round(available - needed - textOverflow);
-      setVerdict({ fits: slack >= 0, slack });
+      const previousWidth = track.style.width;
+      const previousMaxWidth = track.style.maxWidth;
+      track.style.width = "max-content";
+      track.style.maxWidth = "none";
+      const needed = track.scrollWidth;
+      track.style.width = previousWidth;
+      track.style.maxWidth = previousMaxWidth;
+      const available = track.getBoundingClientRect().width;
+      // Reported separately from the fit, because a row can seat every control
+      // and still be failing the reader: the chip yields its text before it
+      // yields its box.
+      const label = track.querySelector<HTMLElement>("[data-fit-text]");
+      const queryShortfall = label ? Math.round(label.scrollWidth - label.clientWidth) : 0;
+      setVerdict({
+        fits: available - needed >= 0,
+        slack: Math.round(available - needed),
+        queryShortfall: queryShortfall > 1 ? queryShortfall : 0,
+      });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -590,6 +596,11 @@ function FitRow({ width, note, searching }: { width: number; note: string; searc
               )}
             >
               {verdict.fits ? `one row · ${verdict.slack}px spare` : `wraps · ${Math.abs(verdict.slack)}px short`}
+            </span>
+          ) : null}
+          {verdict?.queryShortfall ? (
+            <span className="ml-1.5 rounded-full bg-[color:var(--warning-soft)] px-2 py-0.5 text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-heading)]">
+              query cut by {verdict.queryShortfall}px
             </span>
           ) : null}
         </p>
