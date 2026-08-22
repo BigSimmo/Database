@@ -159,13 +159,21 @@ describe("buildAnswerClipboardText · single-document provenance", () => {
 });
 
 describe("answerTextForClipboard", () => {
-  it("uses the complete sanitized finalized lead rather than a clipped display fragment", () => {
+  it("uses the complete sanitized finalized lead in the composed clipboard payload", () => {
     const answer: RagAnswer = {
       ...answerWith([]),
       answer:
-        "Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.",
+        "Source excerpt: Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.",
     };
+    const composed = buildAnswerClipboardText({
+      answer,
+      renderCopyText: `Clinical answer draft\n\nAnswer\n${answer.answer}\n\nSource status\nRender trust: high`,
+    });
+    const expectedLead =
+      "Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.";
 
-    expect(answerTextForClipboard(answer)).toBe(answer.answer);
+    expect(answerTextForClipboard(answer)).toBe(expectedLead);
+    expect(composed).toContain(`Answer\n${expectedLead}\n\nSource status`);
+    expect(composed).not.toContain("Source excerpt:");
   });
 });

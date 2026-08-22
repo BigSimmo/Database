@@ -44,6 +44,27 @@ export function answerTextForClipboard(answer: RagAnswer): string {
   });
 }
 
+function renderCopyTextWithCanonicalAnswer(renderCopyText: string, answer: RagAnswer): string {
+  const rawAnswerText = answer.answer.trim().replace(/\*\*/g, "");
+  const canonicalAnswerText = answerTextForClipboard(answer);
+  const answerMarker = "Answer\n";
+  const answerStart = renderCopyText.indexOf(answerMarker);
+  const rawAnswerStart = answerStart + answerMarker.length;
+
+  if (
+    answerStart === -1 ||
+    !rawAnswerText ||
+    rawAnswerText === canonicalAnswerText ||
+    renderCopyText.indexOf(rawAnswerText, rawAnswerStart) !== rawAnswerStart
+  ) {
+    return renderCopyText;
+  }
+
+  return `${renderCopyText.slice(0, rawAnswerStart)}${canonicalAnswerText}${renderCopyText.slice(
+    rawAnswerStart + rawAnswerText.length,
+  )}`;
+}
+
 /**
  * Prefer the answer's cited set when it has entries; otherwise use the caller's
  * fallback. `RagAnswer.sources` is typed as a required array, so "not populated"
@@ -122,10 +143,11 @@ export function singleDocumentClipboardMetadata(
 }
 
 /**
- * The clipboard payload for an answer. `renderCopyText` stays the primary
- * product string and passes through byte-for-byte; the composer only adds what
- * leaves the app with it — attribution, the state caveat, and the provenance
- * audit line — because a copy is read in a record long after the banner is gone.
+ * The clipboard payload for an answer. `renderCopyText` remains the primary
+ * product string, except its finalized answer lead is replaced with the same
+ * sanitized projection shown on screen. The composer then adds what leaves the
+ * app with it — attribution, the state caveat, and the provenance audit line —
+ * because a copy is read in a record long after the banner is gone.
  *
  * `sourceOnly` is read from the quality tier rather than from the state kind:
  * #207 precedence puts `ungrounded` above `source_only`, so an extractive answer
@@ -140,7 +162,7 @@ export function buildAnswerClipboardText({
 }: AnswerCopyInput & { renderCopyText: string }): string {
   const resolvedSources = resolveAnswerSources(answer.sources, sources);
   return composeAnswerClipboardText({
-    renderCopyText,
+    renderCopyText: renderCopyTextWithCanonicalAnswer(renderCopyText, answer),
     sourceOnly: answer.answerQualityTier === "source_only",
     state: answerStateForAnswer({ answer, sources, weakEvidence }),
     // Cited set, not every candidate: an uncited candidate from another document

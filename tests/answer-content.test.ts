@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { primaryAnswerDisplayText } from "../src/components/clinical-dashboard/answer-content";
 import { sourceQuoteDisplayText } from "../src/components/clinical-dashboard/display-text";
 
@@ -28,11 +30,12 @@ describe("primaryAnswerDisplayText", () => {
     expect(primaryAnswerDisplayText(answer, { preformatted: true })).toBe(answer);
   });
 
-  it("keeps unsafe markup as literal text for SafeBoldText to escape", () => {
+  it("renders unsafe markup as escaped text", () => {
     const answer = '<img src=x onerror="alert(1)"> Review the documented plan before treatment.';
     const displayed = primaryAnswerDisplayText(answer);
 
     expect(displayed).toBe(answer);
+    expect(renderToStaticMarkup(createElement("span", null, displayed))).toContain("&lt;img");
   });
 
   it("keeps a safety cue in a long leading fragment beyond the compact word budget", () => {
