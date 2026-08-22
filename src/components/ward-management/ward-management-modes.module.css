@@ -109,7 +109,7 @@
 
 .roleSelect {
   display: flex;
-  height: 2.5rem;
+  height: var(--spacing-tap);
   align-items: center;
   gap: var(--ward-space-8);
   border: 0.0625rem solid var(--ward-border);
@@ -436,7 +436,7 @@
 .primaryButton,
 .secondaryButton {
   display: inline-flex;
-  min-height: 2.75rem;
+  min-height: var(--spacing-tap);
   align-items: center;
   justify-content: center;
   gap: var(--ward-space-8);
@@ -533,7 +533,7 @@
 
 .bedStates span {
   display: grid;
-  min-height: 2.75rem;
+  min-height: var(--spacing-tap);
   place-items: center;
   border: 0.0625rem solid var(--ward-border);
   border-radius: var(--radius-sm);
@@ -770,16 +770,16 @@
   }
 
   .roleSelect {
-    width: 2.75rem;
+    width: var(--spacing-tap);
     padding: 0;
     justify-content: center;
   }
 
   .roleSelect select {
     position: absolute;
-    width: 2.75rem;
+    width: var(--spacing-tap);
     min-width: 0;
-    height: 2.75rem;
+    height: var(--spacing-tap);
     opacity: 0;
   }
 
