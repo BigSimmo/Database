@@ -470,3 +470,95 @@ Verified at byte level: zero CRLF pairs in all four changed source and test file
 - **Concern 3 from the first pass is closed by Ruling 56** and needs no `/issues` capture.
 - Concerns 1, 2, 4 and 5 from the first pass were ruled on by the coordinator and need no further
   action; the code is unchanged for all four.
+
+---
+
+# Follow-up 2 — browser proof of the now-async page
+
+Third pass. Concern 1 was cleared by the coordinator, who verified the client-boundary claim
+directly rather than accepting the explanation; no change. Concern 2 — that no browser had ever
+rendered the page after it became `async` — is the whole of this round.
+
+## 13. The focused browser gate
+
+`npm run ensure` reported the project server at `http://localhost:3651` (never assumed; the URL
+came from the helper). `scripts/run-playwright.mjs` then built and served its own production copy
+on port 3652, which is how that wrapper works — it does not attach to the dev server.
+
+```
+$ npm run ensure
+Clinical KB is running at http://localhost:3651
+
+$ node scripts/run-playwright.mjs tests/ui-caring-contacts-workspace.spec.ts --project=chromium
+
+  ✓ Compiled successfully in 48s
+  ✓ Generating static pages using 1 worker (1854/1854) in 18.3s
+
+Running 9 tests using 1 worker
+
+  ok 1 [chromium] › ... › holds the frozen layout at 320px (2.0s)
+  ok 2 [chromium] › ... › holds the frozen layout at 390px (845ms)
+  ok 3 [chromium] › ... › holds the frozen layout at 430px (814ms)
+  ok 4 [chromium] › ... › holds the frozen layout at 768px (746ms)
+  ok 5 [chromium] › ... › holds the frozen layout at 1024px (765ms)
+  ok 6 [chromium] › ... › holds the frozen layout at 1440px (757ms)
+  ok 7 [chromium] › ... › re-resolves its surfaces and ink in dark rather than leaking a light value (949ms)
+  ok 8 [chromium] › ... › keeps the synthetic marker delimited once forced colours drop its tint (810ms)
+  ok 9 [chromium] › ... › prints with the synthetic marker still on the page (770ms)
+
+  9 passed (10.6s)
+EXIT=0
+```
+
+**The spec passed unchanged.** Not one line of it, or of any other file, was touched to make it
+pass. Nine of nine, first run, no retries, no quarantine, no flake. The wrapper exited `0` — not the
+`75` / `DATABASE_HEAVY_RUN_ADMISSION_BUSY` code it uses when heavy-lock admission times out, so this
+is a real run rather than a blocked one, and the `9 passed` line is the proof rather than the exit
+code.
+
+### The two things the coordinator asked me to watch
+
+**The duplicate-shell assertion held.** It lives in the spec's `openWorkspace` helper —
+`await expect(page.getByTestId("caring-contacts-rail")).toHaveCount(1)` — and therefore ran before
+every one of the nine tests, at all six review widths plus the dark, forced-colours and print
+cases. This was the assertion most at risk from the change: Task 15 found the shell rendering twice
+while React streamed the segment into a hidden holder under `loading.tsx`'s Suspense boundary, and
+adding a real `await` to the page changes exactly when that streaming happens. It did not reappear.
+Nine independent samples of a one-shell page.
+
+**The synthetic marker survived in every medium.** Test 9 emulates print media and asserts the
+marker is still visible with no horizontal overflow; test 8 asserts it keeps a non-transparent
+border once forced colours strip its tint; test 7 asserts its ink actually re-resolves in dark
+rather than leaking a light value. The marker renders in the shell header, which now sits behind an
+awaited store read, and all three passed.
+
+**No layout jump forced a `loading.tsx` change.** The escape hatch the coordinator reserved was not
+needed — `loading.tsx` is untouched.
+
+## 14. What was and was not run this round
+
+**Nothing changed except this report.** No source file, no test file, no configuration. Because of
+that I did **not** re-run `npm run test`, `tsc --noEmit` or `eslint` — they were run and pasted in
+§11 against the exact content the browser run just exercised, and re-running them would buy the same
+verdict twice on unchanged content, which `AGENTS.md` explicitly rules out. `npm run format` was run
+so the Markdown appended here is formatted, and the pre-commit hook's documentation synchronisation
+ran clean.
+
+Stated plainly rather than implied: the only new evidence in this round is the nine-test browser
+run above.
+
+## 15. Housekeeping
+
+The `npm run ensure` dev server is **still running** at `http://localhost:3651` (log:
+`dev-server.log`). It was started at the coordinator's explicit instruction and is this project's
+own server, so it was left up rather than stopped. The Playwright wrapper's production server on
+port 3652 was started and torn down by the wrapper itself.
+
+## 16. Residual concerns after this round
+
+**None from Task 16's own scope.** Both earlier concerns are now closed: concern 1 by the
+coordinator's own client-boundary check, concern 2 by the browser run above.
+
+One standing limitation is worth restating because it is a property of the whole branch rather than
+of this change: **Chromium evidence is not physical Safari or installed-PWA acceptance.** Nothing
+here closes that, and nothing here made it worse.
