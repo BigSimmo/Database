@@ -116,15 +116,33 @@ function readSource(filePath: string) {
 export type RenderedElement = { root: string; member: string | null };
 
 /**
- * An `on*` JSX attribute whose value is provably a function. `target` is the
- * element it sits on: `null` for an intrinsic host element (`<button>`), or the
- * component's JSX name, which the render walk resolves to decide whether the
- * prop crosses the boundary.
+ * How an `on*` attribute's value was decided to be a function.
+ *
+ * `local` - an inline function literal, or an identifier bound to one somewhere
+ * in this module. Decidable from this module's source alone.
+ *
+ * `imported` - an identifier that is an import binding here. Whether it is a
+ * function can only be settled by resolving the specifier and looking at what
+ * the other module exports, so the decision is deferred to the render walk,
+ * which owns the resolver. This is not an exotic case: `ignoreUnavailableActivation`
+ * is this repo's canonical placeholder handler, lives in
+ * `src/components/ui-primitives.tsx`, and is imported by 13 modules. Treating an
+ * imported identifier as undecidable is what made an earlier version of this
+ * guard miss the exact defect it was written for.
+ */
+export type HandlerValueSource = { kind: "local" } | { kind: "imported"; binding: string };
+
+/**
+ * An `on*` JSX attribute whose value is a function, or is an import that may
+ * resolve to one. `target` is the element it sits on: `null` for an intrinsic
+ * host element (`<button>`), or the component's JSX name, which the render walk
+ * resolves to decide whether the prop crosses the boundary.
  */
 export type EventHandlerFinding = {
   attribute: string;
   line: number;
   target: RenderedElement | null;
+  value: HandlerValueSource;
 };
 
 export type ComponentDeclaration = {
@@ -136,6 +154,12 @@ export type ModuleComponents = {
   isClient: boolean;
   /** Top-level declarations by exported/local name. `"default"` is the default export. */
   declarations: Map<string, ComponentDeclaration>;
+  /**
+   * Top-level names bound to a function literal, Server Actions excluded. This
+   * is what an importing module asks about when it needs to know whether
+   * `onClick={someImport}` is a real function.
+   */
+  functionExports: Set<string>;
   /** Local binding name -> the module it came from and the name it was exported under. */
   imports: Map<string, { specifier: string; imported: string }>;
   /** `export { local as exported } from "spec"`. */
@@ -245,9 +269,13 @@ function functionValuedNames(root: unknown) {
  * value comes from data, and `<ModeHomeTemplate actions={[]} />` never renders
  * that branch at all. Only the certain shapes are reported.
  */
-function provablyFunctionValue(value: unknown, functionNames: Set<string>): boolean {
+function classifyHandlerValue(
+  value: unknown,
+  functionNames: Set<string>,
+  imports: Map<string, { specifier: string; imported: string }>,
+): HandlerValueSource | null {
   const current = value as AnyNode | undefined;
-  if (!current || current.type !== "JSXExpressionContainer") return false;
+  if (!current || current.type !== "JSXExpressionContainer") return null;
 
   const unwrap = (node: unknown): AnyNode | undefined => {
     const expression = node as AnyNode | undefined;
@@ -257,21 +285,28 @@ function provablyFunctionValue(value: unknown, functionNames: Set<string>): bool
   };
 
   const expression = unwrap(current.expression);
-  if (!expression) return false;
+  if (!expression) return null;
   // An inline Server Action serialises as a reference, not a closure.
-  if (isFunctionLiteral(expression)) return !isServerAction(expression);
+  if (isFunctionLiteral(expression)) return isServerAction(expression) ? null : { kind: "local" };
   if (expression.type === "Identifier" && typeof expression.name === "string") {
-    return functionNames.has(expression.name);
+    // An import binding cannot be redeclared at module scope, so checking
+    // imports first is unambiguous.
+    if (imports.has(expression.name)) return { kind: "imported", binding: expression.name };
+    return functionNames.has(expression.name) ? { kind: "local" } : null;
   }
   if (expression.type === "CallExpression") {
     const callee = expression.callee as AnyNode | undefined;
     const property = callee?.property as AnyNode | undefined;
-    return callee?.type === "MemberExpression" && property?.name === "bind";
+    return callee?.type === "MemberExpression" && property?.name === "bind" ? { kind: "local" } : null;
   }
-  return false;
+  return null;
 }
 
-function collectDeclaration(node: unknown, functionNames: Set<string>): ComponentDeclaration {
+function collectDeclaration(
+  node: unknown,
+  functionNames: Set<string>,
+  imports: Map<string, { specifier: string; imported: string }>,
+): ComponentDeclaration {
   const handlers: EventHandlerFinding[] = [];
   const renders: RenderedElement[] = [];
   walkAst(node, (current) => {
@@ -286,8 +321,9 @@ function collectDeclaration(node: unknown, functionNames: Set<string>): Componen
       const name = attribute.name as AnyNode | undefined;
       if (!name || name.type !== "JSXIdentifier" || typeof name.name !== "string") continue;
       if (!/^on[A-Z]/.test(name.name)) continue;
-      if (!provablyFunctionValue(attribute.value, functionNames)) continue;
-      handlers.push({ attribute: name.name, line: lineOf(attribute), target: rendered });
+      const value = classifyHandlerValue(attribute.value, functionNames, imports);
+      if (!value) continue;
+      handlers.push({ attribute: name.name, line: lineOf(attribute), target: rendered, value });
     }
   });
   return { handlers, renders };
@@ -408,13 +444,26 @@ export function moduleComponents(sourceText: string): ModuleComponents {
 
   const functionNames = functionValuedNames(source);
   const declarations = new Map<string, ComponentDeclaration>();
+  const functionExports = new Set<string>();
+  const moduleIsServerActions = carriesDirective(source.program.directives, "use server");
   for (const { name, node } of declarationNodes) {
-    declarations.set(name, collectDeclaration(node, functionNames));
+    declarations.set(name, collectDeclaration(node, functionNames, imports));
+    if (moduleIsServerActions) continue;
+    const current = node as AnyNode;
+    if (current.type === "FunctionDeclaration" && !isServerAction(current)) {
+      functionExports.add(name);
+    } else if (
+      current.type === "VariableDeclarator" &&
+      isFunctionLiteral(current.init) &&
+      !isServerAction(current.init)
+    ) {
+      functionExports.add(name);
+    }
   }
-  const loose = collectDeclaration(looseStatements, functionNames);
+  const loose = collectDeclaration(looseStatements, functionNames, imports);
   if (loose.handlers.length > 0 || loose.renders.length > 0) declarations.set(MODULE_SCOPE, loose);
 
-  return { isClient, declarations, imports, reExports, starReExports, defaultAlias };
+  return { isClient, declarations, functionExports, imports, reExports, starReExports, defaultAlias };
 }
 
 export type HandlerViolation = {
@@ -449,9 +498,12 @@ export type HandlerViolation = {
  * clean `main`:
  *
  *   1. The attribute value must be *provably* a function (see
- *      `provablyFunctionValue`). `onClick={action.onClick}` in a generic
- *      template is data-dependent - `<ModeHomeTemplate actions={[]} />` never
- *      renders it - and is not reported.
+ *      `classifyHandlerValue` and `exportIsFunction`). `onClick={action.onClick}`
+ *      in a generic template is data-dependent - `<ModeHomeTemplate actions={[]} />`
+ *      never renders it - and is not reported. An inline literal, a local
+ *      function, and an **imported** identifier that resolves to a function are
+ *      all provable; the imported case costs one hop through the same resolver
+ *      the render walk already uses.
  *   2. The attribute must sit on an intrinsic host element (`<button>`) or on a
  *      component imported from a `"use client"` module. Handing a function to
  *      *another Server Component's* prop is legal and stays unreported.
@@ -471,14 +523,22 @@ export type HandlerViolation = {
  * this one. The test named "pins the composed prop-flow gap" holds the case so
  * the hole is visible in the suite and not only in this comment.
  *
- * Known fail-open gaps (misses, never false alarms): the composed prop-flow gap
- * above; a component handed over as a value rather than named in JSX
- * (`<Shell render={Toolbar} />`); a component reached through `next/dynamic`; a
- * default export wrapped in a higher-order call (`export default withThing(Page)`);
- * spread props (`{...handlers}`), which carry no statically visible attribute
- * name; an `on*` prop on a component imported from a bare package specifier
- * (`next/link`), which this resolver does not follow into `node_modules`; and a
- * Server Action, which is skipped deliberately (see `isServerAction`).
+ * Known fail-open gaps (misses, never false alarms):
+ *
+ *   - the composed prop-flow gap above;
+ *   - a component handed over as a value rather than named in JSX
+ *     (`<Shell render={Toolbar} />`);
+ *   - a component reached through `next/dynamic`;
+ *   - a default export wrapped in a higher-order call
+ *     (`export default withThing(Page)`);
+ *   - spread props (`{...handlers}`), which carry no statically visible
+ *     attribute name;
+ *   - anything on the far side of a bare package specifier, in both roles: an
+ *     `on*` prop on a component imported from `next/link`, and a handler value
+ *     imported from a package. Handlers imported from *this repository* are
+ *     resolved and are no longer a gap - only `node_modules` is, because this
+ *     resolver does not read it;
+ *   - a Server Action, which is skipped deliberately (see `isServerAction`).
  */
 export function serverRenderedHandlerViolations(
   entries: string[],
@@ -494,6 +554,53 @@ export function serverRenderedHandlerViolations(
     queue.push({ file: entry, name: "default", via: [entry] });
     queue.push({ file: entry, name: MODULE_SCOPE, via: [entry] });
   }
+
+  /**
+   * Does `exported` from the module `specifier` names resolve to a function?
+   *
+   * This is what makes `onClick={ignoreUnavailableActivation}` decidable. The
+   * resolver and the module loader are already here, so an imported handler is
+   * no less knowable than a local one - it just costs one hop. Barrels are
+   * followed through re-exports; `seen` bounds the walk and makes a re-export
+   * cycle terminate.
+   *
+   * Stays conservative exactly where conservatism is earned:
+   *   - an unresolvable specifier (`next/link`, any bare package) returns false,
+   *     because this resolver does not read `node_modules` and will not guess;
+   *   - a `"use client"` source module returns false, because what the server
+   *     graph receives from it is a client reference, not the function;
+   *   - a binding that resolves to something other than a function literal
+   *     returns false.
+   */
+  const exportIsFunction = (fromFile: string, specifier: string, exported: string, seen: Set<string>): boolean => {
+    const target = resolve(fromFile, specifier);
+    if (!target) return false;
+    const key = `${target}::${exported}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+
+    const module = load(target);
+    if (module.isClient) return false;
+
+    const local = exported === "default" ? (module.defaultAlias ?? "default") : exported;
+    if (module.functionExports.has(local)) return true;
+
+    const forwarded = module.imports.get(local);
+    if (forwarded && exportIsFunction(target, forwarded.specifier, forwarded.imported, seen)) return true;
+    for (const reExport of module.reExports) {
+      if (reExport.exported === exported && exportIsFunction(target, reExport.specifier, reExport.local, seen)) {
+        return true;
+      }
+    }
+    return module.starReExports.some((starSpecifier) => exportIsFunction(target, starSpecifier, exported, seen));
+  };
+
+  const handlerValueIsFunction = (fromFile: string, module: ModuleComponents, value: HandlerValueSource) => {
+    if (value.kind === "local") return true;
+    const imported = module.imports.get(value.binding);
+    if (!imported) return false;
+    return exportIsFunction(fromFile, imported.specifier, imported.imported, new Set());
+  };
 
   const enqueueExternal = (fromFile: string, specifier: string, exported: string, via: string[], label: string) => {
     const target = resolve(fromFile, specifier);
@@ -534,6 +641,8 @@ export function serverRenderedHandlerViolations(
     for (const handler of declaration.handlers) {
       const report = (target: string) =>
         violations.push({ file, component: name, attribute: handler.attribute, target, line: handler.line, via });
+
+      if (!handlerValueIsFunction(file, module, handler.value)) continue;
 
       if (handler.target === null) {
         // An intrinsic host element rendered on the server: always a throw.
@@ -934,6 +1043,94 @@ describe("rsc boundary - check A: event handlers on the server side", () => {
          }`,
       "./server-list": `export function ServerList({ onRender, rows = [] }) {
            return <ul>{rows.map(onRender)}</ul>;
+         }`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);
+  });
+
+  it("resolves an imported handler through the module graph", () => {
+    // The shape that broke the first version of this guard:
+    // `src/components/developer-area/hub/panel-card.tsx` does exactly this with
+    // `ignoreUnavailableActivation` from `@/components/ui-primitives`, and a
+    // module-local notion of "provably a function" could not see it.
+    const project = fixtureProject({
+      "page.tsx": `import { ignoreUnavailableActivation } from "./ui";
+         export default function Page() {
+           return <button onClick={ignoreUnavailableActivation}>Soon</button>;
+         }`,
+      "./ui": `export function ignoreUnavailableActivation(event) {
+           event.preventDefault();
+         }`,
+    });
+    const violations = serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve);
+    expect(violations.map(({ file, attribute, target }) => ({ file, attribute, target }))).toEqual([
+      { file: "page.tsx", attribute: "onClick", target: "host element" },
+    ]);
+  });
+
+  it("resolves an imported handler through a barrel re-export and a const arrow", () => {
+    const project = fixtureProject({
+      "page.tsx": `import { noop } from "./barrel";
+         export default function Page() {
+           return <button onClick={noop}>Soon</button>;
+         }`,
+      "./barrel": `export { noop } from "./handlers";`,
+      "./handlers": `export const noop = (event) => event.preventDefault();`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toHaveLength(1);
+  });
+
+  it("does not report an imported binding that is not a function", () => {
+    const project = fixtureProject({
+      "page.tsx": `import { HANDLERS } from "./ui";
+         export default function Page() {
+           return <button onClick={HANDLERS}>Soon</button>;
+         }`,
+      "./ui": `export const HANDLERS = { reset: 1 };`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);
+  });
+
+  it("does not report a handler imported from a bare package specifier", () => {
+    // `node_modules` is not resolvable here, so the guard declines to guess.
+    const project = fixtureProject({
+      "page.tsx": `import { noop } from "lodash-es";
+         export default function Page() {
+           return <button onClick={noop}>Soon</button>;
+         }`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);
+  });
+
+  it("does not report a handler imported from a client module", () => {
+    // What the server graph receives is a client reference, not the function.
+    const project = fixtureProject({
+      "page.tsx": `import { onPick } from "./client-handlers";
+         export default function Page() {
+           return <button onClick={onPick}>Soon</button>;
+         }`,
+      "./client-handlers": `"use client";
+         export function onPick(event) {
+           event.preventDefault();
+         }`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);
+  });
+
+  it("does not report an imported Server Action", () => {
+    const project = fixtureProject({
+      "page.tsx": `import { ClientForm } from "./client-form";
+         import { saveAction } from "./actions";
+         export default function Page() {
+           return <ClientForm onSubmit={saveAction} />;
+         }`,
+      "./actions": `"use server";
+         export async function saveAction(data) {
+           await save(data);
+         }`,
+      "./client-form": `"use client";
+         export function ClientForm({ onSubmit }) {
+           return <form action={onSubmit} />;
          }`,
     });
     expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);

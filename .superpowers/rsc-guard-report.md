@@ -403,3 +403,94 @@ npm run format   (repository-wide, per the round-1 self-flag)
 Same environment discipline as round 1: every gate ran inside a bounded in-Bash retry
 loop against run-coordinator contention from `D:\Worktrees\Database\cc-2a-live`, with the
 inner exit code captured and re-raised rather than being replaced by a pipe.
+
+---
+
+# Review round 3 — the guard missed the real bug, and now does not
+
+Phase 1 merged to `main`, so the branch now contains the code that produced the
+original defect. The controller ran the decisive test — removing `"use client"` from
+`src/components/developer-area/hub/panel-card.tsx` — and the guard stayed **green**.
+
+## Why it missed
+
+`panel-card.tsx` does not declare its handler locally:
+
+```tsx
+import { ignoreUnavailableActivation } from "@/components/ui-primitives";
+…
+<button onClick={ignoreUnavailableActivation} …>
+```
+
+My round-1 "provably a function" narrowing only recognised values declared in the
+*same* module. An imported identifier was treated as undecidable and skipped.
+
+That was the wrong call, and not a corner case. `ignoreUnavailableActivation` is this
+repository's canonical placeholder handler and is imported by **13 modules**; extracting
+a handler to a shared module is ordinary practice. Every fixture I wrote and both
+real-tree mutations I ran (`privacy/page.tsx`, `calculators/loading.tsx`) used
+locally-declared handlers, which is precisely why they went red and the real bug did not.
+The lesson is the one the round-2 review already gestured at: a documented gap is not a
+mitigation when the gap contains the motivating case.
+
+## The fix — resolve imported handlers through the module graph
+
+The decision is now deferred rather than declined. `classifyHandlerValue` returns a
+`HandlerValueSource`:
+
+- `{ kind: "local" }` — an inline literal, or an identifier bound to a function
+  literal somewhere in this module. Decidable from this module alone.
+- `{ kind: "imported", binding }` — an import binding here. The render walk, which owns
+  the resolver, settles it.
+- `null` — undecidable (`onClick={action.onClick}`), still skipped.
+
+`ModuleComponents` gained `functionExports`: top-level names bound to a function
+literal, Server Actions excluded. `exportIsFunction` resolves the specifier with the
+existing resolver, loads the target, and asks it. Barrels fall out cheaply and are
+followed — through `export … from`, through a re-exported import, and through
+`export *` — with a `seen` set bounding the walk so a re-export cycle terminates.
+
+Conservatism is kept exactly where it is earned, and each of these is pinned by its own
+fixture asserting `[]`:
+
+- an unresolvable bare package specifier (`lodash-es`, `next/link`) — this resolver does
+  not read `node_modules` and will not guess;
+- a `"use client"` source module — what the server graph receives is a client
+  reference, not the function;
+- a binding that resolves to something that is not a function literal;
+- an imported Server Action (`"use server"` module).
+
+## Acceptance evidence — the real bug, red then green
+
+```
+# "use client" removed from src/components/developer-area/hub/panel-card.tsx
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
++ "src/components/developer-area/hub/panel-card.tsx:28 onClick in <PanelCard>
+   - rendered via src/app/mockups/development/page.tsx -> <PanelCard>"
+      Tests  1 failed | 39 passed (40)
+GUARD_EXIT=1
+
+# restored
+src/components/developer-area/hub/panel-card.tsx: OK      (sha256sum -c)
+      Tests  46 passed (46)
+```
+
+Worth noting which route the guard names: `src/app/mockups/development/page.tsx`. That
+is one of the two developer-gated mockup subtrees from the round-1 scoping decision — the
+ones that do **not** 404 in production. Had mockups been scoped out on the grounds that
+they are exempt from other gates, the guard would still be blind to the very defect it
+was built for.
+
+## Real tree
+
+**Still clean.** Resolving imported handlers surfaced no new violation anywhere in the
+tree — 46 passed. Six new fixtures were added (five for the imported case in both
+directions, one for the imported Server Action).
+
+## Docstring
+
+The known-gap list no longer claims the imported case as a hole. The residue is stated
+precisely instead: anything on the far side of a **bare package specifier**, in both
+roles — an `on*` prop on a component imported from `next/link`, and a handler value
+imported from a package. Handlers imported from within this repository are resolved and
+are no longer a gap; only `node_modules` is, because this resolver does not read it.
