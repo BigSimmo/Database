@@ -564,7 +564,7 @@ export function DictionaryCataloguePage() {
         panelId="dictionary-filter-sheet"
         testId="dictionary-filter-sheet"
         title="Filter and sort"
-        description="Facets narrow the current list; the Terms / Abbrev scope remains a separate control."
+        description="Facets narrow the current list; the Terms / Abbreviations scope remains a separate control."
         groups={groups}
         onClearAll={activeCount ? clearFilters : undefined}
         summary={{ count: hits.length, noun }}
