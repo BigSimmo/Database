@@ -2,14 +2,30 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { standaloneModeHomePaths } from "@/lib/search-route-ownership";
-
 const SEARCH_APP_ROOT = join(process.cwd(), "src/app/(search-app)");
 
+// This is deliberately not derived from composer ownership. Consolidated mode
+// homes still need a route loading boundary while their dashboard shell mounts.
+const MODE_HOME_LOADING_ROUTES = [
+  "services",
+  "forms",
+  "favourites",
+  "differentials",
+  "dsm",
+  "specifiers",
+  "formulation",
+  "therapy-compass",
+  "factsheets",
+  "tools",
+  "medications",
+  "documents",
+  "calculators",
+  "dictionary",
+] as const;
+
 describe("mode-home loading contract", () => {
-  it("uses ModeHomeRouteLoading for every standalone mode home", () => {
-    for (const pathname of standaloneModeHomePaths) {
-      const route = pathname.slice(1);
+  it("uses ModeHomeRouteLoading for every mode-home loading route", () => {
+    for (const route of MODE_HOME_LOADING_ROUTES) {
       const loadingPath = join(SEARCH_APP_ROOT, route, "loading.tsx");
       expect(existsSync(loadingPath), `missing ${route}/loading.tsx`).toBe(true);
       const source = readFileSync(loadingPath, "utf8");
