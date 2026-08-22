@@ -49,6 +49,28 @@ function dispatchInstallEligibility(outcome: "accepted" | "dismissed" = "accepte
   return prompt;
 }
 
+const HERO_MAIN_CONTENT_SELECTOR = 'body:has(#main-content[data-phone-footer-owner="hero"])';
+const ALLOWED_HERO_MAIN_CONTENT_SELECTORS = new Set([
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-notice-stack`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-grip`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-tagline`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-support`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-benefits`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-header`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-body`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-compact-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-actions`,
+]);
+
+function disallowedMainContentHasSelectors(styles: string) {
+  return styles
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/,$/, ""))
+    .filter((line) => line.includes("body:has(#main-content"))
+    .filter((selector) => !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector));
+}
+
 beforeEach(() => {
   window.history.replaceState({}, "", "/");
   window.localStorage.clear();
@@ -420,5 +442,16 @@ describe("notice-stack hero-compact geometry selectors", () => {
         `body:has(#main-content[data-phone-footer-owner="hero"]) ${selector === ".pwa-notice-stack" ? selector : `.pwa-install-native-sheet ${selector}`}`,
       );
     }
+  });
+
+  it("rejects every unguarded body:has(#main-content...) geometry consumer", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+
+    expect(disallowedMainContentHasSelectors(styles)).toEqual([]);
+
+    const unsafeFixture = `${styles}\nbody:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay { bottom: 0; }`;
+    expect(disallowedMainContentHasSelectors(unsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay { bottom: 0; }',
+    ]);
   });
 });

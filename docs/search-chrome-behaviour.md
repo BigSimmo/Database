@@ -596,6 +596,24 @@ only for routes without an addon row; addon routes refine by that row's height.
 The clearance is only visible near scroll top, where the header is always
 revealed, so it costs no usable height.
 
+### Streaming shell-presence selector boundary
+
+Next can temporarily remove `#main-content` while it streams a route and React
+hydrates the replacement shell. During that gap every
+`body:has(#main-content...)` selector evaluates false. Geometry driven by one of
+those selectors is therefore safe only when the affected surface cannot mount
+until the app shell is present; otherwise it can paint once with fallback
+geometry and move when `#main-content` returns.
+
+The current exception is deliberately narrow. `PwaLifecycle` holds the PWA
+notice stack until the shell exists, so the phone-hero rules may target
+`.pwa-notice-stack` and descendants of its `.pwa-install-native-sheet`. The
+install-sheet selectors are intentional descendants of the guarded stack, not
+independent consumers. Do not add another `body:has(#main-content...)` geometry
+consumer without giving it the same mount-time shell gate and adding it to the
+explicit allowlist in `tests/pwa-lifecycle.dom.test.tsx`; that contract includes
+an unsafe negative fixture so a newly introduced consumer fails closed.
+
 ### Phone sticky-header mount and settle timing
 
 The phone header stack (`.phone-sticky-header-stack`) is `position: fixed` (in browser tabs) and
