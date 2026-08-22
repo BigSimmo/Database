@@ -4184,6 +4184,10 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
  * transitional back-compat until every chrome owner is attribute-marked.
  * ========================================================================= */
 @media print {
+  :root {
+    --print-furniture-gap: 4mm;
+  }
+
   html,
   body {
     min-width: 0;
@@ -4682,7 +4686,7 @@ html.theme-transitioning *:after {
   [data-print-stamp],
   [data-print-confidential] {
     display: block !important;
-    margin-top: 4mm;
+    margin-top: var(--print-furniture-gap);
     color: var(--text-muted);
     font-size: 9pt;
   }

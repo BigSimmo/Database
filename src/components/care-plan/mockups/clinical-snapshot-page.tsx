@@ -27,10 +27,12 @@ export function ClinicalSnapshotSurface({
   variant,
   patientId,
   scenario,
+  initialSearchQuery = "",
 }: {
   variant: ClinicalSnapshotVariant;
   patientId?: string;
   scenario: PrototypeScenario;
+  initialSearchQuery?: string;
 }) {
   const { state, dispatch } = useCarePlanPrototype();
 
@@ -130,6 +132,7 @@ export function ClinicalSnapshotSurface({
         selectedPatientId={state.selectedPatientId}
         onSelectPatient={(id) => dispatch({ type: "select-patient", patientId: id })}
         reviewsHref={CARE_PLAN_ROUTES.reviews}
+        initialQuery={initialSearchQuery}
         listAllWhenEmpty={variant === "patients"}
         planStatusFor={planStatusFor}
       />

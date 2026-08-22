@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 
-import { EmptyState, InlineNotice } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { EmptyState, InlineNotice, ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { BrowserPrintButton, PrintOutput, PrintSection } from "@/components/ui/print-output";
 
 import styles from "./care-plan.module.css";
 import { buildPatientSnapshot, deriveReviewState } from "./domain";
 import { PROTOTYPE_NOW } from "./fixtures";
 import { useCarePlanPrototype } from "./prototype-provider";
+import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
   CurrentPlanSummary,
   DefinitionRow,
@@ -133,20 +135,46 @@ export function ManagementPlanPrintSurface({
     snapshot.currentSafetyPlanVersion === null
       ? "No current version"
       : `Current version ${snapshot.currentSafetyPlanVersion.version}, confirmed ${formatPerthDate(snapshot.currentSafetyPlanVersion.confirmedAt)}`;
+  const blockedReason = getPrototypeMutationBlockReason(state, {
+    type: "record-management-plan-print-intent",
+    patientId: patient.id,
+  });
 
   return (
     <section aria-label={`${patient.fullName} Management Plan, printed clinician summary`} className={styles.workspace}>
       <div className={styles.printControls} data-print-hide="true">
-        <BrowserPrintButton
-          label="Print this plan"
-          // Recorded before the browser is asked to print: a print dialogue can
-          // block until the reader dismisses it, and may never return.
-          onBeforePrint={() => dispatch({ type: "record-management-plan-print-intent", patientId: patient.id })}
-        />
+        {blockedReason === null ? (
+          <BrowserPrintButton
+            label="Print this plan"
+            // Recorded before the browser is asked to print: a print dialogue can
+            // block until the reader dismisses it, and may never return.
+            onBeforePrint={() => dispatch({ type: "record-management-plan-print-intent", patientId: patient.id })}
+          />
+        ) : (
+          <Button
+            variant="primary"
+            aria-disabled="true"
+            aria-describedby="care-plan-print-blocked"
+            onClick={ignoreUnavailableActivation}
+          >
+            Print this plan
+          </Button>
+        )}
         <Link href={carePlanRoute.managementPlan(patient.id)} className={styles.inlineLink}>
           Back to the Management Plan
         </Link>
       </div>
+
+      {blockedReason === null ? null : (
+        <p
+          id="care-plan-print-blocked"
+          role="alert"
+          data-testid="care-plan-print-blocked"
+          className={styles.contactWarning}
+        >
+          {blockedReason}
+        </p>
+      )}
 
       {state.lastOutcome === null ? null : (
         <div data-testid="care-plan-print-outcome" data-print-hide="true">

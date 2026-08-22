@@ -347,15 +347,30 @@ describe("Care Plan route shell", () => {
     expect(within(surface).getByText(purpose)).toBeInTheDocument();
   });
 
-  it("offers exactly one search slot and navigates it without putting record content in the URL", async () => {
+  it("hands the submitted search to Patients without putting record content in the URL", async () => {
     const user = userEvent.setup();
-    const navigate = renderRoute(CARE_PLAN_ROUTES.reviews);
+    const navigate = vi.fn();
+    const route = render(
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={CARE_PLAN_ROUTES.reviews} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>,
+    );
     const search = screen.getByRole("searchbox", { name: "Search patients" });
     expect(screen.getAllByRole("searchbox")).toHaveLength(1);
     await user.type(search, "Rowan");
     await user.click(screen.getByRole("button", { name: "Search patients" }));
     expect(navigate).toHaveBeenCalledWith(CARE_PLAN_ROUTES.patients);
     expect(navigate.mock.calls.every(([href]) => !String(href).includes("Rowan"))).toBe(true);
+
+    route.rerender(
+      <CarePlanPrototypeProvider>
+        <CarePlanRouteSurface pathname={CARE_PLAN_ROUTES.patients} query="" navigate={navigate} />
+      </CarePlanPrototypeProvider>,
+    );
+    expect(screen.getByRole("searchbox", { name: "Search synthetic patients" })).toHaveValue("Rowan");
+    const results = screen.getByTestId("care-plan-directory-results");
+    expect(within(results).getByRole("button", { name: "Open Rowan Sample" })).toBeInTheDocument();
+    expect(within(results).queryAllByRole("button", { name: /^Open / })).toHaveLength(1);
   });
 
   it("reads the named specimen scenario from the URL and nothing else", () => {
@@ -1257,6 +1272,24 @@ describe("Care Plan Management Plan print", () => {
     // The outcome notice is screen chrome and never travels onto the paper.
     expect(outcome.closest("[data-print-hide='true']")).not.toBeNull();
   });
+
+  it.each(["permission-unavailable", "version-conflict"])(
+    "does not open the browser print dialogue when %s blocks the print intent",
+    async (scenario) => {
+      const user = userEvent.setup();
+      const printSpy = vi.fn();
+      vi.stubGlobal("print", printSpy);
+      renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"), `scenario=${scenario}`);
+
+      const printButton = screen.getByRole("button", { name: /Print this plan/i });
+      expect(printButton).toHaveAttribute("aria-disabled", "true");
+      expect(printButton).toHaveAccessibleDescription(screen.getByTestId("care-plan-print-blocked").textContent ?? "");
+      await user.click(printButton);
+
+      expect(printSpy).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("care-plan-print-outcome")).toBeNull();
+    },
+  );
 
   it("keeps the print control off the paper", () => {
     renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));

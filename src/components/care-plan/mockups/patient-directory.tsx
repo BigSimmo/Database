@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { SearchField } from "@/components/ui/text-field";
 import { EmptyState, cn } from "@/components/ui-primitives";
@@ -22,6 +22,8 @@ export type PatientDirectoryProps = {
   selectedPatientId: SyntheticId | null;
   onSelectPatient: (patientId: SyntheticId) => void;
   reviewsHref: string;
+  /** A shell search handed to the directory without putting record data in the URL. */
+  initialQuery?: string;
   /**
    * The Patients route lists the whole synthetic directory at rest; Home offers
    * a short recent list instead, so the first screen is search rather than a
@@ -52,10 +54,15 @@ export function PatientDirectory({
   selectedPatientId,
   onSelectPatient,
   reviewsHref,
+  initialQuery = "",
   listAllWhenEmpty = false,
   planStatusFor,
 }: PatientDirectoryProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
   const trimmed = query.trim();
 
   /** Most recently seen first. Recency is not a ranking by how often someone

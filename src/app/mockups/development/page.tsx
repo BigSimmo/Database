@@ -24,9 +24,9 @@ const DEVELOPMENT_SURFACES = [
     id: "care-plan",
     name: "Care Plan",
     summary:
-      "Linked prototype of continuity planning for recurrent emergency presentations: the Management Plan and its versions, the patient edition, the Personal Safety Plan, the presentation timeline, and the review queues. Fully synthetic and memory-only — nothing is saved.",
+      "Staged linked prototype through Management Plan authoring, ED Presentation continuity, and the Personal Safety Plan. Patient Plan and operational review, team, governance, and history routes remain route specimens for later stages. Fully synthetic and memory-only — nothing is saved.",
     href: CARE_PLAN_ROUTES.home,
-    status: "Synthetic prototype",
+    status: "Stage B in progress",
     entries: [
       { label: "Patients", href: CARE_PLAN_ROUTES.patients },
       { label: "Reviews", href: CARE_PLAN_ROUTES.reviews },
