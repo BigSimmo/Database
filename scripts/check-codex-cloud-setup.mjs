@@ -17,7 +17,7 @@ import { providerEnvironmentKeys } from "./test-environment.mjs";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const expectedCloudCliVersions = Object.freeze({
-  codex: "0.146.0",
+  codex: "0.147.0",
 });
 
 export const expectedHostedWorkspaceClass = "personal-pro";
@@ -807,6 +807,7 @@ export function validateCodexCloudSetup() {
   const nodeVersion = read(".node-version").trim();
   const nvmVersion = read(".nvmrc").trim();
   const setup = read("scripts/setup-codex-cloud.sh");
+  const pythonSelector = read("scripts/select-codex-cloud-python.sh");
   const maintenance = read("scripts/maintain-codex-cloud.sh");
   const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
   const checkoutBaseRefresh = read("scripts/refresh-codex-cloud-base.sh");
@@ -849,6 +850,8 @@ export function validateCodexCloudSetup() {
     ],
     [/deno@2/, "Cloud setup must install Deno 2.x."],
     [/worker\/python\/requirements-cloud\.txt/, "Cloud setup must install the Python 3.12 Cloud worker lock."],
+    [/select-codex-cloud-python\.sh/, "Cloud setup must load the version-aware Python selector."],
+    [/select_codex_cloud_python/, "Cloud setup must resolve the required Python version explicitly."],
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
@@ -878,6 +881,18 @@ export function validateCodexCloudSetup() {
     requireMatch(errors, setup, pattern, message);
   }
   errors.push(...validateCloudNpmInstallContract(setup));
+  requireMatch(
+    errors,
+    pythonSelector,
+    /local candidates=\("python\$\{expected_version\}" python3 python\)/,
+    "Cloud Python selection must prefer the exact versioned interpreter before generic aliases.",
+  );
+  requireMatch(
+    errors,
+    pythonSelector,
+    /actual_version=.*sys\.version_info\.major.*sys\.version_info\.minor/,
+    "Cloud Python selection must verify each interpreter's major and minor version.",
+  );
   if (!setup.includes(`codex_cli_version="${expectedCloudCliVersions.codex}"`)) {
     errors.push("Cloud setup Codex CLI version must match the checked runtime contract.");
   }
