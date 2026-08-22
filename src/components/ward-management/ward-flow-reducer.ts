@@ -1,5 +1,5 @@
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
-import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import { FORM_1A_REFERRAL_EXPIRY_MINUTES, PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
@@ -124,6 +124,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         return reject(state, event, `no emergency department found for id ${event.edId}`);
       }
       const sequence = state.referralSequence + 1;
+      const awaitingExamination =
+        event.draft.legalStatus === "Referred for psychiatric examination" ||
+        event.draft.legalStatus === "Detained awaiting examination";
       const created: Movement = {
         id: nextReferralId(sequence),
         originEdId: event.edId,
@@ -134,6 +137,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         sex: event.draft.sex,
         specialling: event.draft.specialling,
         legalStatus: event.draft.legalStatus,
+        legalForm: awaitingExamination
+          ? {
+              code: "1A",
+              label: "Referral for examination",
+              kind: "examination",
+              dueAt: event.now + FORM_1A_REFERRAL_EXPIRY_MINUTES,
+            }
+          : undefined,
         statusChanges: [],
         stage: "placement_requested",
         owner: department.name,
@@ -141,6 +152,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         declines: [],
         blocker: "Awaiting coordinator referral",
         withdrawnReferrals: [],
+        ...(awaitingExamination ? { formedAt: event.now } : {}),
       };
       return {
         ...state,
