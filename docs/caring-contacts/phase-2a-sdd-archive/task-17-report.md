@@ -339,3 +339,140 @@ is exactly what tripped it last time.
 
 `npm run format` ran across the repository and reported no unformatted file outside the two I
 changed.
+
+---
+
+# Fix round 1 — the five Minors
+
+All five fixed. Every change strengthens an existing assertion or adds a new one; nothing was
+deleted, loosened, or renamed, and no new symbol is exported.
+
+## Minor 1 — the lookup test could pass vacuously
+
+`overlayDefinition("pause")?.title` was compared with `…find(…)?.title`: both sides optional-chained
+over the same array, so a renamed or removed `pause` made both `undefined` and the assertion passed
+while testing nothing. Now both sides are asserted present **before** they are compared, and the
+comparison is `toBe(row)` — object identity, which is stronger than title equality and also proves
+the lookup returns the very row from the table rather than a copy.
+
+## Minor 2 — the tautology, pointed at the frozen record
+
+`expect(MUTATING_OVERLAY_IDS).toEqual(WORKSPACE_OVERLAY_DEFINITIONS.filter(…).map(…))` re-derived the
+exact expression that defines the export, so it could not fail. It now derives the expected list
+from the **matrix document's mutation column**, through the same explicit normalisation table the
+row-for-row test uses. It therefore tests the export against the authority rather than against
+itself, it bites today, and it still catches the hand-written-list regression. `toHaveLength(16)`
+stays beside it, and the document-derived list is length-checked too.
+
+### Proving it bites — and why the mutation you suggested proves less
+
+**Mutation A, exactly as asked**: hand-write `MUTATING_OVERLAY_IDS` as a literal list with `pause`
+missing (15 ids).
+
+```
+AssertionError: expected [ 'verify-identity', …(14) ] to have a length of 16 but got 15
+ ❯ tests/caring-contacts-overlay-definitions.test.ts:133:34
+```
+
+It reddens — but at **line 133**, the pre-existing `toHaveLength(16)`. Vitest stops the test at the
+first failing assertion, so the rewritten comparison on line 143 never executed. That proves the
+length check, not the new assertion, and reporting it as proof of the rewrite would have been
+exactly the decorative-evidence move this branch keeps finding.
+
+**Mutation B, the sharper one**: hand-write the list with 16 ids, replacing `pause` with the
+non-mutating `activation-success`. Length stays 16, so the rewritten comparison is the assertion
+that has to catch it.
+
+```
+AssertionError: expected [ 'verify-identity', …(15) ] to deeply equal [ 'verify-identity', …(15) ]
+-   "pause"
++   "activation-success"
+ ❯ tests/caring-contacts-overlay-definitions.test.ts:143:34
+```
+
+Line 143 is the rewritten assertion, and the **expected** side is the list read out of the matrix
+document. That is the proof. Both mutations reverted; `Tests 7 passed (7)`.
+
+## Minor 3 — prototype keys
+
+`normalised()` now gates on `Object.hasOwn(table, wording)` before indexing, so a matrix cell reading
+`constructor` or `toString` takes the named-error path rather than resolving to an inherited
+function. As the reviewer said, no silent pass was possible before — a function is not a modality
+string — but the failure message was illegible for the most confusing possible input. The guarantee
+is now unconditional rather than incidental.
+
+## Minor 4 — the frozen contract is frozen at type level
+
+Every field of `WorkspaceOverlayDefinition` is now `readonly`, with a comment saying why:
+`Object.freeze` is shallow and would not have stopped `WORKSPACE_OVERLAY_DEFINITIONS[0].label = "…"`
+in a renderer. A consumer that tries to edit a row now fails to compile.
+
+**Task 18 impact: none observed, but the check is weaker than it sounds.** `tsc -p tsconfig.json
+--noEmit` passes across the whole project with the `readonly` markers in place. However, `git status`
+shows only my two files in this worktree — Task 18's `overlay-host`/`shell` work is not on disk here
+yet, so that clean typecheck does **not** prove their in-flight code compiles against a `readonly`
+row. If it does not, the fix is theirs to make (read the row, do not assign to it) and I have not
+pre-emptively weakened the type to avoid it.
+
+## Minor 5 — the column positions are now asserted, not assumed
+
+`frozenMatrixRows()` reads `cells[1..6]` by position. Column drift already failed closed, but it
+failed _through_ the lookup tables — "unmapped phone modality value `Dialog`" — which points the next
+reader at a corrupted cell rather than a moved column. Two additions:
+
+- `frozenMatrixRows()` validates the header row against `MATRIX_COLUMNS` before parsing anything, so
+  every consumer of the parse gets the clear cause first;
+- a named test, `reads the matrix columns from the positions this parser assumes`, so the check is
+  discoverable in the test list rather than buried in a helper.
+
+**Proof it reports the real cause.** I transiently swapped the `Phone` and `Desktop` headings in the
+matrix document:
+
+```
+Error: docs/caring-contacts/interaction-matrix.md: the table columns moved.
+Expected `ID | Product context | Phone | Desktop | Mutation | Dismissal`;
+found `ID | Product context | Desktop | Phone | Mutation | Dismissal`.
+This test reads cells 1-6 by position, so correct the column order or this parser —
+do not touch the row values.
+ ❯ frozenMatrixRows tests/caring-contacts-overlay-definitions.test.ts:102:11
+```
+
+Three tests reddened and the message names column movement rather than a bad cell. Document reverted
+and proven byte-identical by blob hash: `9d430bb5f11a2a89d7761572be0212a3d19f5957` before and after,
+with `git status` clean on that path.
+
+## Not done, deliberately
+
+`tone` joins `summary`, `decision` and `availability` as a field with no matrix column and therefore
+no frozen source. Per the ruling I have **not** invented a check for it; asserting today's values
+against themselves would pin my own choices while wearing the appearance of verifying the record.
+Four fields now go to the owner as the places automated checking cannot reach. The
+`session-expiry` / `offline-banner` prose ambiguity likewise stays recorded, not resolved.
+
+## Verification
+
+```
+$ node scripts/run-vitest.mjs run tests/caring-contacts-overlay-definitions.test.ts --reporter=dot
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+
+$ node scripts/run-vitest.mjs run tests/caring-contacts-overlay-definitions.test.ts tests/caring-contact-route-files.test.ts --reporter=dot
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit
+tsc exit: 0        (no diagnostics)
+
+$ npx eslint <both files>
+eslint exit: 0     (no findings)
+
+$ npx prettier --check <both files>
+All matched files use Prettier code style!
+```
+
+**I did not run the full `npm run test`, and say so rather than implying it passed.** Nothing new is
+exported: the five fixes are three strengthened assertions, one added header test, one added
+`readonly` marker, and one `Object.hasOwn` guard. `tsc` covers the whole project, which is where a
+`readonly` regression would surface, and I re-ran the one other test that reads this file's source
+text. `npm run format` ran repository-wide and reported no unformatted file outside the two I
+changed.

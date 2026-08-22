@@ -57,8 +57,12 @@ function normalised<Value>(
   rowId: string,
   column: string,
 ): Value {
-  const mapped = table[wording];
-  if (mapped === undefined) {
+  // `Object.hasOwn`, not `table[wording]`: a matrix cell reading `constructor` or
+  // `toString` would otherwise resolve to an inherited function. That could never
+  // pass — a function is not a modality string — but the failure would be
+  // illegible for an already-bewildering input. This makes the guarantee
+  // unconditional rather than incidental.
+  if (!Object.hasOwn(table, wording)) {
     throw new Error(
       `${MATRIX_PATH} row \`${rowId}\`: unmapped ${column} value ${JSON.stringify(wording)}. ` +
         `Known ${column} values: ${Object.keys(table)
@@ -66,12 +70,41 @@ function normalised<Value>(
           .join(", ")}.`,
     );
   }
-  return mapped;
+  return table[wording];
+}
+
+/**
+ * The columns this parser reads by position. Without this check, column drift
+ * still fails closed — but it fails through the lookup tables, reporting
+ * "unmapped phone modality value `Dialog`" and sending the next reader hunting a
+ * corrupted cell instead of a moved column. One assertion names the real cause.
+ */
+const MATRIX_COLUMNS = ["ID", "Product context", "Phone", "Desktop", "Mutation", "Dismissal"] as const;
+
+function matrixColumnHeadings(document: string): readonly string[] {
+  const header = document.split("\n").find((line) => line.startsWith("| ID"));
+  if (header === undefined) {
+    throw new Error(
+      `${MATRIX_PATH}: no table header row starting "| ID". The matrix table has moved or been reformatted.`,
+    );
+  }
+  return header
+    .split("|")
+    .map((cell) => cell.trim())
+    .slice(1, -1);
 }
 
 /** Parses the frozen matrix out of the interaction-matrix document itself. */
 function frozenMatrixRows() {
   const document = readFileSync(resolve(process.cwd(), MATRIX_PATH), "utf8");
+  const headings = matrixColumnHeadings(document);
+  if (headings.join(" | ") !== MATRIX_COLUMNS.join(" | ")) {
+    throw new Error(
+      `${MATRIX_PATH}: the table columns moved. Expected \`${MATRIX_COLUMNS.join(" | ")}\`; ` +
+        `found \`${headings.join(" | ")}\`. This test reads cells 1-6 by position, so correct the ` +
+        `column order or this parser — do not touch the row values.`,
+    );
+  }
   return document
     .split("\n")
     .filter((line) => line.startsWith("| `"))
@@ -98,9 +131,21 @@ describe("the frozen 24-overlay contract", () => {
     expect(WORKSPACE_OVERLAY_DEFINITIONS).toHaveLength(24);
     expect(new Set(WORKSPACE_OVERLAY_DEFINITIONS.map((definition) => definition.id)).size).toBe(24);
     expect(MUTATING_OVERLAY_IDS).toHaveLength(16);
-    expect(MUTATING_OVERLAY_IDS).toEqual(
-      WORKSPACE_OVERLAY_DEFINITIONS.filter((definition) => definition.mutatesState).map((definition) => definition.id),
-    );
+
+    // Against the matrix document, NOT against the table's own `filter().map()`.
+    // Comparing the export with the expression that defines it re-derives the
+    // code's own computation and cannot fail; comparing it with the frozen
+    // record bites today, and still catches a later hand-written list.
+    const mutatingInMatrix = frozenMatrixRows()
+      .filter((row) => normalised(MUTATION_BY_MATRIX_WORDING, row.mutation, row.id, "mutation").mutatesState)
+      .map((row) => row.id);
+    expect(mutatingInMatrix).toHaveLength(16);
+    expect(MUTATING_OVERLAY_IDS).toEqual(mutatingInMatrix);
+  });
+
+  it("reads the matrix columns from the positions this parser assumes", () => {
+    const document = readFileSync(resolve(process.cwd(), MATRIX_PATH), "utf8");
+    expect(matrixColumnHeadings(document)).toEqual([...MATRIX_COLUMNS]);
   });
 
   it("matches the interaction matrix document row for row", () => {
@@ -163,9 +208,16 @@ describe("the frozen 24-overlay contract", () => {
   });
 
   it("looks a definition up by id and returns null for an unknown id", () => {
-    expect(overlayDefinition("pause")?.title).toBe(
-      WORKSPACE_OVERLAY_DEFINITIONS.find((definition) => definition.id === "pause")?.title,
-    );
+    // Both sides asserted present before they are compared. Optional chaining on
+    // each side would make this pass vacuously if `pause` were renamed away:
+    // `undefined` would equal `undefined` and the lookup would go untested.
+    const row = WORKSPACE_OVERLAY_DEFINITIONS.find((definition) => definition.id === "pause");
+    expect(row, "no `pause` row in the definition table").toBeDefined();
+
+    const found = overlayDefinition("pause");
+    expect(found, 'overlayDefinition("pause") returned null').not.toBeNull();
+    expect(found).toBe(row);
+
     expect(overlayDefinition("not-an-overlay")).toBeNull();
   });
 });

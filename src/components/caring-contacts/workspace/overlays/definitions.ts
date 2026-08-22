@@ -38,19 +38,27 @@ export type OverlayDesktopModality = "dialog" | "inspection-drawer" | "session-g
 export type OverlayDismissal = "escape-backdrop-close" | "action-only" | "recovery-only";
 export type OverlayAvailability = "Available" | "Read only" | "Unavailable until resolved";
 
+/**
+ * Every field is `readonly` because this table is a frozen contract, not state.
+ * `Object.freeze` below stops a row being replaced but is shallow — it would not
+ * stop `WORKSPACE_OVERLAY_DEFINITIONS[0].label = "..."` in a renderer. The
+ * `readonly` markers close that at type level, so a consumer that tries to edit
+ * a row fails to compile rather than quietly disagreeing with the frozen record
+ * at runtime.
+ */
 export type WorkspaceOverlayDefinition = {
-  id: string;
-  label: string;
-  title: string;
-  summary: string;
-  decision: string;
-  availability: OverlayAvailability;
-  mutatesState: boolean;
-  requiresFreshAuthentication: boolean;
-  phoneModality: OverlayPhoneModality;
-  desktopModality: OverlayDesktopModality;
-  dismissal: OverlayDismissal;
-  tone?: "primary" | "danger";
+  readonly id: string;
+  readonly label: string;
+  readonly title: string;
+  readonly summary: string;
+  readonly decision: string;
+  readonly availability: OverlayAvailability;
+  readonly mutatesState: boolean;
+  readonly requiresFreshAuthentication: boolean;
+  readonly phoneModality: OverlayPhoneModality;
+  readonly desktopModality: OverlayDesktopModality;
+  readonly dismissal: OverlayDismissal;
+  readonly tone?: "primary" | "danger";
 };
 
 /**
