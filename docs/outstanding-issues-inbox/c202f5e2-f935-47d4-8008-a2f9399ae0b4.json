@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#0YK2S3",
-    "outcome": "Resolved on current main by commit ade30a9b3. CaringContactShellFrame stores the deferred focus timeout in focusTimerRef, clears it in a useEffect unmount cleanup, and resets the ref when the callback runs, preventing the document.querySelector callback from firing after jsdom teardown. The focused caring-contact product redesign DOM test passes on this branch; the original fix commit also recorded the full local suite at 7,599 passing with exit 0.",
+    "outcome": "Resolved on current main by commit ade30a9b3. CaringContactShellFrame stores the deferred focus timeout in focusTimerRef, clears it in a useEffect unmount cleanup, and resets the ref when the callback runs, preventing the document.querySelector callback from firing after jsdom teardown. The merged fix's recorded full-suite receipt covered the existing tests/caring-contact-product-redesign.dom.test.tsx and reported 7,599 passing with exit 0.",
     "baseRowFingerprint": "6d1550b9cde2f8df10346b544db676d6d977aa76efa0e799663a9bbef4d48308"
   }
 }

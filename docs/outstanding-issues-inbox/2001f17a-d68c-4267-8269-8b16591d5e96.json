@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#GBBYTA",
-    "outcome": "Resolved on current main by commit c0b4e848d / PR #2173. The document facet-filtered zero state now renders as data-testid=document-filter-empty-results, a full-width direct sibling beneath SearchResultsHeaderBand rather than inside the results grid, and tests/document-search-scope-zero-results.dom.test.tsx pins that placement and the recovery controls. The focused DOM test passes on this branch.",
+    "outcome": "Resolved on current main by commit c0b4e848d / PR #2173. The document facet-filtered zero state now renders as data-testid=document-filter-empty-results, a full-width direct sibling beneath SearchResultsHeaderBand rather than inside the results grid, and the merged fix includes tests/document-search-scope-zero-results.dom.test.tsx to pin that placement and the recovery controls.",
     "baseRowFingerprint": "2e502579b8fee2843758fe4e3a21d53a3e5d5307f2427d5a14b5cc1808373d1c"
   }
 }
