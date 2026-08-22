@@ -1516,7 +1516,7 @@ describe("Care Plan Management Plan drafting", () => {
     );
   });
 
-  it("lists every required field in a linked summary and moves focus to the first invalid one", async () => {
+  it("lists every required field in a linked summary and leaves focus on it", async () => {
     const user = userEvent.setup();
     renderRoute(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
     await signInAs(user, LIAISON);
@@ -1539,11 +1539,22 @@ describe("Care Plan Management Plan drafting", () => {
     );
 
     // Final-state focus assertions are provably unable to fail in this shell, so
-    // this asserts the order of the focus events. Exactly one owner moves focus,
-    // and it moves it to the first invalid field: the summary never takes focus
-    // and is therefore never cut off part-read.
-    expect(order.at(-1)).toBe(managementPlanFieldId("revisionReason"));
-    expect(order, "the summary must not take focus as well").not.toContain("error-summary");
+    // this asserts the order of the focus events instead. There is exactly one
+    // owner — `ErrorSummary`, the repository default — so focus finishes on the
+    // summary, where a reader hears how many problems there are and picks one.
+    // Nothing may move it on to a field afterwards: a second owner would cut the
+    // summary off part-read, and the reader would never learn the other six.
+    expect(order.at(-1)).toBe("error-summary");
+    expect(
+      order.filter((id) => id.startsWith("care-plan-management-form-")),
+      "no later focus move may take the reader off the summary",
+    ).toEqual([]);
+    // The summary's links are how focus reaches a field, and they are the
+    // reader's choice rather than one made for them.
+    expect(within(summary).getAllByRole("link")[0]).toHaveAttribute(
+      "href",
+      `#${managementPlanFieldId("revisionReason")}`,
+    );
     // Nothing was submitted.
     expect(screen.queryByRole("dialog")).toBeNull();
   });

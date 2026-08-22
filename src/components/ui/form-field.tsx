@@ -144,18 +144,6 @@ export type ErrorSummaryProps = {
    * without this token the focus effect would skip the second failure.
    */
   attempt?: number;
-  /**
-   * Opt out of the self-focus, for a form that moves focus somewhere else on a
-   * failed submit. Additive and default-on, so every existing caller keeps the
-   * behaviour it already had.
-   *
-   * A form must have exactly one focus owner. Two owners is not belt-and-braces:
-   * the summary takes focus, a parent effect then moves focus to a field, and a
-   * screen reader starts reading the summary and is cut off mid-sentence. Pass
-   * `false` only when the caller genuinely owns the move — and then it must
-   * actually make one, or a failed submit announces nothing at all.
-   */
-  manageFocus?: boolean;
   className?: string;
 };
 
@@ -164,14 +152,11 @@ export type ErrorSummaryProps = {
  * than announcing: moving focus is both the announcement and the navigation, so
  * a screen-reader user is not told about errors they then have to hunt for.
  * Deliberately not a live region — a live region plus a focus move reads twice.
- *
- * `manageFocus={false}` hands that job to the caller; the markup is unchanged.
  */
 export function ErrorSummary({
   heading = "This form could not be submitted",
   errors,
   attempt = 0,
-  manageFocus = true,
   className,
 }: ErrorSummaryProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -179,10 +164,10 @@ export function ErrorSummary({
   const errorKey = errors.map((entry) => entry.fieldId).join("|");
 
   useEffect(() => {
-    if (manageFocus && errors.length > 0) container.current?.focus();
+    if (errors.length > 0) container.current?.focus();
     // Re-focus when the error set changes *or* the caller reports another failed
     // submit with the same errors — a second failure deserves the same handling.
-  }, [errorKey, errors.length, attempt, manageFocus]);
+  }, [errorKey, errors.length, attempt]);
 
   if (errors.length === 0) return null;
 

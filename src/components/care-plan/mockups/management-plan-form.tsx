@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -273,14 +273,18 @@ export function ManagementPlanFormSurface({
     setErrors([]);
   }
 
-  // Focus the first invalid field after a failed attempt. It runs after the
-  // error summary's own focus move because this is the parent, so the summary is
-  // rendered and announced and focus then lands where the work is.
-  const firstInvalidId = errors[0]?.fieldId ?? null;
-  useEffect(() => {
-    if (firstInvalidId === null) return;
-    document.getElementById(firstInvalidId)?.focus();
-  }, [firstInvalidId, attempt]);
+  /*
+   * There is deliberately no focus effect here. `ErrorSummary` moves focus to
+   * itself on a failed submit, and that is the repository's behaviour for every
+   * form in the product — this one does not get to be different, because the
+   * inconsistency is the thing a user has to learn.
+   *
+   * It is also the better landing place for this form in particular. A failed
+   * submit here can raise seven errors at once; a reader who lands on the linked
+   * summary hears how many there are and picks one, while a reader dropped onto
+   * the first invalid field has to walk the rest of the form to find the others.
+   * The summary's own links are how focus reaches a field.
+   */
 
   if (snapshot === null) {
     return (
@@ -484,16 +488,14 @@ export function ManagementPlanFormSurface({
 
       <form className={styles.form} onSubmit={handleSave} noValidate>
         {/*
-          One focus owner. The summary stays linked and visible, and this form
-          moves focus to the first invalid field — so a failed submit lands the
-          reader on the work rather than starting the summary and cutting it off
-          part-read, which is what two owners produced.
+          One focus owner, and it is the summary — the repository default, used
+          here exactly as every other form uses it. `attempt` is what makes a
+          second failure with the same errors move focus again.
         */}
         <ErrorSummary
           heading="This version could not be submitted"
           errors={errors}
           attempt={attempt}
-          manageFocus={false}
           className={styles.formErrorSummary}
         />
 
