@@ -1,0 +1,234 @@
+# Task 17 report — the frozen 24-row overlay definition table
+
+## What I implemented
+
+Two new source files plus this report. No existing file was edited.
+
+- `src/components/caring-contacts/workspace/overlays/definitions.ts` — a fresh transcription of the
+  24 rows in `docs/caring-contacts/interaction-matrix.md`. It exports the five types from the brief
+  verbatim, `WORKSPACE_OVERLAY_DEFINITIONS` (24 entries, frozen, in matrix order),
+  `MUTATING_OVERLAY_IDS` (derived from the table rather than hand-listed, so the two can never
+  disagree — 16 entries), and `overlayDefinition(id)` which returns `null` for an unknown id.
+  Nothing is imported from the design-scratch specimen tree.
+- `tests/caring-contacts-overlay-definitions.test.ts` — five tests. The row-for-row test parses the
+  matrix document itself and, per **Ruling 57**, asserts **all five parsed columns**: `id`,
+  `phoneModality`, `desktopModality`, mutation (both `mutatesState` and
+  `requiresFreshAuthentication`), and `dismissal`.
+
+I also strengthened two things beyond the brief's draft, neither of which loosens anything:
+
+- The mutation column is read through an explicit three-entry table
+  (`No` / `Yes` / `Yes; two-stage`) rather than `startsWith("Yes")` + `includes("two-stage")`.
+  A corrupted mutation cell such as `Yes; two stage` now fails loudly instead of silently reading
+  as a one-stage `Yes`.
+- The prohibited-language check runs against **every** string field and uses the full prohibited
+  list from the task brief, not the four-term subset in the draft test. The draft's original
+  four-term assertion is kept as well, so nothing was removed. Word boundaries keep `lead` from
+  firing on innocent substrings while still catching the sales sense of the word.
+
+## TDD evidence
+
+### RED
+
+```
+$ node scripts/run-vitest.mjs run tests/caring-contacts-overlay-definitions.test.ts --reporter=dot
+ FAIL  |node| tests/caring-contacts-overlay-definitions.test.ts
+Error: Cannot find package '@/components/caring-contacts/workspace/overlays/definitions'
+ Test Files  1 failed (1)
+      Tests  no tests
+```
+
+Expected: the test was written first and the module it imports did not exist yet. This is the only
+failure shape available before `definitions.ts` is written, so it proves the test is wired to the
+right module path and nothing more. The mutation evidence below is what proves the assertions bite.
+
+### GREEN
+
+```
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+```
+
+### Full suite
+
+```
+ Test Files  700 passed | 2 skipped (702)
+      Tests  7760 passed | 29 skipped (7789)
+   Duration  204.37s
+```
+
+`tsc -p tsconfig.json --noEmit` exits clean; `eslint` on both new files exits clean; both files pass
+`prettier --check`.
+
+**One existing test went red on my first full run and I fixed my change, not the test.**
+`tests/caring-contact-route-files.test.ts:83` asserts that no production source under
+`src/components/caring-contacts/workspace` matches `/caring-contacts\/mockups/` — a plain substring
+check that does not exclude comments. My file's header comment named that path in prose while
+explaining that it is deliberately _not_ imported, which the guard correctly refused. I reworded the
+comment to describe the tree without spelling the path. No assertion was touched.
+
+## Mutation evidence
+
+### Mutation 1 — `pause` phone modality → `full-screen-stage`
+
+_Does it change a value an assertion reads?_ Yes, and only because of Ruling 57. The row-for-row
+test now compares `definition.phoneModality` against the normalised `Phone` column. Under the
+brief's original three-column test this mutation would have left the suite green.
+
+```
+AssertionError: pause.phoneModality: expected 'full-screen-stage' to be 'bottom-sheet'
+ ❯ tests/caring-contacts-overlay-definitions.test.ts:119:67
+      Tests  1 failed | 4 passed (5)
+```
+
+Reverted; re-ran; 5 passed.
+
+### Mutation 2 — `requiresFreshAuthentication: true` on `pause`
+
+_Does it change a value an assertion reads?_ Yes — two of them: the row-for-row comparison against
+the matrix's `Yes` (one-stage) cell, and the exactly-two-rows fresh-authentication test. Both went
+red, which is the correct blast radius.
+
+```
+FAIL > matches the interaction matrix document row for row
+ ❯ tests/caring-contacts-overlay-definitions.test.ts:116:95
+FAIL > requires fresh authentication for exactly withdrawal and reassignment
+AssertionError: expected [ 'pause', 'withdrawal', …(1) ] to deeply equal [ 'withdrawal', 'reassignment' ]
+      Tests  2 failed | 3 passed (5)
+```
+
+Reverted; re-ran; 5 passed.
+
+### Mutation 3 (mine) — corrupt one cell of the matrix document
+
+I changed the `team-switcher` dismissal cell from `Escape, backdrop, close` to
+`Escape, backdrop, dismiss` — a value that is plausible, is one word away from the real one, and
+would be accepted by any lowercase-and-hyphenate transform as `escape-backdrop-dismiss`.
+
+```
+Error: docs/caring-contacts/interaction-matrix.md row `team-switcher`: unmapped dismissal value
+"Escape, backdrop, dismiss". Known dismissal values: "Escape, backdrop, close", "Recovery action only".
+ ❯ normalised tests/caring-contacts-overlay-definitions.test.ts:62:11
+      Tests  1 failed | 4 passed (5)
+```
+
+The failure names the row and the offending value, as required.
+
+**Proof the document is byte-identical afterwards.** I took the blob hash before the edit and again
+after reverting:
+
+```
+before:  9d430bb5f11a2a89d7761572be0212a3d19f5957
+after:   9d430bb5f11a2a89d7761572be0212a3d19f5957
+$ git status --short docs/caring-contacts/interaction-matrix.md
+(no output)
+```
+
+Same content hash, and git reports no modification. The document is unchanged in the commit.
+
+## My normalisation table
+
+The matrix holds human prose; the types hold kebab-case. Four hand-written lookups bridge them:
+
+| Column    | Document wording          | Type value                                                  |
+| --------- | ------------------------- | ----------------------------------------------------------- |
+| Phone     | `Bottom sheet`            | `bottom-sheet`                                              |
+| Phone     | `Full-screen stage`       | `full-screen-stage`                                         |
+| Phone     | `Session gate`            | `session-gate`                                              |
+| Phone     | `Status banner`           | `status-banner`                                             |
+| Desktop   | `Dialog`                  | `dialog`                                                    |
+| Desktop   | `Inspection drawer`       | `inspection-drawer`                                         |
+| Desktop   | `Session gate`            | `session-gate`                                              |
+| Desktop   | `Status banner`           | `status-banner`                                             |
+| Dismissal | `Escape, backdrop, close` | `escape-backdrop-close`                                     |
+| Dismissal | `Recovery action only`    | `recovery-only`                                             |
+| Mutation  | `No`                      | `mutatesState: false`, `requiresFreshAuthentication: false` |
+| Mutation  | `Yes`                     | `mutatesState: true`, `requiresFreshAuthentication: false`  |
+| Mutation  | `Yes; two-stage`          | `mutatesState: true`, `requiresFreshAuthentication: true`   |
+
+**Why it cannot silently accept a corrupted cell.** Every lookup goes through one `normalised()`
+helper that treats an absent key as a hard error: it throws, naming the file, the row id, the column
+and the exact unmapped wording, and it lists the values it does know. There is no default branch, no
+fallback value, and no skip. The tables are closed sets written by hand, so the only strings that
+survive are the thirteen above — a typo, a reworded cell, or a new modality invented in the document
+all stop the test rather than being coerced into something plausible. This is precisely why I did
+not use `value.toLowerCase().replace(/\s+/g, "-")`: mutation 3's `Escape, backdrop, dismiss` would
+have become the healthy-looking `escape-backdrop-dismiss` and the corruption would have passed
+review.
+
+## Discrepancies found
+
+**One, and it needs your ruling.** I have transcribed the matrix faithfully and flagged it rather
+than reconciling it.
+
+The `Dismissal` column collapses two distinct type values into one prose string. Rows 19
+(`session-expiry`) and 20 (`offline-banner`) both read **`Recovery action only`**, but the design
+specimens that the matrix's own header names as its source give `session-expiry` the value
+`action-only` and `offline-banner` the value `recovery-only`. The document cannot distinguish them.
+
+What I did: read the frozen record on its own terms. Both rows say the same thing, so both rows get
+the same value, and `recovery-only` is the member whose name matches the prose. The consequence is
+that **`action-only` is now an unused member of `OverlayDismissal`** — the type is exactly as the
+brief specifies it, but nothing in the table reaches that value.
+
+Why I did not resolve it the other way: the specimens are not importable by production and you told
+me the matrix is the frozen record, so treating the specimen file as the tie-breaker would have made
+a design-scratch file authoritative over the frozen document. Reading the two rows as different
+values would also have required inventing a distinction the document does not make.
+
+If `session-expiry` is meant to be `action-only`, the fix is to amend the matrix document to say so
+(for example `Recovery action only` versus `Sign-in action only`) and then this table; the test will
+force both to move together. That is one line in each file, and I have not made it.
+
+A second, smaller observation: the matrix document's opening line still declares the specimen file
+to be "the source of truth". For Phase 2A production that is now this table and the matrix document
+itself. Worth correcting when someone next edits that document; I have not touched it.
+
+Everything else agrees with the brief exactly: 24 ids in the stated order, 16 `Yes` rows, and
+`Yes; two-stage` on exactly `withdrawal` and `reassignment`.
+
+## Files changed
+
+- `src/components/caring-contacts/workspace/overlays/definitions.ts` (new)
+- `tests/caring-contacts-overlay-definitions.test.ts` (new)
+- `docs/caring-contacts/phase-2a-sdd-archive/task-17-report.md` (this report)
+
+No other file was modified. `docs/caring-contacts/interaction-matrix.md` was edited transiently for
+mutation 3 and restored byte-identically, proven above.
+
+## Self-review findings
+
+- **Counts hold at the source, not only in the test.** 24 `id:` lines, 16 `mutatesState: true`
+  lines, checked by grep independently of the suite.
+- **`MUTATING_OVERLAY_IDS` is derived, not transcribed.** A hand-written list of 16 ids is a second
+  copy that can drift from the first; deriving it removes that failure mode, and the test still
+  pins the length at 16 and the ordering against the table.
+- **The prohibited vocabulary was grepped against the whole file**, not just the fields the test
+  reads, covering the full task list (`high risk`, `safe`, `engagement score`, `campaign`, `lead`,
+  `conversion`, `best match`, `inbox`, `conversation`, `clinical risk`, `risk score`,
+  `wellbeing score`, monitoring claims). No hits.
+- **No transport word is used as a patient-state label.** `delivery-detail` says what the network
+  reported and explicitly denies any inference that the message was read or helped.
+- **No bare dash anywhere**; every field carries real words. Australian English throughout
+  (`personalisation`, `AWST` times in the local format).
+- **The module is framework-free** — no `"use client"`, no React import — so Task 18 can consume it
+  from either side of the client boundary.
+- `overlayDefinition` returns `null` rather than throwing, on the reasoning that an unknown
+  `?overlay=` value is a bad URL rather than a defect. Task 18 must therefore handle `null`; the
+  test pins both branches.
+
+## Concerns
+
+1. **The `action-only` collapse above is the one thing I would not want merged unremarked.** It is a
+   real behavioural decision about `session-expiry`, it is invisible unless you read the dismissal
+   column carefully, and Tasks 18 and 19 will build and then prove whatever this table says.
+2. **The copy is mine, not yours.** The 24 `summary` and `decision` strings are original plain
+   English written against the meaning of each specimen, not lifted wording. They are the strings a
+   coordinator will actually read, so they deserve a copy review even though every automated check
+   passes.
+3. **`availability` has no column in the matrix.** The brief specifies the type but the frozen
+   record does not carry the values, so the 24 availability values are the only fields in this table
+   that no test compares against the document. I set them to match the design specimens' intent
+   (`Read only` on the three read-only surfaces, `Unavailable until resolved` on the seven blocked
+   ones, `Available` on the remaining fourteen). If they matter to Task 18's rendering, they should
+   get a column in the matrix so they are frozen like everything else.
