@@ -20,11 +20,11 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
-const originalNodeEnv = process.env.NODE_ENV;
-
 afterEach(() => {
-  if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
-  else process.env.NODE_ENV = originalNodeEnv;
+  // `process.env.NODE_ENV` is read-only under TypeScript 6, so the production gate is
+  // exercised through Vitest env stubbing rather than by assigning to it directly. This
+  // restores what the assignment did and changes nothing about what is asserted.
+  vi.unstubAllEnvs();
 });
 
 describe("demo role switcher", () => {
@@ -65,7 +65,7 @@ describe("demo role switcher", () => {
     expect(isCaringContactsDemoEnabled("production")).toBe(false);
     expect(isCaringContactsDemoEnabled("test")).toBe(true);
 
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     await expect(resolveDemoActor()).rejects.toBeInstanceOf(CaringContactsDemoUnavailableError);
   });
 });
@@ -113,7 +113,7 @@ describe("the demo role switcher's POST", () => {
   });
 
   it("returns 404 in production before reading or writing a demo role cookie", async () => {
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     vi.mocked(cookies).mockClear();
     const { GET, POST } = await import("@/app/api/caring-contacts/session/route");
 

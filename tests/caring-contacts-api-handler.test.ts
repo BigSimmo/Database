@@ -43,11 +43,11 @@ import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
-const originalNodeEnv = process.env.NODE_ENV;
-
 afterEach(() => {
-  if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
-  else process.env.NODE_ENV = originalNodeEnv;
+  // `process.env.NODE_ENV` is read-only under TypeScript 6, so the production gate is
+  // exercised through Vitest env stubbing rather than by assigning to it directly. This
+  // restores what the assignment did and changes nothing about what is asserted.
+  vi.unstubAllEnvs();
 });
 
 const PLAN_ID = planId("SYN-PLAN-001");
@@ -158,7 +158,7 @@ describe("caring-contacts API boundary", () => {
     const { store, recorded } = await inMemoryStoreWithSpy();
     const getPlan = vi.spyOn(store, "getPlan");
     const applyAssignment = vi.spyOn(store, "applyAssignment");
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
 
     const { GET: readPlan } = await import("@/app/api/caring-contacts/plans/[planId]/route");
     const { POST: writeAssignment } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
