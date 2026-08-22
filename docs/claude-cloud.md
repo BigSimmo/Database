@@ -141,12 +141,39 @@ Provisioning cannot supply credentials or authorise connections. In a fresh clou
    row-level security on a database holding clinical documents, so it is the one value that should
    never be pasted into a shared-readable box under any circumstances.
 
-2. **`gh` is installed, not authenticated.** The `gh` tier puts the binary on `PATH`; it does not and
-   cannot log it in. Anthropic keeps git credentials outside the sandbox deliberately — cloning,
-   branching and pushing go through a credential proxy, and PR creation is a platform feature — so
-   there is no token in the container for `gh` to use. Expect ordinary git and PR work to succeed and
-   `gh api` / `gh pr` calls to fail on authentication unless the platform has started injecting a
-   token. Treat that as unverified until a real session proves otherwise.
+2. **`gh` is installed and authenticated — but only REST is served.** The `gh` tier puts the binary on
+   `PATH`; it does not log it in. Anthropic keeps git credentials outside the sandbox deliberately —
+   cloning, branching and pushing go through a credential proxy — so the container holds no token of
+   its own. This entry used to predict that `gh api` / `gh pr` would therefore fail on
+   authentication, and record that as unverified. **A real session settled it on 2026-08-21, and the
+   prediction was wrong in a way worth knowing:** the platform does inject GitHub access, `gh api`
+   REST calls succeed, and the wall is at the API layer instead.
+
+   `gh` GraphQL is refused with `HTTP 403: This GraphQL query is not enabled for this session — only
+the pinned set of PR-review operations is served. Use REST via gh api repos/{owner}/{repo}/...`.
+   The trap is that this takes out subcommands that look purely RESTful: `gh pr create` and
+   `gh pr view` both fail on their GraphQL repo-info preamble before doing any work, and the error
+   names GraphQL rather than the subcommand, so it reads like a broken install rather than a scoped
+   permission.
+
+   What worked in that session, all through the injected credential: reading pull requests and their
+   commits, files and check runs; posting a review-thread reply; deleting a review comment; and
+   creating a pull request. Use REST or the GitHub MCP tools and none of it is blocked:
+
+   ```bash
+   gh api repos/{owner}/{repo}/pulls/{n} --jq '{state,merged,mergeable_state}'
+   gh api repos/{owner}/{repo}/commits/{sha}/check-runs --jq '.check_runs[].name'
+   # PR creation, replacing `gh pr create`: build the JSON body, then POST it
+   gh api repos/{owner}/{repo}/pulls --method POST --input payload.json
+   ```
+
+   Review-thread **resolution** is the one job REST cannot do — it is GraphQL-only, and that mutation
+   is outside the pinned set. Use the `resolve_review_thread` GitHub MCP tool, which reaches GitHub
+   through Anthropic's servers rather than the container, and takes a thread node id from
+   `pull_request_read` with `method: "get_review_comments"`.
+
+   Treat the pinned set as liable to change: prefer the MCP tools when they cover the job, and fall
+   back to REST rather than assuming a GraphQL path will keep working.
 
 3. **MCP sign-in.** `.mcp.json` declares the Railway and Supabase HTTP servers and
    `.claude/settings.json` enables them, so both reach a cloud session. Authenticating them there is
