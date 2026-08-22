@@ -4,11 +4,11 @@ Branch `claude/rsc-boundary-guard`, cut from `origin/main` at `2327bd962`.
 
 ## What was built
 
-| File | Role |
-| --- | --- |
-| `tests/helpers/module-graph.ts` | **New.** The import-graph machinery lifted verbatim out of `tests/architecture-boundaries.test.ts`: `sourceFiles`, `parseModuleSource`, `moduleSpecifiersFromSource`, `resolveModule`, `buildRuntimeGraph`, `runtimeGraph`, `relative`, plus a new `hasUseClientDirective`. |
-| `tests/architecture-boundaries.test.ts` | **Edited.** Now imports that machinery instead of declaring it. Its six assertions are byte-for-byte unchanged in behaviour; only the duplicated resolver was removed. |
-| `tests/rsc-boundary.test.ts` | **New.** Both analysers, their fixtures, and the real-tree assertions. |
+| File                                    | Role                                                                                                                                                                                                                                                                        |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/helpers/module-graph.ts`         | **New.** The import-graph machinery lifted verbatim out of `tests/architecture-boundaries.test.ts`: `sourceFiles`, `parseModuleSource`, `moduleSpecifiersFromSource`, `resolveModule`, `buildRuntimeGraph`, `runtimeGraph`, `relative`, plus a new `hasUseClientDirective`. |
+| `tests/architecture-boundaries.test.ts` | **Edited.** Now imports that machinery instead of declaring it. Its six assertions are byte-for-byte unchanged in behaviour; only the duplicated resolver was removed.                                                                                                      |
+| `tests/rsc-boundary.test.ts`            | **New.** Both analysers, their fixtures, and the real-tree assertions.                                                                                                                                                                                                      |
 
 There is exactly one import resolver in the repository. The brief was explicit that two resolvers
 that drift are worse than none, and the alternative — importing helpers out of a `*.test.ts` file —
@@ -42,7 +42,7 @@ src/components/ui-primitives.tsx:394 onClick        - reached by ...
 Every one is a shared UI module with no `"use client"` directive that exports **both** a server-safe
 helper and an interactive component: `ui-primitives.tsx` exports `cn`, `eyebrowText` and `EmptyState`
 alongside `IconButton` and a toggle switch. Server pages import the helpers. Next compiles the
-interactive component into the client graph for whichever *client* module renders it. Nothing throws.
+interactive component into the client graph for whichever _client_ module renders it. Nothing throws.
 
 An import-reachability check flags essentially every shared UI module in this codebase, forever. That
 is the guard-gets-disabled failure the brief warns about, so the walk was re-anchored where React
@@ -70,7 +70,7 @@ data-dependent even when it does. So the attribute value is now classified:
   Not reported.
 
 **2. The attribute must land on a host element or a client component.** Handing a function to
-*another Server Component's* `on*`-named prop is legal — it never crosses the boundary. The target
+_another Server Component's_ `on*`-named prop is legal — it never crosses the boundary. The target
 element is resolved: intrinsic lowercase name → always a throw; component imported from a
 `"use client"` module → always a throw; locally declared or imported from a non-client module →
 legal, skipped. If that server component then puts the value on a host element, the walk catches it
@@ -132,7 +132,7 @@ type-only imports are marked in the AST, and JSX element names are a distinct no
 **Check A must stay silent for:**
 
 - the same handler in a file that carries `"use client"`;
-- a handler module reached only *through* a client module;
+- a handler module reached only _through_ a client module;
 - a sibling export in a module the page imports but never renders (`EmptyState` from a module that
   also exports `IconButton`);
 - a data-dependent handler in a generic template — the `ModeHomeTemplate` shape reproduced as a
@@ -186,11 +186,10 @@ here, for two reasons.
    `src/lib/developer-area/headers.ts` declares
    `DEVELOPER_GATED_PATH_PREFIXES = ["/mockups/development", "/mockups/caring-contacts"]`, and
    `src/app/mockups/layout.tsx` calls `notFound()` only when `!mockupsEnabled() && !isDeveloperGatedArea`.
-   `src/proxy.ts` marks those two prefixes so they reach a signed-in-administrator gate instead of a
-   404. A boundary violation there is a live 500 on a real production route.
+   `src/proxy.ts` marks those two prefixes so they reach a signed-in-administrator gate instead of a 404. A boundary violation there is a live 500 on a real production route.
 2. **For the other 101 mockup routes, the failure mode is a hard runtime throw** that breaks the page
    for the design-review audience the mockups exist to serve. The mockup exemptions elsewhere are
-   about *product* concerns (a dead button is a UX defect; an unlinked route is an orphan) — neither
+   about _product_ concerns (a dead button is a UX defect; an unlinked route is an orphan) — neither
    applies to a page that cannot render at all.
 
 The one repository finding that came from mockup scope (`factsheets-home-detailed`) turned out to be
@@ -242,3 +241,165 @@ reported exit codes are from real runs, not from a refusal.
 
 `tests/gate-receipts.test.ts` is known to fail on this Windows Dev Drive for environmental reasons
 and was not in any filtered run.
+
+---
+
+# Review round 2 — six findings addressed
+
+Verdict was _Needs fixes, nothing Critical_. All four Important findings and both
+promoted Minors are fixed. The five deferred items were not touched.
+
+## Finding 1 (Important) — docstring promised coverage that does not exist
+
+The old text claimed that when a function prop is handed to another Server Component,
+"if that component then puts it on a host element, the check catches it there". That is
+false, and my own two narrowings are what make it false. They compose:
+
+```
+page.tsx     <Toolbar onReset={handleReset} />   // narrowing 2 skips it: Toolbar is a Server Component
+toolbar.tsx  <button onClick={onReset} />        // narrowing 1 skips it: onReset is a prop, not provably a function
+```
+
+Both sites silent, route throws on every request. The docstring now names this as a
+**composed** gap in its own block, explains that neither rule is individually wrong and
+that the miss lives in the seam, and says what closing it would take (inter-component
+prop flow — a different analysis, not a tuning of this one). It heads the fail-open list.
+
+The gap is also pinned in the suite by
+`pins the composed prop-flow gap: a handler threaded through a Server Component prop is missed`,
+which asserts `[]` and carries a comment saying this is a documented gap rather than
+desired behaviour, that the expectation _should_ go red if the gap is ever closed, and
+that the fix then is to update the test rather than re-widen a narrowing.
+
+## Finding 2 (Important) — 20 server-rendered route files were outside the entry set
+
+`SERVER_ENTRY_PATTERN` now matches `page|layout|loading|not-found|template|default`.
+
+Measured file conventions under `src/app`:
+
+| convention                     | files | carrying `"use client"` |
+| ------------------------------ | ----- | ----------------------- |
+| `page.tsx`                     | 175   | 1                       |
+| `layout.tsx`                   | 18    | 0                       |
+| `loading.tsx`                  | 20    | **0**                   |
+| `not-found.tsx`                | 3     | 3                       |
+| `error.tsx`                    | 18    | 18                      |
+| `global-error.tsx`             | 1     | 1                       |
+| `template.tsx` / `default.tsx` | 0     | –                       |
+
+The 20 `loading.tsx` files are all Server Components on real production routes and were
+invisible to the guard. `template.tsx`/`default.tsx` do not exist yet but are in the
+alternation so a future one is covered on arrival.
+
+`error.tsx`/`global-error.tsx` are deliberately excluded, and a comment now says so and
+why: React requires an error boundary to be a Client Component, all 19 carry the
+directive, and the `!isClient(file)` filter would drop them even if the pattern matched.
+Adding them would be a no-op that reads like a fix.
+
+Entry count went **192 → 212**.
+
+Two pins, because widening a pattern is exactly the kind of change a later edit reverts
+by accident:
+
+- `treats every server-rendered route convention as an entry point` asserts the pattern
+  matches all six conventions (including a route-group path and a `@modal/default.tsx`),
+  does **not** match `error.tsx`/`global-error.tsx`, and does not match a non-route file
+  such as `src/app/(search-app)/page-header.tsx`.
+- End-to-end mutation on the newly covered convention: injecting a local function and
+  `<button onClick={cancel}>` into the real
+  `src/app/(search-app)/calculators/loading.tsx` turned the guard red with
+  `src/app/(search-app)/calculators/loading.tsx:9 onClick in <default> - rendered via src/app/(search-app)/calculators/loading.tsx`.
+  File restored from a byte copy; `git status` clean afterwards.
+
+## Finding 3 (Important) — the coverage floor could not fail
+
+`entries.length > 20` against 212 real entries was 9.6× too loose: a regression dropping
+the walk to 25 routes would have left the guard green forever while covering 13% of the
+app. Replaced with named constants:
+
+```
+const ENTRY_FLOOR = 180;   // measured 212
+const MODULE_FLOOR = 290;  // measured 341
+```
+
+Each sits ~15% under its measurement — loose enough for ordinary route churn, tight
+enough to catch losing a route convention or a whole route group. The old second
+assertion (`serverModules.size > entries.length`) was trivially true and is replaced by
+a real floor. The comment states that these are collapse detectors and not targets,
+names the old value as the defect, and instructs that a legitimate refactor lowers a
+floor deliberately in its own commit with the fresh measurement in the message — never
+nudged to clear a red run.
+
+Measurement taken from a temporary `console.log` inside the assertion:
+`MEASURED entries=212 serverModules=341`. The log was removed afterwards and the numbers
+live in the comment.
+
+## Finding 4 (Important) — Server Actions were a latent false positive
+
+`<ClientForm onSubmit={saveAction} />` where `saveAction` carries `"use server"` is legal
+Next: React serialises it as an opaque reference, not a closure. The old analyser would
+have reported it — `saveAction` is a `FunctionDeclaration`, so `functionValuedNames`
+marked it certain, and the target is a client component.
+
+`isServerAction` now excludes, at three levels:
+
+1. a `FunctionDeclaration` whose body opens with `"use server"`;
+2. a `const x = async () => { "use server"; … }` binding;
+3. an inline `onChange={async () => { "use server"; … }}` literal;
+
+plus a whole-module short circuit: a file whose `Program` carries `"use server"` exports
+actions, never closures, so `functionValuedNames` returns empty for it.
+
+An action _imported_ from an actions module needed no work and the docstring says so: an
+imported binding is never in `functionValuedNames`, so it is already not "provably a
+function".
+
+Four fixtures, both directions: the inline-plus-local case, the module-directive case,
+a control asserting the same shape **is** reported with no directive anywhere, and
+`still reports an ordinary local function handed to a client component's prop`.
+
+## Finding 5 (Minor, promoted) — Check B missed spread and iteration
+
+`[...MODE_ROWS]`, `{...MODE_ROWS}`, `save(...MODE_ROWS)` and
+`for (const row of MODE_ROWS)` all throw on a client-reference proxy and none is a member
+access or a call. The usage union is now `"member" | "call" | "spread" | "iterate"`;
+`SPREAD_PARENTS` covers `SpreadElement` (array, object and argument spread in Babel 7+),
+`JSXSpreadAttribute`, and the legacy `SpreadProperty`/`ObjectSpreadProperty` names.
+Three fixtures: spread reported in all three positions, `for…of` reported, and spread of
+a **non**-client module silent.
+
+## Finding 6 (Minor, promoted) — four newly-public symbols with no consumer
+
+`sourceFiles`, `extensions`, `moduleSpecifiers` and `buildRuntimeGraph` were private
+before the extraction and are imported by nobody. All four are module-private again. The
+helper's public surface is now exactly what its two consumers use: `projectRoot`,
+`parseModuleSource`, `moduleSpecifiersFromSource`, `resolveModule`, `runtimeGraph`,
+`relative`, `hasUseClientDirective`.
+
+## Deferred, untouched
+
+The barrel-re-export handler target; `MODULE_SCOPE` only enqueued for entries; the
+Check B granularity wording; the missing `export * from` fixture; the double-registered
+default export.
+
+## Round-2 verification
+
+**The real tree is still clean after widening the entry set.** Adding 20 `loading.tsx`
+entries (192 → 212 entry points, 341 reachable server modules) surfaced no new violation
+under either check — the only red in the round was my
+own `MODULE_FLOOR` guess (`expected 341 to be greater than or equal to 400`), corrected
+to the measured value.
+
+```
+npm run test -- tests/rsc-boundary.test.ts tests/architecture-boundaries.test.ts
+  → Test Files  2 passed (2) / Tests  40 passed (40)     [32 in round 1, 8 added here]
+
+npm run typecheck:source
+  → TYPECHECK_EXIT_CODE=0
+
+npm run format   (repository-wide, per the round-1 self-flag)
+```
+
+Same environment discipline as round 1: every gate ran inside a bounded in-Bash retry
+loop against run-coordinator contention from `D:\Worktrees\Database\cc-2a-live`, with the
+inner exit code captured and re-raised rather than being replaced by a pipe.

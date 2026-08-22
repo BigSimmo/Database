@@ -175,12 +175,48 @@ function isHostElement(nameNode: unknown) {
   return current?.type === "JSXIdentifier" && typeof current.name === "string" && /^[a-z]/.test(current.name);
 }
 
-/** Names bound to a function literal anywhere in the module. */
+function carriesDirective(directives: unknown, value: string) {
+  const list = directives as AnyNode[] | undefined;
+  return Boolean(list?.some((directive) => (directive.value as AnyNode | undefined)?.value === value));
+}
+
+/**
+ * A Server Action: a function whose own body opens with `"use server"`.
+ *
+ * `<ClientForm onSubmit={saveAction} />` where `saveAction` is a Server Action
+ * is legal, idiomatic Next - React serialises it as an opaque *reference*, not
+ * as a closure, so nothing throws. It is otherwise indistinguishable from the
+ * defect this check hunts: a locally declared function handed to a client
+ * component's `on*` prop. The repository has no `"use server"` code today, so
+ * this is pre-emptive - but the day a guard fires on correct code is the day
+ * somebody deletes it, and forms are exactly what this codebase will grow.
+ *
+ * An action imported from elsewhere needs no special handling: an imported
+ * binding is never in `functionValuedNames`, so it is not "provably a function"
+ * and is already skipped.
+ */
+function isServerAction(node: unknown) {
+  const current = node as AnyNode | undefined;
+  const body = current?.body as AnyNode | undefined;
+  return carriesDirective(body?.directives, "use server");
+}
+
+function isFunctionLiteral(node: unknown) {
+  const type = (node as AnyNode | undefined)?.type;
+  return type === "ArrowFunctionExpression" || type === "FunctionExpression";
+}
+
+/** Names bound to a function literal anywhere in the module, Server Actions excluded. */
 function functionValuedNames(root: unknown) {
   const names = new Set<string>();
+  // A whole `"use server"` module exports Server Actions, never closures.
+  const program = (root as AnyNode | undefined)?.program as AnyNode | undefined;
+  if (carriesDirective(program?.directives, "use server")) return names;
+
   walkAst(root, (current) => {
     if (current.type === "FunctionDeclaration") {
       const id = current.id as AnyNode | undefined;
+      if (isServerAction(current)) return;
       if (id?.type === "Identifier" && typeof id.name === "string") names.add(id.name);
       return;
     }
@@ -190,7 +226,8 @@ function functionValuedNames(root: unknown) {
       if (
         id?.type === "Identifier" &&
         typeof id.name === "string" &&
-        (init?.type === "ArrowFunctionExpression" || init?.type === "FunctionExpression")
+        isFunctionLiteral(init) &&
+        !isServerAction(init)
       ) {
         names.add(id.name);
       }
@@ -221,7 +258,8 @@ function provablyFunctionValue(value: unknown, functionNames: Set<string>): bool
 
   const expression = unwrap(current.expression);
   if (!expression) return false;
-  if (expression.type === "ArrowFunctionExpression" || expression.type === "FunctionExpression") return true;
+  // An inline Server Action serialises as a reference, not a closure.
+  if (isFunctionLiteral(expression)) return !isServerAction(expression);
   if (expression.type === "Identifier" && typeof expression.name === "string") {
     return functionNames.has(expression.name);
   }
@@ -416,17 +454,31 @@ export type HandlerViolation = {
  *      renders it - and is not reported.
  *   2. The attribute must sit on an intrinsic host element (`<button>`) or on a
  *      component imported from a `"use client"` module. Handing a function to
- *      *another Server Component's* prop is legal and stays unreported; if that
- *      component then puts it on a host element, the check catches it there.
+ *      *another Server Component's* prop is legal and stays unreported.
  *
- * Known fail-open gaps (misses, never false alarms): a handler arriving through
- * props rather than defined locally; a component handed over as a value rather
- * than named in JSX (`<Shell render={Toolbar} />`); a component reached through
- * `next/dynamic`; a default export wrapped in a higher-order call
- * (`export default withThing(Page)`); spread props (`{...handlers}`), which
- * carry no statically visible attribute name; and an `on*` prop on a component
- * imported from a bare package specifier (`next/link`), which this resolver
- * does not follow into `node_modules`.
+ * Those two narrowings COMPOSE INTO A BLIND SPOT, which is worth stating outright
+ * rather than leaving to be inferred from the two rules:
+ *
+ *     page.tsx     <Toolbar onReset={handleReset} />  // (2) skips it: Toolbar is a Server Component
+ *     toolbar.tsx  <button onClick={onReset} />       // (1) skips it: `onReset` is a prop, not provably a function
+ *
+ * Both sites stay silent and the route throws on every request. Neither rule is
+ * individually wrong; the miss is in the seam between them. There is no live
+ * instance today, but `src/components/mode-home-template.tsx` is precisely that
+ * shape, so this is a question of when rather than whether. Closing it needs
+ * inter-component prop flow - tracking which function a caller binds to which
+ * prop name, across modules - which is a different analysis, not a loosening of
+ * this one. The test named "pins the composed prop-flow gap" holds the case so
+ * the hole is visible in the suite and not only in this comment.
+ *
+ * Known fail-open gaps (misses, never false alarms): the composed prop-flow gap
+ * above; a component handed over as a value rather than named in JSX
+ * (`<Shell render={Toolbar} />`); a component reached through `next/dynamic`; a
+ * default export wrapped in a higher-order call (`export default withThing(Page)`);
+ * spread props (`{...handlers}`), which carry no statically visible attribute
+ * name; an `on*` prop on a component imported from a bare package specifier
+ * (`next/link`), which this resolver does not follow into `node_modules`; and a
+ * Server Action, which is skipped deliberately (see `isServerAction`).
  */
 export function serverRenderedHandlerViolations(
   entries: string[],
@@ -521,9 +573,17 @@ export function serverRenderedHandlerViolations(
 export type ClientDataFinding = {
   binding: string;
   specifier: string;
-  usage: "member" | "call";
+  usage: "member" | "call" | "spread" | "iterate";
   line: number;
 };
+
+// Spreading or iterating a client-reference proxy throws just as hard as reading
+// a property off it: `[...MODE_ROWS]`, `{...MODE_ROWS}`, `save(...MODE_ROWS)` and
+// `for (const row of MODE_ROWS)` are all real failure paths, and none of them is
+// a member access or a call. (Babel has used `SpreadElement` for array, object
+// and argument spread since v7; the older `SpreadProperty` name is kept for
+// safety.)
+const SPREAD_PARENTS = ["SpreadElement", "JSXSpreadAttribute", "SpreadProperty", "ObjectSpreadProperty"];
 
 function patternNames(node: unknown, into: Set<string>) {
   if (!node || typeof node !== "object") return;
@@ -563,6 +623,10 @@ function patternNames(node: unknown, into: Set<string>) {
  * Fails open on shadowing: if the module declares its own binding anywhere with
  * the same name, that name is dropped entirely rather than risk attributing an
  * inner-scope variable's member access to the import.
+ *
+ * Reported usages: `member` (`rows.flatMap(...)`), `call` (`buildRows()`),
+ * `spread` (`[...rows]`, `{...rows}`, `save(...rows)`) and `iterate`
+ * (`for (const row of rows)`).
  *
  * Module granularity is deliberate here, unlike Check A. A server-side module
  * that imports client data holds a client-reference proxy no matter which
@@ -640,6 +704,14 @@ export function clientDataUsages(
       return;
     }
 
+    if (SPREAD_PARENTS.includes(parentType) && parent.argument === node) {
+      findings.push({ binding: node.name, specifier, usage: "spread", line: lineOf(node) });
+      return;
+    }
+    if (parentType === "ForOfStatement" && parent.right === node) {
+      findings.push({ binding: node.name, specifier, usage: "iterate", line: lineOf(node) });
+      return;
+    }
     if ((parentType === "MemberExpression" || parentType === "OptionalMemberExpression") && parent.object === node) {
       findings.push({ binding: node.name, specifier, usage: "member", line: lineOf(node) });
       return;
@@ -702,7 +774,16 @@ export function serverReachableModules(
  * The real tree                                                       *
  * ------------------------------------------------------------------ */
 
-const SERVER_ENTRY_PATTERN = /^src\/app\/(?:.*\/)?(?:page|layout)\.tsx$/;
+// Every Next.js file convention that renders as a Server Component. `page.tsx`
+// and `layout.tsx` alone left 20 `loading.tsx` files - all of them server
+// components on real production routes - outside the walk entirely.
+//
+// `error.tsx` and `global-error.tsx` are deliberately absent and must stay that
+// way: React requires an error boundary to be a Client Component, all 19 in this
+// repository carry `"use client"`, and the `!isClient(file)` filter below would
+// drop them even if the pattern matched. Adding them would be a no-op that reads
+// like a fix.
+const SERVER_ENTRY_PATTERN = /^src\/app\/(?:.*\/)?(?:page|layout|loading|not-found|template|default)\.tsx$/;
 
 // Scope decision: mockups are IN. `src/app/mockups/**` is exempt from the
 // button-wiring and route-reachability gates because those routes 404 in
@@ -858,6 +939,124 @@ describe("rsc boundary - check A: event handlers on the server side", () => {
     expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);
   });
 
+  it("pins the composed prop-flow gap: a handler threaded through a Server Component prop is missed", () => {
+    // A DOCUMENTED GAP, not desired behaviour. This route throws on every
+    // request, and the guard is silent at both sites: narrowing (2) skips the
+    // call site because `Toolbar` is a Server Component, and narrowing (1) skips
+    // the render site because `onReset` is a prop rather than a provable
+    // function. Each rule is individually correct; the miss lives in the seam.
+    //
+    // The test exists so the hole is visible in the suite rather than only in a
+    // comment. If a future change adds inter-component prop flow and closes it,
+    // this expectation SHOULD go red - the fix then is to update this test, never
+    // to re-widen a narrowing.
+    const project = fixtureProject({
+      "page.tsx": `import { Toolbar } from "./toolbar";
+         export default function Page() {
+           function handleReset() {
+             purge();
+           }
+           return <Toolbar onReset={handleReset} />;
+         }`,
+      "./toolbar": `export function Toolbar({ onReset }) {
+           return <button onClick={onReset}>Reset</button>;
+         }`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);
+  });
+
+  it("does not report a Server Action handed to a client component's prop", () => {
+    // `"use server"` functions serialise as an opaque reference, not a closure,
+    // so this is correct Next code. Without this carve-out the guard would fire
+    // on the first form this codebase grows.
+    const project = fixtureProject({
+      "page.tsx": `import { ClientForm } from "./client-form";
+         export default function Page() {
+           async function saveAction(data) {
+             "use server";
+             await save(data);
+           }
+           const inlineAction = async () => {
+             "use server";
+             await save();
+           };
+           return (
+             <ClientForm
+               onSubmit={saveAction}
+               onReset={inlineAction}
+               onChange={async () => {
+                 "use server";
+                 await save();
+               }}
+             />
+           );
+         }`,
+      "./client-form": `"use client";
+         export function ClientForm({ onSubmit }) {
+           return <form action={onSubmit} />;
+         }`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toEqual([]);
+  });
+
+  it('does not report an action exported from a "use server" module', () => {
+    const project = fixtureProject({
+      "page.tsx": `import { ClientForm } from "./client-form";
+         export default function Page() {
+           return <ClientForm onSubmit={saveAction} />;
+         }
+         export async function saveAction() {
+           await save();
+         }`,
+      "./client-form": `"use client";
+         export function ClientForm({ onSubmit }) {
+           return <form action={onSubmit} />;
+         }`,
+    });
+    // Control: no directive anywhere, so the guard reports it.
+    expect(serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve)).toHaveLength(1);
+
+    // The same shape with a module-level `"use server"`: every top-level function
+    // in the file is an action, so nothing is reported.
+
+    const actionsProject = fixtureProject({
+      "page.tsx": `"use server";
+         import { ClientForm } from "./client-form";
+         export default function Page() {
+           return <ClientForm onSubmit={saveAction} />;
+         }
+         export async function saveAction() {
+           await save();
+         }`,
+      "./client-form": `"use client";
+         export function ClientForm({ onSubmit }) {
+           return <form action={onSubmit} />;
+         }`,
+    });
+    expect(serverRenderedHandlerViolations(["page.tsx"], actionsProject.load, actionsProject.resolve)).toEqual([]);
+  });
+
+  it("still reports an ordinary local function handed to a client component's prop", () => {
+    // The neighbour of the Server Action cases: identical shape, no directive.
+    const project = fixtureProject({
+      "page.tsx": `import { ClientForm } from "./client-form";
+         export default function Page() {
+           function handleSubmit(data) {
+             record(data);
+           }
+           return <ClientForm onSubmit={handleSubmit} />;
+         }`,
+      "./client-form": `"use client";
+         export function ClientForm({ onSubmit }) {
+           return <form action={onSubmit} />;
+         }`,
+    });
+    const violations = serverRenderedHandlerViolations(["page.tsx"], project.load, project.resolve);
+    expect(violations.map(({ attribute, target }) => ({ attribute, target }))).toEqual([
+      { attribute: "onSubmit", target: "<ClientForm>" },
+    ]);
+  });
+
   it("does not report a data-dependent handler in a generic template", () => {
     // The `ModeHomeTemplate` shape measured on main: the attribute is in the
     // source of a server-rendered component, but the value comes from data the
@@ -1000,6 +1199,40 @@ describe("rsc boundary - check B: server modules reading client data", () => {
     expect(findings.map((finding) => finding.usage)).toEqual(["call"]);
   });
 
+  it("reports spreading a client export into an array, an object, or a call", () => {
+    const findings = clientDataUsages(
+      `import { MODE_ROWS } from "./client-catalog";
+       export const copy = [...MODE_ROWS];
+       export const merged = { ...MODE_ROWS };
+       export const saved = save(...MODE_ROWS);`,
+      isClientFixtureSpecifier,
+    );
+    expect(findings.map((finding) => finding.usage)).toEqual(["spread", "spread", "spread"]);
+  });
+
+  it("reports iterating a client export", () => {
+    const findings = clientDataUsages(
+      `import { MODE_ROWS } from "./client-catalog";
+       export function render() {
+         for (const row of MODE_ROWS) {
+           emit(row);
+         }
+       }`,
+      isClientFixtureSpecifier,
+    );
+    expect(findings.map((finding) => finding.usage)).toEqual(["iterate"]);
+  });
+
+  it("reports nothing for spreading a module that is not a client module", () => {
+    expect(
+      clientDataUsages(
+        `import { MODE_ROWS } from "./server-catalog";
+         export const copy = [...MODE_ROWS];`,
+        isClientFixtureSpecifier,
+      ),
+    ).toEqual([]);
+  });
+
   it("reports namespace member access into a client module", () => {
     const findings = clientDataUsages(
       `import * as catalog from "./client-catalog";
@@ -1106,10 +1339,49 @@ describe("rsc boundary - check B: server modules reading client data", () => {
 });
 
 describe("rsc boundary - the repository", () => {
-  it("finds Server Component entry points to walk from", { timeout: 120_000 }, () => {
+  // Collapse detectors, not targets. Both assertions below exist because the two
+  // real-tree checks are only as strong as the surface they walk: an edit to
+  // SERVER_ENTRY_PATTERN, to `relative()`, or to route-group handling could
+  // quietly drop the walk to a handful of routes, and the suite would stay green
+  // forever while covering almost nothing. That is exactly the check-that-cannot-
+  // fail defect this guard was built to be the opposite of, so the floors sit
+  // near the measurement rather than at a token value.
+  //
+  // Measured on this branch: 212 server entry points reaching 341 modules. Each
+  // floor sits ~15% under its measurement - loose enough that ordinary route
+  // churn cannot trip it, tight enough that losing a route convention or a whole
+  // route group does. (The previous `> 20` was 9.6x below the real count: the
+  // walk could have collapsed to 13% of the app and stayed green forever.)
+  //
+  // If a legitimate refactor genuinely moves the real number under a floor, lower
+  // it deliberately in its own commit and put the fresh measurement in the message.
+  // Never nudge a floor to clear a red run.
+  const ENTRY_FLOOR = 180;
+  const MODULE_FLOOR = 290;
+
+  it("treats every server-rendered route convention as an entry point", () => {
+    const matches = (route: string) => SERVER_ENTRY_PATTERN.test(route);
+    expect(
+      [
+        "src/app/page.tsx",
+        "src/app/(search-app)/calculators/loading.tsx",
+        "src/app/(search-app)/dictionary/layout.tsx",
+        "src/app/documents/[id]/not-found.tsx",
+        "src/app/reference/template.tsx",
+        "src/app/@modal/default.tsx",
+      ].filter((route) => !matches(route)),
+    ).toEqual([]);
+    // Error boundaries must be Client Components, so they are intentionally not
+    // entry points; `!isClient(file)` would drop them regardless.
+    expect(["src/app/error.tsx", "src/app/global-error.tsx"].filter(matches)).toEqual([]);
+    // Not a route file, and not under src/app.
+    expect(["src/app/(search-app)/page-header.tsx", "src/components/page.tsx"].filter(matches)).toEqual([]);
+  });
+
+  it("walks a plausible share of the app's server routes", { timeout: 120_000 }, () => {
     const { entries, serverModules } = boundaryState();
-    expect(entries.length).toBeGreaterThan(20);
-    expect(serverModules.size).toBeGreaterThan(entries.length);
+    expect(entries.length).toBeGreaterThanOrEqual(ENTRY_FLOOR);
+    expect(serverModules.size).toBeGreaterThanOrEqual(MODULE_FLOOR);
   });
 
   it("has no event handler on the server side of the boundary", { timeout: 120_000 }, () => {

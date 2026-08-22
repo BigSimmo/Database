@@ -10,9 +10,9 @@ import { parse } from "@babel/parser";
 // as the graph it walks.
 export const projectRoot = path.resolve(import.meta.dirname, "..", "..");
 const sourceRoots = [path.join(projectRoot, "src"), path.join(projectRoot, "worker")];
-export const extensions = [".ts", ".tsx", ".mts", ".mjs", ".js", ".jsx"];
+const extensions = [".ts", ".tsx", ".mts", ".mjs", ".js", ".jsx"];
 
-export function sourceFiles() {
+function sourceFiles() {
   const files: string[] = [];
   const visit = (directory: string) => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -116,7 +116,7 @@ export function moduleSpecifiersFromSource(_filePath: string, sourceText: string
   return { source, staticImports, dynamicImports };
 }
 
-export function moduleSpecifiers(filePath: string) {
+function moduleSpecifiers(filePath: string) {
   return moduleSpecifiersFromSource(filePath, fs.readFileSync(filePath, "utf8"));
 }
 
@@ -134,7 +134,7 @@ export function resolveModule(fromFile: string, specifier: string, fileSet: Set<
   return candidates.map((candidate) => path.resolve(candidate)).find((candidate) => fileSet.has(candidate)) ?? null;
 }
 
-export function buildRuntimeGraph() {
+function buildRuntimeGraph() {
   const files = sourceFiles();
   const fileSet = new Set(files);
   const graph = new Map<string, string[]>();
