@@ -124,6 +124,14 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Static design-review assets under public/mockups remain intentionally
+        // retrievable, but must not appear in search results. Next applies
+        // headers before public-file handling, so this covers nested assets as
+        // well as the app-route namespace without broadening to other files.
+        source: "/mockups/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+      {
         source: "/manifest.webmanifest",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
