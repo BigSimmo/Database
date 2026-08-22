@@ -6,9 +6,9 @@
   "status": "draft",
   "packageVariant": "cloud",
   "packageHash": "0000000000000000000000000000000000000000000000000000000000000000",
-  "packageBaseSha": "6596151089077debd21f60359dc32777ff7ee252",
-  "packageHeadSha": "6596151089077debd21f60359dc32777ff7ee252",
-  "programmeImplementationBase": "6596151089077debd21f60359dc32777ff7ee252",
+  "packageBaseSha": "f3d1a3cce2c943ad3083425ed9c7c46dbef23087",
+  "packageHeadSha": "f3d1a3cce2c943ad3083425ed9c7c46dbef23087",
+  "programmeImplementationBase": "f3d1a3cce2c943ad3083425ed9c7c46dbef23087",
   "branch": "codex/rag-upgrade-p00",
   "launchProfile": "high",
   "xhighConfirmed": false,
@@ -88,8 +88,8 @@
       "probeAgentId": null
     }
   ],
-  "phaseStartSha": "6596151089077debd21f60359dc32777ff7ee252",
-  "phaseEndSha": "6596151089077debd21f60359dc32777ff7ee252",
+  "phaseStartSha": "f3d1a3cce2c943ad3083425ed9c7c46dbef23087",
+  "phaseEndSha": "f3d1a3cce2c943ad3083425ed9c7c46dbef23087",
   "startedAt": "2026-08-22T00:00:00.000Z",
   "completedAt": null,
   "tasks": [],
