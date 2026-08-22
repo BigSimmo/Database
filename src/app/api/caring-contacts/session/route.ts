@@ -12,6 +12,7 @@ import {
   CARING_CONTACTS_ROLE_COOKIE,
   DEMO_ROLES,
   demoActorForRole,
+  isCaringContactsDemoEnabled,
   isDemoRole,
   resolveDemoActor,
 } from "@/lib/caring-contacts-server/session";
@@ -29,14 +30,21 @@ const setRoleSchema = z
     path: ["role"],
   });
 
+/** The demo role switcher is not an authentication surface and is absent in production. */
+function demoUnavailableResponse(): Response {
+  return jsonError(new PublicApiError("Not found.", 404), 404, { log: false });
+}
+
 /** The role the switcher currently shows, resolved the same way every other reader does. */
 export async function GET() {
+  if (!isCaringContactsDemoEnabled()) return demoUnavailableResponse();
   const actor = await resolveDemoActor();
   return Response.json({ role: actor.roles[0], roles: DEMO_ROLES });
 }
 
 /** Switches the demo role. `{ role }` not in DEMO_ROLES is refused with 400. */
 export async function POST(request: Request) {
+  if (!isCaringContactsDemoEnabled()) return demoUnavailableResponse();
   try {
     const body = await parseJsonBody(request, setRoleSchema, "role must be one of the caring-contacts demo roles.");
     const actor = demoActorForRole(body.role);

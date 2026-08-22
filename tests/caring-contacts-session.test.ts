@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CARING_CONTACTS_ROLE_COOKIE,
+  CaringContactsDemoUnavailableError,
   DEMO_ROLES,
   demoActorForRole,
+  isCaringContactsDemoEnabled,
   resolveDemoActor,
 } from "@/lib/caring-contacts-server/session";
 import { logger } from "@/lib/logger";
@@ -18,6 +20,12 @@ vi.mock("@/lib/logger", () => ({
 }));
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
+const originalNodeEnv = process.env.NODE_ENV;
+
+afterEach(() => {
+  if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = originalNodeEnv;
+});
 
 describe("demo role switcher", () => {
   it("offers all five roles and no credential field", () => {
@@ -51,6 +59,14 @@ describe("demo role switcher", () => {
 
   it("names the acting role in the actor id so the audit trail can show it", () => {
     expect(demoActorForRole("auditor").id).toBe("demo-auditor");
+  });
+
+  it("never resolves a role-only demo actor in production", async () => {
+    expect(isCaringContactsDemoEnabled("production")).toBe(false);
+    expect(isCaringContactsDemoEnabled("test")).toBe(true);
+
+    process.env.NODE_ENV = "production";
+    await expect(resolveDemoActor()).rejects.toBeInstanceOf(CaringContactsDemoUnavailableError);
   });
 });
 
@@ -94,5 +110,15 @@ describe("the demo role switcher's POST", () => {
 
     expect(response.status).toBe(500);
     expect(logger.error).toHaveBeenCalled();
+  });
+
+  it("returns 404 in production before reading or writing a demo role cookie", async () => {
+    process.env.NODE_ENV = "production";
+    vi.mocked(cookies).mockClear();
+    const { GET, POST } = await import("@/app/api/caring-contacts/session/route");
+
+    await expect(GET()).resolves.toMatchObject({ status: 404 });
+    await expect(POST(switchRole("auditor"))).resolves.toMatchObject({ status: 404 });
+    expect(cookies).not.toHaveBeenCalled();
   });
 });

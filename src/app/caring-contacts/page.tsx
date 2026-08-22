@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
+import { notFound } from "next/navigation";
 
-import { resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 
 /**
@@ -60,6 +61,7 @@ const CaringContactsShell = dynamic(() =>
  * copy of a page that says nothing is stopped would outlive the stop.
  */
 export default async function CaringContactsTodayPage() {
+  if (!isCaringContactsDemoEnabled()) notFound();
   const actor = await resolveDemoActor();
   const store = await caringContactsStore();
   const serviceState = await store.getServiceState({ actor });

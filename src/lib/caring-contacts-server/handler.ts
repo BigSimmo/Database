@@ -45,7 +45,7 @@ import {
 import type { CaringContactRepository, WriteContext } from "@/lib/caring-contacts/repository";
 import { parseJsonBody } from "@/lib/validation/body";
 
-import { resolveDemoActor } from "./session";
+import { isCaringContactsDemoEnabled, resolveDemoActor } from "./session";
 import { caringContactsStore } from "./store";
 
 /**
@@ -106,6 +106,15 @@ export function invalidRequestResponse(): Response {
 }
 
 /**
+ * Until enterprise authentication supplies a trusted actor, production must
+ * not expose a role-only demo session or any route that trusts one. A 404 keeps
+ * the unavailable demo surface from becoming an authorization oracle.
+ */
+function demoUnavailableResponse(): Response {
+  return jsonResponse({ refusal: "not-found" }, 404);
+}
+
+/**
  * Any request field that becomes an audit `objectId` -- or an identifier of any kind. Constrained
  * to the audit trail's own id grammar so free text is refused with a clean 400 at the edge rather
  * than travelling into the audit path, where it would be rejected too late to matter. Never use it
@@ -154,6 +163,7 @@ export type ReadHandlerConfig<T> = {
  */
 export function readHandler<T>(config: ReadHandlerConfig<T>): (request: NextRequest) => Promise<Response> {
   return async (request: NextRequest): Promise<Response> => {
+    if (!isCaringContactsDemoEnabled()) return demoUnavailableResponse();
     const actor = await resolveDemoActor();
     const store = await caringContactsStore();
     const objectId = config.access.objectId(request);
@@ -264,6 +274,7 @@ export function writeHandler<TBody, TResult>(
   config: WriteHandlerConfig<TBody, TResult>,
 ): (request: NextRequest) => Promise<Response> {
   return async (request: NextRequest): Promise<Response> => {
+    if (!isCaringContactsDemoEnabled()) return demoUnavailableResponse();
     let body: TBody;
     try {
       body = await parseJsonBody(request, config.schema);

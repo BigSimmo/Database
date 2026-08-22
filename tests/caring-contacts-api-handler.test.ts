@@ -10,7 +10,7 @@
 // at module scope in production (deliberately -- see store.ts), so a test that used the real one
 // would share a single in-memory workspace across every case in this file.
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 const mocks = vi.hoisted(() => ({ store: { current: null as unknown } }));
@@ -43,6 +43,12 @@ import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
+const originalNodeEnv = process.env.NODE_ENV;
+
+afterEach(() => {
+  if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = originalNodeEnv;
+});
 
 const PLAN_ID = planId("SYN-PLAN-001");
 
@@ -148,6 +154,32 @@ beforeEach(() => {
 });
 
 describe("caring-contacts API boundary", () => {
+  it("fails closed in production before a role-only demo session can read or mutate records", async () => {
+    const { store, recorded } = await inMemoryStoreWithSpy();
+    const getPlan = vi.spyOn(store, "getPlan");
+    const applyAssignment = vi.spyOn(store, "applyAssignment");
+    process.env.NODE_ENV = "production";
+
+    const { GET: readPlan } = await import("@/app/api/caring-contacts/plans/[planId]/route");
+    const { POST: writeAssignment } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
+    const context = { params: Promise.resolve({ planId: PLAN_ID }) };
+
+    const read = await readPlan(get(`/api/caring-contacts/plans/${PLAN_ID}`), context);
+    const write = await writeAssignment(
+      post(`/api/caring-contacts/assignments/${PLAN_ID}`, {
+        action: { type: "claim", actorId: "ACTOR-COVER" },
+        idempotencyKey: "production-demo-denied",
+      }),
+      context,
+    );
+
+    expect(read.status).toBe(404);
+    expect(write.status).toBe(404);
+    expect(getPlan).not.toHaveBeenCalled();
+    expect(applyAssignment).not.toHaveBeenCalled();
+    expect(recorded()).toEqual([]);
+  });
+
   it("records an access event for a successful read", async () => {
     const { recorded } = await inMemoryStoreWithSpy();
     const handler = readHandler({
@@ -477,6 +509,18 @@ describe("caring-contacts API boundary", () => {
 
     expect(response.status).toBe(200);
     expect(Array.isArray(await response.json())).toBe(true);
+  });
+
+  it("refuses an invalid access-trail timestamp before the datastore query", async () => {
+    const { store } = await inMemoryStoreWithSpy({ actorRole: "auditor" });
+    const listAccessTrail = vi.spyOn(store, "listAccessTrail");
+    const { POST } = await import("@/app/api/caring-contacts/access-trail/route");
+
+    const response = await POST(post("/api/caring-contacts/access-trail", { fromIso: "not-a-date" }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ refusal: "invalid-request" });
+    expect(listAccessTrail).not.toHaveBeenCalled();
   });
 
   // Fix round 1, Minor 6. The service-stopped body is assembled from a constant, so it could not

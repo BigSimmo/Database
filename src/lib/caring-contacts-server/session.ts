@@ -8,6 +8,7 @@
 // The cookie it reads holds only a role name, never a credential. Anything unreadable -- no
 // cookie, an empty value, a name that is not one of DEMO_ROLES -- falls back to the coordinator
 // rather than throwing: an unreadable cookie must never lock someone out of a demonstration.
+// The demonstration itself is unavailable in production until enterprise authentication exists.
 import "server-only";
 
 import { cookies } from "next/headers";
@@ -16,6 +17,25 @@ import { actorId, teamId, type TeamId } from "@/lib/caring-contacts/ids";
 import type { Actor, CaringContactRole } from "@/lib/caring-contacts/permissions";
 
 export const CARING_CONTACTS_ROLE_COOKIE = "caring-contacts-demo-role";
+
+/**
+ * The role switcher is a development/test demonstration aid, not authentication.
+ *
+ * A caller can forge a role-only cookie outside a browser, so `httpOnly` is not
+ * an authorization boundary. Until enterprise authentication supplies a real
+ * actor, all Caring Contacts routes must fail closed in production.
+ */
+export function isCaringContactsDemoEnabled(environment = process.env.NODE_ENV): boolean {
+  return environment !== "production";
+}
+
+/** Thrown when code tries to resolve a demo actor in a production process. */
+export class CaringContactsDemoUnavailableError extends Error {
+  constructor() {
+    super("Caring Contacts demo actors are unavailable in production.");
+    this.name = "CaringContactsDemoUnavailableError";
+  }
+}
 
 /** All five roles, in the order the switcher offers them. */
 export const DEMO_ROLES: readonly CaringContactRole[] = Object.freeze([
@@ -50,6 +70,7 @@ export function demoActorForRole(role: CaringContactRole): Actor {
  * outcome this fallback exists to prevent.
  */
 export async function resolveDemoActor(): Promise<Actor> {
+  if (!isCaringContactsDemoEnabled()) throw new CaringContactsDemoUnavailableError();
   const role = await readDemoRoleCookie();
   return demoActorForRole(role);
 }

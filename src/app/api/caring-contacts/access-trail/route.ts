@@ -17,10 +17,15 @@ export const runtime = "nodejs";
 
 const COLLECTION = "all";
 
+/** Matches the dispatch route's instant validation before a query reaches either datastore. */
+const isoInstant = z.string().refine((value) => !Number.isNaN(new Date(value).getTime()), {
+  message: "invalid-iso-instant",
+});
+
 const querySchema = z
   .object({
-    fromIso: z.string().min(1).optional(),
-    toIso: z.string().min(1).optional(),
+    fromIso: isoInstant.optional(),
+    toIso: isoInstant.optional(),
     actorId: auditableIdentifier.optional(),
     objectType: z
       .enum([
