@@ -443,6 +443,7 @@ function GlobalStandaloneSearchShellBody({
     // branch naming it can never be true and would only read as live ownership.
     (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
+  const showClinicalAskDockChrome = Boolean(clinicalAskMode) && !isToolDetailWithFooterSearch(pathname);
   const runModeClinicalAsk = useClinicalAskRunner({
     clinicalAskMode,
     clinicalAskOnline,
@@ -506,7 +507,7 @@ function GlobalStandaloneSearchShellBody({
       heroOwnsPhoneComposer,
       searchMode,
       differentialsCompareAddonActive,
-      clinicalAskActionsVisible: Boolean(clinicalAskMode),
+      clinicalAskActionsVisible: showClinicalAskDockChrome,
     }),
   );
 
@@ -903,7 +904,7 @@ function GlobalStandaloneSearchShellBody({
             onClinicalAsk={runModeClinicalAsk}
             clinicalAskActive={clinicalAskSession.submitted}
             clinicalAskActions={
-              clinicalAskMode ? (
+              showClinicalAskDockChrome ? (
                 <ClinicalAskComposerActions
                   mode={clinicalAskMode}
                   draft={query}
