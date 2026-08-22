@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
+import { FORM_1A_REFERRAL_EXPIRY_MINUTES } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
@@ -262,6 +263,44 @@ describe("new referrals", () => {
     expect(created.stage).toBe("placement_requested");
     expect(created.withdrawnReferrals).toEqual([]);
   });
+
+  it.each(["Referred for psychiatric examination", "Detained awaiting examination"] as const)(
+    "creates an examinable Form 1A for a %s referral",
+    (legalStatus) => {
+      const referred = wardFlowReducer(seeded(), {
+        type: "RAISE_REFERRAL",
+        role: "ed",
+        now: NOW,
+        edId: "jhc-ed",
+        draft: {
+          cohort: "Adult",
+          security: "Open",
+          sex: "Female",
+          specialling: false,
+          legalStatus,
+          urgency: 2,
+        },
+      });
+      const created = referred.movements.at(-1)!;
+      expect(created.legalForm).toEqual({
+        code: "1A",
+        label: "Referral for examination",
+        kind: "examination",
+        dueAt: NOW + FORM_1A_REFERRAL_EXPIRY_MINUTES,
+      });
+      expect(created.formedAt).toBe(NOW);
+
+      const examined = wardFlowReducer(referred, {
+        type: "RECORD_EXAMINATION",
+        role: "ed",
+        now: NOW + 1,
+        movementId: created.id,
+        outcome: "inpatient_order",
+      });
+      expect(examined.rejections).toEqual([]);
+      expect(movement(examined, created.id).legalForm?.code).toBe("3B");
+    },
+  );
 });
 
 describe("purity", () => {
