@@ -205,7 +205,7 @@ function validate(values: FormValues): FieldEntry[] {
   if (filled.length === 0) {
     if (ownWordsRequired) supportsEntry("Add at least one person this person could contact.");
   } else if (filled.some((row) => row.name.trim() === "")) {
-    supportsEntry("Give a name for every person listed here, or clear the row.");
+    supportsEntry("Give a name for every person listed here, or remove the row.");
   } else if (filled.some((row) => row.phone.trim() === "")) {
     // Checked whether or not the section is required. A person listed with no
     // number is a name that cannot be rung at 2am, which is worse than an empty
@@ -257,6 +257,11 @@ export function SafetyPlanFormSurface({
   const [errors, setErrors] = useState<FieldEntry[]>([]);
   const [attempt, setAttempt] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  /** Which control raised the errors on screen. The summary heading has to say
+   *  what the reader actually asked for: saving a draft that could not be saved
+   *  is a different sentence from a version that could not be made current, and
+   *  the save path raises errors too. */
+  const [intent, setIntent] = useState<"save" | "make-current">("make-current");
 
   if (draft !== null && seededFrom !== draft.id) {
     setSeededFrom(draft.id);
@@ -419,6 +424,15 @@ export function SafetyPlanFormSurface({
     }));
   }
 
+  /** Removing the last remaining row leaves one blank one, so the section never
+   *  becomes a place with nothing to type into. */
+  function removeSupport(index: number) {
+    setValues((previous) => {
+      const remaining = previous.supports.filter((_, position) => position !== index);
+      return { ...previous, supports: remaining.length === 0 ? [{ ...EMPTY_SUPPORT_ROW }] : remaining };
+    });
+  }
+
   /** Saving keeps only the rule the reducer itself enforces. A draft is work in
    *  progress and must be storable while incomplete — a conversation that had to
    *  stop is the commonest reason one exists. */
@@ -427,6 +441,7 @@ export function SafetyPlanFormSurface({
     if (saveBlockedReason !== null || draft === null) return;
     const blocking = validate(values).filter((entry) => entry.fieldId === safetyPlanFieldId("reviewDueAt"));
     setAttempt((previous) => previous + 1);
+    setIntent("save");
     setErrors(blocking);
     if (blocking.length > 0) return;
     dispatch({ type: "save-safety-plan-draft", versionId: draft.id, input });
@@ -437,6 +452,7 @@ export function SafetyPlanFormSurface({
     if (saveBlockedReason !== null) return;
     const found = validate(values);
     setAttempt((previous) => previous + 1);
+    setIntent("make-current");
     setErrors(found);
     if (found.length === 0) setConfirmOpen(true);
   }
@@ -460,7 +476,7 @@ export function SafetyPlanFormSurface({
 
       <form className={styles.form} onSubmit={handleSave} noValidate>
         <ErrorSummary
-          heading="This version could not be made current"
+          heading={intent === "save" ? "This draft could not be saved" : "This version could not be made current"}
           errors={errors}
           attempt={attempt}
           className={styles.formErrorSummary}
@@ -540,9 +556,14 @@ export function SafetyPlanFormSurface({
                         value={row.name}
                         onChange={(event) => setSupport(index, "name", event.target.value)}
                       />
+                      {/*
+                        Asked from the patient's side, not the listed person's:
+                        "Relationship to Jess Sample" asks what Jess is to Jess.
+                        The record holds how this person knows the patient.
+                      */}
                       <TextField
                         id={safetyPlanFieldId(`support-${index}-relationship`)}
-                        label={`Relationship to ${who}`}
+                        label={`How ${who} knows ${patient.preferredName}`}
                         value={row.relationship}
                         onChange={(event) => setSupport(index, "relationship", event.target.value)}
                       />
@@ -552,6 +573,13 @@ export function SafetyPlanFormSurface({
                         value={row.phone}
                         onChange={(event) => setSupport(index, "phone", event.target.value)}
                       />
+                      {/* A form filled in sitting beside somebody must be able
+                          to take a name back off as easily as it put one on. */}
+                      <div className={styles.actionRow}>
+                        <Button variant="ghost" onClick={() => removeSupport(index)}>
+                          {`Remove ${who}`}
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}

@@ -127,7 +127,11 @@ export const SAFETY_PLAN_SUPPORTS_KEY = "personalSupports" as const;
 export const PATIENT_CONFIRMATION_LABEL: Record<PatientConfirmationState, string> = {
   confirmed: "Confirmed by this person",
   discussed_not_confirmed: "Discussed, not yet confirmed",
-  declined: "This person chose not to make a safety plan",
+  // Deliberately not "chose not to make a safety plan": this label is displayed
+  // on a page that *is* a current Personal Safety Plan — one holding the crisis
+  // numbers and nothing else — so a label denying the plan exists contradicts
+  // the document it sits on. What the person declined is writing their own part.
+  declined: "This person chose not to write one in their own words",
   unavailable: "No confirmation recorded",
 };
 
@@ -138,7 +142,7 @@ export const PATIENT_CONFIRMATION_EXPLANATION: Record<PatientConfirmationState, 
   discussed_not_confirmed:
     "This person has talked this version through and has not yet confirmed the wording. Ask again at the next contact.",
   declined:
-    "This person chose not to write a safety plan. That is their decision about their own document, and it is recorded as a decision rather than as a gap.",
+    "This person chose not to write their own part of this plan. That is their decision about their own document, and it is recorded as a decision rather than as a gap.",
   unavailable:
     "Nothing has been recorded about this person's part in this version, so nothing here says whether they have seen it.",
 };

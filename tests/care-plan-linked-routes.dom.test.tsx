@@ -19,6 +19,7 @@ import {
   FIRST_MINUTE_SECTION_LABEL,
   FULL_PLAN_SECTION_KEYS,
   FULL_PLAN_SECTION_LABEL,
+  PATIENT_CONFIRMATION_EXPLANATION,
   PATIENT_CONFIRMATION_LABEL,
   SAFETY_PLAN_SECTION_KEYS,
   SAFETY_PLAN_SECTION_LABEL,
@@ -2530,6 +2531,15 @@ const ROWAN_SAFETY_VERSION = syntheticPersonalSafetyPlanVersions[0];
 const NON_COMPLIANCE_WORDING =
   /non[- ]?complian|did not comply|failed to|refus(?:ed|es|al)|unco[- ]?operative|non[- ]?engage|declined to engage|missing|incomplete/i;
 
+/**
+ * Wording that denies the document it is displayed on. Every confirmation label
+ * and sentence appears beside a Personal Safety Plan that exists — Evie's is
+ * Current and holds the crisis numbers — so "chose not to make a safety plan"
+ * contradicts the page carrying it. What a person declines is writing their own
+ * part, not the existence of the sheet with the numbers on it.
+ */
+const DENIES_THE_DOCUMENT = /no safety plan|not to (?:make|have|write|complete|create) (?:a|any|the) safety plan/i;
+
 describe("Care Plan Personal Safety Plan reading", () => {
   it("renders exactly the seven patient-voice sections, in the specified order", () => {
     renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
@@ -2587,8 +2597,12 @@ describe("Care Plan Personal Safety Plan reading", () => {
   });
 
   it("describes every patient-confirmation state without reading any of them as non-compliance", () => {
-    for (const [state, label] of Object.entries(PATIENT_CONFIRMATION_LABEL)) {
-      expect(label, `${state} is labelled as non-compliance`).not.toMatch(NON_COMPLIANCE_WORDING);
+    for (const [state, wording] of [
+      ...Object.entries(PATIENT_CONFIRMATION_LABEL),
+      ...Object.entries(PATIENT_CONFIRMATION_EXPLANATION),
+    ]) {
+      expect(wording, `${state} is worded as non-compliance`).not.toMatch(NON_COMPLIANCE_WORDING);
+      expect(wording, `${state} denies the plan it is displayed on`).not.toMatch(DENIES_THE_DOCUMENT);
     }
 
     renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-004"));
@@ -2596,6 +2610,9 @@ describe("Care Plan Personal Safety Plan reading", () => {
     expect(confirmation).toHaveTextContent(PATIENT_CONFIRMATION_LABEL.declined);
     expect(confirmation).toHaveTextContent(/their decision about their own document/i);
     expect(confirmation.textContent ?? "").not.toMatch(NON_COMPLIANCE_WORDING);
+    // Evie's version IS a current Personal Safety Plan, holding the numbers to
+    // ring, so nothing on this page may tell a reader she has none.
+    expect(confirmation.textContent ?? "").not.toMatch(DENIES_THE_DOCUMENT);
     // Evie's version deliberately holds only the crisis numbers. Empty sections
     // are her decision, so they read as `Not recorded`, never as a gap she owes.
     expect(screen.getByTestId("care-plan-safety-sections")).toHaveTextContent("Not recorded");
@@ -2612,7 +2629,11 @@ describe("Care Plan Personal Safety Plan reading", () => {
   it("offers no senior-approval control anywhere on the Personal Safety Plan", () => {
     for (const route of [
       carePlanRoute.safetyPlan("SYN-PATIENT-001"),
-      carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"),
+      // Jordan, not Rowan: Jordan has an open draft, so this scans the populated
+      // form — every field, section frame and action — rather than the start
+      // panel that a patient with no draft renders. A scan that misses the
+      // surface it names is the failure this project has hit seven times.
+      carePlanRoute.safetyPlanEdit("SYN-PATIENT-003"),
     ]) {
       const { unmount } = render(
         <CarePlanPrototypeProvider>
@@ -2743,6 +2764,43 @@ describe("Care Plan Personal Safety Plan authoring", () => {
 
     expect(screen.queryByTestId("error-summary")).toBeNull();
     expect(navigate).toHaveBeenCalledWith(carePlanRoute.safetyPlan("SYN-PATIENT-003"));
+  });
+
+  it("names what the reader actually asked for when a save fails, not making it current", async () => {
+    const user = userEvent.setup();
+    // Jordan's open draft carries no review date, which is the one rule saving
+    // itself enforces, so Save draft raises an error of its own.
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-003"));
+
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(screen.getByTestId("error-summary")).toHaveTextContent("This draft could not be saved");
+    expect(screen.getByTestId("error-summary").textContent ?? "").not.toMatch(/could not be made current/i);
+
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+    expect(screen.getByTestId("error-summary")).toHaveTextContent("This version could not be made current");
+  });
+
+  it("lets a person be taken off the contact list as easily as they were added", async () => {
+    const user = userEvent.setup();
+    renderRoute(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /Start a new version/i }));
+
+    expect(screen.getByLabelText(/Telephone number for Jess Sample/i)).toHaveValue("0491 570 131");
+    // Asked from the patient's side: how this person knows Rowan, never how
+    // Jess is related to Jess.
+    expect(screen.getByLabelText("How Jess Sample knows Rowan")).toHaveValue("Sister");
+
+    await user.click(screen.getByRole("button", { name: "Remove Jess Sample" }));
+
+    expect(screen.queryByLabelText(/Telephone number for Jess Sample/i)).toBeNull();
+    expect(screen.getByLabelText(/Telephone number for Ari Placeholder/i)).toHaveValue("0491 570 132");
+
+    // Removing every row leaves one empty row rather than a section with
+    // nothing to type into — the branch a partial removal never reaches.
+    await user.click(screen.getByRole("button", { name: "Remove Ari Placeholder" }));
+    await user.click(screen.getByRole("button", { name: "Remove person 1" }));
+    expect(screen.getByLabelText("Name of person 1")).toHaveValue("");
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(1);
   });
 
   it("still requires the professional and emergency contacts when this person declined", async () => {
@@ -2989,6 +3047,67 @@ describe("Care Plan Personal Safety Plan print", () => {
     ).toEqual(SAFETY_HEADINGS_FROM_DOMAIN);
     expect(screen.getByTestId("care-plan-safety-crisis")).toHaveTextContent("1300 555 788");
     expect(screen.queryByTestId("care-plan-safety-print-outcome")).toBeNull();
+  });
+
+  /**
+   * The worst sheet this build could hand somebody. `SYN-SAFETY-VERSION-004` is
+   * Current, the person declined to write their own part, and all six of the
+   * patient-voice arrays are empty. Rendering the clinical treatment on paper
+   * produced a document addressed to that person reading "My reasons for living
+   * — Not recorded", under a sentence claiming these were their own words.
+   *
+   * It is not an edge case: a fresh draft defaults to `unavailable` with the
+   * review date pre-filled, so the minimum version that can be made current
+   * carries a note and one line of service contacts and no own words at all.
+   *
+   * The clinical reading surface keeps `Not recorded`, and the test above pins
+   * that, so this cannot be "fixed" by taking the clinician's signal away.
+   */
+  it("hands a person who wrote no part of their plan a sheet with no blanks about their life", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-004"));
+    const paper = screen.getByTestId("care-plan-safety-print-output");
+    const text = paper.textContent ?? "";
+
+    expect(text).not.toContain("Not recorded");
+    // Heading and all: an empty section is not printed at the person at all.
+    expect(
+      within(screen.getByTestId("care-plan-safety-sections"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual([SAFETY_PLAN_SECTION_LABEL.professionalAndEmergencySupport]);
+    for (const key of SAFETY_PLAN_SECTION_KEYS.filter((k) => k !== "professionalAndEmergencySupport")) {
+      expect(text, `${SAFETY_PLAN_SECTION_LABEL[key]} printed over a blank`).not.toContain(
+        SAFETY_PLAN_SECTION_LABEL[key],
+      );
+    }
+
+    // The claim that these are the reader's own words is false here, so it is
+    // not made; the sheet says what it does hold instead.
+    expect(text).not.toMatch(/in your own words/i);
+    expect(screen.getByTestId("care-plan-safety-paper-intro")).toHaveTextContent(/numbers to ring if you need help/i);
+    expect(screen.getByTestId("care-plan-safety-paper-intro")).toHaveTextContent(/yours to decide about/i);
+    // A row reading "Last confirmed — Not recorded" is worse than no row.
+    expect(text).not.toContain("Last confirmed");
+    expect(text).toContain("Evie");
+    expect(text).toContain("SYN-MRN-0004");
+
+    // What the sheet is for is still all there.
+    const crisis = screen.getByTestId("care-plan-safety-crisis");
+    expect(crisis).toHaveTextContent("1300 555 788");
+    expect(crisis).toHaveTextContent("000");
+    expect(crisis).toHaveTextContent(/not an emergency service/i);
+  });
+
+  it("keeps every section a person did write, and drops only the ones they did not", () => {
+    // Rowan wrote all seven, so the printed copy is unchanged by the omission
+    // rule — it removes blanks, never content.
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    expect(
+      within(screen.getByTestId("care-plan-safety-sections"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(SAFETY_HEADINGS_FROM_DOMAIN);
+    expect(screen.getByTestId("care-plan-safety-paper-intro")).toHaveTextContent(/in your own words/i);
   });
 
   it("says plainly when there is no current version to print", () => {
