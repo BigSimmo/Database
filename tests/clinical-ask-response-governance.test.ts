@@ -72,6 +72,28 @@ describe("governClinicalAskDraft", () => {
     if (response.state === "answered") expect(response.sections[0].claims.map(({ id }) => id)).not.toContain("bad");
   });
 
+  it("strips raw extracts from evidence items in the answered response (server-only contract)", () => {
+    const response = governClinicalAskDraft(clinicalAskModeProfile("specifiers"), draft(), evidence);
+    expect(response.state).toBe("answered");
+    if (response.state === "answered") {
+      for (const item of response.evidence) {
+        expect(item.extract).toBe("");
+      }
+    }
+  });
+
+  it("strips raw extracts from evidence items in the evidence_gap response (server-only contract)", () => {
+    const value = draft();
+    value.lead.evidenceIds = [];
+    const response = governClinicalAskDraft(clinicalAskModeProfile("specifiers"), value, evidence);
+    expect(response.state).toBe("evidence_gap");
+    if (response.state === "evidence_gap") {
+      for (const item of response.evidence) {
+        expect(item.extract).toBe("");
+      }
+    }
+  });
+
   it("removes unsafe uncited auxiliary text and replaces model-authored handoff labels", () => {
     const value = draft("services");
     value.missingInformation = ["MRN: EX-12345", "Confirm the service location."];
