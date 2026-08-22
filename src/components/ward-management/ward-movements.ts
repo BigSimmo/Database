@@ -201,7 +201,12 @@ const seededMovements: Movement[] = [
     specialling: false,
     legalStatus: "Voluntary",
     statusChanges: [],
-    stage: "handover_ready",
+    // Ruling R64: carries acceptedUnitId but no bedHeldUntil and no transport. HOLD_BED is the
+    // only reducer transition that writes bedHeldUntil, and HANDOVER_READY (the only producer of
+    // "handover_ready") requires stage "bed_held" already — so a movement with an accepted unit
+    // but neither of those later fields never reached bed_held, let alone handover_ready. The
+    // furthest stage its own fields honestly support is "accepted_awaiting_bed".
+    stage: "accepted_awaiting_bed",
     owner: "ED mental health team",
     referredUnitIds: [],
     acceptedUnitId: "fre-adult-open",
@@ -589,7 +594,19 @@ function routineMovements(count: number, startIndex: number): Movement[] {
     const security: Security = index % 7 === 0 ? "Secure" : "Open";
     const sex = index % 2 === 0 ? "Female" : "Male";
     const urgency = ((index % 3) + 1) as 1 | 2 | 3;
-    const stage = MOVEMENT_STAGES[index % MOVEMENT_STAGES.length];
+    const rawStage = MOVEMENT_STAGES[index % MOVEMENT_STAGES.length];
+    // `stageFields` below has no case for "handover_ready" — and rightly so: giving it one would
+    // mean fabricating the acceptedUnitId/bedHeldUntil/transport a real handover_ready movement
+    // can only get by actually passing through accepted_awaiting_bed and bed_held first
+    // (ward-flow-reducer.ts's ACCEPT_IN_PRINCIPLE, HOLD_BED and HANDOVER_READY cases). Every
+    // generated movement's `referredUnitIds` is unconditionally `[]` below, so a generated
+    // "handover_ready" record — which the switch's `default` branch leaves with none of those
+    // fields — is a state the reducer could never produce, exactly the ruling-R64 defect that
+    // let WF-305/312/319/326 render as ready-for-handover-with-no-transport. The honest stage
+    // for a record with an empty referredUnitIds and no acceptedUnitId is "placement_requested"
+    // (ruling R64), so that index is remapped here rather than stageFields inventing fields —
+    // this closes the defect for every index this generator can ever produce, not only today's.
+    const stage = rawStage === "handover_ready" ? "placement_requested" : rawStage;
     return {
       id: `WF-${String(index).padStart(3, "0")}`,
       originEdId: ed.id,

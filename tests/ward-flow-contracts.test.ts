@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import type { WardFlowState } from "../src/components/ward-management/ward-flow-reducer";
 import { PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
+import type { MovementStage } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 import { eligibleCandidates } from "../src/components/ward-management/ward-derivations";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
@@ -188,7 +189,55 @@ describe("invariants across every reachable state", () => {
  * movement in a stage/stamp combination the reducer could never reach on its own, and that is
  * exactly what happened: six "moving" movements shipped with `transport.collectedAt` unset, a
  * state `PATIENT_COLLECTED` (the only producer of stage "moving") cannot leave behind, because it
- * always sets `collectedAt` in the same update it sets the stage.
+ * always sets `collectedAt` in the same update it sets the stage. Ruling R64 then found the same
+ * shape of defect again — five "handover_ready" movements with no `transport` job, four of those
+ * five also with no `acceptedUnitId` — because the invariant list this block started from (R58)
+ * was written by hand rather than derived from the reducer, and an incomplete list cannot catch
+ * what it never enumerated.
+ *
+ * R64's method: enumerate every `wardFlowReducer` branch that assigns a `stage`, and for each,
+ * record what else that same branch writes in the same update. Every one of those is a direct
+ * implication; chaining preconditions across branches (a later stage's precondition on an earlier
+ * branch's output) gives the transitive ones. The complete table, read off `ward-flow-reducer.ts`
+ * on 2026-08-22:
+ *
+ * | Branch                | Produces stage         | Also writes (same update)                          |
+ * |------------------------|------------------------|-----------------------------------------------------|
+ * | `RAISE_REFERRAL`       | `placement_requested`  | `referredUnitIds: []`, `declines: []`, `withdrawnReferrals: []` (new movement — no `acceptedUnitId`/`transport`/`bedHeldUntil`) |
+ * | `REFER_TO_UNITS`       | `destination_review`   | `referredUnitIds: event.unitIds`                     |
+ * | `ACCEPT_IN_PRINCIPLE`  | `accepted_awaiting_bed`| `acceptedUnitId: event.unitId`, `referredUnitIds: []`, `withdrawnReferrals: [...]` |
+ * | `HOLD_BED`             | `bed_held`             | `bedHeldUntil: event.now + 60` (requires the movement already at `accepted_awaiting_bed` with `acceptedUnitId === event.unitId`) |
+ * | `DECLINE`              | `destination_review`   | `referredUnitIds`: filtered, `declines: [...]`       |
+ * | `HANDOVER_READY`       | `handover_ready`       | `transport: {...}` (requires stage already `bed_held`, so `acceptedUnitId`/`bedHeldUntil` carry over unchanged) |
+ * | `PATIENT_COLLECTED`    | `moving`               | `transport.collectedAt: event.now` (requires `transport.enRouteAt` already set) |
+ * | `PATIENT_ARRIVED`      | `arrived`              | `transport.arrivedAt: event.now`, `closure: {...}` (requires `acceptedUnitId` and `transport.collectedAt` already set) |
+ *
+ * Every other branch (`RECORD_EXAMINATION`, `TRANSPORT_ACCEPTED`, `TRANSPORT_EN_ROUTE`,
+ * `CONFIRM_CAPACITY`, `RECORD_ESCALATION`, `RESET_SCENARIO`, `ADVANCE_CLOCK`) never assigns
+ * `stage` on an existing movement, so it contributes no row.
+ *
+ * Chaining that table's preconditions gives the transitive implications the direct table alone
+ * cannot: `ACCEPT_IN_PRINCIPLE` is the only branch that ever writes `acceptedUnitId`, and no
+ * branch ever clears it, so every stage reachable only after `accepted_awaiting_bed` —
+ * `accepted_awaiting_bed`, `bed_held`, `handover_ready`, `moving`, `arrived` — requires it.
+ * Symmetrically, `ACCEPT_IN_PRINCIPLE` rejects outright when `acceptedUnitId` is already set and
+ * always advances the stage away from `destination_review` in that same update, so a movement
+ * still at `placement_requested` or `destination_review` can never carry one. `HANDOVER_READY`
+ * is the only branch that ever writes `transport`, and its own precondition is stage `bed_held`
+ * — which itself requires having already passed through `accepted_awaiting_bed` — so
+ * `handover_ready` without `transport` is unreachable, and doubly so without `acceptedUnitId`.
+ * This is exactly the R64 defect: the direct table alone (only `HANDOVER_READY`'s own row) would
+ * have caught the missing `transport`, but not the missing `acceptedUnitId`, which only the
+ * chained precondition surfaces.
+ *
+ * `bedHeldUntil` does not extend the same way past `bed_held`: fixture authoring convention (both
+ * hand-authored and generated) drops it once a movement moves on to `handover_ready` or later —
+ * a hold that has already resulted in a handover is no longer "held" in the sense the field
+ * describes — so the invariant below is scoped to `bed_held` itself, matching the pre-existing,
+ * previously-unproven fact that no `bed_held` record lacks it. The same is true of `transport` at
+ * `arrived`: the two current `arrived` records both close through a path that never had a
+ * transport job at all, a state the existing test below deliberately keeps proving as legitimate
+ * (a real `arrived` record with a transport job still must carry `arrivedAt`).
  *
  * Every rule below is read off `ward-flow-reducer.ts`'s transport transitions, not guessed:
  * - `PATIENT_COLLECTED` requires stage `"handover_ready"` and `transport.enRouteAt`, and moves
@@ -293,5 +342,92 @@ describe("fixture stage/stamp coherence (ward-movements.ts)", () => {
     // Every movement with a transport job must actually have been walked — a filter that quietly
     // matched nothing would make every expectation above vacuously true.
     expect(inspected).toBeGreaterThan(0);
+  });
+
+  it("never leaves a 'handover_ready' movement without the transport its stage implies", () => {
+    // Direct table entry: `HANDOVER_READY` is the only reducer branch that produces stage
+    // "handover_ready", and it always writes a `transport` job in that same update
+    // (`ward-flow-reducer.ts`'s own `case "HANDOVER_READY"`) — so "handover_ready" with no
+    // `transport` is unreachable. Ruling R64: five records shipped in exactly that state.
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (movement.stage === "handover_ready") {
+        matched += 1;
+        expect(
+          movement.transport,
+          `${movement.id} is stage "handover_ready" but has no transport job — HANDOVER_READY ` +
+            `is the only reducer transition that produces "handover_ready" and it always creates one`,
+        ).toBeDefined();
+      }
+    }
+    // Two records are stage "handover_ready" today (WF-005, WF-015) after ruling R64 moved the
+    // five that lacked a transport job back to the stage their own fields actually support.
+    expect(matched).toBe(2);
+  });
+
+  it("never leaves an accepted, bed-held, handover-ready, moving or arrived movement without the accepted unit its stage implies", () => {
+    // Transitive table entry: `ACCEPT_IN_PRINCIPLE` is the only branch that ever writes
+    // `acceptedUnitId`, and no branch ever clears it, so every stage reachable only after
+    // `accepted_awaiting_bed` requires one. `ward-model.test.ts` already proves this for
+    // `accepted_awaiting_bed`/`bed_held`; this closes the same invariant for the three stages
+    // that test does not reach, including "handover_ready" — the second half of the R64 defect
+    // (four of the five broken records had no `acceptedUnitId` at all, not just no transport).
+    const requiresAcceptedUnit: MovementStage[] = [
+      "accepted_awaiting_bed",
+      "bed_held",
+      "handover_ready",
+      "moving",
+      "arrived",
+    ];
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (requiresAcceptedUnit.includes(movement.stage)) {
+        matched += 1;
+        expect(
+          movement.acceptedUnitId,
+          `${movement.id} is stage "${movement.stage}" but has no acceptedUnitId — only ` +
+            `ACCEPT_IN_PRINCIPLE ever sets it and nothing later clears it`,
+        ).toBeDefined();
+      }
+    }
+    // 6 accepted_awaiting_bed + 7 bed_held + 2 handover_ready + 6 moving + 6 arrived = 27 today.
+    expect(matched).toBe(27);
+  });
+
+  it("never leaves a 'bed_held' movement without the bed hold its stage implies", () => {
+    // Direct table entry: `HOLD_BED` is the only branch that produces stage "bed_held", and it
+    // always writes `bedHeldUntil` in that same update. Unlike `acceptedUnitId`, fixture
+    // authoring convention does not carry `bedHeldUntil` forward past "bed_held" (a hold that
+    // already resulted in a handover is no longer "held"), so this is scoped to "bed_held" only.
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (movement.stage === "bed_held") {
+        matched += 1;
+        expect(
+          movement.bedHeldUntil,
+          `${movement.id} is stage "bed_held" but has no bedHeldUntil — HOLD_BED is the only ` +
+            `reducer transition that produces "bed_held" and it always sets an expiry`,
+        ).toBeDefined();
+      }
+    }
+    expect(matched).toBe(7);
+  });
+
+  it("never lets a movement earlier than 'accepted_awaiting_bed' carry the accepted unit only a later stage should have", () => {
+    // The mirror image of the acceptedUnitId invariant above: `ACCEPT_IN_PRINCIPLE` rejects
+    // outright when `movement.acceptedUnitId` is already set, and the only way to reach
+    // "placement_requested" or "destination_review" leaves acceptedUnitId untouched or unset —
+    // so a movement still at either stage can never carry one. Currently zero records violate
+    // this; asserting the real count (0), not `toBeGreaterThan(0)`, keeps that honest per the
+    // match-counting rule rather than inventing a violation to get a positive count. The
+    // mutation in the accompanying report proves this line still goes red the moment one exists.
+    const preAcceptanceStages: MovementStage[] = ["placement_requested", "destination_review"];
+    let matched = 0;
+    for (const movement of wardMovements) {
+      if (preAcceptanceStages.includes(movement.stage) && movement.acceptedUnitId !== undefined) {
+        matched += 1;
+      }
+    }
+    expect(matched).toBe(0);
   });
 });

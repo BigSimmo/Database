@@ -285,9 +285,13 @@ test.describe("Emergency department screen", () => {
     // `HANDOVER_READY` writes a brand-new `transport` object with no timestamps at all
     // (`ward-flow-reducer.ts`'s own `case "HANDOVER_READY"`), so `transportLeg` resolves it to
     // the "Requested" leg — never `undefined` (that value is reserved for a movement with no
-    // `transport` object at all, e.g. WF-319's fixture-authored `handover_ready` with no
-    // transport). Re-measured directly against the live app (see the task report) rather than
-    // assumed, after an earlier version of this assertion got it wrong.
+    // `transport` object at all — reachable in the reducer's own type, `movement.transport` being
+    // optional, though ruling R64 established that no fixture record actually reaches
+    // "handover_ready" without one: HANDOVER_READY is the only producer of that stage and it
+    // always creates the job in the same update. WF-319 used to be exactly that unreachable
+    // state — a fixture defect this ruling corrected — so it is no longer this case's example).
+    // Re-measured directly against the live app (see the task report) rather than assumed, after
+    // an earlier version of this assertion got it wrong.
     const outstanding = page.getByTestId("ward-ed-outstanding-WF-016");
     await expect(outstanding).toHaveAttribute("data-kind", "transport");
     await expect(outstanding).toContainText(/Requested/);
