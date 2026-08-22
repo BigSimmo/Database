@@ -150,8 +150,22 @@ export type ReadHandlerConfig<T> = {
   read: (store: CaringContactRepository, actor: Actor, request: NextRequest) => Promise<T>;
 };
 
+/** What `auditedRead` found: what came back, whether the audit trail took the event, and -- on a
+ * thrown read -- the error it caught, so a caller that must fail closed can rethrow it rather than
+ * inventing a new one. */
+export type AuditedReadResult<T> = {
+  outcome: AuditOutcome;
+  recorded: boolean;
+  released: T | null;
+  error?: unknown;
+};
+
 /**
- * A read that is audited whether or not it succeeds.
+ * Performs a read and records it on the access trail whether or not it succeeds -- the one seam
+ * every server-side reader of Caring Contacts data goes through, `readHandler`'s HTTP route
+ * included. Never used directly by a route or a page; each caller wraps this in whatever it does
+ * with `outcome`/`recorded` (an HTTP response for `readHandler`, a rethrow for a Server Component
+ * render that must reach `error.tsx` rather than serve a caught fault silently).
  *
  * What counts as denied: the stores answer a read the actor may not make with `null`, exactly as
  * they answer a read of something that does not exist -- deliberately, so a cross-team actor
@@ -161,6 +175,31 @@ export type ReadHandlerConfig<T> = {
  * cannot distinguish "you may not see these" from "there are none", and it is a consequence of the
  * store contract's own indistinguishability rule rather than something this seam could recover.
  */
+export async function auditedRead<T>(
+  store: CaringContactRepository,
+  actor: Actor,
+  access: { kind: AccessKind; objectType: AccessedObjectType; objectId: string },
+  read: () => Promise<T>,
+): Promise<AuditedReadResult<T>> {
+  let released: T | null = null;
+  let outcome: AuditOutcome;
+  let error: unknown;
+  try {
+    released = await read();
+    outcome = released === null || released === undefined ? "denied" : "allowed";
+  } catch (caught) {
+    outcome = "failed";
+    error = caught;
+  }
+
+  const recorded = await recordAccessAttempt(store, actor, access, access.objectId, outcome);
+  return { outcome, recorded, released, error };
+}
+
+/**
+ * A read that is audited whether or not it succeeds. HTTP-shaped: turns `auditedRead`'s outcome
+ * into the response every read route already returned before the two were split apart.
+ */
 export function readHandler<T>(config: ReadHandlerConfig<T>): (request: NextRequest) => Promise<Response> {
   return async (request: NextRequest): Promise<Response> => {
     if (!isCaringContactsDemoEnabled()) return demoUnavailableResponse();
@@ -168,16 +207,13 @@ export function readHandler<T>(config: ReadHandlerConfig<T>): (request: NextRequ
     const store = await caringContactsStore();
     const objectId = config.access.objectId(request);
 
-    let released: T | null = null;
-    let outcome: AuditOutcome;
-    try {
-      released = await config.read(store, actor, request);
-      outcome = released === null || released === undefined ? "denied" : "allowed";
-    } catch {
-      outcome = "failed";
-    }
+    const { outcome, recorded, released } = await auditedRead(
+      store,
+      actor,
+      { kind: config.access.kind, objectType: config.access.objectType, objectId },
+      () => config.read(store, actor, request),
+    );
 
-    const recorded = await recordAccessAttempt(store, actor, config.access, objectId, outcome);
     // A read nobody can prove happened is worse than a read refused. If the trail could not take
     // the event, the boundary releases nothing -- the same bargain the store makes for writes.
     if (!recorded) return jsonResponse({ refusal: "access-audit-unavailable" }, 503);

@@ -1,8 +1,10 @@
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
+import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
+import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 /**
  * The workspace's lazy route boundary (Ruling 13), present from its first commit.
@@ -43,6 +45,15 @@ const CaringContactsShell = dynamic(() =>
  * `getServiceState` is deliberately not capability-checked: a stop raised by one
  * team halts sending for every team, so every actor of every team sees it.
  *
+ * The read goes through `auditedRead`, the same audit/fail-closed wrapper
+ * `readHandler` uses for the equivalent API read — this is the only patient-data-
+ * bearing read in the seam that used to bypass it, because a Server Component
+ * render has no `NextRequest` for `readHandler` itself to key an audit event on.
+ * `auditedRead` needs no request; it takes the resolved actor and object identity
+ * directly, so this render now produces the same `recordAccess` administrative
+ * access event the API route's GET does, and fails closed the same way if the
+ * trail cannot take it.
+ *
  * The state is passed straight to the shell. Both are Server Components, so the
  * record never crosses to the browser — Next 16's lazy-loading guide is explicit
  * that dynamically importing a Server Component lazy-loads only the Client
@@ -52,10 +63,12 @@ const CaringContactsShell = dynamic(() =>
  * `caring-contacts-server/service-state-view.ts` governs the API route, which is
  * a different boundary from this one and returns a different shape.
  *
- * A failed read is deliberately not caught. There is no honest state to fall back
- * to — rendering "running" because the store was unreachable is the exact claim
- * spec §4.2 forbids — so the read is allowed to reach `error.tsx`, which says
- * nothing was sent and nothing was changed.
+ * A failed read is deliberately not swallowed. There is no honest state to fall
+ * back to — rendering "running" because the store was unreachable is the exact
+ * claim spec §4.2 forbids — so both a thrown read and an audit trail that could
+ * not take the event are rethrown, reaching `error.tsx`, which says nothing was
+ * sent and nothing was changed. `getServiceState` never returns `null`, so the
+ * only two outcomes `auditedRead` can produce here are "allowed" and "failed".
  *
  * Reading the role cookie makes this route dynamic, which is correct: a cached
  * copy of a page that says nothing is stopped would outlive the stop.
@@ -64,7 +77,23 @@ export default async function CaringContactsTodayPage() {
   if (!isCaringContactsDemoEnabled()) notFound();
   const actor = await resolveDemoActor();
   const store = await caringContactsStore();
-  const serviceState = await store.getServiceState({ actor });
+
+  // "service" names the one service-wide record, matching the object id the API route's
+  // `GET`/`POST` on `/api/caring-contacts/service-state` records the same read and writes
+  // against — the access trail needs one stable identifier for it, not a per-caller one.
+  const { outcome, recorded, released, error } = await auditedRead<ServiceState>(
+    store,
+    actor,
+    { kind: "administrative", objectType: "serviceState", objectId: "service" },
+    () => store.getServiceState({ actor }),
+  );
+  if (outcome === "failed") throw error instanceof Error ? error : new Error("Failed to read the service state.");
+  if (!recorded) throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+  // `getServiceState` never returns null (see the module note above): "denied" is not a reachable
+  // outcome for this read, so a null `released` here would mean the store broke that contract --
+  // fail closed rather than pass a missing record on to the shell.
+  if (released === null) throw new Error("caring-contacts service state read returned no record.");
+  const serviceState = released;
 
   return (
     <CaringContactsShell

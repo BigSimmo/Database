@@ -62,10 +62,16 @@ describe("demo role switcher", () => {
   });
 
   it("never resolves a role-only demo actor in production", async () => {
-    expect(isCaringContactsDemoEnabled("production")).toBe(false);
+    // Explicit empty/false runtime so this assertion cannot pass because the ambient process
+    // env (e.g. the repository's Cloud environment, which exports both Playwright-offline
+    // flags) happens to satisfy the production lock's own exception -- see "the production
+    // lock" below.
+    expect(isCaringContactsDemoEnabled("production", {})).toBe(false);
     expect(isCaringContactsDemoEnabled("test")).toBe(true);
 
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "false");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
     await expect(resolveDemoActor()).rejects.toBeInstanceOf(CaringContactsDemoUnavailableError);
   });
 
@@ -153,6 +159,11 @@ describe("the demo role switcher's POST", () => {
 
   it("returns 404 in production before reading or writing a demo role cookie", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    // The route handler resolves the production lock the same ambient way `resolveDemoActor`
+    // does, with no way to inject a runtime override -- stub both flags so this stays fail-closed
+    // regardless of what the ambient process env happens to carry.
+    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "false");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
     vi.mocked(cookies).mockClear();
     const { GET, POST } = await import("@/app/api/caring-contacts/session/route");
 

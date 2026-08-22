@@ -159,6 +159,11 @@ describe("caring-contacts API boundary", () => {
     const getPlan = vi.spyOn(store, "getPlan");
     const applyAssignment = vi.spyOn(store, "applyAssignment");
     vi.stubEnv("NODE_ENV", "production");
+    // The production lock's own isolated-Playwright-server exception is doubly flagged (see
+    // "the production lock" in caring-contacts-session.test.ts) -- stub both flags off so this
+    // stays fail-closed regardless of what the ambient process env happens to carry.
+    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "false");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
 
     const { GET: readPlan } = await import("@/app/api/caring-contacts/plans/[planId]/route");
     const { POST: writeAssignment } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
