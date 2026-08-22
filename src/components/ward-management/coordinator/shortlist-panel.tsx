@@ -142,6 +142,11 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
   // shown) — a coordinator can refer to up to three wards at once, but the diagram and the gate
   // list can only ever explain one at a time.
   const [referTargets, setReferTargets] = useState<string[]>([]);
+  // Whole-branch review I2 (spec §11): the escalation form's own open/typed-contact state — never
+  // the recorded fact itself, which lives on `movement.escalation` and is read fresh on every
+  // render, the same discipline `overrideSucceeded` already holds to for the override record.
+  const [escalationOpen, setEscalationOpen] = useState(false);
+  const [escalationContact, setEscalationContact] = useState("");
 
   // A confirmation, an open override form, or a referral selection all belong to the movement
   // they were made against — moving to a different movement must never leave a stale "Referred"
@@ -155,6 +160,8 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
     setOverrideOpen(false);
     setOverrideReason("");
     setReferTargets([]);
+    setEscalationOpen(false);
+    setEscalationContact("");
   }
 
   if (!movement) {
@@ -164,9 +171,10 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
   }
 
   // TypeScript's narrowing of `movement` above does not reach into the `handleRefer` /
-  // `handleOverrideSubmit` closures defined further down, so this plain string is what they
-  // close over instead of re-checking `movement` themselves.
+  // `handleOverrideSubmit` / `submitEscalation` closures defined further down, so these plain
+  // values are what they close over instead of re-checking `movement` themselves.
   const movementId = movement.id;
+  const declinedUnitIds = movement.declines.map((decline) => decline.unitId);
 
   const originEd = allEmergencyDepartments().find((ed) => ed.id === movement.originEdId);
   // Neutral "currently at" language, never framed as an authorisation requirement — authorisation
@@ -273,6 +281,38 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
     setOverrideRecord({ unitIds: [...referTargets], at: now, reason });
     setOverrideOpen(false);
     setOverrideReason("");
+  }
+
+  /**
+   * Whole-branch review I2 (spec §11). `RECORD_ESCALATION`'s own reducer branch
+   * (`ward-flow-reducer.ts`) carries no precondition beyond the role check — it stamps
+   * `escalation` on any movement that resolves — so unlike Refer/Override this control never
+   * needs a `*BlockedReason` guard: nothing here can be refused. `triedUnitIds` is never typed by
+   * a human — it is `movement.declines`, the units genuinely referred to and declined, exactly
+   * what the "Declines" section immediately above already renders (each with its own real reason
+   * — the shortlist's own "what was tried, why each failed"). Deliberately NOT the panel's
+   * `shortlist` candidate list: that is capped at `PARALLEL_REFERRAL_CAP` and is a theoretical
+   * eligibility scan, not a record of what was actually attempted — using it would let a
+   * genuinely untried unit (never referred, only eligibility-checked) be named as "tried".
+   * WF-009's own pre-authored fixture escalation (`ward-movements.ts`) uses exactly this shape:
+   * its five `triedUnitIds` are its five `declines`, unit for unit. Only `contact` (a role or
+   * service, never a person — synthetic data only, the same rule every other free-text field in
+   * this prototype follows) is typed.
+   */
+  function submitEscalation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const contact = escalationContact.trim();
+    if (contact.length === 0) return;
+    dispatch({
+      type: "RECORD_ESCALATION",
+      role: "coordinator",
+      now,
+      movementId,
+      triedUnitIds: declinedUnitIds,
+      contact,
+    });
+    setEscalationOpen(false);
+    setEscalationContact("");
   }
 
   // Structurally incapable of claiming an override succeeded when it did not: this checks the
@@ -520,6 +560,66 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
             })}
           </ul>
         )}
+      </section>
+
+      {/* Whole-branch review I2 (spec §11): moved into Phase 3 from Phase 4 on the reasoning
+          that "a phase that only proves the loop which succeeds has not proved the loop." The
+          shortlist above already renders what was tried (every candidate row) and why each
+          failed (`candidateReason` on each one); this section adds the two facts nothing else on
+          screen records: that the network really was exhausted, stamped on the movement, and who
+          is being contacted next. Rendered whenever a recorded escalation exists (a persistent
+          fact, never a toast), and the control to record a new one only while there genuinely is
+          no eligible destination — the same `topEligible === undefined` condition the header
+          above already uses for "No eligible destination found yet." */}
+      <section aria-label="Escalation">
+        <h4 className={styles.shortlistSectionHeading}>Escalation</h4>
+        {movement.escalation ? (
+          <p className={styles.shortlistEscalationRecord} data-testid="ward-shortlist-escalation-record">
+            {`Escalated at ${formatInstant(movement.escalation.at)} — tried ${movement.escalation.triedUnitIds.length} unit${movement.escalation.triedUnitIds.length === 1 ? "" : "s"} — contact: "${movement.escalation.contact}".`}
+          </p>
+        ) : null}
+        {topEligible === undefined ? (
+          <>
+            {!movement.escalation ? (
+              <p className={styles.shortlistSectionNote}>
+                No eligible destination is currently available for {movement.id}. Record what was tried and who is
+                being contacted next.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              data-testid="ward-shortlist-escalation-toggle"
+              aria-expanded={escalationOpen}
+              className={styles.shortlistOverrideButton}
+              onClick={() => setEscalationOpen((open) => !open)}
+            >
+              {movement.escalation ? "Update escalation" : "Record escalation"}
+            </button>
+            {escalationOpen ? (
+              <form className={styles.shortlistOverrideForm} onSubmit={submitEscalation}>
+                <label className={styles.shortlistOverrideLabel} htmlFor="ward-shortlist-escalation-contact">
+                  Role or service being contacted next — a role or service only, never a person&apos;s name
+                  (synthetic data only)
+                </label>
+                <textarea
+                  id="ward-shortlist-escalation-contact"
+                  required
+                  data-testid="ward-shortlist-escalation-contact"
+                  className={styles.shortlistOverrideTextarea}
+                  value={escalationContact}
+                  onChange={(event) => setEscalationContact(event.target.value)}
+                />
+                <button
+                  type="submit"
+                  data-testid="ward-shortlist-escalation-submit"
+                  className={styles.shortlistOverrideSubmit}
+                >
+                  Record escalation
+                </button>
+              </form>
+            ) : null}
+          </>
+        ) : null}
       </section>
 
       <details className={styles.shortlistScoreDetails}>

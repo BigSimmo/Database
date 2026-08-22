@@ -1181,4 +1181,65 @@ test.describe("Ward Flow coordinator screen", () => {
     const rows = await queue.locator('[data-testid^="ward-queue-row-"]').count();
     expect(rows).toBeGreaterThan(4);
   });
+
+  /**
+   * Whole-branch review I2 (spec §11): "when every candidate is ineligible, the coordinator can
+   * record that it happened — what was tried, why each failed, and who is being contacted."
+   * WF-009 is pinned as the fixture case (verified below against the real `eligibleCandidatesAmong`,
+   * never assumed): five declines have exhausted every cohort-matching candidate.
+   *
+   * WF-009's fixture (`ward-movements.ts`) already carries a pre-authored `escalation` — the
+   * model has held this field since the fixture was written, but nothing could ever write a NEW
+   * one (I2's actual finding: `grep -rn "RECORD_ESCALATION" src/` returned only the events file
+   * and the reducer). So the real proof here is not "absent, then present" — it is that
+   * submitting a fresh escalation genuinely dispatches and OVERWRITES the pre-authored one with
+   * live data, the same live-write proof `overrideSucceeded` elsewhere in this file gives for
+   * REFER_TO_UNITS.
+   */
+  test("records an escalation when no eligible destination exists, and it persists on the movement", async ({
+    page,
+  }) => {
+    await gotoCoordinator(page);
+
+    const wf009 = requireMovement("WF-009");
+    const candidates = eligibleCandidatesAmong(wf009, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    expect(candidates.some((c) => c.verdict.eligible), "fixture assumption: WF-009 has no eligible candidate").toBe(
+      false,
+    );
+    expect(wf009.escalation, "fixture assumption: WF-009 already carries a pre-authored escalation").toBeDefined();
+    expect(wf009.declines.length, "fixture assumption: WF-009 carries five declines").toBe(5);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+
+    // The pre-authored fixture record renders correctly before anything is dispatched.
+    const record = shortlist.getByTestId("ward-shortlist-escalation-record");
+    await expect(record).toContainText(wf009.escalation!.contact);
+    const toggle = shortlist.getByTestId("ward-shortlist-escalation-toggle");
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveText("Update escalation");
+
+    await toggle.click();
+    await shortlist
+      .getByTestId("ward-shortlist-escalation-contact")
+      .fill("State-wide bed coordination line — on-call psychiatry registrar");
+    await shortlist.getByTestId("ward-shortlist-escalation-submit").click();
+
+    // A real dispatch, not a local echo of the typed text: the record now reads the NEW contact,
+    // and `triedUnitIds` is `movement.declines` (never the panel's capped `shortlist`), so the
+    // count matches the real five declines exactly.
+    await expect(record).toContainText("State-wide bed coordination line");
+    await expect(record).not.toContainText(wf009.escalation!.contact);
+    await expect(record).toContainText(`tried ${wf009.declines.length} unit`);
+
+    // Persists across a selection change and back — this is a fact stamped on the movement
+    // (`movement.escalation`), not local component state that a re-render could lose.
+    await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+    await expect(shortlist.getByTestId("ward-shortlist-escalation-record")).toContainText(
+      "State-wide bed coordination line",
+    );
+    await expect(shortlist.getByTestId("ward-shortlist-escalation-toggle")).toHaveText("Update escalation");
+  });
 });

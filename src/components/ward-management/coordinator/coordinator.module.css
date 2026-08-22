@@ -1453,6 +1453,25 @@
   line-height: var(--co-leading-body);
 }
 
+/*
+ * Whole-branch review I2: a recorded escalation is a real, persistent fact — the network really
+ * was exhausted for this movement at this instant — never a success message, so it deliberately
+ * does not reuse `.shortlistConfirmationRecord`'s success tokens above. `--warning-*`, not
+ * `--danger-*`: an escalation is a recorded operational fact a coordinator is expected to act on
+ * next, not a refusal or an error state.
+ */
+.shortlistEscalationRecord {
+  margin: 0 0 var(--co-space-8);
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  padding: var(--co-space-8) var(--co-space-10);
+  color: var(--warning-text);
+  font-size: var(--text-2xs);
+  font-weight: 650;
+  line-height: var(--co-leading-body);
+}
+
 .shortlistActionRow {
   display: flex;
   flex-wrap: wrap;
