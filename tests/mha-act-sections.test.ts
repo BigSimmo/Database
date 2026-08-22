@@ -73,11 +73,16 @@ describe("Act section coverage", () => {
 });
 
 describe("actSectionsForCue", () => {
-  it("withholds sections while any cited section is still pending review", () => {
-    // The staged-rollout gate: a form keeps its Source status card until its whole
-    // citation list is signed off, so it never shows a half-populated authority card.
-    const pending = curatedSections.sections.find((entry) => entry.status === "pending");
-    if (pending) expect(actSectionsForCue(`sections ${pending.section}`)).toBeUndefined();
+  it("marks every summary with the review status it actually has", () => {
+    // A drafted summary was written from the Act text but carries no clinician sign-off,
+    // and the section sheet says so. Never let a drafted entry render as reviewed.
+    const sections = actSectionsForCue("sections 66, 91");
+    expect(sections?.map((entry) => entry.section)).toEqual(["66", "91"]);
+    for (const entry of sections ?? []) {
+      const source = mhaActSection(entry.section);
+      expect(entry.reviewStatus).toBe(source?.status === "reviewed" ? "reviewed" : "drafted");
+      expect(entry.summary?.trim()).not.toBe("");
+    }
   });
 
   it("returns no sections for a form with no cue", () => {
@@ -99,21 +104,26 @@ describe("actSectionsForCue against reviewed data", () => {
     },
     sections: [
       { section: "66", title: "Transfer from general hospital", summary: "Summary of 66.", status: "reviewed" },
-      { section: "91", title: "Transfer between authorised hospitals", summary: "Summary of 91.", status: "reviewed" },
+      { section: "91", title: "Transfer between authorised hospitals", summary: "Summary of 91.", status: "drafted" },
       { section: "45", title: "Still being written", status: "pending" },
     ],
   };
 
-  it("yields sections in cue order once every cited section is reviewed", async () => {
+  it("yields sections in cue order once every cited section has a summary", async () => {
     vi.doMock("../data/mha-2014-sections.json", () => ({ default: reviewedFixture }));
     const { actSectionsForCue: withFixture } = await import("@/lib/mha-act-sections");
     expect(withFixture("sections 91, 66")).toEqual([
-      { section: "91", title: "Transfer between authorised hospitals", summary: "Summary of 91." },
-      { section: "66", title: "Transfer from general hospital", summary: "Summary of 66." },
+      {
+        section: "91",
+        title: "Transfer between authorised hospitals",
+        summary: "Summary of 91.",
+        reviewStatus: "drafted",
+      },
+      { section: "66", title: "Transfer from general hospital", summary: "Summary of 66.", reviewStatus: "reviewed" },
     ]);
   });
 
-  it("withholds the whole list when one cited section is unreviewed", async () => {
+  it("withholds the whole list when one cited section has no summary yet", async () => {
     vi.doMock("../data/mha-2014-sections.json", () => ({ default: reviewedFixture }));
     const { actSectionsForCue: withFixture } = await import("@/lib/mha-act-sections");
     expect(withFixture("sections 66, 45")).toBeUndefined();

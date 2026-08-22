@@ -356,6 +356,13 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
             ) : (
               <PendingSectionBody formCode={details?.form} pdfHref={pdfHref} />
             )}
+            {activeSection.reviewStatus === "drafted" ? (
+              // The summary was written from the statutory text but carries no clinician
+              // sign-off yet. Say so rather than let it read as reviewed clinical content.
+              <p className={cn("text-xs leading-5", textMuted)}>
+                Drafted from the Act text and awaiting clinical review.
+              </p>
+            ) : null}
             <p className={cn("text-xs leading-5", textMuted)}>
               Condensed reference from the Mental Health Act 2014 (WA). Confirm against the current Act and approved
               form before clinical or legal use.

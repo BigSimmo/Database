@@ -12,12 +12,18 @@ import type { FormActSection } from "@/lib/form-ranker";
  *
  * Generated and gated by scripts/build-mha-act-sections.mjs.
  */
-export type MhaActSectionStatus = "reviewed" | "pending";
+/**
+ * `drafted` — written from the extracted statutory text and pinned to it by hash, but
+ * not yet signed off by a clinician. It renders, with a visible caveat on the section
+ * sheet, so the reader is never told a summary carries clinical review it does not have.
+ * `reviewed` — a named clinician confirmed it against that same text; the caveat drops.
+ */
+export type MhaActSectionStatus = "reviewed" | "drafted" | "pending";
 
 export type MhaActSection = {
   section: string;
   title: string;
-  /** Absent until a clinician has signed the summary off against the Act text. */
+  /** Absent until the summary has been written from the Act text. */
   summary?: string;
   status: MhaActSectionStatus;
 };
@@ -58,10 +64,11 @@ export function mhaActSection(section: string): MhaActSection | undefined {
  * Renderable Act sections for a form's cue, or `undefined` to leave the Source status
  * card in place.
  *
- * Returns `undefined` unless EVERY cited section has a reviewed summary. That is the
- * staged-rollout gate: summaries land in clinically reviewed batches, and a form flips
- * to the Act-sections card only once its whole citation list is signed off, so no form
- * ever shows a half-populated authority card.
+ * Returns `undefined` unless EVERY cited section has a summary (drafted or reviewed).
+ * That is the staged-rollout gate: a form flips to the Act-sections card only once its
+ * whole citation list is written, so no form ever shows a half-populated authority card.
+ * Drafted sections carry `reviewStatus` through to the sheet, which shows the
+ * awaiting-review caveat.
  *
  * Throws for a cue naming a section absent from the curated file — that is a data
  * defect the build gate also catches, and it must never render as a dead chip.
@@ -78,7 +85,12 @@ export function actSectionsForCue(cue: string | undefined | null): FormActSectio
     return entry;
   });
 
-  if (sections.some((entry) => entry.status !== "reviewed" || !entry.summary?.trim())) return undefined;
+  if (sections.some((entry) => entry.status === "pending" || !entry.summary?.trim())) return undefined;
 
-  return sections.map((entry) => ({ section: entry.section, title: entry.title, summary: entry.summary }));
+  return sections.map((entry) => ({
+    section: entry.section,
+    title: entry.title,
+    summary: entry.summary,
+    reviewStatus: entry.status === "reviewed" ? "reviewed" : "drafted",
+  }));
 }

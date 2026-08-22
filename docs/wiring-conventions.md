@@ -172,11 +172,17 @@ shows is decided by data, never by a per-form branch in the component.
   `sourceFacts.sectionCue` (e.g. `"sections 66, 91"`). `parseSectionCue` in
   `src/lib/mha-act-sections.ts` turns that into ordered section numbers, and
   `actSectionsForCue` resolves them.
-- **`actSectionsForCue` returns sections only when every cited section is `reviewed`.**
-  That is the staged-rollout gate: summaries land in clinically reviewed batches, and a
-  form keeps its Source status card until its whole citation list is signed off, so it
-  can never show a half-populated authority card. Do not weaken this to a per-section
-  filter.
+- **`actSectionsForCue` returns sections only when every cited section has a summary.**
+  That is the staged-rollout gate: a form keeps its Source status card until its whole
+  citation list is written, so it can never show a half-populated authority card. Do not
+  weaken this to a per-section filter.
+- **Three statuses, and the difference is visible to the reader.** `pending` has no
+  summary and does not render. `drafted` was written from the extracted statutory text
+  and renders with "Drafted from the Act text and awaiting clinical review" on the
+  section sheet. `reviewed` additionally names a clinician and a date in
+  `reviewedBy`/`reviewedAt`, and drops that note. Never promote a `drafted` entry to
+  `reviewed` without a real sign-off — the status is the only thing telling a reader
+  whether a clinician has checked the summary.
 - A hand-written `actSections` block in `data/forms-catalog.json` still wins, so a form
   can carry bespoke wording (Form 1A does).
 - Chips are capped at `ACT_SECTION_CHIP_LIMIT` (6) with a wired `+n` overflow control;
@@ -189,9 +195,13 @@ which is why only Form 1A had working popups for months. Never reintroduce a
 form-identity gate here — if a card has nothing more to say, it must stay inert rather
 than promise detail it cannot deliver.
 
-Regenerate and validate with `node scripts/build-mha-act-sections.mjs --check`
-(`check:mha-act-sections`, in `verify:cheap`). `--refresh` is the repo's only
-network-fetching build mode and is manual; never wire it into CI.
+Every summary — drafted or reviewed — carries `sourceTextSha256`, pinned to the exact
+statutory text it was written from. If the Act is amended and re-extracted, that hash
+stops matching and `check:mha-act-sections` fails, forcing a rewrite and re-review rather
+than leaving a stale clinical claim on the page. Validate with
+`node scripts/build-mha-act-sections.mjs --check` (`check:mha-act-sections`, in
+`verify:cheap`). `--refresh` is the repo's only network-fetching build mode and is
+manual; never wire it into CI.
 
 ## Mockups are exempt
 

@@ -71,9 +71,47 @@ describe("psychiatry form records", () => {
     expect(form?.source?.status).toBe("Source checked");
     // A form with no archive row has no section cue, so it can never gain an Act-sections
     // card and keeps Source status permanently. Cued forms flip once every section they
-    // cite has a reviewed summary - see tests/mha-act-sections.test.ts.
+    // cite has a summary - see tests/mha-act-sections.test.ts.
     expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
     expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "act-sections")).toBe(false);
+
+    // Form 4C is the shape that motivated the rollout: a boilerplate catalogue row whose
+    // only real authority content is its section cue.
+    const form4c = formCatalogDetails(getFormRecord("transfer-order")!);
+    expect(form4c?.actSections?.map((entry) => entry.section)).toEqual(["66", "91"]);
+    expect(form4c?.actSections?.every((entry) => entry.summary?.trim())).toBe(true);
+  });
+
+  it("gives every cued form an Act-sections card and leaves the uncued ones on Source status", () => {
+    const cued = formRecords.filter((form) => formCatalogDetails(form)?.sourceFacts?.sectionCue);
+    const uncued = formRecords.filter((form) => !formCatalogDetails(form)?.sourceFacts?.sectionCue);
+    expect(cued).toHaveLength(47);
+    expect(uncued).toHaveLength(7);
+
+    for (const form of cued) {
+      expect(
+        form.summaryCards?.map((card) => card.id),
+        form.slug,
+      ).toEqual(["clock", "authority", "criteria", "act-sections"]);
+    }
+    for (const form of uncued) {
+      expect(
+        form.summaryCards?.some((card) => card.id === "source"),
+        form.slug,
+      ).toBe(true);
+    }
+  });
+
+  it("caps the Act-sections card detail once a form cites more sections than fit as chips", () => {
+    // Form 5A cites 11 sections; the card shows a count instead of an unreadable list,
+    // and the chip row collapses the remainder behind an overflow control.
+    const form5a = getFormRecord("form-5a");
+    expect(formCatalogDetails(form5a!)?.actSections).toHaveLength(11);
+    expect(form5a?.summaryCards?.find((card) => card.id === "act-sections")?.detail).toBe("11 sections cited");
+    // A form within the limit still lists its sections.
+    expect(getFormRecord("transfer-order")?.summaryCards?.find((card) => card.id === "act-sections")?.detail).toBe(
+      "66 · 91",
+    );
   });
 
   it("normalizes form lookup and static params", () => {

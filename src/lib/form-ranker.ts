@@ -16,8 +16,13 @@ export type FormPriorityFactCard = {
 export type FormActSection = {
   section: string;
   title: string;
-  /** Absent until a clinician has signed the section summary off against the Act text. */
+  /** Absent until the section summary has been written from the Act text. */
   summary?: string;
+  /**
+   * Provenance of `summary` when it came from the shared Act-section file. Absent for a
+   * hand-written per-form override, which carries its own review history.
+   */
+  reviewStatus?: "reviewed" | "drafted";
 };
 
 export type FormCatalogDetails = {

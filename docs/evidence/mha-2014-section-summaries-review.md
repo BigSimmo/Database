@@ -229,7 +229,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (6)Subdivision 4 applies in relation to an assessment ordered under subsection (1).
 >
-> (7)The voluntary inpatient cannot continue to be detained if, by the end of the 6&#8209;hour period referred to in subsection (3) —
+> (7)The voluntary inpatient cannot continue to be detained if, by the end of the 6-hour period referred to in subsection (3) —
 >
 > (a)the assessment has not been completed; or
 >
@@ -241,7 +241,7 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 2
 
-Source text SHA-256: `106b9cd15257c4708a359c162451749a07224ee92b0dfc75405b57e47ea6fc60`
+Source text SHA-256: `9409e7aece03ae5b1e7486d5051f5fe892dfb060ec6fa906f53c4740c0beadf5`
 
 Reviewed by: ______________________ Date: ______________
 
@@ -453,7 +453,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (3)The practitioner or person responsible may extend the referral if satisfied that the referral is likely to expire before the person is received into the authorised hospital or other place.
 >
-> (4)The referral may be extended for a further period of 72 hours from the time when the 72&#8209;hour period referred to in section 44 ends.
+> (4)The referral may be extended for a further period of 72 hours from the time when the 72-hour period referred to in section 44 ends.
 >
 > (5)The person who extends the referral must, as soon as practicable —
 >
@@ -477,7 +477,7 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 1B
 
-Source text SHA-256: `fa209e959c7979b66820dcd468637d34e41fdb163695d06c01a724e2bcee80fb`
+Source text SHA-256: `b9438f0b39bc9bb379aeefbd0037ffe8d0c6b3f6031b00b00e74b8af1aa7a7f8`
 
 Reviewed by: ______________________ Date: ______________
 
@@ -635,9 +635,9 @@ Reviewed by: ______________________ Date: ______________
 >
 > (a)the person is referred for an examination at a place that is outside a metropolitan area; and
 >
-> (b)it is not practicable to complete the examination within the 24&#8209;hour period referred to in section 58(1)(b).
+> (b)it is not practicable to complete the examination within the 24-hour period referred to in section 58(1)(b).
 >
-> (2)A medical practitioner or authorised mental health practitioner at the place may make an order authorising the continuation of the person’s detention at the place, to enable the examination to be completed, for up to an additional 48 hours from the end of the 24&#8209;hour period.
+> (2)A medical practitioner or authorised mental health practitioner at the place may make an order authorising the continuation of the person’s detention at the place, to enable the examination to be completed, for up to an additional 48 hours from the end of the 24-hour period.
 >
 > (3)The order must be in the approved form and must include the following —
 >
@@ -657,7 +657,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (b)at all reasonable times while the person is detained under the order.
 >
-> (6)The person cannot continue to be detained if, by the end of the additional 48&#8209;hour period —
+> (6)The person cannot continue to be detained if, by the end of the additional 48-hour period —
 >
 > (a)the examination has not been completed; or
 >
@@ -669,7 +669,7 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 3B
 
-Source text SHA-256: `d9e3d67ecd8c75f5570ef0c88639f1964bd94379e393634899f6bfcb1284edcf`
+Source text SHA-256: `4e51ffda63a329577b1846bb2e49c5f052b3004adcb57fa1bcffa32913e09585`
 
 Reviewed by: ______________________ Date: ______________
 
@@ -1609,7 +1609,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (b)does not confirm that it is appropriate to have continued the community treatment order.
 >
-> (8)Subsection (7) does not apply if the further opinion is not obtained within the 14&#8209;day period referred to in subsection (7)(a) because the involuntary community patient did not attend an examination to be conducted by the psychiatrist responsible for giving the further opinion.
+> (8)Subsection (7) does not apply if the further opinion is not obtained within the 14-day period referred to in subsection (7)(a) because the involuntary community patient did not attend an examination to be conducted by the psychiatrist responsible for giving the further opinion.
 
 **Drafted summary** (status: pending)
 
@@ -1617,7 +1617,7 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 5B
 
-Source text SHA-256: `3a64ae61a5316eb1d086d01f4d7e3b28977003340fd67cbda2445566727febf3`
+Source text SHA-256: `963f9b424fc287240da80bfd02f1424975ffa5fef97d2337163ac64251f0a0b1`
 
 Reviewed by: ______________________ Date: ______________
 
@@ -1777,7 +1777,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (3)The record of breach must be in the approved form and must include these things —
 >
-> (a)details of the involuntary community patient’s non&#8209;compliance;
+> (a)details of the involuntary community patient’s non-compliance;
 >
 > (b)the steps that have been taken to obtain the involuntary community patient’s compliance;
 >
@@ -1789,11 +1789,11 @@ Reviewed by: ______________________ Date: ______________
 >
 > (4)The notice of breach must be in the approved form and must include these things —
 >
-> (a)details of the involuntary community patient’s non&#8209;compliance;
+> (a)details of the involuntary community patient’s non-compliance;
 >
 > (b)details of what the involuntary community patient must do to comply;
 >
-> (c)a statement that continued non&#8209;compliance with the order may result in the involuntary community patient being required to attend a place to enable the patient to be provided with treatment.
+> (c)a statement that continued non-compliance with the order may result in the involuntary community patient being required to attend a place to enable the patient to be provided with treatment.
 >
 > (5)The supervising psychiatrist must, as soon as practicable, file the record of breach and a copy of the notice of breach.
 >
@@ -1805,13 +1805,13 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 5E
 
-Source text SHA-256: `4a92f654175b8952b0f9d89671c95172ee7699aa85db2276ba8aa549902e60b9`
+Source text SHA-256: `c90c7cc56d0d76f367f874b97e3664a562b11efeac5447f87659ceb6a6e3ec8e`
 
 Reviewed by: ______________________ Date: ______________
 
 ---
 
-### s128 — Order to attend if non&#8209;compliance continues
+### s128 — Order to attend if non-compliance continues
 
 **Act text (02-b0-01, as at 2025-09-25)**
 
@@ -1877,7 +1877,7 @@ Reviewed by: ______________________ Date: ______________
 
 ---
 
-### s131 — Other action that may be taken if non&#8209;compliance
+### s131 — Other action that may be taken if non-compliance
 
 **Act text (02-b0-01, as at 2025-09-25)**
 
@@ -1889,7 +1889,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (c)since the involuntary community patient was given the notice —
 >
-> (i)the patient’s non&#8209;compliance with the community treatment order has continued; or
+> (i)the patient’s non-compliance with the community treatment order has continued; or
 >
 > (ii)the supervising psychiatrist has made an order to attend under section 128(2) with which the patient has not complied despite being given a copy of the order.
 >
@@ -1949,7 +1949,7 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 5A, Form 6A, Form 6B
 
-Source text SHA-256: `c78d0d2045863f8f54f4f8c8a633cef86ce1f2ab6cfc4758b020d97121325e78`
+Source text SHA-256: `de67624170fc70a389069b880b60e6635b27b870fee1e62daa37e5a06cf5068f`
 
 Reviewed by: ______________________ Date: ______________
 
@@ -3097,11 +3097,11 @@ Reviewed by: ______________________ Date: ______________
 
 ---
 
-### s242 — Provision of urgent non&#8209;psychiatric treatment: report to Chief Psychiatrist
+### s242 — Provision of urgent non-psychiatric treatment: report to Chief Psychiatrist
 
 **Act text (02-b0-01, as at 2025-09-25)**
 
-> (1)This section applies if urgent non&#8209;psychiatric treatment is provided to a patient who is —
+> (1)This section applies if urgent non-psychiatric treatment is provided to a patient who is —
 >
 > (a)an involuntary patient who is under an inpatient treatment order authorising the patient’s detention at an authorised hospital; or
 >
@@ -3113,17 +3113,17 @@ Reviewed by: ______________________ Date: ______________
 >
 > urgent non
 >
-> &#8209;psychiatric treatment
+> -psychiatric treatment
 >
 > means urgent treatment as defined in the GAA Act section 110ZH.
 >
-> (3)The person in charge of the authorised hospital must, as soon as practicable, report the provision of the urgent non&#8209;psychiatric treatment to —
+> (3)The person in charge of the authorised hospital must, as soon as practicable, report the provision of the urgent non-psychiatric treatment to —
 >
 > (a)the Chief Psychiatrist; and
 >
 > (b)if the patient is a supervised person — the Mental Impairment Review Tribunal.
 >
-> (4)The report must be in the approved form and must include these things about the urgent non&#8209;psychiatric treatment —
+> (4)The report must be in the approved form and must include these things about the urgent non-psychiatric treatment —
 >
 > (a)the name of the patient provided with the treatment;
 >
@@ -3137,11 +3137,11 @@ Reviewed by: ______________________ Date: ______________
 >
 > (f)particulars of the treatment provided.
 >
-> (5)The provision of urgent non&#8209;psychiatric treatment is an event to which Part 9 applies and the person in charge of the authorised hospital is the person responsible under that Part for notification of that event.
+> (5)The provision of urgent non-psychiatric treatment is an event to which Part 9 applies and the person in charge of the authorised hospital is the person responsible under that Part for notification of that event.
 >
 > Note for this section:
 >
-> The GAA Act section 110ZI or 110ZIA may apply in relation to the provision of urgent non&#8209;psychiatric treatment to a patient referred to in section 242.
+> The GAA Act section 110ZI or 110ZIA may apply in relation to the provision of urgent non-psychiatric treatment to a patient referred to in section 242.
 >
 > [Section 242 amended: No. 10 of 2023 s. 373.]
 >
@@ -3165,7 +3165,7 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 9B
 
-Source text SHA-256: `22212cf39ed4696797ae87efab59c892140ec1eb3c7babc0e5d9ef9a128cb32e`
+Source text SHA-256: `54b619af4ac269da4534ea7951841484f1eb6c8db9593933ea599097433f4b6f`
 
 Reviewed by: ______________________ Date: ______________
 
@@ -3235,7 +3235,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (b)give a copy to any carer, close family member or other personal support person of the patient.
 >
-> (7)A psychiatrist must, before the end of each 24&#8209;hour period that an order made under subsection (1) is in force, review the order and confirm, amend or revoke it.
+> (7)A psychiatrist must, before the end of each 24-hour period that an order made under subsection (1) is in force, review the order and confirm, amend or revoke it.
 >
 > (8)A psychiatrist who confirms, amends or revokes an order made under subsection (1) must —
 >
@@ -3243,7 +3243,7 @@ Reviewed by: ______________________ Date: ______________
 >
 > (b)advise the patient of the confirmation, amendment or revocation and those reasons.
 >
-> (9)An order made under subsection (1) ceases to be in force if it is not reviewed before the end of any 24&#8209;hour period referred to in subsection (7).
+> (9)An order made under subsection (1) ceases to be in force if it is not reviewed before the end of any 24-hour period referred to in subsection (7).
 >
 > (10)A psychiatrist who makes an order under subsection (1) in respect of a patient must, within 24 hours after the time when the order is made, advise the Chief Mental Health Advocate that the order has been made.
 >
@@ -3265,7 +3265,7 @@ Reviewed by: ______________________ Date: ______________
 
 Cited by: Form 12C
 
-Source text SHA-256: `f01c069a6bb6964f576655f8582496b338047dc11b2e6cab5b6ea9f6c01291ef`
+Source text SHA-256: `d74ff4a4c1e3afeb02583dae5d22854a4624cce39fab4f61a325c0d8a197680e`
 
 Reviewed by: ______________________ Date: ______________
 

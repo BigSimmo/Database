@@ -74,13 +74,15 @@ describe("Priority facts on forms without curated copy", () => {
 });
 
 describe("Act sections card with many citations", () => {
-  function formWithSections(sections: { section: string; title: string; summary?: string }[]) {
+  function formWithSections(
+    sections: { section: string; title: string; summary?: string; reviewStatus?: "reviewed" | "drafted" }[],
+  ) {
     const base = getFormRecord("transfer-order");
     if (!base) throw new Error("Expected Form 4C");
     return {
       ...base,
       summaryCards: [
-        ...(base.summaryCards ?? []).filter((card) => card.id !== "source"),
+        ...(base.summaryCards ?? []).filter((card) => card.id !== "source" && card.id !== "act-sections"),
         {
           id: "act-sections",
           label: "Act sections",
@@ -116,6 +118,49 @@ describe("Act sections card with many citations", () => {
 
     await user.click(within(sheet).getByRole("button", { name: /Section 130 — Section 130 heading/ }));
     expect(await screen.findByTestId("form-act-section-sheet")).toHaveTextContent(/Summary of section 130\./);
+  });
+
+  it("says so when a summary has not been clinically reviewed yet", async () => {
+    const user = userEvent.setup();
+    render(
+      <FormDetailPage
+        form={formWithSections([
+          {
+            section: "66",
+            title: "Transfer from general hospital",
+            summary: "Summary of 66.",
+            reviewStatus: "drafted",
+          },
+        ])}
+      />,
+    );
+    const priorityFacts = screen.getByLabelText("Priority facts");
+
+    await user.click(within(priorityFacts).getByRole("button", { name: /Section 66:/i }));
+    const sheet = await screen.findByTestId("form-act-section-sheet");
+    expect(sheet).toHaveTextContent(/Summary of 66\./);
+    expect(sheet).toHaveTextContent(/Drafted from the Act text and awaiting clinical review/i);
+  });
+
+  it("drops the awaiting-review note once a summary is reviewed", async () => {
+    const user = userEvent.setup();
+    render(
+      <FormDetailPage
+        form={formWithSections([
+          {
+            section: "66",
+            title: "Transfer from general hospital",
+            summary: "Summary of 66.",
+            reviewStatus: "reviewed",
+          },
+        ])}
+      />,
+    );
+    const priorityFacts = screen.getByLabelText("Priority facts");
+
+    await user.click(within(priorityFacts).getByRole("button", { name: /Section 66:/i }));
+    const sheet = await screen.findByTestId("form-act-section-sheet");
+    expect(sheet).not.toHaveTextContent(/awaiting clinical review/i);
   });
 
   it("explains a section whose summary has not been written yet", async () => {

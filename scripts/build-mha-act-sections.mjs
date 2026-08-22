@@ -82,20 +82,24 @@ function compareSections(a, b) {
  * pass is needed.
  */
 export function actTextLines(html) {
-  return html
-    .replace(/<[^>]*>/g, "\n")
-    .replace(/&#160;|&nbsp;/g, " ")
-    .replace(/&#8217;|&rsquo;/g, "’")
-    .replace(/&#8216;|&lsquo;/g, "‘")
-    .replace(/&#8212;|&mdash;/g, "—")
-    .replace(/&#8211;|&ndash;/g, "–")
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .split("\n")
-    .map((line) => line.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+  return (
+    html
+      .replace(/<[^>]*>/g, "\n")
+      .replace(/&#160;|&nbsp;/g, " ")
+      .replace(/&#8217;|&rsquo;/g, "’")
+      .replace(/&#8216;|&lsquo;/g, "‘")
+      .replace(/&#8212;|&mdash;/g, "—")
+      // Non-breaking hyphen: the Act uses it in compounds like "non-compliance".
+      .replace(/&#8209;/g, "-")
+      .replace(/&#8211;|&ndash;/g, "–")
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .split("\n")
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+  );
 }
 
 /**
@@ -182,7 +186,7 @@ function draft() {
     if (prior) return { ...prior, title: entry.heading };
     return { section: entry.section, title: entry.heading, status: "pending" };
   });
-  const reviewed = sections.filter((entry) => entry.status === "reviewed").length;
+  const tally = (status) => sections.filter((entry) => entry.status === status).length;
 
   writeJson(curatedPath, {
     exportMetadata: {
@@ -192,15 +196,20 @@ function draft() {
       actAsAt: source.exportMetadata.actAsAt,
       sourceUrl: source.exportMetadata.sourceUrl,
       generatedAt: new Date().toISOString(),
-      counts: { sections: sections.length, reviewed, pending: sections.length - reviewed },
+      counts: {
+        sections: sections.length,
+        reviewed: tally("reviewed"),
+        drafted: tally("drafted"),
+        pending: tally("pending"),
+      },
     },
     sections,
   });
 
   writeFileSync(reviewPath, reviewSheet(source, sections, catalog));
   process.stdout.write(
-    `Wrote ${sections.length} curated entries (${reviewed} reviewed, ${sections.length - reviewed} pending) ` +
-      `to ${curatedPath} and the review sheet to ${reviewPath}.\n`,
+    `Wrote ${sections.length} curated entries (${tally("reviewed")} reviewed, ${tally("drafted")} drafted, ` +
+      `${tally("pending")} pending) to ${curatedPath} and the review sheet to ${reviewPath}.\n`,
   );
 }
 
@@ -288,21 +297,31 @@ export function checkProblems({ source, curated, catalog }) {
         `Curated section ${entry.section} title "${entry.title}" does not match the Act heading "${origin.heading}".`,
       );
     }
-    if (entry.status !== "reviewed" && entry.status !== "pending") {
+    if (!["reviewed", "drafted", "pending"].includes(entry.status)) {
       problems.push(`Curated section ${entry.section} has unknown status "${entry.status}".`);
       continue;
     }
-    if (entry.status !== "reviewed") continue;
+    if (entry.status === "pending") {
+      if (entry.summary?.trim()) {
+        problems.push(`Pending section ${entry.section} carries a summary — set status to "drafted".`);
+      }
+      continue;
+    }
 
-    if (!entry.summary?.trim()) problems.push(`Reviewed section ${entry.section} has no summary.`);
-    if (!entry.reviewedBy?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedBy.`);
-    if (!entry.reviewedAt?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedAt.`);
+    // Both drafted and reviewed summaries are pinned to the exact text they were written
+    // from, so amended law invalidates them either way.
+    if (!entry.summary?.trim()) problems.push(`Section ${entry.section} is ${entry.status} but has no summary.`);
     if (entry.sourceTextSha256 !== origin.textSha256) {
       problems.push(
-        `Reviewed section ${entry.section} is pinned to stale Act text — the summary must be re-reviewed ` +
+        `Section ${entry.section} is pinned to stale Act text — the summary must be rewritten and re-reviewed ` +
           `against ${source.exportMetadata.actVersion}.`,
       );
     }
+    if (entry.status !== "reviewed") continue;
+
+    // Only a reviewed entry claims a named clinician signed it off, so only it needs one.
+    if (!entry.reviewedBy?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedBy.`);
+    if (!entry.reviewedAt?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedAt.`);
   }
 
   const sourceMeta = source.exportMetadata;
@@ -310,8 +329,13 @@ export function checkProblems({ source, curated, catalog }) {
   if (curatedMeta.actVersion !== sourceMeta.actVersion || curatedMeta.actAsAt !== sourceMeta.actAsAt) {
     problems.push("Curated and extracted Act version metadata disagree.");
   }
-  const reviewed = curated.sections.filter((entry) => entry.status === "reviewed").length;
-  if (curatedMeta.counts?.sections !== curated.sections.length || curatedMeta.counts?.reviewed !== reviewed) {
+  const tally = (status) => curated.sections.filter((entry) => entry.status === status).length;
+  if (
+    curatedMeta.counts?.sections !== curated.sections.length ||
+    curatedMeta.counts?.reviewed !== tally("reviewed") ||
+    curatedMeta.counts?.drafted !== tally("drafted") ||
+    curatedMeta.counts?.pending !== tally("pending")
+  ) {
     problems.push("Curated exportMetadata.counts does not match the section list.");
   }
   return problems;
@@ -327,10 +351,11 @@ function check() {
   if (problems.length) {
     throw new Error(`Act section data is inconsistent:\n  - ${problems.join("\n  - ")}`);
   }
-  const reviewed = loaded.curated.sections.filter((entry) => entry.status === "reviewed").length;
+  const tally = (status) => loaded.curated.sections.filter((entry) => entry.status === status).length;
   const total = loaded.curated.sections.length;
   process.stdout.write(
-    `Act section data is current (${total} sections cited by forms, ${reviewed} reviewed, ${total - reviewed} pending; ` +
+    `Act section data is current (${total} sections cited by forms, ${tally("reviewed")} reviewed, ` +
+      `${tally("drafted")} drafted, ${tally("pending")} pending; ` +
       `Act ${loaded.source.exportMetadata.actVersion} as at ${loaded.source.exportMetadata.actAsAt}).\n`,
   );
 }
