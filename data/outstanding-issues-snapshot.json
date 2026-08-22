@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "2327bd9624d788a7b9ecb61eee494f1acd9a1997",
-    "committed_at": "2026-08-22T06:11:46Z"
+    "committed_at": "2026-08-22T06:11:46+00:00"
   },
   "counts": {
     "open": 78,
@@ -10,7 +10,7 @@
     "p2": 43,
     "p3": 33,
     "queued": 11,
-    "pending": 32,
+    "pending": 34,
     "resolved": 359
   },
   "queue": [
@@ -962,6 +962,12 @@
       "created_at": "2026-08-21"
     },
     {
+      "request_id": "98fb14c8-7362-4b4b-934a-e4d8de3d35d3",
+      "action": "update",
+      "summary": "#NPQJKP: detail → PACKET 2 IMPLEMENTED 2026-08-22, PR pending. Step 1 falsification CONFIRMED the premise before any production change: generatedAnswerQualityFailureReason returned null for BOTH captured answers at their real eval query classes (medication_dose_risk, document_lookup), run against unmodified source. TWO CORRECTIONS TO THE ROW'S OWN FRAMING, both from reading the code. (1) The gate is NOT unreachable on the grounded first-choice extractive path. rag.ts:3113 is only the review-fallback reason labeller; the ENFORCING call is unconditional inside finalizeRagAnswerQualityCore and the grounded path reaches it via finalizeAnswer -> finalizeRagAnswerQuality. No reachability change was needed or made. The only remaining bypass is the preformatted-and-grounded early return, now named and pinned by a test rather than assumed closed. (2) The wrapper is NOT purely a laundering step. The first predicate version — reject any \"The guidance is that X\" whose continuation lacks a verb from openingSentenceActionPattern — broke tests/rag-extractive-procedural-artifact.test.ts, which pins \"the ECT Coordinator places the patient onto BASE\" as a grounded answer; \"places\" is a real finite verb and rightly absent from a clinical-directive list. SHIPPED: isLaunderedGuidanceWrapperAnswer rejects only two shapes no verb list could rescue — a \">\" breadcrumb pointing at a word rather than a figure, and a bare coordinated noun list with no determiner, auxiliary or directive verb — returning reason guidance_wrapper_fragment. Placed after the other prose gates so nothing already-rejected is relabelled; not in the shouldPreserveSourceBackedGeneratedAnswer rescue allowlist, so a flagged answer cannot be recovered to grounded. clippedClinicalFragmentPattern's four-continuation enumeration is left in place and its cases are still rejected. EVAL IMPACT: eval:rag:offline 627/627 and eval:rag:adversarial:offline 25/25, identical before and after (baseline re-run with GATE_RECEIPTS=refresh). source_backed_review_fallback_count cannot be measured offline; threshold is ragSourceBackedReviewFallbackCount 0 in scripts/eval-quality.ts and PREDICTED to rise by +2 per 30-case capture. Threshold NOT adjusted and should not be. OWNER DECISION LEFT OPEN: quality-antipsychotic-metabolic-monitoring lacks acceptSourceOnly, so once it degrades it fails the live answer-quality eval with \"expected grounded answer\" (its mustContainAny is still satisfied — the source-only text echoes the query). That case asserts a grounded answer for a query whose grounded answer is one of the two incoherent outputs this change rejects; whether it should gain acceptSourceOnly like its discharge sibling is a clinical call and was deliberately not made here. STILL OPEN: the live eval-canary pair, which needs owner approval and is the only thing that can confirm the change.; source → PR #2285; commit 957b76a; docs/rag-improvement/231-diagnosis-2026-08-22.md §3.1-§3.2; src/lib/rag/rag-extractive-answer.ts isLaunderedGuidanceWrapperAnswer",
+      "created_at": "2026-08-22"
+    },
+    {
       "request_id": "993f7ca7-5277-4399-82fc-19ff981823e4",
       "action": "update",
       "summary": "#M6JNR8: priority → P1; source → PR #2260 review thread discussion_r3833600137; RE-CONFIRMED AND EMPIRICALLY RE-PROVEN 2026-08-22 in a second session that was tasked with fixing the #231 queue row and could not: a probe commit changing queue row 1 from A1 to A2 was refused by npm run check:ledger-write-discipline with 'docs/outstanding-issues.md does not exactly match the audited application of 0 moved inbox request(s) from the base', and the probe was reverted; re-graded P2 -> P1 because the stale row is the first thing the session-start hook surfaces and has now mis-directed two sessions; docs/outstanding-issues.md queue row 1 and row #231; scripts/outstanding-issues.mjs:255-279; scripts/check-ledger-write-discipline.mjs:130-175",
@@ -1032,6 +1038,12 @@
       "action": "cancel",
       "summary": "Cancel request afaa753b-41ae-4bee-8c63-89c649cdcfd5: Duplicate done request created by overlapping command completion; retain 5201bfa7-4966-4583-abff-02305de82219.",
       "created_at": "2026-08-21"
+    },
+    {
+      "request_id": "fa499354-66e6-42d3-b880-f5f712a38ae3",
+      "action": "add",
+      "summary": "A caring-contacts mockup timer fires after jsdom teardown, so the full unit suite can exit 1 with 8359/8359 passing",
+      "created_at": "2026-08-22"
     }
   ]
 }
