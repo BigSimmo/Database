@@ -43,7 +43,6 @@ function StoppedServiceBanner({ facts }: { facts: ServiceStopBannerFacts }) {
   return (
     <div
       role="status"
-      data-testid="caring-contacts-service-state-banner"
       className="flex min-w-0 flex-col gap-2 border-b border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] px-4 py-3 sm:px-6 lg:px-8 forced-colors:border-[CanvasText] forced-colors:bg-[Canvas]"
     >
       <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--danger-text)] forced-colors:text-[CanvasText]">
@@ -59,8 +58,8 @@ function StoppedServiceBanner({ facts }: { facts: ServiceStopBannerFacts }) {
       */}
       <UnavailableDestination
         id="service-state-banner"
-        label="Service stop"
-        reason="Recording what stopped sending, and the three approvals from three different people that start it again."
+        label="Service stop record"
+        reason="What stopped sending, and the three approvals from three different people that start it again."
         className="inline-flex min-h-tap w-fit items-center rounded-[var(--radius-md)] border border-[color:var(--danger-border)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)]"
       />
     </div>

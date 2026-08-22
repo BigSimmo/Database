@@ -562,3 +562,169 @@ coordinator's own client-boundary check, concern 2 by the browser run above.
 One standing limitation is worth restating because it is a property of the whole branch rather than
 of this change: **Chromium evidence is not physical Safari or installed-PWA acceptance.** Nothing
 here closes that, and nothing here made it worse.
+
+---
+
+# Follow-up 3 — review findings, fix round 1
+
+Fourth pass, addressing the Approved review's two Important findings and four minors. Everything
+here is additive; no existing assertion was deleted or loosened.
+
+## 17. Important 1 — the banner now has to say what would restart the service
+
+Spec §4.4 has two halves and the banner owed both. The reason half was asserted; the remedy half —
+`describeServiceStop`'s third sentence, `Still needed: …, each from a different person.` — was
+produced by the code and pinned by nothing.
+
+Added to `tests/caring-contacts-explained-automation.dom.test.tsx`:
+`names what would restart the service, not only why it stopped`. It asserts the banner's text
+contains `still needed`, each of the three outstanding role wordings, and `each from a different
+person` — the last because the restart is a three-PERSON decision, not three tick-boxes one person
+can supply, and a banner that omits that misdescribes the remedy. It also asserts
+`REQUIRED_RESTART_APPROVAL_ROLES` has length 3, so the "0 of 3" the clinician reads is tied to the
+sealed list rather than to a second copy of the number.
+
+### Mutation D — deleting the remedy sentence
+
+**Confirmed first that an assertion reads it:** the `Still needed: …` clause is produced by that
+sentence and by nothing else.
+
+Mutation: replaced `describeServiceStop`'s third sentence in the sealed domain with nothing.
+
+```
+FAIL  ... > names what would restart the service, not only why it stopped
+Error: expect(element).toHaveTextContent()
+Expected element to have text content:
+  /still needed/i
+Received:
+  Sending stoppedAll caring-contact sending is stopped for the whole service because a message
+  reached the wrong recipient. 0 of 3 restart approvals recorded.Service stop record…
+ ❯ tests/caring-contacts-explained-automation.dom.test.tsx:107:20
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 23 passed (24)
+```
+
+**The finding was exactly right, and the mutation shows how narrowly.** Precisely one test went
+red — the new one. `tests/caring-contacts-service-state.test.ts`, the sealed domain's own suite, ran
+in the same invocation and stayed **green**, because it asserts "0 of 3" and "wrong recipient" and
+nothing about the remedy. The remedy half of §4.4 was unpinned across the whole branch.
+
+**Reverted**; the sealed-domain file shows an empty `git diff` and still contains `Still needed`.
+
+## 18. Important 2 — the client-boundary property is now guarded, not just verified
+
+The finding corrects the record and it is right: `ServiceStopBannerFacts` omitting `note` is held by
+the type system forever, but "nothing on the `serviceState` path is a Client Component" was held by
+nothing at all. `CaringContactsShellProps.serviceState` is a whole `ServiceState`, so `note` is in
+scope for every future shell edit, and a `"use client"` added anywhere on that path would serialise
+a responder's free text into the RSC payload — readable in the page source, by every team, without
+ever appearing on screen — while all eleven DOM tests stayed green, because JSDOM has no RSC payload
+to inspect.
+
+Added a `describe("the service-state path stays on the server")` block with two tests:
+
+1. **The allowlist.** Every `.ts`/`.tsx` file under `src/components/caring-contacts/workspace/` is
+   read and scanned for a `"use client"` directive; the resulting list must equal exactly
+   `["unavailable-destination.tsx"]`. The failure message names the offending file and says what is
+   at stake, so a future author who genuinely needs a client component has to come and make the
+   case rather than quietly widening the list.
+2. **The complement, in its modest form.** The allowed client component must not name the
+   service-state module or the `ServiceState` type at all, so `serviceState` cannot be handed to
+   the one client component that already exists without this going red too.
+
+**On the stronger check the review asked me to consider — I did not ship it, deliberately.** Proving
+from source text that no client component receives a `serviceState`-derived prop needs JSX prop
+dataflow analysis: a prop can be spread, renamed, destructured, passed through an intermediate, or
+built from a field. A regex approximation would look stronger than it is, which is worse than the
+honest pair above — an allowlist that catches every new client boundary, plus a name check on the
+one that exists. The gap that remains is: an existing-and-allowlisted client component being handed
+a state-derived value under a different name. Today that is impossible (there is one such component
+and it names nothing from the module), and the allowlist forces a review before a second one exists.
+
+### Mutation E — adding `"use client"` to the banner
+
+**Confirmed first that an assertion reads it:** the guard's array is built from the directive scan.
+
+```
+FAIL  ... > keeps every workspace component but the one allowed client control a Server Component
+AssertionError: A new Client Component appeared under src/components/caring-contacts/workspace/. …
+expected [ 'service-state-banner.tsx', …(1) ] to deeply equal [ 'unavailable-destination.tsx' ]
+
++   "service-state-banner.tsx",
+    "unavailable-destination.tsx",
+ ❯ tests/caring-contacts-explained-automation.dom.test.tsx:271:7
+```
+
+The offending file is named in the diff, and the message explains the stake. **Reverted**;
+`grep -c "use client"` on the banner returns `0`.
+
+## 19. The four minors
+
+1. **Unused test hooks — dropped, not wired.** `data-automated-state` and
+   `data-testid="caring-contacts-service-state-banner"` are gone. Wiring them would have been the
+   wrong fix for the stated reason: every test here already finds these surfaces by role
+   (`getByRole("status")`, `getByRole("group")`), which is what a user and a screen reader actually
+   traverse. Adding an assertion against a hook would have been the very substitution the finding
+   warns about. Task 19 can add a hook when it has a consumer for one.
+2. **Ruling 52 assertion completed.** The banner's control now also asserts `type="button"` and
+   `title` containing "coming soon", matching the sibling shell test's `expectStatesItsReason`.
+3. **The privacy scan now inspects the rendered object.** `stoppedServiceState()` is bound to a
+   `rendered` const, asserted `toMatchObject({ stopped: true })`, and that same object is passed to
+   `render`. Equivalent today under the fixed clock; correct on the day it stops being.
+4. **The banner's control has a name of its own.** It is now `Service stop record`, distinct from
+   the More panel's `Service stop`, with the reason reworded to match. A new test asserts exactly
+   one control is named `Service stop` when the shell renders a stopped state, and that the
+   banner's is not that one. The More panel's label is untouched, so the shell test's frozen
+   destination list is unchanged.
+
+## 20. Fix-round gate evidence
+
+```
+$ node scripts/run-vitest.mjs run tests/caring-contacts-explained-automation.dom.test.tsx \
+    tests/caring-contacts-workspace-shell.dom.test.tsx tests/caring-contacts-service-state.test.ts --reporter=dot
+
+ Test Files  3 passed (3)
+      Tests  34 passed (34)
+
+$ node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit        -> exit 0, no diagnostics
+
+$ npx eslint <the six touched source and test files>                      -> exit 0, no findings
+
+$ node scripts/run-playwright.mjs tests/ui-caring-contacts-workspace.spec.ts --project=chromium
+
+  9 passed (10.7s)
+EXIT=0
+
+$ npm run test
+
+ Test Files  699 passed | 2 skipped (701)
+      Tests  7755 passed | 29 skipped (7784)
+   Duration  202.30s
+```
+
+Four more tests than the previous round (7755 vs 7751): the remedy assertion, the distinct-name
+assertion, and the two client-boundary guards.
+
+**The browser spec was re-run because rendering changed** — two attributes removed and a label
+reworded. Nine of nine again, spec untouched, including the duplicate-shell assertion at all six
+widths and the synthetic marker in dark, forced colours and print. Strictly it could not have
+regressed (neither the banner nor `AutomatedState` renders on `/caring-contacts`, since the
+in-memory store's service is running), but evidence beats that reasoning and the run is cheap.
+
+`npm run format` was run and committed.
+
+## 21. Recorded as deferred, per the review
+
+- **The banner is not sticky and scrolls out of view.** Spec §4.2 says every screen, not always in
+  view, so this is not a violation. Decided at **Task 19**, where a browser proof can judge it at
+  six widths.
+- **`loading.tsx` and `error.tsx` render outside the shell and so carry no banner.** Neither claims
+  the service is running, so there is no false confidence. Accepted as scoped.
+
+## 22. Residual concerns
+
+**None.** Both Important findings are now guarded rather than merely verified, all four minors are
+fixed, and each guard was proven able to fail. The one limitation worth restating is unchanged and
+belongs to the branch rather than to this task: Chromium evidence is not physical Safari or
+installed-PWA acceptance.

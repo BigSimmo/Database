@@ -36,7 +36,6 @@ export function AutomatedState({ state, because, changedBy }: AutomatedStateProp
     <div
       role="group"
       aria-label={state}
-      data-automated-state
       className="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
     >
       {/*

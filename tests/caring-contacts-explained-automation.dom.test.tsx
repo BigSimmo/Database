@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -6,7 +9,12 @@ import { ServiceStateBanner } from "@/components/caring-contacts/workspace/servi
 import { CaringContactsShell } from "@/components/caring-contacts/workspace/shell";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { actorId, teamId } from "@/lib/caring-contacts/ids";
-import { applyServiceStop, runningService, type ServiceState } from "@/lib/caring-contacts/service-state";
+import {
+  applyServiceStop,
+  REQUIRED_RESTART_APPROVAL_ROLES,
+  runningService,
+  type ServiceState,
+} from "@/lib/caring-contacts/service-state";
 
 /**
  * A string that appears in the fixture's incident note and NOWHERE else.
@@ -87,11 +95,37 @@ describe("explained automation", () => {
     expect(banner.textContent ?? "").not.toMatch(/Rowan|Mira|\+61/);
   });
 
+  it("names what would restart the service, not only why it stopped", () => {
+    // Spec 4.4 has two halves and the banner owes both. The reason half is
+    // asserted above; without this, `describeServiceStop`'s third sentence could
+    // be deleted outright and every test on this branch would stay green — the
+    // one surface that renders on EVERY screen to EVERY team would then state a
+    // stop with no way out of it. Proven by deleting that sentence and watching
+    // this redden.
+    render(<ServiceStateBanner state={stoppedServiceState()} />);
+    const banner = screen.getByRole("status");
+    expect(banner).toHaveTextContent(/still needed/i);
+    // All three roles, because none is recorded yet on this fixture. The count
+    // comes from the sealed list rather than a second copy of the number.
+    expect(REQUIRED_RESTART_APPROVAL_ROLES).toHaveLength(3);
+    expect(banner).toHaveTextContent("the incident lead");
+    expect(banner).toHaveTextContent("the privacy and security owner");
+    expect(banner).toHaveTextContent("the clinical programme lead");
+    // The restart is a three-PERSON decision, not three tick-boxes one person can
+    // supply; a banner that omits this misdescribes the remedy.
+    expect(banner).toHaveTextContent(/each from a different person/i);
+  });
+
   it("cannot put the responder's incident note on screen, whatever the note says", () => {
     // The whole rendered markup, not only its text: an attribute leak (a title, an
     // aria-label, a data-*) would be just as public as a paragraph.
-    const { container } = render(<ServiceStateBanner state={stoppedServiceState()} />);
-    expect(stoppedServiceState()).toMatchObject({ stopped: true });
+    // The anti-vacuity guard has to inspect the fixture that was RENDERED. A
+    // freshly constructed second copy is equivalent under the fixed clock today,
+    // but the guard exists precisely for the day the fixture stops being stopped,
+    // and then only the rendered object tells the truth.
+    const rendered = stoppedServiceState();
+    expect(rendered).toMatchObject({ stopped: true });
+    const { container } = render(<ServiceStateBanner state={rendered} />);
     expect(container.innerHTML).not.toContain(NOTE_SENTINEL);
   });
 
@@ -125,11 +159,32 @@ describe("explained automation", () => {
     // Ruling 52: the service-stop screen has no page yet, so this is an
     // unavailable control that says so — never a link into a 404.
     expect(control).toHaveAttribute("aria-disabled", "true");
+    expect(control).toHaveAttribute("type", "button");
+    expect(control).toHaveAttribute("title", expect.stringContaining("coming soon"));
+    // Native `disabled` would remove the tab stop, so the stated reason could
+    // never be reached by keyboard. The two attributes are never used together.
     expect(control).not.toHaveAttribute("disabled");
     const describedBy = control!.getAttribute("aria-describedby");
     expect(describedBy, "the control states no reason").toBeTruthy();
     expect(document.getElementById(describedBy!)?.textContent ?? "").not.toBe("");
     expect(banner.querySelector("a")).toBeNull();
+  });
+
+  it("gives the banner's service-stop control a name of its own", () => {
+    // The More panel already carries a destination named exactly "Service stop".
+    // Two controls sharing an accessible name are indistinguishable in a screen
+    // reader's control list, so the banner's — the one with incident context —
+    // takes the longer name.
+    render(
+      <CaringContactsShell title="Today" serviceState={stoppedServiceState()}>
+        content
+      </CaringContactsShell>,
+    );
+    expect(screen.getAllByRole("button", { name: "Service stop" })).toHaveLength(1);
+    const bannerControl = screen.getByRole("status").querySelector("button");
+    expect(bannerControl, "the banner offers no service-stop control").not.toBeNull();
+    expect(bannerControl!.textContent).not.toBe("Service stop");
+    expect(bannerControl!.textContent ?? "").toContain("Service stop");
   });
 
   it("cannot be rendered by a screen that never read the service state", () => {
@@ -165,5 +220,67 @@ describe("explained automation", () => {
       </CaringContactsShell>,
     );
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+const WORKSPACE_DIR = path.join(process.cwd(), "src", "components", "caring-contacts", "workspace");
+
+/** The one component in this directory allowed to be a Client Component. Read the block below
+ * before adding to this list — it is not a formality. */
+const ALLOWED_CLIENT_COMPONENTS = ["unavailable-destination.tsx"];
+
+const USE_CLIENT_DIRECTIVE = /^\s*(?:"use client"|'use client')/m;
+
+function workspaceSourceFiles(): { name: string; source: string }[] {
+  return readdirSync(WORKSPACE_DIR)
+    .filter((name) => name.endsWith(".ts") || name.endsWith(".tsx"))
+    .map((name) => ({ name, source: readFileSync(path.join(WORKSPACE_DIR, name), "utf8") }));
+}
+
+/**
+ * The half of the note guarantee the type system does NOT hold.
+ *
+ * `ServiceStopBannerFacts` omits `note` by construction, so the banner cannot
+ * RENDER it — that half is a compile error and holds forever. But
+ * `CaringContactsShellProps.serviceState` is a whole `ServiceState`, so the note
+ * is in scope for every future edit of the shell, and the only reason it never
+ * reaches a browser is that nothing on that path is a Client Component.
+ *
+ * Nothing enforced that. It was checked by hand once, which is a point-in-time
+ * verification rather than a regression guard. Adding `"use client"` to
+ * `shell.tsx` or `service-state-banner.tsx`, or handing `serviceState` to a new
+ * client child, would serialise a responder's free-text note into the RSC
+ * payload — readable in the page source, by every team, without ever appearing
+ * on screen — and every DOM test above would stay green, because JSDOM has no RSC
+ * payload to inspect.
+ */
+describe("the service-state path stays on the server", () => {
+  it("keeps every workspace component but the one allowed client control a Server Component", () => {
+    const clientComponents = workspaceSourceFiles()
+      .filter(({ source }) => USE_CLIENT_DIRECTIVE.test(source))
+      .map(({ name }) => name)
+      .sort();
+
+    expect(
+      clientComponents,
+      "A new Client Component appeared under src/components/caring-contacts/workspace/. The shell " +
+        "hands that tree a whole ServiceState, whose `note` is patient data, and a client boundary " +
+        "serialises props into the RSC payload for every team to read in the page source. If this " +
+        "component genuinely must run on the client, prove the note cannot reach it, then add it to " +
+        "ALLOWED_CLIENT_COMPONENTS deliberately.",
+    ).toEqual([...ALLOWED_CLIENT_COMPONENTS].sort());
+  });
+
+  it("keeps the service state out of the one client component that does exist", () => {
+    // The complement of the allowlist above, and deliberately the modest version.
+    // Tracing which props a JSX element actually receives is not something source
+    // text can answer reliably, so this does not attempt it. What it does answer
+    // reliably: the allowed client component never names the service-state module
+    // or its type at all, so it cannot be handed one without this going red too.
+    for (const name of ALLOWED_CLIENT_COMPONENTS) {
+      const source = readFileSync(path.join(WORKSPACE_DIR, name), "utf8");
+      expect(source, `${name} references the service-state module`).not.toMatch(/service-state/);
+      expect(source, `${name} names ServiceState`).not.toMatch(/ServiceState/);
+    }
   });
 });
