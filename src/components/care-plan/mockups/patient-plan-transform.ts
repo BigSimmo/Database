@@ -81,8 +81,12 @@ export const PATIENT_PLAN_SECTION_LEAD_IN: Record<PatientPlanSectionKey, string>
   whatHelpsYou: "These are the things that have helped before.",
   whatMakesThingsHarder: "These are the things that have made a visit harder, so we can try to avoid them.",
   whatWeAgreedWillHappen: "This is the approach you and your team agreed for when you come in.",
+  // Covers both kinds of point this heading collects: something different about
+  // today, and something that has changed in the person's life. Reading the
+  // draft, the version that named only the first left the surviving points —
+  // which are the second kind — sitting under a sentence that did not fit them.
   ifSomethingNewIsHappening:
-    "This plan is about what usually happens. If something is different this time, say so — you will be looked at afresh.",
+    "This plan is about what usually happens. If something is different this time, or something in your life has changed, say so — you will be looked at afresh.",
   whoIsInvolved: "These are the people and teams who know you.",
   thingsThatMightHelp: "These are practical things that can be arranged for you.",
 };
@@ -1055,6 +1059,20 @@ function gapSection(key: PatientPlanSectionKey, reasonKey: PatientPlanGapReasonK
 }
 
 /**
+ * What a partly converted section says.
+ *
+ * It states the arithmetic first — how many points came through — so a clinician
+ * can see at a glance whether they are checking a nearly finished section or
+ * writing most of it themselves, then gives the reason the rest was refused. The
+ * underlying reason already ends by naming who writes it, so that sentence is
+ * not repeated here.
+ */
+function partialGapReason(converted: number, total: number, reasonKey: PatientPlanGapReasonKey): string {
+  const refused = total - converted;
+  return `${converted} of ${total} ${total === 1 ? "point" : "points"} converted, and ${converted === 1 ? "is" : "are"} shown here. The other ${refused === 1 ? "one was" : `${refused} were`} refused: ${PATIENT_PLAN_GAP_REASON[reasonKey]}`;
+}
+
+/**
  * One approved Management Plan Version as a draft patient edition.
  *
  * Pure, offline, and deterministic: it reads nothing but its three arguments and
@@ -1097,14 +1115,49 @@ export function buildPatientPlanDraft(
     const lines = sourceLines(version.content, key);
     if (lines.length === 0) return gapSection(key, "nothingRecorded");
 
+    /**
+     * Every point is converted or refused on its own, and the ones that
+     * converted are kept.
+     *
+     * This used to return on the first refusal, throwing away everything
+     * already converted with it. On the fixtures that cost real content for no
+     * safety gain: the person's own "What matters to you" held three plain,
+     * kind, correctly converted lines and one that could not be converted, and
+     * all four were discarded. What the clinician then saw was a blank box,
+     * which is strictly less to work from than three lines and a note saying
+     * what is still missing.
+     *
+     * The section is still flagged, so nothing here weakens the approval gate:
+     * a `gap` section cannot be approved, and only an approved version prints.
+     * Partial text therefore exists only in the draft a clinician is working
+     * on, which is the one place it helps.
+     */
     const body: string[] = [];
+    const refusals: PatientPlanGapReasonKey[] = [];
     for (const line of lines) {
       const outcome = convert(line);
-      if ("gapReasonKey" in outcome) return gapSection(key, outcome.gapReasonKey);
+      if ("gapReasonKey" in outcome) {
+        refusals.push(outcome.gapReasonKey);
+        continue;
+      }
       body.push(outcome.converted);
     }
 
-    return { key, heading: PATIENT_PLAN_SECTION_HEADING[key], body, gap: false, gapReason: null };
+    const firstRefusal = refusals[0];
+    if (firstRefusal === undefined) {
+      return { key, heading: PATIENT_PLAN_SECTION_HEADING[key], body, gap: false, gapReason: null };
+    }
+    // Nothing converted: the section reads exactly as it did before, so a whole
+    // section refused for one stated reason still says that one reason plainly.
+    if (body.length === 0) return gapSection(key, firstRefusal);
+
+    return {
+      key,
+      heading: PATIENT_PLAN_SECTION_HEADING[key],
+      body,
+      gap: true,
+      gapReason: partialGapReason(body.length, lines.length, firstRefusal),
+    };
   });
 
   return { derivedFromManagementVersionId: version.id, sections, resources: forThisPatient };

@@ -3280,6 +3280,64 @@ describe("Care Plan Patient Plan", () => {
     expect(screen.getByRole("button", { name: "Approve patient copy" })).toHaveAttribute("aria-disabled", "true");
   });
 
+  /**
+   * A part-converted section shows both halves: the points the conversion
+   * managed, in the editable field, and a flag naming what it refused. The
+   * clinician is not handed a blank box that hides work already done, and the
+   * partial text is not presented as finished.
+   */
+  it("shows a part-converted section's own lines beside the flag for the rest", async () => {
+    const user = userEvent.setup();
+    renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+
+    const field = screen.getByLabelText(/^What matters to you/);
+    // The lines the conversion managed, verbatim, in the box the clinician edits.
+    expect(field).toHaveValue(
+      [
+        "To be told what is happening and roughly how long it will take, rather than being left to guess.",
+        "To go home the same day where that is safe, with a mental health team call the next working day.",
+        "To have Jess contacted only with your agreement on the day, not automatically.",
+      ].join("\n"),
+    );
+
+    const flag = screen.getByTestId("care-plan-patient-plan-form-gap-whatMattersToYou");
+    expect(flag).toHaveTextContent("Partly converted — the rest needs writing");
+    expect(flag).toHaveTextContent(/3 of 4 points converted/);
+    expect(flag).toHaveTextContent(/written by a clinician/i);
+  });
+
+  /**
+   * Leaving the converted lines exactly as the machine produced them is not
+   * writing the section. If this ever passes, a copy could be approved with the
+   * refused part still missing, on the strength of text no person wrote.
+   */
+  it("keeps approval locked while a part-converted section is left as the machine produced it", async () => {
+    const user = userEvent.setup();
+    renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+
+    // Every wholly blank section written, every part-converted one untouched.
+    for (const field of screen.getAllByRole("textbox")) {
+      if ((field as HTMLTextAreaElement).value.trim() !== "") continue;
+      await user.click(field);
+      await user.paste("Written with you at the bedside.");
+    }
+
+    const approve = screen.getByRole("button", { name: "Approve patient copy" });
+    expect(approve).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByTestId("care-plan-patient-plan-approve-unavailable")).toHaveTextContent("What matters to you");
+
+    // Adding the missing part to each of them unlocks it. Rowan's plan has
+    // three part-converted sections, so editing one is deliberately not enough.
+    for (const field of screen.getAllByRole("textbox")) {
+      await user.click(field);
+      await user.keyboard("{End}");
+      await user.paste("\nAnd what we added together.");
+    }
+    expect(screen.getByRole("button", { name: "Approve patient copy" })).not.toHaveAttribute("aria-disabled");
+  });
+
   it("approves once every section is written, and shows the eight headings in order", async () => {
     const user = userEvent.setup();
     const { goTo } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));

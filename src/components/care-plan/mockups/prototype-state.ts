@@ -1448,7 +1448,7 @@ export function prototypeReducer(
           message:
             gaps === 0
               ? `Patient Plan draft version ${draft.version} created. Read it through before approving it.`
-              : `Patient Plan draft version ${draft.version} created, with ${gaps} of ${draft.sections.length} sections left blank for you to write. The conversion refuses to guess, so a gap is a section it would not risk getting wrong.`,
+              : `Patient Plan draft version ${draft.version} created, with ${gaps} of ${draft.sections.length} sections still needing you. The conversion takes each point on its own and keeps the ones it could put into everyday words, so a flagged section may already hold some of its content and still be waiting on the rest.`,
         },
       };
     }
@@ -1488,7 +1488,7 @@ export function prototypeReducer(
           message:
             remaining === 0
               ? `Patient Plan draft version ${saved.version} saved. Every section now has something in it.`
-              : `Patient Plan draft version ${saved.version} saved. ${remaining} sections are still blank and it cannot be approved until they are written.`,
+              : `Patient Plan draft version ${saved.version} saved. ${remaining} sections still need writing, and it cannot be approved until they are done.`,
         },
       };
     }
@@ -1520,7 +1520,7 @@ export function prototypeReducer(
       if (gaps.length > 0) {
         return refuse(
           state,
-          `Patient Plan version ${version.version} cannot be approved while ${gaps.length} ${gaps.length === 1 ? "section is" : "sections are"} still blank: ${gaps.map((section) => section.heading).join("; ")}. A blank heading on a copy handed to somebody reads as though nothing about them was worth writing.`,
+          `Patient Plan version ${version.version} cannot be approved while ${gaps.length} ${gaps.length === 1 ? "section" : "sections"} still ${gaps.length === 1 ? "needs" : "need"} writing: ${gaps.map((section) => section.heading).join("; ")}. A section the conversion could only half do is not finished, and a heading with nothing under it on a copy handed to somebody reads as though nothing about them was worth writing.`,
         );
       }
 

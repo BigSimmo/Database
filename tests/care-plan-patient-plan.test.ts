@@ -358,15 +358,66 @@ describe("Patient Plan gap triggers", () => {
     }
   });
 
-  it("never carries part of a section: one refused line empties the whole heading", () => {
+  /**
+   * A section keeps the points that converted and is still flagged for the ones
+   * that did not.
+   *
+   * This replaced the opposite rule. Returning on the first refusal threw away
+   * everything already converted with it, which on the real fixtures cost the
+   * person's own "What matters to you" three plain, correctly converted lines
+   * because a fourth could not be converted. Nothing about the safety of the
+   * result changed: the section is still flagged, a flagged section still
+   * cannot be approved, and only an approved version prints.
+   */
+  it("keeps the points that converted while still reporting the ones that did not", () => {
     const mixed = versionWithContent({
-      whatThePersonWants: ["A quiet room.", "To be seen without your distress being the first thing anybody says."],
+      whatThePersonWants: [
+        "A quiet room.",
+        "To be seen without your distress being the first thing anybody says.",
+        "A warm drink.",
+      ],
     });
     const section = buildPatientPlanDraft(mixed, patientBy(ROWAN), syntheticPatientResources).sections.find(
       (candidate) => candidate.key === "whatMattersToYou",
     );
+
+    expect(section?.gap).toBe(true);
+    // Named exactly, not merely non-empty: these are the two that converted,
+    // in source order, and the refused one is absent rather than half-rendered.
+    expect(section?.body).toEqual(["A quiet room.", "A warm drink."]);
+    expect(section?.gapReason).toMatch(/2 of 3 points converted/);
+    expect(section?.gapReason).toMatch(/written by a clinician/i);
+  });
+
+  /** Nothing convertible at all still reads as one whole refusal, with the one
+   *  reason stated plainly rather than wrapped in arithmetic. */
+  it("still empties a section in which nothing at all could be converted", () => {
+    const none = versionWithContent({
+      whatThePersonWants: ["Your distress is the first thing anybody says.", "Assess the presentation on its merits."],
+    });
+    const section = buildPatientPlanDraft(none, patientBy(ROWAN), syntheticPatientResources).sections.find(
+      (candidate) => candidate.key === "whatMattersToYou",
+    );
     expect(section?.gap).toBe(true);
     expect(section?.body).toEqual([]);
+    expect(section?.gapReason).toBe(PATIENT_PLAN_GAP_REASON.unknownTerm);
+  });
+
+  /**
+   * The agreed approach is refused whole, whatever it contains and however much
+   * of it would convert. Partial sections must not have opened a door here: this
+   * is the section most easily read as a judgement about the person.
+   */
+  it("never keeps partial content for the agreed approach, however convertible it is", () => {
+    const plain = versionWithContent({
+      agreedEdApproach: ["We will find you a quiet room.", "You can ring the number you gave us."],
+    });
+    const agreed = buildPatientPlanDraft(plain, patientBy(ROWAN), syntheticPatientResources).sections.find(
+      (candidate) => candidate.key === "whatWeAgreedWillHappen",
+    );
+    expect(agreed?.gap).toBe(true);
+    expect(agreed?.body).toEqual([]);
+    expect(agreed?.gapReason).toBe(PATIENT_PLAN_GAP_REASON.agreedApproach);
   });
 });
 
@@ -849,6 +900,38 @@ describe("Patient Plan lifecycle", () => {
     );
     expect(approved.lastOutcome?.kind).toBe("success");
     expect(approved.patientPlanVersions.find((version) => version.id === draft.id)?.state).toBe("current");
+  });
+
+  /**
+   * The case partial sections created. A section that already holds converted
+   * text is *not* finished, and approval must refuse it exactly as it refuses an
+   * empty one — otherwise the whole change would have traded a blank box for a
+   * half-written page nobody checked.
+   */
+  it("refuses approval for a section that holds converted text and is still flagged", () => {
+    const { state, draft } = stateWithDraft(ROWAN);
+    const sections = filled(draft.sections).map((section, index) =>
+      // One section left exactly as the conversion produced it: real content,
+      // still flagged.
+      index === 1
+        ? { ...section, body: ["A quiet room.", "A warm drink."], gap: true, gapReason: "half done" }
+        : section,
+    );
+
+    const saved = prototypeReducer(state, {
+      type: "save-patient-plan-draft",
+      versionId: draft.id,
+      input: { sections, resources: [...draft.resources] },
+    });
+    const stored = saved.patientPlanVersions.find((version) => version.id === draft.id);
+    // The converted text survives the save; the flag survives with it.
+    expect(stored?.sections[1]?.body).toEqual(["A quiet room.", "A warm drink."]);
+    expect(stored?.sections[1]?.gap).toBe(true);
+
+    const blocked = prototypeReducer(saved, { type: "approve-patient-plan-version", versionId: draft.id });
+    expect(blocked.lastOutcome?.kind).toBe("error");
+    expect(blocked.lastOutcome?.message).toMatch(/cannot be approved while/i);
+    expect(blocked.patientPlanVersions.find((version) => version.id === draft.id)?.state).toBe("draft");
   });
 
   /**
