@@ -28,7 +28,7 @@ import {
   type PublicSourceStagingDependencies,
 } from "../scripts/fetch-approved-public-source-versions";
 import {
-  isPublicSourceCleanupReady,
+  processControlledPublicSourceCleanup,
   publicSourceCleanupIdentityError,
   type CleanupJob,
 } from "../scripts/cleanup-storage";
@@ -686,14 +686,24 @@ describe("public source acquisition", () => {
     expect(cleanupSource).toContain("public_source_storage_bucket");
     expect(cleanupSource).toContain("public_source_storage_path");
     expect(cleanupSource).toContain("public_source_cleanup_not_before");
-    expect(cleanupSource).toMatch(/\.or\([^\n]*public_source_cleanup_not_before\.is\.null/);
+    expect(cleanupSource).toContain('.rpc("claim_public_source_cleanup_job"');
+    expect(cleanupSource).toContain('.rpc("complete_public_source_cleanup_job"');
+    expect(cleanupSource).toContain('.rpc("release_public_source_cleanup_job"');
+    expect(cleanupSource).not.toContain("Date.now()");
+    expect(cleanupSource).not.toContain("public_source_cleanup_not_before.lte");
     const update = cleanupSource.slice(cleanupSource.indexOf('.from("storage_cleanup_jobs")\n      .update'));
     expect(update).not.toContain("public_source_reservation_id:");
     expect(update).not.toContain("public_source_storage_bucket:");
     expect(update).not.toContain("public_source_storage_path:");
   });
 
-  it("validates the durable janitor job shape and waits for the upload lease grace", () => {
+  it("does not let a persistent generic cleanup backlog starve controlled cleanup claims", () => {
+    const cleanupSource = readFileSync("scripts/cleanup-storage.ts", "utf8");
+    expect(cleanupSource).toContain("processControlledPublicSourceCleanup(args.limit");
+    expect(cleanupSource).not.toContain("args.limit - jobs.length");
+  });
+
+  it("validates the durable janitor job shape without trusting mutable metadata or image paths", () => {
     const path = `${stewardId}/public-source-staging/lease/source.txt`;
     const job: CleanupJob = {
       id: "77777777-7777-4777-8777-777777777777",
@@ -709,10 +719,294 @@ describe("public source acquisition", () => {
       public_source_cleanup_not_before: "2026-08-24T00:20:00.000Z",
     };
     expect(publicSourceCleanupIdentityError({ ...job, metadata: { mutated: true } } as CleanupJob)).toBeNull();
-    expect(isPublicSourceCleanupReady(job, Date.parse("2026-08-24T00:19:59.999Z"))).toBe(false);
-    expect(isPublicSourceCleanupReady(job, Date.parse("2026-08-24T00:20:00.000Z"))).toBe(true);
     expect(publicSourceCleanupIdentityError({ ...job, document_bucket: "clinical-documents" })).toMatch(/identity/i);
     expect(publicSourceCleanupIdentityError({ ...job, document_paths: ["wrong/path"] })).toMatch(/identity/i);
+    expect(publicSourceCleanupIdentityError({ ...job, image_paths: ["unrelated/image.png"] })).toMatch(/identity/i);
+  });
+
+  it("lets the database clock decide cleanup eligibility despite a skewed worker clock", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2099-01-01T00:00:00.000Z"));
+      const claim = vi.fn(async () => null);
+      const remove = vi.fn();
+      await expect(
+        processControlledPublicSourceCleanup(1, {
+          claim,
+          remove,
+          complete: vi.fn(),
+          release: vi.fn(),
+        }),
+      ).resolves.toEqual({ completed: 0, failed: 0 });
+      expect(claim).toHaveBeenCalledWith(25);
+      expect(remove).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses exact non-default bucket and CAS tokens across cleanup release and retry", async () => {
+    const path = `${stewardId}/public-source-staging/retry/source.txt`;
+    const firstToken = "88888888-8888-4888-8888-888888888888";
+    const secondToken = "99999999-9999-4999-8999-999999999999";
+    const claimBase = {
+      id: "77777777-7777-4777-8777-777777777777",
+      claimExpiresAt: "2026-08-24T00:22:00.000Z",
+      reservationId: "44444444-4444-4444-8444-444444444444",
+      bucket: "offline-test",
+      path,
+      imagePaths: [],
+      attempts: 1,
+    };
+    const claim = vi
+      .fn()
+      .mockResolvedValueOnce({ ...claimBase, claimToken: firstToken })
+      .mockResolvedValueOnce({ ...claimBase, claimToken: secondToken, attempts: 2 });
+    const remove = vi
+      .fn()
+      .mockResolvedValueOnce({ removed: 0, warnings: ["provider detail must not cross the RPC boundary"] })
+      .mockResolvedValueOnce({ removed: 1, warnings: [] });
+    const complete = vi.fn(async () => undefined);
+    const release = vi.fn(async () => undefined);
+    const dependencies = { claim, remove, complete, release };
+
+    await expect(processControlledPublicSourceCleanup(1, dependencies)).resolves.toEqual({ completed: 0, failed: 1 });
+    expect(release).toHaveBeenCalledWith({
+      jobId: claimBase.id,
+      claimToken: firstToken,
+      error: "storage_delete_failed",
+    });
+    await expect(processControlledPublicSourceCleanup(1, dependencies)).resolves.toEqual({ completed: 1, failed: 0 });
+    expect(remove).toHaveBeenNthCalledWith(1, "offline-test", path);
+    expect(remove).toHaveBeenNthCalledWith(2, "offline-test", path);
+    expect(complete).toHaveBeenCalledWith({ jobId: claimBase.id, claimToken: secondToken, storageRemoved: 1 });
+  });
+
+  it("rejects a claimed Task2 cleanup containing image paths before storage deletion", async () => {
+    const remove = vi.fn();
+    await expect(
+      processControlledPublicSourceCleanup(1, {
+        claim: vi.fn(async () => ({
+          id: "77777777-7777-4777-8777-777777777777",
+          claimToken: "88888888-8888-4888-8888-888888888888",
+          claimExpiresAt: "2026-08-24T00:22:00.000Z",
+          reservationId: "44444444-4444-4444-8444-444444444444",
+          bucket: "offline-test",
+          path: `${stewardId}/public-source-staging/forged/source.txt`,
+          imagePaths: ["unrelated/image.png"],
+          attempts: 1,
+        })),
+        remove,
+        complete: vi.fn(),
+        release: vi.fn(),
+      }),
+    ).rejects.toThrow(/identity/i);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("uses an exclusive rotated upload attempt and binds finalize to that attempt", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "1".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      disposition: "shadow" as const,
+    };
+    const reservation = {
+      id: "44444444-4444-4444-8444-444444444444",
+      reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+      storagePath: `${stewardId}/public-source-staging/exclusive/source.txt`,
+      stagingDocumentId: null,
+      lifecycle: "discovered",
+      ...reservationLease,
+    };
+    const attemptToken = "88888888-8888-4888-8888-888888888888";
+    const attemptExpiry = "2026-08-24T00:17:00.000Z";
+    let authorizeCalls = 0;
+    let releaseUpload!: () => void;
+    const uploadHeld = new Promise<void>((resolve) => {
+      releaseUpload = resolve;
+    });
+    const upload = vi.fn(async ({ signal }: { signal: AbortSignal }) => {
+      expect(signal).toBeInstanceOf(AbortSignal);
+      await uploadHeld;
+    });
+    const dependencies = {
+      storageBucket: "offline-test",
+      reserve: vi.fn(async () => reservation),
+      authorizeUpload: vi.fn(async () => {
+        authorizeCalls += 1;
+        if (authorizeCalls > 1) throw new Error("Upload attempt is already claimed.");
+        return {
+          ...authorizedUploadState(reservation),
+          upload_lease_token: attemptToken,
+          upload_lease_expires_at: attemptExpiry,
+        };
+      }),
+      upload,
+      finalize: vi.fn(async ({ manifest }: { manifest: Record<string, unknown> }) => {
+        expect(manifest).toMatchObject({ uploadLeaseToken: attemptToken, uploadLeaseExpiresAt: attemptExpiry });
+        return { id: reservation.id, lifecycle: "shadow", staging_document_id: reservation.reservedDocumentId };
+      }),
+      lookup: vi.fn(async () => null),
+    } as unknown as PublicSourceStagingDependencies;
+
+    const first = stageFetchedPublicSource(plan, fetched, dependencies, { uploadTimeoutMs: 5_000 });
+    void first.catch(() => undefined);
+    await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce());
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies, { uploadTimeoutMs: 5_000 })).rejects.toThrow(
+      /attempt|authority/i,
+    );
+    expect(upload).toHaveBeenCalledOnce();
+    releaseUpload();
+    await expect(first).resolves.toMatchObject({ disposition: "shadow" });
+  });
+
+  it("aborts and settles a held upload before abandonment when its total timeout expires", async () => {
+    vi.useFakeTimers();
+    try {
+      const plan = await activePlan();
+      const reservation = {
+        id: "44444444-4444-4444-8444-444444444444",
+        reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+        storagePath: `${stewardId}/public-source-staging/timeout/source.txt`,
+        stagingDocumentId: null,
+        lifecycle: "discovered",
+        ...reservationLease,
+      };
+      const attemptToken = "99999999-9999-4999-8999-999999999999";
+      const events: string[] = [];
+      let reservedManifest: Record<string, string | number> = {};
+      const dependencies = {
+        storageBucket: "offline-test",
+        reserve: vi.fn(async ({ manifest }: { manifest: Record<string, string | number> }) => {
+          reservedManifest = manifest;
+          return reservation;
+        }),
+        authorizeUpload: vi.fn(async () => ({
+          ...authorizedUploadState(reservation),
+          upload_lease_token: attemptToken,
+        })),
+        upload: vi.fn(
+          ({ signal }: { signal: AbortSignal }) =>
+            new Promise<void>((_resolve, reject) => {
+              signal.addEventListener(
+                "abort",
+                () => {
+                  events.push("transport-aborted");
+                  reject(signal.reason);
+                },
+                { once: true },
+              );
+            }),
+        ),
+        finalize: vi.fn(),
+        lookup: vi.fn(async () => ({
+          id: reservation.id,
+          lifecycle: "discovered",
+          staging_document_id: null,
+          reservation_key: reservedManifest.reservationKey,
+          source_catalogue_key: plan.catalogueKey,
+          source_policy_version: plan.sourcePolicyVersion,
+          source_policy_digest: plan.sourcePolicyDigest,
+          activation_event_id: plan.activationEventId,
+          activation_sequence: plan.activationSequence,
+          exact_canonical_url: australianSourceByKey(plan.catalogueKey)!.canonicalUrl,
+          exact_version_url: plan.exactUrl,
+          exact_version: plan.exactVersion,
+          content_hash: "2".repeat(64),
+          licence_evidence_digest: plan.licenceEvidenceDigest,
+          steward_id: plan.stewardId,
+          intended_disposition: "shadow",
+          reserved_document_id: reservation.reservedDocumentId,
+          reserved_storage_path: reservation.storagePath,
+          storage_bucket: reservation.storageBucket,
+          upload_lease_token: attemptToken,
+          upload_lease_expires_at: reservation.uploadLeaseExpiresAt,
+          upload_state: "uploading",
+        })),
+        abandon: vi.fn(async ({ manifest }: { manifest: Record<string, unknown> }) => {
+          events.push("abandon");
+          expect(manifest.uploadLeaseToken).toBe(attemptToken);
+          return { status: "abandoned", storagePath: reservation.storagePath, storageOwned: false };
+        }),
+      } as unknown as PublicSourceStagingDependencies;
+      const operation = stageFetchedPublicSource(
+        plan,
+        {
+          finalUrl: plan.exactUrl,
+          contentHash: "2".repeat(64),
+          byteCount: 12,
+          mime: "text/plain",
+          content: Buffer.from("clinical text"),
+          disposition: "shadow",
+        },
+        dependencies,
+        { uploadTimeoutMs: 25 },
+      );
+      void operation.catch(() => undefined);
+      await vi.advanceTimersByTimeAsync(25);
+      await expect(operation).rejects.toThrow(/abandon|cleanup/i);
+      expect(events).toEqual(["transport-aborted", "abandon"]);
+      expect(dependencies.finalize).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("propagates caller abort to the storage transport and never finalizes", async () => {
+    const plan = await activePlan();
+    const controller = new AbortController();
+    const reservation = {
+      id: "44444444-4444-4444-8444-444444444444",
+      reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+      storagePath: `${stewardId}/public-source-staging/caller-abort/source.txt`,
+      stagingDocumentId: null,
+      lifecycle: "discovered",
+      ...reservationLease,
+    };
+    let transportAborted = false;
+    const dependencies = {
+      storageBucket: "offline-test",
+      reserve: vi.fn(async () => reservation),
+      authorizeUpload: vi.fn(async () => authorizedUploadState(reservation)),
+      upload: vi.fn(
+        ({ signal }: { signal: AbortSignal }) =>
+          new Promise<void>((_resolve, reject) => {
+            signal.addEventListener(
+              "abort",
+              () => {
+                transportAborted = true;
+                reject(signal.reason);
+              },
+              { once: true },
+            );
+          }),
+      ),
+      finalize: vi.fn(),
+      lookup: vi.fn(async () => null),
+    } as unknown as PublicSourceStagingDependencies;
+    const operation = stageFetchedPublicSource(
+      plan,
+      {
+        finalUrl: plan.exactUrl,
+        contentHash: "3".repeat(64),
+        byteCount: 12,
+        mime: "text/plain",
+        content: Buffer.from("clinical text"),
+        disposition: "shadow",
+      },
+      dependencies,
+      { signal: controller.signal, uploadTimeoutMs: 5_000 },
+    );
+    void operation.catch(() => undefined);
+    await vi.waitFor(() => expect(dependencies.upload).toHaveBeenCalledOnce());
+    controller.abort(new Error("caller cancelled"));
+    await expect(operation).rejects.toThrow(/finalization|storage/i);
+    expect(transportAborted).toBe(true);
+    expect(dependencies.finalize).not.toHaveBeenCalled();
   });
 
   it("recovers ambiguous finalization from legal committed descendant lifecycles", async () => {

@@ -70,7 +70,13 @@ export type PublicSourceStagingDependencies = {
   preflight?(input: { manifest: Json }): Promise<unknown>;
   reserve(input: { manifest: Json }): Promise<PublicSourceReservation>;
   authorizeUpload(input: { manifest: Json }): Promise<PublicSourceVersionState>;
-  upload(input: { storagePath: string; content: Uint8Array; mime: string; upsert: true }): Promise<void>;
+  upload(input: {
+    storagePath: string;
+    content: Uint8Array;
+    mime: string;
+    upsert: true;
+    signal: AbortSignal;
+  }): Promise<void>;
   finalize(input: { manifest: Json; maxAttempts: number }): Promise<PublicSourceVersionState>;
   lookup(reservationId: string): Promise<PublicSourceVersionState | null>;
   abandon?(input: { manifest: Json }): Promise<{ status: string; storagePath: string; storageOwned: boolean }>;
@@ -132,7 +138,11 @@ async function defaultStagingDependencies(): Promise<{
 }> {
   const { loadEnvConfig } = await import("@next/env");
   loadEnvConfig(process.cwd());
-  const [{ env }, { createAdminClient }] = await Promise.all([import("@/lib/env"), import("@/lib/supabase/admin")]);
+  const [{ env, requireServerEnv }, { createAdminClient }] = await Promise.all([
+    import("@/lib/env"),
+    import("@/lib/supabase/admin"),
+  ]);
+  const { NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey } = requireServerEnv();
   const supabase = createAdminClient();
   return {
     maxAttempts: env.WORKER_MAX_ATTEMPTS,
@@ -163,12 +173,32 @@ async function defaultStagingDependencies(): Promise<{
         if (error || !data) throw new Error("Public source upload authority failed.");
         return data;
       },
-      upload: async ({ storagePath, content, mime, upsert }) => {
-        const result = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, content, {
-          contentType: mime,
-          upsert,
-        });
-        if (result.error) throw new Error("Public source storage write failed.");
+      upload: async ({ storagePath, content, mime, upsert, signal }) => {
+        const bucket = parsePublicSourceStorageBucket(env.SUPABASE_DOCUMENT_BUCKET);
+        const encodedPath = storagePath
+          .split("/")
+          .map((segment) => encodeURIComponent(segment))
+          .join("/");
+        const response = await fetch(
+          `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/${encodeURIComponent(bucket)}/${encodedPath}`,
+          {
+            method: "POST",
+            headers: {
+              apikey: serviceRoleKey,
+              authorization: `Bearer ${serviceRoleKey}`,
+              "content-type": mime,
+              "x-upsert": upsert ? "true" : "false",
+            },
+            body: Uint8Array.from(content).buffer,
+            redirect: "error",
+            signal,
+          },
+        );
+        if (!response.ok) {
+          await response.body?.cancel();
+          throw new Error("Public source storage write failed.");
+        }
+        await response.body?.cancel();
       },
       finalize: async ({ manifest, maxAttempts }) => {
         const { data, error } = await supabase.rpc("finalize_public_source_version", {
@@ -255,8 +285,10 @@ function uploadAuthorityMatches(
     authorized.reserved_document_id === reservation.reservedDocumentId &&
     authorized.reserved_storage_path === reservation.storagePath &&
     authorized.storage_bucket === reservation.storageBucket &&
-    authorized.upload_lease_token === reservation.uploadLeaseToken &&
-    authorized.upload_lease_expires_at === reservation.uploadLeaseExpiresAt &&
+    typeof authorized.upload_lease_token === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authorized.upload_lease_token) &&
+    typeof authorized.upload_lease_expires_at === "string" &&
+    Number.isFinite(Date.parse(authorized.upload_lease_expires_at)) &&
     authorized.upload_state === "uploading" &&
     authorized.steward_id === stewardId
   );
@@ -266,6 +298,7 @@ export async function stageFetchedPublicSource(
   plan: PublicSourceAcquisitionPlan,
   fetched: FetchedPublicSource,
   injectedDependencies?: PublicSourceStagingDependencies,
+  options: { signal?: AbortSignal; uploadTimeoutMs?: number } = {},
 ) {
   plan = parsePublicSourceAcquisitionPlan(plan);
   const definition = australianSourceByKey(plan.catalogueKey)!;
@@ -274,6 +307,10 @@ export async function stageFetchedPublicSource(
   const dependencies = injectedDependencies ?? defaults!.dependencies;
   const storageBucket = parsePublicSourceStorageBucket(dependencies.storageBucket);
   const maxAttempts = defaults?.maxAttempts ?? 3;
+  const uploadTimeoutMs = options.uploadTimeoutMs ?? 60_000;
+  if (!Number.isInteger(uploadTimeoutMs) || uploadTimeoutMs < 1 || uploadTimeoutMs > 60_000) {
+    throw new Error("Public source upload timeout must be between 1 and 60000 milliseconds.");
+  }
   const reserveManifest = {
     reservationKey: reservationKey(plan, fetched, storageBucket),
     catalogueKey: plan.catalogueKey,
@@ -306,6 +343,7 @@ export async function stageFetchedPublicSource(
     return { disposition: "duplicate" as const, version: reservation };
   }
   let storageWriteAttempted = false;
+  let activeReservation = reservation;
   try {
     const authorized = await dependencies.authorizeUpload({
       manifest: {
@@ -320,14 +358,35 @@ export async function stageFetchedPublicSource(
     if (!uploadAuthorityMatches(authorized, reservation, plan.stewardId)) {
       throw new Error("Public source upload authority did not match the immutable reservation.");
     }
+    activeReservation = {
+      ...reservation,
+      uploadLeaseToken: authorized.upload_lease_token!,
+      uploadLeaseExpiresAt: authorized.upload_lease_expires_at!,
+      uploadState: authorized.upload_state!,
+    };
 
     storageWriteAttempted = true;
-    await dependencies.upload({
-      storagePath: reservation.storagePath,
-      content: fetched.content,
-      mime: fetched.mime,
-      upsert: true,
-    });
+    const uploadController = new AbortController();
+    const forwardAbort = () =>
+      uploadController.abort(options.signal?.reason ?? new Error("Public source upload was cancelled."));
+    if (options.signal?.aborted) forwardAbort();
+    else options.signal?.addEventListener("abort", forwardAbort, { once: true });
+    const uploadTimer = setTimeout(
+      () => uploadController.abort(new Error("Public source storage write timed out.")),
+      uploadTimeoutMs,
+    );
+    try {
+      await dependencies.upload({
+        storagePath: reservation.storagePath,
+        content: fetched.content,
+        mime: fetched.mime,
+        upsert: true,
+        signal: uploadController.signal,
+      });
+    } finally {
+      clearTimeout(uploadTimer);
+      options.signal?.removeEventListener("abort", forwardAbort);
+    }
     const metadata = {
       corpus_scope: "australian_public",
       source_kind: "document",
@@ -372,8 +431,8 @@ export async function stageFetchedPublicSource(
         stewardId: plan.stewardId,
         disposition: fetched.disposition,
         storageBucket,
-        uploadLeaseToken: reservation.uploadLeaseToken,
-        uploadLeaseExpiresAt: reservation.uploadLeaseExpiresAt,
+        uploadLeaseToken: activeReservation.uploadLeaseToken,
+        uploadLeaseExpiresAt: activeReservation.uploadLeaseExpiresAt,
         document: {
           id: reservation.reservedDocumentId,
           owner_id: plan.stewardId,
@@ -397,10 +456,10 @@ export async function stageFetchedPublicSource(
     } catch {
       throw new Error("Public source finalization recovery lookup was ambiguous; storage remains untouched.");
     }
-    if (recovered && !recoveryIdentityMatches(recovered, reservation, reserveManifest)) {
+    if (recovered && !recoveryIdentityMatches(recovered, activeReservation, reserveManifest)) {
       throw new Error("Public source recovery identity did not match the immutable reservation.");
     }
-    if (recovered && isCommittedRecovery(recovered, reservation)) {
+    if (recovered && isCommittedRecovery(recovered, activeReservation)) {
       return { disposition: fetched.disposition, version: recovered };
     }
     if (
@@ -415,18 +474,21 @@ export async function stageFetchedPublicSource(
         reservedDocumentId: reservation.reservedDocumentId,
         reservedStoragePath: reservation.storagePath,
         storageBucket,
-        uploadLeaseToken: reservation.uploadLeaseToken,
-        uploadLeaseExpiresAt: reservation.uploadLeaseExpiresAt,
+        uploadLeaseToken: activeReservation.uploadLeaseToken,
+        uploadLeaseExpiresAt: activeReservation.uploadLeaseExpiresAt,
       };
       let abandoned: Awaited<ReturnType<NonNullable<PublicSourceStagingDependencies["abandon"]>>>;
       try {
         abandoned = await dependencies.abandon({ manifest: abandonmentManifest });
       } catch {
         const afterAmbiguousAbandon = await dependencies.lookup(reservation.id);
-        if (!afterAmbiguousAbandon || !recoveryIdentityMatches(afterAmbiguousAbandon, reservation, reserveManifest)) {
+        if (
+          !afterAmbiguousAbandon ||
+          !recoveryIdentityMatches(afterAmbiguousAbandon, activeReservation, reserveManifest)
+        ) {
           throw new Error("Public source abandonment outcome was ambiguous; storage remains untouched.");
         }
-        if (isCommittedRecovery(afterAmbiguousAbandon, reservation)) {
+        if (isCommittedRecovery(afterAmbiguousAbandon, activeReservation)) {
           return { disposition: fetched.disposition, version: afterAmbiguousAbandon };
         }
         if (afterAmbiguousAbandon.lifecycle !== "abandoned" || afterAmbiguousAbandon.staging_document_id !== null) {
@@ -445,8 +507,8 @@ export async function stageFetchedPublicSource(
         const committed = await dependencies.lookup(reservation.id);
         if (
           committed &&
-          recoveryIdentityMatches(committed, reservation, reserveManifest) &&
-          isCommittedRecovery(committed, reservation)
+          recoveryIdentityMatches(committed, activeReservation, reserveManifest) &&
+          isCommittedRecovery(committed, activeReservation)
         ) {
           return { disposition: fetched.disposition, version: committed };
         }

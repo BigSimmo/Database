@@ -20,6 +20,26 @@ export type CleanupJob = {
   public_source_storage_bucket: string | null;
   public_source_storage_path: string | null;
   public_source_cleanup_not_before: string | null;
+  public_source_claim_token?: string | null;
+  public_source_claim_expires_at?: string | null;
+};
+
+type ClaimedPublicSourceCleanup = {
+  id: string;
+  claimToken: string;
+  claimExpiresAt: string;
+  reservationId: string;
+  bucket: string;
+  path: string;
+  imagePaths: unknown[];
+  attempts: number;
+};
+
+export type ControlledPublicSourceCleanupDependencies = {
+  claim(maxAttempts: number): Promise<unknown>;
+  remove(bucket: string, path: string): Promise<{ removed: number; warnings: string[] }>;
+  complete(input: { jobId: string; claimToken: string; storageRemoved: number }): Promise<void>;
+  release(input: { jobId: string; claimToken: string; error: "storage_delete_failed" }): Promise<void>;
 };
 
 export function publicSourceCleanupIdentityError(job: CleanupJob) {
@@ -29,17 +49,69 @@ export function publicSourceCleanupIdentityError(job: CleanupJob) {
     !job.public_source_storage_path ||
     job.document_bucket !== job.public_source_storage_bucket ||
     job.document_paths?.length !== 1 ||
-    job.document_paths[0] !== job.public_source_storage_path
+    job.document_paths[0] !== job.public_source_storage_path ||
+    (job.image_paths?.length ?? 0) !== 0
   ) {
     return "Controlled public source cleanup identity is inconsistent.";
   }
   return null;
 }
 
-export function isPublicSourceCleanupReady(job: CleanupJob, now = Date.now()) {
-  if (!job.public_source_cleanup_not_before) return true;
-  const notBefore = Date.parse(job.public_source_cleanup_not_before);
-  return Number.isFinite(notBefore) && notBefore <= now;
+function parseClaimedPublicSourceCleanup(value: unknown): ClaimedPublicSourceCleanup | null {
+  if (value === null) return null;
+  if (!value || typeof value !== "object") throw new Error("Controlled cleanup claim was invalid.");
+  const claim = value as Partial<ClaimedPublicSourceCleanup>;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (
+    typeof claim.id !== "string" ||
+    !uuid.test(claim.id) ||
+    typeof claim.claimToken !== "string" ||
+    !uuid.test(claim.claimToken) ||
+    typeof claim.claimExpiresAt !== "string" ||
+    !Number.isFinite(Date.parse(claim.claimExpiresAt)) ||
+    typeof claim.reservationId !== "string" ||
+    !uuid.test(claim.reservationId) ||
+    typeof claim.bucket !== "string" ||
+    !/^[a-z0-9][a-z0-9._-]{0,62}$/.test(claim.bucket) ||
+    typeof claim.path !== "string" ||
+    claim.path.length < 1 ||
+    claim.path.length > 1024 ||
+    !Array.isArray(claim.imagePaths) ||
+    claim.imagePaths.length !== 0 ||
+    !Number.isInteger(claim.attempts)
+  ) {
+    throw new Error("Controlled cleanup claim identity was invalid.");
+  }
+  return claim as ClaimedPublicSourceCleanup;
+}
+
+export async function processControlledPublicSourceCleanup(
+  limit: number,
+  dependencies: ControlledPublicSourceCleanupDependencies,
+) {
+  let completed = 0;
+  let failed = 0;
+  for (let claimed = 0; claimed < limit; claimed += 1) {
+    const claim = parseClaimedPublicSourceCleanup(await dependencies.claim(25));
+    if (!claim) break;
+    const removal = await dependencies.remove(claim.bucket, claim.path);
+    if (removal.warnings.length > 0) {
+      await dependencies.release({
+        jobId: claim.id,
+        claimToken: claim.claimToken,
+        error: "storage_delete_failed",
+      });
+      failed += 1;
+      continue;
+    }
+    await dependencies.complete({
+      jobId: claim.id,
+      claimToken: claim.claimToken,
+      storageRemoved: removal.removed,
+    });
+    completed += 1;
+  }
+  return { completed, failed };
 }
 
 function parseArgs(argv: string[]): CleanupArgs {
@@ -95,7 +167,7 @@ async function main() {
       "id,document_id,document_bucket,document_paths,image_bucket,image_paths,attempts,public_source_reservation_id,public_source_storage_bucket,public_source_storage_path,public_source_cleanup_not_before",
     )
     .in("status", ["pending", "failed"])
-    .or(`public_source_cleanup_not_before.is.null,public_source_cleanup_not_before.lte.${new Date().toISOString()}`)
+    .is("public_source_reservation_id", null)
     .order("created_at", { ascending: true })
     .limit(args.limit);
 
@@ -116,8 +188,8 @@ async function main() {
   }
 
   const { safe: ownershipSafeJobs, skipped } = partitionStorageCleanupJobs(allJobs, liveDocumentIds);
-  const jobs = ownershipSafeJobs.filter((job) => isPublicSourceCleanupReady(job));
-  console.log(`Found ${allJobs.length} storage cleanup job(s); ${jobs.length} safe to process.`);
+  const jobs = ownershipSafeJobs;
+  console.log(`Found ${allJobs.length} generic storage cleanup job(s); ${jobs.length} safe to process.`);
   if (skipped.length > 0) {
     console.warn(
       `Skipping ${skipped.length} cleanup job(s) whose document still exists (aborted delete; would destroy live storage): ${skipped
@@ -125,7 +197,10 @@ async function main() {
         .join(", ")}`,
     );
   }
-  if (args.dryRun || jobs.length === 0) return;
+  if (args.dryRun) {
+    console.log("Controlled public-source cleanup remains unclaimed in dry-run mode.");
+    return;
+  }
 
   let completed = 0;
   let failed = 0;
@@ -178,6 +253,37 @@ async function main() {
     if (nextStatus === "completed") completed += 1;
     else failed += 1;
   }
+
+  // Each queue gets an independently bounded pass so a persistent generic
+  // backlog cannot starve abandoned governed-source cleanup (or vice versa).
+  const controlled = await processControlledPublicSourceCleanup(args.limit, {
+    claim: async (maxAttempts) => {
+      const { data: claim, error: claimError } = await supabase.rpc("claim_public_source_cleanup_job", {
+        p_max_attempts: maxAttempts,
+      });
+      if (claimError) throw new Error("Controlled public-source cleanup claim failed.");
+      return claim;
+    },
+    remove: async (bucket, path) => removePaths({ supabase, bucket, paths: [path] }),
+    complete: async ({ jobId, claimToken, storageRemoved }) => {
+      const { error: completeError } = await supabase.rpc("complete_public_source_cleanup_job", {
+        p_job_id: jobId,
+        p_claim_token: claimToken,
+        p_storage_removed: storageRemoved,
+      });
+      if (completeError) throw new Error("Controlled public-source cleanup completion failed.");
+    },
+    release: async ({ jobId, claimToken, error: releaseReason }) => {
+      const { error: releaseError } = await supabase.rpc("release_public_source_cleanup_job", {
+        p_job_id: jobId,
+        p_claim_token: claimToken,
+        p_error: releaseReason,
+      });
+      if (releaseError) throw new Error("Controlled public-source cleanup release failed.");
+    },
+  });
+  completed += controlled.completed;
+  failed += controlled.failed;
 
   console.log(`Storage cleanup complete: ${completed} completed, ${failed} failed.`);
 }

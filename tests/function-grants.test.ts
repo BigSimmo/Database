@@ -67,6 +67,17 @@ describe("check:function-grants", () => {
     expect(migration).toContain(
       "revoke all on function public.guard_public_source_cleanup_job_identity() from public, anon, authenticated, service_role;",
     );
+    expect(migration).toContain(
+      "revoke all on table public.public_source_cleanup_mutation_guards from public, anon, authenticated, service_role;",
+    );
+    for (const signature of [
+      "claim_public_source_cleanup_job(integer)",
+      "complete_public_source_cleanup_job(uuid, uuid, integer)",
+      "release_public_source_cleanup_job(uuid, uuid, text)",
+    ]) {
+      expect(migration).toContain(`revoke all on function public.${signature} from public, anon, authenticated;`);
+      expect(migration).toContain(`grant execute on function public.${signature} to service_role;`);
+    }
   });
 
   it("fails a SECURITY DEFINER function left anon-executable after the blanket revoke", () => {

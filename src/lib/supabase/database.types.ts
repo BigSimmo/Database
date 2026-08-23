@@ -1047,6 +1047,41 @@ export type Database = {
           },
         ];
       };
+      public_source_cleanup_mutation_guards: {
+        Row: {
+          backend_pid: number;
+          created_at: string;
+          operation: string;
+          public_source_reservation_id: string;
+          token: string;
+          transaction_id: number;
+        };
+        Insert: {
+          backend_pid: number;
+          created_at?: string;
+          operation: string;
+          public_source_reservation_id: string;
+          token: string;
+          transaction_id: number;
+        };
+        Update: {
+          backend_pid?: number;
+          created_at?: string;
+          operation?: string;
+          public_source_reservation_id?: string;
+          token?: string;
+          transaction_id?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_cleanup_mutation_guards_public_source_reservation_id_fkey";
+            columns: ["public_source_reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       public_source_versions: {
         Row: {
           activation_event_id: string;
@@ -2323,6 +2358,8 @@ export type Database = {
           metadata: Json;
           owner_id: string | null;
           public_source_cleanup_not_before: string | null;
+          public_source_claim_expires_at: string | null;
+          public_source_claim_token: string | null;
           public_source_reservation_id: string | null;
           public_source_storage_bucket: string | null;
           public_source_storage_path: string | null;
@@ -2345,6 +2382,8 @@ export type Database = {
           metadata?: Json;
           owner_id?: string | null;
           public_source_cleanup_not_before?: string | null;
+          public_source_claim_expires_at?: string | null;
+          public_source_claim_token?: string | null;
           public_source_reservation_id?: string | null;
           public_source_storage_bucket?: string | null;
           public_source_storage_path?: string | null;
@@ -2367,6 +2406,8 @@ export type Database = {
           metadata?: Json;
           owner_id?: string | null;
           public_source_cleanup_not_before?: string | null;
+          public_source_claim_expires_at?: string | null;
+          public_source_claim_token?: string | null;
           public_source_reservation_id?: string | null;
           public_source_storage_bucket?: string | null;
           public_source_storage_path?: string | null;
@@ -3170,6 +3211,18 @@ export type Database = {
       authorize_public_source_upload: {
         Args: { p_manifest: Json };
         Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      claim_public_source_cleanup_job: {
+        Args: { p_max_attempts: number };
+        Returns: Json;
+      };
+      complete_public_source_cleanup_job: {
+        Args: { p_claim_token: string; p_job_id: string; p_storage_removed: number };
+        Returns: Json;
+      };
+      release_public_source_cleanup_job: {
+        Args: { p_claim_token: string; p_error: string; p_job_id: string };
+        Returns: Json;
       };
       finalize_public_source_version: {
         Args: { p_manifest: Json; p_max_attempts: number };

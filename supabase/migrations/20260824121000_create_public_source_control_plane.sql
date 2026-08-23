@@ -116,6 +116,8 @@ alter table public.storage_cleanup_jobs
   add column public_source_storage_bucket text,
   add column public_source_storage_path text,
   add column public_source_cleanup_not_before timestamptz,
+  add column public_source_claim_token uuid,
+  add column public_source_claim_expires_at timestamptz,
   add constraint storage_cleanup_jobs_public_source_reservation_unique unique (public_source_reservation_id),
   add constraint storage_cleanup_jobs_public_source_identity_check check (
     (public_source_reservation_id is null and public_source_storage_bucket is null
@@ -127,9 +129,26 @@ alter table public.storage_cleanup_jobs
       and public_source_cleanup_not_before is not null)
   );
 
+alter table public.storage_cleanup_jobs
+  drop constraint storage_cleanup_jobs_status_check,
+  add constraint storage_cleanup_jobs_status_check
+    check (status in ('pending', 'processing', 'completed', 'failed'));
+
 create unique index public_source_cleanup_bucket_path_idx
   on public.storage_cleanup_jobs(public_source_storage_bucket, public_source_storage_path)
   where public_source_reservation_id is not null;
+
+create table public.public_source_cleanup_mutation_guards (
+  token uuid primary key,
+  public_source_reservation_id uuid not null references public.public_source_versions(id) on delete cascade,
+  operation text not null check (operation in ('upsert', 'claim', 'complete', 'release')),
+  transaction_id bigint not null,
+  backend_pid integer not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.public_source_cleanup_mutation_guards enable row level security;
+revoke all on table public.public_source_cleanup_mutation_guards from public, anon, authenticated, service_role;
 
 create or replace function public.guard_public_source_cleanup_job_identity()
 returns trigger
@@ -138,6 +157,8 @@ security definer set search_path = ''
 as $$
 declare
   v_version public.public_source_versions%rowtype;
+  v_guard_token uuid;
+  v_operation text;
 begin
   if tg_op = 'DELETE' and old.public_source_reservation_id is not null then
     raise exception 'public source cleanup history is immutable';
@@ -152,15 +173,46 @@ begin
     raise exception 'public source cleanup identity is immutable';
   end if;
   if tg_op <> 'DELETE' and new.public_source_reservation_id is not null then
+    begin
+      v_guard_token := nullif(pg_catalog.current_setting('app.public_source_cleanup_mutation', true), '')::uuid;
+    exception when invalid_text_representation then
+      v_guard_token := null;
+    end;
+    select operation into v_operation
+    from public.public_source_cleanup_mutation_guards
+    where token = v_guard_token
+      and public_source_reservation_id = new.public_source_reservation_id
+      and transaction_id = pg_catalog.txid_current()
+      and backend_pid = pg_catalog.pg_backend_pid();
+    if v_operation is null then
+      raise exception 'public source cleanup mutation guard is missing';
+    end if;
     select * into v_version from public.public_source_versions
     where id = new.public_source_reservation_id;
     if not found
+      or v_version.lifecycle is distinct from 'abandoned'
+      or v_version.upload_state is distinct from 'cleanup_pending'
+      or v_version.staging_document_id is not null
       or new.public_source_storage_bucket is distinct from v_version.storage_bucket
       or new.public_source_storage_path is distinct from v_version.reserved_storage_path
       or new.document_bucket is distinct from new.public_source_storage_bucket
       or new.document_paths is distinct from array[new.public_source_storage_path]
-      or new.document_id is not null then
+      or new.document_id is not null
+      or new.image_paths is distinct from '{}'::text[]
+      or new.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes' then
       raise exception 'public source cleanup identity does not match its reservation';
+    end if;
+    if (new.status = 'processing') is distinct from
+        (new.public_source_claim_token is not null and new.public_source_claim_expires_at is not null)
+      or (new.status <> 'processing' and
+        (new.public_source_claim_token is not null or new.public_source_claim_expires_at is not null)) then
+      raise exception 'public source cleanup claim state is invalid';
+    end if;
+    if (v_operation = 'upsert' and new.status not in ('pending', 'processing'))
+      or (v_operation = 'claim' and new.status is distinct from 'processing')
+      or (v_operation = 'complete' and new.status is distinct from 'completed')
+      or (v_operation = 'release' and new.status is distinct from 'failed') then
+      raise exception 'public source cleanup mutation is not authorized for this state';
     end if;
   end if;
   return case when tg_op = 'DELETE' then old else new end;
@@ -233,9 +285,9 @@ begin
     raise exception 'terminal public source versions are immutable';
   end if;
   if (
-    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'upload_state', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'upload_state', 'upload_lease_token', 'upload_lease_expires_at', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) is distinct from (
-    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'upload_state', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'upload_state', 'upload_lease_token', 'upload_lease_expires_at', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) then
     raise exception 'public source version immutable fields changed';
   end if;
@@ -251,6 +303,19 @@ begin
     ('uploading', 'cleanup_pending')
   ) then
     raise exception 'illegal public source upload state transition';
+  end if;
+  if new.upload_lease_token is distinct from old.upload_lease_token
+    or new.upload_lease_expires_at is distinct from old.upload_lease_expires_at then
+    if new.lifecycle is distinct from 'discovered'
+      or new.staging_document_id is not null
+      or new.upload_state is distinct from 'uploading'
+      or new.upload_lease_token is not distinct from old.upload_lease_token
+      or new.upload_lease_expires_at <= pg_catalog.clock_timestamp()
+      or new.upload_lease_expires_at > pg_catalog.clock_timestamp() + interval '2 minutes 5 seconds'
+      or not (old.upload_state = 'reserved'
+        or (old.upload_state = 'uploading' and old.upload_lease_expires_at <= pg_catalog.clock_timestamp())) then
+      raise exception 'public source upload attempt rotation is invalid';
+    end if;
   end if;
   v_transition_allowed := (old.lifecycle, new.lifecycle) in (
     ('discovered', 'shadow'), ('discovered', 'quarantined'), ('discovered', 'tombstoned'), ('discovered', 'abandoned'),
@@ -624,6 +689,7 @@ declare
   v_activation_sequence bigint;
   v_upload_lease_token uuid;
   v_upload_lease_expires_at timestamptz;
+  v_attempt_token uuid;
 begin
   begin
     v_reservation_id := nullif(p_manifest->>'reservationId', '')::uuid;
@@ -670,15 +736,23 @@ begin
     or v_version.upload_lease_token is distinct from v_upload_lease_token
     or v_version.upload_lease_expires_at is distinct from v_upload_lease_expires_at
     or v_version.lifecycle is distinct from 'discovered'
-    or v_version.staging_document_id is not null
-    or v_version.upload_state not in ('reserved', 'uploading')
-    or pg_catalog.clock_timestamp() >= v_version.upload_lease_expires_at then
+    or v_version.staging_document_id is not null then
     raise exception 'public source upload lease is stale or governance changed';
+  end if;
+  if v_version.upload_state is distinct from 'reserved' then
+    if v_version.upload_state is distinct from 'uploading'
+      or v_version.upload_lease_expires_at > pg_catalog.clock_timestamp() then
+      raise exception 'public source upload attempt is already claimed';
+    end if;
   end if;
   if not exists (select 1 from auth.users where id = v_version.steward_id) then
     raise exception 'public source steward authority is not current';
   end if;
-  update public.public_source_versions set upload_state = 'uploading'
+  v_attempt_token := gen_random_uuid();
+  update public.public_source_versions
+  set upload_state = 'uploading',
+      upload_lease_token = v_attempt_token,
+      upload_lease_expires_at = pg_catalog.clock_timestamp() + interval '2 minutes'
   where id = v_version.id returning * into v_version;
   return v_version;
 end;
@@ -861,6 +935,7 @@ declare
   v_reserved_document_id uuid;
   v_upload_lease_token uuid;
   v_upload_lease_expires_at timestamptz;
+  v_cleanup_guard_token uuid := gen_random_uuid();
   v_version public.public_source_versions%rowtype;
   v_event public.public_source_activation_events%rowtype;
 begin
@@ -931,17 +1006,25 @@ begin
     update public.public_source_versions
     set lifecycle = 'abandoned', upload_state = 'cleanup_pending', review_queued_at = now(),
         review_reason = 'Unfinalized reservation abandoned after definitive finalization failure.'
-    where id = v_version.id;
+    where id = v_version.id returning * into v_version;
   end if;
+  insert into public.public_source_cleanup_mutation_guards(
+    token, public_source_reservation_id, operation, transaction_id, backend_pid
+  ) values (
+    v_cleanup_guard_token, v_version.id, 'upsert', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+  );
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_cleanup_guard_token::text, true);
   insert into public.storage_cleanup_jobs (
     owner_id, document_id, document_title, document_bucket, document_paths,
+    image_paths,
     public_source_reservation_id, public_source_storage_bucket, public_source_storage_path,
-    public_source_cleanup_not_before, status, metadata
+    public_source_cleanup_not_before, public_source_claim_token, public_source_claim_expires_at,
+    status, metadata
   )
   values (
     v_version.steward_id, null, 'Abandoned controlled public source', v_version.storage_bucket,
-    array[v_version.reserved_storage_path], v_version.id, v_version.storage_bucket,
-    v_version.reserved_storage_path, v_version.upload_lease_expires_at + interval '5 minutes', 'pending',
+    array[v_version.reserved_storage_path], '{}'::text[], v_version.id, v_version.storage_bucket,
+    v_version.reserved_storage_path, v_version.upload_lease_expires_at + interval '5 minutes', null, null, 'pending',
     jsonb_build_object(
       'public_source_reservation_id', v_version.id,
       'public_source_reservation_key', v_version.reservation_key,
@@ -949,11 +1032,35 @@ begin
     )
   )
   on conflict (public_source_reservation_id) do update
-  set status = 'pending', attempts = 0, last_error = null, completed_at = null,
-      public_source_cleanup_not_before = greatest(
-        public.storage_cleanup_jobs.public_source_cleanup_not_before,
-        excluded.public_source_cleanup_not_before
-      );
+  set status = case
+        when public.storage_cleanup_jobs.status = 'processing'
+          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+          then 'processing'
+        else 'pending'
+      end,
+      attempts = case
+        when public.storage_cleanup_jobs.status = 'processing'
+          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+          then public.storage_cleanup_jobs.attempts
+        else 0
+      end,
+      last_error = null,
+      completed_at = null,
+      public_source_claim_token = case
+        when public.storage_cleanup_jobs.status = 'processing'
+          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+          then public.storage_cleanup_jobs.public_source_claim_token
+        else null
+      end,
+      public_source_claim_expires_at = case
+        when public.storage_cleanup_jobs.status = 'processing'
+          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+          then public.storage_cleanup_jobs.public_source_claim_expires_at
+        else null
+      end,
+      public_source_cleanup_not_before = excluded.public_source_cleanup_not_before;
+  delete from public.public_source_cleanup_mutation_guards where token = v_cleanup_guard_token;
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', '', true);
   return jsonb_build_object(
     'status', 'abandoned', 'storagePath', v_version.reserved_storage_path,
     'storageOwned', false, 'storage_owned', false, 'cleanupDurable', true
@@ -963,6 +1070,230 @@ $$;
 
 revoke all on function public.abandon_public_source_reservation(jsonb) from public, anon, authenticated;
 grant execute on function public.abandon_public_source_reservation(jsonb) to service_role;
+
+create or replace function public.claim_public_source_cleanup_job(p_max_attempts integer)
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_job public.storage_cleanup_jobs%rowtype;
+  v_version public.public_source_versions%rowtype;
+  v_event public.public_source_activation_events%rowtype;
+  v_catalogue_key text;
+  v_claim_token uuid := gen_random_uuid();
+  v_guard_token uuid := gen_random_uuid();
+begin
+  if p_max_attempts not between 1 and 25 then
+    raise exception 'public source cleanup claim limit is invalid';
+  end if;
+  select * into v_job from public.storage_cleanup_jobs
+  where public_source_reservation_id is not null
+    and public_source_cleanup_not_before <= pg_catalog.clock_timestamp()
+    and attempts < p_max_attempts
+    and (status in ('pending', 'failed')
+      or (status = 'processing' and public_source_claim_expires_at <= pg_catalog.clock_timestamp()))
+  order by created_at, id limit 1;
+  if not found then return null; end if;
+  select source_catalogue_key into v_catalogue_key from public.public_source_versions
+  where id = v_job.public_source_reservation_id;
+  if not found then raise exception 'public source cleanup reservation is missing'; end if;
+
+  -- lock-order: advisory
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_catalogue_key, 0));
+  -- lock-order: latest-event
+  select * into v_event from public.public_source_activation_events
+  where source_catalogue_key = v_catalogue_key
+  order by activation_sequence desc limit 1 for update;
+  -- lock-order: document
+  perform 1 from public.documents where id = v_job.document_id for update;
+  -- lock-order: version
+  select * into v_version from public.public_source_versions
+  where id = v_job.public_source_reservation_id for update;
+  -- lock-order: cleanup-job
+  select * into v_job from public.storage_cleanup_jobs where id = v_job.id for update;
+  if not found or v_event.id is null
+    or v_version.lifecycle is distinct from 'abandoned'
+    or v_version.upload_state is distinct from 'cleanup_pending'
+    or v_version.staging_document_id is not null
+    or v_job.public_source_reservation_id is distinct from v_version.id
+    or v_job.public_source_storage_bucket is distinct from v_version.storage_bucket
+    or v_job.public_source_storage_path is distinct from v_version.reserved_storage_path
+    or v_job.document_bucket is distinct from v_version.storage_bucket
+    or v_job.document_paths is distinct from array[v_version.reserved_storage_path]
+    or v_job.image_paths is distinct from '{}'::text[]
+    or v_job.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes'
+    or v_job.public_source_cleanup_not_before > pg_catalog.clock_timestamp()
+    or v_job.attempts >= p_max_attempts
+    or not (v_job.status in ('pending', 'failed')
+      or (v_job.status = 'processing'
+        and v_job.public_source_claim_expires_at <= pg_catalog.clock_timestamp())) then
+    return null;
+  end if;
+  insert into public.public_source_cleanup_mutation_guards(
+    token, public_source_reservation_id, operation, transaction_id, backend_pid
+  ) values (
+    v_guard_token, v_version.id, 'claim', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+  );
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_guard_token::text, true);
+  update public.storage_cleanup_jobs
+  set status = 'processing', attempts = attempts + 1,
+      public_source_claim_token = v_claim_token,
+      public_source_claim_expires_at = pg_catalog.clock_timestamp() + interval '2 minutes',
+      last_error = null, completed_at = null
+  where id = v_job.id returning * into v_job;
+  delete from public.public_source_cleanup_mutation_guards where token = v_guard_token;
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', '', true);
+  return jsonb_build_object(
+    'id', v_job.id,
+    'claimToken', v_claim_token,
+    'claimExpiresAt', v_job.public_source_claim_expires_at,
+    'reservationId', v_version.id,
+    'bucket', v_version.storage_bucket,
+    'path', v_version.reserved_storage_path,
+    'imagePaths', jsonb_build_array(),
+    'attempts', v_job.attempts
+  );
+end;
+$$;
+
+revoke all on function public.claim_public_source_cleanup_job(integer) from public, anon, authenticated;
+grant execute on function public.claim_public_source_cleanup_job(integer) to service_role;
+
+create or replace function public.complete_public_source_cleanup_job(
+  p_job_id uuid, p_claim_token uuid, p_storage_removed integer
+)
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_job public.storage_cleanup_jobs%rowtype;
+  v_version public.public_source_versions%rowtype;
+  v_event public.public_source_activation_events%rowtype;
+  v_catalogue_key text;
+  v_guard_token uuid := gen_random_uuid();
+begin
+  select * into v_job from public.storage_cleanup_jobs where id = p_job_id;
+  if not found or v_job.public_source_reservation_id is null then
+    raise exception 'public source cleanup claim is invalid';
+  end if;
+  select source_catalogue_key into v_catalogue_key from public.public_source_versions
+  where id = v_job.public_source_reservation_id;
+  -- lock-order: advisory
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_catalogue_key, 0));
+  -- lock-order: latest-event
+  select * into v_event from public.public_source_activation_events
+  where source_catalogue_key = v_catalogue_key
+  order by activation_sequence desc limit 1 for update;
+  -- lock-order: document
+  perform 1 from public.documents where id = v_job.document_id for update;
+  -- lock-order: version
+  select * into v_version from public.public_source_versions
+  where id = v_job.public_source_reservation_id for update;
+  -- lock-order: cleanup-job
+  select * into v_job from public.storage_cleanup_jobs where id = p_job_id for update;
+  if not found or v_event.id is null
+    or v_job.status is distinct from 'processing'
+    or v_job.public_source_claim_token is distinct from p_claim_token
+    or v_job.public_source_claim_expires_at <= pg_catalog.clock_timestamp()
+    or p_storage_removed not between 0 and 100
+    or v_version.lifecycle is distinct from 'abandoned'
+    or v_version.upload_state is distinct from 'cleanup_pending'
+    or v_version.staging_document_id is not null
+    or v_job.public_source_reservation_id is distinct from v_version.id
+    or v_job.public_source_storage_bucket is distinct from v_version.storage_bucket
+    or v_job.public_source_storage_path is distinct from v_version.reserved_storage_path
+    or v_job.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes' then
+    raise exception 'public source cleanup claim is stale or inconsistent';
+  end if;
+  insert into public.public_source_cleanup_mutation_guards(
+    token, public_source_reservation_id, operation, transaction_id, backend_pid
+  ) values (
+    v_guard_token, v_version.id, 'complete', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+  );
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_guard_token::text, true);
+  update public.storage_cleanup_jobs
+  set status = 'completed', storage_removed = p_storage_removed,
+      public_source_claim_token = null, public_source_claim_expires_at = null,
+      last_error = null, completed_at = pg_catalog.clock_timestamp()
+  where id = p_job_id and public_source_claim_token = p_claim_token;
+  delete from public.public_source_cleanup_mutation_guards where token = v_guard_token;
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', '', true);
+  return jsonb_build_object('status', 'completed', 'id', p_job_id);
+end;
+$$;
+
+revoke all on function public.complete_public_source_cleanup_job(uuid, uuid, integer) from public, anon, authenticated;
+grant execute on function public.complete_public_source_cleanup_job(uuid, uuid, integer) to service_role;
+
+create or replace function public.release_public_source_cleanup_job(
+  p_job_id uuid, p_claim_token uuid, p_error text
+)
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_job public.storage_cleanup_jobs%rowtype;
+  v_version public.public_source_versions%rowtype;
+  v_event public.public_source_activation_events%rowtype;
+  v_catalogue_key text;
+  v_guard_token uuid := gen_random_uuid();
+begin
+  if p_error is distinct from 'storage_delete_failed' then
+    raise exception 'public source cleanup release reason is invalid';
+  end if;
+  select * into v_job from public.storage_cleanup_jobs where id = p_job_id;
+  if not found or v_job.public_source_reservation_id is null then
+    raise exception 'public source cleanup claim is invalid';
+  end if;
+  select source_catalogue_key into v_catalogue_key from public.public_source_versions
+  where id = v_job.public_source_reservation_id;
+  -- lock-order: advisory
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_catalogue_key, 0));
+  -- lock-order: latest-event
+  select * into v_event from public.public_source_activation_events
+  where source_catalogue_key = v_catalogue_key
+  order by activation_sequence desc limit 1 for update;
+  -- lock-order: document
+  perform 1 from public.documents where id = v_job.document_id for update;
+  -- lock-order: version
+  select * into v_version from public.public_source_versions
+  where id = v_job.public_source_reservation_id for update;
+  -- lock-order: cleanup-job
+  select * into v_job from public.storage_cleanup_jobs where id = p_job_id for update;
+  if not found or v_event.id is null
+    or v_job.status is distinct from 'processing'
+    or v_job.public_source_claim_token is distinct from p_claim_token
+    or v_job.public_source_claim_expires_at <= pg_catalog.clock_timestamp()
+    or v_version.lifecycle is distinct from 'abandoned'
+    or v_version.upload_state is distinct from 'cleanup_pending'
+    or v_version.staging_document_id is not null
+    or v_job.public_source_reservation_id is distinct from v_version.id
+    or v_job.public_source_storage_bucket is distinct from v_version.storage_bucket
+    or v_job.public_source_storage_path is distinct from v_version.reserved_storage_path
+    or v_job.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes' then
+    raise exception 'public source cleanup claim is stale or inconsistent';
+  end if;
+  insert into public.public_source_cleanup_mutation_guards(
+    token, public_source_reservation_id, operation, transaction_id, backend_pid
+  ) values (
+    v_guard_token, v_version.id, 'release', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+  );
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_guard_token::text, true);
+  update public.storage_cleanup_jobs
+  set status = 'failed', public_source_claim_token = null,
+      public_source_claim_expires_at = null, last_error = p_error, completed_at = null
+  where id = p_job_id and public_source_claim_token = p_claim_token;
+  delete from public.public_source_cleanup_mutation_guards where token = v_guard_token;
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', '', true);
+  return jsonb_build_object('status', 'failed', 'id', p_job_id);
+end;
+$$;
+
+revoke all on function public.release_public_source_cleanup_job(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.release_public_source_cleanup_job(uuid, uuid, text) to service_role;
 
 create or replace function public.assert_public_source_document_governance(p_document_id uuid)
 returns void
