@@ -27,6 +27,18 @@ import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const RECENT_DAYS = Number(process.env.DEAD_CODE_RECENT_DAYS || 30);
+
+/**
+ * Minimal dependency surface used by the injectable filesystem adapter.
+ *
+ * @typedef {object} FileSystemAdapter
+ * @property {(path: string, encoding: "utf8") => string} readFileSync
+ * @property {(path: string, options: { withFileTypes: true }) => import("node:fs").Dirent[]} readdirSync
+ */
+
+/** @typedef {(args: string[], root: string) => string} GitRunner */
+
+/** @type {FileSystemAdapter} */
 const NODE_FILE_SYSTEM = { readFileSync, readdirSync };
 
 const errorMessage = (error) => (error instanceof Error ? error.message.split(/\r?\n/, 1)[0] : String(error));
@@ -43,7 +55,10 @@ const absoluteRepoPath = (root, file) => resolve(root, ...normalizeRepoPath(file
 
 const relativeRepoPath = (root, file) => normalizeRepoPath(relative(resolve(root), file));
 
-/** Git is repository-guaranteed, but every failed command is a safety error. */
+/**
+ * Git is repository-guaranteed, but every failed command is a safety error.
+ * @type {GitRunner}
+ */
 const sh = (args, root = process.cwd()) => {
   try {
     return execFileSync("git", args, {
