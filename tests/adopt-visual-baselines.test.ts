@@ -80,14 +80,17 @@ function adoptBaselines(
     head,
     write = true,
     reviewedBy = "Fixture Reviewer",
+    reviewedByLogin,
   }: {
     artifactDir: string;
     head: string;
     write?: boolean;
     reviewedBy?: string;
+    reviewedByLogin?: string;
   },
 ) {
   const args = [scriptPath, "--from", artifactDir, "--run-id", "424242", "--head", head, "--reviewed-by", reviewedBy];
+  if (reviewedByLogin) args.push("--reviewed-by-login", reviewedByLogin);
   if (write) args.push("--write");
   return execFileSync("node", args, {
     cwd: fixtureRoot,
@@ -231,6 +234,16 @@ describe("adopt-visual-baselines.mjs", () => {
       expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "build-service" })).toThrow(
         /project allowlist/,
       );
+      expect(() =>
+        adoptBaselines(fixtureRoot, {
+          artifactDir,
+          head,
+          reviewedBy: "Alice",
+          reviewedByLogin: "build-service",
+          write: false,
+        }),
+      ).toThrow(/project allowlist/);
+      expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "Alice", write: false })).not.toThrow();
     } finally {
       fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
       fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
