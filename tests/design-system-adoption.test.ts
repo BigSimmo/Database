@@ -757,11 +757,28 @@ describe("design-system adoption manifest", () => {
     const hashRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-hash-"));
     const platformRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-platform-"));
     const reviewRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-review-"));
+    const attributionRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-attribution-"));
     const countRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-count-"));
     try {
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        countRoot,
+      ])
         initialiseCandidateRepository(fixtureRoot);
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        countRoot,
+      ])
         setCurrentAwaitingValues(fixtureRoot, "");
       const valid = writeBaselineSet(validRoot);
       expect(
@@ -794,7 +811,37 @@ describe("design-system adoption manifest", () => {
       });
       expect(wrongPlatformFailures).toContain("visual baseline provenance platform must be linux");
       expect(wrongPlatformFailures).toContain(
-        "visual baseline provenance human reviewer attribution must not claim automated or pending review",
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const copilotReview = writeBaselineSet(attributionRoot, { reviewedBy: "GitHub Copilot" });
+      expect(
+        validateLinuxVisualBaselineSet(copilotReview.paths, {
+          root: attributionRoot,
+          trackedFiles: copilotReview.trackedFiles,
+        }),
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const genericBotReview = writeBaselineSet(attributionRoot, { reviewedBy: "automated review bot" });
+      expect(
+        validateLinuxVisualBaselineSet(genericBotReview.paths, {
+          root: attributionRoot,
+          trackedFiles: genericBotReview.trackedFiles,
+        }),
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const pendingApproval = writeBaselineSet(attributionRoot, { reviewedBy: "human approval pending" });
+      expect(
+        validateLinuxVisualBaselineSet(pendingApproval.paths, {
+          root: attributionRoot,
+          trackedFiles: pendingApproval.trackedFiles,
+        }),
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
       );
 
       const unreviewed = writeBaselineSet(reviewRoot, { reviewStatus: "pending" });
@@ -813,7 +860,15 @@ describe("design-system adoption manifest", () => {
         }),
       ).toContain("visual baseline provenance must contain exactly 6 candidates");
     } finally {
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        countRoot,
+      ])
         fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
   });

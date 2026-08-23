@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { ScoreBandBar } from "@/components/calculators/calculator-ui";
 import { calculators } from "@/components/calculators/calculator-fixtures";
-import { statusDotMuted, statusDotReady, statusDotReview } from "@/components/ui-primitives";
+import { sourceStatusDotTone, sourceStatusShortLabel } from "@/components/clinical-dashboard/answer-content";
+import { StatusDotMarker } from "@/components/ui-primitives";
+import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
 const phq9 = calculators.find((calculator) => calculator.id === "phq9");
 
@@ -28,23 +30,20 @@ describe("rendered clinical status semantics", () => {
     });
   });
 
-  it("renders ready, review, and muted markers with visible text and distinct geometry", () => {
+  it("renders the production status-marker composition for ready, review, and muted states", () => {
     const markers = [
       {
-        label: "Ready",
-        className: statusDotReady,
+        status: "current",
         expected: ["rounded-full", "border-2", "bg-transparent"],
         absent: ["rotate-45", "rounded-sm"],
       },
       {
-        label: "Review",
-        className: statusDotReview,
+        status: "review_due",
         expected: ["rotate-45", "rounded-sm", "bg-[color:var(--warning)]"],
         absent: ["border-2", "bg-transparent"],
       },
       {
-        label: "Muted",
-        className: statusDotMuted,
+        status: "unknown",
         expected: ["rounded-full", "bg-[color:var(--decoration-soft)]"],
         absent: ["rotate-45", "border-2"],
       },
@@ -52,18 +51,24 @@ describe("rendered clinical status semantics", () => {
 
     render(
       <ul>
-        {markers.map(({ label, className }) => (
-          <li key={label}>
-            <span data-testid={`${label.toLowerCase()}-marker`} className={className} aria-hidden="true" />
-            <span>{label}</span>
-          </li>
-        ))}
+        {markers.map(({ status }) => {
+          const metadata = normalizeSourceMetadata({ document_status: status });
+          return (
+            <li key={status}>
+              <StatusDotMarker tone={sourceStatusDotTone(metadata)} label={sourceStatusShortLabel(metadata)} />
+            </li>
+          );
+        })}
       </ul>,
     );
 
-    for (const { label, expected, absent } of markers) {
-      expect(screen.getByText(label)).toBeVisible();
-      const marker = screen.getByTestId(`${label.toLowerCase()}-marker`);
+    for (const { status, expected, absent } of markers) {
+      const metadata = normalizeSourceMetadata({ document_status: status });
+      const label = sourceStatusShortLabel(metadata);
+      const labelNode = screen.getByText(label);
+      expect(labelNode).toBeVisible();
+      const marker = labelNode.previousElementSibling;
+      expect(marker).toBeInstanceOf(HTMLElement);
       expect(marker).toHaveAttribute("aria-hidden", "true");
       expect(marker).toHaveClass("inline-block", "h-2", "w-2", ...expected);
       for (const className of absent) expect(marker).not.toHaveClass(className);

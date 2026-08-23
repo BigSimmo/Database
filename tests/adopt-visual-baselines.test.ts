@@ -79,23 +79,15 @@ function adoptBaselines(
     artifactDir,
     head,
     write = true,
+    reviewedBy = "fixture-reviewer",
   }: {
     artifactDir: string;
     head: string;
     write?: boolean;
+    reviewedBy?: string;
   },
 ) {
-  const args = [
-    scriptPath,
-    "--from",
-    artifactDir,
-    "--run-id",
-    "424242",
-    "--head",
-    head,
-    "--reviewed-by",
-    "fixture-reviewer",
-  ];
+  const args = [scriptPath, "--from", artifactDir, "--run-id", "424242", "--head", head, "--reviewed-by", reviewedBy];
   if (write) args.push("--write");
   return execFileSync("node", args, {
     cwd: fixtureRoot,
@@ -206,6 +198,36 @@ describe("adopt-visual-baselines.mjs", () => {
       }
 
       expect(() => adoptBaselines(fixtureRoot, { artifactDir, head })).toThrow(/visual-junit\.xml/);
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+      fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("refuses to stamp GitHub Copilot or other automated attributions as human approval", () => {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-copilot-"));
+    const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
+    try {
+      const head = seedRepository(fixtureRoot, "");
+      for (const id of baselineIds) writePng(fixtureRoot, `tests/__screenshots__/linux/${id}.png`, validPng);
+      commitFixture(fixtureRoot, "seed committed baselines");
+
+      writePng(artifactDir, "test-results/ui-visual-baseline/dashboard-shell-actual.png", validPng);
+      for (const id of baselineIds.slice(1)) {
+        writePng(artifactDir, `tests/__screenshots__/linux/${id}.png`, validPng);
+      }
+      writeVisualJunit(artifactDir, {
+        "dashboard-shell": "failed",
+        "dashboard-shell-phone": "passed",
+        "search-results-band": "passed",
+        "search-results-band-phone": "passed",
+        "document-viewer": "passed",
+        "therapy-compass-home": "passed",
+      });
+
+      expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "GitHub Copilot" })).toThrow(
+        /verified human identity/,
+      );
     } finally {
       fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
       fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });

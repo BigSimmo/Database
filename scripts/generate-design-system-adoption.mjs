@@ -506,6 +506,25 @@ function validateCandidateSourceBinding(candidateSourceHead, { root, policy }) {
   return failures;
 }
 
+const AUTOMATED_OR_PENDING_REVIEWER =
+  /(?:\bai\b|\bagents?\b|automat(?:ed|ion|ic)|\bbots?\b|chatgpt|claude|codex|copilot|cursor\b|gemini|gpt-?\d|\bllm\b|openai|anthropic|pending)/i;
+const HUMAN_GITHUB_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+const HUMAN_DISPLAY_NAME = /^[A-Za-z][A-Za-z .'-]{1,79}$/;
+
+export function humanReviewerAttributionFailure(reviewedBy) {
+  if (typeof reviewedBy !== "string" || reviewedBy.trim() === "") {
+    return "visual baseline provenance requires a non-empty human reviewer attribution";
+  }
+  const value = reviewedBy.trim();
+  if (AUTOMATED_OR_PENDING_REVIEWER.test(value)) {
+    return "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review";
+  }
+  if (!HUMAN_GITHUB_LOGIN.test(value) && !HUMAN_DISPLAY_NAME.test(value)) {
+    return "visual baseline provenance human reviewer attribution must be a GitHub login or a human display name";
+  }
+  return null;
+}
+
 export function validateLinuxVisualBaselineSet(
   baselinePaths,
   { root = ROOT, trackedFiles = trackedFilesForRoot(root) } = {},
@@ -553,14 +572,9 @@ export function validateLinuxVisualBaselineSet(
   ) {
     failures.push("visual baseline provenance requires an approved timestamped human review");
   }
-  if (
-    provenance.review?.reviewerType === "human" &&
-    typeof provenance.review?.reviewedBy === "string" &&
-    /(?:automated adopt|human confirmation pending|claude code|codex cloud|ai agent)/i.test(
-      provenance.review.reviewedBy,
-    )
-  ) {
-    failures.push("visual baseline provenance human reviewer attribution must not claim automated or pending review");
+  if (provenance.review?.reviewerType === "human") {
+    const attributionFailure = humanReviewerAttributionFailure(provenance.review?.reviewedBy);
+    if (attributionFailure) failures.push(attributionFailure);
   }
   const runId = provenance.source?.runId;
   if (

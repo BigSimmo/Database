@@ -30,7 +30,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
-import { visualBaselineAwaitingIds } from "./generate-design-system-adoption.mjs";
+import { humanReviewerAttributionFailure, visualBaselineAwaitingIds } from "./generate-design-system-adoption.mjs";
 
 const ROOT = process.cwd();
 const BASELINE_DIR = "tests/__screenshots__/linux";
@@ -84,6 +84,8 @@ if (!head || !/^[0-9a-f]{40}$/.test(head)) fail("--head <sha> must be the full 4
 if (!reviewedBy || !reviewedBy.trim()) {
   fail("--reviewed-by '<name>' is required — this records a HUMAN review of the six images, so look at them first");
 }
+const attributionFailure = humanReviewerAttributionFailure(reviewedBy);
+if (attributionFailure) fail(attributionFailure);
 
 // The capture commit must be real and reachable, or the provenance describes a
 // tree nobody can check the images against.
