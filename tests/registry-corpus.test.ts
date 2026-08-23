@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
 import {
   clinicalRegistryRowsToCorpusEntries,
+  differentialRowsToCorpusEntries,
   embedRegistryCorpusEntries,
   medicationRowsToCorpusEntries,
+  registryCorpusDocumentId,
   registryDocumentIntent,
 } from "../src/lib/registry-corpus";
 import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
@@ -434,6 +436,14 @@ describe("registry corpus", () => {
     expect(entry?.content).toContain("Service: Crisis service");
     expect(entry?.content).toContain("Route: Call the crisis line before transfer");
     expect(entry?.searchText).toContain("crisis");
+  });
+
+  it("keeps deterministic document IDs stable for site-content adoption", () => {
+    const [entry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
+    expect(registryCorpusDocumentId(entry.kind, entry.recordId)).toBe(
+      registryCorpusDocumentId("service", "11111111-1111-4111-8111-111111111111"),
+    );
+    expect(differentialRowsToCorpusEntries([])).toEqual([]);
   });
 
   it("preserves form kind separately from service kind", () => {

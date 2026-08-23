@@ -16,9 +16,11 @@ import {
 import { env } from "@/lib/env";
 import { formRecordSearchText } from "@/lib/forms";
 import { rowToMedicationRecord, type MedicationRecordRow } from "@/lib/medication-records";
+import type { MedicationRecord } from "@/lib/medications";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
+import type { ServiceRecord } from "@/lib/service-ranker";
 import { serviceRecordSearchText } from "@/lib/services";
 import type { Json, TablesInsert, Vector } from "@/lib/supabase/database.types";
 import type { ClinicalSourceRole } from "@/lib/types";
@@ -206,8 +208,12 @@ export function differentialCorpusDocumentId(recordId: string) {
 }
 
 /** Registry chunk id. */
+export function registryCorpusChunkId(kind: RegistryCorpusKind, recordId: string) {
+  return deterministicUuid(`registry-chunk:${kind}:${recordId}`);
+}
+
 function registryChunkId(entry: RegistryCorpusEntry) {
-  return deterministicUuid(`registry-chunk:${entry.kind}:${entry.recordId}`);
+  return registryCorpusChunkId(entry.kind, entry.recordId);
 }
 
 /** Registry entry metadata. */
@@ -439,35 +445,151 @@ export function registryCorpusEmbeddingEnabled() {
   return env.RAG_REGISTRY_CORPUS_EMBEDDING === true;
 }
 
+export type RegistryCorpusProjectionIdentity = {
+  ownerId: string;
+  recordId: string;
+  sourceStatus: string;
+  validationStatus: string;
+  metadata?: Record<string, Json>;
+};
+
+/** Shared content projection for registry-backed service and form records. */
+export function clinicalRegistryRecordToCorpusEntry(
+  record: ServiceRecord,
+  kind: RegistryRecordKind,
+  identity: RegistryCorpusProjectionIdentity,
+): RegistryCorpusEntry {
+  const searchText = kind === "form" ? formRecordSearchText(record) : serviceRecordSearchText(record);
+  const content = compactText([
+    `${kind === "form" ? "Form" : "Service"}: ${record.title}`,
+    record.subtitle,
+    record.route && `Route: ${record.route}`,
+    record.eligibility && `Eligibility: ${record.eligibility}`,
+    record.referral && `Referral: ${record.referral}`,
+    record.location && `Location: ${record.location}`,
+    record.bestUse && `Best use: ${record.bestUse}`,
+    record.primaryContact && `Primary contact: ${record.primaryContact.value} ${record.primaryContact.detail ?? ""}`,
+    record.tags?.length ? `Tags: ${record.tags.join(", ")}` : null,
+    record.catchments?.length ? `Catchments: ${record.catchments.join(", ")}` : null,
+    searchText,
+  ]);
+  return {
+    kind,
+    subkind: kind,
+    ownerId: identity.ownerId,
+    recordId: identity.recordId,
+    slug: record.slug,
+    title: record.title,
+    subtitle: record.subtitle ?? null,
+    content,
+    searchText,
+    sourceStatus: identity.sourceStatus,
+    validationStatus: identity.validationStatus,
+    metadata: {
+      catalogue_label: record.catalogueLabel ?? null,
+      tags: record.tags ?? [],
+      catchments: record.catchments ?? [],
+      ...identity.metadata,
+    },
+  };
+}
+
+/** Shared content projection for registry-backed medication records. */
+export function medicationRecordToCorpusEntry(
+  record: MedicationRecord,
+  identity: RegistryCorpusProjectionIdentity,
+): RegistryCorpusEntry {
+  const sectionText = Array.isArray(record.sections)
+    ? record.sections
+        .flatMap((section) => [
+          section.title,
+          section.type,
+          ...(section.rows ?? []).flatMap((item) => [item.key, item.val]),
+        ])
+        .join(" ")
+    : "";
+  const quickText = Array.isArray(record.quick)
+    ? record.quick.flatMap((item) => [item.label, item.value]).join(" ")
+    : "";
+  const searchText = compactText(
+    [record.name, record.slug, record.class, record.subclass, record.category, sectionText, quickText],
+    4000,
+  );
+  return {
+    kind: "medication",
+    subkind: record.category || record.class || null,
+    ownerId: identity.ownerId,
+    recordId: identity.recordId,
+    slug: record.slug,
+    title: record.name,
+    subtitle: record.class || record.category || null,
+    content: compactText([
+      `Medication: ${record.name}`,
+      record.class && `Class: ${record.class}`,
+      record.subclass && `Subclass: ${record.subclass}`,
+      record.schedule && `Schedule: ${record.schedule}`,
+      record.tag && `Tag: ${record.tag}`,
+      sectionText,
+      quickText,
+    ]),
+    searchText,
+    sourceStatus: identity.sourceStatus,
+    validationStatus: identity.validationStatus,
+    metadata: {
+      medication_class: record.class,
+      medication_subclass: record.subclass,
+      tags: record.tag ? [record.tag] : [],
+      ...identity.metadata,
+    },
+  };
+}
+
+/** Shared content projection for registry-backed diagnosis and presentation records. */
+export function differentialRecordToCorpusEntry(
+  payload: DifferentialRecord | DifferentialPresentationWorkflow,
+  kind: DifferentialRecordRow["kind"],
+  identity: RegistryCorpusProjectionIdentity,
+): RegistryCorpusEntry {
+  const isPresentation = kind === "presentation";
+  const record = payload as DifferentialRecord & DifferentialPresentationWorkflow;
+  const searchText = isPresentation
+    ? presentationFullText(payload as DifferentialPresentationWorkflow)
+    : diagnosisFullText(payload as DifferentialRecord);
+  return {
+    kind: "differential",
+    subkind: isPresentation ? "presentation" : "diagnosis",
+    ownerId: identity.ownerId,
+    recordId: identity.recordId,
+    slug: isPresentation ? record.id : record.slug,
+    title: record.title,
+    subtitle: record.subtitle,
+    content: compactText([
+      `${isPresentation ? "Presentation workflow" : "Differential diagnosis"}: ${record.title}`,
+      record.subtitle,
+      !isPresentation && record.clinicalHinge && `Clinical hinge: ${record.clinicalHinge}`,
+      record.safetySnapshot.tags.length ? `Tags: ${record.safetySnapshot.tags.join(", ")}` : null,
+      searchText,
+    ]),
+    searchText,
+    sourceStatus: identity.sourceStatus,
+    validationStatus: identity.validationStatus,
+    metadata: {
+      differential_kind: kind,
+      status: record.status,
+      tags: record.safetySnapshot.tags,
+      ...identity.metadata,
+    },
+  };
+}
+
 /** Clinical registry rows to corpus entries. */
 export function clinicalRegistryRowsToCorpusEntries(rows: RegistryRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) => {
     const kind: RegistryRecordKind = row.kind === "form" ? "form" : "service";
     const record = rowToServiceRecord(row);
-    const searchText = kind === "form" ? formRecordSearchText(record) : serviceRecordSearchText(record);
-    const content = compactText([
-      `${kind === "form" ? "Form" : "Service"}: ${record.title}`,
-      record.subtitle,
-      record.route && `Route: ${record.route}`,
-      record.eligibility && `Eligibility: ${record.eligibility}`,
-      record.referral && `Referral: ${record.referral}`,
-      record.location && `Location: ${record.location}`,
-      record.bestUse && `Best use: ${record.bestUse}`,
-      record.primaryContact && `Primary contact: ${record.primaryContact.value} ${record.primaryContact.detail ?? ""}`,
-      record.tags?.length ? `Tags: ${record.tags.join(", ")}` : null,
-      record.catchments?.length ? `Catchments: ${record.catchments.join(", ")}` : null,
-      searchText,
-    ]);
-    return {
-      kind,
-      subkind: kind,
+    return clinicalRegistryRecordToCorpusEntry(record, kind, {
       ownerId: row.owner_id,
       recordId: row.id,
-      slug: row.slug,
-      title: record.title,
-      subtitle: record.subtitle ?? null,
-      content,
-      searchText,
       sourceStatus: row.source_status,
       validationStatus: row.validation_status,
       metadata: {
@@ -475,48 +597,16 @@ export function clinicalRegistryRowsToCorpusEntries(rows: RegistryRecordRow[]): 
         tags: row.tags,
         catchments: row.catchments,
       },
-    };
+    });
   });
 }
 
 /** Medication rows to corpus entries. */
 export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): RegistryCorpusEntry[] {
-  return rows.map((row) => {
-    const record = rowToMedicationRecord(row);
-    const sectionText = Array.isArray(record.sections)
-      ? record.sections
-          .flatMap((section) => [
-            section.title,
-            section.type,
-            ...(section.rows ?? []).flatMap((item) => [item.key, item.val]),
-          ])
-          .join(" ")
-      : "";
-    const quickText = Array.isArray(record.quick)
-      ? record.quick.flatMap((item) => [item.label, item.value]).join(" ")
-      : "";
-    const searchText = compactText(
-      [record.name, record.slug, record.class, record.subclass, record.category, sectionText, quickText],
-      4000,
-    );
-    return {
-      kind: "medication",
-      subkind: record.category || record.class || null,
+  return rows.map((row) =>
+    medicationRecordToCorpusEntry(rowToMedicationRecord(row), {
       ownerId: row.owner_id,
       recordId: row.id,
-      slug: row.slug,
-      title: record.name,
-      subtitle: record.class || row.category,
-      content: compactText([
-        `Medication: ${record.name}`,
-        record.class && `Class: ${record.class}`,
-        record.subclass && `Subclass: ${record.subclass}`,
-        record.schedule && `Schedule: ${record.schedule}`,
-        record.tag && `Tag: ${record.tag}`,
-        sectionText,
-        quickText,
-      ]),
-      searchText,
       sourceStatus: row.source_status,
       validationStatus: row.validation_status,
       metadata: {
@@ -524,8 +614,8 @@ export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): Regi
         medication_subclass: row.subclass,
         tags: row.tag ? [row.tag] : [],
       },
-    };
-  });
+    }),
+  );
 }
 
 /** Differential rows to corpus entries. */
@@ -533,25 +623,9 @@ export function differentialRowsToCorpusEntries(rows: DifferentialRecordRow[]): 
   return rows.map((row) => {
     const isPresentation = row.kind === "presentation";
     const payload = isPresentation ? rowToPresentationWorkflow(row) : rowToDifferentialRecord(row);
-    const searchText = isPresentation
-      ? presentationFullText(payload as DifferentialPresentationWorkflow)
-      : diagnosisFullText(payload as DifferentialRecord);
-    return {
-      kind: "differential",
-      subkind: isPresentation ? "presentation" : "diagnosis",
+    return differentialRecordToCorpusEntry(payload, row.kind, {
       ownerId: row.owner_id,
       recordId: row.id,
-      slug: row.slug,
-      title: row.title,
-      subtitle: row.subtitle,
-      content: compactText([
-        `${isPresentation ? "Presentation workflow" : "Differential diagnosis"}: ${row.title}`,
-        row.subtitle,
-        row.clinical_hinge && `Clinical hinge: ${row.clinical_hinge}`,
-        row.tags.length ? `Tags: ${row.tags.join(", ")}` : null,
-        searchText,
-      ]),
-      searchText,
       sourceStatus: row.source_status,
       validationStatus: row.validation_status,
       metadata: {
@@ -559,7 +633,7 @@ export function differentialRowsToCorpusEntries(rows: DifferentialRecordRow[]): 
         status: row.status,
         tags: row.tags,
       },
-    };
+    });
   });
 }
 
