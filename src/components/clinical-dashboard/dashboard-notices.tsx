@@ -60,7 +60,11 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
  */
 export function DegradedNoticeFrame({ visible, isOnline }: { visible: boolean; isOnline: boolean }) {
   return (
-    <div data-testid="dashboard-degraded-notice-frame" data-visible={visible ? "true" : "false"} className="min-h-14">
+    <div
+      data-testid="dashboard-degraded-notice-frame"
+      data-visible={visible ? "true" : "false"}
+      className="min-h-[3.875rem]"
+    >
       {visible ? (
         <>
           <span role="alert" className="sr-only">

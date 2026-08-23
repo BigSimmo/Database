@@ -19,10 +19,25 @@ describe("DegradedNoticeFrame", () => {
   });
 
   it("keeps one stable flow frame while exposing alert semantics only for degraded content", () => {
+    const drawerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/dashboard-shell.tsx"),
+      "utf8",
+    );
+    const primitivesSource = readFileSync(resolve(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
+    expect(drawerSource).toContain('"flex min-h-[56px]');
+    expect(drawerSource).toContain("rounded-lg px-4 py-3 text-left");
+    expect(primitivesSource).toMatch(/iconTilePremium\s*=\s*\n\s*"[^"]*h-9 w-9/);
+    expect(primitivesSource).toMatch(/panelSubtle\s*=\s*\n\s*"[^"]*border border-/);
+
+    // Mobile: max(56px minimum, 36px icon + 24px block padding) = 60px.
+    // Desktop: the bordered details panel adds 2px, so 62px is the stable max.
+    const collapsedDrawerMaximumPx = Math.max(56, 36 + 2 * 12) + 2;
+    expect(collapsedDrawerMaximumPx).toBe(62);
+
     const { rerender } = render(<DegradedNoticeFrame visible={false} isOnline />);
     const frame = screen.getByTestId("dashboard-degraded-notice-frame");
 
-    expect(frame).toHaveClass("min-h-14");
+    expect(frame).toHaveClass("min-h-[3.875rem]");
     expect(frame).toHaveAttribute("data-visible", "false");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(frame).toBeEmptyDOMElement();
@@ -30,14 +45,14 @@ describe("DegradedNoticeFrame", () => {
     rerender(<DegradedNoticeFrame visible isOnline={false} />);
 
     expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
-    expect(frame).toHaveClass("min-h-14");
+    expect(frame).toHaveClass("min-h-[3.875rem]");
     expect(frame).toHaveAttribute("data-visible", "true");
     expect(screen.getByRole("alert")).toHaveTextContent("Offline");
 
     rerender(<DegradedNoticeFrame visible isOnline />);
 
     expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
-    expect(frame).toHaveClass("min-h-14");
+    expect(frame).toHaveClass("min-h-[3.875rem]");
     expect(screen.getByRole("alert")).toHaveTextContent("Service unavailable");
 
     rerender(<DegradedNoticeFrame visible={false} isOnline />);

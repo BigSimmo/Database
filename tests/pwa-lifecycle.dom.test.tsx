@@ -426,7 +426,8 @@ describe("notice-stack hero-compact geometry selectors", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
     const allowlistStart = styles.indexOf("/* BEGIN post-hydration PWA main-content selector allowlist */");
     const allowlistEnd = styles.indexOf("/* END post-hydration PWA main-content selector allowlist */");
-    const occurrences = [...styles.matchAll(/:has\(#main-content[^)]*\)/g)];
+    const collectMainContentHasSelectors = (source: string) => [...source.matchAll(/:has\(\s*#main-content\b[^)]*\)/g)];
+    const occurrences = collectMainContentHasSelectors(styles);
 
     expect(allowlistStart).toBeGreaterThanOrEqual(0);
     expect(allowlistEnd).toBeGreaterThan(allowlistStart);
@@ -435,5 +436,15 @@ describe("notice-stack hero-compact geometry selectors", () => {
       expect(occurrence.index).toBeGreaterThan(allowlistStart);
       expect(occurrence.index).toBeLessThan(allowlistEnd);
     }
+
+    const whitespaceMutation = `${styles}\nbody:has( #main-content[data-phone-footer-owner="hero"]) { color: red; }`;
+    const mutatedOccurrences = collectMainContentHasSelectors(whitespaceMutation);
+    const unclassifiedMutations = mutatedOccurrences.filter(
+      (occurrence) => occurrence.index <= allowlistStart || occurrence.index >= allowlistEnd,
+    );
+
+    expect(mutatedOccurrences).toHaveLength(11);
+    expect(unclassifiedMutations).toHaveLength(1);
+    expect(unclassifiedMutations[0]?.[0]).toContain(":has( #main-content");
   });
 });
