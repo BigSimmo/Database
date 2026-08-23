@@ -235,6 +235,32 @@ describe("push-range parsing", () => {
     expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["two.md"]);
   });
 
+  it("scopes a fast-forward main merge to the resulting PR delta", () => {
+    const { root, git } = gitFixture();
+    git("switch", "--quiet", "-c", "feature");
+    writeFileSync(join(root, "feature.md"), "feature\n");
+    git("add", "feature.md");
+    git("commit", "--quiet", "-m", "feature");
+    const remoteSha = git("rev-parse", "HEAD");
+
+    git("switch", "--quiet", "main");
+    writeFileSync(join(root, "main-only.md"), "main only\n");
+    git("add", "main-only.md");
+    git("commit", "--quiet", "-m", "advance main");
+    const mainSha = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/main", mainSha);
+
+    git("switch", "--quiet", "feature");
+    git("merge", "--quiet", "--no-edit", "main");
+    writeFileSync(join(root, "post-merge.md"), "post merge\n");
+    git("add", "post-merge.md");
+    git("commit", "--quiet", "-m", "post merge");
+    const localSha = git("rev-parse", "HEAD");
+
+    expect(guardBaseForRange({ localSha, remoteSha }, root)).toBe(mainSha);
+    expect(changedFilesForRange({ localSha, remoteSha }, root)).toEqual(["feature.md", "post-merge.md"]);
+  });
+
   // A force-push abandons the old remote tip. Comparing against it makes every
   // file the discarded history carried look deleted, which is unanswerable for
   // transaction guards; the merge base is the question CI actually asks.

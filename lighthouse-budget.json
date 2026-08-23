@@ -20,34 +20,34 @@
   },
   "baseline": {
     "desktop-documents-search": {
-      "lcpMs": 866.307,
-      "cls": 0.1192626548872241,
-      "tbtMs": 4.499999999999943,
-      "fcpMs": 340.1535,
+      "lcpMs": 867.85825,
+      "cls": 0.02697755226478497,
+      "tbtMs": 6.999999999999886,
+      "fcpMs": 343.9685,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "desktop-root": {
-      "lcpMs": 822.2584000000003,
-      "cls": 0.007423798266351459,
-      "tbtMs": 2.5,
-      "fcpMs": 335.5646,
+      "lcpMs": 785.6470000000003,
+      "cls": 0.00702033096926714,
+      "tbtMs": 28.99999999999966,
+      "fcpMs": 341.12940000000003,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-documents-search": {
-      "lcpMs": 2271.699,
+      "lcpMs": 2281.896,
       "cls": 0,
-      "tbtMs": 347.6690000000003,
-      "fcpMs": 2271.699,
+      "tbtMs": 490.62100000000055,
+      "fcpMs": 2281.896,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     },
     "mobile-root": {
-      "lcpMs": 2252.856,
-      "cls": 0.01575010076343992,
-      "tbtMs": 296.28300000000127,
-      "fcpMs": 2252.856,
+      "lcpMs": 2274.017,
+      "cls": 0,
+      "tbtMs": 436.59999999994034,
+      "fcpMs": 2274.017,
       "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
     }
   },
-  "updatedAt": "2026-08-18T16:00:09.578Z",
-  "$routes": "Only surfaces that still render. `/therapy-compass`, `/dsm` and `/forms` were removed when home consolidation turned them into redirect stubs: Lighthouse followed the 307 and graded `/?mode=<id>` against a baseline captured on the retired detailed home, which the checker reports as \"measured a different page than requested\". All three now render the same shared home as `/`, so removing them costs duplication rather than coverage. Restoring per-mode coverage means measuring the `<mode>/search` results routes, and those need baseline rows the dispatch-only refresh job records \u2014 do that rather than hand-writing numbers."
+  "updatedAt": "2026-08-23T10:41:22.139Z",
+  "$routes": "Only surfaces that still render. `/therapy-compass`, `/dsm` and `/forms` were removed when home consolidation turned them into redirect stubs: Lighthouse followed the 307 and graded `/?mode=<id>` against a baseline captured on the retired detailed home, which the checker reports as \"measured a different page than requested\". All three now render the same shared home as `/`, so removing them costs duplication rather than coverage. Restoring per-mode coverage means measuring the `<mode>/search` results routes, and those need baseline rows the dispatch-only refresh job records — do that rather than hand-writing numbers."
 }

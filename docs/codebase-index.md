@@ -103,7 +103,9 @@ Smaller top-level directories that are easy to miss:
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | Account          | `/api/account/favourites`, `/api/account/preferences`                                                                  | `account/`                                                      |
 | Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                            | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Clinical Ask     | `/api/clinical-ask/stream`                                                                                             | `clinical-ask/stream/route.ts`                                  |
 | Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                       | `clinical-quality/route.ts`                                     |
+| Speech           | `/api/speech/transcribe`                                                                                               | `speech/transcribe/route.ts`                                    |
 | Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                      | `search/`                                                       |
 | Upload           | `/api/upload`                                                                                                          | `upload/route.ts`                                               |
 | Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts    | `documents/`                                                    |
@@ -127,18 +129,20 @@ The `rag.ts` orchestrator and its `rag-*` cluster live in **`src/lib/rag/`** (th
 domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below remain flat in
 `src/lib/`.
 
-| Module                                                                                                                  | Role                                                                                         |
-| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                                                            |
-| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface                                                   |
-| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy                                            |
-| `rag-evidence-gates.ts`, `rag-coverage-gate.ts`, `rag-second-stage.ts`                                                  | Evidence predicates, fast-path coverage gating, and second-stage ranking                     |
-| `rag-hydration.ts`                                                                                                      | Per-request hydration: document ranking metadata, cached index quality, page visual evidence |
-| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants                                                        |
-| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection                                                          |
-| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                                                                 |
-| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                                                                       |
-| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                                                             |
+| Module                                                                                                                  | Role                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                                                             |
+| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface                                                    |
+| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy                                             |
+| `rag-evidence-gates.ts`, `rag-coverage-gate.ts`, `rag-second-stage.ts`                                                  | Evidence predicates, fast-path coverage gating, and second-stage ranking                      |
+| `rag-hydration.ts`                                                                                                      | Per-request hydration: document ranking metadata, cached index quality, page visual evidence  |
+| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants                                                         |
+| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection                                                           |
+| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                                                                  |
+| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                                                                        |
+| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                                                              |
+| `clinical-ask/`                                                                                                         | Mode-aware Clinical Ask contracts, profiles, evidence, and orchestration                      |
+| `security-headers.ts`, `privacy-page-content.tsx`                                                                       | Clinical Ask microphone policy, ephemeral-data disclosure, and provider-boundary privacy copy |
 
 ### Ingestion and indexing
 
