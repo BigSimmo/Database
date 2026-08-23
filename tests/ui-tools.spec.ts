@@ -498,7 +498,10 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
-    await expect(results.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute("href", "/?mode=answer");
+    await expect(results.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute(
+      "href",
+      "/?mode=answer",
+    );
     await expect(results.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
       "href",
       "/medications",

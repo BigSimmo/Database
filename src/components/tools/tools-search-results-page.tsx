@@ -1,15 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  BadgeCheck,
-  ChevronRight,
-  ClipboardList,
-  Search,
-  ShieldCheck,
-  Waves,
-  type LucideIcon,
-} from "lucide-react";
+import { BadgeCheck, ChevronRight, ClipboardList, Search, ShieldCheck, Waves, type LucideIcon } from "lucide-react";
 import {
   type MutableRefObject,
   type ReactNode,
