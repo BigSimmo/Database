@@ -250,6 +250,44 @@ describe("dead-code candidate diff parsing", () => {
     expect(() => removedDeclarationsInDiff(base, { root })).toThrow(/quoted|unparseable/i);
   });
 
+  it("disables ambient Git color so a removed main export is detected and refused", () => {
+    const root = createFixture();
+    const candidatePath = join(root, "src", "color-main.ts");
+    writeFileSync(candidatePath, "export function main() {}\n", "utf8");
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    execFileSync("git", ["config", "color.ui", "always"], { cwd: root });
+    execFileSync("git", ["add", "src/color-main.ts"], { cwd: root });
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=Dead Code Test",
+        "-c",
+        "user.email=dead-code@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "base",
+      ],
+      { cwd: root },
+    );
+    const base = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+    writeFileSync(candidatePath, "export const retained = 1;\n", "utf8");
+    const output: string[] = [];
+    const errors: string[] = [];
+
+    expect(
+      main(["--diff", base], {
+        root,
+        stdout: (line: string) => output.push(line),
+        stderr: (line: string) => errors.push(line),
+      }),
+    ).toBe(1);
+    expect(output.join("\n")).toContain("REFUSE  main  (src/color-main.ts)");
+    expect(output.join("\n")).toContain("[dead-code] 1 candidate(s), 1 refused.");
+    expect(errors.join("\n")).toContain("[dead-code] FAIL");
+  });
+
   it("traverses each content root a bounded number of times for multiple candidates", () => {
     const root = createFixture();
     const directoryReads = new Map<string, number>();
@@ -297,6 +335,7 @@ describe("dead-code candidate diff parsing", () => {
       if (args[0] === "diff") {
         expect(args).toEqual([
           "diff",
+          "--no-color",
           "--no-ext-diff",
           "--no-textconv",
           "--src-prefix=a/",

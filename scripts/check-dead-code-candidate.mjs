@@ -350,6 +350,7 @@ export function removedDeclarationsInDiff(base, { root = process.cwd(), runGit =
   const diff = runGit(
     [
       "diff",
+      "--no-color",
       "--no-ext-diff",
       "--no-textconv",
       "--src-prefix=a/",
