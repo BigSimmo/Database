@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 19,
+    "pending": 26,
     "resolved": 376
   },
   "queue": [
@@ -810,16 +810,58 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "3a2cac06-0076-4e83-81fa-f98be7285444",
+      "action": "done",
+      "summary": "#2TAQDC: Resolved by the 2026-08-23 current-main performance remediation. The streaming-hydration gap is documented beside the search-chrome invariant; every current :has(#main-content ...) selector is bounded by explicit post-hydration PWA allowlist markers; and a whitespace-tolerant, mutation-tested whole-file contract rejects any future unclassified occurrence while retaining the valid selectors. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/pwa-lifecycle.dom.test.tsx.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "43122ce4-bfa2-43d1-83b0-f859eae6fc84",
+      "action": "add",
+      "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "4e1ffb03-9151-4c88-a414-659a804b6a42",
+      "action": "done",
+      "summary": "#K9XD5N: Resolved by the 2026-08-23 current-main performance remediation. An always-mounted DegradedNoticeFrame reserves the exact 62px collapsed maximum while healthy state exposes no empty alert/live region. Before the fix, offline, reconnecting, and local-identity-unavailable each shifted the root by about 0.043-0.080 CLS; after the fix every degraded phase is below 0.01 and the main displacement is absent across mobile plus four desktop profiles. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/dashboard-degraded-notice.dom.test.tsx.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "505f3b8e-a800-4efa-809f-ad2ccc6e158e",
+      "action": "update",
+      "summary": "#QSHHGK: detail → PARTIALLY ADDRESSED 2026-08-23: the bundle checker now validates the configured 40-character baseline source before reporting distance and emits explicit, non-failing text plus structured JSON remediation when the commit is missing or not an ancestor. Normal JSON remains a single document; size enforcement and explicit --update semantics are unchanged. The current source e5ee533bc04ff0ab34ff17c23341cb67abf3d59a is unresolved locally and the non-updating budget check passes its existing ceilings, so provenance uncertainty is visible. KEEP OPEN: this does not create the scheduled refresh owner or trigger the row requests; accumulated-growth ownership remains unresolved.; source → docs/evidence/performance-remediation-2026-08-23.md; scripts/check-bundle-budget.mjs; tests/bundle-budget.test.ts",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "5247dacd-b129-468a-8235-d60a1a7cc341",
+      "action": "add",
+      "summary": "Squash-merged governance manifests reference an unreachable intermediate reviewedCommit",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "6a617628-6b65-4f7f-b361-f96da2d0880a",
       "action": "add",
       "summary": "Railway has no Australian region, so the current app tier cannot host a real-patient Caring Contacts deployment",
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "6d5512aa-1337-470c-98ab-4116a4143393",
+      "action": "done",
+      "summary": "#308: Resolved by the 2026-08-23 current-main performance remediation. The production CLS attribution matrix now measures /documents/search at 0 on mobile and 0.000061, 0.000335, 0.000269, and 0.000021 at desktop 800/1280/1350/1440 after splitting generic-page composer ownership into a settled 184px reserve. The former 96-135px main displacement is absent, header geometry is stable from first observation, and hidden composer owners retain zero reserve. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts; tests/header-scroll-hide-contract.test.ts.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "73810780-d91c-403f-96ab-e659a75c8688",
       "action": "add",
       "summary": "Caring Contacts hospital referral feed feasibility is unconfirmed and is the largest programme risk",
       "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "7b276d24-acb7-423a-9730-6fc4dca309ce",
+      "action": "done",
+      "summary": "#JVYQEM: Resolved by the 2026-08-23 current-main performance remediation. The already-fixed phone case remains zero. At desktop 800, where initial CLS 0.021676 crossed the intervention threshold, a 640-1023.98px one-line prompt rail plus 160px reserve removes the 88px-to-199px growth shift. Desktop 1280/1350/1440 deliberately retain the 88px reserve because their measured initial CLS was already below 0.01; post-fix totals remain below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "7dc2d09a-b05c-4d10-b198-263af3c0f45e",
