@@ -52,6 +52,18 @@ describe("public source activation manifests", () => {
     expect(canonicalizePublicSourcePolicyPayload(forward)).toBe(canonicalizePublicSourcePolicyPayload(reordered));
   });
 
+  it("rejects duplicate set-like source roles without changing the pinned catalogue digest", () => {
+    const source = { ...australianSourceCatalogue[0], roles: ["legal", "legal"] };
+    expect(() =>
+      canonicalizePublicSourcePolicyPayload({
+        version: 1,
+        sourcePolicyVersion: australianSourcePolicyVersion,
+        sources: [source],
+      }),
+    ).toThrow(/role.*unique|duplicate.*role/i);
+    expect(publicSourcePolicyDigest).toBe("93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f");
+  });
+
   it.each([
     ["missing", { version: 1, sourcePolicyVersion: australianSourcePolicyVersion }],
     [

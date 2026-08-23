@@ -33,6 +33,21 @@ type PublicSourceVersionState = {
   id: string;
   lifecycle: string;
   staging_document_id: string | null;
+  reservation_key?: string;
+  source_catalogue_key?: string;
+  source_policy_version?: string;
+  source_policy_digest?: string;
+  activation_event_id?: string;
+  activation_sequence?: number;
+  exact_canonical_url?: string;
+  exact_version_url?: string;
+  exact_version?: string;
+  content_hash?: string;
+  licence_evidence_digest?: string;
+  steward_id?: string;
+  intended_disposition?: string;
+  reserved_document_id?: string;
+  reserved_storage_path?: string;
 };
 type PublicSourceReservation = {
   id: string;
@@ -43,11 +58,30 @@ type PublicSourceReservation = {
 };
 
 export type PublicSourceStagingDependencies = {
+  preflight?(input: { manifest: Json }): Promise<unknown>;
   reserve(input: { manifest: Json }): Promise<PublicSourceReservation>;
   upload(input: { storagePath: string; content: Uint8Array; mime: string; upsert: true }): Promise<void>;
   finalize(input: { manifest: Json; maxAttempts: number }): Promise<PublicSourceVersionState>;
   lookup(reservationId: string): Promise<PublicSourceVersionState | null>;
+  abandon?(input: { manifest: Json }): Promise<{ status: string; storagePath: string; storageOwned: boolean }>;
+  remove?(storagePath: string): Promise<void>;
 };
+
+export function publicSourceAuthorityManifest(planInput: PublicSourceAcquisitionPlan): Json {
+  const plan = parsePublicSourceAcquisitionPlan(planInput);
+  const definition = australianSourceByKey(plan.catalogueKey)!;
+  return {
+    catalogueKey: plan.catalogueKey,
+    activationEventId: plan.activationEventId,
+    activationSequence: plan.activationSequence,
+    sourcePolicyVersion: plan.sourcePolicyVersion,
+    sourcePolicyDigest: plan.sourcePolicyDigest,
+    exactCanonicalUrl: definition.canonicalUrl,
+    exactVersionUrl: plan.exactUrl,
+    exactHostname: new URL(plan.exactUrl).hostname.toLowerCase(),
+    stewardId: plan.stewardId,
+  };
+}
 
 function acquisitionFileExtension(fetched: FetchedPublicSource) {
   if (fetched.mime === "text/plain") return ".txt";
@@ -63,6 +97,7 @@ function reservationKey(plan: PublicSourceAcquisitionPlan, fetched: FetchedPubli
         version: 1,
         catalogueKey: plan.catalogueKey,
         activationEventId: plan.activationEventId,
+        activationSequence: plan.activationSequence,
         exactUrl: fetched.finalUrl,
         exactVersion: plan.exactVersion,
         contentHash: fetched.contentHash,
@@ -84,6 +119,11 @@ async function defaultStagingDependencies(): Promise<{
   return {
     maxAttempts: env.WORKER_MAX_ATTEMPTS,
     dependencies: {
+      preflight: async ({ manifest }) => {
+        const { data, error } = await supabase.rpc("preflight_public_source_acquisition", { p_manifest: manifest });
+        if (error || !data) throw new Error("Current public source authority preflight failed.");
+        return data;
+      },
       reserve: async ({ manifest }) => {
         const { data, error } = await supabase.rpc("reserve_public_source_version", { p_manifest: manifest });
         if (error || !data) throw new Error("Public source authority reservation failed.");
@@ -113,14 +153,67 @@ async function defaultStagingDependencies(): Promise<{
       lookup: async (reservationId) => {
         const { data, error } = await supabase
           .from("public_source_versions")
-          .select("id,lifecycle,staging_document_id")
+          .select(
+            "id,lifecycle,staging_document_id,reservation_key,source_catalogue_key,source_policy_version,source_policy_digest,activation_event_id,activation_sequence,exact_canonical_url,exact_version_url,exact_version,content_hash,licence_evidence_digest,steward_id,intended_disposition,reserved_document_id,reserved_storage_path",
+          )
           .eq("id", reservationId)
           .maybeSingle();
         if (error) throw new Error("Public source reservation recovery failed.");
         return data;
       },
+      abandon: async ({ manifest }) => {
+        const { data, error } = await supabase.rpc("abandon_public_source_reservation", { p_manifest: manifest });
+        if (error || !data || typeof data !== "object") {
+          throw new Error("Public source reservation abandonment failed.");
+        }
+        const result = data as { status?: unknown; storagePath?: unknown; storageOwned?: unknown };
+        if (
+          typeof result.status !== "string" ||
+          typeof result.storagePath !== "string" ||
+          typeof result.storageOwned !== "boolean"
+        ) {
+          throw new Error("Public source reservation abandonment returned an invalid result.");
+        }
+        return { status: result.status, storagePath: result.storagePath, storageOwned: result.storageOwned };
+      },
+      remove: async (storagePath) => {
+        const { error } = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([storagePath]);
+        if (error) throw new Error("Abandoned public source storage cleanup failed.");
+      },
     },
   };
+}
+
+function recoveryIdentityMatches(
+  recovered: PublicSourceVersionState,
+  reservation: PublicSourceReservation,
+  manifest: Record<string, Json | undefined>,
+) {
+  return (
+    recovered.id === reservation.id &&
+    recovered.reservation_key === manifest.reservationKey &&
+    recovered.source_catalogue_key === manifest.catalogueKey &&
+    recovered.source_policy_version === manifest.sourcePolicyVersion &&
+    recovered.source_policy_digest === manifest.sourcePolicyDigest &&
+    recovered.activation_event_id === manifest.activationEventId &&
+    recovered.activation_sequence === manifest.activationSequence &&
+    recovered.exact_canonical_url === manifest.exactCanonicalUrl &&
+    recovered.exact_version_url === manifest.exactVersionUrl &&
+    recovered.exact_version === manifest.exactVersion &&
+    recovered.content_hash === manifest.contentHash &&
+    recovered.licence_evidence_digest === manifest.licenceEvidenceDigest &&
+    recovered.steward_id === manifest.stewardId &&
+    recovered.intended_disposition === manifest.disposition &&
+    recovered.reserved_document_id === reservation.reservedDocumentId &&
+    recovered.reserved_storage_path === reservation.storagePath
+  );
+}
+
+function isCommittedRecovery(recovered: PublicSourceVersionState, reservation: PublicSourceReservation) {
+  return (
+    recovered.staging_document_id === reservation.reservedDocumentId &&
+    ["shadow", "quarantined", "approved", "active", "tombstoned"].includes(recovered.lifecycle)
+  );
 }
 
 export async function stageFetchedPublicSource(
@@ -134,23 +227,25 @@ export async function stageFetchedPublicSource(
   const defaults = injectedDependencies ? null : await defaultStagingDependencies();
   const dependencies = injectedDependencies ?? defaults!.dependencies;
   const maxAttempts = defaults?.maxAttempts ?? 3;
+  const reserveManifest = {
+    reservationKey: reservationKey(plan, fetched),
+    catalogueKey: plan.catalogueKey,
+    sourcePolicyVersion: plan.sourcePolicyVersion,
+    sourcePolicyDigest: plan.sourcePolicyDigest,
+    activationEventId: plan.activationEventId,
+    activationSequence: plan.activationSequence,
+    exactCanonicalUrl: definition.canonicalUrl,
+    exactVersionUrl: fetched.finalUrl,
+    exactVersion: plan.exactVersion,
+    contentHash: fetched.contentHash,
+    retrievedAt: new Date().toISOString(),
+    licenceEvidenceDigest: plan.licenceEvidenceDigest,
+    stewardId: plan.stewardId,
+    disposition: fetched.disposition,
+    fileExtension: safeExtension,
+  } satisfies Json;
   const reservation = await dependencies.reserve({
-    manifest: {
-      reservationKey: reservationKey(plan, fetched),
-      catalogueKey: plan.catalogueKey,
-      sourcePolicyVersion: plan.sourcePolicyVersion,
-      sourcePolicyDigest: plan.sourcePolicyDigest,
-      activationEventId: plan.activationEventId,
-      exactCanonicalUrl: definition.canonicalUrl,
-      exactVersionUrl: fetched.finalUrl,
-      exactVersion: plan.exactVersion,
-      contentHash: fetched.contentHash,
-      retrievedAt: new Date().toISOString(),
-      licenceEvidenceDigest: plan.licenceEvidenceDigest,
-      stewardId: plan.stewardId,
-      disposition: fetched.disposition,
-      fileExtension: safeExtension,
-    } satisfies Json,
+    manifest: reserveManifest,
   });
   if (reservation.stagingDocumentId) {
     return { disposition: "duplicate" as const, version: reservation };
@@ -169,6 +264,7 @@ export async function stageFetchedPublicSource(
     source_policy_version: plan.sourcePolicyVersion,
     source_policy_digest: plan.sourcePolicyDigest,
     public_source_activation_event_id: plan.activationEventId,
+    public_source_activation_sequence: String(plan.activationSequence),
     public_source_version_id: reservation.id,
     public_source_steward_id: plan.stewardId,
     content_mode: "indexed_content",
@@ -193,6 +289,15 @@ export async function stageFetchedPublicSource(
         reservationId: reservation.id,
         catalogueKey: plan.catalogueKey,
         activationEventId: plan.activationEventId,
+        activationSequence: plan.activationSequence,
+        sourcePolicyVersion: plan.sourcePolicyVersion,
+        sourcePolicyDigest: plan.sourcePolicyDigest,
+        reservationKey: reserveManifest.reservationKey,
+        exactCanonicalUrl: definition.canonicalUrl,
+        exactVersionUrl: fetched.finalUrl,
+        exactVersion: plan.exactVersion,
+        contentHash: fetched.contentHash,
+        licenceEvidenceDigest: plan.licenceEvidenceDigest,
         stewardId: plan.stewardId,
         disposition: fetched.disposition,
         document: {
@@ -212,15 +317,83 @@ export async function stageFetchedPublicSource(
     });
     return { disposition: fetched.disposition, version };
   } catch {
-    const recovered = await dependencies.lookup(reservation.id);
-    if (
-      recovered?.staging_document_id === reservation.reservedDocumentId &&
-      recovered.lifecycle === fetched.disposition
-    ) {
+    let recovered: PublicSourceVersionState | null;
+    try {
+      recovered = await dependencies.lookup(reservation.id);
+    } catch {
+      throw new Error("Public source finalization recovery lookup was ambiguous; storage remains untouched.");
+    }
+    if (recovered && !recoveryIdentityMatches(recovered, reservation, reserveManifest)) {
+      throw new Error("Public source recovery identity did not match the immutable reservation.");
+    }
+    if (recovered && isCommittedRecovery(recovered, reservation)) {
       return { disposition: fetched.disposition, version: recovered };
     }
-    throw new Error("Public source finalization failed without committed state; reservation remains retryable.");
+    if (
+      recovered &&
+      ["discovered", "abandoned"].includes(recovered.lifecycle) &&
+      recovered.staging_document_id === null &&
+      dependencies.abandon &&
+      dependencies.remove
+    ) {
+      const abandonmentManifest = {
+        ...reserveManifest,
+        reservationId: reservation.id,
+        reservedDocumentId: reservation.reservedDocumentId,
+        reservedStoragePath: reservation.storagePath,
+      };
+      let abandoned: Awaited<ReturnType<NonNullable<PublicSourceStagingDependencies["abandon"]>>>;
+      try {
+        abandoned = await dependencies.abandon({ manifest: abandonmentManifest });
+      } catch {
+        const afterAmbiguousAbandon = await dependencies.lookup(reservation.id);
+        if (!afterAmbiguousAbandon || !recoveryIdentityMatches(afterAmbiguousAbandon, reservation, reserveManifest)) {
+          throw new Error("Public source abandonment outcome was ambiguous; storage remains untouched.");
+        }
+        if (isCommittedRecovery(afterAmbiguousAbandon, reservation)) {
+          return { disposition: fetched.disposition, version: afterAmbiguousAbandon };
+        }
+        if (afterAmbiguousAbandon.lifecycle !== "abandoned" || afterAmbiguousAbandon.staging_document_id !== null) {
+          throw new Error("Public source abandonment outcome was not definitively unowned.");
+        }
+        abandoned = await dependencies.abandon({ manifest: abandonmentManifest });
+      }
+      if (
+        abandoned.status === "abandoned" &&
+        abandoned.storageOwned === false &&
+        abandoned.storagePath === reservation.storagePath
+      ) {
+        await dependencies.remove(reservation.storagePath);
+        throw new Error("Public source reservation was abandoned; retry requires fresh authority.");
+      }
+      if (abandoned.status === "committed" && abandoned.storageOwned === true) {
+        const committed = await dependencies.lookup(reservation.id);
+        if (
+          committed &&
+          recoveryIdentityMatches(committed, reservation, reserveManifest) &&
+          isCommittedRecovery(committed, reservation)
+        ) {
+          return { disposition: fetched.disposition, version: committed };
+        }
+        throw new Error("Public source committed abandonment result could not be verified.");
+      }
+    }
+    throw new Error("Public source finalization failed without definitive committed or abandoned state.");
   }
+}
+
+export async function fetchAndStageApprovedPublicSource(
+  planInput: PublicSourceAcquisitionPlan,
+  injectedDependencies?: PublicSourceStagingDependencies,
+  acquisitionDependencies: Parameters<typeof fetchApprovedPublicSource>[1] = {},
+) {
+  const plan = parsePublicSourceAcquisitionPlan(planInput);
+  const defaults = injectedDependencies ? null : await defaultStagingDependencies();
+  const dependencies = injectedDependencies ?? defaults!.dependencies;
+  if (!dependencies.preflight) throw new Error("Current public source authority preflight is required.");
+  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan) });
+  const fetched = await fetchApprovedPublicSource(plan, acquisitionDependencies);
+  return { fetched, result: await stageFetchedPublicSource(plan, fetched, dependencies) };
 }
 
 async function main() {
@@ -240,8 +413,7 @@ async function main() {
   if (args.confirmSha256 !== digest) throw new Error("Confirmed SHA-256 does not match the acquisition manifest.");
 
   for (const plan of plans) {
-    const fetched = await fetchApprovedPublicSource(plan);
-    const result = await stageFetchedPublicSource(plan, fetched);
+    const { fetched, result } = await fetchAndStageApprovedPublicSource(plan);
     console.log(
       `[public-sources:fetch] ${plan.catalogueKey} ${new URL(plan.exactUrl).hostname} ${fetched.contentHash} ${result.disposition}`,
     );

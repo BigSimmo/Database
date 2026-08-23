@@ -975,6 +975,7 @@ export type Database = {
       };
       public_source_activation_events: {
         Row: {
+          activation_sequence: number;
           created_at: string;
           decision: string;
           evidence_references: string[];
@@ -987,6 +988,7 @@ export type Database = {
           source_catalogue_key: string;
         };
         Insert: {
+          activation_sequence?: never;
           created_at?: string;
           decision: string;
           evidence_references: string[];
@@ -999,6 +1001,7 @@ export type Database = {
           source_catalogue_key: string;
         };
         Update: {
+          activation_sequence?: never;
           created_at?: string;
           decision?: string;
           evidence_references?: string[];
@@ -1047,6 +1050,7 @@ export type Database = {
       public_source_versions: {
         Row: {
           activation_event_id: string;
+          activation_sequence: number;
           content_hash: string;
           created_at: string;
           exact_canonical_url: string;
@@ -1073,6 +1077,7 @@ export type Database = {
         };
         Insert: {
           activation_event_id: string;
+          activation_sequence: number;
           content_hash: string;
           created_at?: string;
           exact_canonical_url: string;
@@ -1099,6 +1104,7 @@ export type Database = {
         };
         Update: {
           activation_event_id?: string;
+          activation_sequence?: number;
           content_hash?: string;
           created_at?: string;
           exact_canonical_url?: string;
@@ -3121,6 +3127,10 @@ export type Database = {
         Args: { p_manifest: Json };
         Returns: Database["public"]["Tables"]["public_source_activation_events"]["Row"];
       };
+      preflight_public_source_acquisition: {
+        Args: { p_manifest: Json };
+        Returns: Json;
+      };
       reserve_public_source_version: {
         Args: { p_manifest: Json };
         Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
@@ -3128,6 +3138,10 @@ export type Database = {
       finalize_public_source_version: {
         Args: { p_manifest: Json; p_max_attempts: number };
         Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      abandon_public_source_reservation: {
+        Args: { p_manifest: Json };
+        Returns: Json;
       };
       activate_public_source_version: {
         Args: {

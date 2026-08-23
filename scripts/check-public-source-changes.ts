@@ -10,7 +10,8 @@ import {
   PublicSourceAcquisitionError,
   type PublicSourceAcquisitionPlan,
 } from "@/lib/public-source-acquisition";
-import { stageFetchedPublicSource } from "./fetch-approved-public-source-versions";
+import { publicSourceAuthorityManifest, stageFetchedPublicSource } from "./fetch-approved-public-source-versions";
+import type { Json } from "@/lib/supabase/database.types";
 
 type ChangeManifest = { version: 1; plans: PublicSourceAcquisitionPlan[] };
 
@@ -24,6 +25,24 @@ function parseChangeManifest(raw: string): ChangeManifest {
     throw new Error("Change-detection manifest count must be between 1 and 500.");
   }
   return { version: 1, plans: plans.map(parsePublicSourceAcquisitionPlan) };
+}
+
+export async function fetchPublicSourceChangeCandidate(
+  planInput: PublicSourceAcquisitionPlan,
+  currentHash: string,
+  dependencies: Parameters<typeof fetchApprovedPublicSource>[1] & {
+    preflight(input: { manifest: Json }): Promise<unknown>;
+    upload?: unknown;
+  },
+) {
+  const plan = parsePublicSourceAcquisitionPlan(planInput);
+  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan) });
+  const fetched = await fetchApprovedPublicSource(plan, dependencies);
+  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan) });
+  return {
+    fetched,
+    change: classifyPublicSourceChange({ plan, currentHash, fetchedHash: fetched.contentHash }),
+  };
 }
 
 async function main() {
@@ -65,11 +84,14 @@ async function main() {
     }
 
     try {
-      const fetched = await fetchApprovedPublicSource(plan);
-      const change = classifyPublicSourceChange({
-        plan,
-        currentHash: current.content_hash,
-        fetchedHash: fetched.contentHash,
+      const { fetched, change } = await fetchPublicSourceChangeCandidate(plan, current.content_hash, {
+        preflight: async ({ manifest: authorityManifest }) => {
+          const { data, error } = await supabase.rpc("preflight_public_source_acquisition", {
+            p_manifest: authorityManifest,
+          });
+          if (error || !data) throw new Error("Current public source authority preflight failed.");
+          return data;
+        },
       });
       if (change.disposition === "unchanged") {
         const { error: auditError } = await supabase.from("audit_logs").insert({

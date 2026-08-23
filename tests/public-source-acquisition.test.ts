@@ -38,6 +38,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 
 const stewardId = "22222222-2222-4222-8222-222222222222";
 const activationEventId = "33333333-3333-4333-8333-333333333333";
+const activationSequence = 17;
 const licenceEvidenceDigest = "a".repeat(64);
 
 function activation(catalogueKey = "wa-health") {
@@ -62,6 +63,7 @@ function planInput(overrides: Record<string, unknown> = {}) {
     licenceEvidenceDigest,
     stewardId,
     activationEventId,
+    activationSequence,
     activationManifest: activation(),
     ...overrides,
   };
@@ -128,6 +130,7 @@ describe("public source acquisition", () => {
       version: 1,
       sourcePolicyDigest: publicSourcePolicyDigest,
       catalogueKey: "wa-health",
+      activationSequence,
       exactVersion: "2026-08-24",
       lifecycle: "discovered",
       stewardId,
@@ -451,9 +454,11 @@ describe("public source acquisition", () => {
       lifecycle: "quarantined",
       staging_document_id: "55555555-5555-4555-8555-555555555555",
     };
+    let reservedManifest: Record<string, string | number> = {};
     const dependencies: PublicSourceStagingDependencies = {
-      reserve: vi.fn(async () => {
+      reserve: vi.fn(async ({ manifest }) => {
         calls.push("reserve");
+        reservedManifest = manifest as unknown as Record<string, string | number>;
         return {
           id: committed.id,
           reservedDocumentId: committed.staging_document_id,
@@ -471,7 +476,24 @@ describe("public source acquisition", () => {
       }),
       lookup: vi.fn(async () => {
         calls.push("lookup");
-        return committed;
+        return {
+          ...committed,
+          reservation_key: reservedManifest.reservationKey as string,
+          source_catalogue_key: plan.catalogueKey,
+          source_policy_version: plan.sourcePolicyVersion,
+          source_policy_digest: plan.sourcePolicyDigest,
+          activation_event_id: plan.activationEventId,
+          activation_sequence: plan.activationSequence,
+          exact_canonical_url: australianSourceByKey(plan.catalogueKey)!.canonicalUrl,
+          exact_version_url: plan.exactUrl,
+          exact_version: plan.exactVersion,
+          content_hash: fetched.contentHash,
+          licence_evidence_digest: plan.licenceEvidenceDigest,
+          steward_id: plan.stewardId,
+          intended_disposition: fetched.disposition,
+          reserved_document_id: committed.staging_document_id,
+          reserved_storage_path: `${stewardId}/public-source-staging/${committed.id}/source.txt`,
+        };
       }),
     };
 
@@ -481,6 +503,333 @@ describe("public source acquisition", () => {
     });
     expect(calls).toEqual(["reserve", "upload", "finalize", "lookup"]);
     expect(dependencies.upload).toHaveBeenCalledWith(expect.objectContaining({ upsert: true }));
+  });
+
+  it.each(["denied", "stale"])("checks %s current authority before DNS, HTTP, reservation, or upload", async () => {
+    const plan = await activePlan();
+    const execution = (await import("../scripts/fetch-approved-public-source-versions")) as unknown as {
+      fetchAndStageApprovedPublicSource?: (
+        plan: PublicSourceAcquisitionPlan,
+        dependencies: Record<string, unknown>,
+        acquisition: { resolve: ReturnType<typeof vi.fn>; request: ReturnType<typeof vi.fn> },
+      ) => Promise<unknown>;
+    };
+    expect(execution.fetchAndStageApprovedPublicSource).toBeTypeOf("function");
+    const resolve = vi.fn();
+    const request = vi.fn();
+    const reserve = vi.fn();
+    const upload = vi.fn();
+    const preflight = vi.fn(async () => {
+      throw new Error("Current public source authority denied the stale manifest.");
+    });
+    await expect(
+      execution.fetchAndStageApprovedPublicSource!(
+        plan,
+        { preflight, reserve, upload, finalize: vi.fn(), lookup: vi.fn(), abandon: vi.fn(), remove: vi.fn() },
+        { resolve, request },
+      ),
+    ).rejects.toThrow(/authority|stale|denied/i);
+    expect(preflight).toHaveBeenCalledWith({
+      manifest: expect.objectContaining({
+        catalogueKey: plan.catalogueKey,
+        activationEventId: plan.activationEventId,
+        activationSequence,
+        sourcePolicyVersion: plan.sourcePolicyVersion,
+        sourcePolicyDigest: plan.sourcePolicyDigest,
+        exactVersionUrl: plan.exactUrl,
+      }),
+    });
+    expect(resolve).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("uses the same injected preflight before change-detection fetch", async () => {
+    const plan = await activePlan();
+    const changes = (await import("../scripts/check-public-source-changes")) as unknown as {
+      fetchPublicSourceChangeCandidate?: (
+        plan: PublicSourceAcquisitionPlan,
+        currentHash: string,
+        dependencies: Record<string, unknown>,
+      ) => Promise<unknown>;
+    };
+    expect(changes.fetchPublicSourceChangeCandidate).toBeTypeOf("function");
+    const resolve = vi.fn();
+    const request = vi.fn();
+    const upload = vi.fn();
+    await expect(
+      changes.fetchPublicSourceChangeCandidate!(plan, "a".repeat(64), {
+        preflight: vi.fn(async () => {
+          throw new Error("Stale activation sequence.");
+        }),
+        resolve,
+        request,
+        upload,
+      }),
+    ).rejects.toThrow(/stale|authority/i);
+    expect(resolve).not.toHaveBeenCalled();
+    expect(request).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("recovers ambiguous finalization from legal committed descendant lifecycles", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "c".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      text: "clinical text",
+      disposition: "shadow" as const,
+    };
+    let reservedManifest: Record<string, string | number> = {};
+    const reservation = {
+      id: "44444444-4444-4444-8444-444444444444",
+      reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+      storagePath: `${stewardId}/public-source-staging/descendant/source.txt`,
+      stagingDocumentId: null,
+      lifecycle: "discovered",
+    };
+    const lookup = vi.fn(async () => ({
+      id: reservation.id,
+      lifecycle: "active",
+      staging_document_id: reservation.reservedDocumentId,
+      reservation_key: reservedManifest.reservationKey,
+      source_catalogue_key: plan.catalogueKey,
+      source_policy_version: plan.sourcePolicyVersion,
+      source_policy_digest: plan.sourcePolicyDigest,
+      activation_event_id: plan.activationEventId,
+      activation_sequence: plan.activationSequence,
+      exact_canonical_url: australianSourceByKey(plan.catalogueKey)!.canonicalUrl,
+      exact_version_url: plan.exactUrl,
+      exact_version: plan.exactVersion,
+      content_hash: fetched.contentHash,
+      licence_evidence_digest: plan.licenceEvidenceDigest,
+      steward_id: plan.stewardId,
+      intended_disposition: fetched.disposition,
+      reserved_document_id: reservation.reservedDocumentId,
+      reserved_storage_path: reservation.storagePath,
+    }));
+    const dependencies = {
+      reserve: vi.fn(async ({ manifest }: { manifest: Record<string, string | number> }) => {
+        reservedManifest = manifest;
+        return reservation;
+      }),
+      upload: vi.fn(async () => undefined),
+      finalize: vi.fn(async () => {
+        throw new Error("ambiguous after commit");
+      }),
+      lookup,
+      abandon: vi.fn(),
+      remove: vi.fn(),
+    } as unknown as PublicSourceStagingDependencies;
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).resolves.toMatchObject({
+      version: { lifecycle: "active", staging_document_id: reservation.reservedDocumentId },
+    });
+    expect(lookup).toHaveBeenCalledOnce();
+    expect((dependencies as unknown as { abandon: ReturnType<typeof vi.fn> }).abandon).not.toHaveBeenCalled();
+    expect((dependencies as unknown as { remove: ReturnType<typeof vi.fn> }).remove).not.toHaveBeenCalled();
+  });
+
+  it("abandons only a definitively unowned reservation before deleting its blob", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "b".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      text: "clinical text",
+      disposition: "shadow" as const,
+    };
+    const calls: string[] = [];
+    let reservedManifest: Record<string, string | number> = {};
+    const reservation = {
+      id: "44444444-4444-4444-8444-444444444444",
+      reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+      storagePath: `${stewardId}/public-source-staging/abandon/source.txt`,
+      stagingDocumentId: null,
+      lifecycle: "discovered",
+    };
+    const recoveryState = () => ({
+      id: reservation.id,
+      lifecycle: "discovered",
+      staging_document_id: null,
+      reservation_key: reservedManifest.reservationKey,
+      source_catalogue_key: plan.catalogueKey,
+      source_policy_version: plan.sourcePolicyVersion,
+      source_policy_digest: plan.sourcePolicyDigest,
+      activation_event_id: plan.activationEventId,
+      activation_sequence: plan.activationSequence,
+      exact_canonical_url: australianSourceByKey(plan.catalogueKey)!.canonicalUrl,
+      exact_version_url: plan.exactUrl,
+      exact_version: plan.exactVersion,
+      content_hash: fetched.contentHash,
+      licence_evidence_digest: plan.licenceEvidenceDigest,
+      steward_id: plan.stewardId,
+      intended_disposition: fetched.disposition,
+      reserved_document_id: reservation.reservedDocumentId,
+      reserved_storage_path: reservation.storagePath,
+    });
+    const dependencies = {
+      reserve: vi.fn(async ({ manifest }: { manifest: Record<string, string | number> }) => {
+        calls.push("reserve");
+        reservedManifest = manifest;
+        return reservation;
+      }),
+      upload: vi.fn(async () => calls.push("upload")),
+      finalize: vi.fn(async () => {
+        calls.push("finalize");
+        throw new Error("authority revoked before finalize");
+      }),
+      lookup: vi.fn(async () => {
+        calls.push("lookup");
+        return recoveryState();
+      }),
+      abandon: vi.fn(async () => {
+        calls.push("abandon");
+        return { status: "abandoned", storagePath: reservation.storagePath, storageOwned: false };
+      }),
+      remove: vi.fn(async () => calls.push("remove")),
+    } as unknown as PublicSourceStagingDependencies;
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).rejects.toThrow(/abandon|fresh authority/i);
+    expect(calls).toEqual(["reserve", "upload", "finalize", "lookup", "abandon", "remove"]);
+  });
+
+  it("rechecks an ambiguous abandonment and cleans only after its durable unowned result", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "6".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      text: "clinical text",
+      disposition: "shadow" as const,
+    };
+    let manifest: Record<string, string | number> = {};
+    let lookupCount = 0;
+    const reservation = {
+      id: "44444444-4444-4444-8444-444444444444",
+      reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+      storagePath: `${stewardId}/public-source-staging/ambiguous-abandon/source.txt`,
+      stagingDocumentId: null,
+      lifecycle: "discovered",
+    };
+    const state = (lifecycle: string) => ({
+      id: reservation.id,
+      lifecycle,
+      staging_document_id: null,
+      reservation_key: manifest.reservationKey as string,
+      source_catalogue_key: plan.catalogueKey,
+      source_policy_version: plan.sourcePolicyVersion,
+      source_policy_digest: plan.sourcePolicyDigest,
+      activation_event_id: plan.activationEventId,
+      activation_sequence: plan.activationSequence,
+      exact_canonical_url: australianSourceByKey(plan.catalogueKey)!.canonicalUrl,
+      exact_version_url: plan.exactUrl,
+      exact_version: plan.exactVersion,
+      content_hash: fetched.contentHash,
+      licence_evidence_digest: plan.licenceEvidenceDigest,
+      steward_id: plan.stewardId,
+      intended_disposition: fetched.disposition,
+      reserved_document_id: reservation.reservedDocumentId,
+      reserved_storage_path: reservation.storagePath,
+    });
+    const abandon = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("response lost after commit"))
+      .mockResolvedValueOnce({ status: "abandoned", storagePath: reservation.storagePath, storageOwned: false });
+    const remove = vi.fn(async () => undefined);
+    const dependencies = {
+      reserve: vi.fn(async ({ manifest: reserved }: { manifest: Record<string, string | number> }) => {
+        manifest = reserved;
+        return reservation;
+      }),
+      upload: vi.fn(async () => undefined),
+      finalize: vi.fn(async () => {
+        throw new Error("authority revoked");
+      }),
+      lookup: vi.fn(async () => state(lookupCount++ === 0 ? "discovered" : "abandoned")),
+      abandon,
+      remove,
+    } as unknown as PublicSourceStagingDependencies;
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).rejects.toThrow(/abandon|fresh authority/i);
+    expect(abandon).toHaveBeenCalledTimes(2);
+    expect(remove).toHaveBeenCalledWith(reservation.storagePath);
+  });
+
+  it("rejects mismatched recovery identity and never cleans up after an ambiguous lookup", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "9".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      text: "clinical text",
+      disposition: "shadow" as const,
+    };
+    const abandon = vi.fn();
+    const remove = vi.fn();
+    const dependencies = {
+      reserve: vi.fn(async () => ({
+        id: "44444444-4444-4444-8444-444444444444",
+        reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+        storagePath: `${stewardId}/public-source-staging/mismatch/source.txt`,
+        stagingDocumentId: null,
+        lifecycle: "discovered",
+      })),
+      upload: vi.fn(async () => undefined),
+      finalize: vi.fn(async () => {
+        throw new Error("ambiguous finalize");
+      }),
+      lookup: vi.fn(async () => {
+        throw new Error("ambiguous recovery lookup");
+      }),
+      abandon,
+      remove,
+    } as unknown as PublicSourceStagingDependencies;
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).rejects.toThrow(/recovery|lookup|ambiguous/i);
+    expect(abandon).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("does not accept a bound recovery row whose immutable hash or reservation identity changed", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "8".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      text: "clinical text",
+      disposition: "shadow" as const,
+    };
+    const documentId = "55555555-5555-4555-8555-555555555555";
+    const dependencies: PublicSourceStagingDependencies = {
+      reserve: vi.fn(async () => ({
+        id: "44444444-4444-4444-8444-444444444444",
+        reservedDocumentId: documentId,
+        storagePath: `${stewardId}/public-source-staging/mismatch/source.txt`,
+        stagingDocumentId: null,
+        lifecycle: "discovered",
+      })),
+      upload: vi.fn(async () => undefined),
+      finalize: vi.fn(async () => {
+        throw new Error("ambiguous finalize");
+      }),
+      lookup: vi.fn(async () => ({
+        id: "44444444-4444-4444-8444-444444444444",
+        lifecycle: "shadow",
+        staging_document_id: documentId,
+        reservation_key: "wrong-reservation-key",
+        content_hash: "7".repeat(64),
+      })),
+    };
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).rejects.toThrow(/identity|recovery|committed/i);
   });
 
   it("does not upload a finalized retry or expose a destructive cleanup dependency", async () => {

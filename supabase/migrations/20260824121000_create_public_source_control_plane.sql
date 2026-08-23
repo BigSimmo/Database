@@ -43,6 +43,7 @@ insert into public.public_source_policy_entries (
 
 create table public.public_source_activation_events (
   id uuid primary key default gen_random_uuid(),
+  activation_sequence bigint generated always as identity unique,
   source_catalogue_key text not null check (char_length(trim(source_catalogue_key)) between 1 and 100),
   policy_version text not null check (policy_version = 'australian-source-policy-v1'),
   policy_digest text not null check (
@@ -57,11 +58,11 @@ create table public.public_source_activation_events (
 );
 
 create index public_source_activation_events_latest_idx
-  on public.public_source_activation_events(source_catalogue_key, created_at desc, id desc);
+  on public.public_source_activation_events(source_catalogue_key, activation_sequence desc);
 
 create table public.public_source_versions (
   id uuid primary key,
-  reservation_key text not null unique check (reservation_key ~ '^[0-9a-f]{64}$'),
+  reservation_key text not null check (reservation_key ~ '^[0-9a-f]{64}$'),
   source_catalogue_key text not null references public.public_source_policy_entries(source_catalogue_key),
   source_policy_version text not null check (source_policy_version = 'australian-source-policy-v1'),
   source_policy_digest text not null check (
@@ -80,14 +81,14 @@ create table public.public_source_versions (
   intended_disposition text not null check (intended_disposition in ('shadow', 'quarantined')),
   extraction_index_generation_id uuid,
   lifecycle text not null default 'discovered'
-    check (lifecycle in ('discovered', 'shadow', 'approved', 'active', 'quarantined', 'tombstoned')),
+    check (lifecycle in ('discovered', 'shadow', 'approved', 'active', 'quarantined', 'tombstoned', 'abandoned')),
   supersedes_version_id uuid references public.public_source_versions(id) on delete restrict,
   activation_event_id uuid not null references public.public_source_activation_events(id) on delete restrict,
+  activation_sequence bigint not null,
   review_queued_at timestamptz,
   review_reason text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (source_catalogue_key, content_hash),
   check (supersedes_version_id is null or supersedes_version_id <> id),
   check (review_reason is null or char_length(trim(review_reason)) between 3 and 2000),
   check (staging_document_id is null or staging_document_id = reserved_document_id)
@@ -95,6 +96,12 @@ create table public.public_source_versions (
 
 create index public_source_versions_catalogue_lifecycle_idx
   on public.public_source_versions(source_catalogue_key, lifecycle, retrieved_at desc, id desc);
+create unique index public_source_versions_reservation_key_live_idx
+  on public.public_source_versions(reservation_key)
+  where lifecycle <> 'abandoned';
+create unique index public_source_versions_catalogue_hash_live_idx
+  on public.public_source_versions(source_catalogue_key, content_hash)
+  where lifecycle <> 'abandoned';
 create unique index public_source_versions_one_active_per_catalogue_idx
   on public.public_source_versions(source_catalogue_key)
   where lifecycle = 'active';
@@ -156,13 +163,13 @@ as $$
 declare
   v_transition_allowed boolean;
 begin
-  if tg_op = 'DELETE' or old.lifecycle = 'tombstoned' then
-    raise exception 'tombstoned public source versions are terminal';
+  if tg_op = 'DELETE' or old.lifecycle = 'tombstoned' or old.lifecycle = 'abandoned' then
+    raise exception 'terminal public source versions are immutable';
   end if;
   if (
-    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'extraction_index_generation_id', 'activation_event_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) is distinct from (
-    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'extraction_index_generation_id', 'activation_event_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) then
     raise exception 'public source version immutable fields changed';
   end if;
@@ -174,7 +181,7 @@ begin
     raise exception 'public source staging document does not match its reservation';
   end if;
   v_transition_allowed := (old.lifecycle, new.lifecycle) in (
-    ('discovered', 'shadow'), ('discovered', 'quarantined'), ('discovered', 'tombstoned'),
+    ('discovered', 'shadow'), ('discovered', 'quarantined'), ('discovered', 'tombstoned'), ('discovered', 'abandoned'),
     ('shadow', 'approved'), ('shadow', 'quarantined'), ('shadow', 'tombstoned'),
     ('approved', 'active'), ('approved', 'quarantined'), ('approved', 'tombstoned'),
     ('active', 'quarantined'), ('active', 'tombstoned'),
@@ -203,13 +210,12 @@ declare
   v_key text;
   v_keys text[] := array[
     'corpus_scope', 'source_kind', 'source_catalogue_key', 'source_policy_version', 'source_policy_digest',
-    'public_source_activation_event_id', 'public_source_version_id', 'public_source_steward_id',
+    'public_source_activation_event_id', 'public_source_activation_sequence', 'public_source_version_id', 'public_source_steward_id',
     'content_mode', 'licence_policy', 'canonical_url', 'exact_version_url', 'version', 'content_hash',
     'acquisition_disposition'
   ];
 begin
-  if new.metadata->>'corpus_scope' = 'australian_public'
-    or new.metadata->>'public_source_version_id' is not null
+  if new.metadata->>'public_source_version_id' is not null
     or (tg_op = 'UPDATE' and old.metadata->>'public_source_version_id' is not null) then
     foreach v_key in array v_keys loop
       if not (new.metadata ? v_key) or jsonb_typeof(new.metadata->v_key) = 'null'
@@ -306,7 +312,7 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0));
   select * into v_event from public.public_source_activation_events
   where source_catalogue_key = p_source_catalogue_key
-  order by created_at desc, id desc limit 1 for update;
+  order by activation_sequence desc limit 1 for update;
   select * into v_event from public.public_source_activation_events where manifest_digest = v_manifest_digest;
   if found then return v_event; end if;
   insert into public.public_source_activation_events (
@@ -323,6 +329,78 @@ $$;
 revoke all on function public.record_public_source_activation(jsonb) from public, anon, authenticated;
 grant execute on function public.record_public_source_activation(jsonb) to service_role;
 
+create or replace function public.preflight_public_source_acquisition(p_manifest jsonb)
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  p_source_catalogue_key text := trim(coalesce(p_manifest->>'catalogueKey', ''));
+  v_policy public.public_source_policy_entries%rowtype;
+  v_event public.public_source_activation_events%rowtype;
+  v_activation_event_id uuid;
+  v_activation_sequence bigint;
+  v_url_prefix text;
+begin
+  begin
+    v_activation_event_id := nullif(p_manifest->>'activationEventId', '')::uuid;
+    v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
+  exception when invalid_text_representation or numeric_value_out_of_range then
+    raise exception 'public source authority identity is invalid';
+  end;
+  if jsonb_typeof(p_manifest) is distinct from 'object'
+    or v_activation_event_id is null or v_activation_sequence is null or v_activation_sequence < 1
+    or p_manifest->>'sourcePolicyVersion' is distinct from 'australian-source-policy-v1'
+    or p_manifest->>'sourcePolicyDigest' is distinct from '93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f'
+    or char_length(p_source_catalogue_key) not between 1 and 100 then
+    raise exception 'public source authority manifest is invalid';
+  end if;
+
+  -- lock-order: advisory
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0));
+  -- lock-order: latest-event
+  select * into v_event from public.public_source_activation_events
+  where source_catalogue_key = p_source_catalogue_key
+  order by activation_sequence desc limit 1 for update;
+  if not found or v_event.decision is distinct from 'activate'
+    or v_event.id is distinct from v_activation_event_id
+    or v_event.activation_sequence is distinct from v_activation_sequence
+    or v_event.policy_version is distinct from p_manifest->>'sourcePolicyVersion'
+    or v_event.policy_digest is distinct from p_manifest->>'sourcePolicyDigest' then
+    raise exception 'source policy digest does not match the active definition';
+  end if;
+  select * into v_policy from public.public_source_policy_entries
+  where source_catalogue_key = p_source_catalogue_key
+    and policy_version = v_event.policy_version and policy_digest = v_event.policy_digest
+    and lifecycle = 'active' and content_mode = 'indexed_content'
+    and exact_document_licence = 'public_index_permitted';
+  if not found then raise exception 'source definition is not active for controlled acquisition'; end if;
+  v_url_prefix := 'https://' || v_policy.canonical_host;
+  if p_manifest->>'exactCanonicalUrl' is distinct from v_policy.canonical_url
+    or lower(coalesce(p_manifest->>'exactHostname', '')) is distinct from v_policy.canonical_host
+    or coalesce(p_manifest->>'exactVersionUrl', '') !~ '^https://'
+    or position('#' in coalesce(p_manifest->>'exactVersionUrl', '')) > 0
+    or not (
+      lower(p_manifest->>'exactVersionUrl') = v_url_prefix
+      or lower(p_manifest->>'exactVersionUrl') like v_url_prefix || '/%'
+      or lower(p_manifest->>'exactVersionUrl') like v_url_prefix || '?%'
+      or lower(p_manifest->>'exactVersionUrl') like v_url_prefix || ':443/%'
+      or lower(p_manifest->>'exactVersionUrl') like v_url_prefix || ':443?%'
+    ) then
+    raise exception 'exact version URL is outside the eligible canonical host';
+  end if;
+  return jsonb_build_object(
+    'catalogueKey', p_source_catalogue_key,
+    'activationEventId', v_event.id,
+    'activationSequence', v_event.activation_sequence,
+    'authorized', true
+  );
+end;
+$$;
+
+revoke all on function public.preflight_public_source_acquisition(jsonb) from public, anon, authenticated;
+grant execute on function public.preflight_public_source_acquisition(jsonb) to service_role;
+
 create or replace function public.reserve_public_source_version(p_manifest jsonb)
 returns public.public_source_versions
 language plpgsql
@@ -336,6 +414,7 @@ declare
   v_prior_version_id uuid;
   v_steward_id uuid;
   v_activation_event_id uuid;
+  v_activation_sequence bigint;
   v_version_id uuid := gen_random_uuid();
   v_document_id uuid := gen_random_uuid();
   v_storage_path text;
@@ -344,10 +423,11 @@ begin
   begin
     v_steward_id := nullif(p_manifest->>'stewardId', '')::uuid;
     v_activation_event_id := nullif(p_manifest->>'activationEventId', '')::uuid;
-  exception when invalid_text_representation then
+    v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
+  exception when invalid_text_representation or numeric_value_out_of_range then
     raise exception 'public source reservation identity is invalid';
   end;
-  if v_steward_id is null or v_activation_event_id is null
+  if v_steward_id is null or v_activation_event_id is null or v_activation_sequence is null
     or coalesce(p_manifest->>'reservationKey', '') !~ '^[0-9a-f]{64}$'
     or coalesce(p_manifest->>'contentHash', '') !~ '^[0-9a-f]{64}$'
     or coalesce(p_manifest->>'licenceEvidenceDigest', '') !~ '^[0-9a-f]{64}$'
@@ -361,9 +441,10 @@ begin
   -- lock-order: latest-event
   select * into v_event from public.public_source_activation_events
   where source_catalogue_key = p_source_catalogue_key
-  order by created_at desc, id desc limit 1 for update;
+  order by activation_sequence desc limit 1 for update;
   if not found or v_event.decision is distinct from 'activate'
     or v_event.id is distinct from v_activation_event_id
+    or v_event.activation_sequence is distinct from v_activation_sequence
     or v_event.policy_version is distinct from p_manifest->>'sourcePolicyVersion'
     or v_event.policy_digest is distinct from p_manifest->>'sourcePolicyDigest' then
     raise exception 'source policy digest does not match the active definition';
@@ -376,6 +457,7 @@ begin
   if not found then raise exception 'source definition is not active for controlled acquisition'; end if;
   v_url_prefix := 'https://' || v_policy.canonical_host;
   if p_manifest->>'exactCanonicalUrl' is distinct from v_policy.canonical_url
+    or coalesce(p_manifest->>'exactVersionUrl', '') !~ '^https://'
     or position('#' in coalesce(p_manifest->>'exactVersionUrl', '')) > 0
     or not (
       lower(p_manifest->>'exactVersionUrl') = v_url_prefix
@@ -389,10 +471,13 @@ begin
 
   -- lock-order: version
   select * into v_version from public.public_source_versions
-  where reservation_key = p_manifest->>'reservationKey' for update;
+  where reservation_key = p_manifest->>'reservationKey' and lifecycle <> 'abandoned' for update;
   if found then
     if v_version.source_catalogue_key is distinct from p_source_catalogue_key
+      or v_version.source_policy_version is distinct from p_manifest->>'sourcePolicyVersion'
+      or v_version.source_policy_digest is distinct from p_manifest->>'sourcePolicyDigest'
       or v_version.activation_event_id is distinct from v_activation_event_id
+      or v_version.activation_sequence is distinct from v_activation_sequence
       or v_version.exact_canonical_url is distinct from p_manifest->>'exactCanonicalUrl'
       or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
       or v_version.exact_version is distinct from p_manifest->>'exactVersion'
@@ -407,6 +492,7 @@ begin
   if exists (
     select 1 from public.public_source_versions
     where source_catalogue_key = p_source_catalogue_key and content_hash = p_manifest->>'contentHash'
+      and lifecycle <> 'abandoned'
   ) then
     raise exception 'public source reservation manifest conflicts with existing identity';
   end if;
@@ -417,13 +503,13 @@ begin
     id, reservation_key, source_catalogue_key, source_policy_version, source_policy_digest,
     exact_canonical_url, exact_version_url, exact_version, content_hash, retrieved_at,
     licence_evidence_digest, steward_id, reserved_document_id, reserved_storage_path,
-    intended_disposition, lifecycle, supersedes_version_id, activation_event_id
+    intended_disposition, lifecycle, supersedes_version_id, activation_event_id, activation_sequence
   ) values (
     v_version_id, p_manifest->>'reservationKey', p_source_catalogue_key, v_event.policy_version, v_event.policy_digest,
     p_manifest->>'exactCanonicalUrl', p_manifest->>'exactVersionUrl', trim(p_manifest->>'exactVersion'),
     p_manifest->>'contentHash', (p_manifest->>'retrievedAt')::timestamptz,
     p_manifest->>'licenceEvidenceDigest', v_steward_id, v_document_id, v_storage_path,
-    p_manifest->>'disposition', 'discovered', v_prior_version_id, v_event.id
+    p_manifest->>'disposition', 'discovered', v_prior_version_id, v_event.id, v_event.activation_sequence
   ) returning * into v_version;
   return v_version;
 end;
@@ -446,16 +532,21 @@ declare
   v_reservation_id uuid;
   v_document_id uuid;
   v_steward_id uuid;
+  v_activation_event_id uuid;
+  v_activation_sequence bigint;
   v_url_prefix text;
 begin
   begin
     v_reservation_id := nullif(p_manifest->>'reservationId', '')::uuid;
     v_document_id := nullif(p_manifest->'document'->>'id', '')::uuid;
     v_steward_id := nullif(p_manifest->>'stewardId', '')::uuid;
-  exception when invalid_text_representation then
+    v_activation_event_id := nullif(p_manifest->>'activationEventId', '')::uuid;
+    v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
+  exception when invalid_text_representation or numeric_value_out_of_range then
     raise exception 'public source finalization identity is invalid';
   end;
   if v_reservation_id is null or v_document_id is null or v_steward_id is null
+    or v_activation_event_id is null or v_activation_sequence is null
     or p_manifest->>'disposition' not in ('shadow', 'quarantined')
     or p_max_attempts not between 1 and 25 then
     raise exception 'public source finalization manifest is invalid';
@@ -465,15 +556,25 @@ begin
   -- lock-order: latest-event
   select * into v_event from public.public_source_activation_events
   where source_catalogue_key = p_source_catalogue_key
-  order by created_at desc, id desc limit 1 for update;
+  order by activation_sequence desc limit 1 for update;
   -- lock-order: document
   select * into v_document from public.documents where id = v_document_id for update;
   -- lock-order: version
   select * into v_version from public.public_source_versions where id = v_reservation_id for update;
   if not found or v_event.id is distinct from v_version.activation_event_id
-    or v_event.id is distinct from nullif(p_manifest->>'activationEventId', '')::uuid
+    or v_event.id is distinct from v_activation_event_id
+    or v_event.activation_sequence is distinct from v_activation_sequence
+    or v_version.activation_sequence is distinct from v_activation_sequence
     or v_event.decision is distinct from 'activate'
     or v_version.source_catalogue_key is distinct from p_source_catalogue_key
+    or v_version.source_policy_version is distinct from p_manifest->>'sourcePolicyVersion'
+    or v_version.source_policy_digest is distinct from p_manifest->>'sourcePolicyDigest'
+    or v_version.reservation_key is distinct from p_manifest->>'reservationKey'
+    or v_version.exact_canonical_url is distinct from p_manifest->>'exactCanonicalUrl'
+    or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
+    or v_version.exact_version is distinct from p_manifest->>'exactVersion'
+    or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
     or v_version.steward_id is distinct from v_steward_id
     or v_version.reserved_document_id is distinct from v_document_id
     or v_version.intended_disposition is distinct from p_manifest->>'disposition' then
@@ -513,6 +614,7 @@ begin
     or p_manifest->'document'->'metadata'->>'source_policy_version' is distinct from v_version.source_policy_version
     or p_manifest->'document'->'metadata'->>'source_policy_digest' is distinct from v_version.source_policy_digest
     or p_manifest->'document'->'metadata'->>'public_source_activation_event_id' is distinct from v_version.activation_event_id::text
+    or p_manifest->'document'->'metadata'->>'public_source_activation_sequence' is distinct from v_version.activation_sequence::text
     or p_manifest->'document'->'metadata'->>'public_source_version_id' is distinct from v_version.id::text
     or p_manifest->'document'->'metadata'->>'public_source_steward_id' is distinct from v_version.steward_id::text
     or p_manifest->'document'->'metadata'->>'content_mode' is distinct from 'indexed_content'
@@ -560,6 +662,104 @@ $$;
 revoke all on function public.finalize_public_source_version(jsonb, integer) from public, anon, authenticated;
 grant execute on function public.finalize_public_source_version(jsonb, integer) to service_role;
 
+create or replace function public.abandon_public_source_reservation(p_manifest jsonb)
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_reservation_id uuid;
+  v_activation_event_id uuid;
+  v_activation_sequence bigint;
+  v_steward_id uuid;
+  v_reserved_document_id uuid;
+  v_version public.public_source_versions%rowtype;
+  v_event public.public_source_activation_events%rowtype;
+begin
+  begin
+    v_reservation_id := nullif(p_manifest->>'reservationId', '')::uuid;
+    v_activation_event_id := nullif(p_manifest->>'activationEventId', '')::uuid;
+    v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
+    v_steward_id := nullif(p_manifest->>'stewardId', '')::uuid;
+    v_reserved_document_id := nullif(p_manifest->>'reservedDocumentId', '')::uuid;
+  exception when invalid_text_representation or numeric_value_out_of_range then
+    raise exception 'public source abandonment identity is invalid';
+  end;
+  select * into v_version from public.public_source_versions where id = v_reservation_id;
+  if not found then raise exception 'public source reservation was not found'; end if;
+
+  -- lock-order: advisory
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_version.source_catalogue_key, 0));
+  -- lock-order: latest-event
+  select * into v_event from public.public_source_activation_events
+  where source_catalogue_key = v_version.source_catalogue_key
+  order by activation_sequence desc limit 1 for update;
+  -- lock-order: document
+  perform 1 from public.documents where id = v_version.reserved_document_id for update;
+  -- lock-order: version
+  select * into v_version from public.public_source_versions where id = v_reservation_id for update;
+  if not found or v_event.id is null
+    or v_version.reservation_key is distinct from p_manifest->>'reservationKey'
+    or v_version.source_catalogue_key is distinct from p_manifest->>'catalogueKey'
+    or v_version.source_policy_version is distinct from p_manifest->>'sourcePolicyVersion'
+    or v_version.source_policy_digest is distinct from p_manifest->>'sourcePolicyDigest'
+    or v_version.activation_event_id is distinct from v_activation_event_id
+    or v_version.activation_sequence is distinct from v_activation_sequence
+    or v_version.exact_canonical_url is distinct from p_manifest->>'exactCanonicalUrl'
+    or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
+    or v_version.exact_version is distinct from p_manifest->>'exactVersion'
+    or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
+    or v_version.steward_id is distinct from v_steward_id
+    or v_version.intended_disposition is distinct from p_manifest->>'disposition'
+    or v_version.reserved_document_id is distinct from v_reserved_document_id
+    or v_version.reserved_storage_path is distinct from p_manifest->>'reservedStoragePath' then
+    raise exception 'public source governance changed while locks were acquired';
+  end if;
+
+  if v_version.staging_document_id is not null then
+    return jsonb_build_object(
+      'status', 'committed', 'storagePath', v_version.reserved_storage_path,
+      'storageOwned', true, 'storage_owned', true, 'lifecycle', v_version.lifecycle
+    );
+  end if;
+  if exists (select 1 from public.documents where id = v_version.reserved_document_id)
+    or exists (select 1 from public.ingestion_jobs where document_id = v_version.reserved_document_id) then
+    raise exception 'public source reservation ownership is inconsistent';
+  end if;
+  if v_version.lifecycle not in ('discovered', 'abandoned') then
+    raise exception 'only an unfinalized discovered reservation can be abandoned';
+  end if;
+  if v_version.lifecycle = 'discovered' then
+    update public.public_source_versions
+    set lifecycle = 'abandoned', review_queued_at = now(),
+        review_reason = 'Unfinalized reservation abandoned after definitive finalization failure.'
+    where id = v_version.id;
+  end if;
+  insert into public.storage_cleanup_jobs (
+    owner_id, document_id, document_title, document_bucket, document_paths, metadata
+  )
+  select v_version.steward_id, null, 'Abandoned controlled public source', 'clinical-documents',
+    array[v_version.reserved_storage_path],
+    jsonb_build_object(
+      'public_source_reservation_id', v_version.id,
+      'public_source_reservation_key', v_version.reservation_key,
+      'reason', 'abandoned_public_source_reservation'
+    )
+  where not exists (
+    select 1 from public.storage_cleanup_jobs cleanup
+    where cleanup.metadata->>'public_source_reservation_id' = v_version.id::text
+  );
+  return jsonb_build_object(
+    'status', 'abandoned', 'storagePath', v_version.reserved_storage_path,
+    'storageOwned', false, 'storage_owned', false, 'cleanupDurable', true
+  );
+end;
+$$;
+
+revoke all on function public.abandon_public_source_reservation(jsonb) from public, anon, authenticated;
+grant execute on function public.abandon_public_source_reservation(jsonb) to service_role;
+
 create or replace function public.assert_public_source_document_governance(p_document_id uuid)
 returns void
 language plpgsql
@@ -568,23 +768,27 @@ as $$
 declare
   v_catalogue_key text;
   v_version_id uuid;
+  v_version_marker text;
   v_document public.documents%rowtype;
   v_version public.public_source_versions%rowtype;
   v_event public.public_source_activation_events%rowtype;
 begin
-  select metadata->>'source_catalogue_key',
+  select metadata->>'source_catalogue_key', metadata->>'public_source_version_id',
     case when metadata->>'public_source_version_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
       then (metadata->>'public_source_version_id')::uuid end
-  into v_catalogue_key, v_version_id
+  into v_catalogue_key, v_version_marker, v_version_id
   from public.documents where id = p_document_id;
   if not found then raise exception 'governed public source document was not found'; end if;
-  if v_catalogue_key is null then return; end if;
+  if v_version_marker is not null and v_version_id is null then
+    raise exception 'governed public source document marker is invalid';
+  end if;
+  if v_version_id is null then return; end if;
   -- lock-order: advisory
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_catalogue_key, 0));
   -- lock-order: latest-event
   select * into v_event from public.public_source_activation_events
   where source_catalogue_key = v_catalogue_key
-  order by created_at desc, id desc limit 1 for update;
+  order by activation_sequence desc limit 1 for update;
   -- lock-order: document
   select * into v_document from public.documents where id = p_document_id for update;
   -- lock-order: version
@@ -606,6 +810,7 @@ begin
     or v_document.metadata->>'source_policy_version' is distinct from v_version.source_policy_version
     or v_document.metadata->>'source_policy_digest' is distinct from v_version.source_policy_digest
     or v_document.metadata->>'public_source_activation_event_id' is distinct from v_version.activation_event_id::text
+    or v_document.metadata->>'public_source_activation_sequence' is distinct from v_version.activation_sequence::text
     or v_document.metadata->>'content_mode' is distinct from 'indexed_content'
     or v_document.metadata->>'licence_policy' is distinct from 'public_index_permitted'
     or v_document.metadata->>'canonical_url' is distinct from v_version.exact_canonical_url
@@ -617,6 +822,7 @@ begin
     raise exception 'governed public source document metadata is invalid';
   end if;
   if v_event.id is distinct from v_version.activation_event_id
+    or v_event.activation_sequence is distinct from v_version.activation_sequence
     or v_event.decision is distinct from 'activate'
     or v_event.policy_digest is distinct from v_version.source_policy_digest then
     raise exception 'governed public source is no longer active';
@@ -699,7 +905,7 @@ begin
   -- lock-order: latest-event
   select * into v_event from public.public_source_activation_events
   where source_catalogue_key = v_catalogue_key
-  order by created_at desc, id desc limit 1 for update;
+  order by activation_sequence desc limit 1 for update;
   -- lock-order: document
   perform 1 from public.documents
   where id = any(array_remove(array[v_document_id, v_prior_document_id], null))
@@ -717,6 +923,8 @@ begin
     raise exception 'public source governance changed while locks were acquired';
   end if;
   if v_event.id is distinct from p_activation_event_id
+    or v_event.id is distinct from v_version.activation_event_id
+    or v_event.activation_sequence is distinct from v_version.activation_sequence
     or v_event.decision is distinct from 'activate'
     or v_event.policy_digest is distinct from v_version.source_policy_digest then
     raise exception 'public source lifecycle transition lacks active definition evidence';
@@ -750,8 +958,7 @@ begin
   end if;
   update public.public_source_versions
   set lifecycle = p_target_lifecycle,
-      extraction_index_generation_id = coalesce(extraction_index_generation_id, v_document.index_generation_id),
-      activation_event_id = p_activation_event_id
+      extraction_index_generation_id = coalesce(extraction_index_generation_id, v_document.index_generation_id)
   where id = p_version_id returning * into v_version;
   return v_version;
 end;
@@ -794,7 +1001,7 @@ begin
   -- lock-order: latest-event
   select * into v_event from public.public_source_activation_events
   where source_catalogue_key = v_catalogue_key
-  order by created_at desc, id desc limit 1 for update;
+  order by activation_sequence desc limit 1 for update;
   select id, staging_document_id into v_prior_version_id, v_prior_document_id
   from public.public_source_versions
   where source_catalogue_key = v_catalogue_key and lifecycle = 'active' and id <> p_version_id;
@@ -823,6 +1030,8 @@ begin
     raise exception 'public source governance changed while locks were acquired';
   end if;
   if v_event.id is distinct from p_activation_event_id
+    or v_event.id is distinct from v_version.activation_event_id
+    or v_event.activation_sequence is distinct from v_version.activation_sequence
     or v_event.decision is distinct from 'activate'
     or v_event.policy_digest is distinct from v_version.source_policy_digest then
     raise exception 'public source activation lacks current definition evidence';
@@ -903,7 +1112,7 @@ begin
     );
   end if;
   update public.public_source_versions
-  set lifecycle = 'active', activation_event_id = p_activation_event_id
+  set lifecycle = 'active'
   where id = v_version.id returning * into v_version;
   return v_version;
 end;
@@ -940,7 +1149,7 @@ begin
   -- lock-order: latest-event
   select * into v_event from public.public_source_activation_events
   where source_catalogue_key = v_catalogue_key
-  order by created_at desc, id desc limit 1 for update;
+  order by activation_sequence desc limit 1 for update;
   -- lock-order: document
   select * into v_document from public.documents where id = v_document_id for update;
   -- lock-order: version
@@ -1012,7 +1221,7 @@ begin
     join public.documents d on d.id = j.document_id
     where e.document_rank = 1
       and (
-        d.metadata->>'corpus_scope' is distinct from 'australian_public'
+        d.metadata->>'public_source_version_id' is null
         or (
           d.owner_id is not null
           and d.owner_id::text = d.metadata->>'public_source_steward_id'
@@ -1030,10 +1239,10 @@ begin
               and policy.lifecycle = 'active' and policy.content_mode = 'indexed_content'
               and policy.exact_document_licence = 'public_index_permitted'
             join lateral (
-              select event.id, event.decision, event.policy_digest
+              select event.id, event.activation_sequence, event.decision, event.policy_digest
               from public.public_source_activation_events event
               where event.source_catalogue_key = version.source_catalogue_key
-              order by created_at desc, id desc limit 1
+              order by activation_sequence desc limit 1
             ) latest on true
             where version.id = case
                 when d.metadata->>'public_source_version_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
@@ -1048,10 +1257,12 @@ begin
               and d.metadata->>'source_policy_version' = version.source_policy_version
               and d.metadata->>'source_policy_digest' = version.source_policy_digest
               and d.metadata->>'public_source_activation_event_id' = version.activation_event_id::text
+              and d.metadata->>'public_source_activation_sequence' = version.activation_sequence::text
               and d.metadata->>'canonical_url' = version.exact_canonical_url
               and d.metadata->>'exact_version_url' = version.exact_version_url
               and d.metadata->>'content_hash' = version.content_hash
               and latest.id = version.activation_event_id
+              and latest.activation_sequence = version.activation_sequence
               and latest.decision = 'activate'
               and latest.policy_digest = version.source_policy_digest
           )
@@ -1105,7 +1316,7 @@ declare
   v_key text;
   v_identity_keys text[] := array[
     'corpus_scope', 'source_kind', 'source_catalogue_key', 'source_policy_version', 'source_policy_digest',
-    'public_source_activation_event_id', 'public_source_version_id', 'public_source_steward_id',
+    'public_source_activation_event_id', 'public_source_activation_sequence', 'public_source_version_id', 'public_source_steward_id',
     'content_mode', 'licence_policy', 'canonical_url', 'exact_version_url', 'version', 'content_hash',
     'acquisition_disposition'
   ];

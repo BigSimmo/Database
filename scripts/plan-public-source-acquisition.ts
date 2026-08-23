@@ -12,6 +12,7 @@ type InputDocument = {
   licenceEvidenceDigest: string;
   stewardId: string;
   activationEventId: string;
+  activationSequence: number;
   activationManifest: unknown;
 };
 

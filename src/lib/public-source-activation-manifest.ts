@@ -12,6 +12,12 @@ import {
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const evidenceReferenceSchema = z.string().trim().min(1).max(500);
 const rawCodeUnitSort = (left: string, right: string) => (left < right ? -1 : left > right ? 1 : 0);
+const sourceRolesSchema = z.array(z.string()).superRefine((roles, context) => {
+  const normalized = roles.map((role) => role.normalize("NFC"));
+  if (new Set(normalized).size !== normalized.length) {
+    context.addIssue({ code: "custom", message: "Source roles must be unique." });
+  }
+});
 
 const canonicalSourceSchema = z
   .object({
@@ -21,7 +27,7 @@ const canonicalSourceSchema = z
     canonicalUrl: z.string(),
     jurisdiction: z.string(),
     corpusScope: z.literal("australian_public"),
-    roles: z.array(z.string()),
+    roles: sourceRolesSchema,
     contentMode: z.enum(["indexed_content", "link_only"]),
     licencePolicy: z.enum(["review_required", "public_index_permitted", "metadata_link_only", "index_forbidden"]),
     lifecycle: z.enum(["active", "historical", "retired"]),
@@ -72,7 +78,12 @@ function canonicalSource(source: AustralianSourceDefinition) {
 
 export function canonicalizePublicSourcePolicyPayload(input: unknown): string {
   const parsed = canonicalPolicyPayloadSchema.safeParse(input);
-  if (!parsed.success) throw new Error("Canonical policy payload has a missing, extra, or invalid shape.");
+  if (!parsed.success) {
+    if (parsed.error.issues.some((issue) => issue.message === "Source roles must be unique.")) {
+      throw new Error("Source roles must be unique.");
+    }
+    throw new Error("Canonical policy payload has a missing, extra, or invalid shape.");
+  }
   const sources = parsed.data.sources
     .map((source) => ({ ...source, roles: [...source.roles].sort(rawCodeUnitSort) }))
     .sort((left, right) => rawCodeUnitSort(left.key, right.key));

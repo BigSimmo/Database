@@ -41,6 +41,7 @@ const acquisitionPlanSchema = z
     sourcePolicyVersion: z.literal(australianSourcePolicyVersion),
     sourcePolicyDigest: sha256Schema,
     activationEventId: uuidSchema,
+    activationSequence: z.number().int().positive(),
     catalogueKey: z.string().trim().min(1).max(100),
     exactUrl: z.string().url().max(4_000),
     exactVersion: z.string().trim().min(1).max(200),
@@ -223,6 +224,7 @@ export async function planAcquisition(input: {
   licenceEvidenceDigest?: string;
   stewardId?: string | null;
   activationEventId?: string | null;
+  activationSequence?: number | null;
   activationManifest?: PublicSourceActivationManifestV1 | unknown;
   resolve?: AcquisitionResolver;
   request?: AcquisitionRequest;
@@ -241,6 +243,9 @@ export async function planAcquisition(input: {
   }
   if (!input.stewardId) throw new Error("A non-null staging steward is required.");
   if (!input.activationEventId) throw new Error("A source activation event is required.");
+  if (!Number.isSafeInteger(input.activationSequence) || (input.activationSequence ?? 0) < 1) {
+    throw new Error("A positive activation event sequence is required.");
+  }
   const exactUrl = input.exactUrl ?? input.url;
   if (!exactUrl) throw new Error("An exact operator-supplied URL is required.");
   assertStaticAcquisitionUrl(exactUrl, definition);
@@ -251,6 +256,7 @@ export async function planAcquisition(input: {
       sourcePolicyVersion: australianSourcePolicyVersion,
       sourcePolicyDigest: publicSourcePolicyDigest,
       activationEventId: input.activationEventId,
+      activationSequence: input.activationSequence,
       catalogueKey: definition.key,
       exactUrl,
       exactVersion: input.exactVersion,

@@ -2189,12 +2189,46 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       const sql = controlPlaneSql();
       expect(sql).toContain("pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0))");
       expect(sql).toContain("93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f");
-      expect(sql).toContain("order by created_at desc, id desc");
+      expect(sql).toContain("activation_sequence bigint generated always as identity");
+      expect(sql).toContain("order by activation_sequence desc");
+      expect(sql).not.toContain("order by created_at desc, id desc");
       expect(sql).toContain("for update");
       expect(sql).toContain("security definer set search_path = ''");
       expect(sql).toContain("source definition is not active for controlled acquisition");
       expect(sql).toContain("source policy digest does not match the active definition");
       expect(sql).toContain("public source reservation manifest conflicts with existing identity");
+    });
+
+    it("uses a monotonic event sequence when activate and retire share one transaction timestamp", () => {
+      const sql = controlPlaneSql();
+      const sameTransactionEvents = [
+        { activation_sequence: 41, decision: "activate", created_at: "2026-08-24T00:00:00.000Z" },
+        { activation_sequence: 42, decision: "retire", created_at: "2026-08-24T00:00:00.000Z" },
+      ];
+      expect(
+        [...sameTransactionEvents].sort((a, b) => b.activation_sequence - a.activation_sequence)[0]?.decision,
+      ).toBe("retire");
+      expect(sql.match(/order by activation_sequence desc/g)?.length).toBeGreaterThanOrEqual(7);
+      expect(sql).not.toMatch(/order by created_at desc, id desc/i);
+    });
+
+    it("preflights exact current authority before provider access while reserve and finalize recheck it", () => {
+      const sql = controlPlaneSql();
+      const preflightStart = sql.indexOf("create or replace function public.preflight_public_source_acquisition(");
+      const preflight = sql.slice(preflightStart, sql.indexOf("$$;", preflightStart));
+      expect(preflightStart).toBeGreaterThan(-1);
+      expect(preflight).toContain("activationSequence");
+      expect(preflight).toContain("v_event.activation_sequence");
+      expect(preflight).toContain("from public.public_source_policy_entries");
+      expect(preflight).toContain("exact version URL is outside the eligible canonical host");
+      expect(preflight).toContain("source definition is not active for controlled acquisition");
+      expect(preflight).toContain("order by activation_sequence desc");
+      for (const name of ["reserve_public_source_version", "finalize_public_source_version"]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body).toContain("order by activation_sequence desc");
+        expect(body).toContain("v_event.activation_sequence");
+      }
     });
 
     it("reserves current authority before writes and finalizes document, optional job, and version atomically", () => {
@@ -2240,7 +2274,7 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(sql).not.toContain("('shadow', 'active')");
       const start = sql.indexOf("create or replace function public.transition_public_source_version(");
       const body = sql.slice(start, sql.indexOf("$$;", start));
-      expect(body).toContain("order by created_at desc, id desc");
+      expect(body).toContain("order by activation_sequence desc");
       expect(body).toContain("v_event.id is distinct from p_activation_event_id");
     });
 
@@ -2288,6 +2322,26 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(sql).toContain("jsonb_typeof(v_merged_metadata->v_key) = 'null'");
     });
 
+    it("preserves generic P02 documents while old or new Task2 markers stay fail-closed", () => {
+      const sql = controlPlaneSql();
+      const triggerStart = sql.indexOf("create or replace function public.guard_public_source_document_identity(");
+      const trigger = sql.slice(triggerStart, sql.indexOf("$$;", triggerStart));
+      expect(trigger).toContain("new.metadata->>'public_source_version_id' is not null");
+      expect(trigger).toContain("old.metadata->>'public_source_version_id' is not null");
+      expect(trigger).not.toContain("new.metadata->>'corpus_scope' = 'australian_public' or");
+      expect(trigger).toContain("not (new.metadata ? v_key)");
+      expect(trigger).toContain("jsonb_typeof(new.metadata->v_key) = 'null'");
+      const assertionStart = sql.indexOf("create or replace function public.assert_public_source_document_governance(");
+      const assertion = sql.slice(assertionStart, sql.indexOf("$$;", assertionStart));
+      expect(assertion).toContain("if v_version_id is null then return; end if");
+      const claimStart = sql.indexOf("create or replace function public.claim_ingestion_jobs(");
+      const claim = sql.slice(claimStart, sql.indexOf("$$;", claimStart));
+      expect(claim).toContain("d.metadata->>'public_source_version_id' is null or (");
+      expect(claim).not.toContain("d.metadata->>'corpus_scope' is distinct from 'australian_public'");
+      const genericP02 = { corpus_scope: "australian_public", source_catalogue_key: "wa-health" };
+      expect(genericP02).not.toHaveProperty("public_source_version_id");
+    });
+
     it("uses one global advisory-event-document-version lock order with post-lock revalidation", () => {
       const sql = controlPlaneSql();
       for (const name of [
@@ -2295,6 +2349,7 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
         "assert_public_source_document_governance",
         "transition_public_source_version",
         "activate_public_source_version",
+        "abandon_public_source_reservation",
         "withdraw_public_source_version",
       ]) {
         const start = sql.indexOf(`create or replace function public.${name}(`);
@@ -2338,6 +2393,28 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(sql).toContain("generic P02 publication is forbidden for governed public sources");
     });
 
+    it("abandons only unfinalized unowned reservations and permits later authority to retry", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("'abandoned'");
+      expect(sql).toContain("create unique index public_source_versions_reservation_key_live_idx");
+      expect(sql).toContain("create unique index public_source_versions_catalogue_hash_live_idx");
+      expect(sql).toContain("where lifecycle <> 'abandoned'");
+      const start = sql.indexOf("create or replace function public.abandon_public_source_reservation(");
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(start).toBeGreaterThan(-1);
+      expect(body).toContain("v_version.staging_document_id is not null");
+      expect(body).toContain("from public.documents where id = v_version.reserved_document_id");
+      expect(body).toContain("from public.ingestion_jobs where document_id = v_version.reserved_document_id");
+      expect(body).toContain("set lifecycle = 'abandoned'");
+      expect(body).toContain("'storage_owned', false");
+      expect(body).toContain("insert into public.storage_cleanup_jobs");
+      expect(body).toContain("'public_source_reservation_id', v_version.id");
+      expect(body).toContain("array[v_version.reserved_storage_path]");
+      expect(body).toContain("where not exists");
+      expect(body).not.toContain("delete from public.public_source_versions");
+      expect(body).not.toContain("delete from public.documents");
+    });
+
     it("withdraws atomically from retrieval and anonymous cache while preserving history", () => {
       const sql = controlPlaneSql();
       const start = sql.indexOf("create or replace function public.withdraw_public_source_version(");
@@ -2358,8 +2435,10 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       const sql = controlPlaneSql();
       for (const signature of [
         "record_public_source_activation(jsonb)",
+        "preflight_public_source_acquisition(jsonb)",
         "reserve_public_source_version(jsonb)",
         "finalize_public_source_version(jsonb, integer)",
+        "abandon_public_source_reservation(jsonb)",
         "activate_public_source_version(uuid, uuid, jsonb, text, uuid[])",
         "transition_public_source_version(uuid, text, uuid)",
         "withdraw_public_source_version(uuid, uuid, text)",
