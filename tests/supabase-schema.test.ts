@@ -132,6 +132,10 @@ const publicationReviewedStateMigration = readFileSync(
   new URL("../supabase/migrations/20260722190000_bind_publication_approval_to_reviewed_state.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const australianSourceActivationMigration = readFileSync(
+  new URL("../supabase/migrations/20260822123000_govern_australian_source_activation.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const deleteDocumentIfIdleMigration = readFileSync(
   new URL("../supabase/migrations/20260717132000_delete_document_if_idle.sql", import.meta.url),
   "utf8",
@@ -1416,6 +1420,82 @@ describe("Supabase Preview replay guards", () => {
         guardBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
       );
     }
+  });
+
+  it("binds Australian public activation to v2 policy, committed generation, and reviewed state", () => {
+    const sql = australianSourceActivationMigration;
+    for (const column of [
+      "source_catalogue_key text",
+      "source_policy_version text",
+      "reviewed_index_generation_id uuid",
+    ]) {
+      expect(sql).toContain(column);
+    }
+    expect(sql).toContain("create or replace function public.activate_approved_public_documents(");
+    expect(sql).toContain("p_manifest jsonb");
+    expect(sql).toContain("p_expected_state_digest text");
+    expect(sql).toContain("p_expected_generation_ids uuid[]");
+    expect(sql).toContain("for update;");
+    expect(sql).toContain("public.document_publication_state_digest(");
+    expect(sql).toContain("v_document.index_generation_id is distinct from v_expected_index_generation_id");
+    expect(sql).toContain("v_document.metadata->>'source_catalogue_key' is distinct from v_source_catalogue_key");
+    expect(sql).toContain("v_document.metadata->>'source_policy_version' is distinct from v_source_policy_version");
+    expect(sql).toContain("v_document.metadata->>'content_mode' is distinct from 'indexed_content'");
+    expect(sql).toContain("v_document.metadata->>'licence_policy' is distinct from 'public_index_permitted'");
+    expect(sql).toContain("v_document.metadata->>'document_status' is distinct from 'current'");
+    expect(sql).toContain("v_document.metadata->>'change_state' in ('withdrawn', 'superseded')");
+    expect(sql).toContain("approval.reviewed_index_generation_id = v_expected_index_generation_id");
+    expect(sql).toContain("approval.source_catalogue_key = v_source_catalogue_key");
+    expect(sql).toContain("approval.source_policy_version = v_source_policy_version");
+    expect(sql).toContain("'source_policy_version', v_source_policy_version");
+    expect(sql).toContain("'index_generation_id', v_expected_index_generation_id");
+
+    const functionStart = sql.indexOf("create or replace function public.activate_approved_public_documents(");
+    const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
+    expect(functionBody).toContain("order by value->>'documentId'");
+    expect(functionBody).toContain("array_agg(generation_id order by generation_id)");
+    expect(functionBody).toContain("does not exactly match manifest");
+    expect(functionBody).toContain("(document->>'expectedStateDigest') !~ '^[0-9a-f]{64}$'");
+    for (const table of [
+      "document_pages",
+      "document_images",
+      "document_labels",
+      "document_summaries",
+      "document_sections",
+      "document_memory_cards",
+      "document_chunks",
+      "document_table_facts",
+      "document_embedding_fields",
+      "document_index_quality",
+      "document_index_units",
+    ]) {
+      expect(functionBody).toContain(`perform 1 from public.${table} where document_id = v_document_id for update;`);
+    }
+    expect(functionBody).toContain("coalesce(v_document.metadata->>'change_state', '') not in");
+    expect(functionBody.indexOf("for update;")).toBeLessThan(
+      functionBody.indexOf("v_current_document_state_digest := public.document_publication_state_digest("),
+    );
+    expect(functionBody.indexOf("v_current_document_state_digest :=")).toBeLessThan(
+      functionBody.indexOf("v_publish_result := public.publish_approved_documents("),
+    );
+  });
+
+  it("keeps Australian activation append-only and service-role-only while rejecting v1/link-only transitions", () => {
+    const sql = australianSourceActivationMigration;
+    expect(sql).toContain("old.metadata->>'corpus_scope' = 'australian_public'");
+    expect(sql).toContain("or new.metadata->>'corpus_scope' = 'australian_public'");
+    expect(sql).toContain("publication_manifest_version");
+    expect(sql).toContain("Australian public transition requires manifest v2 evidence");
+    expect(sql).toContain("Australian public transition rejects link-only content");
+    expect(sql).toContain(
+      "revoke all on function public.activate_approved_public_documents(jsonb, text, uuid[]) from public, anon, authenticated;",
+    );
+    expect(sql).toContain(
+      "grant execute on function public.activate_approved_public_documents(jsonb, text, uuid[]) to service_role;",
+    );
+    expect(sql).toContain("before update or delete on public.document_publication_approvals");
+    expect(sql).not.toContain("grant select on table public.document_publication_approvals to anon");
+    expect(sql).not.toContain("grant select on table public.document_publication_approvals to authenticated");
   });
 
   it("serializes permanent deletion against ingestion job creation", () => {
