@@ -111,19 +111,45 @@ create unique index public_source_versions_one_active_per_catalogue_idx
   on public.public_source_versions(source_catalogue_key)
   where lifecycle = 'active';
 
+create table public.public_source_upload_attempts (
+  id uuid primary key,
+  version_id uuid not null references public.public_source_versions(id) on delete restrict,
+  claim_token uuid not null unique,
+  claim_expires_at timestamptz not null,
+  storage_bucket text not null check (storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'),
+  storage_path text not null check (char_length(storage_path) between 1 and 1024),
+  signed_authority_digest text check (signed_authority_digest ~ '^[0-9a-f]{64}$'),
+  signed_authority_expires_at timestamptz,
+  cleanup_not_before timestamptz not null,
+  state text not null check (state in ('authorized', 'bound', 'cleanup_pending', 'finalized', 'cleaned')),
+  created_at timestamptz not null default pg_catalog.clock_timestamp(),
+  updated_at timestamptz not null default pg_catalog.clock_timestamp(),
+  unique (storage_bucket, storage_path),
+  check ((signed_authority_digest is null) = (signed_authority_expires_at is null)),
+  check (signed_authority_expires_at is null or cleanup_not_before = signed_authority_expires_at + interval '60 seconds' + interval '5 minutes')
+);
+
+alter table public.public_source_versions
+  add column current_upload_attempt_id uuid references public.public_source_upload_attempts(id) on delete restrict,
+  add column finalized_upload_attempt_id uuid references public.public_source_upload_attempts(id) on delete restrict;
+
+create index public_source_upload_attempts_version_state_idx
+  on public.public_source_upload_attempts(version_id, state, created_at desc);
+
 alter table public.storage_cleanup_jobs
   add column public_source_reservation_id uuid references public.public_source_versions(id) on delete restrict,
+  add column public_source_upload_attempt_id uuid references public.public_source_upload_attempts(id) on delete restrict,
   add column public_source_storage_bucket text,
   add column public_source_storage_path text,
   add column public_source_cleanup_not_before timestamptz,
   add column public_source_claim_token uuid,
   add column public_source_claim_expires_at timestamptz,
-  add constraint storage_cleanup_jobs_public_source_reservation_unique unique (public_source_reservation_id),
+  add constraint storage_cleanup_jobs_public_source_attempt_unique unique (public_source_upload_attempt_id),
   add constraint storage_cleanup_jobs_public_source_identity_check check (
-    (public_source_reservation_id is null and public_source_storage_bucket is null
+    (public_source_reservation_id is null and public_source_upload_attempt_id is null and public_source_storage_bucket is null
       and public_source_storage_path is null and public_source_cleanup_not_before is null)
     or
-    (public_source_reservation_id is not null
+    (public_source_reservation_id is not null and public_source_upload_attempt_id is not null
       and public_source_storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'
       and char_length(public_source_storage_path) between 1 and 1024
       and public_source_cleanup_not_before is not null)
@@ -141,6 +167,7 @@ create unique index public_source_cleanup_bucket_path_idx
 create table public.public_source_cleanup_mutation_guards (
   token uuid primary key,
   public_source_reservation_id uuid not null references public.public_source_versions(id) on delete cascade,
+  public_source_upload_attempt_id uuid not null references public.public_source_upload_attempts(id) on delete cascade,
   operation text not null check (operation in ('upsert', 'claim', 'complete', 'release')),
   transaction_id bigint not null,
   backend_pid integer not null,
@@ -157,6 +184,7 @@ security definer set search_path = ''
 as $$
 declare
   v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
   v_guard_token uuid;
   v_operation text;
 begin
@@ -165,6 +193,7 @@ begin
   end if;
   if tg_op = 'UPDATE' and old.public_source_reservation_id is not null and (
     new.public_source_reservation_id is distinct from old.public_source_reservation_id
+    or new.public_source_upload_attempt_id is distinct from old.public_source_upload_attempt_id
     or new.public_source_storage_bucket is distinct from old.public_source_storage_bucket
     or new.public_source_storage_path is distinct from old.public_source_storage_path
     or new.document_bucket is distinct from old.document_bucket
@@ -182,6 +211,7 @@ begin
     from public.public_source_cleanup_mutation_guards
     where token = v_guard_token
       and public_source_reservation_id = new.public_source_reservation_id
+      and public_source_upload_attempt_id = new.public_source_upload_attempt_id
       and transaction_id = pg_catalog.txid_current()
       and backend_pid = pg_catalog.pg_backend_pid();
     if v_operation is null then
@@ -189,17 +219,19 @@ begin
     end if;
     select * into v_version from public.public_source_versions
     where id = new.public_source_reservation_id;
-    if not found
-      or v_version.lifecycle is distinct from 'abandoned'
-      or v_version.upload_state is distinct from 'cleanup_pending'
-      or v_version.staging_document_id is not null
-      or new.public_source_storage_bucket is distinct from v_version.storage_bucket
-      or new.public_source_storage_path is distinct from v_version.reserved_storage_path
+    select * into v_attempt from public.public_source_upload_attempts
+    where id = new.public_source_upload_attempt_id;
+    if not found or v_version.id is null
+      or v_attempt.version_id is distinct from v_version.id
+      or v_attempt.state is distinct from 'cleanup_pending'
+      or new.public_source_upload_attempt_id is distinct from v_attempt.id
+      or new.public_source_storage_bucket is distinct from v_attempt.storage_bucket
+      or new.public_source_storage_path is distinct from v_attempt.storage_path
       or new.document_bucket is distinct from new.public_source_storage_bucket
       or new.document_paths is distinct from array[new.public_source_storage_path]
       or new.document_id is not null
       or new.image_paths is distinct from '{}'::text[]
-      or new.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes' then
+      or new.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before then
       raise exception 'public source cleanup identity does not match its reservation';
     end if;
     if (new.status = 'processing') is distinct from
@@ -235,14 +267,17 @@ create table public.public_source_activation_guards (
 alter table public.public_source_policy_entries enable row level security;
 alter table public.public_source_activation_events enable row level security;
 alter table public.public_source_versions enable row level security;
+alter table public.public_source_upload_attempts enable row level security;
 alter table public.public_source_activation_guards enable row level security;
 revoke all on table public.public_source_policy_entries from public, anon, authenticated;
 revoke all on table public.public_source_activation_events from public, anon, authenticated;
 revoke all on table public.public_source_versions from public, anon, authenticated;
+revoke all on table public.public_source_upload_attempts from public, anon, authenticated, service_role;
 revoke all on table public.public_source_activation_guards from public, anon, authenticated, service_role;
 grant select on table public.public_source_policy_entries to service_role;
 grant select on table public.public_source_activation_events to service_role;
 grant select on table public.public_source_versions to service_role;
+grant select on table public.public_source_upload_attempts to service_role;
 
 create policy "public source policy entries service role"
   on public.public_source_policy_entries for select to service_role using (true);
@@ -250,6 +285,8 @@ create policy "public source activation events service role"
   on public.public_source_activation_events for select to service_role using (true);
 create policy "public source versions service role"
   on public.public_source_versions for select to service_role using (true);
+create policy "public source upload attempts service role"
+  on public.public_source_upload_attempts for select to service_role using (true);
 
 create or replace function public.prevent_public_source_control_plane_mutation()
 returns trigger
@@ -285,9 +322,9 @@ begin
     raise exception 'terminal public source versions are immutable';
   end if;
   if (
-    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'upload_state', 'upload_lease_token', 'upload_lease_expires_at', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'reserved_storage_path', 'upload_state', 'upload_lease_token', 'upload_lease_expires_at', 'current_upload_attempt_id', 'finalized_upload_attempt_id', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) is distinct from (
-    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'upload_state', 'upload_lease_token', 'upload_lease_expires_at', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'reserved_storage_path', 'upload_state', 'upload_lease_token', 'upload_lease_expires_at', 'current_upload_attempt_id', 'finalized_upload_attempt_id', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) then
     raise exception 'public source version immutable fields changed';
   end if;
@@ -297,6 +334,10 @@ begin
   if old.staging_document_id is null and new.staging_document_id is not null
     and new.staging_document_id is distinct from old.reserved_document_id then
     raise exception 'public source staging document does not match its reservation';
+  end if;
+  if old.finalized_upload_attempt_id is not null
+    and new.finalized_upload_attempt_id is distinct from old.finalized_upload_attempt_id then
+    raise exception 'public source finalized upload attempt binding is immutable';
   end if;
   if new.upload_state is distinct from old.upload_state and (old.upload_state, new.upload_state) not in (
     ('reserved', 'uploading'), ('reserved', 'cleanup_pending'), ('uploading', 'finalized'),
@@ -674,8 +715,113 @@ $$;
 revoke all on function public.reserve_public_source_version(jsonb) from public, anon, authenticated;
 grant execute on function public.reserve_public_source_version(jsonb) to service_role;
 
+create or replace function public.schedule_public_source_upload_attempt_cleanup(p_attempt_id uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_attempt public.public_source_upload_attempts%rowtype;
+  v_version public.public_source_versions%rowtype;
+  v_guard_token uuid := gen_random_uuid();
+begin
+  select * into v_attempt from public.public_source_upload_attempts where id = p_attempt_id;
+  select * into v_version from public.public_source_versions where id = v_attempt.version_id;
+  if v_attempt.id is null or v_version.id is null or v_attempt.state is distinct from 'cleanup_pending' then
+    raise exception 'public source upload attempt is not cleanup eligible';
+  end if;
+  insert into public.public_source_cleanup_mutation_guards(
+    token, public_source_reservation_id, public_source_upload_attempt_id, operation, transaction_id, backend_pid
+  ) values (
+    v_guard_token, v_version.id, v_attempt.id, 'upsert', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+  );
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_guard_token::text, true);
+  insert into public.storage_cleanup_jobs (
+    owner_id, document_id, document_title, document_bucket, document_paths, image_paths,
+    public_source_reservation_id, public_source_upload_attempt_id, public_source_storage_bucket,
+    public_source_storage_path, public_source_cleanup_not_before, status, metadata
+  ) values (
+    v_version.steward_id, null, 'Retired controlled public source upload attempt',
+    v_attempt.storage_bucket, array[v_attempt.storage_path], '{}'::text[], v_version.id, v_attempt.id,
+    v_attempt.storage_bucket, v_attempt.storage_path, v_attempt.cleanup_not_before, 'pending',
+    jsonb_build_object('public_source_reservation_id', v_version.id, 'public_source_upload_attempt_id', v_attempt.id)
+  )
+  on conflict (public_source_upload_attempt_id) do update
+  set status = case when public.storage_cleanup_jobs.status = 'processing'
+        and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+      then 'processing' else 'pending' end,
+      attempts = case when public.storage_cleanup_jobs.status = 'processing'
+        and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+      then public.storage_cleanup_jobs.attempts else 0 end,
+      last_error = null, completed_at = null,
+      public_source_claim_token = case when public.storage_cleanup_jobs.status = 'processing'
+        and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+      then public.storage_cleanup_jobs.public_source_claim_token else null end,
+      public_source_claim_expires_at = case when public.storage_cleanup_jobs.status = 'processing'
+        and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
+      then public.storage_cleanup_jobs.public_source_claim_expires_at else null end;
+  delete from public.public_source_cleanup_mutation_guards where token = v_guard_token;
+  perform pg_catalog.set_config('app.public_source_cleanup_mutation', '', true);
+end;
+$$;
+
+revoke all on function public.schedule_public_source_upload_attempt_cleanup(uuid) from public, anon, authenticated, service_role;
+
+create or replace function public.reap_expired_public_source_upload_attempts(p_limit integer)
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_candidate record;
+  v_event public.public_source_activation_events%rowtype;
+  v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
+  v_reaped integer := 0;
+begin
+  if p_limit not between 1 and 100 then
+    raise exception 'public source upload attempt reap limit is invalid';
+  end if;
+  for v_candidate in
+    select attempt.id, version.id as version_id, version.source_catalogue_key, version.reserved_document_id
+    from public.public_source_upload_attempts attempt
+    join public.public_source_versions version on version.id = attempt.version_id
+    where attempt.state in ('authorized', 'bound')
+      and attempt.claim_expires_at <= pg_catalog.clock_timestamp()
+    order by version.source_catalogue_key, attempt.created_at, attempt.id
+    limit p_limit
+  loop
+    -- lock-order: advisory
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_candidate.source_catalogue_key, 0));
+    -- lock-order: latest-event
+    select * into v_event from public.public_source_activation_events
+    where source_catalogue_key = v_candidate.source_catalogue_key
+    order by activation_sequence desc limit 1 for update;
+    -- lock-order: document
+    perform 1 from public.documents where id = v_candidate.reserved_document_id for update;
+    -- lock-order: version
+    select * into v_version from public.public_source_versions where id = v_candidate.version_id for update;
+    -- lock-order: upload-attempt
+    select * into v_attempt from public.public_source_upload_attempts where id = v_candidate.id for update;
+    if v_event.id is not null and v_version.id is not null and v_attempt.id is not null
+      and v_attempt.version_id = v_version.id and v_attempt.state in ('authorized', 'bound')
+      and v_attempt.claim_expires_at <= pg_catalog.clock_timestamp() then
+      update public.public_source_upload_attempts
+      set state = 'cleanup_pending', updated_at = pg_catalog.clock_timestamp()
+      where id = v_attempt.id;
+      perform public.schedule_public_source_upload_attempt_cleanup(v_attempt.id);
+      v_reaped := v_reaped + 1;
+    end if;
+  end loop;
+  return v_reaped;
+end;
+$$;
+
+revoke all on function public.reap_expired_public_source_upload_attempts(integer) from public, anon, authenticated;
+grant execute on function public.reap_expired_public_source_upload_attempts(integer) to service_role;
+
 create or replace function public.authorize_public_source_upload(p_manifest jsonb)
-returns public.public_source_versions
+returns jsonb
 language plpgsql
 security definer set search_path = ''
 as $$
@@ -683,13 +829,18 @@ declare
   p_source_catalogue_key text := trim(coalesce(p_manifest->>'catalogueKey', ''));
   v_event public.public_source_activation_events%rowtype;
   v_version public.public_source_versions%rowtype;
+  v_prior_attempt public.public_source_upload_attempts%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
   v_reservation_id uuid;
   v_steward_id uuid;
   v_activation_event_id uuid;
   v_activation_sequence bigint;
   v_upload_lease_token uuid;
   v_upload_lease_expires_at timestamptz;
-  v_attempt_token uuid;
+  v_attempt_id uuid := gen_random_uuid();
+  v_attempt_token uuid := gen_random_uuid();
+  v_attempt_expires_at timestamptz := pg_catalog.clock_timestamp() + interval '2 minutes';
+  v_attempt_path text;
 begin
   begin
     v_reservation_id := nullif(p_manifest->>'reservationId', '')::uuid;
@@ -703,63 +854,170 @@ begin
   end;
   if v_reservation_id is null or v_steward_id is null or v_activation_event_id is null
     or v_activation_sequence is null or v_upload_lease_token is null or v_upload_lease_expires_at is null
-    or coalesce(p_manifest->>'storageBucket', '') !~ '^[a-z0-9][a-z0-9._-]{0,62}$' then
+    or coalesce(p_manifest->>'storageBucket', '') !~ '^[a-z0-9][a-z0-9._-]{0,62}$'
+    or p_manifest->>'fileExtension' not in ('.pdf', '.docx', '.txt') then
     raise exception 'public source upload authority manifest is invalid';
   end if;
   -- lock-order: advisory
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0));
   -- lock-order: latest-event
-  select * into v_event from public.public_source_activation_events
-  where source_catalogue_key = p_source_catalogue_key
+  select * into v_event from public.public_source_activation_events where source_catalogue_key = p_source_catalogue_key
   order by activation_sequence desc limit 1 for update;
   -- lock-order: document
-  perform 1 from public.documents
-  where id = nullif(p_manifest->>'reservedDocumentId', '')::uuid for update;
+  perform 1 from public.documents where id = nullif(p_manifest->>'reservedDocumentId', '')::uuid for update;
   -- lock-order: version
   select * into v_version from public.public_source_versions where id = v_reservation_id for update;
-  if not found or v_event.decision is distinct from 'activate'
+  -- lock-order: upload-attempt
+  if v_version.current_upload_attempt_id is not null then
+    select * into v_prior_attempt from public.public_source_upload_attempts
+    where id = v_version.current_upload_attempt_id for update;
+  end if;
+  if v_version.id is null or v_event.decision is distinct from 'activate'
     or v_event.id is distinct from v_activation_event_id
     or v_event.activation_sequence is distinct from v_activation_sequence
     or v_version.activation_event_id is distinct from v_event.id
-    or v_version.activation_sequence is distinct from v_event.activation_sequence
     or v_version.source_catalogue_key is distinct from p_source_catalogue_key
     or v_version.source_policy_version is distinct from p_manifest->>'sourcePolicyVersion'
     or v_version.source_policy_digest is distinct from p_manifest->>'sourcePolicyDigest'
     or v_version.reservation_key is distinct from p_manifest->>'reservationKey'
     or v_version.exact_canonical_url is distinct from p_manifest->>'exactCanonicalUrl'
     or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
+    or v_version.exact_version is distinct from p_manifest->>'exactVersion'
     or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
+    or v_version.intended_disposition is distinct from p_manifest->>'disposition'
     or v_version.steward_id is distinct from v_steward_id
     or v_version.reserved_document_id::text is distinct from p_manifest->>'reservedDocumentId'
     or v_version.reserved_storage_path is distinct from p_manifest->>'reservedStoragePath'
     or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
     or v_version.upload_lease_token is distinct from v_upload_lease_token
     or v_version.upload_lease_expires_at is distinct from v_upload_lease_expires_at
-    or v_version.lifecycle is distinct from 'discovered'
-    or v_version.staging_document_id is not null then
+    or v_version.lifecycle is distinct from 'discovered' or v_version.staging_document_id is not null then
     raise exception 'public source upload lease is stale or governance changed';
   end if;
-  if v_version.upload_state is distinct from 'reserved' then
-    if v_version.upload_state is distinct from 'uploading'
-      or v_version.upload_lease_expires_at > pg_catalog.clock_timestamp() then
+  if v_prior_attempt.id is not null then
+    if v_prior_attempt.state in ('authorized', 'bound')
+      and v_prior_attempt.claim_expires_at > pg_catalog.clock_timestamp() then
       raise exception 'public source upload attempt is already claimed';
     end if;
+    if v_prior_attempt.state not in ('authorized', 'bound', 'cleanup_pending', 'cleaned') then
+      raise exception 'public source upload attempt cannot be rotated';
+    end if;
+    if v_prior_attempt.state in ('authorized', 'bound') then
+      update public.public_source_upload_attempts set state = 'cleanup_pending', updated_at = pg_catalog.clock_timestamp()
+      where id = v_prior_attempt.id;
+      perform public.schedule_public_source_upload_attempt_cleanup(v_prior_attempt.id);
+    end if;
+  elsif v_version.upload_state <> 'reserved' then
+    raise exception 'public source upload attempt is already claimed';
   end if;
   if not exists (select 1 from auth.users where id = v_version.steward_id) then
     raise exception 'public source steward authority is not current';
   end if;
-  v_attempt_token := gen_random_uuid();
-  update public.public_source_versions
-  set upload_state = 'uploading',
-      upload_lease_token = v_attempt_token,
-      upload_lease_expires_at = pg_catalog.clock_timestamp() + interval '2 minutes'
+  v_attempt_path := v_version.steward_id::text || '/public-source-staging/' || v_version.id::text || '/' ||
+    v_attempt_id::text || '/source' || p_manifest->>'fileExtension';
+  insert into public.public_source_upload_attempts(
+    id, version_id, claim_token, claim_expires_at, storage_bucket, storage_path,
+    cleanup_not_before, state
+  ) values (
+    v_attempt_id, v_version.id, v_attempt_token, v_attempt_expires_at, v_version.storage_bucket, v_attempt_path,
+    v_attempt_expires_at + interval '2 hours' + interval '60 seconds' + interval '5 minutes', 'authorized'
+  ) returning * into v_attempt;
+  update public.public_source_versions set upload_state = 'uploading', upload_lease_token = v_attempt_token,
+    upload_lease_expires_at = v_attempt_expires_at, reserved_storage_path = v_attempt_path,
+    current_upload_attempt_id = v_attempt.id
   where id = v_version.id returning * into v_version;
-  return v_version;
+  return to_jsonb(v_version) || jsonb_build_object('upload_attempt_id', v_attempt.id);
 end;
 $$;
 
 revoke all on function public.authorize_public_source_upload(jsonb) from public, anon, authenticated;
 grant execute on function public.authorize_public_source_upload(jsonb) to service_role;
+
+create or replace function public.bind_public_source_upload_authority(p_manifest jsonb)
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
+  v_event public.public_source_activation_events%rowtype;
+  v_attempt_id uuid;
+  v_claim_token uuid;
+  v_signed_expires_at timestamptz;
+begin
+  begin
+    v_attempt_id := nullif(p_manifest->>'uploadAttemptId', '')::uuid;
+    v_claim_token := nullif(p_manifest->>'uploadLeaseToken', '')::uuid;
+    v_signed_expires_at := nullif(p_manifest->>'signedAuthorityExpiresAt', '')::timestamptz;
+  exception when invalid_text_representation then
+    raise exception 'public source signed upload authority identity is invalid';
+  end;
+  if v_attempt_id is null or v_claim_token is null or v_signed_expires_at is null
+    or coalesce(p_manifest->>'signedAuthorityDigest', '') !~ '^[0-9a-f]{64}$' then
+    raise exception 'public source signed upload authority manifest is invalid';
+  end if;
+  -- lock-order: advisory
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_manifest->>'catalogueKey', 0));
+  -- lock-order: latest-event
+  select * into v_event from public.public_source_activation_events
+  where source_catalogue_key = p_manifest->>'catalogueKey' order by activation_sequence desc limit 1 for update;
+  -- lock-order: document
+  perform 1 from public.documents where id = nullif(p_manifest->>'reservedDocumentId', '')::uuid for update;
+  -- lock-order: version
+  select * into v_version from public.public_source_versions where id = nullif(p_manifest->>'reservationId', '')::uuid for update;
+  -- lock-order: upload-attempt
+  select * into v_attempt from public.public_source_upload_attempts where id = v_attempt_id for update;
+  if v_version.id is null or v_attempt.id is null or v_event.id is distinct from v_version.activation_event_id
+    or v_event.id::text is distinct from p_manifest->>'activationEventId'
+    or v_event.activation_sequence is distinct from v_version.activation_sequence
+    or v_event.activation_sequence::text is distinct from p_manifest->>'activationSequence'
+    or v_event.decision <> 'activate'
+    or v_event.policy_version is distinct from p_manifest->>'sourcePolicyVersion'
+    or v_event.policy_digest is distinct from p_manifest->>'sourcePolicyDigest'
+    or v_version.source_catalogue_key is distinct from p_manifest->>'catalogueKey'
+    or v_version.source_policy_version is distinct from p_manifest->>'sourcePolicyVersion'
+    or v_version.source_policy_digest is distinct from p_manifest->>'sourcePolicyDigest'
+    or v_version.reservation_key is distinct from p_manifest->>'reservationKey'
+    or v_version.exact_canonical_url is distinct from p_manifest->>'exactCanonicalUrl'
+    or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
+    or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
+    or v_version.intended_disposition is distinct from p_manifest->>'disposition'
+    or v_version.reserved_document_id::text is distinct from p_manifest->>'reservedDocumentId'
+    or v_version.current_upload_attempt_id is distinct from v_attempt.id
+    or v_attempt.version_id is distinct from v_version.id or v_attempt.claim_token is distinct from v_claim_token
+    or v_attempt.claim_expires_at is distinct from (p_manifest->>'uploadLeaseExpiresAt')::timestamptz
+    or v_attempt.storage_bucket is distinct from p_manifest->>'storageBucket'
+    or v_attempt.storage_path is distinct from p_manifest->>'reservedStoragePath'
+    or v_version.steward_id::text is distinct from p_manifest->>'stewardId'
+    or not exists (select 1 from auth.users where id = v_version.steward_id) then
+    raise exception 'public source signed upload governance changed while locks were acquired';
+  end if;
+  if v_attempt.state = 'bound' then
+    if v_attempt.signed_authority_digest is distinct from p_manifest->>'signedAuthorityDigest'
+      or v_attempt.signed_authority_expires_at is distinct from v_signed_expires_at then
+      raise exception 'public source signed upload authority conflicts with bound evidence';
+    end if;
+    return to_jsonb(v_attempt);
+  end if;
+  if v_attempt.state <> 'authorized' or v_attempt.claim_expires_at <= pg_catalog.clock_timestamp()
+    or v_signed_expires_at <= pg_catalog.clock_timestamp()
+    or v_signed_expires_at > pg_catalog.clock_timestamp() + interval '2 hours' + interval '60 seconds' then
+    raise exception 'public source signed upload authority is stale or overlong';
+  end if;
+  update public.public_source_upload_attempts set state = 'bound',
+    signed_authority_digest = p_manifest->>'signedAuthorityDigest', signed_authority_expires_at = v_signed_expires_at,
+    cleanup_not_before = v_signed_expires_at + interval '60 seconds' + interval '5 minutes',
+    updated_at = pg_catalog.clock_timestamp()
+  where id = v_attempt.id returning * into v_attempt;
+  return to_jsonb(v_attempt);
+end;
+$$;
+
+revoke all on function public.bind_public_source_upload_authority(jsonb) from public, anon, authenticated;
+grant execute on function public.bind_public_source_upload_authority(jsonb) to service_role;
 
 create or replace function public.finalize_public_source_version(p_manifest jsonb, p_max_attempts integer)
 returns public.public_source_versions
@@ -772,6 +1030,7 @@ declare
   v_event public.public_source_activation_events%rowtype;
   v_document public.documents%rowtype;
   v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
   v_reservation_id uuid;
   v_document_id uuid;
   v_steward_id uuid;
@@ -779,6 +1038,8 @@ declare
   v_activation_sequence bigint;
   v_upload_lease_token uuid;
   v_upload_lease_expires_at timestamptz;
+  v_upload_attempt_id uuid;
+  v_signed_authority_expires_at timestamptz;
   v_url_prefix text;
 begin
   begin
@@ -789,12 +1050,15 @@ begin
     v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
     v_upload_lease_token := nullif(p_manifest->>'uploadLeaseToken', '')::uuid;
     v_upload_lease_expires_at := nullif(p_manifest->>'uploadLeaseExpiresAt', '')::timestamptz;
+    v_upload_attempt_id := nullif(p_manifest->>'uploadAttemptId', '')::uuid;
+    v_signed_authority_expires_at := nullif(p_manifest->>'signedAuthorityExpiresAt', '')::timestamptz;
   exception when invalid_text_representation or numeric_value_out_of_range then
     raise exception 'public source finalization identity is invalid';
   end;
   if v_reservation_id is null or v_document_id is null or v_steward_id is null
     or v_activation_event_id is null or v_activation_sequence is null or v_upload_lease_token is null
-    or v_upload_lease_expires_at is null
+    or v_upload_lease_expires_at is null or v_upload_attempt_id is null or v_signed_authority_expires_at is null
+    or coalesce(p_manifest->>'signedAuthorityDigest', '') !~ '^[0-9a-f]{64}$'
     or coalesce(p_manifest->>'storageBucket', '') !~ '^[a-z0-9][a-z0-9._-]{0,62}$'
     or p_manifest->>'disposition' not in ('shadow', 'quarantined')
     or p_max_attempts not between 1 and 25 then
@@ -810,7 +1074,9 @@ begin
   select * into v_document from public.documents where id = v_document_id for update;
   -- lock-order: version
   select * into v_version from public.public_source_versions where id = v_reservation_id for update;
-  if not found or v_event.id is distinct from v_version.activation_event_id
+  -- lock-order: upload-attempt
+  select * into v_attempt from public.public_source_upload_attempts where id = v_upload_attempt_id for update;
+  if v_version.id is null or v_attempt.id is null or v_event.id is distinct from v_version.activation_event_id
     or v_event.id is distinct from v_activation_event_id
     or v_event.activation_sequence is distinct from v_activation_sequence
     or v_version.activation_sequence is distinct from v_activation_sequence
@@ -828,6 +1094,15 @@ begin
     or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
     or v_version.upload_lease_token is distinct from v_upload_lease_token
     or v_version.upload_lease_expires_at is distinct from v_upload_lease_expires_at
+    or v_version.current_upload_attempt_id is distinct from v_attempt.id
+    or v_attempt.version_id is distinct from v_version.id
+    or v_attempt.claim_token is distinct from v_upload_lease_token
+    or v_attempt.claim_expires_at is distinct from v_upload_lease_expires_at
+    or v_attempt.storage_bucket is distinct from p_manifest->>'storageBucket'
+    or v_attempt.storage_path is distinct from p_manifest->'document'->>'storage_path'
+    or v_attempt.signed_authority_digest is distinct from p_manifest->>'signedAuthorityDigest'
+    or v_attempt.signed_authority_expires_at is distinct from v_signed_authority_expires_at
+    or v_attempt.state not in ('bound', 'finalized')
     or v_version.upload_state not in ('uploading', 'finalized')
     or (v_version.upload_state = 'uploading' and pg_catalog.clock_timestamp() >= v_version.upload_lease_expires_at)
     or v_version.reserved_document_id is distinct from v_document_id
@@ -910,11 +1185,15 @@ begin
   update public.public_source_versions
   set staging_document_id = v_document.id,
       upload_state = 'finalized',
+      finalized_upload_attempt_id = v_attempt.id,
       lifecycle = p_manifest->>'disposition',
       review_queued_at = case when p_manifest->>'disposition' = 'quarantined' then now() else null end,
       review_reason = case when p_manifest->>'disposition' = 'quarantined'
         then 'Trusted HTML retained a Healthdirect marker in visible main content.' else null end
   where id = v_version.id returning * into v_version;
+  update public.public_source_upload_attempts
+  set state = 'finalized', updated_at = pg_catalog.clock_timestamp()
+  where id = v_attempt.id and state = 'bound';
   return v_version;
 end;
 $$;
@@ -935,8 +1214,10 @@ declare
   v_reserved_document_id uuid;
   v_upload_lease_token uuid;
   v_upload_lease_expires_at timestamptz;
-  v_cleanup_guard_token uuid := gen_random_uuid();
+  v_upload_attempt_id uuid;
+  v_signed_authority_expires_at timestamptz;
   v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
   v_event public.public_source_activation_events%rowtype;
 begin
   begin
@@ -947,6 +1228,8 @@ begin
     v_reserved_document_id := nullif(p_manifest->>'reservedDocumentId', '')::uuid;
     v_upload_lease_token := nullif(p_manifest->>'uploadLeaseToken', '')::uuid;
     v_upload_lease_expires_at := nullif(p_manifest->>'uploadLeaseExpiresAt', '')::timestamptz;
+    v_upload_attempt_id := nullif(p_manifest->>'uploadAttemptId', '')::uuid;
+    v_signed_authority_expires_at := nullif(p_manifest->>'signedAuthorityExpiresAt', '')::timestamptz;
   exception when invalid_text_representation or numeric_value_out_of_range then
     raise exception 'public source abandonment identity is invalid';
   end;
@@ -963,7 +1246,9 @@ begin
   perform 1 from public.documents where id = v_version.reserved_document_id for update;
   -- lock-order: version
   select * into v_version from public.public_source_versions where id = v_reservation_id for update;
-  if not found or v_event.id is null
+  -- lock-order: upload-attempt
+  select * into v_attempt from public.public_source_upload_attempts where id = v_upload_attempt_id for update;
+  if v_version.id is null or v_attempt.id is null or v_event.id is null
     or v_version.reservation_key is distinct from p_manifest->>'reservationKey'
     or v_version.source_catalogue_key is distinct from p_manifest->>'catalogueKey'
     or v_version.source_policy_version is distinct from p_manifest->>'sourcePolicyVersion'
@@ -979,6 +1264,14 @@ begin
     or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
     or v_version.upload_lease_token is distinct from v_upload_lease_token
     or v_version.upload_lease_expires_at is distinct from v_upload_lease_expires_at
+    or v_version.current_upload_attempt_id is distinct from v_attempt.id
+    or v_attempt.version_id is distinct from v_version.id
+    or v_attempt.claim_token is distinct from v_upload_lease_token
+    or v_attempt.claim_expires_at is distinct from v_upload_lease_expires_at
+    or v_attempt.signed_authority_digest is distinct from p_manifest->>'signedAuthorityDigest'
+    or v_attempt.signed_authority_expires_at is distinct from v_signed_authority_expires_at
+    or v_attempt.storage_bucket is distinct from p_manifest->>'storageBucket'
+    or v_attempt.storage_path is distinct from p_manifest->>'reservedStoragePath'
     or v_version.intended_disposition is distinct from p_manifest->>'disposition'
     or v_version.reserved_document_id is distinct from v_reserved_document_id
     or v_version.reserved_storage_path is distinct from p_manifest->>'reservedStoragePath' then
@@ -1008,59 +1301,16 @@ begin
         review_reason = 'Unfinalized reservation abandoned after definitive finalization failure.'
     where id = v_version.id returning * into v_version;
   end if;
-  insert into public.public_source_cleanup_mutation_guards(
-    token, public_source_reservation_id, operation, transaction_id, backend_pid
-  ) values (
-    v_cleanup_guard_token, v_version.id, 'upsert', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
-  );
-  perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_cleanup_guard_token::text, true);
-  insert into public.storage_cleanup_jobs (
-    owner_id, document_id, document_title, document_bucket, document_paths,
-    image_paths,
-    public_source_reservation_id, public_source_storage_bucket, public_source_storage_path,
-    public_source_cleanup_not_before, public_source_claim_token, public_source_claim_expires_at,
-    status, metadata
-  )
-  values (
-    v_version.steward_id, null, 'Abandoned controlled public source', v_version.storage_bucket,
-    array[v_version.reserved_storage_path], '{}'::text[], v_version.id, v_version.storage_bucket,
-    v_version.reserved_storage_path, v_version.upload_lease_expires_at + interval '5 minutes', null, null, 'pending',
-    jsonb_build_object(
-      'public_source_reservation_id', v_version.id,
-      'public_source_reservation_key', v_version.reservation_key,
-      'reason', 'abandoned_public_source_reservation'
-    )
-  )
-  on conflict (public_source_reservation_id) do update
-  set status = case
-        when public.storage_cleanup_jobs.status = 'processing'
-          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
-          then 'processing'
-        else 'pending'
-      end,
-      attempts = case
-        when public.storage_cleanup_jobs.status = 'processing'
-          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
-          then public.storage_cleanup_jobs.attempts
-        else 0
-      end,
-      last_error = null,
-      completed_at = null,
-      public_source_claim_token = case
-        when public.storage_cleanup_jobs.status = 'processing'
-          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
-          then public.storage_cleanup_jobs.public_source_claim_token
-        else null
-      end,
-      public_source_claim_expires_at = case
-        when public.storage_cleanup_jobs.status = 'processing'
-          and public.storage_cleanup_jobs.public_source_claim_expires_at > pg_catalog.clock_timestamp()
-          then public.storage_cleanup_jobs.public_source_claim_expires_at
-        else null
-      end,
-      public_source_cleanup_not_before = excluded.public_source_cleanup_not_before;
-  delete from public.public_source_cleanup_mutation_guards where token = v_cleanup_guard_token;
-  perform pg_catalog.set_config('app.public_source_cleanup_mutation', '', true);
+  if v_attempt.state in ('authorized', 'bound') then
+    update public.public_source_upload_attempts
+    set state = 'cleanup_pending', updated_at = pg_catalog.clock_timestamp()
+    where id = v_attempt.id;
+  elsif v_attempt.state not in ('cleanup_pending', 'cleaned') then
+    raise exception 'public source upload attempt cannot be abandoned';
+  end if;
+  if v_attempt.state <> 'cleaned' then
+    perform public.schedule_public_source_upload_attempt_cleanup(v_attempt.id);
+  end if;
   return jsonb_build_object(
     'status', 'abandoned', 'storagePath', v_version.reserved_storage_path,
     'storageOwned', false, 'storage_owned', false, 'cleanupDurable', true
@@ -1079,6 +1329,7 @@ as $$
 declare
   v_job public.storage_cleanup_jobs%rowtype;
   v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
   v_event public.public_source_activation_events%rowtype;
   v_catalogue_key text;
   v_claim_token uuid := gen_random_uuid();
@@ -1110,19 +1361,22 @@ begin
   -- lock-order: version
   select * into v_version from public.public_source_versions
   where id = v_job.public_source_reservation_id for update;
+  -- lock-order: upload-attempt
+  select * into v_attempt from public.public_source_upload_attempts
+  where id = v_job.public_source_upload_attempt_id for update;
   -- lock-order: cleanup-job
   select * into v_job from public.storage_cleanup_jobs where id = v_job.id for update;
   if not found or v_event.id is null
-    or v_version.lifecycle is distinct from 'abandoned'
-    or v_version.upload_state is distinct from 'cleanup_pending'
-    or v_version.staging_document_id is not null
+    or v_attempt.state is distinct from 'cleanup_pending'
+    or v_attempt.version_id is distinct from v_version.id
+    or v_job.public_source_upload_attempt_id is distinct from v_attempt.id
     or v_job.public_source_reservation_id is distinct from v_version.id
-    or v_job.public_source_storage_bucket is distinct from v_version.storage_bucket
-    or v_job.public_source_storage_path is distinct from v_version.reserved_storage_path
-    or v_job.document_bucket is distinct from v_version.storage_bucket
-    or v_job.document_paths is distinct from array[v_version.reserved_storage_path]
+    or v_job.public_source_storage_bucket is distinct from v_attempt.storage_bucket
+    or v_job.public_source_storage_path is distinct from v_attempt.storage_path
+    or v_job.document_bucket is distinct from v_attempt.storage_bucket
+    or v_job.document_paths is distinct from array[v_attempt.storage_path]
     or v_job.image_paths is distinct from '{}'::text[]
-    or v_job.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes'
+    or v_job.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before
     or v_job.public_source_cleanup_not_before > pg_catalog.clock_timestamp()
     or v_job.attempts >= p_max_attempts
     or not (v_job.status in ('pending', 'failed')
@@ -1131,9 +1385,9 @@ begin
     return null;
   end if;
   insert into public.public_source_cleanup_mutation_guards(
-    token, public_source_reservation_id, operation, transaction_id, backend_pid
+    token, public_source_reservation_id, public_source_upload_attempt_id, operation, transaction_id, backend_pid
   ) values (
-    v_guard_token, v_version.id, 'claim', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+    v_guard_token, v_version.id, v_attempt.id, 'claim', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
   );
   perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_guard_token::text, true);
   update public.storage_cleanup_jobs
@@ -1149,8 +1403,9 @@ begin
     'claimToken', v_claim_token,
     'claimExpiresAt', v_job.public_source_claim_expires_at,
     'reservationId', v_version.id,
-    'bucket', v_version.storage_bucket,
-    'path', v_version.reserved_storage_path,
+    'uploadAttemptId', v_attempt.id,
+    'bucket', v_attempt.storage_bucket,
+    'path', v_attempt.storage_path,
     'imagePaths', jsonb_build_array(),
     'attempts', v_job.attempts
   );
@@ -1170,6 +1425,7 @@ as $$
 declare
   v_job public.storage_cleanup_jobs%rowtype;
   v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
   v_event public.public_source_activation_events%rowtype;
   v_catalogue_key text;
   v_guard_token uuid := gen_random_uuid();
@@ -1191,6 +1447,9 @@ begin
   -- lock-order: version
   select * into v_version from public.public_source_versions
   where id = v_job.public_source_reservation_id for update;
+  -- lock-order: upload-attempt
+  select * into v_attempt from public.public_source_upload_attempts
+  where id = v_job.public_source_upload_attempt_id for update;
   -- lock-order: cleanup-job
   select * into v_job from public.storage_cleanup_jobs where id = p_job_id for update;
   if not found or v_event.id is null
@@ -1198,19 +1457,19 @@ begin
     or v_job.public_source_claim_token is distinct from p_claim_token
     or v_job.public_source_claim_expires_at <= pg_catalog.clock_timestamp()
     or p_storage_removed not between 0 and 100
-    or v_version.lifecycle is distinct from 'abandoned'
-    or v_version.upload_state is distinct from 'cleanup_pending'
-    or v_version.staging_document_id is not null
+    or v_attempt.state is distinct from 'cleanup_pending'
+    or v_attempt.version_id is distinct from v_version.id
+    or v_job.public_source_upload_attempt_id is distinct from v_attempt.id
     or v_job.public_source_reservation_id is distinct from v_version.id
-    or v_job.public_source_storage_bucket is distinct from v_version.storage_bucket
-    or v_job.public_source_storage_path is distinct from v_version.reserved_storage_path
-    or v_job.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes' then
+    or v_job.public_source_storage_bucket is distinct from v_attempt.storage_bucket
+    or v_job.public_source_storage_path is distinct from v_attempt.storage_path
+    or v_job.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before then
     raise exception 'public source cleanup claim is stale or inconsistent';
   end if;
   insert into public.public_source_cleanup_mutation_guards(
-    token, public_source_reservation_id, operation, transaction_id, backend_pid
+    token, public_source_reservation_id, public_source_upload_attempt_id, operation, transaction_id, backend_pid
   ) values (
-    v_guard_token, v_version.id, 'complete', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+    v_guard_token, v_version.id, v_attempt.id, 'complete', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
   );
   perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_guard_token::text, true);
   update public.storage_cleanup_jobs
@@ -1218,6 +1477,9 @@ begin
       public_source_claim_token = null, public_source_claim_expires_at = null,
       last_error = null, completed_at = pg_catalog.clock_timestamp()
   where id = p_job_id and public_source_claim_token = p_claim_token;
+  update public.public_source_upload_attempts
+  set state = 'cleaned', updated_at = pg_catalog.clock_timestamp()
+  where id = v_attempt.id and state = 'cleanup_pending';
   delete from public.public_source_cleanup_mutation_guards where token = v_guard_token;
   perform pg_catalog.set_config('app.public_source_cleanup_mutation', '', true);
   return jsonb_build_object('status', 'completed', 'id', p_job_id);
@@ -1237,6 +1499,7 @@ as $$
 declare
   v_job public.storage_cleanup_jobs%rowtype;
   v_version public.public_source_versions%rowtype;
+  v_attempt public.public_source_upload_attempts%rowtype;
   v_event public.public_source_activation_events%rowtype;
   v_catalogue_key text;
   v_guard_token uuid := gen_random_uuid();
@@ -1261,25 +1524,28 @@ begin
   -- lock-order: version
   select * into v_version from public.public_source_versions
   where id = v_job.public_source_reservation_id for update;
+  -- lock-order: upload-attempt
+  select * into v_attempt from public.public_source_upload_attempts
+  where id = v_job.public_source_upload_attempt_id for update;
   -- lock-order: cleanup-job
   select * into v_job from public.storage_cleanup_jobs where id = p_job_id for update;
   if not found or v_event.id is null
     or v_job.status is distinct from 'processing'
     or v_job.public_source_claim_token is distinct from p_claim_token
     or v_job.public_source_claim_expires_at <= pg_catalog.clock_timestamp()
-    or v_version.lifecycle is distinct from 'abandoned'
-    or v_version.upload_state is distinct from 'cleanup_pending'
-    or v_version.staging_document_id is not null
+    or v_attempt.state is distinct from 'cleanup_pending'
+    or v_attempt.version_id is distinct from v_version.id
+    or v_job.public_source_upload_attempt_id is distinct from v_attempt.id
     or v_job.public_source_reservation_id is distinct from v_version.id
-    or v_job.public_source_storage_bucket is distinct from v_version.storage_bucket
-    or v_job.public_source_storage_path is distinct from v_version.reserved_storage_path
-    or v_job.public_source_cleanup_not_before is distinct from v_version.upload_lease_expires_at + interval '5 minutes' then
+    or v_job.public_source_storage_bucket is distinct from v_attempt.storage_bucket
+    or v_job.public_source_storage_path is distinct from v_attempt.storage_path
+    or v_job.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before then
     raise exception 'public source cleanup claim is stale or inconsistent';
   end if;
   insert into public.public_source_cleanup_mutation_guards(
-    token, public_source_reservation_id, operation, transaction_id, backend_pid
+    token, public_source_reservation_id, public_source_upload_attempt_id, operation, transaction_id, backend_pid
   ) values (
-    v_guard_token, v_version.id, 'release', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
+    v_guard_token, v_version.id, v_attempt.id, 'release', pg_catalog.txid_current(), pg_catalog.pg_backend_pid()
   );
   perform pg_catalog.set_config('app.public_source_cleanup_mutation', v_guard_token::text, true);
   update public.storage_cleanup_jobs

@@ -2438,15 +2438,9 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(body).toContain("from public.ingestion_jobs where document_id = v_version.reserved_document_id");
       expect(body).toContain("set lifecycle = 'abandoned'");
       expect(body).toContain("'storage_owned', false");
-      expect(body).toContain("insert into public.storage_cleanup_jobs");
-      expect(body).toContain("public_source_reservation_id");
-      expect(body).toContain("public_source_storage_bucket");
-      expect(body).toContain("public_source_storage_path");
-      expect(body).toContain("public_source_cleanup_not_before");
-      expect(body).toContain("array[v_version.reserved_storage_path]");
-      expect(body).toContain("on conflict (public_source_reservation_id)");
-      expect(body).toContain("else 'pending'");
-      expect(body).toContain("then 'processing'");
+      expect(body).toContain("public_source_upload_attempts");
+      expect(body).toContain("v_attempt.state in ('authorized', 'bound')");
+      expect(body).toContain("perform public.schedule_public_source_upload_attempt_cleanup(v_attempt.id)");
       expect(body).not.toContain("delete from public.public_source_versions");
       expect(body).not.toContain("delete from public.documents");
     });
@@ -2454,12 +2448,13 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     it("uses immutable cleanup columns, uniqueness, and lease grace instead of mutable metadata identity", () => {
       const sql = controlPlaneSql();
       expect(sql).toContain("add column public_source_reservation_id uuid");
+      expect(sql).toContain("add column public_source_upload_attempt_id uuid");
       expect(sql).toContain("add column public_source_storage_bucket text");
       expect(sql).toContain("add column public_source_storage_path text");
       expect(sql).toContain("add column public_source_cleanup_not_before timestamptz");
-      expect(sql).toContain("unique (public_source_reservation_id)");
+      expect(sql).toContain("unique (public_source_upload_attempt_id)");
       expect(sql).toContain("public_source_cleanup_bucket_path_idx");
-      expect(sql).toContain("upload_lease_expires_at + interval '5 minutes'");
+      expect(sql).toContain("signed_authority_expires_at + interval '60 seconds' + interval '5 minutes'");
       expect(sql).toContain("create trigger storage_cleanup_jobs_guard_public_source_identity");
       expect(sql).toContain("public source cleanup identity is immutable");
       const types = readFileSync("src/lib/supabase/database.types.ts", "utf8");
@@ -2482,43 +2477,36 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       const triggerStart = sql.indexOf("create or replace function public.guard_public_source_cleanup_job_identity(");
       const trigger = sql.slice(triggerStart, sql.indexOf("$$;", triggerStart));
       for (const contract of [
-        "v_version.lifecycle is distinct from 'abandoned'",
-        "v_version.upload_state is distinct from 'cleanup_pending'",
-        "v_version.staging_document_id is not null",
-        "v_version.upload_lease_expires_at + interval '5 minutes'",
+        "v_attempt.state is distinct from 'cleanup_pending'",
+        "v_attempt.version_id is distinct from v_version.id",
+        "new.public_source_upload_attempt_id is distinct from v_attempt.id",
+        "new.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before",
         "new.image_paths is distinct from '{}'::text[]",
         "public source cleanup mutation guard is missing",
       ]) {
         expect(trigger).toContain(contract);
       }
       const eligible = (fixture: {
-        lifecycle: string;
-        uploadState: string;
-        stagingDocumentId: string | null;
+        attemptState: string;
         imagePaths: string[];
         deadline: number;
         expectedDeadline: number;
       }) =>
-        fixture.lifecycle === "abandoned" &&
-        fixture.uploadState === "cleanup_pending" &&
-        fixture.stagingDocumentId === null &&
+        fixture.attemptState === "cleanup_pending" &&
         fixture.imagePaths.length === 0 &&
         fixture.deadline === fixture.expectedDeadline;
       const valid = {
-        lifecycle: "abandoned",
-        uploadState: "cleanup_pending",
-        stagingDocumentId: null,
+        attemptState: "cleanup_pending",
         imagePaths: [],
         deadline: 20,
         expectedDeadline: 20,
       };
       expect(eligible(valid)).toBe(true);
       for (const forged of [
-        { ...valid, lifecycle: "active", uploadState: "finalized", stagingDocumentId: "document-id" },
-        { ...valid, lifecycle: "shadow", uploadState: "finalized", stagingDocumentId: "document-id" },
-        { ...valid, lifecycle: "quarantined", uploadState: "finalized", stagingDocumentId: "document-id" },
-        { ...valid, lifecycle: "tombstoned", uploadState: "finalized", stagingDocumentId: "document-id" },
-        { ...valid, uploadState: "uploading" },
+        { ...valid, attemptState: "authorized" },
+        { ...valid, attemptState: "bound" },
+        { ...valid, attemptState: "finalized" },
+        { ...valid, attemptState: "cleaned" },
         { ...valid, imagePaths: ["unrelated/image.png"] },
         { ...valid, deadline: 19 },
         { ...valid, deadline: 21 },
@@ -2548,9 +2536,8 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
         expect(body, name).toContain("for update");
         expect(body, name).toContain("public_source_claim_token");
         expect(body, name).toContain("public_source_cleanup_mutation_guards");
-        expect(body, name).toContain("v_version.lifecycle is distinct from 'abandoned'");
-        expect(body, name).toContain("v_version.upload_state is distinct from 'cleanup_pending'");
-        expect(body, name).toContain("v_version.staging_document_id is not null");
+        expect(body, name).toContain("public_source_upload_attempts");
+        expect(body, name).toContain("v_attempt.state is distinct from 'cleanup_pending'");
       }
       const claimStart = sql.indexOf("create or replace function public.claim_public_source_cleanup_job(");
       const claim = sql.slice(claimStart, sql.indexOf("$$;", claimStart));
@@ -2571,18 +2558,100 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       const sql = controlPlaneSql();
       const start = sql.indexOf("create or replace function public.authorize_public_source_upload(");
       const body = sql.slice(start, sql.indexOf("$$;", start));
-      expect(body).toContain("v_version.upload_state is distinct from 'reserved'");
-      expect(body).toContain("v_version.upload_lease_expires_at > pg_catalog.clock_timestamp()");
-      expect(body).toContain("v_attempt_token := gen_random_uuid()");
+      expect(body).toContain("v_prior_attempt.claim_expires_at > pg_catalog.clock_timestamp()");
+      expect(body).toContain("v_attempt_id uuid := gen_random_uuid()");
+      expect(body).toContain("v_attempt_token uuid := gen_random_uuid()");
       expect(body).toContain("upload_lease_token = v_attempt_token");
-      expect(body).toContain("upload_lease_expires_at = pg_catalog.clock_timestamp() + interval '2 minutes'");
-      expect(body).not.toContain("upload_state not in ('reserved', 'uploading')");
+      expect(body).toContain("v_attempt_expires_at timestamptz := pg_catalog.clock_timestamp() + interval '2 minutes'");
+      expect(body).toContain("insert into public.public_source_upload_attempts");
       const finalizeStart = sql.indexOf("create or replace function public.finalize_public_source_version(");
       const finalize = sql.slice(finalizeStart, sql.indexOf("$$;", finalizeStart));
       expect(finalize).toContain("v_version.upload_lease_token is distinct from v_upload_lease_token");
       const abandonStart = sql.indexOf("create or replace function public.abandon_public_source_reservation(");
       const abandon = sql.slice(abandonStart, sql.indexOf("$$;", abandonStart));
       expect(abandon).toContain("v_version.upload_lease_token is distinct from v_upload_lease_token");
+    });
+
+    it("keeps immutable per-attempt history and binds provider-signed expiry before storage", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create table public.public_source_upload_attempts");
+      expect(sql).toContain("signed_authority_digest text");
+      expect(sql).toContain("signed_authority_expires_at timestamptz");
+      expect(sql).toContain("cleanup_not_before timestamptz not null");
+      expect(sql).toContain("unique (storage_bucket, storage_path)");
+      expect(sql).toContain("current_upload_attempt_id uuid");
+      expect(sql).toContain("finalized_upload_attempt_id uuid");
+      expect(sql).toContain("create or replace function public.bind_public_source_upload_authority(");
+      const authorizeStart = sql.indexOf("create or replace function public.authorize_public_source_upload(");
+      const authorize = sql.slice(authorizeStart, sql.indexOf("$$;", authorizeStart));
+      expect(authorize).toContain("insert into public.public_source_upload_attempts");
+      expect(authorize).toContain("gen_random_uuid()");
+      expect(authorize).toContain("public-source-staging/");
+      expect(authorize).toContain("state = 'cleanup_pending'");
+      const bindStart = sql.indexOf("create or replace function public.bind_public_source_upload_authority(");
+      const bind = sql.slice(bindStart, sql.indexOf("$$;", bindStart));
+      expect(bind).toContain("signed_authority_digest");
+      expect(bind).toContain("signed_authority_expires_at");
+      expect(bind).toContain("interval '60 seconds'");
+      expect(bind).toContain("interval '5 minutes'");
+      expect(bind).toContain("for update");
+      for (const name of ["finalize_public_source_version", "abandon_public_source_reservation"]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body, name).toContain("uploadAttemptId");
+        expect(body, name).toContain("signedAuthorityDigest");
+        expect(body, name).toContain("signedAuthorityExpiresAt");
+        expect(body, name).toContain("public_source_upload_attempts");
+      }
+      for (const name of [
+        "authorize_public_source_upload",
+        "reap_expired_public_source_upload_attempts",
+        "bind_public_source_upload_authority",
+        "finalize_public_source_version",
+        "abandon_public_source_reservation",
+        "claim_public_source_cleanup_job",
+        "complete_public_source_cleanup_job",
+        "release_public_source_cleanup_job",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body.indexOf("lock-order: upload-attempt"), name).toBeGreaterThan(body.indexOf("lock-order: version"));
+      }
+    });
+
+    it("binds cleanup authority to each retired upload attempt instead of the mutable version pointer", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("add column public_source_upload_attempt_id uuid");
+      expect(sql).toContain("unique (public_source_upload_attempt_id)");
+      expect(sql).not.toContain("unique (public_source_reservation_id)");
+      const triggerStart = sql.indexOf("create or replace function public.guard_public_source_cleanup_job_identity(");
+      const trigger = sql.slice(triggerStart, sql.indexOf("$$;", triggerStart));
+      expect(trigger).toContain("public.public_source_upload_attempts");
+      expect(trigger).toContain("v_attempt.state is distinct from 'cleanup_pending'");
+      expect(trigger).toContain("new.public_source_upload_attempt_id is distinct from v_attempt.id");
+      expect(trigger).toContain("new.public_source_cleanup_not_before is distinct from v_attempt.cleanup_not_before");
+      for (const name of [
+        "claim_public_source_cleanup_job",
+        "complete_public_source_cleanup_job",
+        "release_public_source_cleanup_job",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body, name).toContain("public_source_upload_attempts");
+        expect(body, name).toContain("v_attempt.state is distinct from 'cleanup_pending'");
+        expect(body, name).toContain("v_job.public_source_upload_attempt_id");
+      }
+      const types = readFileSync("src/lib/supabase/database.types.ts", "utf8");
+      expect(types).toContain("public_source_upload_attempts:");
+      expect(types).toContain("public_source_upload_attempt_id:");
+      expect(types).toContain("bind_public_source_upload_authority:");
+      expect(types).toContain("reap_expired_public_source_upload_attempts:");
+      const reaperStart = sql.indexOf("create or replace function public.reap_expired_public_source_upload_attempts(");
+      const reaper = sql.slice(reaperStart, sql.indexOf("$$;", reaperStart));
+      expect(reaper).toContain("attempt.state in ('authorized', 'bound')");
+      expect(reaper).toContain("attempt.claim_expires_at <= pg_catalog.clock_timestamp()");
+      expect(reaper).toContain("set state = 'cleanup_pending'");
+      expect(reaper).toContain("perform public.schedule_public_source_upload_attempt_cleanup(v_attempt.id)");
     });
 
     it("withdraws atomically from retrieval and anonymous cache while preserving history", () => {
@@ -2608,6 +2677,8 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
         "preflight_public_source_acquisition(jsonb)",
         "reserve_public_source_version(jsonb)",
         "authorize_public_source_upload(jsonb)",
+        "bind_public_source_upload_authority(jsonb)",
+        "reap_expired_public_source_upload_attempts(integer)",
         "claim_public_source_cleanup_job(integer)",
         "complete_public_source_cleanup_job(uuid, uuid, integer)",
         "release_public_source_cleanup_job(uuid, uuid, text)",

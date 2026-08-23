@@ -17,6 +17,7 @@ export type CleanupJob = {
   image_paths: string[] | null;
   attempts: number;
   public_source_reservation_id: string | null;
+  public_source_upload_attempt_id: string | null;
   public_source_storage_bucket: string | null;
   public_source_storage_path: string | null;
   public_source_cleanup_not_before: string | null;
@@ -29,6 +30,7 @@ type ClaimedPublicSourceCleanup = {
   claimToken: string;
   claimExpiresAt: string;
   reservationId: string;
+  uploadAttemptId: string;
   bucket: string;
   path: string;
   imagePaths: unknown[];
@@ -43,8 +45,13 @@ export type ControlledPublicSourceCleanupDependencies = {
 };
 
 export function publicSourceCleanupIdentityError(job: CleanupJob) {
-  if (job.public_source_reservation_id === null) return null;
+  if (job.public_source_reservation_id === null) {
+    return job.public_source_upload_attempt_id === null
+      ? null
+      : "Controlled public source cleanup identity is inconsistent.";
+  }
   if (
+    !job.public_source_upload_attempt_id ||
     !job.public_source_storage_bucket ||
     !job.public_source_storage_path ||
     job.document_bucket !== job.public_source_storage_bucket ||
@@ -71,6 +78,8 @@ function parseClaimedPublicSourceCleanup(value: unknown): ClaimedPublicSourceCle
     !Number.isFinite(Date.parse(claim.claimExpiresAt)) ||
     typeof claim.reservationId !== "string" ||
     !uuid.test(claim.reservationId) ||
+    typeof claim.uploadAttemptId !== "string" ||
+    !uuid.test(claim.uploadAttemptId) ||
     typeof claim.bucket !== "string" ||
     !/^[a-z0-9][a-z0-9._-]{0,62}$/.test(claim.bucket) ||
     typeof claim.path !== "string" ||
@@ -164,7 +173,7 @@ async function main() {
   const { data, error } = await supabase
     .from("storage_cleanup_jobs")
     .select(
-      "id,document_id,document_bucket,document_paths,image_bucket,image_paths,attempts,public_source_reservation_id,public_source_storage_bucket,public_source_storage_path,public_source_cleanup_not_before",
+      "id,document_id,document_bucket,document_paths,image_bucket,image_paths,attempts,public_source_reservation_id,public_source_upload_attempt_id,public_source_storage_bucket,public_source_storage_path,public_source_cleanup_not_before",
     )
     .in("status", ["pending", "failed"])
     .is("public_source_reservation_id", null)
@@ -256,6 +265,10 @@ async function main() {
 
   // Each queue gets an independently bounded pass so a persistent generic
   // backlog cannot starve abandoned governed-source cleanup (or vice versa).
+  const { error: reapError } = await supabase.rpc("reap_expired_public_source_upload_attempts", {
+    p_limit: Math.min(args.limit, 100),
+  });
+  if (reapError) throw new Error("Expired public-source upload attempt reaping failed.");
   const controlled = await processControlledPublicSourceCleanup(args.limit, {
     claim: async (maxAttempts) => {
       const { data: claim, error: claimError } = await supabase.rpc("claim_public_source_cleanup_job", {

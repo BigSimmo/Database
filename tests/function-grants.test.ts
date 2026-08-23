@@ -70,7 +70,15 @@ describe("check:function-grants", () => {
     expect(migration).toContain(
       "revoke all on table public.public_source_cleanup_mutation_guards from public, anon, authenticated, service_role;",
     );
+    expect(migration).toContain(
+      "revoke all on function public.schedule_public_source_upload_attempt_cleanup(uuid) from public, anon, authenticated, service_role;",
+    );
+    expect(migration).not.toContain(
+      "grant execute on function public.schedule_public_source_upload_attempt_cleanup(uuid) to service_role;",
+    );
     for (const signature of [
+      "bind_public_source_upload_authority(jsonb)",
+      "reap_expired_public_source_upload_attempts(integer)",
       "claim_public_source_cleanup_job(integer)",
       "complete_public_source_cleanup_job(uuid, uuid, integer)",
       "release_public_source_cleanup_job(uuid, uuid, text)",

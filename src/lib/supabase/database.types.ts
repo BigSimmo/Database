@@ -1053,6 +1053,7 @@ export type Database = {
           created_at: string;
           operation: string;
           public_source_reservation_id: string;
+          public_source_upload_attempt_id: string;
           token: string;
           transaction_id: number;
         };
@@ -1061,6 +1062,7 @@ export type Database = {
           created_at?: string;
           operation: string;
           public_source_reservation_id: string;
+          public_source_upload_attempt_id: string;
           token: string;
           transaction_id: number;
         };
@@ -1069,13 +1071,74 @@ export type Database = {
           created_at?: string;
           operation?: string;
           public_source_reservation_id?: string;
+          public_source_upload_attempt_id?: string;
           token?: string;
           transaction_id?: number;
         };
         Relationships: [
           {
+            foreignKeyName: "public_source_cleanup_mutation_guards_public_source_upload_attempt_id_fkey";
+            columns: ["public_source_upload_attempt_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_upload_attempts";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "public_source_cleanup_mutation_guards_public_source_reservation_id_fkey";
             columns: ["public_source_reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      public_source_upload_attempts: {
+        Row: {
+          claim_expires_at: string;
+          claim_token: string;
+          cleanup_not_before: string;
+          created_at: string;
+          id: string;
+          signed_authority_digest: string | null;
+          signed_authority_expires_at: string | null;
+          state: string;
+          storage_bucket: string;
+          storage_path: string;
+          updated_at: string;
+          version_id: string;
+        };
+        Insert: {
+          claim_expires_at: string;
+          claim_token: string;
+          cleanup_not_before: string;
+          created_at?: string;
+          id: string;
+          signed_authority_digest?: string | null;
+          signed_authority_expires_at?: string | null;
+          state: string;
+          storage_bucket: string;
+          storage_path: string;
+          updated_at?: string;
+          version_id: string;
+        };
+        Update: {
+          claim_expires_at?: string;
+          claim_token?: string;
+          cleanup_not_before?: string;
+          created_at?: string;
+          id?: string;
+          signed_authority_digest?: string | null;
+          signed_authority_expires_at?: string | null;
+          state?: string;
+          storage_bucket?: string;
+          storage_path?: string;
+          updated_at?: string;
+          version_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_upload_attempts_version_id_fkey";
+            columns: ["version_id"];
             isOneToOne: false;
             referencedRelation: "public_source_versions";
             referencedColumns: ["id"];
@@ -1088,10 +1151,12 @@ export type Database = {
           activation_sequence: number;
           content_hash: string;
           created_at: string;
+          current_upload_attempt_id: string | null;
           exact_canonical_url: string;
           exact_version: string;
           exact_version_url: string;
           extraction_index_generation_id: string | null;
+          finalized_upload_attempt_id: string | null;
           id: string;
           intended_disposition: string;
           licence_evidence_digest: string;
@@ -1119,10 +1184,12 @@ export type Database = {
           activation_sequence: number;
           content_hash: string;
           created_at?: string;
+          current_upload_attempt_id?: string | null;
           exact_canonical_url: string;
           exact_version: string;
           exact_version_url: string;
           extraction_index_generation_id?: string | null;
+          finalized_upload_attempt_id?: string | null;
           id: string;
           intended_disposition: string;
           licence_evidence_digest: string;
@@ -1150,10 +1217,12 @@ export type Database = {
           activation_sequence?: number;
           content_hash?: string;
           created_at?: string;
+          current_upload_attempt_id?: string | null;
           exact_canonical_url?: string;
           exact_version?: string;
           exact_version_url?: string;
           extraction_index_generation_id?: string | null;
+          finalized_upload_attempt_id?: string | null;
           id?: string;
           intended_disposition?: string;
           licence_evidence_digest?: string;
@@ -1177,6 +1246,20 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "public_source_versions_current_upload_attempt_id_fkey";
+            columns: ["current_upload_attempt_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_upload_attempts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_finalized_upload_attempt_id_fkey";
+            columns: ["finalized_upload_attempt_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_upload_attempts";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "public_source_versions_activation_event_id_fkey";
             columns: ["activation_event_id"];
@@ -2361,6 +2444,7 @@ export type Database = {
           public_source_claim_expires_at: string | null;
           public_source_claim_token: string | null;
           public_source_reservation_id: string | null;
+          public_source_upload_attempt_id: string | null;
           public_source_storage_bucket: string | null;
           public_source_storage_path: string | null;
           status: string;
@@ -2385,6 +2469,7 @@ export type Database = {
           public_source_claim_expires_at?: string | null;
           public_source_claim_token?: string | null;
           public_source_reservation_id?: string | null;
+          public_source_upload_attempt_id?: string | null;
           public_source_storage_bucket?: string | null;
           public_source_storage_path?: string | null;
           status?: string;
@@ -2409,6 +2494,7 @@ export type Database = {
           public_source_claim_expires_at?: string | null;
           public_source_claim_token?: string | null;
           public_source_reservation_id?: string | null;
+          public_source_upload_attempt_id?: string | null;
           public_source_storage_bucket?: string | null;
           public_source_storage_path?: string | null;
           status?: string;
@@ -2419,8 +2505,15 @@ export type Database = {
           {
             foreignKeyName: "storage_cleanup_jobs_public_source_reservation_id_fkey";
             columns: ["public_source_reservation_id"];
-            isOneToOne: true;
+            isOneToOne: false;
             referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "storage_cleanup_jobs_public_source_upload_attempt_id_fkey";
+            columns: ["public_source_upload_attempt_id"];
+            isOneToOne: true;
+            referencedRelation: "public_source_upload_attempts";
             referencedColumns: ["id"];
           },
         ];
@@ -3210,7 +3303,15 @@ export type Database = {
       };
       authorize_public_source_upload: {
         Args: { p_manifest: Json };
-        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+        Returns: Json;
+      };
+      bind_public_source_upload_authority: {
+        Args: { p_manifest: Json };
+        Returns: Json;
+      };
+      reap_expired_public_source_upload_attempts: {
+        Args: { p_limit: number };
+        Returns: number;
       };
       claim_public_source_cleanup_job: {
         Args: { p_max_attempts: number };

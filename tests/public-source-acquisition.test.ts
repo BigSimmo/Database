@@ -24,7 +24,9 @@ import {
   type PublicSourceAcquisitionPlan,
 } from "@/lib/public-source-acquisition";
 import {
+  parseSignedPublicSourceUploadAuthority,
   stageFetchedPublicSource,
+  uploadPublicSourceWithSignedAuthority,
   type PublicSourceStagingDependencies,
 } from "../scripts/fetch-approved-public-source-versions";
 import {
@@ -51,6 +53,25 @@ const reservationLease = {
   uploadLeaseExpiresAt: "2026-08-24T00:15:00.000Z",
   uploadState: "reserved",
 };
+
+const uploadAttemptId = "77777777-7777-4777-8777-777777777777";
+
+function signedUploadToken(expiresAtSeconds: number) {
+  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ exp: expiresAtSeconds })}.offline-signature`;
+}
+
+function signedUploadFixture(storagePath: string, expiresAtSeconds = 1_777_000_000) {
+  const token = signedUploadToken(expiresAtSeconds);
+  return {
+    token,
+    path: storagePath,
+    signedUrl: `https://offline-project.supabase.co/storage/v1/object/upload/sign/offline-test/${storagePath
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}?token=${token}`,
+  };
+}
 
 function authorizedUploadState(reservation: {
   id: string;
@@ -550,7 +571,9 @@ describe("public source acquisition", () => {
       version: committed,
     });
     expect(calls).toEqual(["reserve", "authorize", "upload", "finalize", "lookup"]);
-    expect(dependencies.upload).toHaveBeenCalledWith(expect.objectContaining({ upsert: true }));
+    expect(dependencies.upload).toHaveBeenCalledWith(
+      expect.objectContaining({ storagePath: `${stewardId}/public-source-staging/${committed.id}/source.txt` }),
+    );
   });
 
   it.each(["denied", "stale"])("checks %s current authority before DNS, HTTP, reservation, or upload", async () => {
@@ -689,6 +712,7 @@ describe("public source acquisition", () => {
     expect(cleanupSource).toContain('.rpc("claim_public_source_cleanup_job"');
     expect(cleanupSource).toContain('.rpc("complete_public_source_cleanup_job"');
     expect(cleanupSource).toContain('.rpc("release_public_source_cleanup_job"');
+    expect(cleanupSource).toContain('.rpc("reap_expired_public_source_upload_attempts"');
     expect(cleanupSource).not.toContain("Date.now()");
     expect(cleanupSource).not.toContain("public_source_cleanup_not_before.lte");
     const update = cleanupSource.slice(cleanupSource.indexOf('.from("storage_cleanup_jobs")\n      .update'));
@@ -714,6 +738,7 @@ describe("public source acquisition", () => {
       image_paths: [],
       attempts: 2,
       public_source_reservation_id: "44444444-4444-4444-8444-444444444444",
+      public_source_upload_attempt_id: uploadAttemptId,
       public_source_storage_bucket: "offline-test",
       public_source_storage_path: path,
       public_source_cleanup_not_before: "2026-08-24T00:20:00.000Z",
@@ -753,6 +778,7 @@ describe("public source acquisition", () => {
       id: "77777777-7777-4777-8777-777777777777",
       claimExpiresAt: "2026-08-24T00:22:00.000Z",
       reservationId: "44444444-4444-4444-8444-444444444444",
+      uploadAttemptId,
       bucket: "offline-test",
       path,
       imagePaths: [],
@@ -791,6 +817,7 @@ describe("public source acquisition", () => {
           claimToken: "88888888-8888-4888-8888-888888888888",
           claimExpiresAt: "2026-08-24T00:22:00.000Z",
           reservationId: "44444444-4444-4444-8444-444444444444",
+          uploadAttemptId,
           bucket: "offline-test",
           path: `${stewardId}/public-source-staging/forged/source.txt`,
           imagePaths: ["unrelated/image.png"],
@@ -804,7 +831,7 @@ describe("public source acquisition", () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
-  it("uses an exclusive rotated upload attempt and binds finalize to that attempt", async () => {
+  it("lets a duplicate caller observe an active attempt without abandoning its owner", async () => {
     const plan = await activePlan();
     const fetched = {
       finalUrl: plan.exactUrl,
@@ -814,17 +841,27 @@ describe("public source acquisition", () => {
       content: Buffer.from("clinical text"),
       disposition: "shadow" as const,
     };
-    const reservation = {
+    const initialReservation = {
       id: "44444444-4444-4444-8444-444444444444",
       reservedDocumentId: "55555555-5555-4555-8555-555555555555",
-      storagePath: `${stewardId}/public-source-staging/exclusive/source.txt`,
+      storagePath: `${stewardId}/public-source-staging/exclusive/reserved/source.txt`,
       stagingDocumentId: null,
       lifecycle: "discovered",
       ...reservationLease,
     };
     const attemptToken = "88888888-8888-4888-8888-888888888888";
     const attemptExpiry = "2026-08-24T00:17:00.000Z";
+    const attemptPath = `${stewardId}/public-source-staging/${initialReservation.id}/${uploadAttemptId}/source.txt`;
+    const activeReservation = {
+      ...initialReservation,
+      storagePath: attemptPath,
+      uploadLeaseToken: attemptToken,
+      uploadLeaseExpiresAt: attemptExpiry,
+      uploadState: "uploading",
+      uploadAttemptId,
+    };
     let authorizeCalls = 0;
+    let reservedManifest: Record<string, string | number> = {};
     let releaseUpload!: () => void;
     const uploadHeld = new Promise<void>((resolve) => {
       releaseUpload = resolve;
@@ -833,35 +870,371 @@ describe("public source acquisition", () => {
       expect(signal).toBeInstanceOf(AbortSignal);
       await uploadHeld;
     });
+    const abandon = vi.fn();
     const dependencies = {
       storageBucket: "offline-test",
-      reserve: vi.fn(async () => reservation),
+      reserve: vi.fn(async ({ manifest }: { manifest: Record<string, string | number> }) => {
+        reservedManifest = manifest;
+        return authorizeCalls === 0 ? initialReservation : activeReservation;
+      }),
       authorizeUpload: vi.fn(async () => {
         authorizeCalls += 1;
         if (authorizeCalls > 1) throw new Error("Upload attempt is already claimed.");
         return {
-          ...authorizedUploadState(reservation),
+          ...authorizedUploadState(activeReservation),
+          upload_attempt_id: uploadAttemptId,
+          reserved_storage_path: attemptPath,
           upload_lease_token: attemptToken,
           upload_lease_expires_at: attemptExpiry,
         };
       }),
       upload,
       finalize: vi.fn(async ({ manifest }: { manifest: Record<string, unknown> }) => {
-        expect(manifest).toMatchObject({ uploadLeaseToken: attemptToken, uploadLeaseExpiresAt: attemptExpiry });
-        return { id: reservation.id, lifecycle: "shadow", staging_document_id: reservation.reservedDocumentId };
+        expect(manifest).toMatchObject({
+          uploadAttemptId,
+          reservedStoragePath: attemptPath,
+          uploadLeaseToken: attemptToken,
+          uploadLeaseExpiresAt: attemptExpiry,
+        });
+        return {
+          id: initialReservation.id,
+          lifecycle: "shadow",
+          staging_document_id: initialReservation.reservedDocumentId,
+        };
       }),
-      lookup: vi.fn(async () => null),
+      lookup: vi.fn(async () => ({
+        ...authorizedUploadState(activeReservation),
+        upload_attempt_id: uploadAttemptId,
+        reservation_key: reservedManifest.reservationKey,
+        source_catalogue_key: plan.catalogueKey,
+        source_policy_version: plan.sourcePolicyVersion,
+        source_policy_digest: plan.sourcePolicyDigest,
+        activation_event_id: plan.activationEventId,
+        activation_sequence: plan.activationSequence,
+        exact_canonical_url: australianSourceByKey(plan.catalogueKey)!.canonicalUrl,
+        exact_version_url: plan.exactUrl,
+        exact_version: plan.exactVersion,
+        content_hash: fetched.contentHash,
+        licence_evidence_digest: plan.licenceEvidenceDigest,
+        intended_disposition: fetched.disposition,
+      })),
+      abandon,
     } as unknown as PublicSourceStagingDependencies;
 
     const first = stageFetchedPublicSource(plan, fetched, dependencies, { uploadTimeoutMs: 5_000 });
     void first.catch(() => undefined);
     await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce());
-    await expect(stageFetchedPublicSource(plan, fetched, dependencies, { uploadTimeoutMs: 5_000 })).rejects.toThrow(
-      /attempt|authority/i,
-    );
+    await expect(
+      stageFetchedPublicSource(plan, fetched, dependencies, { uploadTimeoutMs: 5_000 }),
+    ).resolves.toMatchObject({ disposition: "in_progress" });
     expect(upload).toHaveBeenCalledOnce();
+    expect(abandon).not.toHaveBeenCalled();
     releaseUpload();
     await expect(first).resolves.toMatchObject({ disposition: "shadow" });
+  });
+
+  it("does not adopt or abandon a discovered attempt after an ambiguous authorize response", async () => {
+    const plan = await activePlan();
+    const attemptToken = "88888888-8888-4888-8888-888888888888";
+    const attemptExpiry = "2026-08-24T00:17:00.000Z";
+    const attemptPath = `${stewardId}/public-source-staging/44444444-4444-4444-8444-444444444444/${uploadAttemptId}/source.txt`;
+    const reservation = {
+      id: "44444444-4444-4444-8444-444444444444",
+      reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+      storagePath: attemptPath,
+      stagingDocumentId: null,
+      lifecycle: "discovered",
+      ...reservationLease,
+      uploadAttemptId,
+      uploadLeaseToken: attemptToken,
+      uploadLeaseExpiresAt: attemptExpiry,
+      uploadState: "uploading",
+    };
+    const abandon = vi.fn();
+    const upload = vi.fn();
+    let reservedManifest: Record<string, string | number> = {};
+    const dependencies = {
+      storageBucket: "offline-test",
+      reserve: vi.fn(async ({ manifest }: { manifest: Record<string, string | number> }) => {
+        reservedManifest = manifest;
+        return reservation;
+      }),
+      authorizeUpload: vi.fn(async () => {
+        throw new Error("response lost after exclusive claim may have committed");
+      }),
+      upload,
+      finalize: vi.fn(),
+      lookup: vi.fn(async () => ({
+        ...authorizedUploadState(reservation),
+        upload_attempt_id: uploadAttemptId,
+        reservation_key: reservedManifest.reservationKey,
+        source_catalogue_key: plan.catalogueKey,
+        source_policy_version: plan.sourcePolicyVersion,
+        source_policy_digest: plan.sourcePolicyDigest,
+        activation_event_id: plan.activationEventId,
+        activation_sequence: plan.activationSequence,
+        exact_canonical_url: australianSourceByKey(plan.catalogueKey)!.canonicalUrl,
+        exact_version_url: plan.exactUrl,
+        exact_version: plan.exactVersion,
+        content_hash: "4".repeat(64),
+        licence_evidence_digest: plan.licenceEvidenceDigest,
+        intended_disposition: "shadow",
+      })),
+      abandon,
+    } as unknown as PublicSourceStagingDependencies;
+    await expect(
+      stageFetchedPublicSource(
+        plan,
+        {
+          finalUrl: plan.exactUrl,
+          contentHash: "4".repeat(64),
+          byteCount: 12,
+          mime: "text/plain",
+          content: Buffer.from("clinical text"),
+          disposition: "shadow",
+        },
+        dependencies,
+      ),
+    ).resolves.toMatchObject({ disposition: "in_progress" });
+    expect(upload).not.toHaveBeenCalled();
+    expect(abandon).not.toHaveBeenCalled();
+  });
+
+  it("parses, bounds, and redacts the fixed two-hour signed-upload authority", () => {
+    const path = `${stewardId}/public-source-staging/version/attempt/source.txt`;
+    const now = 1_776_992_800;
+    const fixture = signedUploadFixture(path, now + 7_200);
+    expect(
+      parseSignedPublicSourceUploadAuthority(fixture, {
+        supabaseUrl: "https://offline-project.supabase.co",
+        storageBucket: "offline-test",
+        storagePath: path,
+        nowEpochSeconds: now,
+      }),
+    ).toMatchObject({
+      signedUrl: fixture.signedUrl,
+      storagePath: path,
+      expiresAt: new Date((now + 7_200) * 1_000).toISOString(),
+      digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+    for (const malformed of [
+      signedUploadFixture(path, now - 1),
+      signedUploadFixture(path, now + 7_261),
+      { ...fixture, token: "not-a-jwt" },
+      { ...fixture, path: `${path}.other` },
+    ]) {
+      expect(() =>
+        parseSignedPublicSourceUploadAuthority(malformed, {
+          supabaseUrl: "https://offline-project.supabase.co",
+          storageBucket: "offline-test",
+          storagePath: path,
+          nowEpochSeconds: now,
+        }),
+      ).toThrow(/signed upload authority/i);
+      try {
+        parseSignedPublicSourceUploadAuthority(malformed, {
+          supabaseUrl: "https://offline-project.supabase.co",
+          storageBucket: "offline-test",
+          storagePath: path,
+          nowEpochSeconds: now,
+        });
+      } catch (error) {
+        expect(String(error)).not.toContain(fixture.token);
+        expect(String(error)).not.toContain(fixture.signedUrl);
+      }
+    }
+  });
+
+  it("uses the installed two-hour signed-upload primitive without privileged upload headers", () => {
+    const installed = readFileSync("node_modules/@supabase/storage-js/src/packages/StorageFileApi.ts", "utf8");
+    expect(installed).toContain("They are valid for 2 hours.");
+    expect(installed).toContain("async createSignedUploadUrl(");
+    expect(installed).toContain("options?: { upsert: boolean }");
+    const runtime = readFileSync("scripts/fetch-approved-public-source-versions.ts", "utf8");
+    expect(runtime).toContain(".createSignedUploadUrl(storagePath, { upsert: false })");
+    const transportStart = runtime.indexOf("export async function uploadPublicSourceWithSignedAuthority(");
+    const transportEnd = runtime.indexOf("export function parsePublicSourceStorageBucket", transportStart);
+    const transport = runtime.slice(transportStart, transportEnd);
+    expect(transport).toContain('method: "PUT"');
+    expect(transport).toContain('redirect: "error"');
+    expect(transport).not.toContain("authorization");
+    expect(transport).not.toContain("apikey");
+    expect(transport).not.toContain("serviceRoleKey");
+  });
+
+  it("recovers a lost signed-authority bind only for the locally claimed exact attempt", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "d".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      disposition: "shadow" as const,
+    };
+    const reservation = {
+      id: "44444444-4444-4444-8444-444444444444",
+      reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+      storagePath: `${stewardId}/public-source-staging/${uploadAttemptId}/reserved.txt`,
+      stagingDocumentId: null,
+      lifecycle: "discovered",
+      ...reservationLease,
+    };
+    const claimedToken = "88888888-8888-4888-8888-888888888888";
+    const claimedExpiry = new Date(Date.now() + 120_000).toISOString();
+    const attemptPath = `${stewardId}/public-source-staging/${reservation.id}/${uploadAttemptId}/source.txt`;
+    const authority = parseSignedPublicSourceUploadAuthority(
+      signedUploadFixture(attemptPath, Math.floor(Date.now() / 1000) + 7_200),
+      {
+        supabaseUrl: "https://offline-project.supabase.co",
+        storageBucket: "offline-test",
+        storagePath: attemptPath,
+      },
+    );
+    const order: string[] = [];
+    const dependencies = {
+      storageBucket: "offline-test",
+      reserve: vi.fn(async () => reservation),
+      authorizeUpload: vi.fn(async () => {
+        order.push("authorize");
+        return {
+          ...authorizedUploadState({
+            ...reservation,
+            storagePath: attemptPath,
+            uploadLeaseToken: claimedToken,
+            uploadLeaseExpiresAt: claimedExpiry,
+          }),
+          upload_attempt_id: uploadAttemptId,
+        };
+      }),
+      createSignedUploadAuthority: vi.fn(async () => {
+        order.push("sign");
+        return authority;
+      }),
+      bindUploadAuthority: vi.fn(async () => {
+        order.push("bind");
+        throw new Error("response lost after bind commit");
+      }),
+      lookupAttempt: vi.fn(async () => ({
+        id: uploadAttemptId,
+        version_id: reservation.id,
+        claim_token: claimedToken,
+        storage_bucket: "offline-test",
+        storage_path: attemptPath,
+        signed_authority_digest: authority.digest,
+        signed_authority_expires_at: authority.expiresAt,
+        state: "bound",
+      })),
+      upload: vi.fn(async ({ signedAuthority }: { signedAuthority?: { digest: string } }) => {
+        order.push("upload");
+        expect(signedAuthority?.digest).toBe(authority.digest);
+      }),
+      finalize: vi.fn(async ({ manifest }: { manifest: Record<string, unknown> }) => {
+        order.push("finalize");
+        expect(manifest).toMatchObject({
+          uploadAttemptId,
+          uploadLeaseToken: claimedToken,
+          reservedStoragePath: attemptPath,
+          signedAuthorityDigest: authority.digest,
+          signedAuthorityExpiresAt: authority.expiresAt,
+        });
+        expect(JSON.stringify(manifest)).not.toContain(new URL(authority.signedUrl).searchParams.get("token")!);
+        expect(manifest).not.toHaveProperty("signedUrl");
+        return { id: reservation.id, lifecycle: "shadow", staging_document_id: reservation.reservedDocumentId };
+      }),
+      lookup: vi.fn(),
+      abandon: vi.fn(),
+    } as unknown as PublicSourceStagingDependencies;
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).resolves.toMatchObject({
+      disposition: "shadow",
+    });
+    expect(order).toEqual(["authorize", "sign", "bind", "upload", "finalize"]);
+    expect(dependencies.abandon).not.toHaveBeenCalled();
+  });
+
+  it("uses only the signed attempt URL and lets Storage reject a suspended expired writer", async () => {
+    const pathA = `${stewardId}/public-source-staging/version/attempt-a/source.txt`;
+    const pathB = `${stewardId}/public-source-staging/version/attempt-b/source.txt`;
+    const now = 1_776_992_800;
+    const authorityA = parseSignedPublicSourceUploadAuthority(signedUploadFixture(pathA, now + 7_200), {
+      supabaseUrl: "https://offline-project.supabase.co",
+      storageBucket: "offline-test",
+      storagePath: pathA,
+      nowEpochSeconds: now,
+    });
+    let providerNow = now;
+    const authorityB = parseSignedPublicSourceUploadAuthority(signedUploadFixture(pathB, now + 7_320), {
+      supabaseUrl: "https://offline-project.supabase.co",
+      storageBucket: "offline-test",
+      storagePath: pathB,
+      nowEpochSeconds: now + 120,
+    });
+    expect(authorityA.storagePath).not.toBe(authorityB.storagePath);
+    const objects = new Set<string>();
+    const signedEndpoint = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input));
+      expect(init?.method).toBe("PUT");
+      expect(new Headers(init?.headers).has("authorization")).toBe(false);
+      expect(new Headers(init?.headers).has("apikey")).toBe(false);
+      const token = url.searchParams.get("token")!;
+      const exp = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString("utf8")).exp as number;
+      if (providerNow >= exp) return new Response(null, { status: 401 });
+      objects.add(url.pathname);
+      return new Response(null, { status: 200 });
+    });
+    await uploadPublicSourceWithSignedAuthority(
+      authorityA,
+      Buffer.from("old attempt"),
+      "text/plain",
+      new AbortController().signal,
+      signedEndpoint,
+    );
+    providerNow += 120; // the database lease expired and a new unique attempt was authorized
+    await uploadPublicSourceWithSignedAuthority(
+      authorityA,
+      Buffer.from("still-valid old attempt"),
+      "text/plain",
+      new AbortController().signal,
+      signedEndpoint,
+    );
+    await uploadPublicSourceWithSignedAuthority(
+      authorityB,
+      Buffer.from("new attempt"),
+      "text/plain",
+      new AbortController().signal,
+      signedEndpoint,
+    );
+    expect(objects.size).toBe(2);
+
+    providerNow = now + 7_200 + 360; // signed expiry plus upload bound and cleanup grace
+    objects.delete(new URL(authorityA.signedUrl).pathname); // database-clock janitor cleanup
+    await expect(
+      uploadPublicSourceWithSignedAuthority(
+        authorityA,
+        Buffer.from("suspended stale writer"),
+        "text/plain",
+        new AbortController().signal,
+        signedEndpoint,
+      ),
+    ).rejects.toThrow(/storage write failed/i);
+    expect(objects).toEqual(new Set([new URL(authorityB.signedUrl).pathname]));
+
+    const rawToken = new URL(authorityA.signedUrl).searchParams.get("token")!;
+    try {
+      await uploadPublicSourceWithSignedAuthority(
+        authorityA,
+        Buffer.from("clinical text"),
+        "text/plain",
+        new AbortController().signal,
+        vi.fn(async () => {
+          throw new Error(`transport rejected ${authorityA.signedUrl}`);
+        }),
+      );
+    } catch (error) {
+      expect(String(error)).toMatch(/storage write failed/i);
+      expect(String(error)).not.toContain(rawToken);
+      expect(String(error)).not.toContain(authorityA.signedUrl);
+    }
   });
 
   it("aborts and settles a held upload before abandonment when its total timeout expires", async () => {
