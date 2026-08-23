@@ -181,3 +181,49 @@ describe("DocumentDrawer — browsing", () => {
     expect(screen.getByRole("button", { name: "In scope" })).toBeVisible();
   });
 });
+
+describe("DocumentDrawer — the refine region", () => {
+  // Five label-plus-48px selects cost most of a phone viewport, and this sheet's
+  // job is to show sources. They fold away; what is IN FORCE never does.
+  it("keeps the refine controls folded until asked, while the group stays reachable", () => {
+    render(<DocumentDrawer {...baseProps()} mode="library" />);
+
+    expect(screen.getByRole("group", { name: "Refine sources" })).toBeVisible();
+    const refine = screen.getByRole("button", { name: /Refine/ });
+    expect(refine).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(refine);
+    expect(refine).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Provenance")).toBeVisible();
+  });
+
+  it("surfaces an active refinement as a removable chip that survives collapsing the panel", () => {
+    render(<DocumentDrawer {...baseProps()} mode="library" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Refine/ }));
+    fireEvent.change(screen.getByLabelText("Provenance"), { target: { value: "official" } });
+
+    // Folded away again, the constraint is still stated — the chips live outside
+    // the disclosure precisely so collapsing can never hide one.
+    fireEvent.click(screen.getByRole("button", { name: /Refine/ }));
+    const remove = screen.getByRole("button", { name: "Remove the provenance filter Official" });
+    expect(remove).toBeVisible();
+
+    fireEvent.click(remove);
+    expect(screen.queryByRole("button", { name: /^Remove the provenance filter/ })).toBeNull();
+  });
+
+  it("separates filtered-to-zero from a query that matched nothing, and offers the way out", () => {
+    // The fixture document carries no authority metadata, so it classifies as
+    // unclassified and an Official filter excludes it.
+    render(<DocumentDrawer {...baseProps()} mode="library" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Refine/ }));
+    fireEvent.change(screen.getByLabelText("Provenance"), { target: { value: "official" } });
+
+    expect(screen.getByText("No documents match these filters")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.queryByText("No documents match these filters")).toBeNull();
+    expect(screen.getByRole("link", { name: /Antipsychotic switching/i })).toBeVisible();
+  });
+});

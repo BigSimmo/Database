@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   Sparkles,
   Tag,
+  X,
 } from "lucide-react";
 
 import { DocumentManagementActions, type DocumentDeleteResult } from "@/components/DocumentManagementActions";
@@ -23,6 +24,9 @@ import {
   documentOrganizationProfile,
 } from "@/components/DocumentOrganizationBadges";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
+import { Chip } from "@/components/ui/chip";
+import { Disclosure } from "@/components/ui/disclosure";
+import { Select } from "@/components/ui/select";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import type {
@@ -65,8 +69,17 @@ import {
   tagSearchText,
 } from "@/lib/document-tags";
 import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
+import { sourceDesignationLabel } from "@/lib/source-metadata";
 import type { ClinicalDocument, DocumentLabel, DocumentLabelType } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
+
+/** The provenance options, in registry order. `sourceDesignationLabel` already
+    owns the display text, so the select does not restate it. */
+const sourceDesignationValues = [
+  "official",
+  "trusted",
+  "unclassified",
+] as const satisfies ReadonlyArray<SourceDesignation>;
 
 const tagQualityTone: Record<SmartDocumentTagQualityIssueKind, string> = {
   noisy: toneDanger,
@@ -574,6 +587,13 @@ export function DocumentDrawer({
   const [selectedPopulation, setSelectedPopulation] = useState<string>("all");
   const [selectedDesignation, setSelectedDesignation] = useState<SourceDesignation | "all">("all");
   const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState<boolean>(false);
+  /* The five refinements start folded away. Five label-plus-48px controls cost
+     most of a phone viewport, and this sheet's job is to show sources — a reader
+     who has not asked to narrow anything should be looking at documents, not at
+     the machinery for excluding them. Freely collapsible in both directions: the
+     active refinements render as chips OUTSIDE the disclosure, so folding it can
+     never hide a constraint that is in force. */
+  const [refineOpen, setRefineOpen] = useState(false);
 
   const [collectionDraft, setCollectionDraft] = useState("");
   const [metadataDraft, setMetadataDraft] = useState({
@@ -719,6 +739,58 @@ export function DocumentDrawer({
       return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
     });
 
+  /* One descriptor per refinement, so the chips, the Clear control and the
+     filtered-to-zero empty state all read the same list instead of each
+     re-deriving "is anything set" from five separate pieces of state. Provenance
+     is typed, so its reset is written out rather than folded into the loop. */
+  const activeRefinements: ReadonlyArray<{
+    key: string;
+    groupLabel: string;
+    valueLabel: string;
+    onClear: () => void;
+  }> = [
+    selectedType !== "all"
+      ? { key: "type", groupLabel: "source type", valueLabel: selectedType, onClear: () => setSelectedType("all") }
+      : null,
+    selectedSite !== "all"
+      ? { key: "site", groupLabel: "site", valueLabel: selectedSite, onClear: () => setSelectedSite("all") }
+      : null,
+    selectedTopic !== "all"
+      ? { key: "topic", groupLabel: "topic", valueLabel: selectedTopic, onClear: () => setSelectedTopic("all") }
+      : null,
+    selectedPopulation !== "all"
+      ? {
+          key: "population",
+          groupLabel: "population",
+          valueLabel: selectedPopulation,
+          onClear: () => setSelectedPopulation("all"),
+        }
+      : null,
+    selectedDesignation !== "all"
+      ? {
+          key: "designation",
+          groupLabel: "provenance",
+          valueLabel: sourceDesignationLabel(selectedDesignation),
+          onClear: () => setSelectedDesignation("all"),
+        }
+      : null,
+  ].filter((refinement): refinement is NonNullable<typeof refinement> => refinement !== null);
+
+  function clearRefinements() {
+    setSelectedType("all");
+    setSelectedSite("all");
+    setSelectedTopic("all");
+    setSelectedPopulation("all");
+    setSelectedDesignation("all");
+  }
+
+  const allOption = (label: string) => ({ value: "all", label });
+  const valueOptions = (values: ReadonlyArray<string>) => values.map((value) => ({ value, label: value }));
+  /* Document types arrive lower-cased from the label store, unlike sites, topics
+     and populations, which are already display strings. */
+  const sentenceCasedOptions = (values: ReadonlyArray<string>) =>
+    values.map((value) => ({ value, label: value.charAt(0).toUpperCase() + value.slice(1) }));
+
   return (
     <div className="space-y-3">
       <label className="relative block">
@@ -735,115 +807,95 @@ export function DocumentDrawer({
         />
       </label>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="Refine sources">
-        <div>
-          <label
-            htmlFor="browse-filter-type"
-            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
-          >
-            Source type
-          </label>
-          <select
-            id="browse-filter-type"
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 text-xs")}
-            aria-label="Filter by document type"
-          >
-            <option value="all">All source types</option>
-            {allTypes.map((t) => (
-              <option key={t} value={t}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </option>
+      {/* The refine region. `role="group"` sits on the wrapper rather than on the
+          select grid so the group — and the chips saying what is currently in
+          force — stay in the accessibility tree while the controls are folded
+          away. */}
+      <div role="group" aria-label="Refine sources" className="grid gap-2">
+        {activeRefinements.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {activeRefinements.map((refinement) => (
+              <Chip
+                key={refinement.key}
+                size="compact"
+                appearance={{ kind: "information", tone: "accent" }}
+                onRemove={refinement.onClear}
+                removeLabel={`Remove the ${refinement.groupLabel} filter ${refinement.valueLabel}`}
+              >
+                {refinement.valueLabel}
+              </Chip>
             ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-site"
-            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
-          >
-            Site
-          </label>
-          <select
-            id="browse-filter-site"
-            value={selectedSite}
-            onChange={(e) => setSelectedSite(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 text-xs")}
-            aria-label="Filter by site"
-          >
-            <option value="all">All Sites</option>
-            {allSites.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-topic"
-            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
-          >
-            Topic
-          </label>
-          <select
-            id="browse-filter-topic"
-            value={selectedTopic}
-            onChange={(e) => setSelectedTopic(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 text-xs")}
-            aria-label="Filter by topic"
-          >
-            <option value="all">All Topics</option>
-            {allTopics.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-population"
-            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
-          >
-            Population
-          </label>
-          <select
-            id="browse-filter-population"
-            value={selectedPopulation}
-            onChange={(e) => setSelectedPopulation(e.target.value)}
-            className={cn(fieldControlPlain, "mt-1 text-xs")}
-            aria-label="Filter by population"
-          >
-            <option value="all">All Populations</option>
-            {allPopulations.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label
-            htmlFor="browse-filter-designation"
-            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
-          >
-            Provenance
-          </label>
-          <select
-            id="browse-filter-designation"
-            value={selectedDesignation}
-            onChange={(e) => setSelectedDesignation(e.target.value as SourceDesignation | "all")}
-            className={cn(fieldControlPlain, "mt-1 text-xs")}
-            aria-label="Filter by source provenance designation"
-          >
-            <option value="all">All provenance</option>
-            <option value="official">Official</option>
-            <option value="trusted">Trusted</option>
-            <option value="unclassified">Unclassified</option>
-          </select>
-        </div>
+            {/* Only rendered while something is actually clearable — a Clear that
+                can never do anything is the control this repo's wiring rule
+                exists to prevent. */}
+            {activeRefinements.length > 1 ? (
+              <button
+                type="button"
+                onClick={clearRefinements}
+                /* Tap floor, not chip height. The chips beside it are a shipped
+                   design-system size with their own enlarged remove hit area;
+                   this is a bespoke control and takes the production 48px. */
+                className={cn(floatingControl, "min-h-tap gap-1.5 px-3 text-2xs sm:min-h-10")}
+              >
+                <X aria-hidden="true" className="h-3 w-3 shrink-0" />
+                Clear all
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        <Disclosure
+          title="Refine"
+          description="Source type, site, topic, population and provenance."
+          meta={`${filtered.length.toLocaleString()} of ${documents.length.toLocaleString()}`}
+          open={refineOpen}
+          onOpenChange={setRefineOpen}
+          headingLevel={3}
+        >
+          {/* Five controls in a two-column phone grid orphans the fifth beside a
+              dead cell. Provenance spans the row on phones and rejoins the
+              three-column grid from `sm`, so neither breakpoint leaves a gap. */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <Select
+              id="browse-filter-type"
+              label="Source type"
+              value={selectedType}
+              onChange={(event) => setSelectedType(event.target.value)}
+              options={[allOption("All source types"), ...sentenceCasedOptions(allTypes)]}
+            />
+            <Select
+              id="browse-filter-site"
+              label="Site"
+              value={selectedSite}
+              onChange={(event) => setSelectedSite(event.target.value)}
+              options={[allOption("All sites"), ...valueOptions(allSites)]}
+            />
+            <Select
+              id="browse-filter-topic"
+              label="Topic"
+              value={selectedTopic}
+              onChange={(event) => setSelectedTopic(event.target.value)}
+              options={[allOption("All topics"), ...valueOptions(allTopics)]}
+            />
+            <Select
+              id="browse-filter-population"
+              label="Population"
+              value={selectedPopulation}
+              onChange={(event) => setSelectedPopulation(event.target.value)}
+              options={[allOption("All populations"), ...valueOptions(allPopulations)]}
+            />
+            <Select
+              id="browse-filter-designation"
+              label="Provenance"
+              value={selectedDesignation}
+              onChange={(event) => setSelectedDesignation(event.target.value as SourceDesignation | "all")}
+              options={[
+                allOption("All provenance"),
+                ...sourceDesignationValues.map((value) => ({ value, label: sourceDesignationLabel(value) })),
+              ]}
+              fieldClassName="col-span-2 sm:col-span-1"
+            />
+          </div>
+        </Disclosure>
       </div>
 
       {/* Admin Queue Toggle */}
@@ -1035,13 +1087,38 @@ export function DocumentDrawer({
       ) : null}
       <div className="divide-y divide-[color:var(--border)] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
         {filtered.length === 0 ? (
+          /* Three distinct zeroes, three distinct claims. An empty corpus, a
+             query that matched nothing, and refinements that excluded
+             everything each need a different sentence and a different way out —
+             telling a reader to retype their query when the real cause is a
+             provenance filter sends them to fix the wrong thing. */
           <EmptyState
             icon={FileText}
-            title={documents.length === 0 ? emptyStates.documentsNoneIndexed.title : emptyStates.documentsNoMatch.title}
+            title={
+              documents.length === 0
+                ? emptyStates.documentsNoneIndexed.title
+                : activeRefinements.length > 0
+                  ? emptyStates.documentsNoFilterMatch.title
+                  : emptyStates.documentsNoMatch.title
+            }
             body={
               documents.length === 0
                 ? "Documents are added through the administrator backend before indexing."
-                : "Try another document title or file name."
+                : activeRefinements.length > 0
+                  ? "The search ran fine — the filters above excluded everything. Remove one to widen it."
+                  : "Try another document title or file name."
+            }
+            actions={
+              activeRefinements.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearRefinements}
+                  className={cn(floatingControl, "min-h-tap gap-1.5 px-3 text-xs sm:min-h-10")}
+                >
+                  <X aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  Clear filters
+                </button>
+              ) : undefined
             }
             live="polite"
           />

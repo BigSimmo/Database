@@ -1046,6 +1046,45 @@ describe("ResultFilterSheet", () => {
     expect(onBrowseAll).toHaveBeenCalledTimes(1);
   });
 
+  it("puts the secondary destination above the commit action and draws it as a whole control", () => {
+    render(
+      <ResultFilterSheet
+        open
+        onClose={vi.fn()}
+        panelId="document-panel"
+        testId="document-filter-panel"
+        title="Filter documents"
+        groups={[
+          resultFilterGroup({
+            id: "type",
+            label: "Result type",
+            value: "all",
+            options: [{ value: "all", label: "All" }],
+            onChange: vi.fn(),
+          }),
+        ]}
+        applicationMode="staged"
+        summary={{ count: 7, noun: "documents" }}
+        primaryActionLabel="Update search"
+        onApply={vi.fn()}
+        secondaryAction={{ label: "Browse all sources", count: 2014, onClick: vi.fn() }}
+      />,
+    );
+
+    const browse = screen.getByRole("button", { name: /Browse all sources/ });
+    const apply = screen.getByRole("button", { name: "Update search" });
+
+    // The commit action stays last and closest to the thumb, and nothing renders
+    // after it — a control below the primary CTA read as dangling off the end of
+    // the sheet.
+    expect(browse.compareDocumentPosition(apply) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // `rounded-lg border-t` draws two tapering arcs at the top corners and
+    // nothing else: a cut-off card, drawn deliberately. It is a full box now.
+    expect(browse).toHaveClass("rounded-lg", "border", "border-[color:var(--border-lux)]");
+    expect(browse.className).not.toMatch(/(^|\s)border-t(\s|$)/);
+  });
+
   it("exposes each dimension as a radio group and reports the selection back typed", async () => {
     const user = userEvent.setup();
     const onFamilyChange = vi.fn();

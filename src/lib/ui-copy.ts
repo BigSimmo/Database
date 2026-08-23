@@ -238,6 +238,11 @@ export const emptyStates = {
   },
   documentsNoneIndexed: { title: "No indexed documents" },
   documentsNoMatch: { title: "No matching documents" },
+  /* Filtered-to-zero is a different claim from "nothing matched your text": the
+     search ran and the refinements excluded everything, so the way out is to
+     relax one rather than to retype the query. Mirrors the filtered branch of
+     `SearchResultsEmptyState`. */
+  documentsNoFilterMatch: { title: "No documents match these filters" },
   ingestionJobs: {
     none: "No ingestion jobs",
     noneActive: "No active indexing work",

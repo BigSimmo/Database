@@ -197,7 +197,13 @@ Contract first, then one PR per mode:
    - `meterContent` — the `N of M documents shown` progress bar, rendered first in the body.
    - `footerOverride` — replaces the default `footerNote` + Done button entirely, for a mode whose
      commit needs its own label (`Show N documents`) and a second action beside it
-     (`Browse all sources`).
+     (`Browse all sources`). Now `secondaryAction` on `ResultFilterSheet`, which renders that
+     second action as its own bounded row ABOVE the summary-and-commit row, separated from it by
+     a full-bleed rule. Two rules govern its shape. The commit action is always last, so it stays
+     closest to the thumb and nothing renders past the sheet's primary action — a control below
+     it read as sliced off the end of the sheet. And the row carries a full border rather than
+     `rounded-lg border-t`: a radius over a top-only border draws two tapering arcs at the
+     corners and nothing else, which is a cut-off card, drawn deliberately.
    - `note` on `resultFilterGroup()` — a short label-adjacent annotation (`"one only"`) that
      distinguishes a `lens` group from the `facet` groups sitting beside it in the same sheet.
      Source type is the first lens to share a sheet with facets; services' `substance` lens beside

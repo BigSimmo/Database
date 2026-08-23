@@ -374,11 +374,13 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
@@ -558,8 +560,14 @@
       "source": "src/components/ui/disclosure.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/medication-considerations.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/medication-considerations.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1535,10 +1543,12 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],

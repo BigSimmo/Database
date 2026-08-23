@@ -1,6 +1,17 @@
 "use client";
 
-import { Bookmark, CircleAlert, CircleMinus, Funnel, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
+import {
+  Bookmark,
+  BookOpen,
+  CircleAlert,
+  CircleMinus,
+  Funnel,
+  LayoutList,
+  LoaderCircle,
+  Search,
+  Table2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
@@ -977,7 +988,10 @@ export function SearchResultsEmptyState({
     ) : null,
     onBrowseAll ? (
       <button key="browse" type="button" onClick={onBrowseAll} className={cn(emptyStateAction, focusRing)}>
-        <LayoutList className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        {/* `BookOpen`, matching the sheet footer and `browseLibraryControl`.
+            Three controls, one destination — the glyph should not change with
+            the route the reader happened to take to it. */}
+        <BookOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
         {browseAllLabel}
       </button>
     ) : null,

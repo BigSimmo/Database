@@ -232,8 +232,54 @@ describe("Sheet stacked-overlay coordination", () => {
     const classes = getByRole("dialog").classList;
     expect(classes).toContain("max-h-[88dvh]");
     expect(classes).toContain("sm:max-h-[min(80dvh,36rem)]");
-    expect(classes).not.toContain("max-h-[calc(100dvh-2rem)]");
+    expect(classes).not.toContain("max-h-[min(calc(100dvh-2rem),100%)]");
     expect(classes).not.toContain("sm:max-h-[88dvh]");
+  });
+
+  it("hands the phone bottom inset to whichever element paints the sheet's bottom edge", () => {
+    // With a footer that element is the footer. Leaving the pad on the panel put
+    // a band of bare panel surface under the footer's border, which is what made
+    // the last footer control read as sliced off.
+    const { unmount } = render(
+      <Sheet
+        open
+        onClose={vi.fn()}
+        title="Footered sheet"
+        footer={
+          <button type="button" onClick={vi.fn()}>
+            Apply
+          </button>
+        }
+      >
+        <p>Body</p>
+      </Sheet>,
+    );
+
+    expect(screen.getByRole("dialog", { name: "Footered sheet" })).not.toHaveClass("pb-safe");
+    expect(screen.getByRole("button", { name: "Apply" }).parentElement).toHaveClass(
+      "max-sm:pb-[max(0.75rem,var(--safe-area-bottom))]",
+    );
+    unmount();
+
+    // Without one it is the body, so the panel keeps the pad.
+    render(
+      <Sheet open onClose={vi.fn()} title="Plain sheet">
+        <p>Body</p>
+      </Sheet>,
+    );
+    expect(screen.getByRole("dialog", { name: "Plain sheet" })).toHaveClass("pb-safe");
+  });
+
+  it("bounds the phone panel by the backdrop as well as by dvh", () => {
+    // iOS Safari resolves dvh stale across toolbar collapse. `min(…, 100%)` is a
+    // single declaration, so it cannot lose a utility-order fight the way a
+    // second `max-h-` class would.
+    render(
+      <Sheet open onClose={vi.fn()} title="Bounded sheet" placement="responsive-right">
+        <p>Body</p>
+      </Sheet>,
+    );
+    expect(screen.getByRole("dialog", { name: "Bounded sheet" })).toHaveClass("max-h-[min(calc(100dvh-2rem),100%)]");
   });
 
   it("uses a bottom sheet on phones and a restrained right drawer from small screens", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
+import { BookOpen, Check, ChevronDown, ChevronRight, Funnel, Search, X, type LucideIcon } from "lucide-react";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
@@ -778,6 +778,14 @@ export type ResultFilterSecondaryAction = {
   label: string;
   count?: number;
   onClick: () => void;
+  /**
+   * The glyph the row leads with. Defaults to `BookOpen`, which is what the
+   * other two routes to the source library already use (the inline
+   * `browseLibraryControl` and the zero-result panel's browse pill). One glyph
+   * for one destination is the point; a caller only overrides it if the
+   * secondary action goes somewhere else.
+   */
+  icon?: LucideIcon;
 };
 
 /**
@@ -908,6 +916,7 @@ export function ResultFilterSheet({
   const trimmedNeedle = needle.trim().toLowerCase();
   const activeNeedle = dense ? trimmedNeedle : "";
   const findFieldId = `${panelId}-find`;
+  const SecondaryActionIcon = secondaryAction?.icon ?? BookOpen;
 
   // Needle-filtered option lists per facet group, computed once so both the
   // render and the "N filters match" live region agree. A selected option
@@ -981,6 +990,43 @@ export function ResultFilterSheet({
       }
       footer={
         <div className="grid gap-2.5">
+          {/* Reach, not refinement — a different destination, so it is separated
+              from the apply row by a rule rather than stacked under it. It sits
+              ABOVE that row for two reasons. The commit action stays last and
+              closest to the thumb, which is where a phone reader expects it; and
+              nothing renders after the sheet's primary action, which is what made
+              this control read as sliced off the end of the sheet. Its own border
+              is now a full box, not `rounded-lg border-t` — a radius over a
+              top-only border draws two tapering arcs at the corners, which is a
+              cut-off card, drawn deliberately. */}
+          {secondaryAction ? (
+            <>
+              <button
+                type="button"
+                onClick={secondaryAction.onClick}
+                className={cn(
+                  "flex min-h-tap w-full items-center gap-2.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] px-3 text-left text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface)] motion-reduce:transition-none sm:min-h-10",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                )}
+              >
+                <SecondaryActionIcon aria-hidden="true" className="size-icon-md shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{secondaryAction.label}</span>
+                {secondaryAction.count == null ? null : (
+                  <span className="nums shrink-0 text-[color:var(--text-muted)]">
+                    {secondaryAction.count.toLocaleString()}
+                  </span>
+                )}
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]"
+                />
+              </button>
+              {/* Full-bleed to the footer's own padding edge. A rule inset from
+                  the box edges reads as part of the control above it rather than
+                  as the boundary between two kinds of action. */}
+              <div aria-hidden className="-mx-3 border-t border-[color:var(--border)] sm:-mx-4" />
+            </>
+          ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span aria-live="polite" className="min-w-0 text-xs font-semibold text-[color:var(--text-muted)]">
               {summary
@@ -1007,21 +1053,6 @@ export function ResultFilterSheet({
                     : "Done")}
             </button>
           </div>
-          {secondaryAction ? (
-            <button
-              type="button"
-              onClick={secondaryAction.onClick}
-              className={cn(
-                "flex min-h-tap w-full items-center justify-between gap-3 rounded-lg border-t border-[color:var(--border)] px-1 pt-2.5 text-left text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              )}
-            >
-              <span>{secondaryAction.label}</span>
-              {secondaryAction.count == null ? null : (
-                <span className="nums text-[color:var(--text-muted)]">{secondaryAction.count.toLocaleString()}</span>
-              )}
-            </button>
-          ) : null}
         </div>
       }
     >
