@@ -79,7 +79,7 @@ function adoptBaselines(
     artifactDir,
     head,
     write = true,
-    reviewedBy = "fixture-reviewer",
+    reviewedBy = "Fixture Reviewer",
   }: {
     artifactDir: string;
     head: string;
@@ -227,6 +227,9 @@ describe("adopt-visual-baselines.mjs", () => {
 
       expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "GitHub Copilot" })).toThrow(
         /verified human identity/,
+      );
+      expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "build-service" })).toThrow(
+        /project allowlist/,
       );
     } finally {
       fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });

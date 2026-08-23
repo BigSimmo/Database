@@ -511,6 +511,9 @@ const AUTOMATED_OR_PENDING_REVIEWER =
 const HUMAN_GITHUB_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
 const HUMAN_DISPLAY_NAME = /^[A-Za-z][A-Za-z .'-]{1,79}$/;
 
+/** Project-controlled human GitHub logins that may stamp visual-baseline provenance. */
+export const APPROVED_HUMAN_GITHUB_LOGINS = Object.freeze(["BigSimmo"]);
+
 export function humanReviewerAttributionFailure(reviewedBy) {
   if (typeof reviewedBy !== "string" || reviewedBy.trim() === "") {
     return "visual baseline provenance requires a non-empty human reviewer attribution";
@@ -519,10 +522,17 @@ export function humanReviewerAttributionFailure(reviewedBy) {
   if (AUTOMATED_OR_PENDING_REVIEWER.test(value)) {
     return "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review";
   }
-  if (!HUMAN_GITHUB_LOGIN.test(value) && !HUMAN_DISPLAY_NAME.test(value)) {
-    return "visual baseline provenance human reviewer attribution must be a GitHub login or a human display name";
+  if (HUMAN_GITHUB_LOGIN.test(value)) {
+    const approved = APPROVED_HUMAN_GITHUB_LOGINS.some((login) => login.toLowerCase() === value.toLowerCase());
+    if (!approved) {
+      return "visual baseline provenance human reviewer GitHub login must be on the project allowlist";
+    }
+    return null;
   }
-  return null;
+  if (HUMAN_DISPLAY_NAME.test(value)) {
+    return null;
+  }
+  return "visual baseline provenance human reviewer attribution must be a GitHub login or a human display name";
 }
 
 export function validateLinuxVisualBaselineSet(

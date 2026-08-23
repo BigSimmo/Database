@@ -131,7 +131,7 @@ function writeBaselineSet(
     candidateNames = baselineNames,
     hashOverride,
     candidateSourceHead = git(fixtureRoot, ["rev-parse", "HEAD"]),
-    reviewedBy = "fixture-reviewer",
+    reviewedBy = "Fixture Reviewer",
   }: {
     platform?: string;
     reviewStatus?: string;
@@ -758,6 +758,8 @@ describe("design-system adoption manifest", () => {
     const platformRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-platform-"));
     const reviewRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-review-"));
     const attributionRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-attribution-"));
+    const serviceAccountRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-service-account-"));
+    const approvedLoginRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-approved-login-"));
     const countRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-count-"));
     try {
       for (const fixtureRoot of [
@@ -767,6 +769,8 @@ describe("design-system adoption manifest", () => {
         platformRoot,
         reviewRoot,
         attributionRoot,
+        serviceAccountRoot,
+        approvedLoginRoot,
         countRoot,
       ])
         initialiseCandidateRepository(fixtureRoot);
@@ -777,6 +781,8 @@ describe("design-system adoption manifest", () => {
         platformRoot,
         reviewRoot,
         attributionRoot,
+        serviceAccountRoot,
+        approvedLoginRoot,
         countRoot,
       ])
         setCurrentAwaitingValues(fixtureRoot, "");
@@ -844,6 +850,22 @@ describe("design-system adoption manifest", () => {
         "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
       );
 
+      const serviceAccountLogin = writeBaselineSet(serviceAccountRoot, { reviewedBy: "build-service" });
+      expect(
+        validateLinuxVisualBaselineSet(serviceAccountLogin.paths, {
+          root: serviceAccountRoot,
+          trackedFiles: serviceAccountLogin.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance human reviewer GitHub login must be on the project allowlist");
+
+      const approvedHumanLogin = writeBaselineSet(approvedLoginRoot, { reviewedBy: "BigSimmo" });
+      expect(
+        validateLinuxVisualBaselineSet(approvedHumanLogin.paths, {
+          root: approvedLoginRoot,
+          trackedFiles: approvedHumanLogin.trackedFiles,
+        }),
+      ).toEqual([]);
+
       const unreviewed = writeBaselineSet(reviewRoot, { reviewStatus: "pending" });
       expect(
         validateLinuxVisualBaselineSet(unreviewed.paths, {
@@ -867,6 +889,8 @@ describe("design-system adoption manifest", () => {
         platformRoot,
         reviewRoot,
         attributionRoot,
+        serviceAccountRoot,
+        approvedLoginRoot,
         countRoot,
       ])
         fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
