@@ -24,11 +24,13 @@ function syntheticRepository({
   untracked = [],
   entries = {},
   diagnosticFailure,
+  gitOverrides = {},
 }: {
   tracked?: string[];
   untracked?: string[];
   entries?: Record<string, Buffer | string | { kind: string; content?: Buffer | string } | Error>;
   diagnosticFailure?: Error;
+  gitOverrides?: Record<string, string | Error>;
 } = {}) {
   const historicalContent = readFileSync(IMMUTABLE_HISTORICAL_MIGRATION);
   const contentByPath = new Map<string, Buffer | string | { kind: string; content?: Buffer | string } | Error>([
@@ -39,6 +41,11 @@ function syntheticRepository({
   return {
     runGit(args: string[]) {
       const command = args.join(" ");
+      if (Object.hasOwn(gitOverrides, command)) {
+        const override = gitOverrides[command];
+        if (override instanceof Error) throw override;
+        return override;
+      }
       if (command === "ls-files --cached -z") return nulList(tracked);
       if (command === "ls-files --others --exclude-standard -z") return nulList(untracked);
       if (diagnosticFailure) throw diagnosticFailure;
@@ -182,6 +189,97 @@ describe("hosted migration-role guard", () => {
     );
     expect(output).toContain("- shallow: unavailable");
     expect(output).not.toMatch(/raw-secret|secret-owner|rev-parse|--verify/);
+  });
+
+  it("returns a sanitized failure when runtime diagnostic coercion throws", () => {
+    const migration = "supabase/migrations/20990101000000_bad.sql";
+    const standardError: string[] = [];
+    const dependencies = syntheticRepository({
+      untracked: [migration],
+      entries: { [migration]: `grant ${RESERVED_HOSTED_ROLE} to postgres;` },
+    });
+    dependencies.runtime.platform = {
+      toString() {
+        throw new Error("SENSITIVE-DIAGNOSTIC C:\\Users\\secret-owner");
+      },
+    } as unknown as string;
+
+    let exitCode: number | undefined;
+    expect(() => {
+      exitCode = runMigrationRoleGuard({
+        repoRoot: "C:\\Users\\secret-owner\\Database",
+        dependencies,
+        writeOutput: () => undefined,
+        writeError: (line) => standardError.push(line),
+      });
+    }).not.toThrow();
+
+    const output = standardError.join("\n");
+    expect(exitCode).toBe(1);
+    expect(output).toContain("- HEAD: unavailable");
+    expect(output).toContain("- runtime: platform=unavailable architecture=unavailable node=unavailable");
+    expect(output).not.toMatch(/SENSITIVE-DIAGNOSTIC|secret-owner/);
+  });
+
+  it("formats hostile diagnostic objects as a fixed unavailable block", () => {
+    const hostileDiagnostics = {
+      get base() {
+        throw new Error("SENSITIVE-FORMATTER C:\\Users\\secret-owner");
+      },
+    };
+
+    let output = "";
+    expect(() => {
+      output = formatRepositoryDiagnostics(hostileDiagnostics);
+    }).not.toThrow();
+    expect(output).toContain("- HEAD: unavailable");
+    expect(output).toContain(
+      "- base: ref=unavailable commit=unavailable merge-base=unavailable ahead=unavailable behind=unavailable",
+    );
+    expect(output).toContain(
+      "- entries: tracked=unavailable untracked=unavailable guarded=unavailable read-errors=unavailable",
+    );
+    expect(output).not.toMatch(/SENSITIVE-FORMATTER|secret-owner/);
+  });
+
+  it("preserves a valid merge-base when ahead and behind collection fails", () => {
+    const migration = "supabase/migrations/20990101000000_bad.sql";
+    const result = inspectMigrationRoleRepository("C:\\Users\\secret-owner\\Database", {
+      ...syntheticRepository({
+        untracked: [migration],
+        entries: { [migration]: `grant ${RESERVED_HOSTED_ROLE} to postgres;` },
+        gitOverrides: {
+          "rev-list --left-right --count origin/main...HEAD": new Error("relationship unavailable"),
+        },
+      }),
+    });
+
+    expect(result.diagnostics?.base).toMatchObject({
+      mergeBase: MERGE_BASE_SHA,
+      ahead: "unavailable",
+      behind: "unavailable",
+    });
+  });
+
+  it("marks read-error counts unavailable when repository discovery is incomplete", () => {
+    const migration = "supabase/migrations/20990101000000_bad.sql";
+    const result = inspectMigrationRoleRepository("C:\\Users\\secret-owner\\Database", {
+      ...syntheticRepository({
+        untracked: [migration],
+        entries: { [migration]: "select 1;" },
+        gitOverrides: {
+          "ls-files --cached -z": Object.assign(new Error("SENSITIVE-DISCOVERY"), { code: "EIO" }),
+        },
+      }),
+    });
+
+    expect(result.diagnostics?.counts).toEqual({
+      tracked: "unavailable",
+      untracked: 1,
+      guarded: "unavailable",
+      readErrors: "unavailable",
+    });
+    expect(formatRepositoryDiagnostics(result.diagnostics!)).not.toContain("SENSITIVE-DISCOVERY");
   });
 
   it("accepts the pinned immutable migration and rejects modifications or removal", () => {
