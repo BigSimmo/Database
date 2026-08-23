@@ -323,6 +323,10 @@ new entry must be added here and to the list in the guard, or the regression tes
 | `src/app/api/setup-status/route.ts` | `documents`            | Local-origin-gated `.limit(1)` existence probe ("is any document indexed?"); returns only status booleans, not an owner-data read (§3 / TEN-N1).              |
 | `src/app/api/setup-status/route.ts` | `import_batches`       | Local-origin-gated `.limit(1)` existence probe for schema provisioning; returns only status booleans, not an owner-data read (§3 / TEN-N1).                   |
 | `src/app/api/setup-status/route.ts` | `storage_cleanup_jobs` | Local-origin-gated head-count probe for pending cleanup rows (schema/ops posture); returns only status booleans/counts, not an owner-data read (§3 / TEN-N1). |
+| `src/app/api/clinical-quality/route.ts` | `rag_answer_feedback` | Administrator-gated cross-tenant governance aggregate. `GET`/`PATCH` call `authorizeAndLimit` before helper reads; response excludes raw question, answer, excerpt, and patient text (§6). |
+| `src/app/api/clinical-quality/route.ts` | `clinical_registry_record_sources` | Administrator-gated cross-tenant governance aggregate. `GET`/`PATCH` call `authorizeAndLimit` before helper reads; response excludes raw question, answer, excerpt, and patient text (§6). |
+| `src/app/api/clinical-quality/route.ts` | `clinical_registry_records` | Administrator-gated cross-tenant governance aggregate. `GET`/`PATCH` call `authorizeAndLimit` before helper reads; response excludes raw question, answer, excerpt, and patient text (§6). |
+| `src/app/api/clinical-quality/route.ts` | `rag_retrieval_logs` | Administrator-gated cross-tenant governance aggregate. `GET`/`PATCH` call `authorizeAndLimit` before helper reads; response excludes raw question, answer, excerpt, and patient text (§6). |
 
 ---
 

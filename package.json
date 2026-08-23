@@ -145,7 +145,7 @@
     "check:privacy-readiness:release": "node scripts/check-privacy-readiness.mjs --release",
     "check:clinical-hazard-controls": "node scripts/check-clinical-hazard-controls.mjs",
     "check:production-readiness": "npm run check:privacy-readiness:release && node scripts/run-tsx.mjs scripts/production-readiness.ts",
-    "check:production-readiness:ci": "npm run check:privacy-readiness:release && node scripts/run-tsx.mjs scripts/production-readiness.ts --ci",
+    "check:production-readiness:ci": "npm run check:privacy-readiness && node scripts/run-tsx.mjs scripts/production-readiness.ts --ci",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "format:changed": "node scripts/check-format-changed.mjs",

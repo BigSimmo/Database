@@ -1004,7 +1004,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.db_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1055,6 +1055,36 @@ jobs:
 
       - name: Verify Migration Replay
         run: supabase migration up --local
+
+      # `drift:manifest` needs the same Docker-capable runner as migration
+      # replay. Generating it here gives a schema-changing PR an authoritative
+      # replacement artifact when the offline freshness check fails, rather
+      # than asking contributors to edit a catalog inventory by hand.
+      - name: Setup Node and dependencies for drift manifest
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Regenerate and verify drift manifest freshness
+        run: |
+          cp supabase/drift-manifest.json /tmp/committed-drift-manifest.json
+          npm run drift:manifest
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const committed = JSON.parse(readFileSync("/tmp/committed-drift-manifest.json", "utf8"));
+          const generated = JSON.parse(readFileSync("supabase/drift-manifest.json", "utf8"));
+          if (committed.schema_sha256 !== generated.schema_sha256) {
+            throw new Error(
+              "supabase/schema.sql changed without a regenerated drift manifest. Download the drift-manifest artifact from this job and commit it.",
+            );
+          }
+          NODE
+
+      - name: Upload regenerated drift manifest
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: drift-manifest-${{ github.run_id }}
+          path: supabase/drift-manifest.json
+          if-no-files-found: error
 
       - name: Save Supabase Docker images
         if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'

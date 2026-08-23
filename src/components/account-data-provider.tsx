@@ -9,14 +9,14 @@ import {
   type AccountFavouriteSet,
   type FavouriteContentType,
   type FavouriteSetName,
-  favouriteMembershipResponseSchema,
-  favouriteSetResponseSchema,
   favouriteSetNames,
-  favouriteUpdateResponseSchema,
-  favouritesClearResponseSchema,
   favouritesContractVersion,
-  favouritesSnapshotSchema,
-} from "@/lib/favourites-contract";
+  isFavouriteMembershipResponse,
+  isFavouriteUpdateResponse,
+  isFavouritesClearResponse,
+  parseFavouriteSetResponse,
+  parseFavouritesSnapshot,
+} from "@/lib/favourites-client-contract";
 import {
   readSavedRegistrySlugs,
   savedDifferentialsStorageKey,
@@ -203,7 +203,8 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         if (response.status === 401) markSessionExpired();
         if (!response.ok) throw await parseApiErrorResponse(response);
         const payload: unknown = await response.json().catch(() => null);
-        const snapshot = favouritesSnapshotSchema.parse(payload);
+        const snapshot = parseFavouritesSnapshot(payload);
+        if (!snapshot) throw new Error("Saved items returned an invalid response.");
         replaceFavourites(favouritesByType(snapshot.favourites));
         replaceFavouriteItems(snapshot.favourites);
         replaceFavouriteSets(snapshot.sets);
@@ -294,7 +295,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
           return false;
         }
         const payload = await response.json().catch(() => null);
-        if (!favouriteMembershipResponseSchema.safeParse(payload).success) {
+        if (!isFavouriteMembershipResponse(payload)) {
           setError("Saved-item response was invalid.");
           return false;
         }
@@ -381,13 +382,12 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         else void structuredMutationTailRef.current.then(reload);
         return null;
       }
-      const parsed = favouriteSetResponseSchema.safeParse(payload);
-      if (!parsed.success) {
+      const created = parseFavouriteSetResponse(payload);
+      if (!created) {
         replaceFavouriteSets(previous);
         setError("Favourite set response was invalid.");
         return null;
       }
-      const created = parsed.data.set;
       replaceFavouriteSets(favouriteSetsRef.current.map((set) => (set.id === temporary.id ? created : set)));
       return created;
     },
@@ -408,7 +408,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         { action: "moveItem", contentType, contentKey, setId },
         "Favourite could not be moved.",
       );
-      if (favouriteUpdateResponseSchema.safeParse(payload).success) return true;
+      if (isFavouriteUpdateResponse(payload)) return true;
       if (payload) setError("Favourite move response was invalid.");
       if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
       else void structuredMutationTailRef.current.then(reload);
@@ -424,7 +424,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         { action: "reorderItem", contentType, contentKey, direction },
         "Favourite order could not be updated.",
       );
-      if (favouriteUpdateResponseSchema.safeParse(payload).success) {
+      if (isFavouriteUpdateResponse(payload)) {
         reload();
         return true;
       }
@@ -451,7 +451,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         { action: "recordOpen", contentType, contentKey },
         "Favourite activity could not be recorded.",
       );
-      if (favouriteUpdateResponseSchema.safeParse(payload).success) return true;
+      if (isFavouriteUpdateResponse(payload)) return true;
       if (payload) setError("Favourite activity response was invalid.");
       if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
       else void structuredMutationTailRef.current.then(reload);
@@ -484,7 +484,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         return false;
       }
       const payload = await response.json().catch(() => null);
-      if (!favouritesClearResponseSchema.safeParse(payload).success) {
+      if (!isFavouritesClearResponse(payload)) {
         setError("Saved-item clear response was invalid.");
         return false;
       }

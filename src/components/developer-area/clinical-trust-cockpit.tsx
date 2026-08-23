@@ -18,7 +18,7 @@ type LoadState =
   | { kind: "ready"; snapshot: ClinicalQualitySnapshot; acceptedAt: number };
 
 const sectionClass = "grid gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4";
-const cardClass = "grid gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3";
+const cardClass = "grid gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3";
 
 function formatCount(value: number | null) {
   return value === null ? "Unknown" : String(value);
@@ -254,7 +254,7 @@ export function ClinicalTrustCockpit() {
                   <button
                     type="submit"
                     disabled={savingId === `${item.signalType}:${item.signalId}`}
-                    className="min-h-12 w-fit rounded-lg bg-[color:var(--accent)] px-4 font-extrabold text-white"
+                    className="min-h-12 w-fit rounded-lg bg-[color:var(--clinical-accent)] px-4 font-extrabold text-white"
                   >
                     {savingId === `${item.signalType}:${item.signalId}` ? "Saving…" : "Save triage metadata"}
                   </button>
