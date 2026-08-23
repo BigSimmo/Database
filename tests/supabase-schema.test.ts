@@ -2131,4 +2131,117 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(sql).toContain("grant execute on function public.invoke_ingestion_worker(integer) to service_role");
     }
   });
+
+  describe("public source control plane", () => {
+    function controlPlaneSql() {
+      return readFileSync(
+        new URL("../supabase/migrations/20260824121000_create_public_source_control_plane.sql", import.meta.url),
+        "utf8",
+      ).replace(/\s+/g, " ");
+    }
+
+    it("creates append-only service-role-only activation and exact-version tables", () => {
+      const sql = controlPlaneSql();
+      for (const table of ["public_source_activation_events", "public_source_versions"]) {
+        expect(sql).toContain(`create table public.${table}`);
+        expect(sql).toContain(`alter table public.${table} enable row level security`);
+        expect(sql).toContain(`revoke all on table public.${table} from public, anon, authenticated`);
+        expect(sql).not.toContain(`grant select on table public.${table} to anon`);
+        expect(sql).not.toContain(`grant select on table public.${table} to authenticated`);
+      }
+      expect(sql).toContain("before update or delete on public.public_source_activation_events");
+      expect(sql).toContain("public source activation events are append-only");
+      expect(sql).toContain("public source version immutable fields changed");
+    });
+
+    it("serializes first activation and fetch-manifest races with fixed-path definers", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0))");
+      expect(sql).toContain("93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f");
+      expect(sql).toContain("order by created_at desc, id desc");
+      expect(sql).toContain("for update");
+      expect(sql).toContain("security definer set search_path = ''");
+      expect(sql).toContain("source definition is not active for controlled acquisition");
+      expect(sql).toContain("source policy digest does not match the active definition");
+      expect(sql).toContain("public source content version already staged");
+    });
+
+    it("permits only the legal lifecycle and never discovered or shadow directly to active", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("('discovered', 'shadow')");
+      expect(sql).toContain("('discovered', 'quarantined')");
+      expect(sql).toContain("('discovered', 'tombstoned')");
+      expect(sql).toContain("('shadow', 'approved')");
+      expect(sql).toContain("('approved', 'active')");
+      expect(sql).toContain("old.lifecycle = 'tombstoned'");
+      expect(sql).not.toContain("('discovered', 'active')");
+      expect(sql).not.toContain("('shadow', 'active')");
+      const start = sql.indexOf("create or replace function public.transition_public_source_version(");
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(body).toContain("order by created_at desc, id desc");
+      expect(body).toContain("v_event.id is distinct from p_activation_event_id");
+    });
+
+    it("consumes matching P02 approval and public receipt facts without creating approvals", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("from public.document_publication_approvals approval");
+      expect(sql).toContain("approval.source_catalogue_key = v_version.source_catalogue_key");
+      expect(sql).toContain("approval.source_policy_version = v_version.source_policy_version");
+      expect(sql).toContain("approval.reviewed_index_generation_id = v_document.index_generation_id");
+      expect(sql).toContain("v_document.metadata->>'publication_approval_id'");
+      expect(sql).toContain("v_document.owner_id is not null");
+      expect(sql).not.toContain("insert into public.document_publication_approvals");
+      expect(sql).not.toContain("activate_approved_public_documents(");
+      expect(sql).not.toContain("publish_approved_documents(");
+    });
+
+    it("rechecks governance when workers claim and commit governed artifacts", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create or replace function public.claim_ingestion_jobs(");
+      expect(sql).toContain("create or replace function public.commit_document_index_generation(");
+      for (const gate of [
+        "source_catalogue_key",
+        "source_policy_version",
+        "public_source_activation_event_id",
+        "public_source_version_id",
+        "public_source_steward_id",
+        "content_mode",
+        "licence_policy",
+      ]) {
+        expect(sql).toContain(gate);
+      }
+      expect(sql).toContain("governed public source is no longer active");
+      expect(sql).toContain("governed public source document lost steward ownership");
+    });
+
+    it("withdraws atomically from retrieval and anonymous cache while preserving history", () => {
+      const sql = controlPlaneSql();
+      const start = sql.indexOf("create or replace function public.withdraw_public_source_version(");
+      const body = sql.slice(start, sql.indexOf("$$;", start));
+      expect(body).toContain("for update");
+      expect(body).toContain("lifecycle = 'tombstoned'");
+      expect(body).toContain("owner_id = v_version.steward_id");
+      expect(body).toContain("'change_state', 'withdrawn'");
+      expect(body).toContain("'public_corpus', false");
+      expect(body).toContain("delete from public.rag_response_cache");
+      expect(body).toContain("cache_kind in ('search', 'answer')");
+      expect(body).not.toContain("delete from public.document_publication_approvals");
+      expect(body.indexOf("update public.documents")).toBeLessThan(
+        body.indexOf("delete from public.rag_response_cache"),
+      );
+    });
+
+    it("keeps public-source functions off public, anon, and authenticated roles", () => {
+      const sql = controlPlaneSql();
+      for (const signature of [
+        "record_public_source_activation(jsonb)",
+        "stage_public_source_version(jsonb)",
+        "transition_public_source_version(uuid, text, uuid)",
+        "withdraw_public_source_version(uuid, uuid, text)",
+      ]) {
+        expect(sql).toContain(`revoke all on function public.${signature} from public, anon, authenticated`);
+        expect(sql).toContain(`grant execute on function public.${signature} to service_role`);
+      }
+    });
+  });
 });

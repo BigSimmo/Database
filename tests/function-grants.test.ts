@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -37,6 +37,20 @@ const DEFINER = (name: string) =>
 describe("check:function-grants", () => {
   it("passes against the committed schema.sql", () => {
     const result = run("supabase/schema.sql");
+    expect(result.out).toContain("OK");
+    expect(result.code).toBe(0);
+  });
+
+  it("keeps every public-source control-plane definer service-role-only", () => {
+    const result = run(
+      fixture(
+        "public-source-control-plane.sql",
+        [
+          readFileSync("supabase/schema.sql", "utf8"),
+          readFileSync("supabase/migrations/20260824121000_create_public_source_control_plane.sql", "utf8"),
+        ].join("\n"),
+      ),
+    );
     expect(result.out).toContain("OK");
     expect(result.code).toBe(0);
   });

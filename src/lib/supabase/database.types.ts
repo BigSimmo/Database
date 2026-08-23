@@ -937,6 +937,136 @@ export type Database = {
         };
         Relationships: [];
       };
+      public_source_activation_events: {
+        Row: {
+          created_at: string;
+          decision: string;
+          evidence_references: string[];
+          id: string;
+          manifest_digest: string;
+          operator_id: string;
+          policy_digest: string;
+          policy_version: string;
+          reason: string;
+          source_catalogue_key: string;
+        };
+        Insert: {
+          created_at?: string;
+          decision: string;
+          evidence_references: string[];
+          id?: string;
+          manifest_digest: string;
+          operator_id: string;
+          policy_digest: string;
+          policy_version: string;
+          reason: string;
+          source_catalogue_key: string;
+        };
+        Update: {
+          created_at?: string;
+          decision?: string;
+          evidence_references?: string[];
+          id?: string;
+          manifest_digest?: string;
+          operator_id?: string;
+          policy_digest?: string;
+          policy_version?: string;
+          reason?: string;
+          source_catalogue_key?: string;
+        };
+        Relationships: [];
+      };
+      public_source_versions: {
+        Row: {
+          activation_event_id: string;
+          content_hash: string;
+          created_at: string;
+          exact_canonical_url: string;
+          exact_version: string;
+          exact_version_url: string;
+          extraction_index_generation_id: string | null;
+          id: string;
+          licence_evidence_digest: string;
+          lifecycle: string;
+          retrieved_at: string;
+          review_queued_at: string | null;
+          review_reason: string | null;
+          source_catalogue_key: string;
+          source_policy_digest: string;
+          source_policy_version: string;
+          staging_document_id: string;
+          steward_id: string;
+          supersedes_version_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          activation_event_id: string;
+          content_hash: string;
+          created_at?: string;
+          exact_canonical_url: string;
+          exact_version: string;
+          exact_version_url: string;
+          extraction_index_generation_id?: string | null;
+          id?: string;
+          licence_evidence_digest: string;
+          lifecycle?: string;
+          retrieved_at: string;
+          review_queued_at?: string | null;
+          review_reason?: string | null;
+          source_catalogue_key: string;
+          source_policy_digest: string;
+          source_policy_version: string;
+          staging_document_id: string;
+          steward_id: string;
+          supersedes_version_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          activation_event_id?: string;
+          content_hash?: string;
+          created_at?: string;
+          exact_canonical_url?: string;
+          exact_version?: string;
+          exact_version_url?: string;
+          extraction_index_generation_id?: string | null;
+          id?: string;
+          licence_evidence_digest?: string;
+          lifecycle?: string;
+          retrieved_at?: string;
+          review_queued_at?: string | null;
+          review_reason?: string | null;
+          source_catalogue_key?: string;
+          source_policy_digest?: string;
+          source_policy_version?: string;
+          staging_document_id?: string;
+          steward_id?: string;
+          supersedes_version_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_versions_activation_event_id_fkey";
+            columns: ["activation_event_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_activation_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_staging_document_id_fkey";
+            columns: ["staging_document_id"];
+            isOneToOne: true;
+            referencedRelation: "documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_supersedes_version_id_fkey";
+            columns: ["supersedes_version_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       document_sections: {
         Row: {
           artifact_generation_id: string | null;
@@ -2898,6 +3028,22 @@ export type Database = {
           p_expected_state_digest: string;
           p_expected_generation_ids: string[];
         };
+        Returns: Json;
+      };
+      record_public_source_activation: {
+        Args: { p_manifest: Json };
+        Returns: Database["public"]["Tables"]["public_source_activation_events"]["Row"];
+      };
+      stage_public_source_version: {
+        Args: { p_manifest: Json };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      transition_public_source_version: {
+        Args: { p_activation_event_id: string; p_target_lifecycle: string; p_version_id: string };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      withdraw_public_source_version: {
+        Args: { p_operator_id: string; p_reason: string; p_version_id: string };
         Returns: Json;
       };
       publish_approved_documents: {
