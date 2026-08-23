@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f892c373-a1c3-4c5e-b252-cd594e8f4bd8",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3aa167d6-e12d-4a76-944b-8e7b96f9f5f7",
+    "reason": "Superseded by the newer 2026-08-23 update 505f3b8e-a800-4efa-809f-ad2ccc6e158e, which correctly retains the unresolved bundle-budget ownership work."
+  }
+}
