@@ -144,25 +144,49 @@ test("merges search and browse into one catalogue with a measured phone header",
   // offset below it is wrong until it settles (#XPY409, docs/testing.md).
   await page.waitForTimeout(1200);
 
-  // Browsing: one row of controls, no summary line, and the scope toggle sized
-  // to its own full labels rather than to the viewport.
+  // Browsing: no summary line, and the scope toggle sized to its own full
+  // labels rather than stretching to the viewport. Counts are a separate hint
+  // column, so the accessible name is "Abbreviations (N)" rather than a jammed
+  // "AbbreviationsN".
   const toggle = page.getByTestId("dictionary-scope-toggle");
   await expect(toggle).toBeVisible();
-  await expect(toggle.getByRole("button", { name: /Abbreviations/ })).toBeVisible();
+  await expect(toggle.getByRole("radio", { name: /Abbreviations \(\d+\)/ })).toBeVisible();
+  await expect(toggle.getByRole("radio", { name: /Terms \(\d+\)/ })).toBeVisible();
   const toggleBox = await toggle.boundingBox();
   expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(48);
-  // The complete labels remain intrinsic rather than stretching to fill the row.
-  expect(toggleBox?.width ?? 0).toBeLessThan(260);
+  // Intrinsic, not full-bleed — the elevated track is wider than the old jammed
+  // digits, but it still must not consume the Filter slot.
+  expect(toggleBox?.width ?? 0).toBeLessThan(340);
+  expect(toggleBox?.width ?? 0).toBeGreaterThan(200);
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
-  await expect(page.getByTestId("dictionary-filter-trigger-phone").getByText("Filter", { exact: true })).toBeVisible();
+  const filter = page.getByTestId("dictionary-filter-trigger-phone");
+  await expect(filter.getByText("Filter", { exact: true })).toBeVisible();
   await expect(page.getByTestId("search-query-ribbon")).toHaveCount(0);
-  // Every control on one line: same top edge, no wrap at 390px.
-  const rowTops = await page.evaluate(() => {
-    const ids = ["dictionary-scope-toggle", "dictionary-letter-chip", "dictionary-filter-trigger-phone"];
-    return ids.map((id) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect().top ?? -1);
+  // Filter stays on this row, to the right of the toggle. The elevated track plus
+  // the letter chip may wrap Filter at 390px; that is preferred to clipping a
+  // count. Same top edge is required when they do fit.
+  const browseRow = await page.evaluate(() => {
+    const box = (id: string) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect() ?? null;
+    const toggle = box("dictionary-scope-toggle");
+    const letter = box("dictionary-letter-chip");
+    const filter = box("dictionary-filter-trigger-phone");
+    return {
+      toggleTop: toggle?.top ?? -1,
+      letterTop: letter?.top ?? -1,
+      filterTop: filter?.top ?? -1,
+      filterRightOfToggle: (filter?.left ?? 0) >= (toggle?.right ?? 9999) - 2,
+      overflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
+    };
   });
-  expect(rowTops.every((top) => top > 0)).toBe(true);
-  expect(Math.max(...rowTops) - Math.min(...rowTops)).toBeLessThanOrEqual(2);
+  expect(browseRow.toggleTop).toBeGreaterThan(0);
+  expect(browseRow.letterTop).toBeGreaterThan(0);
+  expect(browseRow.filterTop).toBeGreaterThan(0);
+  expect(browseRow.overflow).toBeLessThanOrEqual(2);
+  if (Math.abs(browseRow.filterTop - browseRow.toggleTop) <= 2) {
+    expect(browseRow.filterRightOfToggle).toBe(true);
+  } else {
+    expect(browseRow.filterTop).toBeGreaterThan(browseRow.toggleTop);
+  }
 
   // At 320px the same controls want more than the track has, and the contract
   // is that the row WRAPS rather than clipping a count out of view.
@@ -179,30 +203,32 @@ test("merges search and browse into one catalogue with a measured phone header",
   });
   expect(narrowRow.filterTop).toBeGreaterThan(narrowRow.toggleTop);
   // Same intrinsic width as at 390px — it wrapped, it did not shrink.
-  expect(narrowRow.toggleWidth).toBeGreaterThan(160);
+  expect(narrowRow.toggleWidth).toBeGreaterThan(200);
   expect(narrowRow.overflow).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 390, height: 844 });
 
-  // Searching: the query gets a line of its own and the alphabet stands down.
+  // Searching: the query gets a line of its own, the alphabet stands down, and
+  // Filter stays on the Terms / Abbreviations row rather than joining the ribbon.
   await gotoDictionary(page, "/dictionary/search?q=tardive+dyskinesia", "dictionary-catalogue-main");
   await page.waitForTimeout(1200);
   const ribbon = page.getByTestId("search-query-ribbon");
   await expect(ribbon).toBeVisible();
   await expect(ribbon.getByTestId("dictionary-clear-query")).toBeVisible();
-  await expect(
-    ribbon.getByTestId("dictionary-filter-trigger-phone").getByText("Filter", { exact: true }),
-  ).toBeVisible();
+  await expect(ribbon.getByTestId("dictionary-filter-trigger-phone")).toHaveCount(0);
+  await expect(filter.getByText("Filter", { exact: true })).toBeVisible();
   await expect(page.getByTestId("dictionary-letter-chip")).toHaveCount(0);
 
   const resultControls = await page.evaluate(() => {
-    const ribbon = document.querySelector('[data-testid="search-query-ribbon"]');
-    const box = (testId: string) => ribbon?.querySelector(`[data-testid="${testId}"]`)?.getBoundingClientRect() ?? null;
+    const box = (id: string) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect() ?? null;
     return {
-      clearTop: box("dictionary-clear-query")?.top ?? -1,
+      toggleTop: box("dictionary-scope-toggle")?.top ?? -1,
       filterTop: box("dictionary-filter-trigger-phone")?.top ?? -1,
+      filterRightOfToggle:
+        (box("dictionary-filter-trigger-phone")?.left ?? 0) >= (box("dictionary-scope-toggle")?.right ?? 9999) - 2,
     };
   });
-  expect(Math.abs(resultControls.clearTop - resultControls.filterTop)).toBeLessThanOrEqual(2);
+  expect(Math.abs(resultControls.filterTop - resultControls.toggleTop)).toBeLessThanOrEqual(2);
+  expect(resultControls.filterRightOfToggle).toBe(true);
 
   // Its own line: the band sits entirely above the control row.
   const geometry = await page.evaluate(() => {

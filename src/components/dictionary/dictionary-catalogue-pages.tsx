@@ -28,6 +28,7 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/components/ui-primitives";
 import {
   allDictionaryEntries,
@@ -121,9 +122,11 @@ function catalogueNoun(scope: DictionaryCatalogueScope, count: number) {
  * a hard constraint with committed tests behind it.
  *
  * The phone control row is sized to its own labels rather than to the viewport.
- * It keeps the complete “Abbreviations” and “Filter” wordmarks, with tighter
- * phone-only horizontal padding so the idle controls remain one balanced row at
- * common phone widths and wrap, rather than clip, on compact screens.
+ * The Terms / Abbreviations switch is the shared SegmentedControl, with counts
+ * as separate hints rather than jammed digits. Filter stays on this row at
+ * every breakpoint — including during a search — rather than moving into the
+ * query ribbon. Idle controls remain one balanced row at common phone widths
+ * and wrap, rather than clip, on compact screens.
  */
 export function DictionaryCataloguePage() {
   const { searchParams, replace, setOne, toggleMany } = useDictionaryUrl();
@@ -285,42 +288,24 @@ export function DictionaryCataloguePage() {
     })),
   ];
 
-  /* Sized to its own labels, not to the viewport, and joined into one border
-     with no gap. The counts sit inline, so the row needs no summary line of its
-     own while browsing. */
+  /* Sized to its own labels, not to the viewport. Counts live in `hint` so the
+     accessible name is "Terms (2)" rather than the concatenated "Terms2" the
+     previous jammed digits produced. */
   const scopeToggle = (
-    <div
-      role="group"
-      aria-label="Show"
-      data-testid="dictionary-scope-toggle"
-      className="inline-flex min-h-tap shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border)]"
-    >
-      {scopeOptions.map((option) => {
-        const active = params.scope === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={active}
-            aria-controls="dictionary-catalogue-results"
-            onClick={() => setOne("view", option.value, "definitions")}
-            className={cn(
-              "inline-flex items-center gap-0.5 px-1.5 text-xs font-extrabold transition-colors motion-reduce:transition-none sm:gap-1 sm:px-3",
-              focusRing,
-              active
-                ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--tone-purple-soft)]",
-            )}
-          >
-            {option.label}
-            {/* No `opacity-80` de-emphasis, which the design-scratch mockup
-                carries: on the inactive segment it drops accent-on-accent-soft
-                to 3.42:1 and axe fails it as a serious contrast violation. The
-                count is already secondary by being a number after a word. */}
-            <span className="nums">{scopeCounts[option.value]}</span>
-          </button>
-        );
-      })}
+    <div data-testid="dictionary-scope-toggle" className="max-w-full shrink-0">
+      <SegmentedControl
+        label="Show"
+        ariaControls="dictionary-catalogue-results"
+        layout="fit"
+        className="w-auto max-w-full"
+        value={params.scope}
+        onChange={(scope) => setOne("view", scope, "definitions")}
+        options={scopeOptions.map((option) => ({
+          value: option.value,
+          label: option.label,
+          hint: String(scopeCounts[option.value]),
+        }))}
+      />
     </div>
   );
 
@@ -337,7 +322,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-xs font-extrabold text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap shrink-0 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
@@ -362,8 +347,9 @@ export function DictionaryCataloguePage() {
   );
 
   /* Clears the query from the band's own line, which is where the reader is
-     looking when they decide they are done with it. It is one shared control at
-     every breakpoint; Filter has the band’s dedicated phone slot. */
+     looking when they decide they are done with it. Filter stays on the control
+     row with Terms / Abbreviations, so the ribbon only carries the query, the
+     match count, and this dismiss control. */
   const clearQueryControl = (
     <button
       type="button"
@@ -413,25 +399,17 @@ export function DictionaryCataloguePage() {
               matchCount={hits.length}
               status="ready"
               resultNoun={noun}
-              utilityControls={
-                <>
-                  {searching ? clearQueryControl : null}
-                  <span className="hidden shrink-0 sm:flex">{filterTrigger("desktop")}</span>
-                </>
-              }
-              mobileControls={filterTrigger("phone")}
-              mobileControlsPlacement="inline"
+              utilityControls={searching ? clearQueryControl : undefined}
               appliedFilters={appliedFilters}
               onClearFilters={activeCount ? clearFilters : undefined}
             />
           </div>
         ) : null}
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
-          <div className="mx-auto grid w-full max-w-[76rem] gap-1.5 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
-            {/* The phone gutter and internal gaps are deliberately tight enough
-                for the complete labels to stay on one row at 390px. At 320px the
-                intrinsic controls still wrap rather than squeezing counts or
-                clipping the Filter wordmark. */}
+          <div className="mx-auto grid w-full max-w-[76rem] gap-2 px-4 py-3 sm:gap-3 sm:px-6">
+            {/* Filter is a permanent member of this row, including during a
+                search. At 320px the intrinsic controls wrap rather than
+                squeezing counts or clipping the Filter wordmark. */}
             <div className="flex flex-wrap items-center gap-2">
               {scopeToggle}
               {/* The alphabet is meaningless against a ranked result set, so it
@@ -440,12 +418,10 @@ export function DictionaryCataloguePage() {
                   same time, so nothing narrows the list without a visible
                   control saying so. */}
               {searching ? null : letterChip}
-              {showBand ? null : (
-                <span className="ml-auto flex items-center gap-2">
-                  <span className="hidden sm:flex">{filterTrigger("desktop")}</span>
-                  <span className="flex sm:hidden">{filterTrigger("phone")}</span>
-                </span>
-              )}
+              <span className="ml-auto flex items-center gap-2">
+                <span className="hidden sm:flex">{filterTrigger("desktop")}</span>
+                <span className="flex sm:hidden">{filterTrigger("phone")}</span>
+              </span>
             </div>
             {/* Wraps rather than scrolls: 27 chips overrun the 76rem container by
                 a chip's width, and a rail that clips Z is worse than a rail that
