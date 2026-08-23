@@ -35,7 +35,7 @@ type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminC
 export type RegistryCorpusEntry = {
   kind: RegistryCorpusKind;
   subkind: string | null;
-  ownerId: string;
+  ownerId: string | null;
   recordId: string;
   slug: string;
   title: string;
@@ -276,6 +276,9 @@ function registryDocumentRowPreservingOwner(
   const document = registryDocumentRow(entry);
   if (!existing) return document;
   const storedOwnerId = existing.owner_id;
+  if (storedOwnerId !== null && typeof storedOwnerId !== "string") {
+    throw new Error(`Registry corpus owner is invalid for document ${document.id}; refusing to change tenant scope.`);
+  }
   if (storedOwnerId !== null && storedOwnerId !== entry.ownerId) {
     throw new Error(`Registry corpus owner mismatch for document ${document.id}; refusing to change tenant scope.`);
   }
@@ -365,7 +368,7 @@ export type RegistryGovernanceProjection = {
   kind: RegistryCorpusKind;
   recordId: string;
   slug: string;
-  ownerId: string;
+  ownerId: string | null;
   documentId: string;
   requiredMetadata: Record<string, Json>;
   intentLabel: TablesInsert<"document_labels">;
@@ -446,7 +449,7 @@ export function registryCorpusEmbeddingEnabled() {
 }
 
 export type RegistryCorpusProjectionIdentity = {
-  ownerId: string;
+  ownerId: string | null;
   recordId: string;
   sourceStatus: string;
   validationStatus: string;

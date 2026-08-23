@@ -1,5 +1,8 @@
 import { calculators } from "@/components/calculators/calculator-fixtures";
 import { factsheets } from "@/components/factsheets/factsheets-data";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
+import type { Therapy } from "@/components/therapy-compass/data/types";
+import therapiesSourceJson from "@/data/therapies-source.json";
 import { dictionaryEntries, dictionarySource } from "@/lib/dictionary-data";
 import { dsmDiagnoses } from "@/lib/dsm";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
@@ -19,7 +22,7 @@ import {
   createSiteContentRecord,
   siteContentValueHash,
 } from "@/lib/site-content/site-content-manifest";
-import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
+import { therapyNeedsReview } from "@/lib/therapies";
 import { publicKnowledgeToolCatalogRecords } from "@/lib/tools-catalog";
 
 import {
@@ -65,7 +68,6 @@ function buildDsmRecords() {
       access: "public",
       validationStatus: "unverified",
       sourceStatus: "unknown",
-      publicationVersion: siteContentValueHash(diagnosis),
       sourceLineage: repositoryLineage("src/data/dsm-clinical-content.json", diagnosis),
     }),
   );
@@ -94,7 +96,6 @@ function buildFormulationRecords() {
       access: "public",
       validationStatus: "unverified",
       sourceStatus: "review_due",
-      publicationVersion: mechanism.version || siteContentValueHash(mechanism),
       sourceLineage: [
         ...repositoryLineage("src/data/formulation-content.json", mechanism),
         ...mechanism.sources.flatMap((sourceId) => {
@@ -114,33 +115,46 @@ function buildFormulationRecords() {
   );
 }
 
-function buildTherapyRecords() {
+const fullTherapyRecords = therapiesSourceJson as unknown as Therapy[];
+
+export function therapySiteContentRecord(therapy: Therapy) {
   const producer = staticProducer("therapy-compass");
-  return therapyRecords.map((therapy) =>
-    createSiteContentRecord({
-      version: "site-content-record-v1",
-      logicalId: `therapies:${therapy.slug}`,
-      producerClass: "static_repository",
-      domain: "therapies",
-      route: producer.routeBuilder(therapy.slug),
-      title: therapy.name,
-      body: [
-        therapy.category && `Category: ${therapy.category}`,
-        therapy.clinicalSummary,
-        therapy.bestUsedFor && `Best used for: ${therapy.bestUsedFor}`,
-        therapy.targetSymptoms && `Targets: ${therapy.targetSymptoms}`,
-        therapy.indications && `Indications: ${therapy.indications}`,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-      sourceRole: "clinical_reference",
-      access: "public",
-      validationStatus: therapyNeedsReview(therapy) ? "unverified" : "locally_reviewed",
-      sourceStatus: therapyNeedsReview(therapy) ? "review_due" : "current",
-      publicationVersion: siteContentValueHash(therapy),
-      sourceLineage: repositoryLineage("src/data/therapies-index.json", therapy),
-    }),
-  );
+  return createSiteContentRecord({
+    version: "site-content-record-v1",
+    logicalId: `therapies:${therapy.slug}`,
+    producerClass: "static_repository",
+    domain: "therapies",
+    route: producer.routeBuilder(therapy.slug),
+    title: therapy.name,
+    body: [
+      therapy.category && `Category: ${therapy.category}`,
+      therapy.clinicalSummary,
+      therapy.bestUsedFor && `Best used for: ${therapy.bestUsedFor}`,
+      therapy.targetSymptoms && `Targets: ${therapy.targetSymptoms}`,
+      therapy.indications && `Indications: ${therapy.indications}`,
+      therapy.contraindicationsOrCautions && `Contraindications and cautions: ${therapy.contraindicationsOrCautions}`,
+      therapy.patientPopulation && `Patient population: ${therapy.patientPopulation}`,
+      therapy.setting && `Setting: ${therapy.setting}`,
+      therapy.deliverySteps && `Delivery: ${therapy.deliverySteps}`,
+      therapy.patientExplanation && `Patient explanation: ${therapy.patientExplanation}`,
+      therapy.mechanism && `Mechanism: ${therapy.mechanism}`,
+      therapy.evidenceLevel && `Evidence level: ${therapy.evidenceLevel}`,
+      therapy.evidenceNotes && `Evidence notes: ${therapy.evidenceNotes}`,
+      therapy.limitations && `Limitations: ${therapy.limitations}`,
+      therapy.warnings.length > 0 && `Warnings: ${therapy.warnings.join("; ")}`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    sourceRole: "clinical_reference",
+    access: "public",
+    validationStatus: therapyNeedsReview(therapy) ? "unverified" : "locally_reviewed",
+    sourceStatus: therapyNeedsReview(therapy) ? "review_due" : "current",
+    sourceLineage: repositoryLineage(`public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`, therapy),
+  });
+}
+
+function buildTherapyRecords() {
+  return fullTherapyRecords.map(therapySiteContentRecord);
 }
 
 function buildDictionaryRecords() {
@@ -164,7 +178,6 @@ function buildDictionaryRecords() {
       access: "public",
       validationStatus: entry.review.clinicalApproval === "pending" ? "unverified" : "locally_reviewed",
       sourceStatus: entry.review.status === "source-linked" ? "current" : "review_due",
-      publicationVersion: `${entry.review.checkedOn}:${siteContentValueHash(entry)}`,
       sourceLineage: [
         ...repositoryLineage("src/lib/dictionary-data.ts", entry),
         ...entry.sourceRefs.flatMap((reference) => {
@@ -201,7 +214,6 @@ function buildFactsheetRecords() {
       access: "public",
       validationStatus: "locally_reviewed",
       sourceStatus: "current",
-      publicationVersion: `${sheet.reviewedOn}:${siteContentValueHash(sheet)}`,
       sourceLineage: [
         ...repositoryLineage("src/components/factsheets/factsheets-data.ts", sheet),
         ...sheet.sources.map((source) => ({
@@ -247,7 +259,6 @@ function buildCalculatorRecords() {
       access: "public",
       validationStatus: "locally_reviewed",
       sourceStatus: "current",
-      publicationVersion: siteContentValueHash(descriptiveMetadata),
       sourceLineage: repositoryLineage("src/components/calculators/calculator-fixtures.ts", descriptiveMetadata),
     });
   });
@@ -275,7 +286,6 @@ function buildToolRecords() {
       access: "public",
       validationStatus: tool.sourceBacked ? "locally_reviewed" : "unverified",
       sourceStatus: tool.status === "review_due" ? "review_due" : tool.sourceBacked ? "current" : "unknown",
-      publicationVersion: siteContentValueHash(tool),
       sourceLineage: repositoryLineage("src/lib/tools-catalog.ts", tool),
     }),
   );

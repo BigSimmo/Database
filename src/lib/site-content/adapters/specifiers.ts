@@ -68,7 +68,6 @@ export function specifierSiteContentRecord(source: PublicSpecifierRecord): SiteC
       access: "public",
       validationStatus: "unverified",
       sourceStatus: "review_due",
-      publicationVersion: siteContentValueHash(source.record),
       sourceLineage: [
         {
           sourceId: `repository:src/lib/specifiers.ts#${source.slug}`,
@@ -90,7 +89,6 @@ export function specifierSiteContentRecord(source: PublicSpecifierRecord): SiteC
     access: "public",
     validationStatus: catalogueValidation(source.item),
     sourceStatus: catalogueSourceStatus(source.item),
-    publicationVersion: source.item.review.contentHash || siteContentValueHash(source.item),
     sourceLineage: [
       {
         sourceId: source.item.review.rowKey,

@@ -17,10 +17,14 @@ import { describe, expect, it } from "vitest";
 import { writeJsonAtomically } from "../scripts/build-site-content-manifest";
 
 import { calculatorRecordHref } from "@/components/calculators/calculator-routes";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
+import type { Therapy } from "@/components/therapy-compass/data/types";
+import therapiesSourceJson from "@/data/therapies-source.json";
 import {
   allSiteContentRecords,
   buildDynamicSiteContentProjections,
   staticSiteContentRecords,
+  therapySiteContentRecord,
 } from "@/lib/site-content/adapters";
 import { buildDefaultDifferentialRows } from "@/lib/differential-fixtures";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
@@ -81,7 +85,14 @@ function persistedRow<T>(row: object, id: string): T {
   } as T;
 }
 
-function record(logicalId: string, overrides: Partial<Omit<SiteContentRecord, "contentHash">> = {}): SiteContentRecord {
+function ownerlessPersistedRow<T>(row: object, id: string): T {
+  return persistedRow({ ...row, owner_id: null }, id);
+}
+
+function record(
+  logicalId: string,
+  overrides: Partial<Omit<SiteContentRecord, "contentHash" | "publicationVersion">> = {},
+): SiteContentRecord {
   const domain = logicalId.split(":")[0] as SiteContentDomain;
   const suffix = logicalId.split(":").slice(1).join(":");
   const routeByDomain: Partial<Record<SiteContentDomain, string>> = {
@@ -107,7 +118,6 @@ function record(logicalId: string, overrides: Partial<Omit<SiteContentRecord, "c
     access: "public",
     validationStatus: "locally_reviewed",
     sourceStatus: "current",
-    publicationVersion: "fixture-v1",
     sourceLineage: [],
     ...overrides,
   });
@@ -169,16 +179,19 @@ describe("static site-content manifest", () => {
 
   it("fails closed on duplicate IDs, invalid routes/public state, audit IDs, and protected derived content", () => {
     const valid = record("factsheets:a");
+    const { contentHash: _contentHash, publicationVersion: _publicationVersion, ...validInput } = valid;
     expect(() => buildStaticSiteContentManifest([valid, valid], metadata)).toThrow(/duplicate logicalId/i);
     expect(() => validateSiteContentRecords([{ ...valid, route: "https://example.test/tools/a" }])).toThrow(/route/i);
     expect(() => validateSiteContentRecords([{ ...valid, access: "private" as "public" }])).toThrow(/public/i);
+    expect(() => validateSiteContentRecords([{ ...valid, publicationVersion: "f".repeat(64) }])).toThrow(
+      /publicationVersion/i,
+    );
     expect(() => validateSiteContentRecords([{ ...valid, editorId: "actor-1" } as SiteContentRecord])).toThrow(
       /audit|editor/i,
     );
     expect(() =>
       createSiteContentRecord({
-        ...valid,
-        contentHash: undefined as never,
+        ...validInput,
         sourceLineage: [
           { sourceId: "healthdirect:copied-page", sourceHash: "c".repeat(64), relationship: "derived_from" },
         ],
@@ -397,26 +410,105 @@ describe("canonical producer adapters", () => {
     ).toEqual(publicKnowledgeToolCatalogRecords.map((entry) => [entry.id, entry.href]));
   });
 
+  it("builds Therapy Compass records and lineage from the declared full public catalogue", () => {
+    const fullTherapy = therapiesSourceJson[0]! as Therapy;
+    const therapy = staticSiteContentRecords.find((entry) => entry.logicalId === `therapies:${fullTherapy.slug}`)!;
+    const changed = therapySiteContentRecord({
+      ...fullTherapy,
+      contraindicationsOrCautions: `${fullTherapy.contraindicationsOrCautions} Updated governed caution.`,
+    });
+
+    expect(fullTherapy.contraindicationsOrCautions).toBeTruthy();
+    expect(therapy.body).toContain(fullTherapy.contraindicationsOrCautions);
+    expect(therapy.publicationVersion).toMatch(/^[0-9a-f]{64}$/);
+    expect(therapy.sourceLineage).toEqual([
+      {
+        sourceId: `repository:public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`,
+        sourceHash: siteContentValueHash(fullTherapy),
+        relationship: "derived_from",
+      },
+    ]);
+    expect(therapySiteContentRecord(fullTherapy)).toEqual(therapy);
+    expect(changed.contentHash).not.toBe(therapy.contentHash);
+    expect(changed.publicationVersion).not.toBe(therapy.publicationVersion);
+    expect(changed.sourceLineage[0]?.sourceHash).not.toBe(therapy.sourceLineage[0]?.sourceHash);
+    expect(buildStaticSiteContentManifest([changed], metadata).staticManifestDigest).not.toBe(
+      buildStaticSiteContentManifest([therapy], metadata).staticManifestDigest,
+    );
+    expect(buildStaticSiteContentManifest([therapy], metadata).records[0]).toMatchObject({
+      eligible: false,
+      exclusionReason: "validation_unverified",
+    });
+  });
+
+  it("uses deterministic SHA-256 publication versions for every governed projection", () => {
+    const publicationVersionPattern = /^[0-9a-f]{64}$/;
+    expect(staticSiteContentRecords.every((entry) => publicationVersionPattern.test(entry.publicationVersion))).toBe(
+      true,
+    );
+
+    const canonicalEntry = {
+      kind: "service" as const,
+      subkind: "service",
+      ownerId: null,
+      recordId: "stable-row-id",
+      slug: "stable-service",
+      title: "Stable service",
+      subtitle: "Public service",
+      content: "Service: Stable service\nPublic service",
+      searchText: "stable service public",
+      sourceStatus: "current",
+      validationStatus: "locally_reviewed",
+      metadata: {},
+    } satisfies RegistryCorpusEntry;
+    const identity = {
+      logicalId: "services:stable-service",
+      publicRecordId: "stable-public-id",
+      rowOwnerId: null,
+      publicationState: "published" as const,
+      renderedByPublicSite: true as const,
+      explicitlyReconciled: true as const,
+    };
+    const base = registryEntryToSiteContentRecord(canonicalEntry, identity);
+    const contentChanged = registryEntryToSiteContentRecord(
+      { ...canonicalEntry, content: `${canonicalEntry.content}\nChanged content` },
+      identity,
+    );
+    const governanceChanged = registryEntryToSiteContentRecord(
+      { ...canonicalEntry, validationStatus: "approved" },
+      identity,
+    );
+
+    expect(
+      [base, contentChanged, governanceChanged].every((entry) =>
+        publicationVersionPattern.test(entry.publicationVersion),
+      ),
+    ).toBe(true);
+    expect(
+      new Set([base.publicationVersion, contentChanged.publicationVersion, governanceChanged.publicationVersion]),
+    ).toHaveLength(3);
+  });
+
   it("adopts all dynamic families with the persisted row converters and their exact document/chunk IDs", () => {
     const ownerId = "editor-owner";
-    const service = persistedRow<RegistryRecordRow>(
+    const service = ownerlessPersistedRow<RegistryRecordRow>(
       buildDefaultServiceRows(ownerId)[0]!,
       "10000000-0000-4000-8000-000000000001",
     );
-    const form = persistedRow<RegistryRecordRow>(
+    const form = ownerlessPersistedRow<RegistryRecordRow>(
       buildDefaultFormRows(ownerId)[0]!,
       "10000000-0000-4000-8000-000000000002",
     );
-    const medication = persistedRow<MedicationRecordRow>(
+    const medication = ownerlessPersistedRow<MedicationRecordRow>(
       buildDefaultMedicationRows(ownerId)[0]!,
       "10000000-0000-4000-8000-000000000003",
     );
     const differentialRows = buildDefaultDifferentialRows(ownerId);
-    const diagnosis = persistedRow<DifferentialRecordRow>(
+    const diagnosis = ownerlessPersistedRow<DifferentialRecordRow>(
       differentialRows.find((row) => row.kind === "diagnosis")!,
       "10000000-0000-4000-8000-000000000004",
     );
-    const presentation = persistedRow<DifferentialRecordRow>(
+    const presentation = ownerlessPersistedRow<DifferentialRecordRow>(
       differentialRows.find((row) => row.kind === "presentation")!,
       "10000000-0000-4000-8000-000000000005",
     );
@@ -446,6 +538,7 @@ describe("canonical producer adapters", () => {
     expect(new Set(projections.map((projection) => projection.record.domain))).toEqual(
       new Set(["services", "forms", "medications", "differentials"]),
     );
+    expect(projections.every((projection) => /^[0-9a-f]{64}$/.test(projection.record.publicationVersion))).toBe(true);
     expect(projections.map((projection) => projection.record.logicalId)).toEqual(
       expect.arrayContaining([
         `services:${service.slug}`,
@@ -481,8 +574,8 @@ describe("canonical producer adapters", () => {
       publicRecordId: `public-${first.id}`,
       rowOwnerId: null,
       publicationState: "published" as const,
-      renderedByPublicSite: true,
-      explicitlyReconciled: true,
+      renderedByPublicSite: true as const,
+      explicitlyReconciled: true as const,
     };
 
     expect(() => buildDynamicSiteContentProjections(rows, [decision])).toThrow(/decision.*every persisted/i);
@@ -531,9 +624,32 @@ describe("registry adoption", () => {
     metadata: {},
   };
 
+  it("binds ownerless public claims to the persisted entry owner", () => {
+    const identity = {
+      logicalId: "services:crisis-service",
+      publicRecordId: "canonical-public-record",
+      rowOwnerId: null,
+      publicationState: "published" as const,
+      renderedByPublicSite: true as const,
+      explicitlyReconciled: true as const,
+    };
+
+    expect(() => canonicalRegistrySiteContentProjection(entry, identity)).toThrow(/persisted.*owner|owner.*mismatch/i);
+    expect(() =>
+      adoptCanonicalRegistryProjection([
+        {
+          entry,
+          ...identity,
+        },
+      ]),
+    ).toThrow(/persisted.*owner|owner.*mismatch/i);
+    expect(() => canonicalRegistrySiteContentProjection({ ...entry, ownerId: null }, identity)).not.toThrow();
+  });
+
   it("preserves registry text and IDs while assigning only the canonical public projection", () => {
+    const canonicalEntry = { ...entry, ownerId: null };
     const projection = {
-      entry,
+      entry: canonicalEntry,
       logicalId: "services:crisis-service",
       publicRecordId: "record-a",
       rowOwnerId: null,
@@ -542,7 +658,7 @@ describe("registry adoption", () => {
       explicitlyReconciled: true,
     };
     const adopted = adoptCanonicalRegistryProjection([projection]);
-    const direct = registryEntryToSiteContentRecord(entry, {
+    const direct = registryEntryToSiteContentRecord(canonicalEntry, {
       logicalId: projection.logicalId,
       publicRecordId: projection.publicRecordId,
       rowOwnerId: null,
@@ -552,11 +668,11 @@ describe("registry adoption", () => {
     });
 
     expect(adopted.record).toEqual(direct);
-    expect(adopted.record.body).toBe(entry.content);
-    expect(adopted.record.publicationVersion).toBe(entry.recordId);
+    expect(adopted.record.body).toBe(canonicalEntry.content);
+    expect(adopted.record.publicationVersion).toMatch(/^[0-9a-f]{64}$/);
     expect(adopted.documentId).toBe(adopted.metadata.site_content_document_id);
     expect(adopted.chunkId).toBe(adopted.metadata.site_content_chunk_id);
-    const adoptedProjection = canonicalRegistrySiteContentProjection(entry, {
+    const adoptedProjection = canonicalRegistrySiteContentProjection(canonicalEntry, {
       logicalId: projection.logicalId,
       publicRecordId: projection.publicRecordId,
       rowOwnerId: null,
@@ -571,6 +687,16 @@ describe("registry adoption", () => {
       site_content_logical_id: "services:crisis-service",
     });
     expect(JSON.stringify(adoptedProjection.metadata)).not.toMatch(/actor-a|owner_id/i);
+    expect(() =>
+      canonicalRegistrySiteContentProjection(entry, {
+        logicalId: projection.logicalId,
+        publicRecordId: projection.publicRecordId,
+        rowOwnerId: null,
+        publicationState: "published",
+        renderedByPublicSite: true,
+        explicitlyReconciled: true,
+      }),
+    ).toThrow(/persisted.*owner|owner.*mismatch/i);
     expect(() =>
       canonicalRegistrySiteContentProjection(entry, {
         logicalId: projection.logicalId,
@@ -622,7 +748,7 @@ describe("registry adoption", () => {
 
     const divergent = [
       {
-        entry,
+        entry: { ...entry, ownerId: null },
         logicalId: "services:crisis-service",
         publicRecordId: "record-a",
         rowOwnerId: null,
@@ -631,7 +757,7 @@ describe("registry adoption", () => {
         explicitlyReconciled: true,
       },
       {
-        entry: { ...entry, recordId: "record-b", content: "Divergent content" },
+        entry: { ...entry, ownerId: "actor-b", recordId: "record-b", content: "Divergent content" },
         logicalId: "services:crisis-service",
         publicRecordId: "record-b",
         rowOwnerId: "actor-b",
@@ -658,7 +784,7 @@ describe("registry adoption", () => {
         explicitlyReconciled: false,
       },
       {
-        entry: { ...entry, recordId: "shared-public-id" },
+        entry: { ...entry, ownerId: null, recordId: "shared-public-id" },
         logicalId: "services:crisis-service",
         publicRecordId: "shared-public-id",
         rowOwnerId: null,
@@ -675,7 +801,7 @@ describe("registry adoption", () => {
   it("treats route and governance drift as divergent even when text is identical", () => {
     const candidates = [
       {
-        entry,
+        entry: { ...entry, ownerId: null },
         logicalId: "services:crisis-service",
         publicRecordId: "public-record",
         rowOwnerId: null,
@@ -684,7 +810,13 @@ describe("registry adoption", () => {
         explicitlyReconciled: true,
       },
       {
-        entry: { ...entry, recordId: "owner-row", slug: "different-route", validationStatus: "unverified" },
+        entry: {
+          ...entry,
+          ownerId: "actor-b",
+          recordId: "owner-row",
+          slug: "different-route",
+          validationStatus: "unverified",
+        },
         logicalId: "services:crisis-service",
         rowOwnerId: "actor-b",
         publicationState: "draft" as const,

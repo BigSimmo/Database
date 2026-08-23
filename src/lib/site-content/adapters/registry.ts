@@ -84,12 +84,15 @@ export function canonicalRegistrySiteContentProjection(
   identity: RegistrySiteContentIdentity,
 ): CanonicalRegistrySiteContentProjection {
   if (
+    entry.ownerId !== identity.rowOwnerId ||
     identity.rowOwnerId !== null ||
     identity.publicationState !== "published" ||
     !identity.renderedByPublicSite ||
     !identity.explicitlyReconciled
   ) {
-    throw new Error("Registry site-content classification requires an ownerless reconciled public projection.");
+    throw new Error(
+      "Registry site-content classification requires persisted owner truth to match an ownerless reconciled public projection.",
+    );
   }
   const domain = domainByKind[entry.kind];
   const producer = siteContentProducerForMode(modeByKind[entry.kind]);
@@ -110,7 +113,6 @@ export function canonicalRegistrySiteContentProjection(
     access: "public",
     validationStatus: validationStatus(entry.validationStatus),
     sourceStatus: sourceStatus(entry.sourceStatus),
-    publicationVersion: identity.publicRecordId,
     sourceLineage: identity.sourceLineage ?? [],
   });
   const documentId = registryCorpusDocumentId(entry.kind, entry.recordId);
@@ -208,6 +210,9 @@ function assertUniqueReconciliationIds(candidates: readonly RegistryReconciliati
   const recordIds = new Set<string>();
   const publicRecordIds = new Set<string>();
   for (const candidate of candidates) {
+    if (candidate.rowOwnerId !== candidate.entry.ownerId) {
+      throw new Error("Registry reconciliation row owner mismatch with persisted entry owner.");
+    }
     if (recordIds.has(candidate.entry.recordId)) {
       throw new Error(`Duplicate registry record ID: ${candidate.entry.recordId}`);
     }

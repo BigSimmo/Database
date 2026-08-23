@@ -165,8 +165,19 @@ function contentHashFor(record: Pick<SiteContentRecord, "title" | "body">) {
   return siteContentValueHash({ title: record.title, body: record.body });
 }
 
+type SiteContentPublicationProjection = Omit<SiteContentRecord, "contentHash" | "publicationVersion">;
+
+function publicationVersionFor(record: SiteContentPublicationProjection | SiteContentRecord) {
+  const {
+    contentHash: _contentHash,
+    publicationVersion: _publicationVersion,
+    ...projection
+  } = record as SiteContentRecord;
+  return siteContentValueHash(projection);
+}
+
 export function createSiteContentRecord(
-  input: Omit<SiteContentRecord, "contentHash"> & { contentHash?: never },
+  input: SiteContentPublicationProjection & { contentHash?: never; publicationVersion?: never },
 ): SiteContentRecord {
   assertNoAuditIdentifiers(input);
   const sourceLineage = normalizedLineage(input.sourceLineage);
@@ -178,16 +189,19 @@ export function createSiteContentRecord(
       throw new Error(`Protected/link-only source content cannot be derived into ${input.logicalId}.`);
     }
   }
-  const record: Omit<SiteContentRecord, "contentHash"> = {
+  const record: SiteContentPublicationProjection = {
     ...input,
     logicalId: input.logicalId.trim(),
     route: input.route.trim(),
     title: canonicalSiteContentText(input.title),
     body: canonicalSiteContentText(input.body),
-    publicationVersion: input.publicationVersion.trim(),
     sourceLineage,
   };
-  return { ...record, contentHash: contentHashFor(record) };
+  return {
+    ...record,
+    publicationVersion: publicationVersionFor(record),
+    contentHash: contentHashFor(record),
+  };
 }
 
 function validateRecord(record: SiteContentRecord) {
@@ -197,7 +211,7 @@ function validateRecord(record: SiteContentRecord) {
     throw new Error(`Invalid site-content logicalId ${record.logicalId} for domain ${record.domain}.`);
   }
   if (record.access !== "public") throw new Error(`Site-content record ${record.logicalId} is not public.`);
-  if (!record.title || !record.body || !record.publicationVersion) {
+  if (!record.title || !record.body) {
     throw new Error(`Site-content record ${record.logicalId} has empty required content.`);
   }
   if (
@@ -243,6 +257,9 @@ function validateRecord(record: SiteContentRecord) {
     if (source.relationship === "derived_from" && protectedDerivedSourcePattern.test(source.sourceId)) {
       throw new Error(`Protected/link-only source content cannot be derived into ${record.logicalId}.`);
     }
+  }
+  if (!SHA256_PATTERN.test(record.publicationVersion) || record.publicationVersion !== publicationVersionFor(record)) {
+    throw new Error(`Site-content record ${record.logicalId} has a stale or invalid publicationVersion.`);
   }
 }
 
