@@ -289,9 +289,13 @@ export function repositoryEntries(repoRoot = process.cwd(), dependencies = {}) {
   return discoverRepositoryEntries(repoRoot, dependencies).entries;
 }
 
-function safeRuntimeValue(value) {
-  const normalized = String(value ?? "");
-  return /^[A-Za-z0-9._-]{1,64}$/.test(normalized) ? normalized : UNAVAILABLE;
+function safeRuntimeValue(runtime, field) {
+  try {
+    const normalized = String(runtime?.[field] ?? "");
+    return /^[A-Za-z0-9._-]{1,64}$/.test(normalized) ? normalized : UNAVAILABLE;
+  } catch {
+    return UNAVAILABLE;
+  }
 }
 
 function exactSha(value) {
@@ -308,49 +312,40 @@ function diagnosticGit(runGit, repoRoot, args) {
 }
 
 export function collectRepositoryDiagnostics(repoRoot, discovery, dependencies = {}) {
-  try {
-    const { runGit, runtime } = repositoryDependencies(dependencies);
-    const head = exactSha(diagnosticGit(runGit, repoRoot, ["rev-parse", "--verify", "HEAD"]));
-    const shallowOutput = diagnosticGit(runGit, repoRoot, ["rev-parse", "--is-shallow-repository"]);
-    const shallow = shallowOutput === "true" || shallowOutput === "false" ? shallowOutput : UNAVAILABLE;
-    const baseCommit = exactSha(
-      diagnosticGit(runGit, repoRoot, ["rev-parse", "--verify", "--quiet", `${BASE_REF}^{commit}`]),
-    );
-    const baseRef = baseCommit === UNAVAILABLE ? UNAVAILABLE : BASE_REF;
-    let mergeBase = UNAVAILABLE;
-    let ahead = UNAVAILABLE;
-    let behind = UNAVAILABLE;
+  const { runGit, runtime } = repositoryDependencies(dependencies);
+  const head = exactSha(diagnosticGit(runGit, repoRoot, ["rev-parse", "--verify", "HEAD"]));
+  const shallowOutput = diagnosticGit(runGit, repoRoot, ["rev-parse", "--is-shallow-repository"]);
+  const shallow = shallowOutput === "true" || shallowOutput === "false" ? shallowOutput : UNAVAILABLE;
+  const baseCommit = exactSha(
+    diagnosticGit(runGit, repoRoot, ["rev-parse", "--verify", "--quiet", `${BASE_REF}^{commit}`]),
+  );
+  const baseRef = baseCommit === UNAVAILABLE ? UNAVAILABLE : BASE_REF;
+  let mergeBase = UNAVAILABLE;
+  let ahead = UNAVAILABLE;
+  let behind = UNAVAILABLE;
 
-    if (baseRef !== UNAVAILABLE && shallow === "false") {
-      mergeBase = exactSha(diagnosticGit(runGit, repoRoot, ["merge-base", "HEAD", BASE_REF]));
-      const relationship = diagnosticGit(runGit, repoRoot, [
-        "rev-list",
-        "--left-right",
-        "--count",
-        `${BASE_REF}...HEAD`,
-      ]);
-      const match = /^(\d+)\s+(\d+)$/.exec(relationship);
-      if (mergeBase !== UNAVAILABLE && match) {
-        behind = Number(match[1]);
-        ahead = Number(match[2]);
-      }
+  if (baseRef !== UNAVAILABLE && shallow === "false") {
+    mergeBase = exactSha(diagnosticGit(runGit, repoRoot, ["merge-base", "HEAD", BASE_REF]));
+    const relationship = diagnosticGit(runGit, repoRoot, ["rev-list", "--left-right", "--count", `${BASE_REF}...HEAD`]);
+    const match = /^(\d+)\s+(\d+)$/.exec(relationship);
+    if (match) {
+      behind = Number(match[1]);
+      ahead = Number(match[2]);
     }
-
-    return {
-      head,
-      base: { ref: baseRef, commit: baseCommit, mergeBase, ahead, behind },
-      shallow,
-      runtime: {
-        platform: safeRuntimeValue(runtime?.platform),
-        architecture: safeRuntimeValue(runtime?.architecture),
-        nodeVersion: safeRuntimeValue(runtime?.nodeVersion),
-      },
-      counts: { ...discovery.counts },
-      migrations: { ...discovery.migrations },
-    };
-  } catch {
-    return unavailableRepositoryDiagnostics();
   }
+
+  return {
+    head,
+    base: { ref: baseRef, commit: baseCommit, mergeBase, ahead, behind },
+    shallow,
+    runtime: {
+      platform: safeRuntimeValue(runtime, "platform"),
+      architecture: safeRuntimeValue(runtime, "architecture"),
+      nodeVersion: safeRuntimeValue(runtime, "nodeVersion"),
+    },
+    counts: { ...discovery.counts },
+    migrations: { ...discovery.migrations },
+  };
 }
 
 function renderRepositoryDiagnostics(diagnostics) {

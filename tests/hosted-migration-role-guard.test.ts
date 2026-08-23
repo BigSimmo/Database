@@ -191,7 +191,7 @@ describe("hosted migration-role guard", () => {
     expect(output).not.toMatch(/raw-secret|secret-owner|rev-parse|--verify/);
   });
 
-  it("returns a sanitized failure when runtime diagnostic coercion throws", () => {
+  it("retains independent diagnostics when one runtime field coercion throws", () => {
     const migration = "supabase/migrations/20990101000000_bad.sql";
     const standardError: string[] = [];
     const dependencies = syntheticRepository({
@@ -216,8 +216,16 @@ describe("hosted migration-role guard", () => {
 
     const output = standardError.join("\n");
     expect(exitCode).toBe(1);
-    expect(output).toContain("- HEAD: unavailable");
-    expect(output).toContain("- runtime: platform=unavailable architecture=unavailable node=unavailable");
+    expect(output).toContain(`- HEAD: ${HEAD_SHA}`);
+    expect(output).toContain(
+      `- base: ref=origin/main commit=${BASE_SHA} merge-base=${MERGE_BASE_SHA} ahead=5 behind=2`,
+    );
+    expect(output).toContain("- shallow: false");
+    expect(output).toContain("- runtime: platform=unavailable architecture=x64 node=24.19.0");
+    expect(output).toContain("- entries: tracked=1 untracked=1 guarded=2 read-errors=0");
+    expect(output).toContain(
+      "- migrations: count=2 first=20260713102000_revoke_supabase_admin_default_privileges.sql last=20990101000000_bad.sql",
+    );
     expect(output).not.toMatch(/SENSITIVE-DIAGNOSTIC|secret-owner/);
   });
 
@@ -258,6 +266,25 @@ describe("hosted migration-role guard", () => {
       mergeBase: MERGE_BASE_SHA,
       ahead: "unavailable",
       behind: "unavailable",
+    });
+  });
+
+  it("preserves valid ahead and behind counts when merge-base collection fails", () => {
+    const migration = "supabase/migrations/20990101000000_bad.sql";
+    const result = inspectMigrationRoleRepository("C:\\Users\\secret-owner\\Database", {
+      ...syntheticRepository({
+        untracked: [migration],
+        entries: { [migration]: `grant ${RESERVED_HOSTED_ROLE} to postgres;` },
+        gitOverrides: {
+          "merge-base HEAD origin/main": new Error("merge-base unavailable"),
+        },
+      }),
+    });
+
+    expect(result.diagnostics?.base).toMatchObject({
+      mergeBase: "unavailable",
+      ahead: 5,
+      behind: 2,
     });
   });
 
