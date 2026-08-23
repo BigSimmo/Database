@@ -153,7 +153,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 | Module                                                                                                                 | Role                                             |
 | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`                                               | Source provenance and governance                 |
-| `site-content/` (`site-content-contracts.ts`, `site-content-registry.ts`)                                              | Explicit public-site corpus contracts and producer registry |
+| `site-content/` (`site-content-contracts.ts`, `site-content-registry.ts`)                                              | Site corpus contracts and producer registry      |
 | `documents/` (`is-public-document.ts`), `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels, organization, and public boundary checks |
 | `table-review.ts`, `accessible-table-normalization.ts`                                                                 | Table facts                                      |
 
