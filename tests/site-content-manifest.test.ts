@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -290,6 +299,23 @@ describe("site-content manifest CLI integrity", () => {
         expect(readFileSync(baseline, "utf8")).toBe(sentinel);
         expect(readFileSync(output, "utf8")).toBe(sentinel);
       }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects non-existent output leaves beneath aliased existing parents", () => {
+    const directory = mkdtempSync(join(tmpdir(), "site-content-manifest-parent-alias-"));
+    const realParent = join(directory, "real-parent");
+    const aliasParent = join(directory, "alias-parent");
+    mkdirSync(realParent);
+    symlinkSync(realParent, aliasParent, process.platform === "win32" ? "junction" : "dir");
+    const output = join(realParent, "not-created.json");
+    const diff = join(aliasParent, "not-created.json");
+    try {
+      const result = runManifestCli(["--baseline", baselinePath, "--out", output, "--diff", diff]);
+      expect(result.status, `${result.stdout}\n${result.stderr}`).not.toBe(0);
+      expect(readdirSync(realParent)).toEqual([]);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

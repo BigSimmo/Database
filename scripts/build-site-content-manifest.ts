@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { allSiteContentRecords } from "../src/lib/site-content/adapters";
@@ -65,7 +65,16 @@ function readManifest(path: string): StaticSiteContentManifest {
 
 function pathIdentity(path: string) {
   const absolute = resolve(path);
-  const canonical = existsSync(absolute) ? realpathSync.native(absolute) : absolute;
+  let existingAncestor = absolute;
+  const unresolvedSuffix: string[] = [];
+  while (!existsSync(existingAncestor)) {
+    const parent = dirname(existingAncestor);
+    if (parent === existingAncestor) break;
+    unresolvedSuffix.unshift(basename(existingAncestor));
+    existingAncestor = parent;
+  }
+  const canonicalAncestor = existsSync(existingAncestor) ? realpathSync.native(existingAncestor) : existingAncestor;
+  const canonical = resolve(canonicalAncestor, ...unresolvedSuffix);
   return process.platform === "win32" ? canonical.toLowerCase() : canonical;
 }
 
