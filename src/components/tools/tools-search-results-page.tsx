@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { BadgeCheck, ChevronRight, ClipboardList, Search, ShieldCheck, Waves, type LucideIcon } from "lucide-react";
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type MutableRefObject,
+  type ReactNode,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import {
   ResultFilterSheet,
@@ -13,11 +22,13 @@ import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favouri
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
-import { cardSelected, cardSurface, focusRing } from "@/components/card-recipes";
+import { cardPadding, cardSelected, cardSurface, focusRing } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
-import { cn, controlBase, floatingControl } from "@/components/ui-primitives";
+import { cn, controlBase, floatingControl, primaryControl } from "@/components/ui-primitives";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { normalizeSearchText } from "@/lib/catalog-search";
@@ -67,19 +78,96 @@ function ToolIcon({ tool, large = false }: { tool: ToolCatalogRecord; large?: bo
 
 function ToolChips({ tool }: { tool: ToolCatalogRecord }) {
   return (
-    <span className="flex flex-wrap gap-1.5">
+    <span className="flex flex-wrap gap-1">
       {tool.sourceBacked ? (
-        <span className="inline-flex min-h-7 items-center gap-1 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2.5 text-2xs font-bold text-[color:var(--success)] forced-colors:border">
-          <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+        <Chip size="compact" appearance={{ kind: "status", tone: "success" }} icon={BadgeCheck}>
           Source-backed
-        </span>
+        </Chip>
       ) : null}
       {tool.highYield ? (
-        <span className="inline-flex min-h-7 items-center rounded-full border border-[color:var(--info-border)] bg-[color:var(--info-soft)] px-2.5 text-2xs font-bold text-[color:var(--info)] forced-colors:border">
+        <Chip size="compact" appearance={{ kind: "status", tone: "info" }}>
           High yield
-        </span>
+        </Chip>
+      ) : null}
+      {tool.safetyFirst ? (
+        <Chip size="compact" appearance={{ kind: "status", tone: "warning" }} icon={ShieldCheck}>
+          Safety-first
+        </Chip>
       ) : null}
     </span>
+  );
+}
+
+function ToolResultCard({
+  tool,
+  selected,
+  onOpenDetails,
+  detailsButtonRef,
+}: {
+  tool: ToolCatalogRecord;
+  selected: boolean;
+  onOpenDetails: (tool: ToolCatalogRecord, opener?: HTMLElement | null) => void;
+  detailsButtonRef: MutableRefObject<HTMLElement | null>;
+}) {
+  const identity = toolIdentity(tool.id, tool.area);
+  return (
+    <article
+      data-selected={selected || undefined}
+      data-category-accent={identity.accent}
+      className={cn(
+        cardSurface,
+        cardPadding.compact,
+        "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-2.5 overflow-hidden sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
+        selected && cardSelected,
+      )}
+    >
+      {selected ? (
+        // The selected rail takes the tool's own category accent rather than
+        // the product blue, so it agrees with the tile beside it instead of
+        // overriding it.
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[color:var(--cat-accent)]"
+        />
+      ) : null}
+      <ToolIcon tool={tool} />
+      <div className="min-w-0">
+        <h2 className="text-base font-semibold leading-5 text-[color:var(--text-heading)]">{tool.title}</h2>
+        <p className="mt-0.5 line-clamp-2 text-sm leading-5 text-[color:var(--text-muted)]">{tool.description}</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+          <ToolChips tool={tool} />
+          <span className="hidden min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)] sm:inline-flex">
+            <span className="font-semibold text-[color:var(--text)]">Best for</span>
+            <span className="truncate">{tool.bestFor}</span>
+          </span>
+        </div>
+      </div>
+      <div className="col-span-2 grid grid-cols-2 gap-2 sm:col-span-1 sm:min-w-44 sm:shrink-0">
+        <Link
+          href={tool.href}
+          aria-label={`Open ${tool.title}`}
+          target={tool.external ? "_blank" : undefined}
+          rel={tool.external ? "noreferrer" : undefined}
+          className={cn(primaryControl, "w-full min-w-0 px-3 text-xs")}
+        >
+          Open
+        </Link>
+        <Button
+          ref={(node) => {
+            if (selected && node) detailsButtonRef.current = node;
+          }}
+          type="button"
+          variant="secondary"
+          size="sm"
+          block
+          aria-label={`View details for ${tool.title}`}
+          trailingIcon={ChevronRight}
+          onClick={(event) => onOpenDetails(tool, event.currentTarget)}
+        >
+          Details
+        </Button>
+      </div>
+    </article>
   );
 }
 
@@ -401,66 +489,16 @@ export function ToolsSearchResultsPage({
             summary={{ count: filteredTools.length, noun: filteredTools.length === 1 ? "tool" : "tools" }}
           />
 
-          <section aria-label="Tool results" className="mt-4 grid gap-3">
+          <section aria-label="Tool results" className="mt-3 grid gap-2.5">
             {filteredTools.length ? (
               filteredTools.map((tool) => (
-                <article
+                <ToolResultCard
                   key={tool.id}
-                  data-selected={tool.id === selectedTool?.id || undefined}
-                  data-category-accent={toolIdentity(tool.id, tool.area).accent}
-                  className={cn(
-                    cardSurface,
-                    "relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 overflow-hidden p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center",
-                    tool.id === selectedTool?.id && cardSelected,
-                  )}
-                >
-                  {tool.id === selectedTool?.id ? (
-                    // The selected rail takes the tool's own category accent
-                    // rather than the product blue, so it agrees with the tile
-                    // beside it instead of overriding it.
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-y-3 left-0 w-1 rounded-r-full bg-[color:var(--cat-accent)]"
-                    />
-                  ) : null}
-                  <ToolIcon tool={tool} />
-                  <div className="min-w-0">
-                    {/* Size over weight: `text-base font-extrabold` matched the
-                        results heading above the list, so thirteen rows read as
-                        thirteen headings. */}
-                    <h2 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{tool.title}</h2>
-                    <p className="mt-1 line-clamp-2 text-sm leading-5 text-[color:var(--text-muted)]">
-                      {tool.description}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <ToolChips tool={tool} />
-                      {/* The magnifier here said nothing — "Best for" is not a
-                          search — and it spent an accent-coloured glyph on a
-                          label. Weight alone separates label from value. */}
-                      <span className="hidden min-w-0 items-center gap-1.5 text-xs text-[color:var(--text-muted)] sm:inline-flex">
-                        <span className="font-semibold text-[color:var(--text)]">Best for</span>
-                        <span className="truncate">{tool.bestFor}</span>
-                      </span>
-                    </div>
-                  </div>
-                  {/* Quiet, not primary. As a filled accent button this was
-                      thirteen primary actions competing down one list, none of
-                      them the page's actual primary action. It is still a real
-                      button — unlike the launcher's, this card is not itself the
-                      control — so it keeps a full tap target and visible edge. */}
-                  <button
-                    ref={(node) => {
-                      if (tool.id === selectedTool?.id && node) detailReturnFocusRef.current = node;
-                    }}
-                    type="button"
-                    aria-label={`View details for ${tool.title}`}
-                    onClick={(event) => openTool(tool, event.currentTarget)}
-                    className={cn(floatingControl, "col-span-2 px-4 text-xs sm:col-span-1")}
-                  >
-                    Details
-                    <ChevronRight className="size-icon-md" aria-hidden="true" />
-                  </button>
-                </article>
+                  tool={tool}
+                  selected={tool.id === selectedTool?.id}
+                  onOpenDetails={openTool}
+                  detailsButtonRef={detailReturnFocusRef}
+                />
               ))
             ) : (
               <div className="grid justify-items-center gap-3 rounded-2xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-lux)] px-4 py-10 text-center">

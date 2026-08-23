@@ -498,6 +498,14 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    await expect(results.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute(
+      "href",
+      "/?mode=answer",
+    );
+    await expect(results.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
+      "href",
+      "/medications",
+    );
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
     await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
@@ -528,6 +536,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(results.getByText("2 tools", { exact: true })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
     await expect(results.getByRole("heading", { level: 2, name: "Clinical Dictionary" }).first()).toBeVisible();
     await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
 
@@ -572,6 +581,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 2 tools/);
     await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
     const details = results.getByRole("button", { name: "View details for Differentials" });
     await details.click();
     const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
