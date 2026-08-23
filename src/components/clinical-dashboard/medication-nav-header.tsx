@@ -176,7 +176,8 @@ export function MedicationNavHeader({
       onSelectSection={(id) => {
         if (isMedicationTabId(id)) onSelectTab(id);
       }}
-      rail={{ label: "Medication sections" }}
+      // Every slot carries a section count, so the four-slot band clips.
+      rail={{ label: "Medication sections", countedLabels: true }}
     />
   );
 }

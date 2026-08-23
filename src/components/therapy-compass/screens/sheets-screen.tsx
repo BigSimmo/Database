@@ -16,10 +16,13 @@ import { parseSteps, searchTherapies } from "../data/select";
 import { LoadingState } from "../ui";
 import { therapyBtn } from "../controls";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
+import { TherapySaveNotice } from "../record/save-notice";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 
 export function SheetsScreen() {
   const b = useTcBindings();
   const t = b.selectedTherapy;
+  const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading patient sheet builder…" />;
 
   const steps = parseSteps(t.deliverySteps, 5);
@@ -36,13 +39,17 @@ export function SheetsScreen() {
   return (
     <>
       <TherapyRecordNavHeader
-        title={`${t.name} patient sheet`}
+        therapy={t}
+        active="sheet"
         backHref={b.workspaceHref(therapyRecordHref(t.slug))}
         backLabel={t.name}
         testIdPrefix="therapy-sheet"
+        saved={saved}
+        onToggleSave={() => void toggleFavourite()}
       />
       <InformationPageShell testId="therapy-sheet-page" gap={false}>
         <section data-screen-label="Patient sheet">
+          <TherapySaveNotice notice={notice} />
           {/* `data-therapy-no-print` stays on a wrapper: a bare `data-*` attribute
               cannot be passed to a component (see the `testId` note in
               `ui/button.tsx`). */}

@@ -101,7 +101,9 @@ export function CaringContactShellFrame({
     if (returningFromMore) {
       focusTimerRef.current = window.setTimeout(() => {
         focusTimerRef.current = undefined;
-        document.querySelector<HTMLElement>("[data-caring-contact-page-title]")?.focus({ preventScroll: true });
+        if (typeof document !== "undefined") {
+          document.querySelector<HTMLElement>("[data-caring-contact-page-title]")?.focus({ preventScroll: true });
+        }
       }, 250);
     }
   }
