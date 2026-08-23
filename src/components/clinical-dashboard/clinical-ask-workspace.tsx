@@ -43,7 +43,7 @@ export function ClinicalAskWorkspace({ onDraftChange }: { onDraftChange?(draft: 
       {session.response ? (
         <ClinicalAskAnswerSurface
           response={session.response}
-          question={session.draft}
+          question={session.submittedQuestion || session.draft}
           clarificationAnswers={session.clarificationAnswers}
           onClarificationChange={session.setClarificationAnswer}
           onPrepareHandoff={session.prepareHandoff}

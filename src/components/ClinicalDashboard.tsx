@@ -22,6 +22,7 @@ import {
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -274,11 +275,16 @@ import {
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
 
+function ClinicalAskSessionBoundary({ children }: { children: ReactNode }) {
+  const auth = useAuthSession();
+  return <ClinicalAskSessionProvider accountId={auth.session?.user.id}>{children}</ClinicalAskSessionProvider>;
+}
+
 export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
   return (
-    <ClinicalAskSessionProvider>
+    <ClinicalAskSessionBoundary>
       <ClinicalDashboardContent {...props} />
-    </ClinicalAskSessionProvider>
+    </ClinicalAskSessionBoundary>
   );
 }
 

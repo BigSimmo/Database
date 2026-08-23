@@ -8,7 +8,10 @@ describe("Clinical Ask provider placement", () => {
   it("wraps the dashboard content that consumes the Clinical Ask session", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     expect(dashboard).toMatch(
-      /export function ClinicalDashboard[\s\S]*?<ClinicalAskSessionProvider>[\s\S]*?<ClinicalDashboardContent \{\.\.\.props\} \/>[\s\S]*?<\/ClinicalAskSessionProvider>/,
+      /function ClinicalAskSessionBoundary[\s\S]*?accountId=\{auth\.session\?\.user\.id\}[\s\S]*?<\/ClinicalAskSessionProvider>/,
+    );
+    expect(dashboard).toMatch(
+      /export function ClinicalDashboard[\s\S]*?<ClinicalAskSessionBoundary>[\s\S]*?<ClinicalDashboardContent \{\.\.\.props\} \/>[\s\S]*?<\/ClinicalAskSessionBoundary>/,
     );
     expect(dashboard).toMatch(/function ClinicalDashboardContent[\s\S]*?useClinicalAskDashboardChrome\(\{/);
   });

@@ -16,6 +16,7 @@ function Harness() {
       <output data-testid="state">
         {JSON.stringify({
           draft: session.draft,
+          submittedQuestion: session.submittedQuestion,
           context: session.confirmedContext,
           response: session.response,
           clarifications: session.clarificationAnswers,
@@ -85,7 +86,7 @@ describe("ClinicalAskSessionProvider", () => {
     expect(screen.getByTestId("state")).not.toHaveTextContent("fictional duration");
     fireEvent.click(screen.getByRole("button", { name: "Clear case" }));
     expect(screen.getByTestId("state")).toHaveTextContent(
-      JSON.stringify({ draft: "", context: {}, response: null, clarifications: {} }),
+      JSON.stringify({ draft: "", submittedQuestion: "", context: {}, response: null, clarifications: {} }),
     );
     expect(storage).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
@@ -103,6 +104,20 @@ describe("ClinicalAskSessionProvider", () => {
     expect(screen.getByTestId("state")).toHaveTextContent('"dsm:duration":"six weeks"');
     fireEvent.click(screen.getByRole("button", { name: "Change draft" }));
     expect(screen.getByTestId("state")).toHaveTextContent('"clarifications":{}');
+  });
+
+  it("keeps the submitted question when a follow-up draft is staged", () => {
+    render(
+      <ClinicalAskSessionProvider>
+        <Harness />
+      </ClinicalAskSessionProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Draft" }));
+    fireEvent.click(screen.getByRole("button", { name: "Answer" }));
+    expect(screen.getByTestId("state")).toHaveTextContent(`"submittedQuestion":"${question}"`);
+    fireEvent.click(screen.getByRole("button", { name: "Change draft" }));
+    expect(screen.getByTestId("state")).toHaveTextContent(`"submittedQuestion":"${question}"`);
+    expect(screen.getByTestId("state")).toHaveTextContent(`"draft":"${question} updated"`);
   });
 
   it("clears on account change and unmount aborts active work", () => {

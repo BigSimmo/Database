@@ -14,6 +14,7 @@ import { handoffContext, projectConfirmedContext } from "@/lib/clinical-ask/cont
 export type ClinicalAskSessionState = {
   mode: ClinicalAskModeId | null;
   draft: string;
+  submittedQuestion: string;
   confirmedContext: ConfirmedCaseContext;
   suggestions: ContextSuggestion[];
   response: ClinicalAskResponse | null;
@@ -26,6 +27,7 @@ export type ClinicalAskSessionState = {
 export const initialClinicalAskSessionState: ClinicalAskSessionState = {
   mode: null,
   draft: "",
+  submittedQuestion: "",
   confirmedContext: {},
   suggestions: [],
   response: null,
@@ -34,6 +36,10 @@ export const initialClinicalAskSessionState: ClinicalAskSessionState = {
   submitted: false,
   pendingHandoff: null,
 };
+
+function pinSubmittedQuestion(state: ClinicalAskSessionState): string {
+  return state.submittedQuestion || state.draft;
+}
 
 type Action =
   | { type: "setDraft"; draft: string; mode?: ClinicalAskModeId }
@@ -94,18 +100,26 @@ function reducer(state: ClinicalAskSessionState, action: Action): ClinicalAskSes
         mode: action.mode,
         confirmedContext: projectConfirmedContext(action.mode, action.context, state.suggestions),
         submitted: true,
+        submittedQuestion: state.draft,
         response: null,
         feedback: null,
       };
     case "receiveEvent": {
       if (action.event.type === "context_suggestions") return { ...state, suggestions: action.event.suggestions };
-      if (action.event.type === "clarification") return { ...state, response: action.event.response, submitted: false };
+      if (action.event.type === "clarification")
+        return {
+          ...state,
+          response: action.event.response,
+          submitted: false,
+          submittedQuestion: pinSubmittedQuestion(state),
+        };
       if (action.event.type === "final")
         return {
           ...state,
           response: action.event.payload.response,
           feedback: action.event.payload.feedback,
           submitted: false,
+          submittedQuestion: pinSubmittedQuestion(state),
         };
       if (action.event.type === "error" && state.mode)
         return {
@@ -118,6 +132,7 @@ function reducer(state: ClinicalAskSessionState, action: Action): ClinicalAskSes
             message: action.event.message,
           },
           submitted: false,
+          submittedQuestion: pinSubmittedQuestion(state),
         };
       return state;
     }
@@ -148,6 +163,7 @@ function reducer(state: ClinicalAskSessionState, action: Action): ClinicalAskSes
             feedback: null,
             clarificationAnswers: {},
             submitted: false,
+            submittedQuestion: "",
           }
         : state;
     case "dismissHandoff":

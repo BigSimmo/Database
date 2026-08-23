@@ -272,7 +272,9 @@ function Evidence({
               {item.title}
             </a>{" "}
             — {item.publisher} · {item.tier} · {item.reviewState.replace("_", " ")}
-            {item.retrievedAt ? ` · retrieved ${new Date(item.retrievedAt).toLocaleDateString()}` : ""}
+            {item.retrievedAt
+              ? ` · retrieved ${new Date(item.retrievedAt).toLocaleDateString("en-AU", { timeZone: "UTC" })}`
+              : ""}
             <details>
               <summary>Review extract</summary>
               <p>{item.extract}</p>

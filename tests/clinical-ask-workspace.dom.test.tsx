@@ -179,6 +179,10 @@ describe("ClinicalAskWorkspace", () => {
     expect(writeText.mock.calls[1][0]).toContain("Question: synthetic");
     fireEvent.click(screen.getByRole("button", { name: "Check urgency" }));
     expect(onDraftChange).toHaveBeenCalledWith("Check urgency");
+    fireEvent.click(screen.getByRole("button", { name: /Copied|Copy answer/ }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(3));
+    expect(writeText.mock.calls[2][0]).toContain("Question: synthetic");
+    expect(writeText.mock.calls[2][0]).not.toContain("Question: Check urgency");
     fireEvent.click(screen.getByRole("button", { name: "Continue to Forms" }));
     expect(screen.getByRole("dialog", { name: "Review Clinical Ask handoff" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Accept handoff" }));
