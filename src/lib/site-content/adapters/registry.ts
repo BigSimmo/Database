@@ -67,6 +67,21 @@ export type RegistrySiteContentIdentity = {
   sourceLineage?: SiteContentRecord["sourceLineage"];
 };
 
+/**
+ * Bounded evidence acquired from the separately trusted canonical public
+ * projection. Adoption validates this snapshot but never derives it from the
+ * persisted candidate whose publication claim is under review.
+ */
+export type CanonicalPublicRegistrySnapshot = {
+  version: "clinical-kb-site-canonical-public-snapshot-v1";
+  publicRecordId: string;
+  logicalId: string;
+  route: string;
+  contentHash: string;
+  governanceHash: string;
+  publicationVersion: string;
+};
+
 export type CanonicalRegistrySiteContentProjection = {
   record: SiteContentRecord;
   documentId: string;
@@ -74,26 +89,10 @@ export type CanonicalRegistrySiteContentProjection = {
   metadata: Record<string, Json>;
 };
 
-/**
- * Adds public-release metadata without changing the existing registry text or
- * deterministic document/chunk identities. Generic owner rows never call this
- * projection and therefore remain outside `clinical_kb_site`.
- */
-export function canonicalRegistrySiteContentProjection(
+function registryEntryRecord(
   entry: RegistryCorpusEntry,
-  identity: RegistrySiteContentIdentity,
-): CanonicalRegistrySiteContentProjection {
-  if (
-    entry.ownerId !== identity.rowOwnerId ||
-    identity.rowOwnerId !== null ||
-    identity.publicationState !== "published" ||
-    !identity.renderedByPublicSite ||
-    !identity.explicitlyReconciled
-  ) {
-    throw new Error(
-      "Registry site-content classification requires persisted owner truth to match an ownerless reconciled public projection.",
-    );
-  }
+  identity: Pick<RegistrySiteContentIdentity, "logicalId" | "sourceLineage">,
+) {
   const domain = domainByKind[entry.kind];
   const producer = siteContentProducerForMode(modeByKind[entry.kind]);
   if (!producer || producer.producerClass !== "dynamic_registry" || producer.domain !== domain) {
@@ -101,7 +100,7 @@ export function canonicalRegistrySiteContentProjection(
   }
   const route = registryCorpusDetailHref(detailTarget(entry));
   if (!route) throw new Error(`Registry entry ${entry.recordId} has no canonical public route.`);
-  const record = createSiteContentRecord({
+  return createSiteContentRecord({
     version: "site-content-record-v1",
     logicalId: identity.logicalId,
     producerClass: "dynamic_registry",
@@ -115,6 +114,75 @@ export function canonicalRegistrySiteContentProjection(
     sourceStatus: sourceStatus(entry.sourceStatus),
     sourceLineage: identity.sourceLineage ?? [],
   });
+}
+
+function registryPublicGovernanceHash(record: SiteContentRecord) {
+  return siteContentValueHash({
+    version: record.version,
+    producerClass: record.producerClass,
+    domain: record.domain,
+    sourceRole: record.sourceRole,
+    access: record.access,
+    validationStatus: record.validationStatus,
+    sourceStatus: record.sourceStatus,
+    sourceLineage: record.sourceLineage,
+  });
+}
+
+function expectedCanonicalPublicRegistrySnapshot(
+  publicRecordId: string,
+  record: SiteContentRecord,
+): CanonicalPublicRegistrySnapshot {
+  return {
+    version: "clinical-kb-site-canonical-public-snapshot-v1",
+    publicRecordId,
+    logicalId: record.logicalId,
+    route: record.route,
+    contentHash: record.contentHash,
+    governanceHash: registryPublicGovernanceHash(record),
+    publicationVersion: record.publicationVersion,
+  };
+}
+
+function assertCanonicalPublicSnapshot(
+  record: SiteContentRecord,
+  publicRecordId: string,
+  snapshot: CanonicalPublicRegistrySnapshot | undefined,
+) {
+  if (!snapshot) {
+    throw new Error("Trusted canonical-public snapshot evidence is required for registry adoption.");
+  }
+  const expected = expectedCanonicalPublicRegistrySnapshot(publicRecordId, record);
+  if (siteContentValueHash(snapshot) !== siteContentValueHash(expected)) {
+    throw new Error(`Trusted canonical-public snapshot mismatch for ${record.logicalId}.`);
+  }
+}
+
+/**
+ * Adds public-release metadata without changing the existing registry text or
+ * deterministic document/chunk identities. Generic owner rows never call this
+ * projection and therefore remain outside `clinical_kb_site`.
+ */
+export function canonicalRegistrySiteContentProjection(
+  entry: RegistryCorpusEntry,
+  identity: RegistrySiteContentIdentity,
+  trustedPublicSnapshot: CanonicalPublicRegistrySnapshot,
+): CanonicalRegistrySiteContentProjection {
+  if (
+    entry.ownerId !== identity.rowOwnerId ||
+    identity.rowOwnerId !== null ||
+    identity.publicationState !== "published" ||
+    !identity.renderedByPublicSite ||
+    !identity.explicitlyReconciled
+  ) {
+    throw new Error(
+      "Registry site-content classification requires persisted owner truth to match an ownerless reconciled public projection.",
+    );
+  }
+  const record = registryEntryRecord(entry, identity);
+  assertCanonicalPublicSnapshot(record, identity.publicRecordId, trustedPublicSnapshot);
+  const domain = record.domain;
+  const route = record.route;
   const documentId = registryCorpusDocumentId(entry.kind, entry.recordId);
   const chunkId = registryCorpusChunkId(entry.kind, entry.recordId);
   return {
@@ -137,9 +205,9 @@ export function canonicalRegistrySiteContentProjection(
 
 export function registryEntryToSiteContentRecord(
   entry: RegistryCorpusEntry,
-  identity: RegistrySiteContentIdentity,
+  identity: Pick<RegistrySiteContentIdentity, "logicalId" | "sourceLineage">,
 ): SiteContentRecord {
-  return canonicalRegistrySiteContentProjection(entry, identity).record;
+  return registryEntryRecord(entry, identity);
 }
 
 export type RegistryReconciliationCandidate = {
@@ -228,8 +296,20 @@ function assertUniqueReconciliationIds(candidates: readonly RegistryReconciliati
 
 export function buildRegistryReconciliationReport(
   candidates: readonly RegistryReconciliationCandidate[],
+  trustedPublicSnapshots: readonly CanonicalPublicRegistrySnapshot[] = [],
 ): RegistryReconciliationReport {
   assertUniqueReconciliationIds(candidates);
+  const candidateLogicalIds = new Set(candidates.map((candidate) => candidate.logicalId));
+  const snapshotsByLogicalId = new Map<string, CanonicalPublicRegistrySnapshot>();
+  for (const snapshot of trustedPublicSnapshots) {
+    if (snapshotsByLogicalId.has(snapshot.logicalId)) {
+      throw new Error(`Duplicate trusted canonical-public snapshot for ${snapshot.logicalId}.`);
+    }
+    if (!candidateLogicalIds.has(snapshot.logicalId)) {
+      throw new Error(`Trusted canonical-public snapshot has no reconciliation group: ${snapshot.logicalId}.`);
+    }
+    snapshotsByLogicalId.set(snapshot.logicalId, snapshot);
+  }
   const byLogicalId = new Map<string, RegistryReconciliationCandidate[]>();
   for (const candidate of candidates) {
     const group = byLogicalId.get(candidate.logicalId) ?? [];
@@ -243,15 +323,26 @@ export function buildRegistryReconciliationReport(
         compareCanonicalSiteContentIdentifiers,
       );
       const canonical = canonicalCandidate(group);
+      const trustedSnapshot = snapshotsByLogicalId.get(logicalId);
+      let matchesTrustedSnapshot = false;
+      if (canonical && trustedSnapshot) {
+        const record = registryEntryRecord(canonical.entry, canonical);
+        try {
+          assertCanonicalPublicSnapshot(record, canonical.publicRecordId ?? canonical.entry.recordId, trustedSnapshot);
+          matchesTrustedSnapshot = true;
+        } catch {
+          matchesTrustedSnapshot = false;
+        }
+      }
       const disposition: RegistryReconciliationDisposition =
         normalizedContentHashes.length > 1
           ? "divergent_requires_administrator_review"
-          : canonical
+          : canonical && matchesTrustedSnapshot
             ? "adoptable"
-            : group.length > 1
+            : !canonical && !trustedSnapshot && group.length > 1
               ? "identical_duplicates"
               : "divergent_requires_administrator_review";
-      const renderedPublicContentHash = canonical ? reconciliationContentHash(canonical) : null;
+      const renderedPublicContentHash = trustedSnapshot?.contentHash ?? null;
       return {
         logicalId,
         candidateCount: group.length,
@@ -272,23 +363,40 @@ export function buildRegistryReconciliationReport(
 
 export function adoptCanonicalRegistryProjection(
   candidates: readonly RegistryReconciliationCandidate[],
+  trustedPublicSnapshot: CanonicalPublicRegistrySnapshot,
 ): CanonicalRegistrySiteContentProjection {
   if (candidates.length === 0) throw new Error("Registry adoption requires at least one candidate.");
-  const report = buildRegistryReconciliationReport(candidates);
+  if (!trustedPublicSnapshot) {
+    throw new Error("Trusted canonical-public snapshot evidence is required for registry adoption.");
+  }
+  const report = buildRegistryReconciliationReport(candidates, [trustedPublicSnapshot]);
   if (report.groups.length !== 1 || report.groups[0]?.disposition !== "adoptable") {
+    const candidate = canonicalCandidate(candidates);
+    if (candidate) {
+      const record = registryEntryRecord(candidate.entry, candidate);
+      assertCanonicalPublicSnapshot(
+        record,
+        candidate.publicRecordId ?? candidate.entry.recordId,
+        trustedPublicSnapshot,
+      );
+    }
     throw new Error("Registry adoption is divergent or requires administrator review.");
   }
   const candidate = canonicalCandidate(candidates);
   if (!candidate) throw new Error("Registry adoption has no unique reconciled canonical public projection.");
-  return canonicalRegistrySiteContentProjection(candidate.entry, {
-    logicalId: candidate.logicalId,
-    publicRecordId: candidate.publicRecordId ?? candidate.entry.recordId,
-    rowOwnerId: null,
-    publicationState: "published",
-    renderedByPublicSite: true,
-    explicitlyReconciled: true,
-    sourceLineage: candidate.sourceLineage,
-  });
+  return canonicalRegistrySiteContentProjection(
+    candidate.entry,
+    {
+      logicalId: candidate.logicalId,
+      publicRecordId: candidate.publicRecordId ?? candidate.entry.recordId,
+      rowOwnerId: null,
+      publicationState: "published",
+      renderedByPublicSite: true,
+      explicitlyReconciled: true,
+      sourceLineage: candidate.sourceLineage,
+    },
+    trustedPublicSnapshot,
+  );
 }
 
 export type RegistryEmbeddingFingerprint = {

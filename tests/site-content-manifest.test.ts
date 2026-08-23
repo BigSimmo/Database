@@ -123,6 +123,36 @@ function record(
   });
 }
 
+function canonicalPublicSnapshot(publicRecordId: string, record: SiteContentRecord) {
+  return {
+    version: "clinical-kb-site-canonical-public-snapshot-v1" as const,
+    publicRecordId,
+    logicalId: record.logicalId,
+    route: record.route,
+    contentHash: record.contentHash,
+    governanceHash: siteContentValueHash({
+      version: record.version,
+      producerClass: record.producerClass,
+      domain: record.domain,
+      sourceRole: record.sourceRole,
+      access: record.access,
+      validationStatus: record.validationStatus,
+      sourceStatus: record.sourceStatus,
+      sourceLineage: record.sourceLineage,
+    }),
+    publicationVersion: record.publicationVersion,
+  };
+}
+
+function registryPublicSnapshot(entry: RegistryCorpusEntry, logicalId: string, publicRecordId: string) {
+  return canonicalPublicSnapshot(publicRecordId, registryEntryToSiteContentRecord(entry, { logicalId }));
+}
+
+function dynamicLogicalIdForTest(entry: RegistryCorpusEntry) {
+  if (entry.kind === "differential") return `differentials:${entry.subkind}:${entry.slug}`;
+  return `${entry.kind === "medication" ? "medications" : `${entry.kind}s`}:${entry.slug}`;
+}
+
 describe("static site-content manifest", () => {
   it("uses canonical whitespace and stable logical-id order", () => {
     const first = buildStaticSiteContentManifest(
@@ -411,13 +441,23 @@ describe("canonical producer adapters", () => {
   });
 
   it("builds Therapy Compass records and lineage from the declared full public catalogue", () => {
-    const fullTherapy = therapiesSourceJson[0]! as Therapy;
+    const publicFullCatalogue = JSON.parse(
+      readFileSync(join("public", "therapy-compass-data", THERAPY_CATALOGUE_ASSETS.full), "utf8"),
+    ) as Therapy[];
+    const fullTherapy = publicFullCatalogue[0]!;
+    const authoringTherapy = therapiesSourceJson.find((therapy) => therapy.slug === fullTherapy.slug)! as Therapy;
     const therapy = staticSiteContentRecords.find((entry) => entry.logicalId === `therapies:${fullTherapy.slug}`)!;
+    const authoringSourceOnlyDrift = therapySiteContentRecord({
+      ...authoringTherapy,
+      contraindicationsOrCautions: `${authoringTherapy.contraindicationsOrCautions} Authoring-only draft.`,
+    });
     const changed = therapySiteContentRecord({
       ...fullTherapy,
       contraindicationsOrCautions: `${fullTherapy.contraindicationsOrCautions} Updated governed caution.`,
     });
+    const adapterSource = readFileSync("src/lib/site-content/adapters/index.ts", "utf8");
 
+    expect(adapterSource).not.toContain("therapies-source.json");
     expect(fullTherapy.contraindicationsOrCautions).toBeTruthy();
     expect(therapy.body).toContain(fullTherapy.contraindicationsOrCautions);
     expect(therapy.publicationVersion).toMatch(/^[0-9a-f]{64}$/);
@@ -429,6 +469,8 @@ describe("canonical producer adapters", () => {
       },
     ]);
     expect(therapySiteContentRecord(fullTherapy)).toEqual(therapy);
+    expect(authoringSourceOnlyDrift).not.toEqual(therapy);
+    expect(therapy.sourceLineage[0]?.sourceHash).toBe(siteContentValueHash(fullTherapy));
     expect(changed.contentHash).not.toBe(therapy.contentHash);
     expect(changed.publicationVersion).not.toBe(therapy.publicationVersion);
     expect(changed.sourceLineage[0]?.sourceHash).not.toBe(therapy.sourceLineage[0]?.sourceHash);
@@ -522,17 +564,21 @@ describe("canonical producer adapters", () => {
       ...medicationRowsToCorpusEntries(rows.medicationRows),
       ...differentialRowsToCorpusEntries(rows.differentialRows),
     ];
+    const decisions = expectedEntries.map((entry) => ({
+      kind: entry.kind,
+      recordId: entry.recordId,
+      publicRecordId: `public-${entry.recordId}`,
+      rowOwnerId: null,
+      publicationState: "published" as const,
+      renderedByPublicSite: true,
+      explicitlyReconciled: true,
+    }));
     const projections = buildDynamicSiteContentProjections(
       rows,
-      expectedEntries.map((entry) => ({
-        kind: entry.kind,
-        recordId: entry.recordId,
-        publicRecordId: `public-${entry.recordId}`,
-        rowOwnerId: null,
-        publicationState: "published",
-        renderedByPublicSite: true,
-        explicitlyReconciled: true,
-      })),
+      decisions,
+      expectedEntries.map((entry) =>
+        registryPublicSnapshot(entry, dynamicLogicalIdForTest(entry), `public-${entry.recordId}`),
+      ),
     );
 
     expect(new Set(projections.map((projection) => projection.record.domain))).toEqual(
@@ -578,24 +624,28 @@ describe("canonical producer adapters", () => {
       explicitlyReconciled: true as const,
     };
 
-    expect(() => buildDynamicSiteContentProjections(rows, [decision])).toThrow(/decision.*every persisted/i);
-    expect(() => buildDynamicSiteContentProjections(rows, [decision, decision])).toThrow(
+    expect(() => buildDynamicSiteContentProjections(rows, [decision], [])).toThrow(/decision.*every persisted/i);
+    expect(() => buildDynamicSiteContentProjections(rows, [decision, decision], [])).toThrow(
       /duplicate reconciliation decision/i,
     );
     expect(() =>
-      buildDynamicSiteContentProjections(rows, [
-        decision,
-        {
-          ...decision,
-          recordId: divergent.id,
-          publicRecordId: `public-${divergent.id}`,
-          rowOwnerId: ownerId,
-          publicationState: "draft",
-          renderedByPublicSite: false,
-          explicitlyReconciled: false,
-        },
-        { ...decision, recordId: "missing-row", publicRecordId: "public-missing-row" },
-      ]),
+      buildDynamicSiteContentProjections(
+        rows,
+        [
+          decision,
+          {
+            ...decision,
+            recordId: divergent.id,
+            publicRecordId: `public-${divergent.id}`,
+            rowOwnerId: ownerId,
+            publicationState: "draft",
+            renderedByPublicSite: false,
+            explicitlyReconciled: false,
+          },
+          { ...decision, recordId: "missing-row", publicRecordId: "public-missing-row" },
+        ],
+        [],
+      ),
     ).toThrow(/decision.*persisted entry/i);
   });
 
@@ -624,6 +674,63 @@ describe("registry adoption", () => {
     metadata: {},
   };
 
+  it("requires exact canonical-public snapshot truth beyond reconciliation booleans", () => {
+    const canonicalEntry = { ...entry, ownerId: null };
+    const identity = {
+      logicalId: "services:crisis-service",
+      publicRecordId: "canonical-public-record",
+      rowOwnerId: null,
+      publicationState: "published" as const,
+      renderedByPublicSite: true as const,
+      explicitlyReconciled: true as const,
+    };
+    const projected = registryEntryToSiteContentRecord(canonicalEntry, identity);
+    const snapshot = canonicalPublicSnapshot(identity.publicRecordId, projected);
+
+    expect(() => canonicalRegistrySiteContentProjection(canonicalEntry, identity, snapshot)).not.toThrow();
+    for (const mismatchedSnapshot of [
+      { ...snapshot, publicRecordId: "different-public-record" },
+      { ...snapshot, logicalId: "services:different-service" },
+      { ...snapshot, route: "/services/different-service" },
+      { ...snapshot, contentHash: "f".repeat(64) },
+      { ...snapshot, governanceHash: "d".repeat(64) },
+      { ...snapshot, publicationVersion: "e".repeat(64) },
+    ]) {
+      expect(() => canonicalRegistrySiteContentProjection(canonicalEntry, identity, mismatchedSnapshot)).toThrow(
+        /canonical.public.*snapshot.*mismatch/i,
+      );
+      expect(() =>
+        adoptCanonicalRegistryProjection(
+          [
+            {
+              entry: canonicalEntry,
+              ...identity,
+            },
+          ],
+          mismatchedSnapshot,
+        ),
+      ).toThrow(/canonical.public.*snapshot.*(mismatch|no reconciliation group)/i);
+    }
+  });
+
+  it("has no boolean-only canonical-public adoption path", () => {
+    const canonicalEntry = { ...entry, ownerId: null };
+    const projection = {
+      entry: canonicalEntry,
+      logicalId: "services:crisis-service",
+      publicRecordId: "canonical-public-record",
+      rowOwnerId: null,
+      publicationState: "published" as const,
+      renderedByPublicSite: true,
+      explicitlyReconciled: true,
+    };
+    const booleanOnlyAdoption = adoptCanonicalRegistryProjection as unknown as (
+      candidates: readonly (typeof projection)[],
+    ) => unknown;
+
+    expect(() => booleanOnlyAdoption([projection])).toThrow(/canonical.public.*snapshot.*required/i);
+  });
+
   it("binds ownerless public claims to the persisted entry owner", () => {
     const identity = {
       logicalId: "services:crisis-service",
@@ -633,17 +740,24 @@ describe("registry adoption", () => {
       renderedByPublicSite: true as const,
       explicitlyReconciled: true as const,
     };
+    const ownerlessEntry = { ...entry, ownerId: null };
+    const snapshot = registryPublicSnapshot(ownerlessEntry, identity.logicalId, identity.publicRecordId);
 
-    expect(() => canonicalRegistrySiteContentProjection(entry, identity)).toThrow(/persisted.*owner|owner.*mismatch/i);
+    expect(() => canonicalRegistrySiteContentProjection(entry, identity, snapshot)).toThrow(
+      /persisted.*owner|owner.*mismatch/i,
+    );
     expect(() =>
-      adoptCanonicalRegistryProjection([
-        {
-          entry,
-          ...identity,
-        },
-      ]),
+      adoptCanonicalRegistryProjection(
+        [
+          {
+            entry,
+            ...identity,
+          },
+        ],
+        snapshot,
+      ),
     ).toThrow(/persisted.*owner|owner.*mismatch/i);
-    expect(() => canonicalRegistrySiteContentProjection({ ...entry, ownerId: null }, identity)).not.toThrow();
+    expect(() => canonicalRegistrySiteContentProjection(ownerlessEntry, identity, snapshot)).not.toThrow();
   });
 
   it("preserves registry text and IDs while assigning only the canonical public projection", () => {
@@ -657,29 +771,27 @@ describe("registry adoption", () => {
       renderedByPublicSite: true,
       explicitlyReconciled: true,
     };
-    const adopted = adoptCanonicalRegistryProjection([projection]);
-    const direct = registryEntryToSiteContentRecord(canonicalEntry, {
-      logicalId: projection.logicalId,
-      publicRecordId: projection.publicRecordId,
-      rowOwnerId: null,
-      publicationState: "published",
-      renderedByPublicSite: true,
-      explicitlyReconciled: true,
-    });
+    const direct = registryEntryToSiteContentRecord(canonicalEntry, { logicalId: projection.logicalId });
+    const snapshot = canonicalPublicSnapshot(projection.publicRecordId, direct);
+    const adopted = adoptCanonicalRegistryProjection([projection], snapshot);
 
     expect(adopted.record).toEqual(direct);
     expect(adopted.record.body).toBe(canonicalEntry.content);
     expect(adopted.record.publicationVersion).toMatch(/^[0-9a-f]{64}$/);
     expect(adopted.documentId).toBe(adopted.metadata.site_content_document_id);
     expect(adopted.chunkId).toBe(adopted.metadata.site_content_chunk_id);
-    const adoptedProjection = canonicalRegistrySiteContentProjection(canonicalEntry, {
-      logicalId: projection.logicalId,
-      publicRecordId: projection.publicRecordId,
-      rowOwnerId: null,
-      publicationState: "published",
-      renderedByPublicSite: true,
-      explicitlyReconciled: true,
-    });
+    const adoptedProjection = canonicalRegistrySiteContentProjection(
+      canonicalEntry,
+      {
+        logicalId: projection.logicalId,
+        publicRecordId: projection.publicRecordId,
+        rowOwnerId: null,
+        publicationState: "published",
+        renderedByPublicSite: true,
+        explicitlyReconciled: true,
+      },
+      snapshot,
+    );
     expect(adoptedProjection.metadata).toMatchObject({
       corpus_scope: "clinical_kb_site",
       site_content_domain: "services",
@@ -688,24 +800,32 @@ describe("registry adoption", () => {
     });
     expect(JSON.stringify(adoptedProjection.metadata)).not.toMatch(/actor-a|owner_id/i);
     expect(() =>
-      canonicalRegistrySiteContentProjection(entry, {
-        logicalId: projection.logicalId,
-        publicRecordId: projection.publicRecordId,
-        rowOwnerId: null,
-        publicationState: "published",
-        renderedByPublicSite: true,
-        explicitlyReconciled: true,
-      }),
+      canonicalRegistrySiteContentProjection(
+        entry,
+        {
+          logicalId: projection.logicalId,
+          publicRecordId: projection.publicRecordId,
+          rowOwnerId: null,
+          publicationState: "published",
+          renderedByPublicSite: true,
+          explicitlyReconciled: true,
+        },
+        snapshot,
+      ),
     ).toThrow(/persisted.*owner|owner.*mismatch/i);
     expect(() =>
-      canonicalRegistrySiteContentProjection(entry, {
-        logicalId: projection.logicalId,
-        publicRecordId: projection.publicRecordId,
-        rowOwnerId: "actor-a" as never,
-        publicationState: "published",
-        renderedByPublicSite: true,
-        explicitlyReconciled: true,
-      }),
+      canonicalRegistrySiteContentProjection(
+        entry,
+        {
+          logicalId: projection.logicalId,
+          publicRecordId: projection.publicRecordId,
+          rowOwnerId: "actor-a" as never,
+          publicationState: "published",
+          renderedByPublicSite: true,
+          explicitlyReconciled: true,
+        },
+        snapshot,
+      ),
     ).toThrow(/ownerless reconciled public projection/i);
   });
 
@@ -769,7 +889,8 @@ describe("registry adoption", () => {
     expect(buildRegistryReconciliationReport(divergent).groups[0]?.disposition).toBe(
       "divergent_requires_administrator_review",
     );
-    expect(() => adoptCanonicalRegistryProjection(divergent)).toThrow(/divergent|administrator/i);
+    const snapshot = registryPublicSnapshot(divergent[0]!.entry, divergent[0]!.logicalId, divergent[0]!.publicRecordId);
+    expect(() => adoptCanonicalRegistryProjection(divergent, snapshot)).toThrow(/divergent|administrator/i);
   });
 
   it("rejects colliding row/public IDs instead of reselecting an owner row", () => {
@@ -793,9 +914,14 @@ describe("registry adoption", () => {
         explicitlyReconciled: true,
       },
     ];
+    const snapshot = registryPublicSnapshot(
+      candidates[1]!.entry,
+      candidates[1]!.logicalId,
+      candidates[1]!.publicRecordId,
+    );
 
     expect(() => buildRegistryReconciliationReport(candidates)).toThrow(/duplicate.*(public|record).*id/i);
-    expect(() => adoptCanonicalRegistryProjection(candidates)).toThrow(/duplicate.*(public|record).*id/i);
+    expect(() => adoptCanonicalRegistryProjection(candidates, snapshot)).toThrow(/duplicate.*(public|record).*id/i);
   });
 
   it("treats route and governance drift as divergent even when text is identical", () => {
@@ -828,6 +954,7 @@ describe("registry adoption", () => {
     expect(buildRegistryReconciliationReport(candidates).groups[0]?.disposition).toBe(
       "divergent_requires_administrator_review",
     );
-    expect(() => adoptCanonicalRegistryProjection(candidates)).toThrow(/divergent|administrator/i);
+    const snapshot = registryPublicSnapshot(candidates[0]!.entry, candidates[0]!.logicalId, "public-record");
+    expect(() => adoptCanonicalRegistryProjection(candidates, snapshot)).toThrow(/divergent|administrator/i);
   });
 });

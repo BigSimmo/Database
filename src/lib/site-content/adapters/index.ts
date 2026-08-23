@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
+
 import { calculators } from "@/components/calculators/calculator-fixtures";
 import { factsheets } from "@/components/factsheets/factsheets-data";
 import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import type { Therapy } from "@/components/therapy-compass/data/types";
-import therapiesSourceJson from "@/data/therapies-source.json";
 import { dictionaryEntries, dictionarySource } from "@/lib/dictionary-data";
 import { dsmDiagnoses } from "@/lib/dsm";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
@@ -28,6 +29,7 @@ import { publicKnowledgeToolCatalogRecords } from "@/lib/tools-catalog";
 import {
   adoptCanonicalRegistryProjection,
   buildRegistryReconciliationReport,
+  type CanonicalPublicRegistrySnapshot,
   type CanonicalRegistrySiteContentProjection,
   type RegistryReconciliationCandidate,
 } from "./registry";
@@ -115,7 +117,21 @@ function buildFormulationRecords() {
   );
 }
 
-const fullTherapyRecords = therapiesSourceJson as unknown as Therapy[];
+function loadPublicFullTherapyRecords(): Therapy[] {
+  const assetUrl = new URL(`../../../../public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`, import.meta.url);
+  let value: unknown;
+  try {
+    value = JSON.parse(readFileSync(assetUrl, "utf8"));
+  } catch {
+    throw new Error(`Canonical public Therapy catalogue is unreadable: ${THERAPY_CATALOGUE_ASSETS.full}.`);
+  }
+  if (!Array.isArray(value)) {
+    throw new Error(`Canonical public Therapy catalogue is not an array: ${THERAPY_CATALOGUE_ASSETS.full}.`);
+  }
+  return value as Therapy[];
+}
+
+const fullTherapyRecords = loadPublicFullTherapyRecords();
 
 export function therapySiteContentRecord(therapy: Therapy) {
   const producer = staticProducer("therapy-compass");
@@ -311,6 +327,7 @@ function dynamicLogicalId(entry: RegistryCorpusEntry) {
 export function buildDynamicSiteContentProjections(
   rows: DynamicSiteContentRows,
   reconciliation: readonly DynamicSiteContentReconciliation[],
+  trustedPublicSnapshots: readonly CanonicalPublicRegistrySnapshot[],
 ): CanonicalRegistrySiteContentProjection[] {
   const entries = [
     ...clinicalRegistryRowsToCorpusEntries(rows.clinicalRegistryRows),
@@ -351,7 +368,7 @@ export function buildDynamicSiteContentProjections(
       logicalId: dynamicLogicalId(entry),
     } satisfies RegistryReconciliationCandidate;
   });
-  buildRegistryReconciliationReport(candidates);
+  buildRegistryReconciliationReport(candidates, trustedPublicSnapshots);
   const byLogicalId = new Map<string, RegistryReconciliationCandidate[]>();
   for (const candidate of candidates) {
     const group = byLogicalId.get(candidate.logicalId) ?? [];
@@ -360,7 +377,13 @@ export function buildDynamicSiteContentProjections(
   }
   return [...byLogicalId.entries()]
     .sort(([left], [right]) => compareCanonicalSiteContentIdentifiers(left, right))
-    .map(([, group]) => adoptCanonicalRegistryProjection(group));
+    .map(([logicalId, group]) => {
+      const trustedPublicSnapshot = trustedPublicSnapshots.find((snapshot) => snapshot.logicalId === logicalId);
+      if (!trustedPublicSnapshot) {
+        throw new Error(`Trusted canonical-public snapshot evidence is required for ${logicalId}.`);
+      }
+      return adoptCanonicalRegistryProjection(group, trustedPublicSnapshot);
+    });
 }
 
 export function buildStaticSiteContentRecords(): SiteContentRecord[] {
