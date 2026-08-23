@@ -83,7 +83,11 @@ function canonicalHistory(raw) {
   for (const entry of raw.windows) {
     const hour = hourStart(entry?.hour);
     const rpcNames = Array.isArray(entry?.rpcNames)
-      ? Array.from(new Set(entry.rpcNames.filter((name) => typeof name === "string" && /^[a-zA-Z][a-zA-Z0-9_]{0,127}$/.test(name)))).sort()
+      ? Array.from(
+          new Set(
+            entry.rpcNames.filter((name) => typeof name === "string" && /^[a-zA-Z][a-zA-Z0-9_]{0,127}$/.test(name)),
+          ),
+        ).sort()
       : null;
     if (hour) byHour.set(hour, { hour, rpcNames });
   }
@@ -101,7 +105,10 @@ export function updateHybridRpcHourlyEvidence(rawHistory, health, observedAt = n
   const contiguous =
     lastThree.length === 3 &&
     lastThree.every((entry) => Array.isArray(entry.rpcNames)) &&
-    lastThree.every((entry, index) => index === 0 || Date.parse(entry.hour) - Date.parse(lastThree[index - 1].hour) === hourlyWindowMs);
+    lastThree.every(
+      (entry, index) =>
+        index === 0 || Date.parse(entry.hour) - Date.parse(lastThree[index - 1].hour) === hourlyWindowMs,
+    );
   const repeatedRpcNames = contiguous
     ? lastThree[0].rpcNames.filter((name) => lastThree.every((entry) => entry.rpcNames.includes(name)))
     : [];

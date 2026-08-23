@@ -1687,25 +1687,25 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 <button
                   type="button"
                   disabled={setMutationPending || availableSetNames.length === 0}
-                   onClick={async () => {
-                     const name = effectiveNewSetName;
-                     if (!name) return;
-                     setSetMutationPending(true);
-                     try {
-                       const created = await accountData?.createFavouriteSet(name);
-                       setSetMutationStatus(
-                         created ? `${created.name} set created.` : "Favourite set could not be created.",
-                       );
-                       if (created) {
-                         const remaining = availableSetNames.filter((candidate) => candidate !== name);
-                         if (remaining[0]) setNewSetName(remaining[0]);
-                       }
-                     } catch {
-                       setSetMutationStatus("Favourite set could not be created.");
-                     } finally {
-                       setSetMutationPending(false);
-                     }
-                   }}
+                  onClick={async () => {
+                    const name = effectiveNewSetName;
+                    if (!name) return;
+                    setSetMutationPending(true);
+                    try {
+                      const created = await accountData?.createFavouriteSet(name);
+                      setSetMutationStatus(
+                        created ? `${created.name} set created.` : "Favourite set could not be created.",
+                      );
+                      if (created) {
+                        const remaining = availableSetNames.filter((candidate) => candidate !== name);
+                        if (remaining[0]) setNewSetName(remaining[0]);
+                      }
+                    } catch {
+                      setSetMutationStatus("Favourite set could not be created.");
+                    } finally {
+                      setSetMutationPending(false);
+                    }
+                  }}
                   className={cn(
                     "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60",
                     focusRing,

@@ -33,8 +33,9 @@ describe("evaluateOperationalAlerts", () => {
       severity: "page",
       observedValue: ["hybrid_search"],
     });
-    expect(evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.001 }), { repeatedHybridRpcNames: ["bad name"] }))
-      .toEqual([]);
+    expect(
+      evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.001 }), { repeatedHybridRpcNames: ["bad name"] }),
+    ).toEqual([]);
   });
 
   it("warns above 20% and pages above 50% degraded answers", () => {
