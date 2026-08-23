@@ -234,14 +234,12 @@ export function relatedTherapies(all: Therapy[], therapy: Therapy, limit = 4): R
       }
 
       const score = contributions.reduce((sum, entry) => sum + entry.score, 0);
-      const strongest = contributions.reduce<{ score: number; reason: string } | null>(
-        (best, entry) => (best === null || entry.score > best.score ? entry : best),
-        null,
-      );
-      const explicitReason = contributions.find(
-        (entry) => entry.reason === "Named in this record" || entry.reason === "References this therapy",
-      );
-      return { therapy: candidate, score, reason: explicitReason?.reason ?? strongest?.reason ?? "Related record" };
+      // Label with the strongest *kind* of signal present, not the largest
+      // contribution. Shared-tag IDF is summed, so several moderately rare tags
+      // can outscore NAMED_IN_RECORD even though the editorial name mention is
+      // the explanation this browsing surface should lead with. Contributions
+      // are already pushed in documented strongest-first order.
+      return { therapy: candidate, score, reason: contributions[0]?.reason ?? "Related record" };
     })
     .filter((entry) => entry.score > 0);
 

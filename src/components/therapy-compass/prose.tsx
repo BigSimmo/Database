@@ -235,8 +235,10 @@ export function ProseBlock({
           <span
             aria-hidden
             className={cn(
-              "pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t to-transparent",
-              "print:hidden",
+              // The clamp lifts in print (`print:max-h-none`), so this fade would
+              // sit on the last lines of the full field — including safety copy —
+              // unless it is dropped for paper too.
+              "pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t to-transparent print:hidden",
               tone === "warning" ? "from-[color:var(--warning-bg)]" : "from-[color:var(--surface-raised)]",
             )}
           />

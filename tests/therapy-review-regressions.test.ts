@@ -139,6 +139,7 @@ describe("Therapy review regression contracts", () => {
     expect(prose).toContain("max-h-[6.5rem]");
     expect(prose).toContain("print:overflow-visible");
     expect(prose).toContain("print:max-h-none");
+    expect(prose).toContain("print:hidden");
 
     const groupedStart = universalSearch.indexOf('test("selecting a grouped result navigates to the record"');
     const groupedEnd = universalSearch.indexOf('test("Enter with nothing highlighted', groupedStart);

@@ -87,7 +87,7 @@ export function Disclosure({
           aria-expanded={open}
           aria-controls={panelId}
           onClick={toggle}
-          className="flex min-h-tap w-full items-center gap-2 px-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="flex min-h-tap w-full items-center gap-2 px-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] print:hidden"
         >
           <ChevronRight
             aria-hidden="true"
@@ -118,6 +118,15 @@ export function Disclosure({
           </span>
           {meta ? <span className="nums shrink-0 text-xs text-[color:var(--text-muted)]">{meta}</span> : null}
         </button>
+        {/* Print has no disclosure to operate, and global print CSS hides every
+            `button`, so the heading and review meta have to live outside the
+            trigger or they vanish on paper while the panel still prints. */}
+        <span aria-hidden="true" className="hidden items-center gap-2 px-3 py-3 print:flex">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{title}</span>
+          </span>
+          {meta ? <span className="nums shrink-0 text-xs text-[color:var(--text-muted)]">{meta}</span> : null}
+        </span>
       </Heading>
       <div
         id={panelId}
