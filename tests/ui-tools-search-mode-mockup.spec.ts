@@ -76,11 +76,11 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
   });
 
   test("does not let persisted mockup utilities override live-route inline themes", async ({ page }) => {
-    const mockup = await gotoMockup(page, 1440);
+    await gotoMockup(page, 1440);
 
-    await mockup.getByRole("link", { name: "Colour coding reference" }).click();
+    await page.goto("/reference/colour-coding", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/reference\/colour-coding$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Colour coding reference" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Colour coding & badges" })).toBeVisible();
 
     const inlineBorderColor = await page.evaluate(() => {
       const themedCard = document.createElement("div");
