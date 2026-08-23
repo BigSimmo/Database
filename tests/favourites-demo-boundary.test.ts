@@ -82,10 +82,12 @@ describe("favourites demo-data boundary", () => {
   });
 
   it("limits item selection to xl tables and keeps mobile cards action-only", () => {
-    expect(mobileCardSource).toContain("function FavouriteMobileCard({ item }: { item: FavouriteItem })");
+    expect(mobileCardSource).toContain("function FavouriteMobileCard({");
     expect(mobileCardSource).not.toContain("aria-pressed");
     expect(mobileCardSource).not.toContain("onSelect");
-    expect(mobileCardSource).toContain("<RowActionsMenu item={item} />");
+    expect(mobileCardSource).toContain(
+      "<RowActionsMenu item={item} sets={sets} onMove={onMove} onRemove={onRemove} onOpen={onOpen} />",
+    );
     expect(librarySource).toContain('"hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex"');
     expect(librarySource).toContain('"block min-w-0 max-w-full rounded-md text-left xl:hidden"');
     expect(librarySource).toContain(

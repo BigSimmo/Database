@@ -206,51 +206,232 @@ export function relatedTherapies(all: Therapy[], therapy: Therapy, n = 4): Thera
 
 // ---- recommend ----------------------------------------------------------
 
+export type RecommendConstraintGroupId = "setting" | "time" | "support" | "cautions";
+
 export type RecommendConstraint = {
   key: string;
   label: string;
+  group: RecommendConstraintGroupId;
   // Positive boost when the therapy matches; used to rank.
   match: (t: Therapy) => boolean;
 };
+
+export const RECOMMEND_CONSTRAINT_GROUPS: Array<{ id: RecommendConstraintGroupId; label: string }> = [
+  { id: "setting", label: "Setting" },
+  { id: "time", label: "Time" },
+  { id: "support", label: "Support" },
+  { id: "cautions", label: "Cautions" },
+];
 
 export const RECOMMEND_CONSTRAINTS: RecommendConstraint[] = [
   {
     key: "outpatient",
     label: "Outpatient",
-    match: (t) => lc(t.setting).includes("outpatient") || !lc(t.setting).includes("inpatient"),
+    group: "setting",
+    match: (t) => /outpatient|community|ambulatory|clinic|primary care/.test(lc(t.setting)),
   },
   {
     key: "inpatient",
     label: "Inpatient",
-    match: (t) => lc(t.setting).includes("inpatient") || lc(t.setting).includes("acute"),
+    group: "setting",
+    match: (t) => /inpatient|ward|hospital/.test(lc(t.setting)),
   },
-  { key: "5min", label: "5 minutes", match: (t) => t.briefInterventionAvailable && !!t.briefVersion },
-  { key: "15min", label: "15 minutes", match: (t) => !!t.fifteenMinuteVersion || t.briefInterventionAvailable },
-  { key: "handout", label: "Handout", match: (t) => t.patientSheetAvailable },
+  {
+    key: "5min",
+    label: "5 minutes",
+    group: "time",
+    match: (t) => t.briefInterventionAvailable && !!t.briefVersion,
+  },
+  {
+    key: "15min",
+    label: "15 minutes",
+    group: "time",
+    match: (t) => !!t.fifteenMinuteVersion || t.briefInterventionAvailable,
+  },
+  { key: "handout", label: "Handout", group: "support", match: (t) => t.patientSheetAvailable },
   {
     key: "grounding",
     label: "Grounding",
-    match: (t) => lc(`${t.tags.join(" ")} ${t.name}`).match(/ground|relax|distress|arousal/) != null,
+    group: "support",
+    match: (t) => lc(`${t.tags.join(" ")} ${t.name} ${t.bestUsedFor}`).match(/ground|relax|distress|arousal/) != null,
   },
   {
     key: "skills",
     label: "Skills",
-    match: (t) => lc(t.tags.join(" ")).match(/skill|dbt|cbt|behav/) != null,
+    group: "support",
+    match: (t) => lc(`${t.tags.join(" ")} ${t.name} ${t.bestUsedFor}`).match(/skill|dbt|cbt|behav/) != null,
   },
   {
     key: "psychoeducation",
     label: "Psychoeducation",
-    match: (t) => lc(`${t.name} ${t.tags.join(" ")}`).includes("psychoeduc"),
+    group: "support",
+    match: (t) => lc(`${t.name} ${t.tags.join(" ")} ${t.bestUsedFor}`).includes("psychoeduc"),
   },
-  { key: "trauma", label: "Trauma caution", match: (t) => t.tags.map(lc).includes("trauma") },
+  {
+    key: "trauma",
+    label: "Trauma caution",
+    group: "cautions",
+    match: (t) => t.tags.map(lc).includes("trauma") || /trauma|ptsd/.test(lc(t.name)),
+  },
   {
     key: "avoid-mania",
     label: "Avoid mania",
-    match: (t) => !lc(`${t.contraindicationsOrCautions} ${t.limitations}`).includes("mania"),
+    group: "cautions",
+    match: (t) => !/mania|hypomania/.test(lc(`${t.contraindicationsOrCautions} ${t.limitations}`)),
   },
 ];
 
-export type Ranked = { therapy: Therapy; score: number };
+export type Ranked = { therapy: Therapy; score: number; reasons: string[] };
+
+const RECOMMEND_STOPWORDS = new Set([
+  "what",
+  "which",
+  "therapy",
+  "therapies",
+  "treatment",
+  "treatments",
+  "for",
+  "in",
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "to",
+  "of",
+  "with",
+  "care",
+  "help",
+  "choosing",
+  "need",
+  "do",
+  "you",
+  "i",
+  "patient",
+  "someone",
+  "who",
+  "has",
+  "have",
+  "is",
+  "are",
+  "this",
+  "that",
+  "from",
+  "into",
+  "about",
+]);
+
+/** Setting / time / format words that must not count as clinical “treats” hits. */
+const RECOMMEND_LOGISTICS_TOKENS = new Set([
+  "outpatient",
+  "inpatient",
+  "community",
+  "ambulatory",
+  "clinic",
+  "ward",
+  "hospital",
+  "minutes",
+  "minute",
+  "handout",
+  "sheet",
+  "leaflet",
+]);
+
+const RECOMMEND_RELEVANCE_FLOOR_WITH_QUERY = 18;
+const RECOMMEND_RELEVANCE_FLOOR_CONSTRAINTS_ONLY = 8;
+const RECOMMEND_NAME_SCORE_CAP = 40;
+
+function uniqueKeys(keys: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const key of keys) {
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(key);
+  }
+  return result;
+}
+
+/** Clinical tokens from a situation, with catalogue-search stopwords removed. */
+export function recommendQueryTokens(query: string): string[] {
+  return lc(query)
+    .replace(/[^a-z0-9\s/+-]+/g, " ")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !RECOMMEND_STOPWORDS.has(token));
+}
+
+/**
+ * Infer constraint chips from free-text situation language. Explicit chip
+ * toggles still win via {@link resolveRecommendConstraints}.
+ */
+export function inferRecommendConstraints(query: string): string[] {
+  const q = lc(query);
+  const inferred: string[] = [];
+  if (/\boutpatient\b|\bcommunity\b|\bambulatory\b|\bclinic\b/.test(q)) inferred.push("outpatient");
+  if (/\binpatient\b|\bward\b|\badmission\b|\bin-?patient\b/.test(q)) inferred.push("inpatient");
+  if (/\b5\s*-?\s*min|\bfive[-\s]?minute|\bmicro[-\s]?session\b/.test(q)) inferred.push("5min");
+  if (/\b15\s*-?\s*min|\bfifteen[-\s]?minute/.test(q)) inferred.push("15min");
+  if (/\bhandout\b|\bsheet\b|\bleaflet\b/.test(q)) inferred.push("handout");
+  if (/\bground(?:ing)?\b/.test(q)) inferred.push("grounding");
+  if (/\bskills?\b/.test(q)) inferred.push("skills");
+  if (/\bpsychoeduc/.test(q)) inferred.push("psychoeducation");
+  if (/\btrauma\b|\bptsd\b/.test(q)) inferred.push("trauma");
+  if (/\bmania\b|\bmanic\b|\bhypomania\b|\bbipolar\b/.test(q)) inferred.push("avoid-mania");
+  return inferred;
+}
+
+export function resolveRecommendConstraints(
+  query: string,
+  explicitKeys: string[],
+  dismissedKeys: string[] = [],
+): string[] {
+  const dismissed = new Set(dismissedKeys);
+  return uniqueKeys([...explicitKeys, ...inferRecommendConstraints(query)].filter((key) => !dismissed.has(key)));
+}
+
+function fieldContains(value: string | null | undefined, token: string): boolean {
+  return Boolean(value) && lc(value).includes(token);
+}
+
+function cautionHaystack(t: Therapy): string {
+  return lc(`${t.contraindicationsOrCautions} ${t.limitations} ${t.warnings.join(" ")}`);
+}
+
+function clinicalFieldScore(t: Therapy, tokens: string[]): { score: number; reasons: string[] } {
+  const presentationTokens = tokens.filter((token) => !RECOMMEND_LOGISTICS_TOKENS.has(token));
+  const logisticsTokens = tokens.filter((token) => RECOMMEND_LOGISTICS_TOKENS.has(token));
+  let score = 0;
+  const reasons: string[] = [];
+  let treatsHits = 0;
+  let settingHits = 0;
+  for (const token of presentationTokens) {
+    if (
+      fieldContains(t.targetSymptoms, token) ||
+      fieldContains(t.indications, token) ||
+      fieldContains(t.bestUsedFor, token)
+    ) {
+      treatsHits += 1;
+      score += 16;
+    } else if (fieldContains(t.clinicalSummary, token)) {
+      score += 5;
+    }
+  }
+  for (const token of uniqueKeys([...presentationTokens, ...logisticsTokens])) {
+    if (fieldContains(t.setting, token) || fieldContains(t.patientPopulation, token)) {
+      settingHits += 1;
+      score += 8;
+    }
+    if (fieldContains(t.timeRequired, token) || fieldContains(t.sessionLength, token)) {
+      score += 6;
+    }
+  }
+  if (treatsHits) {
+    reasons.push(treatsHits === 1 ? "Matches the described presentation" : "Matches several presentation terms");
+  }
+  if (settingHits) reasons.push("Fits the stated setting or population");
+  return { score, reasons };
+}
 
 export function rankRecommendations(
   therapies: Therapy[],
@@ -258,18 +439,63 @@ export function rankRecommendations(
   constraintKeys: string[],
   limit = 6,
 ): Ranked[] {
-  const q = query.trim().toLowerCase();
+  const tokens = recommendQueryTokens(query);
+  const presentationQuery = tokens.filter((token) => !RECOMMEND_LOGISTICS_TOKENS.has(token)).join(" ");
   const cons = RECOMMEND_CONSTRAINTS.filter((c) => constraintKeys.includes(c.key));
+  const floor = tokens.length
+    ? RECOMMEND_RELEVANCE_FLOOR_WITH_QUERY
+    : cons.length
+      ? RECOMMEND_RELEVANCE_FLOOR_CONSTRAINTS_ONLY
+      : Number.POSITIVE_INFINITY;
+
   const scored = therapies.map((t) => {
+    const reasons: string[] = [];
     let score = 0;
-    if (q) score += Math.min(scoreTherapyCandidate(t, q), 60);
-    for (const c of cons) if (c.match(t)) score += 10;
+    if (presentationQuery) score += Math.min(scoreTherapyCandidate(t, presentationQuery), RECOMMEND_NAME_SCORE_CAP);
+    const fields = clinicalFieldScore(t, tokens);
+    score += fields.score;
+    reasons.push(...fields.reasons);
+
+    for (const c of cons) {
+      if (c.key === "avoid-mania") {
+        if (/mania|hypomania|activation/.test(cautionHaystack(t))) {
+          score -= 28;
+          reasons.push("Caution: mania or activation risk");
+        }
+        continue;
+      }
+      if (c.key === "trauma") {
+        const risky = /not (?:for|indicated in) trauma|contraindicat\w* in (?:trauma|ptsd)|avoid (?:in )?trauma/.test(
+          cautionHaystack(t),
+        );
+        if (risky) {
+          score -= 22;
+          reasons.push("Caution: trauma contraindication");
+        } else if (c.match(t)) {
+          score += 12;
+          reasons.push("Trauma-informed option");
+        } else {
+          score -= 18;
+        }
+        continue;
+      }
+      if (c.match(t)) {
+        score += 12;
+        if (c.group === "setting" || c.group === "time") reasons.push(`Fits ${c.label.toLowerCase()}`);
+      } else {
+        score -= 18;
+      }
+    }
+
     if (t.reviewStatus === "reviewed") score += 4;
     if (typeof t.indexCompleteness === "number") score += t.indexCompleteness / 100;
-    return { therapy: t, score };
+    const orderedReasons = uniqueKeys(reasons);
+    const cautionReasons = orderedReasons.filter((reason) => reason.startsWith("Caution:"));
+    const otherReasons = orderedReasons.filter((reason) => !reason.startsWith("Caution:"));
+    return { therapy: t, score, reasons: [...cautionReasons, ...otherReasons].slice(0, 4) };
   });
   scored.sort((a, b) => b.score - a.score || a.therapy.name.localeCompare(b.therapy.name));
-  return scored.slice(0, limit);
+  return scored.filter((row) => row.score >= floor).slice(0, limit);
 }
 
 // ---- compare summary ----------------------------------------------------

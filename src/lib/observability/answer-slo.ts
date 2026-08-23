@@ -14,6 +14,10 @@ export type AnswerSloSnapshot = {
   windowMinutes: number;
   totalQueries: number;
   hybridRpcErrorQueries: number;
+  /** Error counts by safe, internal RPC identifier for the current hourly window. */
+  hybridRpcErrorCounts: Record<string, number>;
+  /** False when the bounded identity query cannot prove that every error row was observed. */
+  hybridRpcIdentityEvidenceComplete: boolean;
   degradedQueries: number;
   // Subsets of degradedQueries broken out by the two dominant answer-generation waste
   // classes: reasoning/answer token starvation (fallback_reason contains
@@ -30,6 +34,7 @@ export type AnswerSloSnapshot = {
 };
 
 type CountResult = { count: number | null; error: unknown };
+type HybridRpcIdentityResult = { data: Array<{ metadata: unknown }> | null; error: unknown };
 
 // Minimal structural view of the PostgREST count query we use. The Supabase admin
 // client is assignable to this (same pattern as src/lib/supabase/health.ts), so the
@@ -43,14 +48,53 @@ type SloCountBuilder = PromiseLike<CountResult> & {
   or(filters: string): SloCountBuilder;
 };
 
+type HybridRpcIdentityBuilder = PromiseLike<HybridRpcIdentityResult> & {
+  gt(column: string, value: string): HybridRpcIdentityBuilder;
+  is(column: string, value: null): HybridRpcIdentityBuilder;
+  not(column: string, operator: string, value: null): HybridRpcIdentityBuilder;
+  limit(count: number): HybridRpcIdentityBuilder;
+};
+
 export type SloProbeClient = {
   from(table: string): {
     select(columns: string, options: { count: "exact"; head: true }): SloCountBuilder;
+    select(columns: "metadata"): HybridRpcIdentityBuilder;
   };
 };
 
 function rate(numerator: number, denominator: number) {
   return denominator > 0 ? numerator / denominator : 0;
+}
+
+const maxHybridRpcIdentityRows = 1000;
+const safeRpcIdentifier = /^[a-zA-Z][a-zA-Z0-9_]{0,127}$/;
+
+function hybridRpcIdentityEvidence(rows: Array<{ metadata: unknown }>, expectedRows: number) {
+  const counts: Record<string, number> = {};
+  let complete = rows.length === expectedRows;
+  for (const row of rows) {
+    const errors =
+      row.metadata &&
+      typeof row.metadata === "object" &&
+      !Array.isArray(row.metadata) &&
+      "hybrid_rpc_errors" in row.metadata
+        ? (row.metadata as { hybrid_rpc_errors?: unknown }).hybrid_rpc_errors
+        : null;
+    if (!errors || typeof errors !== "object" || Array.isArray(errors)) {
+      complete = false;
+      continue;
+    }
+    const names = Object.keys(errors);
+    if (names.length === 0) complete = false;
+    for (const name of names) {
+      if (!safeRpcIdentifier.test(name)) {
+        complete = false;
+        continue;
+      }
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+  }
+  return { counts, complete };
 }
 
 /**
@@ -71,7 +115,14 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
       // discriminator without hiding normal production answers from the SLO.
       .is("metadata->>event_type", null);
 
-  const [total, hybrid, degraded, truncation, timeout] = await Promise.all([
+  const hybridRpcIdentityRows = client
+    .from("rag_queries")
+    .select("metadata")
+    .gt("created_at", sinceIso)
+    .is("metadata->>event_type", null)
+    .not("metadata->hybrid_rpc_errors", "is", null)
+    .limit(maxHybridRpcIdentityRows);
+  const [total, hybrid, degraded, truncation, timeout, hybridIdentity] = await Promise.all([
     base(),
     base().not("metadata->hybrid_rpc_errors", "is", null),
     // Source-only/extractive answers can be intentional and healthy. Count only
@@ -84,9 +135,10 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
     // and "...generation_fallback:provider_timeout" (confirmed in live rag_queries).
     base().ilike("metadata->>fallback_reason", "%max_output_tokens%"),
     base().ilike("metadata->>fallback_reason", "%timeout%"),
+    hybridRpcIdentityRows,
   ]);
 
-  for (const result of [total, hybrid, degraded, truncation, timeout]) {
+  for (const result of [total, hybrid, degraded, truncation, timeout, hybridIdentity]) {
     if (result.error) {
       if (result.error instanceof Error) throw result.error;
       // Supabase surfaces a plain PostgrestError object ({ message, code, ... }),
@@ -104,11 +156,14 @@ export async function answerSloSnapshot(client: SloProbeClient, windowMinutes = 
   const degradedQueries = degraded.count ?? 0;
   const truncationFallbackQueries = truncation.count ?? 0;
   const timeoutFallbackQueries = timeout.count ?? 0;
+  const hybridRpcIdentity = hybridRpcIdentityEvidence(hybridIdentity.data ?? [], hybridRpcErrorQueries);
 
   return {
     windowMinutes,
     totalQueries,
     hybridRpcErrorQueries,
+    hybridRpcErrorCounts: hybridRpcIdentity.counts,
+    hybridRpcIdentityEvidenceComplete: hybridRpcIdentity.complete,
     degradedQueries,
     truncationFallbackQueries,
     timeoutFallbackQueries,

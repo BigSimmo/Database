@@ -981,7 +981,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(429);
     expect(await payload(response)).toMatchObject({
       error: "Document requests are rate limited. Try again shortly.",
-      retryAfterSeconds: 30,
+      details: { kind: "rate_limit", retryAfterSeconds: 30 },
     });
     expect(client.rpc).toHaveBeenCalledWith(
       "consume_api_subject_rate_limit",
@@ -2611,7 +2611,8 @@ describe("private document API access", () => {
     expect(response.status).toBe(409);
     expect(body).toMatchObject({
       error: "Document already has pending or processing indexing work.",
-      safety: {
+      details: {
+        kind: "ingestion_mutation_safety",
         safeToRun: false,
         reason: "active_jobs",
         activeJobCount: 1,
@@ -2668,7 +2669,8 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(body).toMatchObject({
-      safety: {
+      details: {
+        kind: "ingestion_mutation_safety",
         safeToRun: false,
         reason: "active_jobs",
         activeJobCount: 1,
@@ -2707,7 +2709,8 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(503);
     expect(body).toMatchObject({
-      safety: {
+      details: {
+        kind: "ingestion_mutation_safety",
         safeToRun: false,
         reason: "supabase_unavailable",
         activeJobCount: 0,
@@ -2852,7 +2855,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(409);
     expect(body).toMatchObject({
       error: "Document already has pending or processing indexing work.",
-      safety: { reason: "active_jobs", activeJobCount: 1 },
+      details: { kind: "ingestion_mutation_safety", reason: "active_jobs", activeJobCount: 1 },
     });
     expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
@@ -4222,7 +4225,7 @@ describe("private document API access", () => {
     expect(limited.headers.get("Retry-After")).toBe("60");
     expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(answerQuestionWithScope).toHaveBeenCalledTimes(6);
     expect(client.rpc).not.toHaveBeenCalledWith(
@@ -4276,7 +4279,7 @@ describe("private document API access", () => {
     expect(limited.headers.get("Retry-After")).toBe("60");
     expect(await payload(limited)).toMatchObject({
       error: "Too many answer requests. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
 
@@ -4338,7 +4341,7 @@ describe("private document API access", () => {
     expect(limited.headers.get("Retry-After")).toBe("60");
     expect(await payload(limited)).toMatchObject({
       error: "Search is temporarily rate limited because too many requests were received. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
@@ -4614,10 +4617,11 @@ describe("private document API access", () => {
     expect(body).not.toContain("event: final");
     expect(errorPayload).toMatchObject({
       error: "Answer generation failed. Retry with a narrower question.",
+      message: "Answer generation failed. Retry with a narrower question.",
+      code: "supabase_api_key_configuration",
       status: 500,
       // Key-configuration failures carry a stable code so a production outage is
       // diagnosable from the client network tab (confirmed live 2026-07-06).
-      details: { code: "supabase_api_key_configuration" },
     });
     expect(JSON.stringify(errorPayload)).not.toMatch(
       /stack|causeName|causeMessage|sqlState|private\/path|[A-Za-z]:\\\\/i,
@@ -5563,7 +5567,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(429);
     expect(await payload(response)).toMatchObject({
       error: "Too many document summary requests. Retry shortly.",
-      retryAfterSeconds: 60,
+      details: { kind: "rate_limit", retryAfterSeconds: 60 },
     });
     expect(summarizeDocument).not.toHaveBeenCalled();
   });

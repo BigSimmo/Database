@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   ChevronsRight,
   Clock,
@@ -24,9 +26,17 @@ import {
 import { useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import {
+  favouriteSetNames,
+  type AccountFavourite,
+  type AccountFavouriteSet,
+  type FavouriteContentType,
+  type FavouriteSetName,
+  useOptionalAccountData,
+} from "@/components/account-data-provider";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { cn, EmptyState, ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { cn, EmptyState } from "@/components/ui-primitives";
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
   favouriteItems as prototypeFavouriteItems,
@@ -65,9 +75,9 @@ type FavouriteType =
 // Previously imported from `favourites-library-nav`, which this redesign
 // retired along with the sidebar and the two phone rails it exported.
 type ViewMode = "all" | "recent";
-type SortMode = "last-used" | "title" | "type";
+type SortMode = "manual" | "last-used" | "title" | "type";
 
-type FavouriteItem = {
+export type FavouriteItem = {
   id: string;
   title: string;
   description: string;
@@ -80,6 +90,10 @@ type FavouriteItem = {
   href: string;
   icon: LucideIcon;
   pinned?: boolean;
+  contentType?: FavouriteContentType;
+  contentKey?: string;
+  setId?: string | null;
+  sortOrder?: number;
 };
 
 type FavouriteSet = {
@@ -189,30 +203,54 @@ function toCommandItem(
   item: PrototypeFavouriteItem,
   lastOpenedMap: Record<string, number>,
   pinnedIds: ReadonlySet<string>,
+  favouriteMetadata: ReadonlyMap<string, AccountFavourite>,
+  setById: ReadonlyMap<string, AccountFavouriteSet>,
   demoMode: boolean = false,
 ): FavouriteItem {
   const type =
     item.type === "sources" && item.primaryAction === "Run"
       ? "Saved search"
       : (typeByPrototypeType[item.type] ?? "Source");
+  const contentType =
+    item.type === "services"
+      ? "service"
+      : item.type === "forms"
+        ? "form"
+        : item.type === "differentials"
+          ? "differential"
+          : item.type === "therapies"
+            ? "therapy"
+            : undefined;
+  const contentKey = contentType ? item.id.slice(item.id.indexOf(":") + 1) : undefined;
+  const metadata = contentType && contentKey ? favouriteMetadata.get(`${contentType}:${contentKey}`) : undefined;
+  const persistedOpened = metadata?.lastOpenedAt ? Date.parse(metadata.lastOpenedAt) : Number.NaN;
+  const localOpened = lastOpenedMap[item.id];
+  const openedAt = Number.isFinite(persistedOpened) ? Math.max(persistedOpened, localOpened ?? 0) : localOpened;
   return {
     id: item.id,
     title: item.title,
     description: item.meta,
     type,
     tabId: item.type,
-    set: item.set || (item.type === "services" ? "Saved services" : item.type === "forms" ? "Saved forms" : "Unsorted"),
+    set:
+      (metadata?.setId ? setById.get(metadata.setId)?.name : undefined) ||
+      item.set ||
+      (item.type === "services" ? "Saved services" : item.type === "forms" ? "Saved forms" : "Unsorted"),
     evidence: item.sourceMeta,
     lastUsed:
-      lastOpenedMap[item.id] !== undefined
-        ? formatLastOpened(lastOpenedMap[item.id])
+      openedAt !== undefined
+        ? formatLastOpened(openedAt)
         : demoMode && lastUsedByItemId[item.id]
           ? lastUsedByItemId[item.id]
           : "Saved",
     action: item.primaryAction,
     href: item.href,
     icon: item.icon ?? fallbackIconByType[item.type],
-    pinned: pinnedIds.has(item.id),
+    pinned: Boolean(metadata?.pinnedAt) || pinnedIds.has(item.id),
+    contentType,
+    contentKey,
+    setId: metadata?.setId ?? null,
+    sortOrder: metadata?.sortOrder ?? 0,
   };
 }
 
@@ -282,6 +320,8 @@ function filterAndSortItems(
         : true,
     )
     .sort((first, second) => {
+      if (effectiveSort === "manual")
+        return (first.sortOrder ?? 0) - (second.sortOrder ?? 0) || first.title.localeCompare(second.title);
       if (effectiveSort === "title") return first.title.localeCompare(second.title);
       if (effectiveSort === "type")
         return first.type.localeCompare(second.type) || first.title.localeCompare(second.title);
@@ -321,7 +361,7 @@ function SmallChip({ children, appearance }: { children: React.ReactNode; appear
   );
 }
 
-function ContinueStrip({ item }: { item: FavouriteItem }) {
+function ContinueStrip({ item, onOpen }: { item: FavouriteItem; onOpen: (item: FavouriteItem) => void }) {
   const Icon = item.icon;
   return (
     <section
@@ -333,11 +373,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
         <div className="flex min-w-0 flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
           <div className="flex min-w-0 items-start gap-3 sm:flex-1">
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-            <Link
-              href={item.href}
-              onClick={() => recordFavouriteOpened(item.id)}
-              className={cn("min-w-0 flex-1 text-left", focusRing)}
-            >
+            <Link href={item.href} onClick={() => onOpen(item)} className={cn("min-w-0 flex-1 text-left", focusRing)}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--success)]">
                   Continue
@@ -353,7 +389,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
           </div>
           <Link
             href={item.href}
-            onClick={() => recordFavouriteOpened(item.id)}
+            onClick={() => onOpen(item)}
             aria-label={`Continue ${item.title}`}
             className={cn(
               "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
@@ -374,9 +410,23 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
  *
  * @param item - The favourite item associated with the available actions
  */
-function RowActionsMenu({ item }: { item: FavouriteItem }) {
+export function RowActionsMenu({
+  item,
+  sets,
+  onMove,
+  onRemove,
+  onOpen,
+}: {
+  item: FavouriteItem;
+  sets: AccountFavouriteSet[];
+  onMove: (item: FavouriteItem, setId: string | null) => Promise<boolean>;
+  onRemove: (item: FavouriteItem) => Promise<boolean>;
+  onOpen: (item: FavouriteItem) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [actionPending, setActionPending] = useState(false);
+  const [actionStatus, setActionStatus] = useState("");
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = `favourite-actions-${item.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
@@ -394,7 +444,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
   function focusMenuItem(position: "first" | "last") {
     window.requestAnimationFrame(() => {
       const items = Array.from(
-        menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [],
+        menuRef.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), select:not([disabled])") ?? [],
       );
       const target = position === "first" ? items[0] : items.at(-1);
       target?.focus({ preventScroll: true });
@@ -407,28 +457,6 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
     focusMenuItem(position);
   }
 
-  function handleMenuKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? []);
-    const currentIndex = items.findIndex((candidate) => candidate === document.activeElement);
-
-    if (event.key === "Tab") {
-      setOpen(false);
-      return;
-    }
-
-    let nextIndex: number | null = null;
-    if (event.key === "ArrowDown") nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
-    if (event.key === "ArrowUp")
-      nextIndex = currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
-    if (event.key === "Home") nextIndex = 0;
-    if (event.key === "End") nextIndex = items.length - 1;
-
-    if (nextIndex !== null && items[nextIndex]) {
-      event.preventDefault();
-      items[nextIndex].focus({ preventScroll: true });
-    }
-  }
-
   return (
     <div className="relative">
       <button
@@ -436,7 +464,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
         id={triggerId}
         type="button"
         aria-expanded={open}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-controls={open ? menuId : undefined}
         aria-label={`More actions for ${item.title}`}
         onClick={() => (open ? setOpen(false) : openMenu())}
@@ -456,21 +484,19 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
         <div
           ref={menuRef}
           id={menuId}
-          role="menu"
-          aria-labelledby={triggerId}
-          onKeyDown={handleMenuKeyDown}
+          role="dialog"
+          aria-label={`Actions for ${item.title}`}
           className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--shadow-soft)]"
         >
           <Link
             href={item.href}
-            role="menuitem"
             aria-label={`${actionLabel} ${item.title}`}
             className={cn(
               "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
             onClick={() => {
-              recordFavouriteOpened(item.id);
+              onOpen(item);
               setOpen(false);
             }}
           >
@@ -479,7 +505,6 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
           </Link>
           <button
             type="button"
-            role="menuitem"
             className={cn(
               "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
@@ -492,17 +517,61 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
             <Copy className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
             {copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Copy failed" : "Copy citation"}
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            aria-disabled="true"
-            onClick={ignoreUnavailableActivation}
-            title="Coming soon"
-            className="flex min-h-tap w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--disabled)]"
-          >
-            <Folder className="h-4 w-4" aria-hidden />
-            Move to set
-          </button>
+          {item.contentType && item.contentKey ? (
+            <>
+              <label className="grid gap-1 border-t border-[color:var(--border)] px-3 py-2 text-2xs font-semibold text-[color:var(--text-muted)]">
+                Move to set
+                <select
+                  aria-label={`Move ${item.title} to set`}
+                  value={item.setId ?? ""}
+                  disabled={actionPending}
+                  onChange={async (event) => {
+                    setActionPending(true);
+                    try {
+                      const moved = await onMove(item, event.target.value || null);
+                      setActionStatus(moved ? `${item.title} moved` : `Could not move ${item.title}`);
+                      if (moved) setOpen(false);
+                    } catch {
+                      setActionStatus(`Could not move ${item.title}`);
+                    } finally {
+                      setActionPending(false);
+                    }
+                  }}
+                  className="min-h-tap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)] sm:min-h-9"
+                >
+                  <option value="">Unsorted</option>
+                  {sets.map((set) => (
+                    <option key={set.id} value={set.id}>
+                      {set.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={actionPending}
+                className={cn(
+                  "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--danger)] hover:bg-[color:var(--danger-soft)] disabled:opacity-60",
+                  focusRing,
+                )}
+                onClick={async () => {
+                  setActionPending(true);
+                  try {
+                    const removed = await onRemove(item);
+                    setActionStatus(removed ? `${item.title} removed` : `Could not remove ${item.title}`);
+                    if (removed) setOpen(false);
+                  } catch {
+                    setActionStatus(`Could not remove ${item.title}`);
+                  } finally {
+                    setActionPending(false);
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden />
+                {actionPending ? "Updating…" : "Remove favourite"}
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
       <span className="sr-only" role="status" aria-live="polite">
@@ -512,11 +581,26 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
             ? "Unable to copy citation"
             : ""}
       </span>
+      <span className="sr-only" role="status" aria-live="polite">
+        {actionStatus}
+      </span>
     </div>
   );
 }
 
-function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
+function FavouriteMobileCard({
+  item,
+  sets,
+  onMove,
+  onRemove,
+  onOpen,
+}: {
+  item: FavouriteItem;
+  sets: AccountFavouriteSet[];
+  onMove: (item: FavouriteItem, setId: string | null) => Promise<boolean>;
+  onRemove: (item: FavouriteItem) => Promise<boolean>;
+  onOpen: (item: FavouriteItem) => void;
+}) {
   return (
     <article className="min-w-0 max-w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e1)]">
       <div className="min-w-0">
@@ -551,7 +635,7 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
         <Link
           href={item.href}
-          onClick={() => recordFavouriteOpened(item.id)}
+          onClick={() => onOpen(item)}
           aria-label={`Open ${item.title}`}
           className={cn(
             "inline-flex h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
@@ -561,7 +645,7 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
           <ExternalLink className="h-4 w-4" aria-hidden />
           Open
         </Link>
-        <RowActionsMenu item={item} />
+        <RowActionsMenu item={item} sets={sets} onMove={onMove} onRemove={onRemove} onOpen={onOpen} />
       </div>
     </article>
   );
@@ -591,11 +675,13 @@ function FavouritesDashboardBand({
   sets,
   onSelectSet,
   onShowRecent,
+  onOpen,
 }: {
   recentItems: FavouriteItem[];
   sets: FavouriteSet[];
   onSelectSet: (id: string) => void;
   onShowRecent: () => void;
+  onOpen: (item: FavouriteItem) => void;
 }) {
   return (
     <div className="grid min-w-0 gap-3 lg:grid-cols-2">
@@ -642,7 +728,7 @@ function FavouritesDashboardBand({
                 </span>
                 <Link
                   href={item.href}
-                  onClick={() => recordFavouriteOpened(item.id)}
+                  onClick={() => onOpen(item)}
                   aria-label={`Open ${item.title}`}
                   className={cn(
                     "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
@@ -711,8 +797,12 @@ function FavouritesTable({
   viewMode,
   sortMode,
   selectedItemId,
+  sets,
   onSortModeChange,
   onSelectItem,
+  onMove,
+  onRemove,
+  onOpen,
 }: {
   items: FavouriteItem[];
   // The filtered/sorted rows are computed once by the page and passed in.
@@ -724,8 +814,12 @@ function FavouritesTable({
   viewMode: ViewMode;
   sortMode: SortMode;
   selectedItemId: string | null;
+  sets: AccountFavouriteSet[];
   onSortModeChange: (value: SortMode) => void;
   onSelectItem: (id: string) => void;
+  onMove: (item: FavouriteItem, setId: string | null) => Promise<boolean>;
+  onRemove: (item: FavouriteItem) => Promise<boolean>;
+  onOpen: (item: FavouriteItem) => void;
 }) {
   // With the item workspace open (only at 2xl), the middle column narrows sharply.
   // Drop the leading icon and the secondary Evidence column there so titles keep
@@ -767,6 +861,7 @@ function FavouritesTable({
               onChange={(event) => onSortModeChange(event.target.value as SortMode)}
               className="min-h-tap w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-9"
             >
+              <option value="manual">Sort: Manual order</option>
               <option value="last-used">Sort: Last used</option>
               <option value="title">Sort: Title</option>
               <option value="type">Sort: Type</option>
@@ -848,7 +943,7 @@ function FavouritesTable({
                     </button>
                     <Link
                       href={item.href}
-                      onClick={() => recordFavouriteOpened(item.id)}
+                      onClick={() => onOpen(item)}
                       className={cn("block min-w-0 max-w-full rounded-md text-left xl:hidden", focusRing)}
                     >
                       <span className="line-clamp-1 block text-sm-minus font-bold text-[color:var(--text-heading)]">
@@ -889,7 +984,7 @@ function FavouritesTable({
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={item.href}
-                        onClick={() => recordFavouriteOpened(item.id)}
+                        onClick={() => onOpen(item)}
                         aria-label={`Open ${item.title}`}
                         className={cn(
                           "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
@@ -898,7 +993,7 @@ function FavouritesTable({
                       >
                         Open
                       </Link>
-                      <RowActionsMenu item={item} />
+                      <RowActionsMenu item={item} sets={sets} onMove={onMove} onRemove={onRemove} onOpen={onOpen} />
                     </div>
                   </td>
                 </tr>
@@ -914,7 +1009,14 @@ function FavouritesTable({
         }
       >
         {tableRows.map((item) => (
-          <FavouriteMobileCard key={item.id} item={item} />
+          <FavouriteMobileCard
+            key={item.id}
+            item={item}
+            sets={sets}
+            onMove={onMove}
+            onRemove={onRemove}
+            onOpen={onOpen}
+          />
         ))}
       </div>
 
@@ -927,9 +1029,27 @@ function FavouritesTable({
   );
 }
 
-function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => void }) {
+function ItemWorkspace({
+  item,
+  sets,
+  onClose,
+  onMove,
+  onRemove,
+  onReorder,
+  onOpen,
+}: {
+  item: FavouriteItem;
+  sets: AccountFavouriteSet[];
+  onClose: () => void;
+  onMove: (item: FavouriteItem, setId: string | null) => Promise<boolean>;
+  onRemove: (item: FavouriteItem) => Promise<boolean>;
+  onReorder: (item: FavouriteItem, direction: -1 | 1) => Promise<boolean>;
+  onOpen: (item: FavouriteItem) => void;
+}) {
   const [activeTab, setActiveTab] = useState<"summary" | "evidence" | "notes">("summary");
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [mutationPending, setMutationPending] = useState(false);
+  const [mutationStatus, setMutationStatus] = useState("");
   const Icon = item.icon;
   const actionLabel = item.action === "Copy" ? "Open" : item.action;
 
@@ -984,7 +1104,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             type="button"
             onClick={() => setActiveTab(id as "summary" | "evidence" | "notes")}
             className={cn(
-              "min-h-10 border-b-2 text-sm-minus font-semibold transition",
+              "min-h-tap border-b-2 text-sm-minus font-semibold transition sm:min-h-10",
               activeTab === id
                 ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
                 : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
@@ -1006,7 +1126,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
             <p className="mt-1 text-2xs font-medium text-[color:var(--text-muted)]">Saved action: {actionLabel}</p>
             <Link
               href={item.href}
-              onClick={() => recordFavouriteOpened(item.id)}
+              onClick={() => onOpen(item)}
               className={cn(
                 "mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]",
                 focusRing,
@@ -1080,29 +1200,94 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
                   ? "Unable to copy citation"
                   : ""}
             </span>
-            <button
-              type="button"
-              aria-disabled="true"
-              onClick={ignoreUnavailableActivation}
-              title="Coming soon"
-              className="inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--disabled)]"
-            >
-              <Folder className="h-4 w-4" aria-hidden />
-              Move to set
-            </button>
-            <button
-              type="button"
-              aria-disabled="true"
-              onClick={ignoreUnavailableActivation}
-              title="Coming soon"
-              className={cn(
-                "inline-flex h-9 cursor-not-allowed items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)]",
-                focusRing,
-              )}
-            >
-              <Trash2 className="h-4 w-4" aria-hidden />
-              Remove favourite
-            </button>
+            {item.contentType && item.contentKey ? (
+              <>
+                <label className="grid gap-1 text-2xs font-semibold text-[color:var(--text-muted)]">
+                  Move to set
+                  <select
+                    value={item.setId ?? ""}
+                    disabled={mutationPending}
+                    onChange={async (event) => {
+                      setMutationPending(true);
+                      try {
+                        const moved = await onMove(item, event.target.value || null);
+                        setMutationStatus(moved ? "Favourite moved." : "Favourite could not be moved.");
+                      } catch {
+                        setMutationStatus("Favourite could not be moved.");
+                      } finally {
+                        setMutationPending(false);
+                      }
+                    }}
+                    className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] sm:min-h-10"
+                  >
+                    <option value="">Unsorted</option>
+                    {sets.map((set) => (
+                      <option key={set.id} value={set.id}>
+                        {set.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([-1, 1] as const).map((direction) => {
+                    const DirectionIcon = direction === -1 ? ArrowUp : ArrowDown;
+                    return (
+                      <button
+                        key={direction}
+                        type="button"
+                        disabled={mutationPending}
+                        onClick={async () => {
+                          setMutationPending(true);
+                          try {
+                            const reordered = await onReorder(item, direction);
+                            setMutationStatus(
+                              reordered ? "Favourite order updated." : "Favourite order could not be updated.",
+                            );
+                          } catch {
+                            setMutationStatus("Favourite order could not be updated.");
+                          } finally {
+                            setMutationPending(false);
+                          }
+                        }}
+                        className={cn(
+                          "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60 sm:min-h-9",
+                          focusRing,
+                        )}
+                      >
+                        <DirectionIcon className="h-4 w-4" aria-hidden />
+                        {direction === -1 ? "Move up" : "Move down"}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  disabled={mutationPending}
+                  onClick={async () => {
+                    setMutationPending(true);
+                    try {
+                      const removed = await onRemove(item);
+                      setMutationStatus(removed ? "Favourite removed." : "Favourite could not be removed.");
+                      if (removed) onClose();
+                    } catch {
+                      setMutationStatus("Favourite could not be removed.");
+                    } finally {
+                      setMutationPending(false);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex min-h-tap items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60 sm:min-h-9",
+                    focusRing,
+                  )}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                  {mutationPending ? "Updating…" : "Remove favourite"}
+                </button>
+                <p role="status" aria-live="polite" className="text-xs font-semibold text-[color:var(--text-muted)]">
+                  {mutationStatus}
+                </p>
+              </>
+            ) : null}
           </div>
         </section>
       </div>
@@ -1113,6 +1298,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
   const auth = useAuthSession();
+  const accountData = useOptionalAccountData();
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
     subscribeNoop,
@@ -1144,12 +1330,23 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     () => ({}) as Record<string, number>,
   );
   const pinnedIds = useSyncExternalStore(subscribeFavouritesStorage, loadFavouritePinnedIds, () => new Set<string>());
+  const favouriteMetadata = useMemo(
+    () =>
+      new Map(
+        (accountData?.favouriteItems ?? []).map((item) => [`${item.contentType}:${item.contentKey}`, item] as const),
+      ),
+    [accountData?.favouriteItems],
+  );
+  const setById = useMemo(
+    () => new Map((accountData?.favouriteSets ?? []).map((set) => [set.id, set] as const)),
+    [accountData?.favouriteSets],
+  );
   const items = useMemo(
     () =>
       [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map((item) =>
-        toCommandItem(item, lastOpenedMap, pinnedIds, demoMode),
+        toCommandItem(item, lastOpenedMap, pinnedIds, favouriteMetadata, setById, demoMode),
       ),
-    [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds],
+    [demoMode, savedRegistryFavourites, lastOpenedMap, pinnedIds, favouriteMetadata, setById],
   );
   // Demo prototypes live outside the hook. If they are the only items while a
   // registry/account read failed, keep their honest nonzero count but mark it
@@ -1169,8 +1366,12 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const [sourceBackedOnly, setSourceBackedOnly] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("last-used");
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemSnapshot, setSelectedItemSnapshot] = useState<FavouriteItem | null>(null);
+  const [newSetName, setNewSetName] = useState<FavouriteSetName>(favouriteSetNames[0]);
+  const [setMutationPending, setSetMutationPending] = useState(false);
+  const [setMutationStatus, setSetMutationStatus] = useState("");
 
   const effectiveSelectedSetIds = useMemo(
     () => new Set([...selectedSetIds].filter((id) => sets.some((set) => set.id === id))),
@@ -1210,7 +1411,15 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   );
   const searching = activeQuery.trim().length > 0;
 
-  const selectedItem = selectedItemId ? (items.find((item) => item.id === selectedItemId) ?? null) : null;
+  const selectedItem = selectedItemId
+    ? (items.find((item) => item.id === selectedItemId) ??
+      (selectedItemSnapshot?.id === selectedItemId ? selectedItemSnapshot : null))
+    : null;
+
+  const availableSetNames = favouriteSetNames.filter(
+    (name) => !(accountData?.favouriteSets ?? []).some((set) => set.name === name),
+  );
+  const effectiveNewSetName = availableSetNames.includes(newSetName) ? newSetName : availableSetNames[0];
 
   function clearSearch() {
     router.push("/favourites");
@@ -1221,6 +1430,28 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     setSelectedTypeIds(new Set());
     setPinnedOnly(false);
     setSourceBackedOnly(false);
+  }
+
+  async function handleRemove(item: FavouriteItem) {
+    if (!item.contentType || !item.contentKey) return false;
+    return accountData?.setFavourite(item.contentType, item.contentKey, false) ?? false;
+  }
+
+  async function handleMove(item: FavouriteItem, setId: string | null) {
+    if (!item.contentType || !item.contentKey) return false;
+    return accountData?.moveFavourite(item.contentType, item.contentKey, setId) ?? false;
+  }
+
+  async function handleReorder(item: FavouriteItem, direction: -1 | 1) {
+    if (!item.contentType || !item.contentKey) return false;
+    return accountData?.reorderFavourite(item.contentType, item.contentKey, direction === -1 ? "up" : "down") ?? false;
+  }
+
+  function handleOpen(item: FavouriteItem) {
+    recordFavouriteOpened(item.id);
+    if (item.contentType && item.contentKey) {
+      void accountData?.recordFavouriteOpen(item.contentType, item.contentKey);
+    }
   }
 
   const toggleSet = (id: string) => {
@@ -1435,6 +1666,66 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               </p>
             </header>
 
+            {!demoMode && auth.status === "authenticated" ? (
+              <section
+                aria-label="Manage favourite sets"
+                className="flex flex-wrap items-end gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+              >
+                <label className="grid min-w-[12rem] flex-1 gap-1 text-2xs font-semibold text-[color:var(--text-muted)]">
+                  New controlled set
+                  <select
+                    value={effectiveNewSetName ?? ""}
+                    disabled={setMutationPending || availableSetNames.length === 0}
+                    onChange={(event) => setNewSetName(event.target.value as FavouriteSetName)}
+                    className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] sm:min-h-10"
+                  >
+                    {availableSetNames.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  disabled={setMutationPending || availableSetNames.length === 0}
+                  onClick={async () => {
+                    const name = effectiveNewSetName;
+                    if (!name) return;
+                    setSetMutationPending(true);
+                    try {
+                      const created = await accountData?.createFavouriteSet(name);
+                      setSetMutationStatus(
+                        created ? `${created.name} set created.` : "Favourite set could not be created.",
+                      );
+                      if (created) {
+                        const remaining = availableSetNames.filter((candidate) => candidate !== name);
+                        if (remaining[0]) setNewSetName(remaining[0]);
+                      }
+                    } catch {
+                      setSetMutationStatus("Favourite set could not be created.");
+                    } finally {
+                      setSetMutationPending(false);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60 sm:min-h-10",
+                    focusRing,
+                  )}
+                >
+                  <FolderPlus className="h-4 w-4" aria-hidden />
+                  {setMutationPending ? "Creating…" : "Create set"}
+                </button>
+                <p
+                  role="status"
+                  aria-live="polite"
+                  className="w-full text-xs font-semibold text-[color:var(--text-muted)]"
+                >
+                  {setMutationStatus || accountData?.error || "Set names are limited to approved clinical workflows."}
+                </p>
+              </section>
+            ) : null}
+
             {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
               <p
                 role="status"
@@ -1527,7 +1818,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               summary={{ count: filteredItems.length, noun: filteredItems.length === 1 ? "favourite" : "favourites" }}
             />
 
-            {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
+            {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} onOpen={handleOpen} /> : null}
 
             {/* Empty query is a dashboard; a typed query is a filtered table.
                 Typing does not swap surfaces or navigate — the dashboard band
@@ -1539,6 +1830,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 sets={sets}
                 onSelectSet={(id) => setSelectedSetIds(new Set([id]))}
                 onShowRecent={() => setViewMode("recent")}
+                onOpen={handleOpen}
               />
             ) : null}
 
@@ -1561,11 +1853,19 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 viewMode={viewMode}
                 sortMode={sortMode}
                 selectedItemId={selectedItemId}
+                sets={accountData?.favouriteSets ?? []}
                 onSortModeChange={setSortMode}
                 onSelectItem={(id) => {
-                  if (id) recordFavouriteOpened(id);
+                  if (id) {
+                    const item = items.find((candidate) => candidate.id === id);
+                    setSelectedItemSnapshot(item ?? null);
+                    if (item) handleOpen(item);
+                  }
                   setSelectedItemId(id);
                 }}
+                onMove={handleMove}
+                onRemove={handleRemove}
+                onOpen={handleOpen}
               />
             )}
 
@@ -1596,7 +1896,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                       </span>
                       <Link
                         href={item.href}
-                        onClick={() => recordFavouriteOpened(item.id)}
+                        onClick={() => handleOpen(item)}
                         aria-label={`Open ${item.title}`}
                         className={cn(
                           "inline-flex min-h-tap shrink-0 items-center rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] sm:min-h-9",
@@ -1615,7 +1915,19 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
           </div>
         </div>
         {selectedItem ? (
-          <ItemWorkspace key={selectedItem.id} item={selectedItem} onClose={() => setSelectedItemId(null)} />
+          <ItemWorkspace
+            key={selectedItem.id}
+            item={selectedItem}
+            sets={accountData?.favouriteSets ?? []}
+            onClose={() => {
+              setSelectedItemId(null);
+              setSelectedItemSnapshot(null);
+            }}
+            onMove={handleMove}
+            onRemove={handleRemove}
+            onReorder={handleReorder}
+            onOpen={handleOpen}
+          />
         ) : null}
       </div>
     </main>

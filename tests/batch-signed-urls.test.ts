@@ -141,5 +141,15 @@ describe("batch-signed-urls", () => {
       expect(result.status).toBe(401);
       expect(onUnauthorized).toHaveBeenCalledTimes(1);
     });
+
+    it("rejects a malformed successful payload instead of treating it as an empty result", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        Response.json({ urls: { "img-1": { url: "https://example.test/image.png" } } }),
+      );
+
+      await expect(fetchBatchSignedImageUrls(["img-1"])).rejects.toThrow(
+        "Signed image URLs returned an invalid response.",
+      );
+    });
   });
 });

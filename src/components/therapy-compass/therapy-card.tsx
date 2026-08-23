@@ -20,50 +20,74 @@ import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { controlPressed, favouritePressed, therapyBtn } from "./controls";
-import { Eyebrow, IconTile, TagRow } from "./ui";
+import { controlPressed, favouritePressed, heroCard, therapyBtn } from "./controls";
+import { Eyebrow, IconTile, StatusBadge, TagRow } from "./ui";
 import { useTherapyFavourite } from "./use-therapy-favourite";
 
 /**
- * A result list has N cards, so none of their actions is "the" primary action on
- * the surface. All three are `secondary`; the filled `--command` slot that
- * COMPONENTS.md section 9.1 allows once per surface is left for the page, not
- * spent N times over. `size="sm"` keeps the label step the card had while
- * `controlBase` holds the 48px tap floor.
+ * Search-result cards spend all three actions as `secondary` so the page keeps
+ * the one filled `--command` slot (COMPONENTS.md §9.1). Recommend's featured
+ * top match is that page-level primary, so only `featured` promotes Open.
  */
 const cardActionButton = "min-w-0 px-2 text-xs sm:px-4 sm:text-sm-minus";
 
 /** Large search-result card with why-matched / avoid / best-fit columns. */
-export function ResultCard({ therapy }: { therapy: Therapy }) {
+export function ResultCard({
+  therapy,
+  rank,
+  featured = false,
+  query,
+  whyMatched: whyMatchedOverride,
+}: {
+  therapy: Therapy;
+  rank?: number;
+  featured?: boolean;
+  query?: string;
+  whyMatched?: string;
+}) {
   const b = useTcBindings();
   const sheetUnavailableId = useId();
   const { notice, saved, toggleFavourite } = useTherapyFavourite(therapy.slug);
   const inCompare = b.isInCompare(therapy.slug);
+  const rankingQuery = query ?? b.search.query;
   const subtitle =
     cardPreviewText(therapy.clinicalSummary, { exclude: therapy.name }) ||
     cardPreviewText(therapy.bestUsedFor, { exclude: therapy.name }) ||
     "";
   const tags = prioritiseTherapyTags(therapy.tags.length ? therapy.tags : [therapy.category], {
-    query: b.search.query,
+    query: rankingQuery,
     activeTags: b.search.tags,
   });
   const whyMatched =
+    whyMatchedOverride ||
     cardPreviewText(therapy.bestUsedFor, { exclude: therapy.name }) ||
     cardPreviewText(therapy.indications, { exclude: therapy.name }) ||
     "Relevant to the current search.";
   const avoidModify =
     summarise(therapy.contraindicationsOrCautions, 1) || "Check source and review status before clinical use.";
+  const rankedBestFit = [therapy.setting, therapy.timeRequired, therapy.patientPopulation]
+    .map((value) => cardPreviewText(value, { exclude: therapy.name }))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" · ");
   const bestFit =
-    cardPreviewText(therapy.targetSymptoms, { exclude: therapy.name }) ||
-    cardPreviewText(therapy.patientPopulation, { exclude: therapy.name }) ||
-    cardPreviewText(therapy.setting, { exclude: therapy.name }) ||
-    "See record for population fit.";
+    rank != null
+      ? rankedBestFit || "See record for setting and population fit."
+      : cardPreviewText(therapy.targetSymptoms, { exclude: therapy.name }) ||
+        cardPreviewText(therapy.patientPopulation, { exclude: therapy.name }) ||
+        cardPreviewText(therapy.setting, { exclude: therapy.name }) ||
+        "See record for population fit.";
 
   const sheetLabel = therapy.patientSheetAvailable ? "Patient sheet" : "Sheet unavailable";
   const sheetShort = therapy.patientSheetAvailable ? "Sheet" : "No sheet";
+  const openVariant = featured ? "primary" : "secondary";
 
   return (
-    <article data-therapy-result-card className={cn(cardSurface, "relative overflow-hidden")}>
+    <article
+      data-therapy-result-card
+      data-therapy-result-featured={featured ? "" : undefined}
+      className={cn(featured ? heroCard : cardSurface, "relative overflow-hidden")}
+    >
       {/*
         Icon-only action. The accessible name is the `sr-only` label rather than an
         `aria-label`, because `Button` already renders its children into the one
@@ -84,9 +108,21 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       </Button>
       <div className="grid grid-cols-1 items-start gap-3 px-4 pt-3.5 md:grid-cols-[minmax(240px,1fr)_minmax(320px,1.35fr)] md:gap-4 md:px-5 md:py-4 md:pr-[calc(1rem+var(--spacing-tap)+0.75rem)]">
         <div data-therapy-result-copy className="min-w-0 pr-[calc(var(--spacing-tap)+0.5rem)] md:pr-0">
-          <h3 className="m-0 text-base font-semibold leading-snug tracking-display text-[color:var(--text-heading)]">
-            {therapy.name}
-          </h3>
+          <div className="flex items-start gap-2.5">
+            {rank != null ? (
+              <span className="inline-flex h-7 min-w-7 flex-none items-center justify-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-xs font-extrabold nums text-[color:var(--text-heading)]">
+                {rank}
+              </span>
+            ) : null}
+            <h3 className="m-0 min-w-0 text-base font-semibold leading-snug tracking-display text-[color:var(--text-heading)]">
+              {therapy.name}
+            </h3>
+          </div>
+          {rank != null ? (
+            <div className="mt-1.5">
+              <StatusBadge status={therapy.reviewStatus} />
+            </div>
+          ) : null}
           {subtitle ? (
             <p className="m-0 mt-1 mb-2 line-clamp-2 text-sm-minus leading-snug text-[color:var(--text-muted)]">
               {subtitle}
@@ -117,7 +153,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       ) : null}
       <div data-therapy-result-actions className="grid grid-cols-3 gap-2 px-4 py-3.5 sm:px-5 sm:pb-4 md:pt-0">
         <Button
-          variant="secondary"
+          variant={openVariant}
           size="sm"
           block
           className={cardActionButton}
