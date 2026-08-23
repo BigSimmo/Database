@@ -4,6 +4,7 @@ import {
   expectedFileCoverage,
   normalizedDocumentName,
 } from "@/lib/eval-document-matching";
+import { ragProgrammeFixture, type RagProgrammeExpectation } from "@/lib/rag/rag-programme-eval";
 import type { RagAnswer, RagQueryClass } from "@/lib/types";
 
 export type RagEvalCategory = "routine" | "complex" | "unsupported";
@@ -71,6 +72,12 @@ export type RagEvalCase = {
    * Do NOT set this to paper over a case that should reliably ground.
    */
   acceptSourceOnly?: boolean;
+  /**
+   * Optional programme gate expectations for the privacy-reviewed target slice.
+   * The case remains in this canonical registry; later plans add diagnostics,
+   * never a second list of questions.
+   */
+  programmeExpectation?: RagProgrammeExpectation;
 };
 
 export type AnswerQualityEvalCase = RagEvalCase & {
@@ -792,6 +799,283 @@ export const answerQualityEvalCases: AnswerQualityEvalCase[] = [
   },
 ];
 
+type ProgrammeCaseDefinition = Pick<
+  RagEvalCase,
+  "id" | "question" | "category" | "supported" | "allowedRoutes" | "minCitations" | "latencyTargetMs"
+> &
+  Partial<Pick<RagEvalCase, "expectedQueryClass" | "acceptSourceOnly">>;
+
+const programmeCaseDefinitions: ProgrammeCaseDefinition[] = [
+  {
+    id: "direct-evidence-generic-refusal",
+    question: "What action does the indexed local guideline require for the target condition?",
+    category: "routine",
+    supported: true,
+    allowedRoutes: ["extractive", "fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "trusted-document-admission-access",
+    question: "What does the active trusted local document require, excluding staging and private legacy copies?",
+    category: "complex",
+    supported: true,
+    allowedRoutes: ["extractive", "fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "broad-multi-intent-partial",
+    question: "Summarise management, monitoring, and risk actions, naming any subtopic the indexed guidance omits.",
+    category: "complex",
+    expectedQueryClass: "broad_summary",
+    supported: true,
+    acceptSourceOnly: true,
+    allowedRoutes: ["extractive", "fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "uploaded-australian-augmentation",
+    question:
+      "Compare the current uploaded guideline with eligible Australian guidance while keeping local policy primary.",
+    category: "complex",
+    expectedQueryClass: "comparison",
+    supported: true,
+    allowedRoutes: ["fast", "strong"],
+    minCitations: 2,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "site-specifier-direct",
+    question: "What does the current Clinical KB specifier record state?",
+    category: "routine",
+    supported: true,
+    allowedRoutes: ["extractive", "fast"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "site-differential-direct",
+    question: "What differentials are listed in the current Clinical KB record?",
+    category: "routine",
+    supported: true,
+    allowedRoutes: ["extractive", "fast"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "site-medication-direct",
+    question: "What does the current Clinical KB medication record state?",
+    category: "routine",
+    supported: true,
+    allowedRoutes: ["extractive", "fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "site-cross-domain-coverage",
+    question: "Which service, form, and tool records address the requested workflow?",
+    category: "complex",
+    expectedQueryClass: "broad_summary",
+    supported: true,
+    allowedRoutes: ["fast", "strong"],
+    minCitations: 3,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "uploaded-guideline-primary",
+    question:
+      "What clinical recommendation applies when an uploaded guideline and derivative site summary are available?",
+    category: "complex",
+    supported: true,
+    allowedRoutes: ["fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 6_000,
+  },
+  {
+    id: "site-product-primary",
+    question: "Which current Clinical KB catalogue item matches the requested product?",
+    category: "routine",
+    supported: true,
+    allowedRoutes: ["extractive", "fast"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "site-changed-deleted-stale",
+    question: "What does the current release say about a site record that was changed or deleted?",
+    category: "unsupported",
+    supported: false,
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "uploaded-public-conflict",
+    question: "How do the uploaded local and Australian guidelines differ, and which one governs the local decision?",
+    category: "complex",
+    expectedQueryClass: "comparison",
+    supported: true,
+    allowedRoutes: ["fast", "strong"],
+    minCitations: 2,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "site-public-read-parity",
+    question: "What does the canonical public Clinical KB release state?",
+    category: "routine",
+    supported: true,
+    allowedRoutes: ["extractive", "fast"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "site-admin-publication-only",
+    question: "What publication and access boundaries govern the canonical Clinical KB release?",
+    category: "complex",
+    supported: true,
+    allowedRoutes: ["extractive", "fast"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "source-role-mismatch",
+    question: "What treatment guidance applies when only subsidy, legal, or regulatory material matches?",
+    category: "unsupported",
+    supported: false,
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "site-sync-unavailable",
+    question: "What supported guidance remains when first-party site synchronization is unavailable?",
+    category: "complex",
+    supported: true,
+    acceptSourceOnly: true,
+    allowedRoutes: ["extractive", "fast", "strong"],
+    minCitations: 2,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "australian-augmentation-unavailable",
+    question: "What supported guidance remains when Australian augmentation is unavailable?",
+    category: "complex",
+    supported: true,
+    acceptSourceOnly: true,
+    allowedRoutes: ["extractive", "fast", "strong"],
+    minCitations: 2,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "healthdirect-exclusion",
+    question: "Can excluded consumer-health material be used as clinical answer evidence?",
+    category: "unsupported",
+    supported: false,
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "link-only-etg-amh",
+    question: "Can protected link-only references be copied into answer evidence?",
+    category: "unsupported",
+    supported: false,
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "blocked-reference-upload",
+    question: "What happens when an excluded or protected reference upload is detected?",
+    category: "unsupported",
+    supported: false,
+    allowedRoutes: ["unsupported"],
+    minCitations: 0,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "narrow-fact-concise",
+    question: "What single fact does the indexed local guideline state?",
+    category: "routine",
+    supported: true,
+    allowedRoutes: ["extractive", "fast"],
+    minCitations: 1,
+    latencyTargetMs: 4_000,
+  },
+  {
+    id: "broad-supported-sections",
+    question: "Provide the complete supported management, action, monitoring, and risk sections.",
+    category: "complex",
+    expectedQueryClass: "broad_summary",
+    supported: true,
+    allowedRoutes: ["fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "broad-management-strong-route",
+    question: "management of bulimia nervosa",
+    category: "complex",
+    expectedQueryClass: "broad_summary",
+    supported: true,
+    allowedRoutes: ["strong"],
+    minCitations: 1,
+    latencyTargetMs: 8_000,
+  },
+  {
+    id: "eight-section-completion",
+    question: "Provide the complete eight-section structured management answer supported by the guideline.",
+    category: "complex",
+    expectedQueryClass: "broad_summary",
+    supported: true,
+    allowedRoutes: ["strong"],
+    minCitations: 1,
+    latencyTargetMs: 12_000,
+  },
+  {
+    id: "anaphoric-follow-up",
+    question: 'Follow-up to "lithium dosing": what about renal impairment?',
+    category: "complex",
+    supported: true,
+    allowedRoutes: ["fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 6_000,
+  },
+  {
+    id: "incremental-reconciliation",
+    question: "Provide independently supported lead and monitoring sections that reconcile with the final answer.",
+    category: "complex",
+    supported: true,
+    allowedRoutes: ["fast", "strong"],
+    minCitations: 1,
+    latencyTargetMs: 8_000,
+  },
+];
+
+function buildProgrammeEvalCases(): RagEvalCase[] {
+  const fixtures = new Map(ragProgrammeFixture.cases.map((testCase) => [testCase.id, testCase]));
+  const definitions = new Set(programmeCaseDefinitions.map((testCase) => testCase.id));
+  if (definitions.size !== programmeCaseDefinitions.length)
+    throw new Error("Programme case definitions contain duplicate IDs");
+  for (const fixtureCase of ragProgrammeFixture.cases) {
+    if (!definitions.has(fixtureCase.id))
+      throw new Error(`Programme fixture has no RagEvalCase owner: ${fixtureCase.id}`);
+  }
+  return programmeCaseDefinitions.map((definition) => {
+    const fixtureCase = fixtures.get(definition.id);
+    if (!fixtureCase) throw new Error(`RagEvalCase has no programme fixture: ${definition.id}`);
+    return {
+      ...definition,
+      expectedFiles: fixtureCase.expectedDocuments,
+      programmeExpectation: fixtureCase.expectation,
+    };
+  });
+}
+
+const programmeEvalCases = buildProgrammeEvalCases();
+
 export const ragEvalCases: RagEvalCase[] = [
   {
     id: "clozapine-monitoring",
@@ -1373,6 +1657,7 @@ export const ragEvalCases: RagEvalCase[] = [
     minCitations: 0,
     latencyTargetMs: 4000,
   },
+  ...programmeEvalCases,
 ];
 
 export function selectRagEvalCases(args: { limit?: number; question?: string }) {

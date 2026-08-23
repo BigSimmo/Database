@@ -115,6 +115,62 @@ export type ClinicalSourceMetadata = {
   extraction_quality: "good" | "partial" | "poor" | "unknown";
 };
 
+/** Canonical corpus boundary used by programme evaluation, ingestion, and retrieval. */
+export type SourceCorpusScope =
+  "uploaded_local" | "clinical_kb_site" | "australian_public" | "international_supplementary";
+
+/** Canonical clinical/governance role of a source, independent of its corpus. */
+export type ClinicalSourceRole =
+  | "local_guideline"
+  | "clinical_guideline"
+  | "clinical_reference"
+  | "service_directory"
+  | "form_reference"
+  | "tool_reference"
+  | "safety_alert"
+  | "regulatory"
+  | "quality_standard"
+  | "legal"
+  | "subsidy"
+  | "professional_review"
+  | "service_policy"
+  | "reference_link";
+
+/** Canonical first-party Clinical KB content domains. */
+export type SiteContentDomain =
+  | "services"
+  | "forms"
+  | "medications"
+  | "differentials"
+  | "specifiers"
+  | "dsm"
+  | "formulation"
+  | "therapies"
+  | "dictionary"
+  | "factsheets"
+  | "calculators"
+  | "tools";
+
+export type SiteContentPartitionState = "current" | "updating" | "stale" | "unavailable" | "disabled";
+
+export type RagSubquestionPurpose =
+  "primary" | "comparison_side" | "required_action" | "monitoring" | "risk" | "special_population";
+
+export type AdaptiveAnswerShape = "narrow" | "focused" | "comprehensive" | "comparison" | "partial";
+
+export type RagInsufficiencyReason =
+  | "not_in_corpus"
+  | "retrieval_miss"
+  | "insufficient_claim_support"
+  | "source_role_mismatch"
+  | "source_conflict"
+  | "governance_block"
+  | "site_content_updating"
+  | "site_content_stale"
+  | "site_content_unavailable"
+  | "timeout"
+  | "provider_failure";
+
 export type ClinicalQueryMode =
   | "auto"
   | "monitoring_schedule"

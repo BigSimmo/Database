@@ -1022,7 +1022,9 @@ describe("RAG answer routing", () => {
   });
 
   it("uses model synthesis for broad management questions even with a strong title match", () => {
-    const selected = route("management of bulimia nervosa", [
+    const programmeCase = ragEvalCases.find((testCase) => testCase.id === "broad-management-strong-route");
+    expect(programmeCase?.programmeExpectation?.requiredFacts).toContain("current_strong_route_eligible");
+    const selected = route(programmeCase?.question ?? "", [
       source({
         title: "Bulimia Nervosa",
         file_name: "bulimia-nervosa.pdf",
@@ -1034,6 +1036,7 @@ describe("RAG answer routing", () => {
     ]);
 
     expect(selected.mode).toBe("strong");
+    expect(programmeCase?.allowedRoutes).toContain(selected.mode);
     expect(selected.model).toBe("strong-model");
     expect(selected.reason).toBe("broad_clinical_management_synthesis");
   });

@@ -10,6 +10,7 @@ import {
   scoreAnswerTargeting,
   type AnswerQualityEvalCase,
 } from "../src/lib/rag/rag-eval-cases";
+import { ragProgrammeFixture } from "../src/lib/rag/rag-programme-eval";
 import type { RagAnswer } from "../src/lib/types";
 
 const row = {
@@ -45,6 +46,19 @@ function clientWithRows(rows: (typeof row)[]) {
 }
 
 describe("captured RAG eval cases", () => {
+  it("extends the canonical registry with every privacy-reviewed programme case", () => {
+    const programmeCases = ragEvalCases.filter((testCase) => testCase.programmeExpectation !== undefined);
+
+    expect(programmeCases.map((testCase) => testCase.id).sort()).toEqual(
+      ragProgrammeFixture.cases.map((testCase) => testCase.id).sort(),
+    );
+    for (const fixtureCase of ragProgrammeFixture.cases) {
+      const registered = programmeCases.find((testCase) => testCase.id === fixtureCase.id);
+      expect(registered?.expectedFiles).toEqual(fixtureCase.expectedDocuments);
+      expect(registered?.programmeExpectation).toEqual(fixtureCase.expectation);
+    }
+  });
+
   it("maps good captures to source-backed reusable eval cases", () => {
     const testCase = mapCapturedEvalCase(row);
 

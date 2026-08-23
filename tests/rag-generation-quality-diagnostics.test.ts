@@ -4,8 +4,23 @@ import {
   generationQualityFailureDiagnostics,
   summarizeGenerationQualityAnswerShape,
 } from "../src/lib/rag/rag-generation-quality-diagnostics";
+import { ragEvalCases } from "../src/lib/rag/rag-eval-cases";
 
 describe("generation quality diagnostics (#231)", () => {
+  it("registers eight-section completion against the existing bounded truncation recovery", () => {
+    const programmeCase = ragEvalCases.find((testCase) => testCase.id === "eight-section-completion");
+
+    expect(programmeCase?.programmeExpectation).toMatchObject({
+      allowedAnswerShapes: ["comprehensive"],
+      requiredFacts: expect.arrayContaining(["eight_sections_complete", "bounded_self_heal_preserved"]),
+      forbiddenPatterns: expect.arrayContaining([
+        "partial_structured_answer_returned",
+        "silent_max_output_tokens_degradation",
+      ]),
+    });
+    expect(programmeCase?.allowedRoutes).toEqual(["strong"]);
+  });
+
   it("keeps the error message byte-identical to the legacy plain Error", () => {
     const error = new GenerationQualityError("post_finalize", "numeric_faithfulness_gap", {
       answer_chars: 0,

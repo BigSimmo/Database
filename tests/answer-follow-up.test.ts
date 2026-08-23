@@ -6,6 +6,7 @@ import {
   followUpTemplateKindsByMenuKey,
 } from "@/lib/answer-follow-up";
 import { buildRelatedInformationMenu } from "@/lib/rag/answer-composition";
+import { ragEvalCases } from "@/lib/rag/rag-eval-cases";
 import type { AnswerSection, ClinicalQueryIntent, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 describe("buildAnswerFollowUpQuery", () => {
@@ -24,6 +25,16 @@ describe("buildAnswerFollowUpQuery", () => {
     expect(buildAnswerFollowUpQuery("clozapine monitoring", "is it safe in pregnancy?")).toBe(
       'Follow-up to "clozapine monitoring": is it safe in pregnancy?',
     );
+  });
+
+  it("pins the programme follow-up case to one bounded prior question", () => {
+    const programmeCase = ragEvalCases.find((testCase) => testCase.id === "anaphoric-follow-up");
+
+    expect(buildAnswerFollowUpQuery("lithium dosing", "what about renal impairment?")).toBe(programmeCase?.question);
+    expect(programmeCase?.programmeExpectation?.requiredFacts).toEqual(
+      expect.arrayContaining(["one_prior_question_retained", "continuation_cue_required"]),
+    );
+    expect(programmeCase?.programmeExpectation?.forbiddenPatterns).toContain("unbounded_history_payload");
   });
 
   it("does not wrap a follow-up that restates the prior topic", () => {
