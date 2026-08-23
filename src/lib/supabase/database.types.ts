@@ -120,6 +120,87 @@ export type Database = {
         };
         Relationships: [];
       };
+      clinical_quality_feedback_triage: {
+        Row: {
+          created_at: string;
+          owner_role: string;
+          owner_user_id: string | null;
+          resolution_code: string | null;
+          resolved_at: string | null;
+          retest_reference: string;
+          signal_id: string;
+          signal_type: string;
+          status: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          created_at?: string;
+          owner_role?: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          resolved_at?: string | null;
+          retest_reference?: string;
+          signal_id: string;
+          signal_type: string;
+          status?: string;
+          updated_at?: string;
+          updated_by: string;
+        };
+        Update: {
+          created_at?: string;
+          owner_role?: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          resolved_at?: string | null;
+          retest_reference?: string;
+          signal_id?: string;
+          signal_type?: string;
+          status?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Relationships: [];
+      };
+      clinical_quality_feedback_triage_events: {
+        Row: {
+          actor_user_id: string;
+          created_at: string;
+          id: string;
+          owner_role: string;
+          owner_user_id: string | null;
+          resolution_code: string | null;
+          retest_reference: string;
+          signal_id: string;
+          signal_type: string;
+          status: string;
+        };
+        Insert: {
+          actor_user_id: string;
+          created_at?: string;
+          id?: string;
+          owner_role: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          retest_reference?: string;
+          signal_id: string;
+          signal_type: string;
+          status: string;
+        };
+        Update: {
+          actor_user_id?: string;
+          created_at?: string;
+          id?: string;
+          owner_role?: string;
+          owner_user_id?: string | null;
+          resolution_code?: string | null;
+          retest_reference?: string;
+          signal_id?: string;
+          signal_type?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
       clinical_registry_records: {
         Row: {
           best_use: string | null;
@@ -2120,26 +2201,73 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_favourite_sets: {
+        Row: {
+          created_at: string;
+          id: string;
+          name: string;
+          sort_order: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          name: string;
+          sort_order?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          name?: string;
+          sort_order?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_favourites: {
         Row: {
           content_key: string;
           content_type: string;
           created_at: string;
+          last_opened_at: string | null;
+          pinned_at: string | null;
+          set_id: string | null;
+          sort_order: number;
           user_id: string;
         };
         Insert: {
           content_key: string;
           content_type: string;
           created_at?: string;
+          last_opened_at?: string | null;
+          pinned_at?: string | null;
+          set_id?: string | null;
+          sort_order?: number;
           user_id: string;
         };
         Update: {
           content_key?: string;
           content_type?: string;
           created_at?: string;
+          last_opened_at?: string | null;
+          pinned_at?: string | null;
+          set_id?: string | null;
+          sort_order?: number;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "user_favourites_owner_set_fkey";
+            columns: ["user_id", "set_id"];
+            isOneToOne: false;
+            referencedRelation: "user_favourite_sets";
+            referencedColumns: ["user_id", "id"];
+          },
+        ];
       };
       user_preferences: {
         Row: {
@@ -2219,6 +2347,28 @@ export type Database = {
           p_reviewer_qualification?: string | null;
         };
         Returns: Json;
+      };
+      record_clinical_quality_feedback_triage: {
+        Args: {
+          p_actor_user_id: string;
+          p_owner_role: string;
+          p_owner_user_id: string | null;
+          p_resolution_code: string | null;
+          p_retest_reference: string;
+          p_signal_id: string;
+          p_signal_type: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
+      reorder_user_favourite: {
+        Args: {
+          p_content_key: string;
+          p_content_type: string;
+          p_direction: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
       };
       purge_expired_rag_response_cache: {
         Args: { p_limit?: number };

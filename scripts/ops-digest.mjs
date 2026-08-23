@@ -24,6 +24,35 @@
  */
 import { appendFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { evaluateOperationalAlerts, summarizeOperationalAlerts } from "./lib/operational-alerts.mjs";
+
+const allowedStatuses = new Set(["ok", "degraded", "unreachable", "unknown"]);
+const allowedSeverities = new Set(["none", "unknown", "warning", "page"]);
+
+export function normalizeOpsStatus(value) {
+  return allowedStatuses.has(value) ? value : "unknown";
+}
+
+export function serializeGitHubOutputs(status, summary) {
+  const safeStatus = normalizeOpsStatus(status);
+  const safeSeverity = allowedSeverities.has(summary?.severity) ? summary.severity : "unknown";
+  const safeSummary = {
+    alerting: Boolean(summary?.alerting),
+    severity: safeSeverity,
+    count: Number.isInteger(summary?.count) && summary.count >= 0 ? summary.count : 0,
+    codes: Array.isArray(summary?.codes)
+      ? summary.codes.filter((code) => typeof code === "string" && /^OPS_[A-Z0-9_]+$/.test(code)).slice(0, 32)
+      : [],
+  };
+  const singleLine = (value) => String(value).replace(/[\r\n\u2028\u2029]/g, " ");
+  return [
+    `status=${singleLine(safeStatus)}`,
+    `alerting=${safeSummary.alerting}`,
+    `severity=${singleLine(safeSeverity)}`,
+    `alert_summary=${singleLine(JSON.stringify(safeSummary))}`,
+    "",
+  ].join("\n");
+}
 
 function argValue(name) {
   const i = process.argv.indexOf(name);
@@ -48,7 +77,7 @@ function usd(value) {
 export function renderDigest(health, meta = {}) {
   const lines = [];
   const stamp = new Date().toISOString();
-  const status = health?.status ?? "unreachable";
+  const status = normalizeOpsStatus(health?.status ?? "unreachable");
   const badge = status === "ok" ? "🟢 ok" : status === "degraded" ? "🟠 degraded" : "🔴 unreachable";
   lines.push(`### Ops digest — ${stamp}`, "", `**Status:** ${badge}`);
   if (meta.error) lines.push("", `> Probe error: \`${meta.error}\``);
@@ -100,6 +129,16 @@ export function renderDigest(health, meta = {}) {
     }
   }
 
+  const alerts = evaluateOperationalAlerts(health, meta);
+  const alertSummary = summarizeOperationalAlerts(alerts);
+  lines.push("", `**Alert state:** ${alertSummary.severity} (${alertSummary.count})`);
+  for (const item of alerts) {
+    const observed = item.observedValue === null ? "unknown" : String(item.observedValue);
+    lines.push(
+      `- **${item.severity.toUpperCase()} ${item.code}** — observed ${observed}; owner ${item.owner}; escalate ${item.escalationOwner}; [runbook](${item.runbook})${item.reason ? ` — ${item.reason}` : ""}`,
+    );
+  }
+
   lines.push("", "_Read-only deep-probe snapshot. Enable/adjust in `.github/workflows/ops-digest.yml`._");
   return lines.filter((l) => l !== "").join("\n") + "\n";
 }
@@ -134,15 +173,21 @@ async function main() {
     }
   }
 
-  const digest = renderDigest(health, { error });
+  const alertContext = {
+    error,
+    canaryStale: process.env.EVAL_CANARY_STALE === "true",
+    canaryMessage: process.env.EVAL_CANARY_MESSAGE,
+  };
+  const digest = renderDigest(health, alertContext);
   process.stdout.write(digest);
   const out = argValue("--out");
   if (out) writeFileSync(out, digest);
 
-  const status = health?.status ?? "unreachable";
-  const alerting = Boolean(health?.spend?.alerting);
+  const status = normalizeOpsStatus(health?.status ?? "unreachable");
+  const alerts = evaluateOperationalAlerts(health, alertContext);
+  const summary = summarizeOperationalAlerts(alerts);
   if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT, `status=${status}\nalerting=${alerting}\n`);
+    appendFileSync(process.env.GITHUB_OUTPUT, serializeGitHubOutputs(status, summary));
   }
   // Always exit 0 — the digest content carries the health signal.
   process.exit(0);

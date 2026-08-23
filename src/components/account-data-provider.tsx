@@ -3,6 +3,20 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuthSession } from "@/lib/supabase/client";
+import { parseApiErrorResponse } from "@/lib/api-client-error";
+import {
+  type AccountFavourite,
+  type AccountFavouriteSet,
+  type FavouriteContentType,
+  type FavouriteSetName,
+  favouriteMembershipResponseSchema,
+  favouriteSetResponseSchema,
+  favouriteSetNames,
+  favouriteUpdateResponseSchema,
+  favouritesClearResponseSchema,
+  favouritesContractVersion,
+  favouritesSnapshotSchema,
+} from "@/lib/favourites-contract";
 import {
   readSavedRegistrySlugs,
   savedDifferentialsStorageKey,
@@ -13,11 +27,13 @@ import {
   writeSavedRegistrySlugs,
 } from "@/lib/saved-registry-storage";
 
-export type FavouriteContentType = "service" | "form" | "differential" | "therapy";
+export { favouriteSetNames };
+export type { AccountFavourite, AccountFavouriteSet, FavouriteContentType, FavouriteSetName };
 
 type FavouritesByType = Record<FavouriteContentType, string[]>;
 type FavouriteMutationState = {
   confirmed: boolean;
+  confirmedRecord: AccountFavourite | null;
   desired: boolean;
   pending: number;
   tail: Promise<void>;
@@ -43,6 +59,8 @@ function readDemoFavourites(): FavouritesByType {
 
 type AccountDataContextValue = {
   favourites: FavouritesByType;
+  favouriteItems: AccountFavourite[];
+  favouriteSets: AccountFavouriteSet[];
   ready: boolean;
   /** Failure of GET /api/account/favourites (initial load or reload). */
   loadError: string | null;
@@ -55,28 +73,23 @@ type AccountDataContextValue = {
       favourites surface has nothing left to re-request and cannot recover. */
   reload: () => void;
   setFavourite: (contentType: FavouriteContentType, contentKey: string, saved: boolean) => Promise<boolean>;
+  createFavouriteSet: (name: FavouriteSetName) => Promise<AccountFavouriteSet | null>;
+  moveFavourite: (contentType: FavouriteContentType, contentKey: string, setId: string | null) => Promise<boolean>;
+  reorderFavourite: (
+    contentType: FavouriteContentType,
+    contentKey: string,
+    direction: "up" | "down",
+  ) => Promise<boolean>;
+  recordFavouriteOpen: (contentType: FavouriteContentType, contentKey: string) => Promise<boolean>;
   clearFavourites: () => Promise<boolean>;
 };
 
 const AccountDataContext = createContext<AccountDataContextValue | null>(null);
 
-function normalizedFavourites(value: unknown): FavouritesByType {
-  const rows = Array.isArray(value) ? value : [];
+function favouritesByType(rows: AccountFavourite[]): FavouritesByType {
   const result: FavouritesByType = { service: [], form: [], differential: [], therapy: [] };
   for (const row of rows) {
-    if (!row || typeof row !== "object") continue;
-    const contentType = (row as { contentType?: unknown }).contentType;
-    const contentKey = (row as { contentKey?: unknown }).contentKey;
-    if (
-      (contentType === "service" ||
-        contentType === "form" ||
-        contentType === "differential" ||
-        contentType === "therapy") &&
-      typeof contentKey === "string" &&
-      contentKey.trim()
-    ) {
-      result[contentType].push(contentKey.trim());
-    }
+    result[row.contentType].push(row.contentKey);
   }
   return result;
 }
@@ -84,9 +97,15 @@ function normalizedFavourites(value: unknown): FavouritesByType {
 export function AccountDataProvider({ children }: { children: ReactNode }) {
   const auth = useAuthSession();
   const [favourites, setFavourites] = useState<FavouritesByType>(emptyFavourites);
+  const [favouriteItems, setFavouriteItems] = useState<AccountFavourite[]>([]);
+  const [favouriteSets, setFavouriteSets] = useState<AccountFavouriteSet[]>([]);
   const favouritesRef = useRef(favourites);
+  const favouriteItemsRef = useRef(favouriteItems);
+  const favouriteSetsRef = useRef(favouriteSets);
   const favouriteMutationsRef = useRef(new Map<string, FavouriteMutationState>());
   const favouriteClearTailRef = useRef<Promise<void>>(Promise.resolve());
+  const structuredMutationTailRef = useRef<Promise<void>>(Promise.resolve());
+  const structuredMutationVersionRef = useRef(0);
   const [ready, setReady] = useState(auth.status !== "authenticated");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +117,14 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     favouritesRef.current = next;
     setFavourites(next);
   }, []);
+  const replaceFavouriteItems = useCallback((next: AccountFavourite[]) => {
+    favouriteItemsRef.current = next;
+    setFavouriteItems(next);
+  }, []);
+  const replaceFavouriteSets = useCallback((next: AccountFavouriteSet[]) => {
+    favouriteSetsRef.current = next;
+    setFavouriteSets(next);
+  }, []);
   const applyFavourite = useCallback(
     (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {
       const current = favouritesRef.current;
@@ -107,8 +134,31 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
           ? [contentKey, ...current[contentType].filter((item) => item !== contentKey)]
           : current[contentType].filter((item) => item !== contentKey),
       });
+      const existing = favouriteItemsRef.current.find(
+        (item) => item.contentType === contentType && item.contentKey === contentKey,
+      );
+      replaceFavouriteItems(
+        saved
+          ? existing
+            ? favouriteItemsRef.current
+            : [
+                {
+                  contentType,
+                  contentKey,
+                  createdAt: new Date().toISOString(),
+                  setId: null,
+                  sortOrder: 0,
+                  pinnedAt: null,
+                  lastOpenedAt: null,
+                },
+                ...favouriteItemsRef.current,
+              ]
+          : favouriteItemsRef.current.filter(
+              (item) => item.contentType !== contentType || item.contentKey !== contentKey,
+            ),
+      );
     },
-    [replaceFavourites],
+    [replaceFavouriteItems, replaceFavourites],
   );
   // Depended on by identity rather than through `auth`, which would re-run the
   // load effect on every auth-object render. It is a useCallback upstream, so
@@ -122,6 +172,8 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       queueMicrotask(() => {
         if (cancelled) return;
         refreshDemoFavourites();
+        replaceFavouriteItems([]);
+        replaceFavouriteSets([]);
         setReady(true);
         setLoadError(null);
         setError(null);
@@ -143,21 +195,26 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       signal: controller.signal,
     })
       .then(async (response) => {
-        const payload = await response.json().catch(() => ({}));
         // A rejected token cannot be recovered by re-sending it, so an expired
         // session has to change the auth state rather than only the error text.
         // Retry now exists on this path; without this it would reissue the same
         // 401 forever instead of routing the reader to sign in. The mutation
         // paths below already do this.
         if (response.status === 401) markSessionExpired();
-        if (!response.ok) throw new Error(payload.message ?? payload.error ?? "Saved items could not be loaded.");
-        replaceFavourites(normalizedFavourites(payload.favourites));
+        if (!response.ok) throw await parseApiErrorResponse(response);
+        const payload: unknown = await response.json().catch(() => null);
+        const snapshot = favouritesSnapshotSchema.parse(payload);
+        replaceFavourites(favouritesByType(snapshot.favourites));
+        replaceFavouriteItems(snapshot.favourites);
+        replaceFavouriteSets(snapshot.sets);
         setLoadError(null);
         setError(null);
       })
       .catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         replaceFavourites(emptyFavourites);
+        replaceFavouriteItems([]);
+        replaceFavouriteSets([]);
         setLoadError(cause instanceof Error ? cause.message : "Saved items could not be loaded.");
         setError(null);
       })
@@ -166,7 +223,16 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       });
 
     return () => controller.abort();
-  }, [auth.authEpoch, auth.authorizationHeader, auth.status, markSessionExpired, reloadAttempt, replaceFavourites]);
+  }, [
+    auth.authEpoch,
+    auth.authorizationHeader,
+    auth.status,
+    markSessionExpired,
+    reloadAttempt,
+    replaceFavouriteItems,
+    replaceFavouriteSets,
+    replaceFavourites,
+  ]);
 
   const setFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {
@@ -191,6 +257,9 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       if (!mutation) {
         mutation = {
           confirmed: favouritesRef.current[contentType].includes(key),
+          confirmedRecord:
+            favouriteItemsRef.current.find((item) => item.contentType === contentType && item.contentKey === key) ??
+            null,
           desired: saved,
           pending: 0,
           tail: Promise.resolve(),
@@ -209,17 +278,29 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         const response = await fetch("/api/account/favourites", {
           method: "PUT",
           headers: { "Content-Type": "application/json", ...auth.authorizationHeader },
-          body: JSON.stringify({ contentType, contentKey: key, saved }),
+          body: JSON.stringify({
+            version: favouritesContractVersion,
+            action: "setMembership",
+            contentType,
+            contentKey: key,
+            saved,
+          }),
         }).catch(() => null);
         if (!response?.ok) {
-          const payload = await response?.json().catch(() => ({}));
           // Mutation failures must not poison loadError: the library already loaded,
           // and Retry-on-GET would mis-describe a failed write as an unread library.
-          setError(payload?.message ?? payload?.error ?? "Saved items could not be updated.");
+          setError(response ? (await parseApiErrorResponse(response)).message : "Saved items could not be updated.");
           if (response?.status === 401) auth.markSessionExpired();
           return false;
         }
+        const payload = await response.json().catch(() => null);
+        if (!favouriteMembershipResponseSchema.safeParse(payload).success) {
+          setError("Saved-item response was invalid.");
+          return false;
+        }
         mutation.confirmed = saved;
+        mutation.confirmedRecord =
+          favouriteItemsRef.current.find((item) => item.contentType === contentType && item.contentKey === key) ?? null;
         setError(null);
         return true;
       });
@@ -232,13 +313,155 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       mutation.pending -= 1;
       if (mutation.pending === 0) {
         applyFavourite(contentType, key, mutation.confirmed);
+        if (mutation.confirmedRecord) {
+          replaceFavouriteItems([
+            mutation.confirmedRecord,
+            ...favouriteItemsRef.current.filter((item) => item.contentType !== contentType || item.contentKey !== key),
+          ]);
+        }
         favouriteMutationsRef.current.delete(mutationKey);
       } else {
         applyFavourite(contentType, key, mutation.desired);
       }
       return succeeded;
     },
-    [applyFavourite, auth],
+    [applyFavourite, auth, replaceFavouriteItems],
+  );
+
+  const runStructuredMutation = useCallback(
+    async (method: "POST" | "PATCH", body: Record<string, unknown>, failureMessage: string) => {
+      if (auth.status !== "authenticated") {
+        setError("Sign in or create an account to organise favourites.");
+        return null;
+      }
+      const request = Promise.all([structuredMutationTailRef.current, favouriteClearTailRef.current]).then(async () => {
+        const response = await fetch("/api/account/favourites", {
+          method,
+          headers: { "Content-Type": "application/json", ...auth.authorizationHeader },
+          body: JSON.stringify({ version: favouritesContractVersion, ...body }),
+        }).catch(() => null);
+        if (!response?.ok) {
+          setError(response ? (await parseApiErrorResponse(response)).message : failureMessage);
+          if (response?.status === 401) auth.markSessionExpired();
+          return null;
+        }
+        const payload = await response.json().catch(() => null);
+        setError(null);
+        return payload as unknown;
+      });
+      structuredMutationTailRef.current = request.then(
+        () => undefined,
+        () => undefined,
+      );
+      return request;
+    },
+    [auth],
+  );
+
+  const createFavouriteSet = useCallback(
+    async (name: FavouriteSetName) => {
+      const version = ++structuredMutationVersionRef.current;
+      const previous = favouriteSetsRef.current;
+      const now = new Date().toISOString();
+      const temporary: AccountFavouriteSet = {
+        id: crypto.randomUUID(),
+        name,
+        sortOrder: Math.min(previous.length, 10000),
+        createdAt: now,
+        updatedAt: now,
+      };
+      replaceFavouriteSets([...previous, temporary]);
+      const payload = await runStructuredMutation(
+        "POST",
+        { action: "createSet", name },
+        "Favourite set could not be created.",
+      );
+      if (!payload) {
+        if (structuredMutationVersionRef.current === version) replaceFavouriteSets(previous);
+        else void structuredMutationTailRef.current.then(reload);
+        return null;
+      }
+      const parsed = favouriteSetResponseSchema.safeParse(payload);
+      if (!parsed.success) {
+        replaceFavouriteSets(previous);
+        setError("Favourite set response was invalid.");
+        return null;
+      }
+      const created = parsed.data.set;
+      replaceFavouriteSets(favouriteSetsRef.current.map((set) => (set.id === temporary.id ? created : set)));
+      return created;
+    },
+    [reload, replaceFavouriteSets, runStructuredMutation],
+  );
+
+  const moveFavourite = useCallback(
+    async (contentType: FavouriteContentType, contentKey: string, setId: string | null) => {
+      const version = ++structuredMutationVersionRef.current;
+      const previous = favouriteItemsRef.current;
+      replaceFavouriteItems(
+        previous.map((item) =>
+          item.contentType === contentType && item.contentKey === contentKey ? { ...item, setId } : item,
+        ),
+      );
+      const payload = await runStructuredMutation(
+        "PATCH",
+        { action: "moveItem", contentType, contentKey, setId },
+        "Favourite could not be moved.",
+      );
+      if (favouriteUpdateResponseSchema.safeParse(payload).success) return true;
+      if (payload) setError("Favourite move response was invalid.");
+      if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
+      else void structuredMutationTailRef.current.then(reload);
+      return false;
+    },
+    [reload, replaceFavouriteItems, runStructuredMutation],
+  );
+
+  const reorderFavourite = useCallback(
+    async (contentType: FavouriteContentType, contentKey: string, direction: "up" | "down") => {
+      const version = ++structuredMutationVersionRef.current;
+      const previous = favouriteItemsRef.current;
+      const payload = await runStructuredMutation(
+        "PATCH",
+        { action: "reorderItem", contentType, contentKey, direction },
+        "Favourite order could not be updated.",
+      );
+      if (favouriteUpdateResponseSchema.safeParse(payload).success) {
+        reload();
+        return true;
+      }
+      if (payload) setError("Favourite order response was invalid.");
+      if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
+      else void structuredMutationTailRef.current.then(reload);
+      return false;
+    },
+    [reload, replaceFavouriteItems, runStructuredMutation],
+  );
+
+  const recordFavouriteOpen = useCallback(
+    async (contentType: FavouriteContentType, contentKey: string) => {
+      const version = ++structuredMutationVersionRef.current;
+      const previous = favouriteItemsRef.current;
+      const openedAt = new Date().toISOString();
+      replaceFavouriteItems(
+        previous.map((item) =>
+          item.contentType === contentType && item.contentKey === contentKey
+            ? { ...item, lastOpenedAt: openedAt }
+            : item,
+        ),
+      );
+      const payload = await runStructuredMutation(
+        "PATCH",
+        { action: "recordOpen", contentType, contentKey },
+        "Favourite activity could not be recorded.",
+      );
+      if (favouriteUpdateResponseSchema.safeParse(payload).success) return true;
+      if (payload) setError("Favourite activity response was invalid.");
+      if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
+      else void structuredMutationTailRef.current.then(reload);
+      return false;
+    },
+    [reload, replaceFavouriteItems, runStructuredMutation],
   );
 
   const clearFavourites = useCallback(async () => {
@@ -250,7 +473,11 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     // Clear is a global mutation boundary. Wait for every already-enqueued PUT,
     // and make later PUTs wait for this DELETE through favouriteClearTailRef.
     const pendingMutationTails = [...favouriteMutationsRef.current.values()].map((mutation) => mutation.tail);
-    const request = Promise.all([favouriteClearTailRef.current, ...pendingMutationTails]).then(async () => {
+    const request = Promise.all([
+      favouriteClearTailRef.current,
+      structuredMutationTailRef.current,
+      ...pendingMutationTails,
+    ]).then(async () => {
       const response = await fetch("/api/account/favourites", {
         method: "DELETE",
         headers: auth.authorizationHeader,
@@ -260,6 +487,11 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         if (response?.status === 401) auth.markSessionExpired();
         return false;
       }
+      const payload = await response.json().catch(() => null);
+      if (!favouritesClearResponseSchema.safeParse(payload).success) {
+        setError("Saved-item clear response was invalid.");
+        return false;
+      }
 
       // Mutations queued behind the clear must roll back against the now-empty
       // server state if their later PUT fails.
@@ -267,6 +499,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         mutation.confirmed = false;
       }
       replaceFavourites(emptyFavourites);
+      replaceFavouriteItems([]);
       setError(null);
       return true;
     });
@@ -275,21 +508,42 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       () => undefined,
     );
     return request;
-  }, [auth, replaceFavourites]);
+  }, [auth, replaceFavouriteItems, replaceFavourites]);
 
   const value = useMemo<AccountDataContextValue>(
     () => ({
       favourites,
+      favouriteItems,
+      favouriteSets,
       ready,
       loadError,
       error,
       isAuthenticated: auth.status === "authenticated",
       isSaved: (contentType, contentKey) => favourites[contentType].includes(contentKey),
       setFavourite,
+      createFavouriteSet,
+      moveFavourite,
+      reorderFavourite,
+      recordFavouriteOpen,
       clearFavourites,
       reload,
     }),
-    [auth.status, clearFavourites, error, favourites, loadError, ready, reload, setFavourite],
+    [
+      auth.status,
+      clearFavourites,
+      createFavouriteSet,
+      error,
+      favouriteItems,
+      favouriteSets,
+      favourites,
+      loadError,
+      moveFavourite,
+      ready,
+      recordFavouriteOpen,
+      reload,
+      reorderFavourite,
+      setFavourite,
+    ],
   );
 
   return <AccountDataContext.Provider value={value}>{children}</AccountDataContext.Provider>;
@@ -299,4 +553,8 @@ export function useAccountData() {
   const context = useContext(AccountDataContext);
   if (!context) throw new Error("useAccountData must be used within AccountDataProvider.");
   return context;
+}
+
+export function useOptionalAccountData() {
+  return useContext(AccountDataContext);
 }

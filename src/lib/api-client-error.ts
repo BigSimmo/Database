@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { apiErrorPayloadSchema, type ApiErrorPayload } from "@/lib/api-error-payload";
+
 export class ApiClientError extends Error {
   constructor(
     message: string,
@@ -11,59 +14,44 @@ export class ApiClientError extends Error {
   }
 }
 
-type ApiErrorDetails = {
-  code?: string;
-  retryAfterSeconds?: number;
+const legacyApiErrorPayloadSchema = z
+  .object({
+    message: z.string().optional(),
+    error: z.string().optional(),
+    code: z.string().optional(),
+    details: z
+      .object({
+        code: z.string().optional(),
+        retryAfterSeconds: z.number().finite().optional(),
+      })
+      .strip()
+      .optional(),
+  })
+  .strip();
+
+const canonicalCandidateSchema = z
+  .object({ error: z.unknown(), message: z.unknown(), code: z.unknown() })
+  .passthrough();
+
+type LegacyApiErrorDetails = { code?: string; retryAfterSeconds?: number };
+type ParsedApiErrorPayload = Partial<Omit<ApiErrorPayload, "details">> & {
+  details?: ApiErrorPayload["details"] | LegacyApiErrorDetails;
 };
 
-type ApiErrorPayload = {
-  message?: string;
-  error?: string;
-  code?: string;
-  details?: ApiErrorDetails;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseJsonPayload(raw: string): ApiErrorPayload | null {
+export function parseApiErrorPayload(raw: string): ParsedApiErrorPayload | null {
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
     return null;
   }
-  if (!isRecord(json)) return null;
-  const payload: ApiErrorPayload = {};
-  if (json.message !== undefined) {
-    if (typeof json.message !== "string") return null;
-    payload.message = json.message;
-  }
-  if (json.error !== undefined) {
-    if (typeof json.error !== "string") return null;
-    payload.error = json.error;
-  }
-  if (json.code !== undefined) {
-    if (typeof json.code !== "string") return null;
-    payload.code = json.code;
-  }
-  if (json.details !== undefined) {
-    if (!isRecord(json.details)) return null;
-    const details: ApiErrorDetails = {};
-    if (json.details.code !== undefined) {
-      if (typeof json.details.code !== "string") return null;
-      details.code = json.details.code;
-    }
-    if (json.details.retryAfterSeconds !== undefined) {
-      if (typeof json.details.retryAfterSeconds !== "number" || Number.isNaN(json.details.retryAfterSeconds)) {
-        return null;
-      }
-      details.retryAfterSeconds = json.details.retryAfterSeconds;
-    }
-    payload.details = details;
-  }
-  return payload;
+  const canonical = apiErrorPayloadSchema.safeParse(json);
+  if (canonical.success) return canonical.data;
+  // A payload claiming the canonical shape must satisfy it strictly. Do not silently
+  // downgrade malformed canonical responses into the compatibility parser.
+  if (canonicalCandidateSchema.safeParse(json).success) return null;
+  const legacy = legacyApiErrorPayloadSchema.safeParse(json);
+  return legacy.success ? legacy.data : null;
 }
 
 export function parseRetryAfterMs(response: { headers?: { get(name: string): string | null } }, now = Date.now()) {
@@ -79,12 +67,12 @@ export function isRetryableApiStatus(status: number) {
   return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
-function sseErrorPayload(text: string): ApiErrorPayload | null {
+function sseErrorPayload(text: string): ParsedApiErrorPayload | null {
   for (const block of text.split(/\r?\n\r?\n/)) {
     if (!/^event:\s*error\s*$/m.test(block)) continue;
     const data = block.match(/^data:\s*(.+)$/m)?.[1];
     if (!data) continue;
-    return parseJsonPayload(data);
+    return parseApiErrorPayload(data);
   }
   return null;
 }
@@ -92,25 +80,27 @@ function sseErrorPayload(text: string): ApiErrorPayload | null {
 export async function parseApiErrorResponse(response: Response, now = Date.now()) {
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   const text = await response.text().catch(() => "");
-  let payload: ApiErrorPayload | null = null;
+  let payload: ParsedApiErrorPayload | null = null;
   if (contentType.includes("json")) {
-    payload = parseJsonPayload(text);
+    payload = parseApiErrorPayload(text);
   } else if (contentType.includes("text/event-stream")) {
     payload = sseErrorPayload(text);
   }
   const message =
     (typeof payload?.message === "string" && payload.message) ||
     (typeof payload?.error === "string" && payload.error) ||
-    (text && !contentType.includes("text/event-stream") ? text.slice(0, 300) : "") ||
+    (text && contentType.includes("text/plain") ? text.slice(0, 300) : "") ||
     `Request failed (${response.status})`;
   const details = payload?.details ?? null;
   const code =
     (typeof payload?.code === "string" && payload.code) ||
-    (typeof details?.code === "string" && details.code) ||
+    (details && "code" in details && typeof details.code === "string" && details.code) ||
     `http_${response.status}`;
   const headerDelay = parseRetryAfterMs(response, now);
   const detailsDelay =
-    typeof details?.retryAfterSeconds === "number" ? Math.max(0, details.retryAfterSeconds * 1000) : null;
+    details && "retryAfterSeconds" in details && typeof details.retryAfterSeconds === "number"
+      ? Math.max(0, details.retryAfterSeconds * 1000)
+      : null;
   return new ApiClientError(
     message,
     response.status,

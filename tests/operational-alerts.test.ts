@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import { evaluateOperationalAlerts, summarizeOperationalAlerts } from "../scripts/lib/operational-alerts.mjs";
+
+function snapshot(overrides = {}) {
+  return {
+    status: "ok",
+    slo: {
+      windowMinutes: 60,
+      totalQueries: 100,
+      hybridRpcErrorRate: 0,
+      degradedRate: 0,
+      ...overrides,
+    },
+  };
+}
+
+describe("evaluateOperationalAlerts", () => {
+  it("warns only above the hybrid-RPC 0.5% boundary", () => {
+    expect(evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.005 }))).toEqual([]);
+    expect(evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.0051 }))).toMatchObject([
+      { code: "OPS_HYBRID_RPC_ERROR_RATE_WARNING", severity: "warning", owner: "Platform operations" },
+    ]);
+  });
+
+  it("pages hybrid-RPC errors only with independently supplied consecutive-window evidence", () => {
+    expect(evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.01 }))[0]?.severity).toBe("warning");
+    expect(
+      evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.001 }), {
+        hybridRpcNonzeroConsecutiveWindows: 3,
+      })[0],
+    ).toMatchObject({ code: "OPS_HYBRID_RPC_ERROR_RATE_PAGE", severity: "page", observedValue: 3 });
+  });
+
+  it("warns above 20% and pages above 50% degraded answers", () => {
+    expect(evaluateOperationalAlerts(snapshot({ degradedRate: 0.2 }))).toEqual([]);
+    expect(evaluateOperationalAlerts(snapshot({ degradedRate: 0.2001 }))[0]?.code).toBe(
+      "OPS_DEGRADED_ANSWER_RATE_WARNING",
+    );
+    expect(evaluateOperationalAlerts(snapshot({ degradedRate: 0.5 }))[0]?.severity).toBe("warning");
+    expect(evaluateOperationalAlerts(snapshot({ degradedRate: 0.5001 }))[0]?.code).toBe(
+      "OPS_DEGRADED_ANSWER_RATE_PAGE",
+    );
+  });
+
+  it("treats missing SLO data and a zero denominator as unknown, never healthy", () => {
+    const missing = evaluateOperationalAlerts({ status: "ok" });
+    expect(missing[0]).toMatchObject({
+      code: "OPS_ANSWER_SLO_UNKNOWN",
+      severity: "unknown",
+    });
+    expect(summarizeOperationalAlerts(missing).alerting).toBe(true);
+    expect(evaluateOperationalAlerts(snapshot({ totalQueries: 0 }))[0]).toMatchObject({
+      code: "OPS_ANSWER_SLO_UNKNOWN",
+      observedValue: 0,
+    });
+  });
+
+  it("treats malformed rates and non-hourly snapshots as unknown", () => {
+    for (const hybridRpcErrorRate of [-0.01, 1.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate }))[0]).toMatchObject({
+        code: "OPS_HYBRID_RPC_ERROR_RATE_UNKNOWN",
+        severity: "unknown",
+      });
+    }
+    for (const degradedRate of [-0.01, 1.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(evaluateOperationalAlerts(snapshot({ degradedRate }))[0]).toMatchObject({
+        code: "OPS_DEGRADED_ANSWER_RATE_UNKNOWN",
+        severity: "unknown",
+      });
+    }
+    expect(evaluateOperationalAlerts(snapshot({ windowMinutes: 59 }))).toMatchObject([
+      { code: "OPS_ANSWER_SLO_UNKNOWN", severity: "unknown", windowMinutes: 59 },
+    ]);
+    expect(evaluateOperationalAlerts(snapshot({ windowMinutes: 61 }))).toMatchObject([
+      { code: "OPS_ANSWER_SLO_UNKNOWN", severity: "unknown", windowMinutes: 61 },
+    ]);
+  });
+
+  it("preserves spend and stale-canary signals and orders multiple alerts by severity", () => {
+    const alerts = evaluateOperationalAlerts(
+      {
+        ...snapshot({ degradedRate: 0.8 }),
+        spend: { alerting: true, projectedDailyUsd: 120, alertDailyUsdThreshold: 100, windowMinutes: 60 },
+      },
+      { canaryStale: true, canaryMessage: "last run 9 days ago" },
+    );
+    expect(alerts.map((item) => item.code)).toEqual([
+      "OPS_DEGRADED_ANSWER_RATE_PAGE",
+      "OPS_EVAL_CANARY_STALE_WARNING",
+      "OPS_PROJECTED_DAILY_SPEND_WARNING",
+    ]);
+    expect(summarizeOperationalAlerts(alerts)).toEqual({
+      alerting: true,
+      severity: "page",
+      count: 3,
+      codes: alerts.map((item) => item.code),
+    });
+    expect(alerts.every((item) => item.escalationOwner && item.runbook)).toBe(true);
+  });
+});

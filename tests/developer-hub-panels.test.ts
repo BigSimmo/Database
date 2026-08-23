@@ -32,6 +32,12 @@ describe("hub panels", () => {
     expect(ledger?.href).toBe("/mockups/development/ledger");
   });
 
+  it("links one clinical trust cockpit from the existing clinical group", () => {
+    const clinicalTrust = HUB_PANELS.filter((panel) => panel.href === "/mockups/development/clinical-trust");
+    expect(clinicalTrust).toHaveLength(1);
+    expect(clinicalTrust[0]).toMatchObject({ id: "clinical-trust", phase: 1, group: "clinical" });
+  });
+
   it("keeps the existing prototypes reachable as real destinations", () => {
     for (const id of ["care-plan", "caring-contact", "ward-flow"]) {
       const panel = HUB_PANELS.find((entry) => entry.id === id);

@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "authority": "Static evidence register only. It does not establish clinical adequacy, regulatory classification, or risk acceptance.",
+  "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+  "reviewedAt": "2026-08-23",
+  "reviewExpiresAt": "2026-11-23",
+  "hazards": [
+    {
+      "id": "H1",
+      "state": "partial",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Clinical safety owner",
+      "controlSymbols": ["extractClinicalValueAtoms", "verifyAnswerNumbers", "applyNumericVerification"],
+      "controlPaths": ["src/lib/answer-verification.ts", "src/lib/rag/rag-claim-support.ts"],
+      "tests": [
+        "tests/answer-verification.test.ts",
+        "tests/rag-content-accuracy.test.ts",
+        "tests/rag-claim-support.test.ts"
+      ],
+      "residualRisk": "Faithful-but-wrong source values and clinical plausibility remain outside deterministic numeric faithfulness proof."
+    },
+    {
+      "id": "H2",
+      "state": "partial",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Source governance owner",
+      "controlSymbols": ["sourceGovernanceWarnings", "deriveTrust"],
+      "controlPaths": ["src/lib/source-governance.ts", "src/lib/answer-render-policy.ts"],
+      "tests": ["tests/source-governance.test.ts", "tests/answer-render-policy.test.ts"],
+      "residualRisk": "Repository controls surface review state and cap high-risk trust, but source currency and clinical validation require human authority."
+    },
+    {
+      "id": "H3",
+      "state": "partial",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Clinical UX owner",
+      "controlSymbols": ["formatAnswerRenderCopyText"],
+      "controlPaths": ["src/lib/answer-render-policy.ts"],
+      "tests": ["tests/answer-render-policy.test.ts", "tests/ward-output.test.ts"],
+      "residualRisk": "Canonical answer copy preserves table and safety context; every secondary quote/export path is not asserted by one end-to-end clinical acceptance test."
+    },
+    {
+      "id": "H4",
+      "state": "partial",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Answer quality owner",
+      "controlSymbols": ["assessAndEnforceClaimSupport", "collectSourceCandidates"],
+      "controlPaths": ["src/lib/rag/rag-claim-support.ts", "src/lib/answer-render-policy.ts"],
+      "tests": ["tests/rag-claim-support.test.ts", "tests/answer-render-policy.test.ts", "tests/rag-trust.test.ts"],
+      "residualRisk": "Deterministic claim support and provenance labels do not prove that a clinically plausible source or claim is true."
+    },
+    {
+      "id": "H5",
+      "state": "partial",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Answer quality owner",
+      "controlSymbols": ["deriveTrust", "deriveConfidence"],
+      "controlPaths": ["src/lib/answer-render-policy.ts", "src/lib/rag/rag-answer-support.ts"],
+      "tests": [
+        "tests/answer-render-policy.test.ts",
+        "tests/rag-score.test.ts",
+        "tests/rag-retrieval-row-contract.test.ts"
+      ],
+      "residualRisk": "Fail-closed relevance and similarity provenance are tested, while broader confidence policy still requires clinical validation."
+    },
+    {
+      "id": "H6",
+      "state": "partial",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Application security owner",
+      "controlSymbols": ["neutralizeIdentityField", "fenceSourceEvidence", "neutralizePromptInstructions"],
+      "controlPaths": ["src/lib/rag/rag-source-block.ts", "src/lib/source-text-sanitizer.ts"],
+      "tests": ["tests/rag-injection.test.ts"],
+      "residualRisk": "Prompt-facing identity fields are neutralized and evidence is fenced; faithful-but-wrong or corrupted clinical source content remains an open clinical-truth hazard."
+    }
+  ],
+  "assuranceDecisions": [
+    {
+      "id": "CLINICAL-TRUTH-AUTHORITY",
+      "state": "open",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Clinical governance authority",
+      "evidenceReferences": ["docs/clinical-hazard-analysis.md"],
+      "residualRisk": "Static tests establish code behavior, not clinical truth, source authority, or clinical adequacy."
+    },
+    {
+      "id": "EXTERNAL-RISK-ACCEPTANCE",
+      "state": "open",
+      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "owner": "Authorised risk owner",
+      "evidenceReferences": ["docs/clinical-hazard-analysis.md", "docs/clinical-governance.md"],
+      "residualRisk": "No authorised external clinical or regulatory risk acceptance is recorded."
+    }
+  ]
+}

@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { z } from "zod";
 
 import type { RegistryRecordKind, RegistrySourceStatus, RegistryValidationStatus } from "@/lib/registry-records";
 import type { ServiceRecord } from "@/lib/services";
+import { parseApiSuccessResponse } from "@/lib/api-success-response";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -52,6 +54,121 @@ const recordLoading: RegistryRecordState = {
 };
 export type RegistryListView = "full" | "search" | "summary";
 type RegistryRecordsKeyedState = RegistryRecordsState & { kind: RegistryRecordKind; view: RegistryListView };
+
+const registryStatusChipSchema = z
+  .object({
+    label: z.string().nullable().optional(),
+    tone: z.enum(["danger", "info", "warning", "success", "neutral"]).nullable().optional(),
+  })
+  .strict();
+const registryContactSchema = z
+  .object({
+    label: z.string(),
+    value: z.string().nullable().optional(),
+    detail: z.string().nullable().optional(),
+    kind: z.enum(["phone", "email", "web", "text", "unknown"]),
+  })
+  .strict();
+const registrySummaryCardSchema = z
+  .object({
+    id: z.string(),
+    label: z.string().nullable().optional(),
+    title: z.string().nullable().optional(),
+    detail: z.string().nullable().optional(),
+  })
+  .strict();
+const registryInfoRowSchema = z.object({ label: z.string(), value: z.string().nullable().optional() }).strict();
+const registryCriterionSchema = z.object({ label: z.string(), tone: z.enum(["meet", "caution", "reject"]) }).strict();
+const registryVerificationSchema = z
+  .object({
+    locallyVerified: z.boolean().nullable().optional(),
+    confidence: z.enum(["High", "Medium", "Low", "Unknown"]).nullable().optional(),
+    notes: z.array(z.string()).nullable().optional(),
+  })
+  .strict();
+const registrySourceSchema = z
+  .object({
+    label: z.string().nullable().optional(),
+    status: z.string().nullable().optional(),
+    url: z.string().nullable().optional(),
+    published: z.string().nullable().optional(),
+    reviewed: z.string().nullable().optional(),
+    notes: z.array(z.string()).nullable().optional(),
+  })
+  .strict();
+
+export const registryServiceRecordSchema: z.ZodType<ServiceRecord> = z
+  .object({
+    slug: z.string().min(1),
+    title: z.string().min(1),
+    subtitle: z.string().optional(),
+    statusChips: z.array(registryStatusChipSchema).optional(),
+    primaryContact: registryContactSchema.optional(),
+    contacts: z.array(registryContactSchema).optional(),
+    route: z.string().optional(),
+    eligibility: z.string().optional(),
+    cost: z.string().optional(),
+    referral: z.string().optional(),
+    location: z.string().optional(),
+    summaryCards: z.array(registrySummaryCardSchema).optional(),
+    referralInfo: z.array(registryInfoRowSchema).optional(),
+    bestUse: z.string().optional(),
+    criteria: z.array(registryCriterionSchema).optional(),
+    verification: registryVerificationSchema.optional(),
+    tags: z.array(z.string()).optional(),
+    catchments: z.array(z.string()).optional(),
+    catalogueLabel: z.string().optional(),
+    navigatorQuery: z.string().optional(),
+    source: registrySourceSchema.optional(),
+    catalogPayload: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
+const registryValidationStatusSchema = z.enum(["unverified", "locally_reviewed", "approved"]);
+const registrySourceStatusSchema = z.enum(["current", "review_due", "outdated", "unknown"]);
+const registryListGovernanceEntrySchema = z
+  .object({ sourceStatus: registrySourceStatusSchema, validationStatus: registryValidationStatusSchema })
+  .strict();
+const registryListResponseBase = z
+  .object({
+    total: z.number().int().nonnegative(),
+    verifiedCount: z.number().int().nonnegative(),
+    demoMode: z.boolean().optional(),
+    publicAccess: z.boolean().optional(),
+  })
+  .strict();
+const registrySummaryResponseSchema = registryListResponseBase;
+const registrySearchResponseSchema = registryListResponseBase
+  .extend({ records: z.array(registryServiceRecordSchema) })
+  .strict();
+const registryFullResponseSchema = registrySearchResponseSchema
+  .extend({ governance: z.record(z.string(), registryListGovernanceEntrySchema) })
+  .strict();
+const linkedRegistryDocumentSchema = z
+  .object({ id: z.string(), title: z.string(), file_name: z.string(), status: z.string() })
+  .strict();
+export const registryRecordResponseSchema = z
+  .object({
+    record: registryServiceRecordSchema,
+    linkedDocuments: z.array(linkedRegistryDocumentSchema),
+    governance: z
+      .object({
+        sourceStatus: registrySourceStatusSchema,
+        validationStatus: registryValidationStatusSchema,
+        lastReviewedAt: z.string().nullable().optional(),
+        reviewDueAt: z.string().nullable().optional(),
+      })
+      .strict(),
+    demoMode: z.boolean().optional(),
+    publicAccess: z.boolean().optional(),
+    sharedCatalog: z.boolean().optional(),
+  })
+  .strict();
+
+function registryListResponseSchema(view: RegistryListView) {
+  if (view === "summary") return registrySummaryResponseSchema;
+  return view === "search" ? registrySearchResponseSchema : registryFullResponseSchema;
+}
 
 function recordsState(
   status: RegistryRequestStatus,
@@ -154,26 +271,30 @@ export function useRegistryRecords(
           setState(recordsState("error", kind, view));
           return;
         }
-        const payload = (await response.json()) as {
-          records?: ServiceRecord[];
-          total?: number;
-          verifiedCount?: number;
-          demoMode?: boolean;
-          governance?: Record<string, { validationStatus?: RegistryValidationStatus }>;
-        };
+        const payload = await parseApiSuccessResponse(
+          response,
+          registryListResponseSchema(view),
+          "Registry records returned an invalid response.",
+        );
         if (!isCurrentRequest()) return;
         const governance: Record<string, RegistryValidationStatus> = {};
-        for (const [slug, entry] of Object.entries(payload.governance ?? {})) {
-          if (entry?.validationStatus) governance[slug] = entry.validationStatus;
+        const fullPayload = registryFullResponseSchema.safeParse(payload);
+        if (fullPayload.success) {
+          for (const [slug, entry] of Object.entries(fullPayload.data.governance)) {
+            governance[slug] = entry.validationStatus;
+          }
         }
+        const searchPayload = registrySearchResponseSchema.safeParse(payload);
+        const records = fullPayload.success
+          ? fullPayload.data.records
+          : searchPayload.success
+            ? searchPayload.data.records
+            : [];
         setState(
           recordsState("ready", kind, view, {
-            records: payload.records ?? [],
-            total: payload.total ?? payload.records?.length ?? 0,
-            verifiedCount:
-              payload.verifiedCount ??
-              Object.values(governance).filter((status) => status === "locally_reviewed" || status === "approved")
-                .length,
+            records,
+            total: payload.total,
+            verifiedCount: payload.verifiedCount,
             demoMode: Boolean(payload.demoMode),
             governance,
           }),
@@ -233,22 +354,17 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
           setState({ status: "error", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
-        const payload = (await response.json()) as {
-          record?: ServiceRecord;
-          linkedDocuments?: Array<{ id: string; title: string; file_name: string; status: string }>;
-          demoMode?: boolean;
-          governance?: RegistryRecordGovernance;
-        };
-        if (!payload.record) {
-          setState({ status: "not_found", record: null, linkedDocuments: [], demoMode: false, governance: null });
-          return;
-        }
+        const payload = await parseApiSuccessResponse(
+          response,
+          registryRecordResponseSchema,
+          "Registry record returned an invalid response.",
+        );
         setState({
           status: "ready",
           record: payload.record,
-          linkedDocuments: payload.linkedDocuments ?? [],
+          linkedDocuments: payload.linkedDocuments,
           demoMode: Boolean(payload.demoMode),
-          governance: payload.governance ?? null,
+          governance: payload.governance,
         });
       })
       .catch(() => {

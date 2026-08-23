@@ -64,8 +64,8 @@ jobs:
                 set(true, "Eval-canary liveness: no completed canary runs found.");
               } else if (!Number.isFinite(finishedAt)) {
                 set(
-                  false,
-                  "Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.",
+                  true,
+                  "Eval-canary liveness: latest completed run has no parseable timestamp; treating liveness as unknown.",
                 );
               } else {
                 const ageDays = (Date.now() - finishedAt) / 86_400_000;
@@ -120,6 +120,11 @@ jobs:
 
       - name: Publish to rolling issue
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          OPS_DIGEST_STATUS: ${{ steps.digest.outputs.status }}
+          OPS_DIGEST_ALERTING: ${{ steps.digest.outputs.alerting }}
+          OPS_DIGEST_SEVERITY: ${{ steps.digest.outputs.severity }}
+          OPS_DIGEST_ALERT_SUMMARY: ${{ steps.digest.outputs.alert_summary }}
         with:
           script: |
             const fs = require("fs");
@@ -130,8 +135,46 @@ jobs:
             if (canaryStale && canaryMessage) {
               body = `## Eval-canary liveness\n\n⚠ ${canaryMessage}\n\n${body}`;
             }
-            const status = "${{ steps.digest.outputs.status }}" || "unknown";
-            const alerting = "${{ steps.digest.outputs.alerting }}" === "true" || canaryStale;
+            const allowedStatuses = new Set(["ok", "degraded", "unreachable", "unknown"]);
+            const allowedSeverities = new Set(["none", "unknown", "warning", "page"]);
+            const rawStatus = process.env.OPS_DIGEST_STATUS || "unknown";
+            const status = allowedStatuses.has(rawStatus) ? rawStatus : "unknown";
+            const rawSeverity = process.env.OPS_DIGEST_SEVERITY || "unknown";
+            const severity = allowedSeverities.has(rawSeverity) ? rawSeverity : "unknown";
+            let parsedSummary;
+            try {
+              parsedSummary = JSON.parse(process.env.OPS_DIGEST_ALERT_SUMMARY || "{}");
+            } catch {
+              parsedSummary = {};
+            }
+            const summaryCodes = Array.isArray(parsedSummary.codes)
+              ? parsedSummary.codes.filter((code) => typeof code === "string" && /^OPS_[A-Z0-9_]+$/.test(code)).slice(0, 32)
+              : [];
+            const summaryValid =
+              typeof parsedSummary.alerting === "boolean" &&
+              allowedSeverities.has(parsedSummary.severity) &&
+              Number.isInteger(parsedSummary.count) &&
+              parsedSummary.count >= 0 &&
+              Array.isArray(parsedSummary.codes);
+            const canonicalSummary = summaryValid
+              ? {
+                  alerting: parsedSummary.alerting,
+                  severity: parsedSummary.severity,
+                  count: parsedSummary.count,
+                  codes: summaryCodes,
+                }
+              : {
+                  alerting: true,
+                  severity: "unknown",
+                  count: 1,
+                  codes: ["OPS_DIGEST_OUTPUT_UNKNOWN"],
+                };
+            const alertSummary = JSON.stringify(canonicalSummary);
+            const alerting =
+              process.env.OPS_DIGEST_ALERTING === "true" ||
+              canonicalSummary.alerting ||
+              severity === "unknown" ||
+              canaryStale;
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -164,7 +207,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `⚠ Attention (status=${status}, alerting=${alerting}${canaryStale ? ", eval-canary-stale=true" : ""}) — ${new Date().toISOString()}\n\n${body}`,
+                body: `⚠ Attention (status=${status}, alerting=${alerting}, severity=${severity}${canaryStale ? ", eval-canary-stale=true" : ""}) — ${new Date().toISOString()}\n\nAlert summary: \`${alertSummary}\`\n\n${body}`,
               });
             }
             if (status !== "ok") core.warning(`Ops digest status: ${status}`);

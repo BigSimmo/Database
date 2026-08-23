@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "authority": "This register is the status authority for privacy readiness. Repository proof cannot satisfy provider, legal, or clinical evidence classes.",
+  "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+  "reviewedAt": "2026-08-23",
+  "reviewExpiresAt": "2026-11-23",
+  "requirements": [
+    {
+      "id": "PRIV-CODE-QUERY-HASH",
+      "evidenceClass": "code",
+      "status": "verified",
+      "accountableRole": "Application security owner",
+      "evidenceReferences": [
+        "src/lib/query-privacy.ts",
+        "tests/env-query-hash-secret.test.ts",
+        "tests/instrumentation.test.ts"
+      ],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "statusHistory": [{ "status": "verified", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-CODE-DURABLE-ANSWER-MINIMISATION",
+      "evidenceClass": "code",
+      "status": "verified",
+      "accountableRole": "Privacy engineering owner",
+      "evidenceReferences": ["src/lib/query-privacy.ts", "tests/privacy.test.ts", "scripts/production-readiness.ts"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "statusHistory": [{ "status": "verified", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-CODE-RAW-QUERY-PERSISTENCE",
+      "evidenceClass": "code",
+      "status": "verified",
+      "accountableRole": "Privacy engineering owner",
+      "evidenceReferences": ["src/lib/query-privacy.ts", "tests/privacy.test.ts", "scripts/production-readiness.ts"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "statusHistory": [{ "status": "verified", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-PROVIDER-PRODUCTION-HMAC-SECRET",
+      "evidenceClass": "provider",
+      "status": "pending",
+      "accountableRole": "Production platform owner",
+      "evidenceReferences": ["docs/privacy-impact-assessment.md", "scripts/production-readiness.ts"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY",
+      "evidenceClass": "provider",
+      "status": "partial",
+      "accountableRole": "Database operations owner",
+      "evidenceReferences": [
+        "docs/privacy-impact-assessment.md",
+        "supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql"
+      ],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "partial", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-PROVIDER-OPENAI-ZDR",
+      "evidenceClass": "provider",
+      "status": "pending",
+      "accountableRole": "OpenAI account owner",
+      "evidenceReferences": ["docs/openai-cross-border-basis.md"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-LEGAL-OPENAI-DPA",
+      "evidenceClass": "legal",
+      "status": "pending",
+      "accountableRole": "Authorised legal signatory",
+      "evidenceReferences": ["docs/openai-cross-border-basis.md"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-LEGAL-RAILWAY-DPA",
+      "evidenceClass": "legal",
+      "status": "pending",
+      "accountableRole": "Authorised legal signatory",
+      "evidenceReferences": ["docs/openai-cross-border-basis.md"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-LEGAL-APP8-CROSS-BORDER-BASIS",
+      "evidenceClass": "legal",
+      "status": "pending",
+      "accountableRole": "Privacy adviser",
+      "evidenceReferences": ["docs/openai-cross-border-basis.md", "docs/privacy-impact-assessment.md"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-LEGAL-APP1-APP5-NOTICE",
+      "evidenceClass": "legal",
+      "status": "pending",
+      "accountableRole": "Privacy adviser",
+      "evidenceReferences": ["docs/privacy-impact-assessment.md", "src/lib/privacy-page-content.tsx"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "pending", "date": "2026-08-23" }]
+    },
+    {
+      "id": "PRIV-CLINICAL-PHI-MINIMISATION",
+      "evidenceClass": "clinical",
+      "status": "partial",
+      "accountableRole": "Clinical safety owner",
+      "evidenceReferences": ["docs/privacy-impact-assessment.md", "tests/privacy-ui.test.ts"],
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-09-23",
+      "statusHistory": [{ "status": "partial", "date": "2026-08-23" }]
+    }
+  ]
+}

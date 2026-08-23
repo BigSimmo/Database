@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { renderDigest, resolveHealthUrl } from "../scripts/ops-digest.mjs";
+import { normalizeOpsStatus, renderDigest, resolveHealthUrl, serializeGitHubOutputs } from "../scripts/ops-digest.mjs";
 
 describe("resolveHealthUrl", () => {
   it("appends the deep health path to a bare base URL", () => {
@@ -17,11 +18,42 @@ describe("resolveHealthUrl", () => {
   });
 });
 
+describe("ops digest workflow contract", () => {
+  it("publishes alerting, highest severity, and the compact machine-readable summary", () => {
+    const workflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
+    const script = readFileSync(new URL("../scripts/ops-digest.mjs", import.meta.url), "utf8");
+    expect(script).toContain("alerting=${safeSummary.alerting}");
+    expect(script).toContain("severity=${singleLine(safeSeverity)}");
+    expect(script).toContain("alert_summary=${singleLine(JSON.stringify(safeSummary))}");
+    expect(workflow).toContain("steps.digest.outputs.severity");
+    expect(workflow).toContain("steps.digest.outputs.alert_summary");
+    expect(workflow).toContain("OPS_DIGEST_STATUS: ${{ steps.digest.outputs.status }}");
+    expect(workflow).toContain("JSON.parse(process.env.OPS_DIGEST_ALERT_SUMMARY");
+    expect(workflow).not.toContain('const status = "${{ steps.digest.outputs.status }}"');
+    expect(workflow).not.toContain("const alertSummary = '${{ steps.digest.outputs.alert_summary }}'");
+  });
+
+  it("allow-lists workflow values and prevents output-command injection", () => {
+    expect(normalizeOpsStatus("ok\nowned=true")).toBe("unknown");
+    const output = serializeGitHubOutputs("ok\nowned=true", {
+      alerting: true,
+      severity: "page\nowned=true",
+      count: 1,
+      codes: ["OPS_SAFE", "OPS_BAD\nowned=true"],
+    });
+    expect(output).toBe(
+      'status=unknown\nalerting=true\nseverity=unknown\nalert_summary={"alerting":true,"severity":"unknown","count":1,"codes":["OPS_SAFE"]}\n',
+    );
+    expect(output).not.toContain("\nowned=true");
+  });
+});
+
 describe("renderDigest", () => {
   it("renders an unreachable digest when the probe failed", () => {
     const md = renderDigest(null, { error: "timeout after 20000ms" });
     expect(md).toContain("unreachable");
     expect(md).toContain("timeout after 20000ms");
+    expect(md).toContain("OPS_ANSWER_SLO_UNKNOWN");
   });
 
   it("renders SLO, cache, and spend sections from a healthy payload", () => {
@@ -62,6 +94,7 @@ describe("renderDigest", () => {
     expect(md).toContain("$1.23");
     expect(md).toContain("projected/day: $29.52");
     expect(md).toContain("fast $0.40");
+    expect(md).toContain("Alert state:** none (0)");
   });
 
   it("flags an over-threshold spend and a truncated sample", () => {
@@ -80,5 +113,6 @@ describe("renderDigest", () => {
     });
     expect(md).toContain("OVER THRESHOLD");
     expect(md).toContain("sample truncated");
+    expect(md).toContain("OPS_PROJECTED_DAILY_SPEND_WARNING");
   });
 });
