@@ -49,6 +49,9 @@ describe("maturity governance documentation", () => {
     expect(runbook).toContain("RAG_PROVIDER_MODE=offline");
     expect(runbook).toContain("RAG_PROVIDER_MODE=auto");
     expect(runbook).toContain("Rehearse rollback");
+    expect(runbook).toContain("Git ref that resolves to that same `<candidate-sha>`");
+    const staging = read("docs/staging-setup.md");
+    expect(staging).toContain("Dispatch that workflow from a Git ref that resolves to the candidate SHA");
   });
 
   it("does not retain stale source line numbers in PIA link labels", () => {

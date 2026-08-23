@@ -129,7 +129,9 @@ Detailed: [staging-setup.md](staging-setup.md). No code change — the identity 
    `SUPABASE_STAGING_PROJECT_NAME=Clinical KB Staging`, `RAG_QUERY_HASH_SECRET` (staging),
    `RAG_PROVIDER_MODE=offline`. Keep one warm instance. Confirm `GET /api/health`
    reports `deploymentCommitSha=<candidate-sha>`, then dispatch the SHA-bound
-   tenancy workflow and retain its evidence artifact.
+   tenancy workflow from a Git ref that resolves to that same `<candidate-sha>`
+   (`CROSS_TENANT_CHECKOUT_COMMIT_SHA` is `${{ github.sha }}`) and retain its
+   evidence artifact.
 3. **⏸ PAUSE** transition the same candidate image to the load profile: add the
    staging-only `OPENAI_API_KEY`, set `RAG_PROVIDER_MODE=auto`, redeploy, and confirm
    `/api/health` still reports the identical full candidate SHA. Run the authenticated

@@ -117,8 +117,11 @@ Reuse the app image; only the environment variables differ.
 2. Tenancy isolation: configure the dedicated A/B test accounts and standalone
    workflow described in
    [`staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
-   The harness requires an app deployment with `RAG_PROVIDER_MODE=offline` and is
-   hard-guarded against the production project.
+   Dispatch that workflow from a Git ref that resolves to the candidate SHA —
+   checkout SHA (`github.sha`) is compared to the deployed `/api/health` SHA
+   before any client or fixture work. The harness requires an app deployment
+   with `RAG_PROVIDER_MODE=offline` and is hard-guarded against the production
+   project.
 3. For the load profile only, redeploy the **same exact candidate image** with a
    staging-only OpenAI key and `RAG_PROVIDER_MODE=auto`; verify `/api/health`
    still reports the candidate SHA. Then run the authenticated soak:

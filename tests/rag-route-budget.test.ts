@@ -125,7 +125,8 @@ describe("budget-aware generation deadlines (E-3b)", () => {
   });
 
   it("caps a fresh fast generation below the outer route deadline", () => {
-    const deadline = createAnswerRouteDeadline({ routeMode: "fast", startedAt: Date.now() });
+    const now = 1_000_000;
+    const deadline = createAnswerRouteDeadline({ routeMode: "fast", startedAt: now, now: () => now });
     expect(deadline.generationRequestTimeoutMs(30_000)).toBe(answerRouteBudgetMs.fast - generationRecoveryReserveMs);
     deadline.dispose();
   });
