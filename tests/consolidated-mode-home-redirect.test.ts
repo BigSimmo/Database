@@ -5,6 +5,7 @@ import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation
 import {
   consolidatedModeHomeModeId,
   unsubmittedModeSearchTarget,
+  unsubmittedModeSearchTargetForSearchParams,
   consolidatedModeHomeModeIds,
   consolidatedModeHomeTarget,
   isConsolidatedModeHomePath,
@@ -162,6 +163,30 @@ describe("consolidated mode home redirects", () => {
     expect(search("/differentials/search", "q=%20")).toBe("/?mode=differentials");
     expect(search("/differentials/search", "run=1")).toBe("/?mode=differentials");
     expect(search("/differentials/search", "q=%20&run=1")).toBe("/?mode=differentials");
+  });
+
+  /*
+   * The proxy and the page-level backstop must agree. Hardcoding `/?mode=<id>`
+   * on the page dropped `focus`, `queryMode` and scope filters that the proxy
+   * keeps. The page helper therefore has to go through this same builder.
+   */
+  it("strips only q, query and run from an unsubmitted search, keeping navigation context", () => {
+    const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
+
+    expect(search("/differentials/search", "run=1&focus=1&queryMode=compare_guidance")).toBe(
+      "/?focus=1&queryMode=compare_guidance&mode=differentials",
+    );
+    expect(
+      search("/calculators/search", "q=%20&run=1&focus=1&queryMode=compare_guidance&scope.medications=lithium"),
+    ).toBe("/?focus=1&queryMode=compare_guidance&scope.medications=lithium&mode=calculators");
+
+    expect(
+      unsubmittedModeSearchTargetForSearchParams("/differentials/search", {
+        run: "1",
+        focus: "1",
+        queryMode: "compare_guidance",
+      }),
+    ).toBe("/?focus=1&queryMode=compare_guidance&mode=differentials");
   });
 
   it("leaves query-free browse surfaces alone", () => {

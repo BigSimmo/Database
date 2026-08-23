@@ -80,6 +80,18 @@ describe("calculator mode routing", () => {
     );
     expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
 
+    await expect(
+      CalculatorsSearchRoute({
+        searchParams: Promise.resolve({
+          run: "1",
+          q: "  ",
+          focus: "1",
+          queryMode: "compare_guidance",
+        }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/?focus=1&queryMode=compare_guidance&mode=calculators");
+
     const results = await CalculatorsSearchRoute({
       searchParams: Promise.resolve({ run: "1", q: " depression " }),
     });

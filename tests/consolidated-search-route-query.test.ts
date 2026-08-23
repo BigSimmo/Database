@@ -33,4 +33,19 @@ describe("consolidated search route query compatibility", () => {
     expect(specifiers.type).toBe(SpecifiersHomePage);
     expect(specifiers.props.query).toBe("delirium");
   });
+
+  it("keeps navigation context when the empty differentials backstop fires", async () => {
+    navigation.redirect.mockClear();
+    await expect(
+      DifferentialsSearchRoute({
+        searchParams: Promise.resolve({
+          q: "  ",
+          run: "1",
+          focus: "1",
+          queryMode: "compare_guidance",
+        }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/?focus=1&queryMode=compare_guidance&mode=differentials");
+  });
 });

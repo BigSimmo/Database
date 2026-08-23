@@ -131,16 +131,20 @@ export function consolidatedModeSearchPath(modeId: AppModeId): string {
  * context — a worse answer than the proxy gives for the same URL. Routing both
  * through one resolver means the fallback cannot disagree with the proxy.
  */
-export function consolidatedModeHomeTargetForSearchParams(
-  pathname: string,
-  searchParams: Record<string, string | string[] | undefined>,
-): string | null {
+function urlSearchParamsFromRecord(searchParams: Record<string, string | string[] | undefined>) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {
     if (Array.isArray(value)) value.forEach((entry) => params.append(key, entry));
     else if (value !== undefined) params.set(key, value);
   }
-  return consolidatedModeHomeTarget(pathname, params);
+  return params;
+}
+
+export function consolidatedModeHomeTargetForSearchParams(
+  pathname: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string | null {
+  return consolidatedModeHomeTarget(pathname, urlSearchParamsFromRecord(searchParams));
 }
 
 /**
@@ -195,6 +199,19 @@ export function unsubmittedModeSearchTarget(pathname: string, search: URLSearchP
   params.delete("run");
   params.set("mode", modeId);
   return `/?${params.toString()}`;
+}
+
+/**
+ * The same decision as `unsubmittedModeSearchTarget`, for a page's own
+ * `searchParams`. The `/calculators/search` and `/differentials/search`
+ * backstops must not hardcode `/?mode=<id>` — that drops navigation context
+ * (`focus`, `queryMode`, scope filters) the proxy would have kept.
+ */
+export function unsubmittedModeSearchTargetForSearchParams(
+  pathname: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string | null {
+  return unsubmittedModeSearchTarget(pathname, urlSearchParamsFromRecord(searchParams));
 }
 
 /**

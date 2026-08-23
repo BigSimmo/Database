@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { appModeSelectionHref } from "@/lib/app-modes";
+import { unsubmittedModeSearchTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 import { DifferentialsHomePage } from "@/components/differentials/differentials-home-page";
 
 export const metadata: Metadata = {
@@ -9,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 type RouteProps = {
-  searchParams?: Promise<{ q?: string | string[]; query?: string | string[]; run?: string | string[] }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 function firstValue(value?: string | string[]) {
@@ -23,13 +25,19 @@ function firstValue(value?: string | string[]) {
  * home: results need a route of their own, or `appModeHomeHref` would send a
  * submitted query back through the redirect and loop. An empty query has no
  * browse view of its own — diagnoses and presentations are separate tabs — so
- * it forwards to `/?mode=differentials` the same way `/calculators/search` does.
- * The proxy issues the 307; this page-level redirect is the backstop.
+ * it forwards to the shared home the same way `/calculators/search` does.
+ * The proxy issues the 307; this page-level redirect is the backstop and uses
+ * the same target builder so navigation context is not dropped.
  */
 export default async function DifferentialsSearchRoute(props: RouteProps) {
   const params = props.searchParams ? await props.searchParams : {};
   const query = firstValue(params.q)?.trim() || firstValue(params.query)?.trim() || "";
-  if (!query) redirect("/?mode=differentials");
+  if (!query) {
+    redirect(
+      unsubmittedModeSearchTargetForSearchParams("/differentials/search", params) ??
+        appModeSelectionHref("differentials"),
+    );
+  }
 
   return <DifferentialsHomePage query={query} autoRunSearch />;
 }
