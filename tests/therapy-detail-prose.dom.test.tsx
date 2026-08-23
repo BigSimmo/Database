@@ -107,16 +107,23 @@ describe("therapy record prose", () => {
 
   it("keeps a trailing marker attached to its own sentence, not orphaned", () => {
     // The marker follows a full stop, so it belongs to the sentence before it.
-    // Split before the bracket and it lands in a chunk with no sentence in
-    // front of it, stops looking like a marker, and reaches the page as literal
-    // "(PubMed)" text — which is what the record page shipped until this split
-    // was fixed.
+    // If citations are parsed on the grouped paragraph, a marker can drift to
+    // the following sentence and look like an orphan.
     const paragraphs = splitParagraphs(
       "Evidence is heterogeneous. (PubMed) PTSD symptoms respond best to trauma-focused work. (NICE)",
     );
     expect(paragraphs).toHaveLength(1);
     expect(paragraphs[0].citations).toEqual(["PubMed", "NICE"]);
-    expect(paragraphs[0].text).not.toContain("(");
+    expect(paragraphs[0].sentences).toHaveLength(2);
+    expect(paragraphs[0].sentences[0].citations).toEqual(["PubMed"]);
+    expect(paragraphs[0].sentences[1].citations).toEqual(["NICE"]);
+    expect(paragraphs[0].sentences[0].text).toBe("Evidence is heterogeneous.");
+    expect(paragraphs[0].sentences[1].text).toBe(
+      "PTSD symptoms respond best to trauma-focused work.",
+    );
+    expect(paragraphs[0].text).toBe(
+      "Evidence is heterogeneous. PTSD symptoms respond best to trauma-focused work.",
+    );
   });
 
   it("keeps every citation marker present in the rendered output", () => {

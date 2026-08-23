@@ -29,7 +29,12 @@ import { cn } from "@/components/ui-primitives";
  */
 const AUTHORITY_PATTERN = /(?<=[.!?])\s*\(([A-Z0-9][^().!?]{0,58})\)/g;
 
-export type ProseParagraph = { text: string; citations: string[] };
+type ProseSentence = {
+  text: string;
+  citations: string[];
+};
+
+export type ProseParagraph = { text: string; citations: string[]; sentences: ProseSentence[] };
 
 /**
  * Pull recognised source markers out of one run of text.
@@ -66,30 +71,35 @@ export function splitParagraphs(text: string, sentencesPerParagraph = 2): ProseP
     .split(/\r?\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
-  const blocks =
-    byLine.length > 1
-      ? byLine
-      : (() => {
-          const sentences = text
-            // Split after a full stop **or a closing bracket**, and only before
-            // a capital. Splitting before `(` orphaned a trailing source marker
-            // into a chunk of its own — and a marker with no sentence in front
-            // of it no longer looks like a marker, so it survived into the page
-            // as literal "(PubMed)" text instead of becoming a chip.
-            .split(/(?<=[.)])\s+(?=[A-Z])/)
-            .map((sentence) => sentence.trim())
-            .filter(Boolean);
-          const grouped: string[] = [];
-          for (let index = 0; index < sentences.length; index += sentencesPerParagraph) {
-            grouped.push(sentences.slice(index, index + sentencesPerParagraph).join(" "));
-          }
-          return grouped;
-        })();
+  const splitBySentence = (paragraph: string): ProseSentence[] =>
+    paragraph
+      .split(/(?<=[.)])\s+(?=[A-Z])/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+      .map((sentence) => {
+        const { text: body, citations } = extractCitations(sentence);
+        return { text: body, citations };
+      })
+      .filter((sentence) => sentence.text.length > 0 || sentence.citations.length > 0);
 
-  return blocks
-    .map((block) => {
-      const { text: body, citations } = extractCitations(block);
-      return { text: body, citations };
+  const grouped = byLine.length > 1 ? byLine.map((line) => splitBySentence(line)) : (() => {
+    const sentences = splitBySentence(text);
+    const groupedByTwoSentences: ProseSentence[][] = [];
+    for (let index = 0; index < sentences.length; index += sentencesPerParagraph) {
+      groupedByTwoSentences.push(sentences.slice(index, index + sentencesPerParagraph));
+    }
+    return groupedByTwoSentences;
+  })();
+
+  return grouped
+    .map((blockSentences) => {
+      const paragraphText = blockSentences.map((sentence) => sentence.text).join(" ").trim();
+      const citations = [...new Set(blockSentences.flatMap((sentence) => sentence.citations))];
+      return {
+        text: paragraphText,
+        citations,
+        sentences: blockSentences,
+      };
     })
     .filter((paragraph) => paragraph.text.length > 0 || paragraph.citations.length > 0);
 }
@@ -188,7 +198,12 @@ export function ProseBlock({
           one box, so it silently does nothing to a stack of paragraphs. The
           collapsed copy stays in the DOM — clipped, never unmounted — so
           find-in-page and assistive technology still reach every word. */}
-      <div className={cn("relative", clampable && !expanded && "max-h-[6.5rem] overflow-hidden")}>
+      <div
+        className={cn(
+          "relative",
+          clampable && !expanded && "max-h-[6.5rem] overflow-hidden print:overflow-visible print:max-h-none",
+        )}
+      >
         <div
           id={`${id}-prose`}
           className={cn(
@@ -198,8 +213,13 @@ export function ProseBlock({
         >
           {paragraphs.map((paragraph, index) => (
             <p key={index} className="m-0">
-              {paragraph.text}
-              <CitationChips citations={paragraph.citations} />
+              {paragraph.sentences.map((sentence, sentenceIndex) => (
+                <span key={`${index}-${sentenceIndex}`}>
+                  {sentence.text}
+                  <CitationChips citations={sentence.citations} />
+                  {sentenceIndex === paragraph.sentences.length - 1 ? null : " "}
+                </span>
+              ))}
             </p>
           ))}
         </div>

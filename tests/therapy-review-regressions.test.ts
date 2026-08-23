@@ -106,6 +106,7 @@ describe("Therapy review regression contracts", () => {
     const select = source("src/components/therapy-compass/data/select.ts");
     const globals = source("src/app/globals.css");
     const universalSearch = source("tests/ui-universal-search.spec.ts");
+    const prose = source("src/components/therapy-compass/prose.tsx");
 
     expect(nav).toContain('href: "/therapy-compass/recommend"');
     expect(nav).toContain('href: "/therapy-compass/pathways"');
@@ -135,6 +136,9 @@ describe("Therapy review regression contracts", () => {
     expect(printProvenance).toContain("color: var(--text-muted);");
     expect(printProvenance).not.toContain("#d6dce5");
     expect(printProvenance).not.toContain("#5b6472");
+    expect(prose).toContain("max-h-[6.5rem]");
+    expect(prose).toContain("print:overflow-visible");
+    expect(prose).toContain("print:max-h-none");
 
     const groupedStart = universalSearch.indexOf('test("selecting a grouped result navigates to the record"');
     const groupedEnd = universalSearch.indexOf('test("Enter with nothing highlighted', groupedStart);
