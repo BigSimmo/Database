@@ -34,6 +34,8 @@ describe("isInformationPage", () => {
     expect(isInformationPage("/documents/search")).toBe(false);
     expect(isInformationPage("/therapy-compass/search")).toBe(false);
     expect(isInformationPage("/therapy-compass/recommend")).toBe(false);
+    expect(isInformationPage("/services/search")).toBe(false);
+    expect(isInformationPage("/forms/search")).toBe(false);
   });
 });
 

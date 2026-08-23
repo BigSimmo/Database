@@ -46,6 +46,18 @@ export function isSlugDetail(pathname: string, home: string, extraExcluded: stri
 }
 
 /**
+ * Record pages that keep a footer search composer. Catalog result docks
+ * (`/services/search`, `/forms/search`) are not details — `isSlugDetail`
+ * already excludes the reserved `search` suffix so Clinical Ask chrome
+ * can stay on those submitted docks.
+ */
+export function isToolDetailWithFooterSearch(pathname: string): boolean {
+  return (
+    isSlugDetail(pathname, "/services") || isSlugDetail(pathname, "/forms") || isSlugDetail(pathname, "/medications")
+  );
+}
+
+/**
  * True when `pathname` is a mode information (detail/record) page.
  * Keep in sync with adoption notes on `InformationPageShell`.
  */
