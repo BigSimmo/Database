@@ -4,9 +4,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from "playwright
 /*
  * `/dictionary` is deliberately absent: it has no home of its own any more. The
  * bare path redirects to the shared lightweight home at `/?mode=dictionary`,
- * which is covered by the shared-home suites rather than here. The retired
- * detailed home lives at `/mockups/dictionary-home-detailed`, which 404s in
- * production and is out of scope for a production-route sweep.
+ * which is covered by the shared-home suites rather than here.
  */
 const routes = [
   { path: "/dictionary/search?q=MSE", testId: "dictionary-catalogue-main" },

@@ -15,7 +15,6 @@ vi.mock("@/components/services/service-detail-client", () => ({ ServiceDetailCli
 
 const formDetailSource = readFileSync(new URL("../src/components/forms/form-detail-page.tsx", import.meta.url), "utf8");
 const normalizedFormDetailSource = formDetailSource.replace(/\s+/g, " ");
-const formsHomeSource = readFileSync(new URL("../src/components/forms/forms-home-page.tsx", import.meta.url), "utf8");
 const formsSearchSource = readFileSync(
   new URL("../src/components/forms/forms-search-results-page.tsx", import.meta.url),
   "utf8",
@@ -154,17 +153,9 @@ describe("content and services audit regressions", () => {
     expect(formsSearchSource).toContain("View all forms");
     expect(formsSearchSource).toContain('appModeHomeHref("forms", { query, focus: true, run: true })');
     expect(formsSearchSource).not.toContain('href="/forms"');
-    expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
-    expect(formsHomeSource).not.toMatch(
-      /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
-    );
-    expect(formsHomeSource).toContain("local confirmation");
-    // The "Source catalogue reviewed · Official-source MHA 2014 forms · verify
-    // before use" line went with every other mode-home caveat footer. The
-    // enforceable version of that rule lives in tests/mode-home-no-caveat-footer.test.ts,
-    // which pins the footer's call sites structurally; a bare string check here
-    // would pass against a reworded or differently-named replacement.
-    expect(formsHomeSource).not.toContain("Source catalogue reviewed");
+    // The retired detailed Forms home (and its caveat footer) is gone; the
+    // structural footer contract lives in tests/mode-home-no-caveat-footer.test.ts.
+    expect(formsSearchSource).not.toContain("Source catalogue reviewed");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {
