@@ -70,6 +70,11 @@ describe("CI cache safety", () => {
     expect(workflow).not.toContain("Restore isolated Next.js build cache");
   });
 
+  it("checks out full history on Safety so privacy reviewedCommit is in the object graph", () => {
+    const safety = sourceSegment(workflow, "name: Safety and config checks", "name: Unit coverage");
+    expect(safety).toContain("fetch-depth: 0");
+  });
+
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(lighthouseChromiumSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
