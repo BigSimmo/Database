@@ -7,7 +7,7 @@ In PR #2209 (merged `af2075a`), GitHub Actions workflow concurrency for base-bra
 ```yaml
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) && github.run_id || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 ```
 
 ### Background and Root Cause Closed
