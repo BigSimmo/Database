@@ -12,12 +12,13 @@ describe("privacy readiness contract", () => {
     expect(validatePrivacyReadiness(manifest)).toEqual([]);
   });
 
-  it("fails release closed while provider, legal, or clinical evidence is pending", () => {
+  it("fails release closed while CI validates the structural register", () => {
     expect(validatePrivacyReadiness(manifest, { release: true })).toContain(
       "PRIV-PROVIDER-OPENAI-ZDR: release-blocking status pending",
     );
     expect(packageJson.scripts["check:production-readiness"]).toContain("check:privacy-readiness:release");
-    expect(packageJson.scripts["check:production-readiness:ci"]).toContain("check:privacy-readiness:release");
+    expect(packageJson.scripts["check:production-readiness:ci"]).toContain("check:privacy-readiness");
+    expect(packageJson.scripts["check:production-readiness:ci"]).not.toContain("check:privacy-readiness:release");
   });
 
   it("rejects contradictory external verification and forbidden accepted-decision rollback", () => {

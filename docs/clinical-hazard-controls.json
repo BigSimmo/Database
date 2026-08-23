@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "authority": "Static evidence register only. It does not establish clinical adequacy, regulatory classification, or risk acceptance.",
-  "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+  "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
   "reviewedAt": "2026-08-23",
   "reviewExpiresAt": "2026-11-23",
   "hazards": [
     {
       "id": "H1",
       "state": "partial",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical safety owner",
@@ -24,7 +24,7 @@
     {
       "id": "H2",
       "state": "partial",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Source governance owner",
@@ -36,7 +36,7 @@
     {
       "id": "H3",
       "state": "partial",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical UX owner",
@@ -48,7 +48,7 @@
     {
       "id": "H4",
       "state": "partial",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Answer quality owner",
@@ -60,7 +60,7 @@
     {
       "id": "H5",
       "state": "partial",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Answer quality owner",
@@ -76,7 +76,7 @@
     {
       "id": "H6",
       "state": "partial",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Application security owner",
@@ -90,7 +90,7 @@
     {
       "id": "CLINICAL-TRUTH-AUTHORITY",
       "state": "open",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical governance authority",
@@ -100,7 +100,7 @@
     {
       "id": "EXTERNAL-RISK-ACCEPTANCE",
       "state": "open",
-      "reviewedCommit": "16f33d9c80661716e589f22664a64877e0fb95e9",
+      "reviewedCommit": "15efa3aa712086ec7c6fd24d17a011b8a91e4d58",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Authorised risk owner",
