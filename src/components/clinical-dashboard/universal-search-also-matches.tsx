@@ -4,12 +4,14 @@ import Link from "next/link";
 import { ChevronDown, Layers } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
+import { cardAccentEdge } from "@/components/card-recipes";
+import { CategoryIconTile } from "@/components/category-icon-tile";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches-state";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
-import { appModeIcons } from "@/lib/app-mode-icons";
+import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { useAuthSession } from "@/lib/supabase/client";
 import { universalSearchModeForDomain, universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
@@ -214,24 +216,31 @@ export function UniversalSearchAlsoMatches({
         {currentGroups.map((group) => {
           const targetModeId = group.modeId;
           const targetMode = appModeDefinition(targetModeId);
-          const TargetIcon = appModeIcons[targetModeId];
+          const accent = APP_MODE_ACCENT[targetModeId];
           return (
             <div
               key={targetModeId}
-              className="flex min-w-0 items-start gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3"
+              data-category-accent={accent}
+              className={cn(
+                "flex min-w-0 items-start gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3",
+                cardAccentEdge,
+              )}
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <TargetIcon className="h-4 w-4" aria-hidden />
-              </span>
+              <CategoryIconTile icon={APP_MODE_ICON[targetModeId]} accent={accent} size="sm" />
               <span className="min-w-0 flex-1 space-y-1">
-                <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--clinical-accent)]">
-                  {targetMode.label}
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--cat-accent)]">
+                    {targetMode.label}
+                  </span>
+                  <span className="inline-flex shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-px text-2xs font-semibold text-[color:var(--text-muted)]">
+                    {targetMode.search.statusLabel}
+                  </span>
                 </span>
                 {group.items.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="block truncate text-xs font-medium leading-snug text-[color:var(--text)] underline-offset-2 hover:text-[color:var(--clinical-accent)] hover:underline"
+                    className="block truncate text-xs font-medium leading-snug text-[color:var(--text)] underline-offset-2 hover:text-[color:var(--cat-accent)] hover:underline"
                   >
                     {item.title}
                   </Link>
@@ -241,7 +250,7 @@ export function UniversalSearchAlsoMatches({
                 href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
                 // Top-align the label with the mode title; min-h-tap still grows the
                 // hit box downward so the 48px floor does not pull the text mid-card.
-                className="inline-flex min-h-tap shrink-0 items-start pt-0.5 text-2xs font-semibold text-[color:var(--clinical-accent)] underline-offset-2 hover:underline sm:min-h-0 sm:items-center sm:pt-0"
+                className="inline-flex min-h-tap shrink-0 items-start pt-0.5 text-2xs font-semibold text-[color:var(--text-muted)] underline-offset-2 hover:text-[color:var(--cat-accent)] hover:underline sm:min-h-0 sm:items-center sm:pt-0"
               >
                 View all
               </Link>

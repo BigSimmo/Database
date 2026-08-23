@@ -10,6 +10,7 @@ import { logCrossModeLinkOpen } from "@/components/clinical-dashboard/source-act
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import { APP_MODE_ACCENT } from "@/lib/category-identity";
 import {
   buildCrossModeLinksForThread,
   type CrossModeDifferentialCatalog,
@@ -40,7 +41,10 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
       role="listitem"
       className={cn(sourceCard, "flex min-h-12 min-w-0 items-center gap-2.5 px-2.5 py-1.5", "md:max-w-full")}
     >
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+      <span
+        data-category-accent={APP_MODE_ACCENT[link.modeId]}
+        className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]"
+      >
         <Icon className="h-3.5 w-3.5" aria-hidden />
       </span>
       <Link
@@ -94,7 +98,10 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
         onClick={() => logCrossModeLinkOpen(query, link)}
         className="inline-flex min-h-tap min-w-0 items-center gap-2 px-2.5 transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9"
       >
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+        <span
+          data-category-accent={APP_MODE_ACCENT[link.modeId]}
+          className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]"
+        >
           <Icon className="h-3.5 w-3.5" aria-hidden />
         </span>
         <span className="max-w-[13rem] truncate text-xs font-semibold text-[color:var(--text-heading)]">
