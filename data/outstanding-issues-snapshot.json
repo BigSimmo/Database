@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 28,
+    "pending": 29,
     "resolved": 376
   },
   "queue": [
@@ -904,6 +904,12 @@
       "action": "add",
       "summary": "Caring Contacts Phase 2B — the screens",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "b3e7edcc-8184-4783-8d55-a43b204f036f",
+      "action": "cancel",
+      "summary": "Cancel request 5247dacd-b129-468a-8235-d60a1a7cc341: Superseded by origin/main 576ac7b51 (PR #2308), which updates both governance manifests to landed reviewedCommit 883f1007a. Exact merged-head governance contracts pass, so creating this P1 would be stale.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "b5d6b1be-d1c9-4739-898a-33aec4a656a5",

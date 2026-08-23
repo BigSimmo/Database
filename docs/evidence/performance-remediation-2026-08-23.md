@@ -260,9 +260,10 @@ ledger transitions; this feature branch does not directly edit or reconcile `doc
 - New P2 investigation: queue add — reproduce the mobile-root timing signal against a synchronized,
   quiet-host `origin/main` control and Linux CI before attributing or changing product code. The request
   explicitly preserves the proven CLS and request-count fixes.
-- New P1 upstream-governance defect: queue add — PR #2306's two new manifests reference intermediate
-  commit `f604bd41…`, which is absent from a clean main-based object graph; the governance owner must
-  record a landed, evidence-faithful identity without weakening the ancestor/path checks.
+- Superseded P1 upstream-governance defect: queue cancellation — the pre-sync full suite correctly found
+  that PR #2306's manifests referenced unreachable `f604bd41…`; current main `576ac7b51` updates both to
+  landed commit `883f1007a…`, and the exact merged-head governance checks pass. Creating the earlier P1
+  after that repair would be stale.
 
 These remain **queued**, not canonically closed, until a later serialized reconciliation branch applies
 the landed requests.
@@ -272,7 +273,7 @@ the landed requests.
 Passed:
 
 - Aggregate focused Vitest: 17 files, 283 tests.
-- Exact merged-head runner/boundary contracts: 5 files, 131 tests.
+- Exact merged-head changed-test set: 9 files, 228 tests; its runner/boundary subset was 5 files, 131 tests.
 - Tailwind-merge follow-up after the aggregate suite found the new token missing from its registry:
   `tests/tailwind-merge-config.test.ts`, 33/33. Scoped Prettier and ESLint also passed for the corrected
   file.
@@ -286,18 +287,19 @@ Passed:
 - Medication interaction index: 525 rows; medication lexicon: 37 entries.
 - Sitemap; docs index (60 roots); docs inventory (271 scripts / 271 npm scripts); docs script refs (797);
   docs links (3,187 before the final main sync; 3,175 at the merged head); outstanding-issues guard
-  (449 rows, 73 open, 28 pending after final requests);
-  branch-review ledger (880 live, 1,206 archived, 491 immutable at the time of the check).
+  (449 rows, 73 open, 29 pending after final requests);
+  branch-review ledger (880 live, 1,206 archived, 492 immutable at the time of the check).
 - `git diff --check`.
 
 The full unit suite was run exactly once: **9,323 passed, 72 skipped, 12 failed**. Nine failures are the
 known untouched Windows baseline (six `claude-cloud-profile` status-127 expectations and three
 `gate-receipts` chmod/mkdir cases). Of the remaining three, the Tailwind-merge registry failure belonged
-to this task and was fixed immediately with the 33/33 focused pass above. Two failures are newly merged
-upstream governance defects: `clinical-hazard-controls` and `privacy-readiness` both reference
-`f604bd41bee8173fdeca560c03d1c34344f61945`, which is not a local Git object. GitHub identifies PR
-#2306's final head as `99158b7b…` and its squash merge as `883f1007a…`; a P1 immutable issue request was
-queued rather than falsifying the governance review identity or weakening the checks.
+to this task and was fixed immediately with the 33/33 focused pass above. The final two governance
+failures were valid at the pre-sync head: both manifests referenced unreachable `f604bd41…`. Current
+main `576ac7b51` repaired them to landed commit `883f1007a…`; exact merged-head
+`check:clinical-hazard-controls` and `check:privacy-readiness` pass. The earlier P1 request is therefore
+immutably cancelled rather than reconciled into a false current issue. The full suite was not rerun to
+erase its historically accurate pre-sync result.
 
 `verify:pr-local` was not used as an aggregate wrapper because its `format:changed` step deliberately
 includes the preserved untracked raw Lighthouse JSON directories. Its routed constituent checks were
