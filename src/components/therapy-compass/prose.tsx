@@ -82,18 +82,24 @@ export function splitParagraphs(text: string, sentencesPerParagraph = 2): ProseP
       })
       .filter((sentence) => sentence.text.length > 0 || sentence.citations.length > 0);
 
-  const grouped = byLine.length > 1 ? byLine.map((line) => splitBySentence(line)) : (() => {
-    const sentences = splitBySentence(text);
-    const groupedByTwoSentences: ProseSentence[][] = [];
-    for (let index = 0; index < sentences.length; index += sentencesPerParagraph) {
-      groupedByTwoSentences.push(sentences.slice(index, index + sentencesPerParagraph));
-    }
-    return groupedByTwoSentences;
-  })();
+  const grouped =
+    byLine.length > 1
+      ? byLine.map((line) => splitBySentence(line))
+      : (() => {
+          const sentences = splitBySentence(text);
+          const groupedByTwoSentences: ProseSentence[][] = [];
+          for (let index = 0; index < sentences.length; index += sentencesPerParagraph) {
+            groupedByTwoSentences.push(sentences.slice(index, index + sentencesPerParagraph));
+          }
+          return groupedByTwoSentences;
+        })();
 
   return grouped
     .map((blockSentences) => {
-      const paragraphText = blockSentences.map((sentence) => sentence.text).join(" ").trim();
+      const paragraphText = blockSentences
+        .map((sentence) => sentence.text)
+        .join(" ")
+        .trim();
       const citations = [...new Set(blockSentences.flatMap((sentence) => sentence.citations))];
       return {
         text: paragraphText,

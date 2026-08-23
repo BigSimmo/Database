@@ -118,12 +118,8 @@ describe("therapy record prose", () => {
     expect(paragraphs[0].sentences[0].citations).toEqual(["PubMed"]);
     expect(paragraphs[0].sentences[1].citations).toEqual(["NICE"]);
     expect(paragraphs[0].sentences[0].text).toBe("Evidence is heterogeneous.");
-    expect(paragraphs[0].sentences[1].text).toBe(
-      "PTSD symptoms respond best to trauma-focused work.",
-    );
-    expect(paragraphs[0].text).toBe(
-      "Evidence is heterogeneous. PTSD symptoms respond best to trauma-focused work.",
-    );
+    expect(paragraphs[0].sentences[1].text).toBe("PTSD symptoms respond best to trauma-focused work.");
+    expect(paragraphs[0].text).toBe("Evidence is heterogeneous. PTSD symptoms respond best to trauma-focused work.");
   });
 
   it("keeps every citation marker present in the rendered output", () => {

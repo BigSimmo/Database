@@ -22,6 +22,8 @@ import { relatedTherapies, type RelatedTherapy } from "./data/related";
 import {
   EMPTY_SEARCH,
   RECOMMEND_CONSTRAINTS,
+  inferRecommendConstraints,
+  resolveRecommendConstraints,
   rankRecommendations,
   searchTherapies,
   type Ranked,
@@ -98,6 +100,9 @@ export type TcBindings = {
   recQuery: string;
   setRecQuery: (q: string) => void;
   recConstraints: string[];
+  inferredConstraintKeys: string[];
+  isConstraintActive: (key: string) => boolean;
+  isConstraintInferred: (key: string) => boolean;
   toggleConstraint: (key: string) => void;
   recommendations: Ranked[];
 
@@ -161,6 +166,17 @@ function chipStyle(active: boolean): string {
     .join(" ");
 }
 
+function uniqueConstraintKeys(keys: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const key of keys) {
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(key);
+  }
+  return result;
+}
+
 export function TcProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -206,6 +222,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
   }));
   const [recQuery, setRecQuery] = useState("What therapy for anxiety in outpatient care?");
   const [recConstraints, setRecConstraints] = useState<string[]>(workspaceFromUrl.constraints);
+  const [dismissedConstraintKeys, setDismissedConstraintKeys] = useState<string[]>([]);
   const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(workspaceFromUrl.pathwaySlug);
 
   // Seed the search query from a `?q=` deep link (universal-search "view all" or a
@@ -308,9 +325,21 @@ export function TcProvider({ children }: { children: ReactNode }) {
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],
   );
+  const inferredConstraintKeys = useMemo(() => inferRecommendConstraints(recQuery), [recQuery]);
+  const prunedDismissedKeys = useMemo(
+    () => dismissedConstraintKeys.filter((key) => inferredConstraintKeys.includes(key)),
+    [dismissedConstraintKeys, inferredConstraintKeys],
+  );
+  if (prunedDismissedKeys.length !== dismissedConstraintKeys.length) {
+    setDismissedConstraintKeys(prunedDismissedKeys);
+  }
+  const effectiveConstraintKeys = useMemo(
+    () => resolveRecommendConstraints(recQuery, recConstraints, prunedDismissedKeys),
+    [recQuery, recConstraints, prunedDismissedKeys],
+  );
   const recommendations = useMemo(
-    () => rankRecommendations(therapies, recQuery, recConstraints),
-    [therapies, recQuery, recConstraints],
+    () => rankRecommendations(therapies, recQuery, effectiveConstraintKeys),
+    [therapies, recQuery, effectiveConstraintKeys],
   );
   const relatedForSelected = useMemo(
     () => (selectedTherapy ? relatedTherapies(therapies, selectedTherapy) : []),
@@ -486,10 +515,33 @@ export function TcProvider({ children }: { children: ReactNode }) {
       recQuery,
       setRecQuery,
       recConstraints,
+      inferredConstraintKeys,
+      isConstraintActive: (key) => effectiveConstraintKeys.includes(key),
+      isConstraintInferred: (key) =>
+        inferredConstraintKeys.includes(key) && !recConstraints.includes(key) && !prunedDismissedKeys.includes(key),
       toggleConstraint: (key) => {
-        const next = recConstraints.includes(key)
-          ? recConstraints.filter((value) => value !== key)
-          : [...recConstraints, key];
+        const inferred = inferredConstraintKeys.includes(key);
+        const explicit = recConstraints.includes(key);
+        const dismissed = prunedDismissedKeys.includes(key);
+        if (explicit) {
+          const next = recConstraints.filter((value) => value !== key);
+          setRecConstraints(next);
+          replaceWorkspace({ constraints: next });
+          if (inferred) setDismissedConstraintKeys(uniqueConstraintKeys([...prunedDismissedKeys, key]));
+          return;
+        }
+        if (dismissed) {
+          setDismissedConstraintKeys(prunedDismissedKeys.filter((value) => value !== key));
+          const next = uniqueConstraintKeys([...recConstraints, key]);
+          setRecConstraints(next);
+          replaceWorkspace({ constraints: next });
+          return;
+        }
+        if (inferred) {
+          setDismissedConstraintKeys(uniqueConstraintKeys([...prunedDismissedKeys, key]));
+          return;
+        }
+        const next = uniqueConstraintKeys([...recConstraints, key]);
         setRecConstraints(next);
         replaceWorkspace({ constraints: next });
       },
@@ -599,6 +651,9 @@ export function TcProvider({ children }: { children: ReactNode }) {
     compareTherapies,
     recQuery,
     recConstraints,
+    inferredConstraintKeys,
+    prunedDismissedKeys,
+    effectiveConstraintKeys,
     recommendations,
     effectivePathwaySlug,
     selectedPathwaySlug,
