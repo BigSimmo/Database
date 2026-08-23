@@ -71,16 +71,18 @@ import {
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import {
+  canRunDashboardSearch,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
+  shouldShowDashboardDegradedNotice,
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/document-manager-contracts";
 import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-health-strip";
 import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
-import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
+import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
@@ -734,12 +736,14 @@ function ClinicalDashboardContent({
   const isAdministrator = isAdministratorUser(auth.session?.user);
   const canUseAdministrativeApis = localProjectReady && isAdministrator;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
-  const canRunSearch =
-    explicitDemoMode ||
-    canUsePublicSearchApis ||
-    canUseDegradedLocalSearchApis ||
-    canUseNonProductionDemoFallback ||
-    canAttemptDeployedPublicSearch;
+  const canRunSearch = canRunDashboardSearch({
+    localProjectReady,
+    explicitDemoMode,
+    canUsePublicSearchApis,
+    canUseDegradedLocalSearchApis,
+    canUseNonProductionDemoFallback,
+    canAttemptDeployedPublicSearch,
+  });
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
       indexingAdminReturnFocusRef.current =
@@ -790,11 +794,6 @@ function ClinicalDashboardContent({
     },
     [canUseAdministrativeApis, closeDashboardTransientSurfaces, settingsState],
   );
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(prefetchApplications, 250);
-    return () => window.clearTimeout(timeoutId);
-  }, [prefetchApplications]);
 
   // The dashboard renders directly on "/" without the standalone search shell,
   // so it must purge the legacy unscoped recent-queries key too (2026-07-13
@@ -2994,7 +2993,7 @@ function ClinicalDashboardContent({
     },
   ] as const;
   const showAuthPanel = false;
-  const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
+  const showDegradedNotice = shouldShowDashboardDegradedNotice({ isOnline, apiUnavailable, canRunSearch });
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
   const showSharedHome = shouldShowSharedHome({
@@ -3529,12 +3528,15 @@ function ClinicalDashboardContent({
                   {actionNotice.message}
                 </InlineNotice>
               )}
-              {showDegradedNotice && <DegradedNotice isOnline={isOnline} />}
+              <DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} reserveSpace={centeredModeHome} />
               {showSystemNotice && answer ? (
                 <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="hidden sm:block" />
               ) : null}
 
               <section
+                // 640–1919 first-paint top-align hook in globals.css. Do not
+                // restyle this from body:has(.pwa-notice-stack) — that caused CLS.
+                data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
                 className={cn(
                   compactMobileModeHome
                     ? cn(

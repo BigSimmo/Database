@@ -93,6 +93,25 @@ describe("MasterSearchHeader DOM", () => {
     (speech as { state: string }).state = "idle";
   });
 
+  it("disables the query input when private answer search is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} realDataReady={false} />);
+    const input = screen.getByTestId("global-search-input");
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("title", "Search setup not ready");
+  });
+
+  it("disables the query input for documents search when live data is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="documents" realDataReady={false} />);
+    const input = screen.getByTestId("global-search-input");
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("title", "Search setup not ready");
+  });
+
+  it("keeps the query input enabled for local forms search when live data is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="forms" realDataReady={false} />);
+    expect(screen.getByTestId("global-search-input")).toBeEnabled();
+  });
+
   it("keeps Search submit separate from the explicit Clinical Ask action", () => {
     const props = defaultHeaderProps();
     props.query = "synthetic question";

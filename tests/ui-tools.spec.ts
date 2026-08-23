@@ -437,7 +437,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       await toolsOption.scrollIntoViewIfNeeded();
       await Promise.all([page.waitForURL(/\/tools$/), toolsOption.click()]);
 
-      await expect(page.getByTestId("tools-search-results-page")).toBeVisible();
+      await expect(visibleByTestId(page, "tools-search-results-page")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
       await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
@@ -493,11 +493,19 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/tools");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Clinical KB Search" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    await expect(results.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute(
+      "href",
+      "/?mode=answer",
+    );
+    await expect(results.getByRole("link", { name: "Open Medication Prescribing" })).toHaveAttribute(
+      "href",
+      "/medications",
+    );
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
     await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
@@ -521,13 +529,14 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await gotoLauncher(page, "/tools?q=Compare&run=1");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.getByTestId("tools-home")).toHaveCount(0);
     await expect(results.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await expect(results.getByText("2 tools", { exact: true })).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Differentials" }).first()).toBeVisible();
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
     await expect(results.getByRole("heading", { level: 2, name: "Clinical Dictionary" }).first()).toBeVisible();
     await expect(results.getByRole("complementary", { name: "Differentials" })).toBeVisible();
 
@@ -543,7 +552,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/tools?q=unknown&run=1");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results.getByRole("heading", { level: 2, name: "No tools match" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     const showAll = results.getByRole("link", { name: "Show all tools" });
@@ -558,7 +567,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/tools?q=Compare&run=1");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
     await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
@@ -572,6 +581,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 2 tools/);
     await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
     const details = results.getByRole("button", { name: "View details for Differentials" });
     await details.click();
     const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
@@ -634,7 +644,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/tools?q=medication");
 
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
     await expect(results.getByRole("heading", { level: 2, name: "Documents" })).toHaveCount(0);
@@ -648,7 +658,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(0);
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     await expect(results).toBeVisible();
     await expect(results.getByRole("heading", { level: 1, name: "medication" })).toBeVisible();
     await expect(results.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
@@ -2774,7 +2784,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/tools");
 
-    const results = page.getByTestId("tools-search-results-page");
+    const results = visibleByTestId(page, "tools-search-results-page");
     const detailsButton = results.getByRole("button", { name: "View details for Medication Prescribing" });
     await detailsButton.click();
     const detailSheet = page.getByTestId("tools-search-detail-sheet");
@@ -3010,12 +3020,15 @@ test.describe("Responsive layout guards", () => {
       // Tall viewport exaggerates the free space so the anchor is unambiguous.
       await page.setViewportSize({ width, height: 900 });
       await gotoLauncher(page, "/medications");
-      const home = page.getByTestId("medication-home");
+      const home = visibleByTestId(page, "medication-home");
+      await expect(home).toHaveCount(1);
       await expect(home).toBeVisible();
       await settleLayout(page);
       const measure = () =>
         page.evaluate(() => {
-          const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
+          const rect = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="medication-home"]'))
+            .map((node) => node.getBoundingClientRect())
+            .find((candidate) => candidate.width > 0 && candidate.height > 0);
           if (!rect) return null;
           return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
         });

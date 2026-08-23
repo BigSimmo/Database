@@ -13,7 +13,10 @@ import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 async function gotoCoordinator(page: Page) {
   await page.goto("/ward-management", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+  // A second same-URL navigation can leave a hidden duplicate of the screen
+  // in the tree. Strict getByTestId then fails even though one copy is visible
+  // — match the command-view helper, which waits for a single visible screen.
+  await expect(page.locator('[data-testid="ward-coordinator"]:visible')).toHaveCount(1, { timeout: 15_000 });
   // The console is visible from the first paint, but this dev environment settles the route
   // shortly after (a second same-URL navigation event follows the first). A click issued in
   // that window can be lost even though every element is already visible and stable, so wait
