@@ -46,6 +46,15 @@ describe("searchShellPropsForPathname", () => {
       initialMode: "therapy-compass",
       desktopSearchPlacement: "hero",
     });
+    expect(searchShellPropsForPathname("/therapy-compass/recommend")).toEqual({
+      initialMode: "therapy-compass",
+      desktopSearchPlacement: "hero",
+      searchComposerVisible: false,
+    });
+    expect(searchShellPropsForPathname("/therapy-compass/compare")).toEqual({
+      initialMode: "therapy-compass",
+      desktopSearchPlacement: "hero",
+    });
     expect(searchShellPropsForPathname("/")).toEqual({ initialMode: "answer" });
   });
 

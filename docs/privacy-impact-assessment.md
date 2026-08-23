@@ -1,5 +1,7 @@
 # Privacy Impact Assessment — Clinical KB Database
 
+**Current status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This narrative explains the assessment; the versioned register separates code proof from provider configuration, legal approval, and clinical acceptance. Pending external items in that register are not completed by technical controls described here.
+
 **Status:** Draft for governance approval · **Date:** 2026-07-06 · **Revised:** 2026-08-23
 **Scope:** Clinical data flows through the Clinical KB app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
 **Author:** Automated code-level assessment (multi-agent audit of `src/app/api/**`, `src/lib/*`, `supabase/schema.sql`, `supabase/migrations/**`), cross-checked against the live database.

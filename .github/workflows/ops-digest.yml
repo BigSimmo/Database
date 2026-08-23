@@ -1,6 +1,7 @@
 # Daily ops digest. Renders the live deep health probe (SLO counters, cache
 # hit-rate, answer spend, degraded/truncation rates) into a one-screen summary
-# and keeps it in a rolling GitHub issue, commenting only when something is off.
+# and keeps it in a rolling GitHub issue. Attention comments are emitted only by
+# an explicitly confirmed manual dispatch.
 #
 # The repo variable and matching deployment/GitHub secret must both be
 # provisioned. The preflight below fails closed when either name is absent.
@@ -9,10 +10,16 @@
 name: Ops Digest
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      publish_alert_comment:
+        description: "Operator-confirmed: publish an attention comment for this manual run"
+        required: false
+        default: false
+        type: boolean
   schedule:
-    # 20:00 UTC = 06:00 Australia/Sydney — a morning digest.
-    - cron: "0 20 * * *"
+    # 20 minutes past each hour. History is keyed to UTC hourly buckets.
+    - cron: "20 * * * *"
 
 concurrency:
   group: ops-digest
@@ -64,8 +71,8 @@ jobs:
                 set(true, "Eval-canary liveness: no completed canary runs found.");
               } else if (!Number.isFinite(finishedAt)) {
                 set(
-                  false,
-                  "Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.",
+                  true,
+                  "Eval-canary liveness: latest completed run has no parseable timestamp; treating liveness as unknown.",
                 );
               } else {
                 const ageDays = (Date.now() - finishedAt) / 86_400_000;
@@ -114,24 +121,86 @@ jobs:
         with:
           node-version-file: ".nvmrc"
 
+      - name: Restore hybrid-RPC hourly evidence
+        id: hybrid-rpc-history
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .ops-digest-rpc-history.json
+          key: ops-digest-rpc-history-${{ github.run_id }}
+          restore-keys: |
+            ops-digest-rpc-history-
+
       - name: Render digest
         id: digest
-        run: node scripts/ops-digest.mjs --out digest.md
+        run: node scripts/ops-digest.mjs --out digest.md --history .ops-digest-rpc-history.json
+
+      - name: Persist hybrid-RPC hourly evidence
+        if: ${{ steps.digest.outcome == 'success' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .ops-digest-rpc-history.json
+          key: ops-digest-rpc-history-${{ github.run_id }}
 
       - name: Publish to rolling issue
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          OPS_DIGEST_STATUS: ${{ steps.digest.outputs.status }}
+          OPS_DIGEST_ALERTING: ${{ steps.digest.outputs.alerting }}
+          OPS_DIGEST_SEVERITY: ${{ steps.digest.outputs.severity }}
+          OPS_DIGEST_ALERT_SUMMARY: ${{ steps.digest.outputs.alert_summary }}
+          OPS_DIGEST_PUBLISH_ALERT_COMMENT: ${{ inputs.publish_alert_comment || 'false' }}
         with:
           script: |
             const fs = require("fs");
             const label = "ops-digest";
+            const publishAttentionComment =
+              context.eventName === "workflow_dispatch" && process.env.OPS_DIGEST_PUBLISH_ALERT_COMMENT === "true";
             const canaryStale = process.env.EVAL_CANARY_STALE === "true";
             const canaryMessage = process.env.EVAL_CANARY_MESSAGE || "";
             let body = fs.readFileSync("digest.md", "utf8");
             if (canaryStale && canaryMessage) {
               body = `## Eval-canary liveness\n\n⚠ ${canaryMessage}\n\n${body}`;
             }
-            const status = "${{ steps.digest.outputs.status }}" || "unknown";
-            const alerting = "${{ steps.digest.outputs.alerting }}" === "true" || canaryStale;
+            const allowedStatuses = new Set(["ok", "degraded", "unreachable", "unknown"]);
+            const allowedSeverities = new Set(["none", "unknown", "warning", "page"]);
+            const rawStatus = process.env.OPS_DIGEST_STATUS || "unknown";
+            const status = allowedStatuses.has(rawStatus) ? rawStatus : "unknown";
+            const rawSeverity = process.env.OPS_DIGEST_SEVERITY || "unknown";
+            const severity = allowedSeverities.has(rawSeverity) ? rawSeverity : "unknown";
+            let parsedSummary;
+            try {
+              parsedSummary = JSON.parse(process.env.OPS_DIGEST_ALERT_SUMMARY || "{}");
+            } catch {
+              parsedSummary = {};
+            }
+            const summaryCodes = Array.isArray(parsedSummary.codes)
+              ? parsedSummary.codes.filter((code) => typeof code === "string" && /^OPS_[A-Z0-9_]+$/.test(code)).slice(0, 32)
+              : [];
+            const summaryValid =
+              typeof parsedSummary.alerting === "boolean" &&
+              allowedSeverities.has(parsedSummary.severity) &&
+              Number.isInteger(parsedSummary.count) &&
+              parsedSummary.count >= 0 &&
+              Array.isArray(parsedSummary.codes);
+            const canonicalSummary = summaryValid
+              ? {
+                  alerting: parsedSummary.alerting,
+                  severity: parsedSummary.severity,
+                  count: parsedSummary.count,
+                  codes: summaryCodes,
+                }
+              : {
+                  alerting: true,
+                  severity: "unknown",
+                  count: 1,
+                  codes: ["OPS_DIGEST_OUTPUT_UNKNOWN"],
+                };
+            const alertSummary = JSON.stringify(canonicalSummary);
+            const alerting =
+              process.env.OPS_DIGEST_ALERTING === "true" ||
+              canonicalSummary.alerting ||
+              severity === "unknown" ||
+              canaryStale;
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -158,14 +227,16 @@ jobs:
               });
               issueNumber = created.data.number;
             }
-            // Comment (and therefore notify) only when something needs attention.
-            if (status !== "ok" || alerting) {
+            // Attention comments notify subscribers, so scheduled runs never publish them.
+            if (publishAttentionComment && (status !== "ok" || alerting)) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `⚠ Attention (status=${status}, alerting=${alerting}${canaryStale ? ", eval-canary-stale=true" : ""}) — ${new Date().toISOString()}\n\n${body}`,
+                body: `⚠ Attention (status=${status}, alerting=${alerting}, severity=${severity}${canaryStale ? ", eval-canary-stale=true" : ""}) — ${new Date().toISOString()}\n\nAlert summary: \`${alertSummary}\`\n\n${body}`,
               });
+            } else if (status !== "ok" || alerting) {
+              core.info("Attention comment skipped: manual operator confirmation was not supplied.");
             }
             if (status !== "ok") core.warning(`Ops digest status: ${status}`);
             if (canaryStale) core.warning(canaryMessage || "Eval-canary liveness reported stale.");

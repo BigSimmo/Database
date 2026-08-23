@@ -3,7 +3,7 @@ import { z } from "zod";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { sourceAuthorityForPublisherCode } from "@/lib/source-authority-registry";
@@ -179,7 +179,8 @@ function editTitle(title: string, edit: z.infer<typeof bulkMetadataSchema>["titl
 
 export async function POST(request: Request) {
   try {
-    if (isDemoMode()) return NextResponse.json({ error: "Bulk edits are unavailable in demo mode." }, { status: 400 });
+    if (isDemoMode())
+      return publicErrorResponse("Bulk edits are unavailable in demo mode.", 400, { code: "demo_mode_unavailable" });
 
     const parsed = await parseJsonBody(request, bulkMetadataSchema, "Bulk edit payload is invalid.");
 
@@ -220,7 +221,8 @@ export async function POST(request: Request) {
       .eq("owner_id", user.id)
       .in("id", ids);
     if (documentsError) throw new Error(documentsError.message);
-    if (!documents?.length) return NextResponse.json({ error: "No selected documents were found." }, { status: 404 });
+    if (!documents?.length)
+      return publicErrorResponse("No selected documents were found.", 404, { code: "documents_not_found" });
 
     // Authority and title fields are part of the identity that was reviewed.
     // Carrying a prior promotion or attestation across such an edit would make
@@ -231,12 +233,10 @@ export async function POST(request: Request) {
       requestsIdentityOrProvenanceEdit(parsed) &&
       documents.some((document) => hasProtectedSourceGovernance(document.metadata))
     ) {
-      return NextResponse.json(
-        {
-          error:
-            "Identity or provenance edits are unavailable for reviewed sources; record an auditable source-review disposition first.",
-        },
-        { status: 409 },
+      return publicErrorResponse(
+        "Identity or provenance edits are unavailable for reviewed sources; record an auditable source-review disposition first.",
+        409,
+        { code: "reviewed_source_edit_blocked" },
       );
     }
 

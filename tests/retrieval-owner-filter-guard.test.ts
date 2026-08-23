@@ -56,6 +56,13 @@ const OWNER_SCOPE_EXEMPTIONS = new Set([
   "setup-status/route.ts:documents",
   "setup-status/route.ts:import_batches",
   "setup-status/route.ts:storage_cleanup_jobs",
+  // The clinical-quality route is an administrator-gated, cross-tenant governance
+  // dashboard. Its helpers run only after authorizeAndLimit and return aggregate
+  // quality metadata, so owner filtering would invalidate the oversight use case.
+  "clinical-quality/route.ts:rag_answer_feedback",
+  "clinical-quality/route.ts:clinical_registry_record_sources",
+  "clinical-quality/route.ts:clinical_registry_records",
+  "clinical-quality/route.ts:rag_retrieval_logs",
 ]);
 
 // These internal helpers consume owner-authorized capability IDs created by the
