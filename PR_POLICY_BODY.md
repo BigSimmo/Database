@@ -1,38 +1,43 @@
 ## Summary
 
-Hardens `RAG_RANKING_CONFIG` so a non-empty override fails closed instead of silently reverting or accepting pathological values.
-
-- Evaluated ranking defaults are unchanged.
-- Ranking formulas are unchanged.
-- Valid partial overrides still deep-merge onto defaults.
-- Invalid JSON, unknown keys, invalid types, and out-of-domain numbers now throw `Invalid RAG_RANKING_CONFIG`.
-
-Validation domains:
-- additive/multiplier ranking magnitudes: `0..10`
-- unit-interval thresholds/pivots: `0..1`
-- freshness ages/ramp: bounded positive/non-negative years
-- freshness penalties: `-1..0`
-
-The `0..10` ranking ceiling is intentionally much wider than current evaluated values (generally <1) while preventing accidental extreme values from overwhelming retrieval signals.
-
-RAG impact: no retrieval behaviour change — fail-closed validation of RAG_RANKING_CONFIG only; evaluated defaults and scoring formulas are unchanged when the override is absent or valid.
-
-## TDD evidence
-
-RED was reproduced against the exact pre-fix resolver: malformed JSON failed the new contract because the resolver silently fell back rather than throwing. Branch tests cover unknown nested keys, invalid types, pathological magnitudes, threshold domains, and freshness domains.
+- Reconciles the existing Clinical Ask PR with current `main` by ordinary merge while preserving its history and current-main schema, feedback-error, Playwright, and provenance work.
+- Adds the mode-aware Clinical Ask retrieval ladder (catalogue → indexed → allowlisted authority evidence), one-composer UI, governed SSE output, feedback taxonomy, and synthetic speech input.
+- Ports the staging-proven OpenAI web-search shape fix: accept `snippet` results and unknown provider metadata, screen the complete raw snippet for prompt injection, then expose at most 2,000 characters.
+- Prevents ordinary dates from being classified as phone-number-shaped identifiers and scopes the medication-home browser assertion through the existing visible-owner helper.
+- Regenerates the site map and schema drift manifest from the reconciled tree and removes the transient PR body scratch file deleted on `main`.
 
 ## Verification
 
-- [x] `npm run test` — 811 files passed, 9771 tests passed, 4 skipped (local, 2026-08-23)
-- Verification not run: `npm run verify:pr-local` — Static PR checks already passed on this head; remaining hosted Unit coverage / Lighthouse budget were still in flight at review time and are not required for this validation-only change.
-- UI verification not run: no UI, routing, or styling change.
+- [x] Historical pre-reconciliation `npm run verify:pr-local` at `5a265fc6bd4c585f77acd5425b8accf411ecae45`: 9,354 passed, 74 skipped; build generated 1,982 pages; 627 offline RAG and 25 adversarial cases passed. It was intentionally not repeated after reconciliation; GitHub is authoritative for the final head.
+- [x] Focused reconciled-code-tree Vitest — 5 files and 53/53 tests passed at `8da6c287c2a9b6fc158d2dcbd2253f82a6b642df`.
+- [x] Focused reconciled-code-tree Production UI medication-home journey — 1/1 Chromium test passed; its isolated production build compiled, passed TypeScript, and generated 1,984 pages.
+- [x] `npm run check:migration-role` — passed.
+- [ ] `npm run check:production-readiness` — release gate remains open. Current-main privacy readiness stops first on an unavailable reviewed commit and pending/partial HMAC, retention, ZDR, DPA, APP 8/notice, and PHI-minimisation items; physical iPhone/PWA acceptance and named human approvals also remain outstanding.
+- [x] `npm run format` — completed with the reconciled tree unchanged after formatting.
+- [x] `git diff --check` — passed.
+- [x] Focused push-range and ledger-discipline regression suite — 2 files and 63/63 tests passed at final head `0764fb5813564cc1cb8933267597478ecff9c354`.
+- [ ] `npm run verify:ui` — not repeated locally; the targeted regression journey was run and applicable final-head Production UI lanes are required below.
+- [ ] `npm run verify:release` — not run; this draft is not release-ready.
+- [ ] **`npm run eval:retrieval:quality` (36/36)** — not claimed: Clinical KB Staging intentionally has no governed indexed corpus, so the full retrieval suite cannot provide a meaningful green signal.
+- [ ] `npm run eval:rag -- --limit 15` + `npm run eval:quality -- --rag-only` — full batches not claimed for the empty staging corpus. One bounded provider case and one bounded quality case passed within the approved Phase 2 batch.
+
+Fresh final-head GitHub checks are authoritative and must include `PR required`, Gitleaks, PR policy, migration replay, build, and applicable Production UI lanes. They are pending after the reconciliation push and will be updated only from final-head results.
+
+## Evidence classes
+
+- **Exact reconciled-tree local evidence:** Clinical Ask code tree `8da6c287c2a9b6fc158d2dcbd2253f82a6b642df` plus its documentation/ledger descendant and focused push-guard correction at published head `0764fb5813564cc1cb8933267597478ecff9c354`; the focused Vitest sets, targeted medication-home Playwright journey, migration-role guard, production-readiness attempt, formatting, and diff check are listed above.
+- **Historical local evidence:** broad `verify:pr-local` at `5a265fc6bd4c585f77acd5425b8accf411ecae45`; not represented as final-head proof.
+- **Hosted staging evidence:** migration applied only to Clinical KB Staging (`ikoiolksxqxfxgiyqpnu`, `ap-southeast-2`); protected-staging and cross-tenant canaries passed; one RAG provider case passed with two citations; one RAG quality case passed; one short synthetic transcription passed with no durable application persistence; allowlisted WA Health search returned five `health.wa.gov.au` evidence records after provider-shape normalization; cleanup returned zero temporary state.
+- **Provider/data boundary:** synthetic, non-identifying inputs only; no real patient data; OpenAI `store:false`; extended prompt caching disabled; conservative abuse-monitoring retention assumption up to 30 days unless ZDR is confirmed; no provider content persisted.
+- **Spend:** exact billed cost was not available from the batch itself, but use was bounded below the approved USD 10 ceiling (two text evaluations, one short audio transcription, four authority searches).
+- **Not complete:** named human clinical-authority and contractual/privacy approval, physical iPhone Safari/installed-PWA microphone acceptance, governed-corpus full evaluations, production migration, deployment, merge, and release.
 
 ## Risk and rollout
 
-- Risk: a malformed or out-of-domain `RAG_RANKING_CONFIG` now throws at process start instead of silently using defaults. That is the intended fail-closed behaviour. Hosts with an invalid override will fail to boot rather than rank with an unnoticed fallback.
-- Rollback: revert this PR; the previous resolver ignored malformed JSON and unknown keys and clamped some negatives to 0.
-- Provider or production effects: None. No provider calls, schema, or deployment topology changes.
-- RAG impact: no retrieval behaviour change — configuration validation only; evaluated defaults and retrieval scoring formulas are unchanged when `RAG_RANKING_CONFIG` is absent or valid.
+- Risk: Clinical decision-support and external-provider behavior changes. External evidence remains mode-registered, domain-allowlisted, redirect-checked, injection-screened, length-bounded, explicitly marked with unknown review state, and fallback-safe.
+- Rollback: set `CLINICAL_ASK_ENABLED=false`; independently set `CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED=false`; use `CLINICAL_ASK_DISABLED_MODES` for mode-level containment. The widened feedback constraint is forward-compatible and can remain in place while the feature is disabled.
+- Provider or production effects: the approved bounded provider batch and migration affected Clinical KB Staging only. Production `sjrfecxgysukkwxsowpy` was untouched; this PR does not deploy or enable Clinical Ask.
+- RAG impact: behaviour change — canary pair: pre-fix current provider `snippet` shape yielded 0 accepted authority records → post-fix bounded staging canary yielded 5 allowlisted `health.wa.gov.au` evidence records. The existing generic RAG ranking pipeline is not rewritten.
 
 ## Clinical Governance Preflight
 
@@ -46,4 +51,7 @@ RED was reproduced against the exact pre-fix resolver: malformed JSON failed the
 
 ## Notes
 
-Review + unblock pass for PR 2315. No retrieval-formula change. Invalid overrides now fail closed.
+- Keep this PR in draft with auto-merge off.
+- Do not merge, deploy, enable production Clinical Ask, touch production Supabase, or claim production readiness until the outstanding human and physical-device gates are complete.
+- Raw `.local` receipts, credentials, prompts, audio, and provider content are ignored and uncommitted.
+- TGA SaMD classification and final clinical/privacy approval remain named-human release gates; they were considered for this change and are not claimed complete.
