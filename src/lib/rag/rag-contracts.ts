@@ -6,6 +6,12 @@ import type {
   RetrievalSelectionSummary,
 } from "@/lib/types";
 import type { RetrievalAccessScope } from "@/lib/owner-scope";
+import type { RagProgrammeMode } from "@/lib/rag/rag-programme-eval";
+
+export type RagObservationContext = {
+  interactionId: string;
+  rolloutMode: RagProgrammeMode;
+};
 
 export type SearchChunksArgs = {
   query: string;

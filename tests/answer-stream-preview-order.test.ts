@@ -4,6 +4,7 @@ const answerQuestionWithScope = vi.fn();
 const publicAccessContext = vi.fn();
 const consumeSubjectApiRateLimit = vi.fn();
 const resolveSearchScope = vi.fn();
+const logAnswerDiagnostics = vi.fn();
 
 vi.mock("@/lib/env", () => ({ isDemoMode: () => false }));
 vi.mock("@/lib/rag/rag", () => ({ answerQuestionWithScope, summarizeDocument: vi.fn() }));
@@ -27,7 +28,7 @@ vi.mock("@/lib/owner-scope", () => ({
   resolveRetrievalAccessScope: (ownerId?: string) => ({ ownerId }),
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
-vi.mock("@/lib/answer-telemetry", () => ({ logAnswerDiagnostics: vi.fn() }));
+vi.mock("@/lib/answer-telemetry", () => ({ logAnswerDiagnostics }));
 vi.mock("@/lib/observability/agent-monitoring", () => ({ setAgentConversationId: vi.fn() }));
 vi.mock("@/lib/sse-heartbeat", () => ({ startSseHeartbeat: () => () => undefined }));
 vi.mock("@/lib/server-timing", () => ({
@@ -126,5 +127,40 @@ describe("answer stream verified preview ordering", () => {
     expect((rankingFrame.data.verifiedUnit as { kind?: string } | undefined)?.kind).toBe("evidence_preview");
     expect(rankingIndex).toBeLessThan(generationIndex);
     expect(generationIndex).toBeLessThan(finalIndex);
+    const observationContext = answerQuestionWithScope.mock.calls[0]?.[0]?.observationContext as
+      { interactionId: string; rolloutMode: string } | undefined;
+    expect(observationContext).toEqual({ interactionId: expect.any(String), rolloutMode: "legacy" });
+    expect(logAnswerDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({ interactionId: observationContext?.interactionId }),
+    );
+  });
+
+  it("logs an empty-scope final outcome with the stream's one interaction id", async () => {
+    resolveSearchScope.mockResolvedValueOnce({
+      documentIds: [],
+      filters: {},
+      activeFilterCount: 1,
+      warnings: [],
+    });
+
+    const { POST } = await import("../src/app/api/answer/stream/route");
+    const response = await POST(
+      new Request("http://localhost/api/answer/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "missing scoped evidence" }),
+      }),
+    );
+    await response.text();
+
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    const logged = logAnswerDiagnostics.mock.calls[0]?.[0] as
+      { interactionId: string; answer: { fallbackReason?: string } } | undefined;
+    expect(logged).toMatchObject({
+      interactionId: expect.any(String),
+      answer: { fallbackReason: "retrieval_miss" },
+    });
+    const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
+    expect(ragProgrammeTelemetryForAnswer(logged!.answer as never)?.interaction_id).toBe(logged?.interactionId);
   });
 });

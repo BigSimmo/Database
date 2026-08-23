@@ -6,6 +6,7 @@ import {
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
 import type { RagAnswer, SafetyWarning } from "@/lib/types";
+import { carryRagProgrammeTelemetry } from "@/lib/rag/rag-programme-telemetry";
 
 function clientSafetyWarning(warning: SafetyWarning): SafetyWarning {
   const citation = warning.citation;
@@ -55,7 +56,7 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
 
   if (shouldRefuse) {
     const routingReason = [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; ");
-    const telemetryAnswer = {
+    const telemetryAnswer = carryRagProgrammeTelemetry(answer, {
       ...answer,
       answer: sourceGovernanceRefusalAnswer,
       grounded: false,
@@ -65,7 +66,7 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
       responseMode: "evidence_gap",
       fallbackReason: "source_governance_refusal",
       routingReason,
-    } satisfies RagAnswer;
+    } satisfies RagAnswer);
 
     return {
       refused: true as const,

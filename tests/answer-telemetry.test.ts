@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildAnswerLogRow, type AnswerTelemetrySource } from "../src/lib/answer-telemetry";
-import type { SearchResult } from "../src/lib/types";
+import { buildAnswerLogRow, logAnswerDiagnostics, type AnswerTelemetrySource } from "../src/lib/answer-telemetry";
+import { observeRagAnswer } from "../src/lib/rag/rag-programme-telemetry";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 const UUID_A = "11111111-1111-1111-1111-111111111111";
 const UUID_B = "22222222-2222-2222-2222-222222222222";
+const INTERACTION_ID = "33333333-3333-4333-8333-333333333333";
 
 function sourceRow(overrides: Partial<SearchResult>): SearchResult {
   return {
@@ -52,7 +54,12 @@ type AnswerMetadata = { answer: Record<string, unknown> & { tokens: Record<strin
 
 describe("buildAnswerLogRow (per-answer observability)", () => {
   it("persists route, model, and token usage in metadata.answer", () => {
-    const row = buildAnswerLogRow({ query: "max clozapine dose?", ownerId: "owner-1", answer: answer() });
+    const row = buildAnswerLogRow({
+      query: "max clozapine dose?",
+      ownerId: "owner-1",
+      interactionId: INTERACTION_ID,
+      answer: answer(),
+    });
     const meta = row.metadata as unknown as AnswerMetadata;
 
     expect(meta.answer.log_source).toBe("answer");
@@ -69,6 +76,7 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     expect(meta.answer.request_ids).toEqual(["req_1", "req_2"]);
     expect(meta.answer.generation_latency_ms).toBe(900);
     expect(meta.answer.embedding_prefetched).toBe(true);
+    expect(meta.answer.interaction_id).toBe(INTERACTION_ID);
     expect(row.total_latency_ms).toBe(1400);
     expect(row.candidate_count).toBe(1);
     expect(row.is_miss).toBe(false);
@@ -81,6 +89,7 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     const row = buildAnswerLogRow({
       query: "unknown drug?",
       ownerId: null,
+      interactionId: INTERACTION_ID,
       answer: answer({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap", sources: [] }),
     });
     expect(row.is_miss).toBe(true);
@@ -93,6 +102,7 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     const row = buildAnswerLogRow({
       query: "q",
       ownerId: "o",
+      interactionId: INTERACTION_ID,
       answer: answer({
         sources: [sourceRow({ id: "synthetic-chunk", document_id: "synthetic-doc" }), sourceRow({ id: UUID_A })],
       }),
@@ -105,6 +115,7 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     const row = buildAnswerLogRow({
       query: "q",
       ownerId: "o",
+      interactionId: INTERACTION_ID,
       answer: answer({ openAIUsage: {}, latencyTimings: {} }),
     });
     const meta = row.metadata as unknown as AnswerMetadata;
@@ -116,5 +127,41 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
       reasoning_output: null,
     });
     expect(row.total_latency_ms).toBeNull();
+  });
+
+  it("writes one final answer aggregate and one retrieval row joined by the route id", async () => {
+    const inserts = new Map<string, unknown>();
+    const supabase = {
+      from: (table: string) => ({
+        insert: async (row: unknown) => {
+          inserts.set(table, row);
+          return { error: null };
+        },
+      }),
+    };
+    const observed = observeRagAnswer(
+      {
+        ...answer(),
+        answer: "Final governed answer.",
+        citations: [],
+      } as RagAnswer,
+      { interactionId: INTERACTION_ID, rolloutMode: "legacy" },
+    );
+
+    await logAnswerDiagnostics({
+      supabase: supabase as never,
+      query: "max clozapine dose?",
+      ownerId: "owner-1",
+      interactionId: INTERACTION_ID,
+      answer: observed,
+    });
+
+    const queryRow = inserts.get("rag_queries") as { metadata: Record<string, unknown> };
+    const retrievalRow = inserts.get("rag_retrieval_logs") as {
+      metadata: { answer: Record<string, unknown> };
+    };
+    expect(queryRow.metadata.interaction_id).toBe(INTERACTION_ID);
+    expect(retrievalRow.metadata.answer.interaction_id).toBe(INTERACTION_ID);
+    expect(queryRow.metadata).not.toHaveProperty("owner_id");
   });
 });

@@ -213,6 +213,7 @@ export {
 } from "@/lib/rag/rag-answer-support";
 import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
 export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
+import { observeRagAnswer, recordRagQueryForAnswer, retrievalLogMetadata } from "@/lib/rag/rag-programme-telemetry";
 import {
   clearlyOutsideCorpusMedicalPattern,
   isUnsupportedSoftTailAnalysis,
@@ -519,6 +520,7 @@ export type AnswerProgressEvent = {
 type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   logQuery?: boolean;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
+  observationContext?: import("@/lib/rag/rag-contracts").RagObservationContext;
   signal?: AbortSignal;
 };
 
@@ -2475,7 +2477,7 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
         ...answer.latencyTimings,
         total_latency_ms: Date.now() - startedAt,
       };
-      return answer;
+      return observeRagAnswer(answer, args.observationContext);
     } catch {
       throwIfAborted(args.signal);
       // The in-flight request we coalesced onto failed — most often because the ORIGINATING
@@ -2504,7 +2506,7 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
     }
   });
   if (inflightKey) answerInflight.set(inflightKey, pending);
-  return pending;
+  return observeRagAnswer(await pending, args.observationContext);
 }
 
 /** Answer question with scope uncoalesced. */
@@ -2513,6 +2515,8 @@ async function answerQuestionWithScopeUncoalesced(
   startedAt: number,
 ): Promise<RagAnswer> {
   throwIfAborted(args.signal);
+  const recordQuery = (answer: RagAnswer, row: RagQueryInsert) =>
+    recordRagQueryForAnswer(args.observationContext, answer, row, logRagQuery);
   assertGlobalSearchAllowed({
     query: args.query,
     documentId: args.documentId,
@@ -2746,19 +2750,6 @@ async function answerQuestionWithScopeUncoalesced(
     retrievalReason:
       (gatedRoute.fallbackReason ? gatedRoute.fallbackReason : initialRetrievalDiagnostics.retrievalReason) ?? null,
   };
-  const retrievalLogMetadata = (diagnostics: RetrievalDiagnostics) => ({
-    retrieval_depth: diagnostics.retrievalDepth,
-    retrieval_distinct_documents: diagnostics.distinctDocumentCount,
-    retrieval_candidate_count: diagnostics.candidateCount,
-    retrieval_top_score: diagnostics.topScore,
-    retrieval_second_score: diagnostics.secondScore,
-    retrieval_score_spread: diagnostics.scoreSpread,
-    retrieval_gate_status: diagnostics.gateStatus,
-    retrieval_fallback_reason: diagnostics.fallbackReason,
-    retrieval_reason: diagnostics.retrievalReason,
-    retrieval_query_class: diagnostics.queryClass,
-    retrieval_route_mode: diagnostics.routeMode,
-  });
   const searchTelemetryDecisionMetadata = () => ({
     retrieval_plan: search.telemetry.retrieval_plan ?? null,
     retrieval_intent: search.telemetry.retrieval_intent ?? null,
@@ -2934,7 +2925,7 @@ async function answerQuestionWithScopeUncoalesced(
     const finalizedAnswer = finalizeAnswer(answer);
 
     if (args.logQuery !== false)
-      await logRagQuery({
+      await recordQuery(finalizedAnswer, {
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: finalizedAnswer.answer,
@@ -3131,7 +3122,7 @@ async function answerQuestionWithScopeUncoalesced(
     }
 
     if (args.logQuery !== false)
-      await logRagQuery({
+      await recordQuery(finalizedAnswer, {
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: finalizedAnswer.answer,
@@ -3857,7 +3848,7 @@ ${qualityRetryInstruction}`
     }
 
     if (args.logQuery !== false)
-      await logRagQuery({
+      await recordQuery(answer, {
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: answer.answer,
@@ -4216,7 +4207,7 @@ ${qualityRetryInstruction}`
     }
     await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)
-      await logRagQuery({
+      await recordQuery(fallbackAnswer, {
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: fallbackAnswer.answer,
@@ -4296,20 +4287,27 @@ ${qualityRetryInstruction}`
 }
 
 /** Summarize the committed document context; the route applies the shared client-response governance contract. */
-export async function summarizeDocument(documentId: string, ownerId?: string, options?: { signal?: AbortSignal }) {
+export async function summarizeDocument(
+  documentId: string,
+  ownerId?: string,
+  options?: { signal?: AbortSignal; observationContext?: import("@/lib/rag/rag-contracts").RagObservationContext },
+) {
   const { document, chunks } = await loadDocumentSummaryContext(documentId, ownerId, options?.signal);
   const committedGeneration = committedIndexGeneration((document as { metadata?: unknown }).metadata);
   const committedChunks = chunks.filter(
     (chunk) => !chunk.index_generation_id || chunk.index_generation_id === committedGeneration,
   );
   if (!committedChunks.length) {
-    return {
-      answer: "This document has not been indexed yet, so no summary can be generated.",
-      grounded: false,
-      confidence: "unsupported",
-      citations: [],
-      sources: [],
-    } satisfies RagAnswer;
+    return observeRagAnswer(
+      {
+        answer: "This document has not been indexed yet, so no summary can be generated.",
+        grounded: false,
+        confidence: "unsupported",
+        citations: [],
+        sources: [],
+      } satisfies RagAnswer,
+      options?.observationContext,
+    );
   }
 
   const results = buildDocumentSummaryResults(committedChunks, document);
@@ -4358,5 +4356,5 @@ ${buildRagSourceBlock(results)}`;
     generation_latency_ms: generated.latencyMs,
     total_latency_ms: generated.latencyMs,
   };
-  return assessAndEnforceClaimSupport(answer);
+  return observeRagAnswer(assessAndEnforceClaimSupport(answer), options?.observationContext);
 }

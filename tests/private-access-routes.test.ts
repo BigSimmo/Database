@@ -4139,7 +4139,8 @@ describe("private document API access", () => {
 
     expect(searchResponse.status).toBe(200);
     expect(answerResponse.status).toBe(200);
-    expect(await payload(answerResponse)).toMatchObject({
+    const answerPayload = await payload(answerResponse);
+    expect(answerPayload).toMatchObject({
       interactionId: expect.any(String),
       feedbackToken: expect.any(String),
     });
@@ -4147,8 +4148,16 @@ describe("private document API access", () => {
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
     );
     expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+      expect.objectContaining({
+        ownerId: undefined,
+        allowGlobalSearch: true,
+        observationContext: { interactionId: expect.any(String), rolloutMode: "legacy" },
+      }),
     );
+    const [answerCall] = answerQuestionWithScope.mock.calls as unknown as [
+      [{ observationContext?: { interactionId: string } }],
+    ];
+    expect(answerCall?.[0].observationContext?.interactionId).toBe(answerPayload.interactionId);
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
@@ -5037,6 +5046,7 @@ describe("private document API access", () => {
     });
     expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
       signal: expect.any(AbortSignal),
+      observationContext: { interactionId: expect.any(String), rolloutMode: "legacy" },
     });
     expect(client.rpc).toHaveBeenCalledTimes(1);
     expect(client.rpc).toHaveBeenCalledWith(
@@ -5625,6 +5635,7 @@ describe("private document API access", () => {
     expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId, {
       signal: expect.any(AbortSignal),
+      observationContext: { interactionId: expect.any(String), rolloutMode: "legacy" },
     });
   });
 

@@ -1,4 +1,17 @@
-import { normalizedQueryTextForStorage, queryTextForStorage } from "@/lib/query-privacy";
+import { env } from "@/lib/env";
+import {
+  answerPrivacyMetadata,
+  answerTextForStorage,
+  normalizedQueryTextForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
+import {
+  buildRagQueryMetadata,
+  ragProgrammeTelemetryForAnswer,
+  ragQueryObservationForAnswer,
+  type RagProgrammeTelemetry,
+} from "@/lib/rag/rag-programme-telemetry";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer } from "@/lib/types";
@@ -56,7 +69,13 @@ function meanHybridScore(sources: AnswerTelemetrySource["sources"]): number | nu
 
 // Build the rag_retrieval_logs insert row for an answered request. Pure and
 // synchronous so it can be unit-tested without a database.
-export function buildAnswerLogRow(args: { query: string; ownerId?: string | null; answer: AnswerTelemetrySource }) {
+export function buildAnswerLogRow(args: {
+  query: string;
+  ownerId?: string | null;
+  interactionId: string;
+  answer: AnswerTelemetrySource;
+  programmeTelemetry?: RagProgrammeTelemetry;
+}) {
   const { answer } = args;
   const sources = answer.sources ?? [];
   const topSource = sources[0] ?? null;
@@ -82,6 +101,8 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
     answer_retry_count: finiteOrNull(timings.answer_retry_count),
     embedding_prefetched: typeof timings.embedding_prefetched === "boolean" ? timings.embedding_prefetched : null,
     request_ids: answer.openAIRequestIds ?? [],
+    interaction_id: args.interactionId,
+    ...(args.programmeTelemetry && env.RAG_TELEMETRY_EXTENDED ? { rag_programme: args.programmeTelemetry } : {}),
     // Raw token counts are the durable primitive — USD cost = tokens × per-model
     // price is derived downstream from a pricing table, not baked into the row.
     tokens: {
@@ -124,6 +145,37 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
   };
 }
 
+export function buildRagQueryLogRow(args: {
+  query: string;
+  ownerId?: string | null;
+  interactionId: string;
+  answer: AnswerTelemetrySource & Pick<RagAnswer, "answer">;
+  programmeTelemetry: RagProgrammeTelemetry;
+  observation?: ReturnType<typeof ragQueryObservationForAnswer>;
+}) {
+  const observation = args.observation;
+  return {
+    owner_id: args.ownerId ?? null,
+    query: queryTextForStorage(args.query),
+    answer: answerTextForStorage(args.answer.answer),
+    source_chunk_ids: observation?.sourceChunkIds ?? args.answer.sources.map((source) => source.id),
+    model: observation?.model ?? args.answer.modelUsed ?? null,
+    metadata: {
+      ...(observation?.metadata ?? {}),
+      grounded: args.answer.grounded,
+      confidence: args.answer.confidence,
+      routing_mode: args.answer.routingMode ?? null,
+      routing_reason: args.answer.routingReason ?? null,
+      fallback_reason: args.answer.fallbackReason ?? null,
+      degraded: args.answer.degradedMode?.active ?? false,
+      model_used: args.answer.modelUsed ?? null,
+      ...buildRagQueryMetadata(args.programmeTelemetry, env.RAG_TELEMETRY_EXTENDED),
+      ...queryPrivacyMetadata(args.query),
+      ...answerPrivacyMetadata(),
+    } as Json,
+  };
+}
+
 // Fire-and-forget writer, mirroring logRetrievalDiagnostics in /api/search: a
 // logging failure must never affect the answer response, so the insert is
 // detached and its error swallowed (with a throttled warning).
@@ -133,15 +185,32 @@ export async function logAnswerDiagnostics(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
   ownerId?: string | null;
-  answer: AnswerTelemetrySource;
+  interactionId: string;
+  answer: AnswerTelemetrySource & RagAnswer;
 }) {
   try {
-    const { error } = await args.supabase.from("rag_retrieval_logs").insert(buildAnswerLogRow(args));
-    if (error) throw error;
+    const programmeTelemetry = ragProgrammeTelemetryForAnswer(args.answer);
+    if (!programmeTelemetry || programmeTelemetry.interaction_id !== args.interactionId) {
+      throw new Error("Missing or mismatched RAG programme observation context.");
+    }
+    const [queryResult, retrievalResult] = await Promise.allSettled([
+      args.supabase.from("rag_queries").insert(
+        buildRagQueryLogRow({
+          ...args,
+          programmeTelemetry,
+          observation: ragQueryObservationForAnswer(args.answer),
+        }),
+      ),
+      args.supabase.from("rag_retrieval_logs").insert(buildAnswerLogRow({ ...args, programmeTelemetry })),
+    ]);
+    for (const result of [queryResult, retrievalResult]) {
+      if (result.status === "rejected") throw result.reason;
+      if (result.value.error) throw result.value.error;
+    }
   } catch (error) {
     answerLogFailureCount += 1;
     if (answerLogFailureCount <= 3 || answerLogFailureCount % 25 === 0) {
-      console.warn("rag_retrieval_logs answer insert failed", {
+      console.warn("RAG answer telemetry insert failed", {
         failures: answerLogFailureCount,
         message: error instanceof Error ? error.message : "unknown answer logging error",
       });

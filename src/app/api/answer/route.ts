@@ -31,6 +31,8 @@ import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
+import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
+import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -59,6 +61,7 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
 
 export async function POST(request: Request) {
   const interactionId = randomUUID();
+  const observationContext = { interactionId, rolloutMode: "legacy" } as const;
   // Group this request's LLM calls (embedding, generation, verification) into
   // one Sentry agent-monitoring conversation keyed by the synthetic interaction
   // UUID — never by query text.
@@ -112,6 +115,26 @@ export async function POST(request: Request) {
     });
     const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
+      const emptyAnswer = observeRagAnswer(
+        {
+          answer: emptyScopeAnswer,
+          grounded: false,
+          confidence: "unsupported",
+          citations: [],
+          sources: [],
+          routingMode: "unsupported",
+          fallbackReason: "retrieval_miss",
+          responseMode: "evidence_gap",
+        } satisfies RagAnswer,
+        observationContext,
+      );
+      logAnswerDiagnostics({
+        supabase,
+        query: answerBody.query,
+        ownerId: access.ownerId,
+        interactionId,
+        answer: emptyAnswer,
+      });
       const serverTiming = buildServerTimingHeader([
         ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
         { name: "total", durMs: Date.now() - routeStartedAt },
@@ -147,13 +170,15 @@ export async function POST(request: Request) {
       accessScope,
       allowGlobalSearch: !access.ownerId,
       queryMode: answerBody.queryMode,
+      observationContext,
       signal: request.signal,
     });
-    const governedResponse = buildGovernedAnswerClientResponse(answer);
+    const governedResponse = buildGovernedAnswerClientResponse(observeRagAnswer(answer, observationContext));
     logAnswerDiagnostics({
       supabase,
       query: answerBody.query,
       ownerId: access.ownerId,
+      interactionId,
       answer: governedResponse.telemetryAnswer,
     });
 

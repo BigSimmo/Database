@@ -38,6 +38,8 @@ import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/an
 import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-stream-contract";
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
+import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
+import type { RagAnswer } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -159,6 +161,7 @@ function streamAnswer(
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
+  const observationContext = { interactionId, rolloutMode: "legacy" } as const;
   // Group this request's LLM calls into one Sentry agent-monitoring
   // conversation keyed by the synthetic interaction UUID — never by query text.
   setAgentConversationId(interactionId);
@@ -215,6 +218,26 @@ function streamAnswer(
               });
           sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {
+            const emptyAnswer = observeRagAnswer(
+              {
+                answer: emptyScopeAnswer,
+                grounded: false,
+                confidence: "unsupported",
+                citations: [],
+                sources: [],
+                routingMode: "unsupported",
+                fallbackReason: "retrieval_miss",
+                responseMode: "evidence_gap",
+              } satisfies RagAnswer,
+              observationContext,
+            );
+            logAnswerDiagnostics({
+              supabase: createAdminClient(),
+              query: body.query,
+              ownerId,
+              interactionId,
+              answer: emptyAnswer,
+            });
             sendFinal({
               answer: emptyScopeAnswer,
               grounded: false,
@@ -242,7 +265,7 @@ function streamAnswer(
           }
           const answer =
             body.summaryMode && body.documentId
-              ? await summarizeDocument(body.documentId, ownerId, { signal })
+              ? await summarizeDocument(body.documentId, ownerId, { signal, observationContext })
               : await answerQuestionWithScope({
                   query: body.query,
                   documentId: singleDocumentScope ? body.documentId : undefined,
@@ -253,15 +276,17 @@ function streamAnswer(
                   accessScope,
                   allowGlobalSearch: !ownerId,
                   queryMode: body.queryMode,
+                  observationContext,
                   onProgress,
                   signal,
                 });
-          const governedResponse = buildGovernedAnswerClientResponse(answer);
+          const governedResponse = buildGovernedAnswerClientResponse(observeRagAnswer(answer, observationContext));
 
           logAnswerDiagnostics({
             supabase: createAdminClient(),
             query: body.query,
             ownerId,
+            interactionId,
             answer: governedResponse.telemetryAnswer,
           });
 
