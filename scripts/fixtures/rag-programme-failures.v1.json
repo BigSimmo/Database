@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
-  "caseSetFingerprint": "sha256:e18d2b85a3143a95c4c3bc38f6c8dc854f1323624cbc789443a0b5621c58eb2e",
+  "caseSetFingerprint": "sha256:cb8585a08bb0b888582a9ba812ba1e751cf0a200844efbf27047f96922cb97b3",
   "cases": [
     {
       "id": "direct-evidence-generic-refusal",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -29,6 +30,7 @@
     },
     {
       "id": "trusted-document-admission-access",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -54,6 +56,7 @@
     },
     {
       "id": "broad-multi-intent-partial",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -79,6 +82,7 @@
     },
     {
       "id": "uploaded-australian-augmentation",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -104,6 +108,7 @@
     },
     {
       "id": "site-specifier-direct",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -129,6 +134,7 @@
     },
     {
       "id": "site-differential-direct",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -154,6 +160,7 @@
     },
     {
       "id": "site-medication-direct",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -179,6 +186,7 @@
     },
     {
       "id": "site-cross-domain-coverage",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -204,6 +212,7 @@
     },
     {
       "id": "uploaded-guideline-primary",
+      "latencyTargetMs": 6000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -229,6 +238,7 @@
     },
     {
       "id": "site-product-primary",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -254,6 +264,7 @@
     },
     {
       "id": "site-changed-deleted-stale",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -279,6 +290,7 @@
     },
     {
       "id": "uploaded-public-conflict",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -316,6 +328,7 @@
     },
     {
       "id": "site-public-read-parity",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -341,6 +354,7 @@
     },
     {
       "id": "site-admin-publication-only",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -366,6 +380,7 @@
     },
     {
       "id": "source-role-mismatch",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -395,6 +410,7 @@
     },
     {
       "id": "site-sync-unavailable",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -420,6 +436,7 @@
     },
     {
       "id": "australian-augmentation-unavailable",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -445,6 +462,7 @@
     },
     {
       "id": "healthdirect-exclusion",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -470,6 +488,7 @@
     },
     {
       "id": "link-only-etg-amh",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -495,6 +514,7 @@
     },
     {
       "id": "blocked-reference-upload",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -520,6 +540,7 @@
     },
     {
       "id": "narrow-fact-concise",
+      "latencyTargetMs": 4000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -545,6 +566,7 @@
     },
     {
       "id": "broad-supported-sections",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -570,6 +592,7 @@
     },
     {
       "id": "broad-management-strong-route",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -595,6 +618,7 @@
     },
     {
       "id": "eight-section-completion",
+      "latencyTargetMs": 12000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -620,6 +644,7 @@
     },
     {
       "id": "anaphoric-follow-up",
+      "latencyTargetMs": 6000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",
@@ -645,6 +670,7 @@
     },
     {
       "id": "incremental-reconciliation",
+      "latencyTargetMs": 8000,
       "privacyReview": {
         "status": "approved_deidentified",
         "reviewedOn": "2026-08-20",

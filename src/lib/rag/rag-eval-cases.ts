@@ -1066,8 +1066,12 @@ function buildProgrammeEvalCases(): RagEvalCase[] {
   return programmeCaseDefinitions.map((definition) => {
     const fixtureCase = fixtures.get(definition.id);
     if (!fixtureCase) throw new Error(`RagEvalCase has no programme fixture: ${definition.id}`);
+    if (definition.latencyTargetMs !== fixtureCase.latencyTargetMs) {
+      throw new Error(`Programme latency budget drift for ${definition.id}`);
+    }
     return {
       ...definition,
+      latencyTargetMs: fixtureCase.latencyTargetMs,
       expectedFiles: fixtureCase.expectedDocuments,
       programmeExpectation: fixtureCase.expectation,
     };

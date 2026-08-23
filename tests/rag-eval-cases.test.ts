@@ -55,6 +55,7 @@ describe("captured RAG eval cases", () => {
     for (const fixtureCase of ragProgrammeFixture.cases) {
       const registered = programmeCases.find((testCase) => testCase.id === fixtureCase.id);
       expect(registered?.expectedFiles).toEqual(fixtureCase.expectedDocuments);
+      expect(registered?.latencyTargetMs).toBe(fixtureCase.latencyTargetMs);
       expect(registered?.programmeExpectation).toEqual(fixtureCase.expectation);
     }
   });

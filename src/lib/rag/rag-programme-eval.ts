@@ -100,6 +100,7 @@ export const RAG_PROGRAMME_GATE_POLICY = Object.freeze({
 
 export type RagProgrammeFixtureCase = {
   id: string;
+  latencyTargetMs: number;
   caseFingerprint: string;
   privacyReview: {
     status: "approved_deidentified";
@@ -121,7 +122,11 @@ export type RagProgrammeEvaluationDiagnostics = {
   insufficiencyReason: RagInsufficiencyReason | null;
   supportedPartRetained: boolean;
   exactGapNamed: boolean;
-  visibleConflictFields: RagProgrammeConflictField[];
+  observedConflict: {
+    localDocumentId: string;
+    australianDocumentId: string;
+    visibleFields: RagProgrammeConflictField[];
+  } | null;
   requiredFactsPresent: string[];
   forbiddenPatternsFound: string[];
   documentReciprocalRank: number;
@@ -279,9 +284,10 @@ function withoutCaseFingerprint(testCase: RagProgrammeFixtureCase | Record<strin
 export function fingerprintRagProgrammeCaseSet(
   cases: Array<RagProgrammeFixtureCase | Record<string, unknown>>,
 ): string {
-  return sha256Fingerprint(
-    cases.map(withoutCaseFingerprint).sort((left, right) => String(left.id).localeCompare(String(right.id))),
-  );
+  return sha256Fingerprint({
+    schemaVersion: 1,
+    cases: cases.map(withoutCaseFingerprint).sort((left, right) => String(left.id).localeCompare(String(right.id))),
+  });
 }
 
 export function fingerprintRagProgrammePopulation(input: RagProgrammePopulationFingerprintInput): string {
@@ -290,6 +296,20 @@ export function fingerprintRagProgrammePopulation(input: RagProgrammePopulationF
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function assertExactKeys(value: Record<string, unknown>, expected: readonly string[], path: string): void {
+  const actual = Object.keys(value).sort();
+  const required = [...expected].sort();
+  const unknown = actual.filter((key) => !required.includes(key));
+  const missing = required.filter((key) => !actual.includes(key));
+  if (unknown.length > 0 || missing.length > 0) {
+    throw new Error(
+      `${path} must contain exactly [${required.join(", ")}]` +
+        (unknown.length > 0 ? `; unknown [${unknown.join(", ")}]` : "") +
+        (missing.length > 0 ? `; missing [${missing.join(", ")}]` : ""),
+    );
+  }
 }
 
 function assertString(value: unknown, path: string): asserts value is string {
@@ -310,6 +330,26 @@ function assertEnumArray<T extends string>(value: unknown, allowed: Set<T>, path
 
 function assertExpectation(value: unknown, path: string): asserts value is RagProgrammeExpectation {
   if (!isRecord(value)) throw new Error(`${path} must be an object`);
+  assertExactKeys(
+    value,
+    [
+      "expectedCorpusScopes",
+      "expectedSourceRoles",
+      "expectedSiteDomains",
+      "expectedPublicSiteContentState",
+      "expectedSubquestionPurposes",
+      "minimumDirectSubquestions",
+      "allowedAnswerShapes",
+      "requireSupportedPart",
+      "requireExactGap",
+      "expectedConflict",
+      "forbiddenFallbackReasons",
+      "requiredFacts",
+      "forbiddenPatterns",
+      "incrementalEligibility",
+    ],
+    path,
+  );
   assertEnumArray(value.expectedCorpusScopes, SOURCE_CORPUS_SCOPES, `${path}.expectedCorpusScopes`);
   assertEnumArray(value.expectedSourceRoles, CLINICAL_SOURCE_ROLES, `${path}.expectedSourceRoles`);
   assertEnumArray(value.expectedSiteDomains, SITE_CONTENT_DOMAINS, `${path}.expectedSiteDomains`);
@@ -327,6 +367,11 @@ function assertExpectation(value: unknown, path: string): asserts value is RagPr
   }
   if (value.expectedConflict !== null) {
     if (!isRecord(value.expectedConflict)) throw new Error(`${path}.expectedConflict must be an object or null`);
+    assertExactKeys(
+      value.expectedConflict,
+      ["localDocumentId", "australianDocumentId", "requireVisibleFields"],
+      `${path}.expectedConflict`,
+    );
     assertString(value.expectedConflict.localDocumentId, `${path}.expectedConflict.localDocumentId`);
     assertString(value.expectedConflict.australianDocumentId, `${path}.expectedConflict.australianDocumentId`);
     assertEnumArray(
@@ -343,23 +388,29 @@ function assertExpectation(value: unknown, path: string): asserts value is RagPr
   }
 }
 
-function loadProgrammeFixture(): { schemaVersion: 1; caseSetFingerprint: string; cases: RagProgrammeFixtureCase[] } {
-  const fixture: unknown = rawProgrammeFixture;
+export function validateRagProgrammeFixture(fixture: unknown): {
+  schemaVersion: 1;
+  caseSetFingerprint: string;
+  cases: RagProgrammeFixtureCase[];
+} {
   if (!isRecord(fixture) || fixture.schemaVersion !== 1)
     throw new Error("RAG programme fixture schemaVersion must be 1");
+  assertExactKeys(fixture, ["schemaVersion", "caseSetFingerprint", "cases"], "RAG programme fixture");
   assertString(fixture.caseSetFingerprint, "RAG programme fixture caseSetFingerprint");
-  if (!Array.isArray(fixture.cases) || fixture.cases.length === 0) {
-    throw new Error("RAG programme fixture cases must be a non-empty array");
+  if (!Array.isArray(fixture.cases) || fixture.cases.length !== 26) {
+    throw new Error("RAG programme fixture must contain exactly 26 canonical cases");
   }
 
   const ids = new Set<string>();
   const cases = fixture.cases.map((value, index) => {
     const path = `RAG programme fixture cases[${index}]`;
     if (!isRecord(value)) throw new Error(`${path} must be an object`);
+    assertExactKeys(value, ["id", "latencyTargetMs", "privacyReview", "expectedDocuments", "expectation"], path);
     assertString(value.id, `${path}.id`);
     if (ids.has(value.id)) throw new Error(`${path}.id is duplicated`);
     ids.add(value.id);
     if (!isRecord(value.privacyReview)) throw new Error(`${path}.privacyReview must be an object`);
+    assertExactKeys(value.privacyReview, ["status", "reviewedOn", "reviewerRole"], `${path}.privacyReview`);
     if (
       value.privacyReview.status !== "approved_deidentified" ||
       value.privacyReview.reviewerRole !== "clinical_governance"
@@ -367,11 +418,15 @@ function loadProgrammeFixture(): { schemaVersion: 1; caseSetFingerprint: string;
       throw new Error(`${path}.privacyReview must record approved de-identification governance`);
     }
     assertString(value.privacyReview.reviewedOn, `${path}.privacyReview.reviewedOn`);
+    if (!Number.isInteger(value.latencyTargetMs) || Number(value.latencyTargetMs) <= 0) {
+      throw new Error(`${path}.latencyTargetMs must be a positive integer`);
+    }
     assertStringArray(value.expectedDocuments, `${path}.expectedDocuments`);
     assertExpectation(value.expectation, `${path}.expectation`);
 
     const stableCase = {
       id: value.id,
+      latencyTargetMs: Number(value.latencyTargetMs),
       privacyReview: value.privacyReview,
       expectedDocuments: value.expectedDocuments,
       expectation: value.expectation,
@@ -388,7 +443,7 @@ function loadProgrammeFixture(): { schemaVersion: 1; caseSetFingerprint: string;
   return { schemaVersion: 1, caseSetFingerprint: fixture.caseSetFingerprint, cases };
 }
 
-export const ragProgrammeFixture = Object.freeze(loadProgrammeFixture());
+export const ragProgrammeFixture = Object.freeze(validateRagProgrammeFixture(rawProgrammeFixture));
 
 function assertNonNegativeFinite(name: string, value: number | null, maximum?: number): void {
   if (value === null) return;
@@ -452,12 +507,25 @@ export function evaluateRagProgrammeCase(input: RagProgrammeEvaluationCase): Rag
     failedExpectations.push(`fallback_reason:${diagnostics.insufficiencyReason}`);
   }
   if (expectation.expectedConflict) {
+    const observedConflict = diagnostics.observedConflict;
     const missingFields = missingValues(
       expectation.expectedConflict.requireVisibleFields,
-      diagnostics.visibleConflictFields,
+      observedConflict?.visibleFields ?? [],
     );
     failedExpectations.push(...missingFields);
-    if (missingFields.length > 0) hardViolations.push("conflict_contract");
+    if (observedConflict?.localDocumentId !== expectation.expectedConflict.localDocumentId) {
+      failedExpectations.push("local_document_id");
+    }
+    if (observedConflict?.australianDocumentId !== expectation.expectedConflict.australianDocumentId) {
+      failedExpectations.push("australian_document_id");
+    }
+    if (
+      missingFields.length > 0 ||
+      observedConflict?.localDocumentId !== expectation.expectedConflict.localDocumentId ||
+      observedConflict?.australianDocumentId !== expectation.expectedConflict.australianDocumentId
+    ) {
+      hardViolations.push("conflict_contract");
+    }
   }
   for (const value of missingValues(expectation.requiredFacts, diagnostics.requiredFactsPresent)) {
     failedExpectations.push(`required_fact:${value}`);
@@ -473,10 +541,13 @@ export function evaluateRagProgrammeCase(input: RagProgrammeEvaluationCase): Rag
     failedExpectations.push("expected_content_not_retrieved");
   }
 
+  const validSupportedPartial =
+    diagnostics.answerShape === "partial" && diagnostics.supportedPartRetained && diagnostics.exactGapNamed;
   const falseInsufficiency =
     diagnostics.insufficiencyReason !== null &&
     expectation.minimumDirectSubquestions > 0 &&
-    diagnostics.directEvidenceSubquestionCount >= expectation.minimumDirectSubquestions;
+    diagnostics.directEvidenceSubquestionCount >= expectation.minimumDirectSubquestions &&
+    !validSupportedPartial;
   if (falseInsufficiency) failedExpectations.push("false_insufficiency");
 
   const stableFailures = unique(failedExpectations);
@@ -494,6 +565,15 @@ export function evaluateRagProgrammeCase(input: RagProgrammeEvaluationCase): Rag
     totalLatencyMs: diagnostics.totalLatencyMs,
     estimatedCostUsd: diagnostics.estimatedCostUsd,
   };
+}
+
+function nearlyEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= 1e-9;
+}
+
+function percentile95(values: number[]): number {
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
 }
 
 function artifactValidationFailures(artifact: RagProgrammeEvalArtifact, label: string): string[] {
@@ -514,9 +594,20 @@ function artifactValidationFailures(artifact: RagProgrammeEvalArtifact, label: s
   if (artifact.populationFingerprint !== expectedPopulationFingerprint) {
     failures.push(`${label}:invalid_population_fingerprint`);
   }
-  if (artifact.cases.length === 0) failures.push(`${label}:empty_case_set`);
+  if (artifact.caseSetFingerprint !== ragProgrammeFixture.caseSetFingerprint) {
+    failures.push(`${label}:noncanonical_case_set_fingerprint`);
+  }
+
+  const canonicalById = new Map(ragProgrammeFixture.cases.map((testCase) => [testCase.id, testCase]));
   const ids = artifact.cases.map((testCase) => testCase.id);
   if (new Set(ids).size !== ids.length) failures.push(`${label}:duplicate_case_id`);
+  const resultById = new Map(artifact.cases.map((testCase) => [testCase.id, testCase]));
+  for (const id of canonicalById.keys()) {
+    if (!resultById.has(id)) failures.push(`${label}:missing_canonical_case:${id}`);
+  }
+  for (const id of resultById.keys()) {
+    if (!canonicalById.has(id)) failures.push(`${label}:unexpected_case:${id}`);
+  }
 
   const metrics: Array<[string, number | null, number | undefined]> = [
     ["document_recall", artifact.aggregates.documentRecall, 1],
@@ -531,8 +622,29 @@ function artifactValidationFailures(artifact: RagProgrammeEvalArtifact, label: s
       failures.push(`${label}:invalid_${name}`);
     }
   }
-  for (const testCase of artifact.cases) {
-    if (!testCase.id || !testCase.caseFingerprint) failures.push(`${label}:invalid_case_identity`);
+
+  let documentEligible = 0;
+  let documentHits = 0;
+  let contentEligible = 0;
+  let contentHits = 0;
+  let falseInsufficiencyEligible = 0;
+  let falseInsufficiencyCount = 0;
+  let retentionEligible = 0;
+  let retentionHits = 0;
+  const latencies: number[] = [];
+  const costs: number[] = [];
+  let completeCosts = true;
+
+  for (const canonicalCase of ragProgrammeFixture.cases) {
+    const testCase = resultById.get(canonicalCase.id);
+    if (!testCase) continue;
+    if (testCase.caseFingerprint !== canonicalCase.caseFingerprint) {
+      failures.push(`${label}:${testCase.id}:noncanonical_case_fingerprint`);
+    }
+    if (!Array.isArray(testCase.failedExpectations) || !Array.isArray(testCase.hardViolations)) {
+      failures.push(`${label}:${testCase.id}:invalid_verdict_arrays`);
+      continue;
+    }
     for (const [name, value, maximum] of [
       ["document_reciprocal_rank", testCase.documentReciprocalRank, 1],
       ["content_reciprocal_rank", testCase.contentReciprocalRank, 1],
@@ -542,6 +654,81 @@ function artifactValidationFailures(artifact: RagProgrammeEvalArtifact, label: s
       if (value !== null && (!Number.isFinite(value) || value < 0 || (maximum !== undefined && value > maximum))) {
         failures.push(`${label}:${testCase.id}:invalid_${name}`);
       }
+    }
+
+    const documentMissing = canonicalCase.expectedDocuments.length > 0 && testCase.documentReciprocalRank === 0;
+    const contentMissing = canonicalCase.expectation.requiredFacts.length > 0 && testCase.contentReciprocalRank === 0;
+    const supportMissing = canonicalCase.expectation.requireSupportedPart && !testCase.supportedPartRetained;
+    const expectedFailureFacts: Array<[boolean, string]> = [
+      [documentMissing, "expected_document_not_retrieved"],
+      [contentMissing, "expected_content_not_retrieved"],
+      [supportMissing, "supported_part_retained"],
+      [testCase.falseInsufficiency, "false_insufficiency"],
+    ];
+    for (const [expected, reason] of expectedFailureFacts) {
+      if (testCase.failedExpectations.includes(reason) !== expected) {
+        failures.push(`${label}:${testCase.id}:inconsistent_${reason}`);
+      }
+    }
+    const derivedPassed = testCase.failedExpectations.length === 0 && testCase.hardViolations.length === 0;
+    if (testCase.passed !== derivedPassed) failures.push(`${label}:${testCase.id}:inconsistent_passed`);
+
+    if (canonicalCase.expectedDocuments.length > 0) {
+      documentEligible += 1;
+      if (testCase.documentReciprocalRank > 0) documentHits += 1;
+    }
+    if (canonicalCase.expectation.requiredFacts.length > 0) {
+      contentEligible += 1;
+      if (testCase.contentReciprocalRank > 0) contentHits += 1;
+    }
+    if (canonicalCase.expectation.minimumDirectSubquestions > 0) {
+      falseInsufficiencyEligible += 1;
+      if (testCase.falseInsufficiency) falseInsufficiencyCount += 1;
+    }
+    if (canonicalCase.expectation.requireSupportedPart) {
+      retentionEligible += 1;
+      if (testCase.supportedPartRetained) retentionHits += 1;
+    }
+    if (testCase.totalLatencyMs === null) {
+      failures.push(`${label}:${testCase.id}:missing_total_latency_ms`);
+    } else {
+      latencies.push(testCase.totalLatencyMs);
+      if (testCase.totalLatencyMs > canonicalCase.latencyTargetMs) {
+        failures.push(`${label}:${testCase.id}:latency_budget`);
+      }
+    }
+    if (testCase.estimatedCostUsd === null) completeCosts = false;
+    else costs.push(testCase.estimatedCostUsd);
+  }
+
+  if (resultById.size === canonicalById.size && ragProgrammeFixture.cases.every(({ id }) => resultById.has(id))) {
+    const derivedAggregates = {
+      documentRecall: documentEligible === 0 ? 1 : documentHits / documentEligible,
+      contentRecall: contentEligible === 0 ? 1 : contentHits / contentEligible,
+      falseInsufficiencyRate:
+        falseInsufficiencyEligible === 0 ? 0 : falseInsufficiencyCount / falseInsufficiencyEligible,
+      supportedPartRetentionRate: retentionEligible === 0 ? 1 : retentionHits / retentionEligible,
+      p95TotalLatencyMs: percentile95(latencies),
+      estimatedCostUsd: completeCosts ? costs.reduce((total, value) => total + value, 0) : null,
+    };
+    for (const key of [
+      "documentRecall",
+      "contentRecall",
+      "falseInsufficiencyRate",
+      "supportedPartRetentionRate",
+      "p95TotalLatencyMs",
+    ] as const) {
+      if (!nearlyEqual(artifact.aggregates[key], derivedAggregates[key])) {
+        failures.push(`${label}:inconsistent_aggregate:${key}`);
+      }
+    }
+    if (
+      artifact.aggregates.estimatedCostUsd !== derivedAggregates.estimatedCostUsd &&
+      (artifact.aggregates.estimatedCostUsd === null ||
+        derivedAggregates.estimatedCostUsd === null ||
+        !nearlyEqual(artifact.aggregates.estimatedCostUsd, derivedAggregates.estimatedCostUsd))
+    ) {
+      failures.push(`${label}:inconsistent_aggregate:estimatedCostUsd`);
     }
   }
   return failures;

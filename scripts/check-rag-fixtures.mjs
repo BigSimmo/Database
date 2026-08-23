@@ -9,6 +9,26 @@ const failures = [];
 const fail = (message) => failures.push(message);
 const hasText = (value) => typeof value === "string" && value.trim().length > 0;
 
+function hasExactKeys(value, expected, path) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    fail(`${path} must be an object.`);
+    return false;
+  }
+  const actual = Object.keys(value).sort();
+  const required = [...expected].sort();
+  const unknown = actual.filter((key) => !required.includes(key));
+  const missing = required.filter((key) => !actual.includes(key));
+  if (unknown.length > 0 || missing.length > 0) {
+    fail(
+      `${path} must contain exactly [${required.join(", ")}]` +
+        (unknown.length > 0 ? `; unknown [${unknown.join(", ")}]` : "") +
+        (missing.length > 0 ? `; missing [${missing.join(", ")}]` : ""),
+    );
+    return false;
+  }
+  return true;
+}
+
 function canonicalJson(value) {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value !== null && typeof value === "object") {
@@ -92,14 +112,18 @@ const protectedProgrammeCaseIds = [
   "anaphoric-follow-up",
   "incremental-reconciliation",
 ];
+hasExactKeys(programme, ["schemaVersion", "caseSetFingerprint", "cases"], programmePath);
 if (programme?.schemaVersion !== 1 || !Array.isArray(programme?.cases)) {
   fail(`${programmePath} must use schemaVersion 1 and contain cases.`);
 } else {
   const programmeIds = new Set();
-  for (const item of programme.cases) {
+  for (const [index, item] of programme.cases.entries()) {
+    const casePath = `${programmePath}.cases[${index}]`;
+    hasExactKeys(item, ["id", "latencyTargetMs", "privacyReview", "expectedDocuments", "expectation"], casePath);
     if (!hasText(item?.id)) fail("Programme fixture case is missing id.");
     if (programmeIds.has(item?.id)) fail(`${item.id}: duplicate programme fixture case id.`);
     programmeIds.add(item?.id);
+    hasExactKeys(item?.privacyReview, ["status", "reviewedOn", "reviewerRole"], `${casePath}.privacyReview`);
     if (
       item?.privacyReview?.status !== "approved_deidentified" ||
       item?.privacyReview?.reviewerRole !== "clinical_governance" ||
@@ -107,10 +131,33 @@ if (programme?.schemaVersion !== 1 || !Array.isArray(programme?.cases)) {
     ) {
       fail(`${item?.id ?? "unknown"}: approved de-identification review metadata is required.`);
     }
+    if (!Number.isInteger(item?.latencyTargetMs) || item.latencyTargetMs <= 0) {
+      fail(`${item?.id ?? "unknown"}: latencyTargetMs must be a positive integer.`);
+    }
     if (!Array.isArray(item?.expectedDocuments) || !item.expectedDocuments.every(hasText)) {
       fail(`${item?.id ?? "unknown"}: expectedDocuments must be a string array.`);
     }
     const expectation = item?.expectation;
+    hasExactKeys(
+      expectation,
+      [
+        "expectedCorpusScopes",
+        "expectedSourceRoles",
+        "expectedSiteDomains",
+        "expectedPublicSiteContentState",
+        "expectedSubquestionPurposes",
+        "minimumDirectSubquestions",
+        "allowedAnswerShapes",
+        "requireSupportedPart",
+        "requireExactGap",
+        "expectedConflict",
+        "forbiddenFallbackReasons",
+        "requiredFacts",
+        "forbiddenPatterns",
+        "incrementalEligibility",
+      ],
+      `${casePath}.expectation`,
+    );
     for (const field of [
       "expectedCorpusScopes",
       "expectedSourceRoles",
@@ -126,37 +173,46 @@ if (programme?.schemaVersion !== 1 || !Array.isArray(programme?.cases)) {
     if (!Number.isInteger(expectation?.minimumDirectSubquestions) || expectation.minimumDirectSubquestions < 0) {
       fail(`${item?.id ?? "unknown"}: minimumDirectSubquestions must be a non-negative integer.`);
     }
+    if (typeof expectation?.requireSupportedPart !== "boolean" || typeof expectation?.requireExactGap !== "boolean") {
+      fail(`${item?.id ?? "unknown"}: support and exact-gap requirements must be boolean.`);
+    }
+    if (!hasText(expectation?.expectedPublicSiteContentState)) {
+      fail(`${item?.id ?? "unknown"}: expectedPublicSiteContentState is required.`);
+    }
+    if (!hasText(expectation?.incrementalEligibility)) {
+      fail(`${item?.id ?? "unknown"}: incrementalEligibility is required.`);
+    }
+    if (expectation?.expectedConflict !== null) {
+      hasExactKeys(
+        expectation?.expectedConflict,
+        ["localDocumentId", "australianDocumentId", "requireVisibleFields"],
+        `${casePath}.expectation.expectedConflict`,
+      );
+      if (
+        !hasText(expectation?.expectedConflict?.localDocumentId) ||
+        !hasText(expectation?.expectedConflict?.australianDocumentId) ||
+        !Array.isArray(expectation?.expectedConflict?.requireVisibleFields)
+      ) {
+        fail(`${item?.id ?? "unknown"}: expectedConflict must bind both documents and visible fields.`);
+      }
+    }
   }
   for (const id of protectedProgrammeCaseIds) {
     if (!programmeIds.has(id)) fail(`${programmePath} is missing protected case ${id}.`);
   }
+  for (const id of programmeIds) {
+    if (!protectedProgrammeCaseIds.includes(id)) fail(`${programmePath} contains unexpected case ${id}.`);
+  }
+  if (programme.cases.length !== protectedProgrammeCaseIds.length) {
+    fail(`${programmePath} must contain exactly ${protectedProgrammeCaseIds.length} canonical cases.`);
+  }
   const sortedCases = [...programme.cases].sort((left, right) => String(left.id).localeCompare(String(right.id)));
-  const actualFingerprint = fingerprint(sortedCases);
+  const actualFingerprint = fingerprint({ schemaVersion: programme.schemaVersion, cases: sortedCases });
   if (programme.caseSetFingerprint !== actualFingerprint) {
     fail(
       `${programmePath} fingerprint mismatch: expected ${programme.caseSetFingerprint}, received ${actualFingerprint}.`,
     );
   }
-  const forbiddenKeys = new Set([
-    "patientName",
-    "queryText",
-    "answerText",
-    "providerOutput",
-    "recordBody",
-    "administratorId",
-    "userId",
-    "ownerId",
-    "sourceContent",
-  ]);
-  const visit = (value, path = programmePath) => {
-    if (Array.isArray(value)) return value.forEach((item, index) => visit(item, `${path}[${index}]`));
-    if (!value || typeof value !== "object") return;
-    for (const [key, item] of Object.entries(value)) {
-      if (forbiddenKeys.has(key)) fail(`${path}.${key} is not allowed in the privacy-minimised programme fixture.`);
-      visit(item, `${path}.${key}`);
-    }
-  };
-  visit(programme);
 }
 
 if (failures.length > 0) {
