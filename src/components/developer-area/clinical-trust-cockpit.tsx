@@ -254,7 +254,7 @@ export function ClinicalTrustCockpit() {
                   <button
                     type="submit"
                     disabled={savingId === `${item.signalType}:${item.signalId}`}
-                    className="min-h-12 w-fit rounded-lg bg-[color:var(--clinical-accent)] px-4 font-extrabold text-white"
+                    className="min-h-12 w-fit rounded-lg bg-[color:var(--clinical-accent)] px-4 font-extrabold text-[color:var(--clinical-accent-contrast)]"
                   >
                     {savingId === `${item.signalType}:${item.signalId}` ? "Saving…" : "Save triage metadata"}
                   </button>

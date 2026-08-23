@@ -537,7 +537,7 @@ export function RowActionsMenu({
                       setActionPending(false);
                     }
                   }}
-                  className="min-h-9 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)]"
+                  className="min-h-tap rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)] sm:min-h-9"
                 >
                   <option value="">Unsorted</option>
                   {sets.map((set) => (
@@ -1104,7 +1104,7 @@ function ItemWorkspace({
             type="button"
             onClick={() => setActiveTab(id as "summary" | "evidence" | "notes")}
             className={cn(
-              "min-h-10 border-b-2 text-sm-minus font-semibold transition",
+              "min-h-tap border-b-2 text-sm-minus font-semibold transition sm:min-h-10",
               activeTab === id
                 ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
                 : "border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
@@ -1218,7 +1218,7 @@ function ItemWorkspace({
                         setMutationPending(false);
                       }
                     }}
-                    className="min-h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)]"
+                    className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] sm:min-h-10"
                   >
                     <option value="">Unsorted</option>
                     {sets.map((set) => (
@@ -1250,7 +1250,7 @@ function ItemWorkspace({
                           }
                         }}
                         className={cn(
-                          "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60",
+                          "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60 sm:min-h-9",
                           focusRing,
                         )}
                       >
@@ -1276,7 +1276,7 @@ function ItemWorkspace({
                     }
                   }}
                   className={cn(
-                    "inline-flex min-h-9 items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60",
+                    "inline-flex min-h-tap items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60 sm:min-h-9",
                     focusRing,
                   )}
                 >
@@ -1675,7 +1675,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                     value={effectiveNewSetName ?? ""}
                     disabled={setMutationPending || availableSetNames.length === 0}
                     onChange={(event) => setNewSetName(event.target.value as FavouriteSetName)}
-                    className="min-h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)]"
+                    className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] sm:min-h-10"
                   >
                     {availableSetNames.map((name) => (
                       <option key={name} value={name}>
@@ -1707,7 +1707,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                     }
                   }}
                   className={cn(
-                    "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60",
+                    "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60 sm:min-h-10",
                     focusRing,
                   )}
                 >
