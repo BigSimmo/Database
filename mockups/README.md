@@ -107,6 +107,24 @@ row in place on the page. Shared mockup chrome is suppressed because each frame 
 The tab rail reads Terms · Topics · More rather than Search · Browse · More: this round assumes Search and Browse have
 merged into one destination, with the site-wide composer as the mode’s only search surface.
 
+## Dictionary — Filter in the bar, Terms and A–Z beside the title (2026-08-23)
+
+Runnable study at [`/mockups/dictionary-heading-controls`](../src/app/mockups/dictionary-heading-controls/page.tsx).
+This is a layout question, not a production change: can Filter live in the results bar while the compact Terms /
+Abbreviations toggle and the A–Z chip sit next to **Clinical terms**?
+
+Yes. The query ribbon already has a utilities slot, and the heading can take trailing controls. The open product
+question is where Filter lives when there is no query — today the ribbon is absent while browsing.
+
+| Direction         | Browse chrome                                     | Trade-off                                         |
+| ----------------- | ------------------------------------------------- | ------------------------------------------------- |
+| Now               | Title + control row (toggle, A–Z, Filter)         | Filter competes with the toggle for the same line |
+| 01 Persistent bar | Title + toggle + A–Z; Filter always in a slim bar | A bar is present even with no query               |
+| 02 Ribbon only    | Title + toggle + A–Z; no bar until a search       | You cannot facet the idle catalogue               |
+
+At 390 px the full word “Abbreviations” plus A–Z will usually wrap under the title. Shared mockup chrome is suppressed
+because each frame draws its own top bar, mode nav and composer.
+
 ## Phone Choose mode sheet YES comps
 
 Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review of the shipping phone mode sheet plus **YES 01 perfected** (sectioned clinical list — shipping recommendation) and YES 02 (icon deck alternate). Shared mockup chrome is suppressed so only the in-frame sheet is judged.
