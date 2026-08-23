@@ -1,3 +1,4 @@
+import type { SpawnSyncReturns } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -14,6 +15,35 @@ import {
 
 const mainPath = path.resolve("C:/repo/main");
 const taskPath = path.resolve("D:/worktrees/task");
+
+type SpawnRunner = typeof import("node:child_process").spawnSync;
+type SyntheticSpawnOptions = {
+  env?: NodeJS.ProcessEnv;
+  input?: string;
+};
+
+function asSpawnRunner(
+  runner: (file: string, args: string[], options: SyntheticSpawnOptions) => SpawnSyncReturns<string>,
+): SpawnRunner {
+  return runner as unknown as SpawnRunner;
+}
+
+function spawnSuccess(stdout = "", stderr = ""): SpawnSyncReturns<string> {
+  return {
+    pid: 1,
+    output: [null, stdout, stderr],
+    stdout,
+    stderr,
+    status: 0,
+    signal: null,
+  };
+}
+
+const syntheticDirectoryLstat = (() => ({
+  reparsePoint: false,
+  isSymbolicLink: () => false,
+  isDirectory: () => true,
+})) as unknown as typeof import("node:fs").lstatSync;
 
 function porcelain() {
   return [
@@ -128,10 +158,10 @@ describe("clean-worktree read-only Git boundary", () => {
 
   it("suppresses optional index writes and lazy object fetches", () => {
     let invocation: { args?: string[]; env?: NodeJS.ProcessEnv } = {};
-    const runner = (_file: string, args: string[], options: { env: NodeJS.ProcessEnv }) => {
+    const runner = asSpawnRunner((_file, args, options) => {
       invocation = { args, env: options.env };
-      return { status: 0, stdout: "ok\n", stderr: "" };
-    };
+      return spawnSuccess("ok\n");
+    });
 
     expect(runReadOnlyGit(["rev-parse", "HEAD"], { runner }).stdout).toBe("ok");
     expect(invocation.args?.[0]).toBe("--no-optional-locks");
@@ -146,7 +176,7 @@ describe("clean-worktree read-only Git boundary", () => {
     const right = "b".repeat(40);
     const result = runReadOnlyGit(
       ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-only", "-z", left, right, "--"],
-      { runner: () => ({ status: 0, stdout: " leading-space.ts\0", stderr: "" }) },
+      { runner: asSpawnRunner(() => spawnSuccess(" leading-space.ts\0")) },
     );
 
     expect(result.stdout).toBe(" leading-space.ts\0");
@@ -168,16 +198,15 @@ describe("Windows reparse attribute probe", () => {
     let invocation: { file?: string; args?: string[]; input?: string } = {};
     const result = inspectWindowsReparsePaths(candidates, {
       platform: "win32",
-      runner: (file: string, args: string[], options: { input: string }) => {
+      runner: asSpawnRunner((file, args, options) => {
         invocation = { file, args, input: options.input };
-        return {
-          status: 0,
-          stdout: JSON.stringify([
+        return spawnSuccess(
+          JSON.stringify([
             { state: "safe", code: "OK" },
             { state: "reparse", code: "REPARSE" },
           ]),
-        };
-      },
+        );
+      }),
     });
 
     expect(result).toEqual([{ state: "safe" }, { state: "reparse", code: "REPARSE" }]);
@@ -192,7 +221,7 @@ describe("Windows reparse attribute probe", () => {
     expect(
       inspectWindowsReparsePaths(candidates, {
         platform: "win32",
-        runner: () => ({ status: 0, stdout: JSON.stringify([{ state: "safe" }]) }),
+        runner: asSpawnRunner(() => spawnSuccess(JSON.stringify([{ state: "safe" }]))),
       }),
     ).toEqual([
       { state: "unknown", code: "MALFORMED_PROBE" },
@@ -249,7 +278,7 @@ describe("clean-worktree fail-closed reporting", () => {
       {
         gitFn,
         cwd: mainPath,
-        lstatFn: () => ({ reparsePoint: false, isSymbolicLink: () => false, isDirectory: () => true }),
+        lstatFn: syntheticDirectoryLstat,
       },
     );
 
@@ -283,7 +312,7 @@ describe("clean-worktree fail-closed reporting", () => {
       {
         gitFn,
         cwd: mainPath,
-        lstatFn: () => ({ reparsePoint: false, isSymbolicLink: () => false, isDirectory: () => true }),
+        lstatFn: syntheticDirectoryLstat,
       },
     );
 
@@ -342,7 +371,7 @@ describe("clean-worktree fail-closed reporting", () => {
       {
         gitFn,
         cwd: mainPath,
-        lstatFn: () => ({ reparsePoint: false, isSymbolicLink: () => false, isDirectory: () => true }),
+        lstatFn: syntheticDirectoryLstat,
       },
     );
 

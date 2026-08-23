@@ -7,6 +7,28 @@ import {
   scanInventoryRoots,
 } from "../scripts/worktree-inventory.mjs";
 
+type SyntheticStat = {
+  reparsePoint?: boolean;
+  isDirectory: () => boolean;
+  isFile: () => boolean;
+  isSymbolicLink: () => boolean;
+};
+
+type SyntheticDirent = { name: string };
+
+type InventoryTestAdapters = NonNullable<Parameters<typeof scanInventoryRoots>[1]> & {
+  platform?: NodeJS.Platform;
+  reparseBatchFn?: (candidates: string[]) => Array<{ state: "safe" | "reparse"; code?: string }>;
+};
+
+function asLstatFn(fixture: (candidate: string) => SyntheticStat): typeof import("node:fs").lstatSync {
+  return fixture as unknown as typeof import("node:fs").lstatSync;
+}
+
+function asReaddirFn(fixture: (candidate: string) => SyntheticDirent[]): typeof import("node:fs").readdirSync {
+  return fixture as unknown as typeof import("node:fs").readdirSync;
+}
+
 function directoryStat(options: { reparse?: boolean; link?: boolean } = {}) {
   return {
     reparsePoint: options.reparse ?? false,
@@ -72,9 +94,12 @@ describe("worktree inventory argument contract", () => {
       return { complete: true, classification: "repository-unknown" };
     };
 
-    expect(() =>
-      scanInventoryRoots({ roots: ["D:/safe"], remove: "yes" }, { inspectPathSegmentsFn, inspectRepositoryFn }),
-    ).toThrow(/report-only|unsupported/i);
+    const invalidRemoveOptions = { roots: ["D:/safe"], remove: "yes" } as unknown as Parameters<
+      typeof scanInventoryRoots
+    >[0];
+    expect(() => scanInventoryRoots(invalidRemoveOptions, { inspectPathSegmentsFn, inspectRepositoryFn })).toThrow(
+      /report-only|unsupported/i,
+    );
     expect(() =>
       scanInventoryRoots({ roots: ["D:/safe"], apply: false }, { inspectPathSegmentsFn, inspectRepositoryFn }),
     ).toThrow(/report-only|unsupported/i);
@@ -115,21 +140,22 @@ describe("worktree inventory reparse boundary", () => {
       isFile: () => false,
       isSymbolicLink: () => false,
     };
+    const adapters: InventoryTestAdapters = {
+      platform: "win32",
+      inspectPathSegmentsFn: () => ({ state: "safe" }),
+      inspectRepositoryFn: () => ({ complete: true, classification: "repository-unknown" }),
+      lstatFn: asLstatFn(() => opaqueDirectoryStat),
+      readdirFn: asReaddirFn((candidate) => (path.resolve(candidate) === root ? [{ name: "opaque-reparse" }] : [])),
+      reparseBatchFn: (candidates) => {
+        batches.push(candidates.map((candidate) => path.resolve(candidate)));
+        return candidates.map((candidate) =>
+          path.resolve(candidate) === linked ? { state: "reparse", code: "REPARSE" } : { state: "safe" },
+        );
+      },
+    };
     const report = scanInventoryRoots(
       { roots: [root], repositoryRoot: path.resolve("D:/repo"), maxDepth: 3 },
-      {
-        platform: "win32",
-        inspectPathSegmentsFn: () => ({ state: "safe" }),
-        inspectRepositoryFn: () => ({ complete: true, classification: "repository-unknown" }),
-        lstatFn: () => opaqueDirectoryStat,
-        readdirFn: (candidate: string) => (path.resolve(candidate) === root ? [{ name: "opaque-reparse" }] : []),
-        reparseBatchFn: (candidates: string[]) => {
-          batches.push(candidates.map((candidate) => path.resolve(candidate)));
-          return candidates.map((candidate) =>
-            path.resolve(candidate) === linked ? { state: "reparse", code: "REPARSE" } : { state: "safe" },
-          );
-        },
-      },
+      adapters,
     );
 
     expect(batches).toEqual([[linked]]);
@@ -151,19 +177,19 @@ describe("worktree inventory reparse boundary", () => {
       { roots: [root], repositoryRoot: path.resolve("D:/repo"), maxDepth: 3 },
       {
         inspectPathSegmentsFn: () => ({ state: "safe" }),
-        lstatFn: (candidate: string) => {
+        lstatFn: asLstatFn((candidate) => {
           const normalized = path.resolve(candidate);
           if (normalized === linked) return directoryStat({ link: true, reparse: true });
           if (normalized === gitMarker) return fileStat();
           return directoryStat();
-        },
-        readdirFn: (candidate: string) => {
+        }),
+        readdirFn: asReaddirFn((candidate) => {
           const normalized = path.resolve(candidate);
           readdirCalls.push(normalized);
           if (normalized === root) return [{ name: "linked-session" }, { name: "checkout" }];
           if (normalized === checkout) return [{ name: ".git" }];
           throw new Error(`unexpected traversal into ${normalized}`);
-        },
+        }),
         inspectRepositoryFn: (candidate: string) => {
           repoInspections.push(path.resolve(candidate));
           return { complete: true, classification: "registered-worktree" };
@@ -219,8 +245,8 @@ describe("worktree inventory reparse boundary", () => {
           gitCalls += 1;
           return { ok: false, code: 1, stdout: "" };
         },
-        lstatFn: () => directoryStat(),
-        readdirFn: () => [],
+        lstatFn: asLstatFn(() => directoryStat()),
+        readdirFn: asReaddirFn(() => []),
       },
     );
 
@@ -240,14 +266,15 @@ describe("worktree inventory reparse boundary", () => {
       {
         inspectPathSegmentsFn: () => ({ state: "safe" }),
         inspectRepositoryFn: () => ({ complete: true, classification: "repository-unknown" }),
-        lstatFn: (candidate: string) =>
+        lstatFn: asLstatFn((candidate) =>
           path.resolve(candidate) === linked ? directoryStat({ reparse: true }) : directoryStat(),
-        readdirFn: (candidate: string) => {
+        ),
+        readdirFn: asReaddirFn((candidate) => {
           const resolved = path.resolve(candidate);
           if (resolved === root) return [{ name: "sub" }];
           if (resolved === nestedRoot) return [{ name: "linked" }];
           throw new Error(`unexpected traversal into ${resolved}`);
-        },
+        }),
       },
     );
 
@@ -302,13 +329,13 @@ describe("worktree inventory deterministic fail-closed report", () => {
       {
         inspectPathSegmentsFn: () => ({ state: "safe" }),
         gitFn,
-        lstatFn: (candidate: string) => (path.resolve(candidate) === marker ? fileStat() : directoryStat()),
-        readdirFn: (candidate: string) => {
+        lstatFn: asLstatFn((candidate) => (path.resolve(candidate) === marker ? fileStat() : directoryStat())),
+        readdirFn: asReaddirFn((candidate) => {
           const resolved = path.resolve(candidate);
           if (resolved === root) return [{ name: "checkout" }];
           if (resolved === checkout) return [{ name: ".git" }];
           return [];
-        },
+        }),
       },
     );
 
@@ -340,9 +367,10 @@ describe("worktree inventory deterministic fail-closed report", () => {
       { roots: [rootB, rootA], repositoryRoot: path.resolve("D:/repo"), maxDepth: 3 },
       {
         inspectPathSegmentsFn: () => ({ state: "safe" }),
-        lstatFn: (candidate: string) =>
+        lstatFn: asLstatFn((candidate) =>
           [markerA, markerB].includes(path.resolve(candidate)) ? fileStat() : directoryStat(),
-        readdirFn: (candidate: string) => entries.get(path.resolve(candidate)) ?? [],
+        ),
+        readdirFn: asReaddirFn((candidate) => entries.get(path.resolve(candidate)) ?? []),
         inspectRepositoryFn: (candidate: string) => ({
           complete: true,
           classification: path.resolve(candidate) === registered ? "registered-worktree" : "separate-clone",
@@ -368,15 +396,15 @@ describe("worktree inventory deterministic fail-closed report", () => {
       { roots: [root], repositoryRoot: path.resolve("D:/repo"), maxDepth: 2 },
       {
         inspectPathSegmentsFn: () => ({ state: "safe" }),
-        lstatFn: (candidate: string) => {
+        lstatFn: asLstatFn((candidate) => {
           if (path.resolve(candidate) === blocked) {
             const error = new Error("SECRET raw path details") as NodeJS.ErrnoException;
             error.code = "EACCES";
             throw error;
           }
           return directoryStat();
-        },
-        readdirFn: (candidate: string) => (path.resolve(candidate) === root ? [{ name: "blocked" }] : []),
+        }),
+        readdirFn: asReaddirFn((candidate) => (path.resolve(candidate) === root ? [{ name: "blocked" }] : [])),
         inspectRepositoryFn: () => {
           throw new Error("must not inspect unreadable path");
         },
