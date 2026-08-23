@@ -113,6 +113,13 @@ export const consolidatedModeHomeModeIds: ReadonlySet<AppModeId> = new Set<AppMo
   Object.values(consolidatedModeHomePaths),
 );
 
+/** Canonical results or catalogue path for a mode whose bare path is consolidated. */
+export function consolidatedModeSearchPath(modeId: AppModeId): string {
+  const entry = Object.entries(consolidatedModeHomePaths).find(([, candidate]) => candidate === modeId);
+  if (!entry) throw new Error(`Mode ${modeId} does not have a consolidated search path`);
+  return `${entry[0]}/search`;
+}
+
 /**
  * The same decision as `consolidatedModeHomeTarget`, for a page's own
  * `searchParams` rather than a `URLSearchParams`.
@@ -185,6 +192,7 @@ export function unsubmittedModeSearchTarget(pathname: string, search: URLSearchP
   const params = new URLSearchParams(search);
   params.delete("q");
   params.delete("query");
+  params.delete("run");
   params.set("mode", modeId);
   return `/?${params.toString()}`;
 }

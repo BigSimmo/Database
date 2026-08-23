@@ -24,6 +24,7 @@ import {
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn } from "@/components/ui-primitives";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { searchSpecifiers, specifierFamilies, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
 import {
@@ -67,7 +68,7 @@ function EmptySearchResults({ query }: { query: string }) {
         </p>
       </div>
       <Link
-        href="/specifiers"
+        href={consolidatedModeSearchPath("specifiers")}
         className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
       >
         Clear search

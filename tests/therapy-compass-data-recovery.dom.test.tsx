@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TherapyCompassWorkspace } from "@/components/therapy-compass";
 import { useTcBindings } from "@/components/therapy-compass/bindings";
+import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { clearTherapyDataCache } from "@/components/therapy-compass/data/use-therapy-data";
 import {
   THERAPY_CATALOGUE_ASSETS,
@@ -39,6 +40,16 @@ function RichRouteProbe({ readyLabel }: { readyLabel: string }) {
   return bindings.loading ? <div role="status">Loading Therapy…</div> : <div>{readyLabel}</div>;
 }
 
+function TherapySharedHomeProbe() {
+  const bindings = useTcBindings();
+  return (
+    <>
+      <SharedHomeEmptyState modeId="therapy-compass" />
+      <p>{bindings.therapyCount} therapies in the catalogue</p>
+    </>
+  );
+}
+
 afterEach(() => {
   navigation.pathname = "/therapy-compass";
   navigation.push.mockReset();
@@ -53,13 +64,14 @@ describe("Therapy Compass required data recovery", () => {
 
     render(
       <TherapyCompassWorkspace>
-        <div>Home ready</div>
+        <TherapySharedHomeProbe />
       </TherapyCompassWorkspace>,
     );
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    expect(screen.getByText("Home ready")).toBeInTheDocument();
-    expect(THERAPY_CATALOGUE_SUMMARY.totalCount).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 2, name: "Therapy" })).toBeInTheDocument();
+    expect(screen.getByText("Source-grounded therapy records.")).toBeInTheDocument();
+    expect(screen.getByText(`${THERAPY_CATALOGUE_SUMMARY.totalCount} therapies in the catalogue`)).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
   });
 

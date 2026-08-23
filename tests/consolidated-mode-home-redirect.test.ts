@@ -160,6 +160,8 @@ describe("consolidated mode home redirects", () => {
     expect(search("/differentials/search")).toBe("/?mode=differentials");
     expect(search("/differentials/search", "q=")).toBe("/?mode=differentials");
     expect(search("/differentials/search", "q=%20")).toBe("/?mode=differentials");
+    expect(search("/differentials/search", "run=1")).toBe("/?mode=differentials");
+    expect(search("/differentials/search", "q=%20&run=1")).toBe("/?mode=differentials");
   });
 
   it("leaves query-free browse surfaces alone", () => {
