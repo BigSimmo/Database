@@ -38,6 +38,7 @@ import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/an
 import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-stream-contract";
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
+import { apiErrorCodeSchema, apiStreamErrorPayloadSchema } from "@/lib/api-error-payload";
 
 export const runtime = "nodejs";
 
@@ -76,38 +77,26 @@ function mergeAbortSignals(signals: Array<AbortSignal | undefined>) {
 }
 
 function streamErrorPayload(error: unknown) {
+  const payload = (message: string, status: number, code: string) =>
+    apiStreamErrorPayloadSchema.parse({ error: message, message, code, status });
   if (error instanceof PublicApiError) {
-    return {
-      message: error.message,
-      status: error.status,
-      details: error.details?.code ? { code: error.details.code } : undefined,
-    };
+    const code = apiErrorCodeSchema.safeParse(error.details?.code);
+    return payload(error.message, error.status, code.success ? code.data : "request_failed");
   }
 
   // Production has no demo fallback for a misconfigured Supabase key, so tag the
   // SSE error with a stable code operators can spot in the client/network tab.
   if (isSupabaseApiKeyConfigurationError(error)) {
-    return {
-      message: "Answer generation failed. Retry with a narrower question.",
-      status: 500,
-      details: { code: "supabase_api_key_configuration" },
-    };
+    return payload("Answer generation failed. Retry with a narrower question.", 500, "supabase_api_key_configuration");
   }
 
   if (error instanceof Error) {
-    return {
-      message: "Answer generation failed. Retry with a narrower question.",
-      // Match the non-streaming /api/answer route, which returns 500 for a
-      // generic answer-generation failure.
-      status: 500,
-      details: { code: error.name },
-    };
+    // Match the non-streaming /api/answer route, which returns 500 for a
+    // generic answer-generation failure. Never expose unstable Error.name.
+    return payload("Answer generation failed. Retry with a narrower question.", 500, "internal_error");
   }
 
-  return {
-    message: "Search processing is temporarily unavailable.",
-    status: 503,
-  };
+  return payload("Search processing is temporarily unavailable.", 503, "service_unavailable");
 }
 
 function streamAnswerFeedbackMetadata(interactionId: string, answer: string) {
@@ -281,7 +270,7 @@ function streamAnswer(
           }
           logStreamError(error, signal);
           const streamError = streamErrorPayload(error);
-          send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
+          send("error", streamError);
         } finally {
           stopHeartbeat();
           // The client may have already cancelled the stream (Stop button /

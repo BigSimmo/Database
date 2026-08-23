@@ -1,9 +1,18 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "11111111-1111-4111-8111-111111111111";
+
+function apiRouteFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return apiRouteFiles(path);
+    return entry.name === "route.ts" ? [path] : [];
+  });
+}
 
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null; count?: number | null };
@@ -242,6 +251,60 @@ afterEach(() => {
 });
 
 describe("API validation contracts", () => {
+  it("prevents direct public error envelopes so routes use the schema-validated helper", () => {
+    const violations = apiRouteFiles(join(process.cwd(), "src/app/api")).flatMap((file) => {
+      const source = readFileSync(file, "utf8");
+      const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+      const routePath = relative(process.cwd(), file).replaceAll("\\", "/");
+      const fileViolations: string[] = [];
+      const visit = (node: ts.Node) => {
+        if (
+          ts.isCallExpression(node) &&
+          ts.isPropertyAccessExpression(node.expression) &&
+          node.expression.name.text === "json" &&
+          ts.isIdentifier(node.expression.expression) &&
+          ["NextResponse", "Response"].includes(node.expression.expression.text) &&
+          node.arguments[0] &&
+          ts.isObjectLiteralExpression(node.arguments[0])
+        ) {
+          const publicErrorKeys = node.arguments[0].properties.flatMap((property) => {
+            if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) return [];
+            const name = property.name;
+            if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return [name.text];
+            if (ts.isComputedPropertyName(name) && ts.isStringLiteral(name.expression)) return [name.expression.text];
+            return [];
+          });
+          if (publicErrorKeys.includes("error")) {
+            const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+            fileViolations.push(`${routePath}:${line}`);
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sourceFile);
+      for (const pattern of [
+        /\b[A-Za-z_$][\w$]*Response\s*\(\s*\{\s*(?:error|["']error["'])\s*:/g,
+        /\bsend\s*\(\s*["']error["']\s*,\s*\{/g,
+      ]) {
+        for (const match of source.matchAll(pattern)) {
+          const line = source.slice(0, match.index).split(/\r?\n/).length;
+          fileViolations.push(`${routePath}:${line}`);
+        }
+      }
+      return fileViolations;
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps migrated model-index output on the schema-parsed boundary", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/model-index-extraction.ts"), "utf8");
+
+    expect(source).toContain("generateParsedTextResult");
+    expect(source).not.toContain("generateStructuredTextResult");
+    expect(source).not.toMatch(/JSON\.parse\s*\(/);
+  });
+
   it("keeps route-local request parsing out of the Phase 1 target files", () => {
     const targetRouteFiles = [
       "src/app/api/documents/route.ts",

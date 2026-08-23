@@ -14,9 +14,11 @@ import {
   sourceCapsule,
   sourceCapsuleCountBadge,
   sourceCapsuleHit,
+  StatusDotMarker,
   statusDotMuted,
   statusDotReady,
   statusDotReview,
+  type StatusDotTone,
   subtleStatusPill,
   textMuted,
 } from "@/components/ui-primitives";
@@ -213,11 +215,27 @@ export function sourceCapsuleDisplay({ sourceCount, compact = false }: { sourceC
   return { label: "Sources", showLabelText: !compact, showCountBadge: true };
 }
 
+export function sourceStatusDotTone(
+  metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined,
+): StatusDotTone {
+  if (!metadata) return "muted";
+  if (metadata.document_status === "current") return "ready";
+  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") return "review";
+  return "muted";
+}
+
 export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
-  if (!metadata) return statusDotMuted;
-  if (metadata.document_status === "current") return statusDotReady;
-  if (metadata.document_status === "review_due" || metadata.document_status === "outdated") return statusDotReview;
+  const tone = sourceStatusDotTone(metadata);
+  if (tone === "ready") return statusDotReady;
+  if (tone === "review") return statusDotReview;
   return statusDotMuted;
+}
+
+export function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSourceMetadata>) {
+  if (metadata.document_status === "review_due") return "Review due";
+  if (metadata.document_status === "outdated") return "Outdated";
+  if (metadata.document_status === "current") return "Current";
+  return sourceStatusLabel(metadata);
 }
 
 type CapsulePreviewSource = {
@@ -255,13 +273,6 @@ function sourceSupportLabel(source: CapsulePreviewSource, index: number) {
   if (source.sourceStrength === "moderate") return "Partial";
   if (index === 0 || source.sourceStrength === "strong") return "Direct";
   return "Partial";
-}
-
-function sourceStatusShortLabel(metadata: ReturnType<typeof normalizeSourceMetadata>) {
-  if (metadata.document_status === "review_due") return "Review due";
-  if (metadata.document_status === "outdated") return "Outdated";
-  if (metadata.document_status === "current") return "Current";
-  return sourceStatusLabel(metadata);
 }
 
 function sourcePreviewPageCountLabel(previewSources: CapsulePreviewSource[]) {
@@ -411,16 +422,15 @@ function SourcePreviewContent({
                   <span className="font-mono tabular-nums">p. {source.pageNumber ?? "n/a"}</span>
                   <span aria-hidden>·</span>
                   <span>{sourceSupportLabel(source, index)}</span>
-                  <span className={sourceStatusDotClass(source.metadata)} aria-hidden="true" />
-                  <span
-                    className={
+                  <StatusDotMarker
+                    tone={sourceStatusDotTone(source.metadata)}
+                    label={sourceStatusShortLabel(source.metadata)}
+                    labelClassName={
                       source.metadata.document_status === "review_due" || source.metadata.document_status === "outdated"
                         ? "font-semibold text-[color:var(--warning)]"
                         : undefined
                     }
-                  >
-                    {sourceStatusShortLabel(source.metadata)}
-                  </span>
+                  />
                 </span>
               </span>
               <Link

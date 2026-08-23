@@ -1,23 +1,18 @@
 /**
- * Ward-round soak test for the Clinical KB app tier.
+ * Authenticated, staging-only ward-round soak test for the Clinical KB app tier.
  *
- * STAGING ONLY. This script drives sustained answer/search load and must never
- * point at production. See docs/audit/capacity-review.md §4 for the load model,
- * usage examples, and success criteria.
- *
- * Safety rails:
- * - requires an explicit --target and --confirm-staging;
- * - refuses targets that look like production (the live Supabase project ref
- *   in the host, or any host passed via --forbid-host);
- * - issues read-only traffic only (POST /api/search and POST /api/answer).
+ * The requests contain fixed synthetic, non-PHI queries. Search and answer
+ * routes can still write normal telemetry/cache data, so this is not a
+ * read-only database exercise. See docs/audit/capacity-review.md §4.
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
-const PRODUCTION_MARKERS = ["sjrfecxgysukkwxsowpy"];
+const PRODUCTION_MARKERS = ["psychiatry.tools", "sjrfecxgysukkwxsowpy"];
 
-type SoakArgs = {
+export type SoakArgs = {
   target: string;
   confirmStaging: boolean;
   users: number;
@@ -30,20 +25,27 @@ type SoakArgs = {
   forbidHosts: string[];
 };
 
-type RequestSample = {
+export type RequestSample = {
   endpoint: "search" | "answer";
   status: number;
   latencyMs: number;
   timedOut: boolean;
 };
 
+export const soakThresholds = {
+  searchP95Ms: 3_000,
+  answerP95Ms: 25_000,
+  maxNonRateLimitedFailureRate: 0.01,
+  maxRateLimitedRate: 0.05,
+} as const;
+
 function usage(): never {
   console.log(
     [
-      "Usage: npx tsx scripts/soak-test.ts --target <staging-url> --confirm-staging [options]",
+      "Usage: npx tsx scripts/soak-test.ts --target <staging-origin> --confirm-staging [options]",
       "",
       "Options:",
-      "  --target <url>          Base URL of the STAGING app (required)",
+      "  --target <url>          Plain HTTPS origin of the STAGING app (required)",
       "  --confirm-staging       Acknowledge the target is staging (required)",
       "  --users <n>             Virtual users (default 30)",
       "  --duration-s <n>        Steady-state duration in seconds (default 300)",
@@ -51,14 +53,29 @@ function usage(): never {
       "  --think-ms <n>          Mean think time between requests (default 15000)",
       "  --answer-share <0..1>   Fraction of requests that are answers (default 0.25)",
       "  --timeout-ms <n>        Per-request timeout (default 60000)",
-      "  --bearer <token>        Authorization bearer token (bypasses anonymous limits)",
       "  --forbid-host <host>    Extra host substring to refuse (repeatable)",
+      "",
+      "Set SOAK_BEARER_TOKEN in the environment. Tokens are refused on the command line.",
     ].join("\n"),
   );
   process.exit(1);
 }
 
-function parseArgs(argv: string[]): SoakArgs {
+export function parseSoakTargetOrigin(value: string) {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("--target must be a valid URL.");
+  }
+  if (url.protocol !== "https:") throw new Error("--target must use HTTPS.");
+  if (url.username || url.password || url.search || url.hash || url.pathname !== "/") {
+    throw new Error("--target must be a plain HTTPS origin without credentials, path, query, or fragment.");
+  }
+  return url.origin;
+}
+
+export function parseSoakArgs(argv: string[]): SoakArgs {
   const args: SoakArgs = {
     target: "",
     confirmStaging: false,
@@ -68,17 +85,21 @@ function parseArgs(argv: string[]): SoakArgs {
     thinkMs: 15_000,
     answerShare: 0.25,
     timeoutMs: 60_000,
+    bearer: process.env.SOAK_BEARER_TOKEN?.trim() || undefined,
     forbidHosts: [],
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    const value = argv[index + 1];
     if (token === "--help" || token === "-h") usage();
+    if (token === "--bearer" || token.startsWith("--bearer=")) {
+      throw new Error("Refusing --bearer: set SOAK_BEARER_TOKEN so secrets do not appear in process arguments.");
+    }
     if (token === "--confirm-staging") {
       args.confirmStaging = true;
       continue;
     }
+    const value = argv[index + 1];
     if (!value) continue;
     if (token === "--target") args.target = value;
     if (token === "--users") args.users = Number.parseInt(value, 10);
@@ -87,39 +108,38 @@ function parseArgs(argv: string[]): SoakArgs {
     if (token === "--think-ms") args.thinkMs = Number.parseInt(value, 10);
     if (token === "--answer-share") args.answerShare = Number.parseFloat(value);
     if (token === "--timeout-ms") args.timeoutMs = Number.parseInt(value, 10);
-    if (token === "--bearer") args.bearer = value;
     if (token === "--forbid-host") args.forbidHosts.push(value.toLowerCase());
   }
 
-  if (!args.target) {
-    console.error("Missing --target. This script never assumes a default target.");
-    usage();
-  }
-  if (!args.confirmStaging) {
-    console.error(
-      "Refusing to run without --confirm-staging. This script is for STAGING only; do not point it at production.",
-    );
-    process.exit(1);
-  }
+  if (!args.target) throw new Error("Missing --target. This script never assumes a default target.");
+  if (!args.confirmStaging) throw new Error("Refusing to run without --confirm-staging.");
+  args.target = parseSoakTargetOrigin(args.target);
   if (!Number.isInteger(args.users) || args.users < 1 || args.users > 500) {
     throw new Error("--users must be an integer between 1 and 500.");
   }
+  if (!Number.isInteger(args.durationS) || args.durationS < 0) throw new Error("--duration-s must be non-negative.");
+  if (!Number.isInteger(args.rampS) || args.rampS < 0) throw new Error("--ramp-s must be non-negative.");
   if (!Number.isFinite(args.answerShare) || args.answerShare < 0 || args.answerShare > 1) {
     throw new Error("--answer-share must be between 0 and 1.");
   }
   return args;
 }
 
-function assertTargetIsNotProduction(args: SoakArgs) {
-  const url = new URL(args.target);
-  const host = url.host.toLowerCase();
-  const markers = [...PRODUCTION_MARKERS.map((marker) => marker.toLowerCase()), ...args.forbidHosts];
-  for (const marker of markers) {
-    if (host.includes(marker)) {
-      console.error(`Refusing target ${host}: matches forbidden production marker "${marker}".`);
-      process.exit(1);
-    }
+export function assertTargetIsNotProduction(args: Pick<SoakArgs, "target" | "forbidHosts">) {
+  const host = new URL(args.target).hostname.toLowerCase();
+  const markers = [...PRODUCTION_MARKERS, ...args.forbidHosts].map((marker) => marker.toLowerCase());
+  const matched = markers.find((marker) => marker && host.includes(marker));
+  if (matched) throw new Error(`Refusing target ${host}: matches forbidden production marker "${matched}".`);
+}
+
+export function assertSoakAuthenticationMode(args: Pick<SoakArgs, "bearer">) {
+  if (!args.bearer) {
+    throw new Error("Authenticated release evidence requires SOAK_BEARER_TOKEN; anonymous soak evidence is refused.");
   }
+}
+
+export function soakStagingFetch(input: string | URL | Request, init: RequestInit = {}) {
+  return fetch(input, { ...init, redirect: "error" });
 }
 
 const fallbackQueries = [
@@ -155,7 +175,6 @@ function sleep(ms: number) {
 }
 
 function jitteredThink(meanMs: number) {
-  // 0.5x..1.5x uniform jitter around the mean keeps users out of lockstep.
   return meanMs * (0.5 + Math.random());
 }
 
@@ -165,12 +184,16 @@ function percentile(sorted: number[], fraction: number) {
   return sorted[index];
 }
 
-async function issueRequest(args: SoakArgs, endpoint: "search" | "answer", query: string): Promise<RequestSample> {
+export async function issueSoakRequest(
+  args: SoakArgs,
+  endpoint: "search" | "answer",
+  query: string,
+): Promise<RequestSample> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), args.timeoutMs);
   const startedAt = Date.now();
   try {
-    const response = await fetch(new URL(`/api/${endpoint}`, args.target), {
+    const response = await soakStagingFetch(new URL(`/api/${endpoint}`, args.target), {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -179,8 +202,7 @@ async function issueRequest(args: SoakArgs, endpoint: "search" | "answer", query
       body: JSON.stringify({ query }),
       signal: controller.signal,
     });
-    // Drain the body so keep-alive sockets are reusable.
-    await response.arrayBuffer().catch(() => undefined);
+    await response.arrayBuffer();
     return { endpoint, status: response.status, latencyMs: Date.now() - startedAt, timedOut: false };
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "AbortError";
@@ -197,22 +219,22 @@ async function runVirtualUser(
   endAtMs: number,
   samples: RequestSample[],
 ) {
-  // Stagger starts across the ramp window.
   await sleep((args.rampS * 1000 * userIndex) / Math.max(args.users, 1));
   while (Date.now() < endAtMs) {
     const query = queries[Math.floor(Math.random() * queries.length)];
     const endpoint = Math.random() < args.answerShare ? "answer" : "search";
-    samples.push(await issueRequest(args, endpoint, query));
+    samples.push(await issueSoakRequest(args, endpoint, query));
     const remaining = endAtMs - Date.now();
     if (remaining <= 0) break;
     await sleep(Math.min(jitteredThink(args.thinkMs), remaining));
   }
 }
 
-function summarizeEndpoint(samples: RequestSample[], endpoint: "search" | "answer") {
+export function summarizeSoakEndpoint(samples: RequestSample[], endpoint: "search" | "answer") {
   const scoped = samples.filter((sample) => sample.endpoint === endpoint);
   const ok = scoped.filter((sample) => sample.status >= 200 && sample.status < 400);
   const rateLimited = scoped.filter((sample) => sample.status === 429);
+  const authFailures = scoped.filter((sample) => sample.status === 401 || sample.status === 403);
   const failed = scoped.filter((sample) => sample.status === 0 || (sample.status >= 400 && sample.status !== 429));
   const latencies = ok.map((sample) => sample.latencyMs).sort((a, b) => a - b);
   return {
@@ -220,6 +242,7 @@ function summarizeEndpoint(samples: RequestSample[], endpoint: "search" | "answe
     total: scoped.length,
     ok: ok.length,
     rateLimited: rateLimited.length,
+    authFailures: authFailures.length,
     failed: failed.length,
     timedOut: scoped.filter((sample) => sample.timedOut).length,
     p50: percentile(latencies, 0.5),
@@ -229,17 +252,43 @@ function summarizeEndpoint(samples: RequestSample[], endpoint: "search" | "answe
   };
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  assertTargetIsNotProduction(args);
-  const queries = loadQueries();
+export function evaluateSoakResults(samples: RequestSample[]) {
+  const summaries = [summarizeSoakEndpoint(samples, "search"), summarizeSoakEndpoint(samples, "answer")];
+  const total = samples.length;
+  const hardFailures = summaries.reduce((sum, summary) => sum + summary.failed, 0);
+  const rateLimited = summaries.reduce((sum, summary) => sum + summary.rateLimited, 0);
+  const authFailures = summaries.reduce((sum, summary) => sum + summary.authFailures, 0);
+  const failureRate = total > 0 ? hardFailures / total : 1;
+  const rateLimitedRate = total > 0 ? rateLimited / total : 1;
+  const failures: string[] = [];
+  for (const summary of summaries) {
+    if (summary.ok === 0) failures.push(`/api/${summary.endpoint} had no successful responses`);
+  }
+  if (failureRate >= soakThresholds.maxNonRateLimitedFailureRate) {
+    failures.push(`non-429 failure rate ${(failureRate * 100).toFixed(2)}% must remain below 1%`);
+  }
+  if (rateLimitedRate > soakThresholds.maxRateLimitedRate) {
+    failures.push(`429 rate ${(rateLimitedRate * 100).toFixed(2)}% exceeded 5%`);
+  }
+  if (authFailures > 0) failures.push(`${authFailures} authentication failure(s) observed`);
+  const search = summaries[0];
+  const answer = summaries[1];
+  if (search.p95 > soakThresholds.searchP95Ms) failures.push(`search p95 ${search.p95}ms exceeded 3000ms`);
+  if (answer.p95 > soakThresholds.answerP95Ms) failures.push(`answer p95 ${answer.p95}ms exceeded 25000ms`);
+  return { summaries, total, failureRate, rateLimitedRate, authFailures, failures, passed: failures.length === 0 };
+}
 
+async function main() {
+  const args = parseSoakArgs(process.argv.slice(2));
+  assertTargetIsNotProduction(args);
+  assertSoakAuthenticationMode(args);
+  const queries = loadQueries();
   console.log(`Soak target: ${args.target}`);
   console.log(
     `Profile: ${args.users} users, ramp ${args.rampS}s, steady ${args.durationS}s, ` +
       `answer share ${Math.round(args.answerShare * 100)}%, think ~${args.thinkMs}ms, ${queries.length} queries.`,
   );
-  console.log(args.bearer ? "Auth: bearer token supplied." : "Auth: anonymous (expect tight 429 limits).");
+  console.log("Auth: bearer token supplied through SOAK_BEARER_TOKEN.");
 
   const endAtMs = Date.now() + (args.rampS + args.durationS) * 1000;
   const samples: RequestSample[] = [];
@@ -247,9 +296,9 @@ async function main() {
     Array.from({ length: args.users }, (_, userIndex) => runVirtualUser(args, userIndex, queries, endAtMs, samples)),
   );
 
-  const summaries = [summarizeEndpoint(samples, "search"), summarizeEndpoint(samples, "answer")];
+  const result = evaluateSoakResults(samples);
   console.log("\nResults:");
-  for (const summary of summaries) {
+  for (const summary of result.summaries) {
     console.log(
       `  /api/${summary.endpoint}: n=${summary.total} ok=${summary.ok} 429=${summary.rateLimited} ` +
         `failed=${summary.failed} timeouts=${summary.timedOut}`,
@@ -258,19 +307,17 @@ async function main() {
       `    latency ms (ok only): p50=${summary.p50} p90=${summary.p90} p95=${summary.p95} max=${summary.max}`,
     );
   }
-
-  const total = samples.length;
-  const hardFailures = summaries.reduce((sum, summary) => sum + summary.failed, 0);
-  const failureRate = total > 0 ? hardFailures / total : 0;
-  console.log(`\nTotal requests: ${total}; non-429 failure rate: ${(failureRate * 100).toFixed(2)}% (gate: 5%).`);
-  if (failureRate > 0.05) {
-    console.error("FAIL: non-429 failure rate exceeded 5%.");
-    process.exit(1);
-  }
-  console.log("PASS: failure rate within budget. Compare percentiles against docs/audit/capacity-review.md §4.");
+  console.log(
+    `\nTotal requests: ${result.total}; non-429 failure rate: ${(result.failureRate * 100).toFixed(2)}%; ` +
+      `429 rate: ${(result.rateLimitedRate * 100).toFixed(2)}%.`,
+  );
+  if (!result.passed) throw new Error(`Soak acceptance failed:\n- ${result.failures.join("\n- ")}`);
+  console.log("PASS: authenticated staging soak met the release thresholds.");
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

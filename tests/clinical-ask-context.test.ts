@@ -51,6 +51,10 @@ describe("Clinical Ask confirmed context", () => {
     ["DOB: 01/02/1980", true],
     ["MRN: EX-12345", true],
     ["Medicare 1234 56789 0", true],
+    ["Call +61 412 345 678 for the fictional service.", true],
+    ["Call (08) 9222 2222 for the fictional service.", true],
+    ["Guidance current at 2026-08-22.", false],
+    ["Guidance current at 12.08.2026.", false],
     ["The fictional presentation lasted 12 days.", false],
     ["Example Community Clinic", false],
   ])("returns only a stable identifier-shape verdict for %s", (text, expected) =>

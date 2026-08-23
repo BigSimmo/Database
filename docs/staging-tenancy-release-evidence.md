@@ -11,6 +11,9 @@ Run `npm run test:cross-tenant:staging` only against a dedicated staging deploym
 The harness exits before creating clients or writing data when any required value is
 missing or placeholder-like, the project ref is the production ref
 `sjrfecxgysukkwxsowpy`, or the Supabase URL does not match the declared project ref.
+It also refuses the production app host and subdomains, refuses HTTP redirects,
+requires a full checkout SHA, and requires `GET /api/health` to report that exact
+deployed SHA before it creates a Supabase client or writes a fixture.
 It signs both test accounts in before creating the service-role client and refuses to
 write fixtures if both credentials resolve to the same user.
 
@@ -38,23 +41,25 @@ Configure these repository secrets for `.github/workflows/staging-tenancy.yml`:
 `CROSS_TENANT_DOCUMENT_BUCKET` is an optional repository variable and defaults to
 `clinical-documents`. The harness reads only the `CROSS_TENANT_*` namespace; it does
 not fall back to production application credentials.
+The workflow injects `CROSS_TENANT_CHECKOUT_COMMIT_SHA=${{ github.sha }}`. A local
+operator invocation must supply the same full 40-character variable explicitly.
 
 ## Proof matrix
 
 Each run creates one private document, page, lexical chunk, and storage object for
 each user under a unique run ID. It then proves:
 
-| Surface            | Owner proof                         | Cross-tenant proof                           |
-| ------------------ | ----------------------------------- | -------------------------------------------- |
-| Document list      | A and B each find their own fixture | B cannot list A's fixture                    |
-| Document detail    | A receives A's document             | B receives 404 for A's document              |
-| Signed URL         | A receives a signed URL             | B receives 404                               |
-| Labels             | A creates a manual label            | B receives 404                               |
-| Mutation           | A renames A's document              | B receives 404                               |
-| Universal search   | A finds A's document                | B gets no A result                           |
-| Offline retrieval  | A retrieves A's chunk               | B gets an empty scope and result set         |
-| Source-only answer | A gets cited source-only evidence   | B gets unsupported with no sources/citations |
-| Reindex            | A can queue full reindex            | B receives 404                               |
+| Surface            | Owner proof                          | Cross-tenant proof                           |
+| ------------------ | ------------------------------------ | -------------------------------------------- |
+| Document list      | A and B each find their own fixture  | B cannot list A's fixture                    |
+| Document detail    | A receives A's document              | B receives 404 for A's document              |
+| Signed URL         | A receives a signed URL              | B receives 404                               |
+| Labels             | A creates a manual label             | B receives 404                               |
+| Mutation           | A renames A's document               | B receives 404                               |
+| Universal search   | A finds A's document                 | B gets no A result                           |
+| Offline retrieval  | A retrieves A's chunk                | B gets an empty scope and result set         |
+| Source-only answer | A gets cited source-only evidence    | B gets unsupported with no sources/citations |
+| Reindex            | Not queued in the workerless profile | B receives 404                               |
 
 Cleanup runs in `finally` semantics in reverse dependency order, including run-time
 query telemetry for the two dedicated test users, reindex jobs/stages, labels,
@@ -69,11 +74,15 @@ The standalone workflow runs nightly and on manual dispatch. It is not included 
 Before a release, record a successful workflow run that:
 
 1. completed within the previous seven days;
-2. tested the release commit SHA (or a commit proven to be its ancestor with no
-   later tenancy/API changes); and
+2. checked out the exact candidate SHA and observed the same full SHA in the
+   staging app's `/api/health` response; and
 3. retained the `staging-tenancy-evidence-<run-id>` artifact.
 
-The JSON artifact records the tested commit, workflow URL, staging project identity,
+The JSON artifact records both checkout and deployed SHAs, workflow URL, staging project identity,
 completed scenario checkpoints, final status, and cleanup status without including
 credentials. A missing artifact, failed cleanup, stale run, different project, or
 non-offline answer is not acceptable release evidence.
+
+The deployment SHA is self-reported release metadata, not cryptographic environment
+attestation. Exact equality still prevents a release record from silently combining
+one checkout with another deployed candidate.

@@ -174,14 +174,17 @@ async function mockAnswerDashboardApi(page: Page) {
     await route.fulfill({ json: { items: [], demoMode: true } });
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
-    const kind = new URL(route.request().url()).searchParams.get("kind");
+    const url = new URL(route.request().url());
+    const kind = url.searchParams.get("kind");
+    const view = url.searchParams.get("view") ?? "full";
     const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
         total: records.length,
+        verifiedCount: 0,
+        ...(view === "full" ? { governance: {} } : {}),
         demoMode: true,
-        governance: {},
       },
     });
   });
@@ -3050,7 +3053,7 @@ test.describe("Responsive layout guards", () => {
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/medications");
 
-    const home = page.getByTestId("medication-home");
+    const home = visibleByTestId(page, "medication-home");
     await expect(home).toBeVisible();
     await expect(home).toContainText("Check renal dosing and contraindications.");
     await expect(home).toContainText("Review opioid-use precautions before prescribing.");
@@ -3081,9 +3084,9 @@ test.describe("Responsive layout guards", () => {
 
     for (const [label, query] of capabilitySearches) {
       await gotoLauncher(page, "/medications");
-      await page.getByTestId("medication-home").getByRole("button", { name: label, exact: true }).click();
+      await visibleByTestId(page, "medication-home").getByRole("button", { name: label, exact: true }).click();
       await expect(visibleGlobalSearchInput(page).first()).toHaveValue(query);
-      await expect(page.getByTestId("medication-home")).toHaveCount(0);
+      await expect(visibleByTestId(page, "medication-home")).toHaveCount(0);
     }
 
     await gotoLauncher(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");

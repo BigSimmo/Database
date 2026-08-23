@@ -157,8 +157,11 @@ describe("production readiness provider policy", () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("Provider capability gap:");
     expect(result.stdout).toContain("CLOUD PROVIDER-FREE READY:");
-    expect(result.stdout).toContain("Clinical Ask not verified — hosted migration");
-    expect(result.stdout).toContain("Clinical Ask not verified — physical iPhone acceptance");
+    // Local operator receipts are intentionally ignored by Git but may exist in a developer checkout.
+    // The pure finding test above owns the deterministic missing-evidence assertions; this spawned
+    // integration check only requires both readiness areas to be reported.
+    expect(result.stdout).toMatch(/Clinical Ask (?:not verified|evidence supplied) — hosted migration/);
+    expect(result.stdout).toMatch(/Clinical Ask (?:not verified|evidence supplied) — physical iPhone acceptance/);
   });
 
   it("documents local presence fill guidance for safety/query-hash/deep-probe gaps", () => {

@@ -18,7 +18,7 @@ import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/diffe
 import { getDifferentialDetailContext, getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -42,7 +42,9 @@ function differentialResponse(
 }
 
 function notFoundResponse(slug: string) {
-  return differentialResponse({ error: `No differential record found for "${slug}".` }, { status: 404 });
+  return publicErrorResponse(`No differential record found for "${slug}".`, 404, {
+    code: "differential_not_found",
+  });
 }
 
 export async function GET(request: Request, context: { params: Promise<{ slug: string }> }) {

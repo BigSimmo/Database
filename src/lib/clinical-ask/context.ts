@@ -84,7 +84,7 @@ export function handoffContext(
 
 const identifierPatterns = [
   /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i,
-  /(?:\+?\d[\s().-]*){8,15}/,
+  /(?<!\w)\+?\d(?:[\s().-]*\d){8,14}(?!\w)/,
   /\b\d{4}[ -]?\d{5}[ -]?\d\b/,
   /\b(?:medical record|record|patient|hospital|mrn|urn)\s*(?:number|no\.?|#|id)?\s*[:=-]\s*[A-Z0-9-]{4,}\b/i,
   /\b(?:dob|date of birth)\s*[:=-]\s*(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}-\d{2}-\d{2})\b/i,

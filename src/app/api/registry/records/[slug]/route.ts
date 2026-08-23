@@ -8,7 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
 import {
@@ -40,7 +40,7 @@ function registryResponse(
 }
 
 function notFoundResponse(slug: string) {
-  return registryResponse({ error: `No registry record found for "${slug}".` }, { status: 404 });
+  return publicErrorResponse(`No registry record found for "${slug}".`, 404, { code: "registry_record_not_found" });
 }
 
 function publicRegistryDetailPayload(kind: "service" | "form", slug: string) {

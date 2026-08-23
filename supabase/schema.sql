@@ -6446,6 +6446,162 @@ grant select, insert, delete on table public.rag_answer_feedback to service_role
 drop policy if exists "rag answer feedback service role" on public.rag_answer_feedback;
 create policy "rag answer feedback service role" on public.rag_answer_feedback for all to service_role using (true) with check (true);
 
+-- Administrator-managed workflow metadata for privacy-safe clinical quality triage.
+-- The table deliberately contains no query, answer, excerpt, or patient text.
+create table if not exists public.clinical_quality_feedback_triage (
+  signal_type text not null,
+  signal_id uuid not null,
+  status text not null default 'untriaged',
+  owner_role text not null default 'unassigned',
+  owner_user_id uuid references auth.users(id) on delete set null,
+  resolution_code text,
+  retest_reference text not null default '',
+  updated_by uuid not null references auth.users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  primary key (signal_type, signal_id),
+  constraint clinical_quality_feedback_triage_signal_type_check
+    check (signal_type in ('answer_feedback', 'unsupported_claim', 'source_conflict', 'retrieval_failure', 'evaluation_failure')),
+  constraint clinical_quality_feedback_triage_status_check
+    check (status in ('untriaged', 'in_review', 'awaiting_retest', 'resolved', 'dismissed')),
+  constraint clinical_quality_feedback_triage_owner_role_check
+    check (owner_role in ('clinical_governance', 'content_owner', 'engineering', 'privacy', 'unassigned')),
+  constraint clinical_quality_feedback_triage_resolution_check
+    check (resolution_code is null or resolution_code in ('content_corrected', 'source_updated', 'retrieval_retested', 'not_reproducible', 'expected_behaviour', 'duplicate', 'not_applicable')),
+  constraint clinical_quality_feedback_triage_retest_check
+    check (char_length(retest_reference) <= 120),
+  constraint clinical_quality_feedback_triage_terminal_check
+    check (status <> 'resolved' or resolution_code is not null),
+  constraint clinical_quality_feedback_triage_awaiting_retest_check
+    check (status <> 'awaiting_retest' or char_length(btrim(retest_reference)) > 0)
+);
+
+create table if not exists public.clinical_quality_feedback_triage_events (
+  id uuid primary key default gen_random_uuid(),
+  signal_type text not null,
+  signal_id uuid not null,
+  actor_user_id uuid not null references auth.users(id) on delete restrict,
+  status text not null,
+  owner_role text not null,
+  owner_user_id uuid references auth.users(id) on delete set null,
+  resolution_code text,
+  retest_reference text not null default '',
+  created_at timestamptz not null default now(),
+  constraint clinical_quality_feedback_triage_events_signal_type_check
+    check (signal_type in ('answer_feedback', 'unsupported_claim', 'source_conflict', 'retrieval_failure', 'evaluation_failure')),
+  constraint clinical_quality_feedback_triage_events_status_check
+    check (status in ('untriaged', 'in_review', 'awaiting_retest', 'resolved', 'dismissed')),
+  constraint clinical_quality_feedback_triage_events_owner_role_check
+    check (owner_role in ('clinical_governance', 'content_owner', 'engineering', 'privacy', 'unassigned')),
+  constraint clinical_quality_feedback_triage_events_resolution_check
+    check (resolution_code is null or resolution_code in ('content_corrected', 'source_updated', 'retrieval_retested', 'not_reproducible', 'expected_behaviour', 'duplicate', 'not_applicable')),
+  constraint clinical_quality_feedback_triage_events_retest_check
+    check (char_length(retest_reference) <= 120),
+  constraint clinical_quality_feedback_triage_events_terminal_check
+    check (status <> 'resolved' or resolution_code is not null),
+  constraint clinical_quality_feedback_triage_events_awaiting_retest_check
+    check (status <> 'awaiting_retest' or char_length(btrim(retest_reference)) > 0)
+);
+
+create index if not exists clinical_quality_feedback_triage_work_queue_idx
+  on public.clinical_quality_feedback_triage (status, owner_role, updated_at desc);
+create index if not exists clinical_quality_feedback_triage_events_signal_created_idx
+  on public.clinical_quality_feedback_triage_events (signal_type, signal_id, created_at desc, id desc);
+
+alter table public.clinical_quality_feedback_triage enable row level security;
+alter table public.clinical_quality_feedback_triage_events enable row level security;
+revoke all on table public.clinical_quality_feedback_triage from public, anon, authenticated;
+revoke all on table public.clinical_quality_feedback_triage_events from public, anon, authenticated;
+grant select on table public.clinical_quality_feedback_triage to service_role;
+grant select on table public.clinical_quality_feedback_triage_events to service_role;
+
+comment on table public.clinical_quality_feedback_triage is
+  'Service-role-only current workflow state for privacy-safe clinical quality signals.';
+comment on table public.clinical_quality_feedback_triage_events is
+  'Append-only actor-attributed history for clinical quality signal triage.';
+
+create or replace function public.record_clinical_quality_feedback_triage(
+  p_actor_user_id uuid,
+  p_signal_type text,
+  p_signal_id uuid,
+  p_status text,
+  p_owner_role text,
+  p_owner_user_id uuid,
+  p_resolution_code text,
+  p_retest_reference text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_state public.clinical_quality_feedback_triage;
+begin
+  insert into public.clinical_quality_feedback_triage (
+    signal_type,
+    signal_id,
+    status,
+    owner_role,
+    owner_user_id,
+    resolution_code,
+    retest_reference,
+    updated_by,
+    updated_at,
+    resolved_at
+  ) values (
+    p_signal_type,
+    p_signal_id,
+    p_status,
+    p_owner_role,
+    p_owner_user_id,
+    p_resolution_code,
+    coalesce(p_retest_reference, ''),
+    p_actor_user_id,
+    now(),
+    case when p_status = 'resolved' then now() else null end
+  )
+  on conflict (signal_type, signal_id) do update set
+    status = excluded.status,
+    owner_role = excluded.owner_role,
+    owner_user_id = excluded.owner_user_id,
+    resolution_code = excluded.resolution_code,
+    retest_reference = excluded.retest_reference,
+    updated_by = excluded.updated_by,
+    updated_at = excluded.updated_at,
+    resolved_at = excluded.resolved_at
+  returning * into v_state;
+
+  insert into public.clinical_quality_feedback_triage_events (
+    signal_type,
+    signal_id,
+    actor_user_id,
+    status,
+    owner_role,
+    owner_user_id,
+    resolution_code,
+    retest_reference
+  ) values (
+    p_signal_type,
+    p_signal_id,
+    p_actor_user_id,
+    p_status,
+    p_owner_role,
+    p_owner_user_id,
+    p_resolution_code,
+    coalesce(p_retest_reference, '')
+  );
+
+  return to_jsonb(v_state);
+end;
+$$;
+
+revoke all on function public.record_clinical_quality_feedback_triage(uuid, text, uuid, text, text, uuid, text, text)
+  from public, anon, authenticated;
+grant execute on function public.record_clinical_quality_feedback_triage(uuid, text, uuid, text, text, uuid, text, text)
+  to service_role;
+
 create or replace function public.purge_expired_rag_response_cache(p_limit integer default 1000)
 returns integer language plpgsql security definer set search_path = '' as $$
 declare v_deleted integer;
@@ -8971,17 +9127,113 @@ $$;
 -- Account-owned application data. Public content remains anonymous-readable
 -- through server routes; favourites and preferences require an authenticated
 -- owner at both the API and RLS layers.
+create table if not exists public.user_favourite_sets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint user_favourite_sets_name_check
+    check (name in ('Clinical review', 'Ward round', 'On call', 'Follow up', 'Teaching', 'Reference')),
+  constraint user_favourite_sets_sort_order_check check (sort_order between 0 and 10000),
+  constraint user_favourite_sets_user_name_key unique (user_id, name),
+  constraint user_favourite_sets_user_id_id_key unique (user_id, id)
+);
+
 create table if not exists public.user_favourites (
   user_id uuid not null references auth.users(id) on delete cascade,
   content_type text not null,
   content_key text not null,
   created_at timestamptz not null default now(),
+  set_id uuid,
+  sort_order integer not null default 0,
+  pinned_at timestamptz,
+  last_opened_at timestamptz,
   primary key (user_id, content_type, content_key),
   constraint user_favourites_content_type_check
     check (content_type in ('service', 'form', 'differential', 'therapy')),
   constraint user_favourites_content_key_check
-    check (content_key = btrim(content_key) and char_length(content_key) between 1 and 180)
+    check (content_key = btrim(content_key) and char_length(content_key) between 1 and 180),
+  constraint user_favourites_sort_order_check check (sort_order between 0 and 1000000),
+  constraint user_favourites_owner_set_fkey
+    foreign key (user_id, set_id) references public.user_favourite_sets (user_id, id) on delete no action
 );
+
+do $guard$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'user_favourites_content_key_format_check') then
+    alter table public.user_favourites
+      add constraint user_favourites_content_key_format_check
+      check (content_key ~ '^[a-z0-9]+([._:/-][a-z0-9]+)*$') not valid;
+  end if;
+end
+$guard$;
+
+create index if not exists user_favourite_sets_owner_order_idx
+  on public.user_favourite_sets (user_id, sort_order, created_at, id);
+create index if not exists user_favourites_owner_set_order_idx
+  on public.user_favourites (user_id, set_id, sort_order, created_at, content_type, content_key);
+
+create or replace function public.reorder_user_favourite(
+  p_user_id uuid,
+  p_content_type text,
+  p_content_key text,
+  p_direction text
+) returns boolean
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  target_set_id uuid;
+  target_position bigint;
+  swap_position bigint;
+begin
+  if p_direction not in ('up', 'down') then
+    raise exception using errcode = '22023', message = 'Invalid favourite reorder direction.';
+  end if;
+  select set_id into target_set_id
+  from public.user_favourites
+  where user_id = p_user_id
+    and content_type = p_content_type
+    and content_key = p_content_key;
+  select position into target_position
+  from (
+    select content_type, content_key,
+      row_number() over (order by sort_order, created_at, content_type, content_key) as position
+    from public.user_favourites
+    where user_id = p_user_id
+      and set_id is not distinct from target_set_id
+  ) ordered
+  where content_type = p_content_type and content_key = p_content_key;
+  if target_position is null then return false; end if;
+  swap_position := target_position + case when p_direction = 'up' then -1 else 1 end;
+  with ordered as (
+    select content_type, content_key,
+      row_number() over (order by sort_order, created_at, content_type, content_key) as position
+    from public.user_favourites
+    where user_id = p_user_id
+      and set_id is not distinct from target_set_id
+  ), final_positions as (
+    select content_type, content_key,
+      case when position = target_position then swap_position
+           when position = swap_position then target_position else position end as position
+    from ordered
+  )
+  update public.user_favourites favourite
+  set sort_order = final_positions.position * 10
+  from final_positions
+  where favourite.user_id = p_user_id
+    and favourite.set_id is not distinct from target_set_id
+    and favourite.content_type = final_positions.content_type
+    and favourite.content_key = final_positions.content_key;
+  return true;
+end;
+$$;
+
+revoke all on function public.reorder_user_favourite(uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.reorder_user_favourite(uuid, text, text, text) to service_role;
 
 create table if not exists public.user_preferences (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -8991,18 +9243,35 @@ create table if not exists public.user_preferences (
   constraint user_preferences_size_check check (pg_column_size(preferences) <= 16384)
 );
 
+alter table public.user_favourite_sets enable row level security;
 alter table public.user_favourites enable row level security;
 alter table public.user_preferences enable row level security;
 
+revoke all on table public.user_favourite_sets from public, anon, authenticated;
 revoke all on table public.user_favourites from public, anon, authenticated;
 revoke all on table public.user_preferences from public, anon, authenticated;
+grant select, insert, update, delete on table public.user_favourite_sets to service_role;
 grant select, insert, update, delete on table public.user_favourites to service_role;
 grant select, insert, update, delete on table public.user_preferences to service_role;
 
+create policy "users read own favourite sets" on public.user_favourite_sets
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "users insert own favourite sets" on public.user_favourite_sets
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "users update own favourite sets" on public.user_favourite_sets
+  for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+create policy "users delete own favourite sets" on public.user_favourite_sets
+  for delete to authenticated using ((select auth.uid()) = user_id);
 create policy "users read own favourites" on public.user_favourites
   for select to authenticated using ((select auth.uid()) = user_id);
 create policy "users insert own favourites" on public.user_favourites
   for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "users update own favourites" on public.user_favourites
+  for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
 create policy "users delete own favourites" on public.user_favourites
   for delete to authenticated using ((select auth.uid()) = user_id);
 create policy "users read own preferences" on public.user_preferences

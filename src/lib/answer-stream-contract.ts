@@ -1,4 +1,5 @@
 import type { PublicAnswerProgressEvent } from "@/lib/answer-progress-public";
+import type { ApiStreamErrorPayload } from "@/lib/api-error-payload";
 import type { AnswerSection, Citation, SearchResult } from "@/lib/types";
 
 // #100 incremental verified delivery (docs/verified-answer-incremental-delivery-design.md).
@@ -324,11 +325,7 @@ export function isDeliverableVerifiedUnit(value: unknown, lastSequence: number |
 export type AnswerStreamEventMap = {
   progress: PublicAnswerProgressEvent;
   final: unknown;
-  error: {
-    error: string;
-    status?: number;
-    details?: { code?: string; message?: string };
-  };
+  error: ApiStreamErrorPayload;
 };
 
 export type AnswerStreamEventName = keyof AnswerStreamEventMap;

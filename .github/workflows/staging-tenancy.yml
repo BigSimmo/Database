@@ -46,7 +46,7 @@ jobs:
           CROSS_TENANT_USER_B_PASSWORD: ${{ secrets.CROSS_TENANT_USER_B_PASSWORD }}
           CROSS_TENANT_DOCUMENT_BUCKET: ${{ vars.CROSS_TENANT_DOCUMENT_BUCKET }}
           CROSS_TENANT_EVIDENCE_PATH: artifacts/staging-tenancy-evidence.json
-          CROSS_TENANT_COMMIT_SHA: ${{ github.sha }}
+          CROSS_TENANT_CHECKOUT_COMMIT_SHA: ${{ github.sha }}
           CROSS_TENANT_WORKFLOW_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: npm run test:cross-tenant:staging
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiErrorPayloadSchema } from "@/lib/api-error-payload";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
@@ -515,13 +516,16 @@ export function rateLimitJsonResponse(
     remaining: rateLimit.remaining,
   });
   return NextResponse.json(
-    {
+    apiErrorPayloadSchema.parse({
       error: message,
       message,
       code: "rate_limited",
-      retryAfterSeconds: rateLimit.retryAfterSeconds,
-      details: { retryAfterSeconds: rateLimit.retryAfterSeconds, resetAt: rateLimit.resetAt },
-    },
+      details: {
+        kind: "rate_limit",
+        retryAfterSeconds: rateLimit.retryAfterSeconds,
+        resetAt: rateLimit.resetAt,
+      },
+    }),
     {
       status: 429,
       headers: {
