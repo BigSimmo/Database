@@ -14,17 +14,24 @@ export type DocumentVisibilityTarget =
   | null
   | undefined;
 
+function nestedOrSelfMetadata(record: Record<string, unknown>): Record<string, unknown> {
+  return record.metadata && typeof record.metadata === "object" ? (record.metadata as Record<string, unknown>) : record;
+}
+
+function recordedOwnerId(record: Record<string, unknown>, metadata: Record<string, unknown>): unknown {
+  if ("owner_id" in record) return record.owner_id;
+  if ("owner_id" in metadata) return metadata.owner_id;
+  return undefined;
+}
+
 /**
- * Standardized predicate to determine whether a document (or its metadata)
- * represents a public corpus document vs. a private/tenant-scoped document.
+ * Standardized predicate for whether a document belongs to the public corpus.
  *
- * In the Database visibility model:
- * 1. Documents with `owner_id === null` on indexed rows belong to the public corpus.
- * 2. Documents whose metadata contains `public_corpus: true`, `is_public: true`,
- *    `public: true`, or `visibility: "public"` are explicitly public.
- * 3. Registry summaries (`source_kind: "registry_record"`) are public catalog items.
- * 4. Documents with an explicit non-null `owner_id` (without explicit public flags)
- *    or `private: true` / `visibility: "private"` are private.
+ * Access decisions must match `withOwnerReadScope`: a document is public only when
+ * `owner_id` is null *and* `metadata.public_corpus` is true. `documents.owner_id` is
+ * `on delete set null`, so a null owner alone is an orphan, not a publication. Legacy
+ * metadata aliases (`is_public`, `public`, `visibility`, `source_kind`) do not grant
+ * public access. Missing either signal fails closed.
  *
  * @param input - A document row, metadata dictionary, or source metadata object.
  * @returns `true` if the document is public, `false` otherwise.
@@ -35,42 +42,20 @@ export function isPublicDocument(input: DocumentVisibilityTarget | ClinicalSourc
   }
 
   const record = input as Record<string, unknown>;
+  const metadata = nestedOrSelfMetadata(record);
 
-  // Check if input is a document row containing a nested metadata object
-  const metadata =
-    record.metadata && typeof record.metadata === "object" ? (record.metadata as Record<string, unknown>) : record;
-
-  // Explicit private flags take precedence
-  if (metadata.private === true || metadata.is_private === true || metadata.visibility === "private") {
+  if (
+    metadata.private === true ||
+    metadata.is_private === true ||
+    metadata.visibility === "private" ||
+    record.private === true ||
+    record.is_private === true ||
+    record.visibility === "private"
+  ) {
     return false;
   }
 
-  // Explicit public markers
-  if (
-    metadata.public_corpus === true ||
-    metadata.is_public === true ||
-    metadata.public === true ||
-    metadata.visibility === "public"
-  ) {
-    return true;
-  }
-
-  // Registry record sources are public
-  if (metadata.source_kind === "registry_record" || typeof metadata.registry_record_kind === "string") {
-    return true;
-  }
-
-  // If a document row has an explicit owner_id property
-  if ("owner_id" in record) {
-    return record.owner_id === null;
-  }
-
-  // If metadata explicitly specifies owner_id
-  if ("owner_id" in metadata) {
-    return metadata.owner_id === null;
-  }
-
-  return false;
+  return recordedOwnerId(record, metadata) === null && metadata.public_corpus === true;
 }
 
 /**
