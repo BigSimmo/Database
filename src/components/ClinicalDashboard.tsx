@@ -795,11 +795,6 @@ function ClinicalDashboardContent({
     [canUseAdministrativeApis, closeDashboardTransientSurfaces, settingsState],
   );
 
-  useEffect(() => {
-    const timeoutId = window.setTimeout(prefetchApplications, 250);
-    return () => window.clearTimeout(timeoutId);
-  }, [prefetchApplications]);
-
   // The dashboard renders directly on "/" without the standalone search shell,
   // so it must purge the legacy unscoped recent-queries key too (2026-07-13
   // audit, finding 4).

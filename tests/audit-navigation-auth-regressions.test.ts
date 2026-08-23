@@ -245,7 +245,7 @@ describe("audit navigation and auth regressions", () => {
     const indexingAdministrationContract = sourceSegment(
       clinicalDashboardSource,
       "const openLibraryHealthTarget = useCallback(",
-      "const timeoutId = window.setTimeout(prefetchApplications, 250);",
+      "// The dashboard renders directly on",
       { label: "private indexing administration" },
     );
     expect(indexingAdministrationContract).toContain("if (!canUseAdministrativeApis) {");
@@ -277,6 +277,19 @@ describe("audit navigation and auth regressions", () => {
     // Rendering is gated on the same capability, so losing access mid-session cannot leave jobs,
     // batches or quality data painted from component state.
     expect(clinicalDashboardSource).toContain("{settingsState.indexingAdminDrawerOpen && canUseAdministrativeApis ? (");
+  });
+
+  it("defers the applications route prefetch until sidebar intent", () => {
+    expect(clinicalDashboardSource).not.toContain("window.setTimeout(prefetchApplications, 250)");
+
+    const desktopSidebar = sourceSegment(clinicalDashboardSource, "<ClinicalDesktopSidebar", "<PhoneFooterLayerFrame", {
+      label: "desktop sidebar prefetch wiring",
+    });
+    const mobileSidebar = sourceSegment(clinicalDashboardSource, "<ClinicalMobileSidebar", "</PhoneFooterLayerFrame>", {
+      label: "mobile sidebar prefetch wiring",
+    });
+    expect(desktopSidebar).toContain("onPrefetchApplications={prefetchApplications}");
+    expect(mobileSidebar).toContain("onPrefetchApplications={prefetchApplications}");
   });
 
   it("keeps private indexing administration associated without exposing uploads", () => {
