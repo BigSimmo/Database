@@ -297,4 +297,65 @@ describe("resolveLocalAndAustralianEvidence", () => {
     });
     expect(resolved.conflicts).toEqual([]);
   });
+
+  it("does not promote Australian no-evidence results into primary, augmentation, or conflicts", () => {
+    const noEvidenceAustralian: SearchResult = {
+      ...australian,
+      relevance: { ...australian.relevance!, verdict: "none" },
+    };
+    const resolved = resolveLocalAndAustralianEvidence({
+      local: [],
+      australian: [noEvidenceAustralian],
+      claimRole: "treatment",
+      verifiedDifferences: [],
+    });
+
+    expect(resolved).toEqual({
+      primary: [],
+      augmentation: [],
+      conflicts: [],
+      reviewDocumentIds: [],
+      primaryDecision: { selected: "none", reason: "no_eligible_evidence" },
+    });
+  });
+
+  it("merges verified provenance deterministically when canonical conflicts repeat", () => {
+    const localSecond: SearchResult = { ...local, id: "local-chunk-2", chunk_index: 1 };
+    const australianSecond: SearchResult = { ...australian, id: "national-chunk-2", chunk_index: 1 };
+    const differences = [
+      {
+        claimRole: "treatment" as const,
+        topicKey: "treatment-sequence",
+        overlapReason: "same_claim" as const,
+        materialDifferenceReason: "recommendation_differs" as const,
+        localChunkIds: ["local-chunk-2"],
+        australianChunkIds: ["national-chunk-2"],
+      },
+      {
+        claimRole: "treatment" as const,
+        topicKey: "treatment-sequence",
+        overlapReason: "same_claim" as const,
+        materialDifferenceReason: "recommendation_differs" as const,
+        localChunkIds: ["local-chunk"],
+        australianChunkIds: ["national-chunk"],
+      },
+    ];
+    const inputs = {
+      local: [local, localSecond],
+      australian: [australian, australianSecond],
+      claimRole: "treatment" as const,
+    };
+
+    const forward = resolveLocalAndAustralianEvidence({ ...inputs, verifiedDifferences: differences });
+    const reversed = resolveLocalAndAustralianEvidence({
+      ...inputs,
+      verifiedDifferences: [...differences].reverse(),
+    });
+
+    expect(forward.conflicts).toHaveLength(1);
+    expect(forward.conflicts[0]?.local.supportingChunkIds).toEqual(["local-chunk", "local-chunk-2"]);
+    expect(forward.conflicts[0]?.australian.supportingChunkIds).toEqual(["national-chunk", "national-chunk-2"]);
+    expect(reversed.conflicts).toEqual(forward.conflicts);
+    expect(reversed.reviewDocumentIds).toEqual(forward.reviewDocumentIds);
+  });
 });

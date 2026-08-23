@@ -199,40 +199,69 @@ function buildVerifiedConflicts(args: {
 }) {
   const localByChunkId = new Map(args.local.map((result) => [result.id, result]));
   const australianByChunkId = new Map(args.australian.map((result) => [result.id, result]));
-  const conflicts: SourcePolicyConflict[] = [];
+  const pending = new Map<
+    string,
+    {
+      difference: VerifiedSourcePolicyDifference;
+      localChunkIds: Set<string>;
+      australianChunkIds: Set<string>;
+    }
+  >();
 
   for (const difference of args.verifiedDifferences) {
     if (difference.claimRole !== args.claimRole || !difference.topicKey.trim()) continue;
     const localEvidence = resultsForVerifiedChunks(localByChunkId, difference.localChunkIds);
     const australianEvidence = resultsForVerifiedChunks(australianByChunkId, difference.australianChunkIds);
     if (!localEvidence || !australianEvidence) continue;
-    const local = completeConflictSide({ ...localEvidence, expectedCorpusScope: "uploaded_local" });
-    const australian = completeConflictSide({ ...australianEvidence, expectedCorpusScope: "australian_public" });
-    if (!local || !australian) continue;
-
-    const conflict: SourcePolicyConflict = {
-      version: "source-policy-conflict-v1",
-      id: conflictId({
+    const id = conflictId({
+      difference,
+      localDocumentId: localEvidence.results[0]!.document_id,
+      australianDocumentId: australianEvidence.results[0]!.document_id,
+    });
+    const existing = pending.get(id);
+    if (existing) {
+      localEvidence.verifiedChunkIds.forEach((chunkId) => existing.localChunkIds.add(chunkId));
+      australianEvidence.verifiedChunkIds.forEach((chunkId) => existing.australianChunkIds.add(chunkId));
+    } else {
+      pending.set(id, {
         difference,
-        localDocumentId: local.documentId,
-        australianDocumentId: australian.documentId,
-      }),
-      claimRole: difference.claimRole,
-      topicKey: difference.topicKey,
-      local: { ...local, corpusScope: "uploaded_local" },
-      australian: { ...australian, corpusScope: "australian_public" },
-      overlapReason: difference.overlapReason,
-      materialDifferenceReason: difference.materialDifferenceReason,
-      localPrimaryDecision: {
-        selected: "uploaded_local",
-        reason: "current_valid_accessible_directly_supportive",
-      },
-      reviewTargetDocumentId: local.documentId,
-    };
-    if (!conflicts.some((candidate) => candidate.id === conflict.id)) conflicts.push(conflict);
+        localChunkIds: new Set(localEvidence.verifiedChunkIds),
+        australianChunkIds: new Set(australianEvidence.verifiedChunkIds),
+      });
+    }
   }
 
-  return conflicts;
+  return [...pending.entries()]
+    .sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
+    .flatMap(([id, candidate]): SourcePolicyConflict[] => {
+      const localEvidence = resultsForVerifiedChunks(localByChunkId, [...candidate.localChunkIds].sort());
+      const australianEvidence = resultsForVerifiedChunks(
+        australianByChunkId,
+        [...candidate.australianChunkIds].sort(),
+      );
+      if (!localEvidence || !australianEvidence) return [];
+      const local = completeConflictSide({ ...localEvidence, expectedCorpusScope: "uploaded_local" });
+      const australian = completeConflictSide({ ...australianEvidence, expectedCorpusScope: "australian_public" });
+      if (!local || !australian) return [];
+
+      return [
+        {
+          version: "source-policy-conflict-v1",
+          id,
+          claimRole: candidate.difference.claimRole,
+          topicKey: candidate.difference.topicKey,
+          local: { ...local, corpusScope: "uploaded_local" },
+          australian: { ...australian, corpusScope: "australian_public" },
+          overlapReason: candidate.difference.overlapReason,
+          materialDifferenceReason: candidate.difference.materialDifferenceReason,
+          localPrimaryDecision: {
+            selected: "uploaded_local",
+            reason: "current_valid_accessible_directly_supportive",
+          },
+          reviewTargetDocumentId: local.documentId,
+        },
+      ];
+    });
 }
 
 export function resolveLocalAndAustralianEvidence(args: {
@@ -258,6 +287,7 @@ export function resolveLocalAndAustralianEvidence(args: {
   const eligibleAustralian = args.australian.filter((result) => {
     const source = normalizeClinicalSourceMetadata(result.source_metadata);
     return (
+      result.relevance?.verdict !== "none" &&
       source.corpus_scope === "australian_public" &&
       sourceEligibilityForClaim({ source, claimRole: args.claimRole }).eligible
     );
