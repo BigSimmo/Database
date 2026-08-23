@@ -3051,7 +3051,7 @@ test.describe("Responsive layout guards", () => {
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/medications");
 
-    const home = page.getByTestId("medication-home");
+    const home = visibleByTestId(page, "medication-home");
     await expect(home).toBeVisible();
     await expect(home).toContainText("Check renal dosing and contraindications.");
     await expect(home).toContainText("Review opioid-use precautions before prescribing.");
@@ -3082,9 +3082,9 @@ test.describe("Responsive layout guards", () => {
 
     for (const [label, query] of capabilitySearches) {
       await gotoLauncher(page, "/medications");
-      await page.getByTestId("medication-home").getByRole("button", { name: label, exact: true }).click();
+      await visibleByTestId(page, "medication-home").getByRole("button", { name: label, exact: true }).click();
       await expect(visibleGlobalSearchInput(page).first()).toHaveValue(query);
-      await expect(page.getByTestId("medication-home")).toHaveCount(0);
+      await expect(visibleByTestId(page, "medication-home")).toHaveCount(0);
     }
 
     await gotoLauncher(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
