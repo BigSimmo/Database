@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { assertIndexableCatalogueEntry, australianSourceByKey } from "../src/lib/australian-source-catalogue";
 import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
 import {
   clinicalRegistryRowsToCorpusEntries,
   medicationRowsToCorpusEntries,
   registryDocumentIntent,
+  type RegistryCorpusEntry,
 } from "../src/lib/registry-corpus";
 import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
 import type { MedicationRecordRow } from "../src/lib/medication-records";
@@ -103,6 +105,30 @@ function corpusHarness() {
 }
 
 describe("registry corpus", () => {
+  it("forbids link-only Australian references from RegistryCorpusEntry projections", () => {
+    const contentBearingProjection = (key: string): RegistryCorpusEntry => {
+      const source = australianSourceByKey(key);
+      assertIndexableCatalogueEntry(source);
+      return {
+        kind: "service",
+        subkind: "source-reference",
+        ownerId: "22222222-2222-4222-8222-222222222222",
+        recordId: key,
+        slug: key,
+        title: source.publisher,
+        subtitle: null,
+        content: `Content projection for ${source.publisher}`,
+        searchText: source.publisher,
+        sourceStatus: "current",
+        validationStatus: "approved",
+        metadata: {},
+      };
+    };
+
+    expect(() => contentBearingProjection("etg-complete")).toThrow(/link-only/i);
+    expect(() => contentBearingProjection("australian-medicines-handbook")).toThrow(/link-only/i);
+  });
+
   it("retries a failed embed and stops calling OpenAI once corpus hashes are current", async () => {
     const { supabase, documents, chunks } = corpusHarness();
     embedTextsMock
