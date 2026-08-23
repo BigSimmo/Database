@@ -21,7 +21,6 @@ describe("ranking-config defaults (W6 — zero behavior change)", () => {
     expect(w.visualIntelligencePivot).toBe(0.55);
     expect(w.visualIntelligenceSlope).toBe(0.08);
     expect(w.outdatedPenalty).toBe(0.035);
-    // D4 ships OFF — unknown-currentness weighting needs golden-eval proof (#118 lesson).
     expect(w.unknownCurrentnessPenalty).toBe(0);
     expect(w.poorExtractionPenalty).toBe(0.035);
     expect(w.lowIndexQualityPenalty).toBe(0.035);
@@ -58,51 +57,72 @@ describe("ranking-config defaults (W6 — zero behavior change)", () => {
 });
 
 describe("resolveRankingConfig override merge", () => {
-  it("returns defaults for undefined, empty, and malformed JSON", () => {
+  it("returns defaults only when no override is supplied", () => {
     expect(resolveRankingConfig(undefined)).toEqual(defaultRankingConfig);
     expect(resolveRankingConfig("")).toEqual(defaultRankingConfig);
-    expect(resolveRankingConfig("{not json")).toEqual(defaultRankingConfig);
-    expect(resolveRankingConfig("[1,2,3]")).toEqual(defaultRankingConfig);
+    expect(resolveRankingConfig("   ")).toEqual(defaultRankingConfig);
   });
 
-  it("deep-merges provided numeric fields and keeps defaults for the rest", () => {
+  it("fails closed for malformed JSON and non-object roots", () => {
+    expect(() => resolveRankingConfig("{not json")).toThrow(/RAG_RANKING_CONFIG/i);
+    expect(() => resolveRankingConfig("[1,2,3]")).toThrow(/RAG_RANKING_CONFIG/i);
+    expect(() => resolveRankingConfig("null")).toThrow(/RAG_RANKING_CONFIG/i);
+  });
+
+  it("fails closed for unknown keys at every supported level", () => {
+    expect(() => resolveRankingConfig(JSON.stringify({ documentDiversityPenality: 0.03 }))).toThrow(/unrecognized|unknown/i);
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBost: 0.22 } })),
+    ).toThrow(/unrecognized|unknown/i);
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ featureFusion: { comparison: { lexicalCoverge: 1.1 } } })),
+    ).toThrow(/unrecognized|unknown/i);
+    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { mod: "linear" } }))).toThrow(/unrecognized|unknown/i);
+  });
+
+  it("fails closed for invalid types rather than silently substituting defaults", () => {
+    expect(() => resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: "big" } }))).toThrow(
+      /doseAmountBoost/i,
+    );
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ featureFusion: { document_lookup: { clinicalEvidence: "high" } } })),
+    ).toThrow(/clinicalEvidence/i);
+    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { mode: "gradual" } }))).toThrow(/mode/i);
+  });
+
+  it("rejects pathological or domain-invalid numeric values", () => {
+    expect(() => resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: 1_000_000 } }))).toThrow(
+      /doseAmountBoost/i,
+    );
+    expect(() => resolveRankingConfig(JSON.stringify({ secondStage: { lowIndexQualityThreshold: 1.1 } }))).toThrow(
+      /lowIndexQualityThreshold/i,
+    );
+    expect(() => resolveRankingConfig(JSON.stringify({ documentDiversityPenalty: -0.01 }))).toThrow(
+      /documentDiversityPenalty/i,
+    );
+    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { publicationCliffYears: -1 } }))).toThrow(
+      /publicationCliffYears/i,
+    );
+    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { publicationPenalty: 1 } }))).toThrow(
+      /publicationPenalty/i,
+    );
+  });
+
+  it("deep-merges valid provided fields and keeps defaults for the rest", () => {
     const cfg = resolveRankingConfig(
       JSON.stringify({
-        secondStage: { doseAmountBoost: 0.22 },
+        secondStage: { doseAmountBoost: 0.22, unknownCurrentnessPenalty: 0.03 },
         featureFusion: { comparison: { lexicalCoverage: 1.1 } },
         documentDiversityPenalty: 0.03,
       }),
     );
     expect(cfg.secondStage.doseAmountBoost).toBe(0.22);
-    // Untouched weights fall back to defaults.
+    expect(cfg.secondStage.unknownCurrentnessPenalty).toBe(0.03);
     expect(cfg.secondStage.positionBase).toBe(0.09);
     expect(cfg.documentDiversityPenalty).toBe(0.03);
     expect(cfg.featureFusion.comparison.lexicalCoverage).toBe(1.1);
     expect(cfg.featureFusion.comparison.hybridRelevance).toBe(1);
     expect(cfg.featureFusion.document_lookup.lexicalCoverage).toBe(1);
-    // D4 activation path: the JSON override can set the penalty; negatives clamp to 0.
-    expect(
-      resolveRankingConfig(JSON.stringify({ secondStage: { unknownCurrentnessPenalty: 0.03 } })).secondStage
-        .unknownCurrentnessPenalty,
-    ).toBe(0.03);
-    expect(
-      resolveRankingConfig(JSON.stringify({ secondStage: { unknownCurrentnessPenalty: -1 } })).secondStage
-        .unknownCurrentnessPenalty,
-    ).toBe(0);
-  });
-
-  it("ignores non-numeric values and clamps diversity penalties to non-negative", () => {
-    const cfg = resolveRankingConfig(
-      JSON.stringify({
-        secondStage: { doseAmountBoost: "big" },
-        featureFusion: { document_lookup: { metadataRelevance: -2, clinicalEvidence: "high" } },
-        documentDiversityPenalty: -5,
-      }),
-    );
-    expect(cfg.secondStage.doseAmountBoost).toBe(0.18);
-    expect(cfg.documentDiversityPenalty).toBe(0);
-    expect(cfg.featureFusion.document_lookup.metadataRelevance).toBe(0);
-    expect(cfg.featureFusion.document_lookup.clinicalEvidence).toBe(1);
   });
 
   it("accepts the linear freshness mode", () => {
@@ -113,7 +133,6 @@ describe("resolveRankingConfig override merge", () => {
 });
 
 describe("freshnessDecayPenalty", () => {
-  // The default is now "linear"; construct an explicit step config to validate step-mode behavior.
   const step = { ...defaultRankingConfig.freshness, mode: "step" as const };
 
   it("step mode reproduces the original publication/review cliffs exactly", () => {
@@ -127,15 +146,12 @@ describe("freshnessDecayPenalty", () => {
 
   it("linear mode ramps monotonically from the ramp start up to the cliff", () => {
     const linear: FreshnessConfig = { ...step, mode: "linear", linearRampYears: 3 };
-    // publication cliff 8, ramp 3 => ramp starts at year 5.
     expect(freshnessDecayPenalty(5, "publication", linear)).toBe(0);
-    const mid = freshnessDecayPenalty(6.5, "publication", linear); // halfway
+    const mid = freshnessDecayPenalty(6.5, "publication", linear);
     expect(mid).toBeLessThan(0);
     expect(mid).toBeGreaterThan(-0.015);
     expect(freshnessDecayPenalty(8, "publication", linear)).toBe(-0.015);
-    // Beyond the cliff the penalty is capped, never exceeding the full value.
     expect(freshnessDecayPenalty(20, "publication", linear)).toBe(-0.015);
-    // Monotonic non-increasing as the document ages.
     expect(freshnessDecayPenalty(7, "publication", linear)).toBeLessThan(mid);
   });
 });
