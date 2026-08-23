@@ -392,7 +392,8 @@ export function MasterSearchHeader({
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
     selectedSearch.kind === "dsm";
-  const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
+  const searchSetupNotReady = !realDataReady && !canRunLocalSearch;
+  const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && !searchSetupNotReady;
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
   const loadedScopeSummary = hasUnloadedDocuments
@@ -2047,6 +2048,8 @@ export function MasterSearchHeader({
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
+                disabled={searchSetupNotReady}
+                title={searchSetupNotReady ? "Search setup not ready" : undefined}
                 onFocus={(e) => {
                   e.target.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
                 }}
@@ -2086,7 +2089,7 @@ export function MasterSearchHeader({
               type="submit"
               disabled={!canAsk}
               title={
-                !realDataReady && !canRunLocalSearch
+                searchSetupNotReady
                   ? "Search setup not ready"
                   : trimmedQuery.length < 1
                     ? selectedSearch.emptyTitle

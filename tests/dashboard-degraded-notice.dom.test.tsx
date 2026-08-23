@@ -11,8 +11,10 @@ describe("DegradedNoticeFrame", () => {
     const frameIndex = dashboardSource.indexOf("<DegradedNoticeFrame");
     const heroIndex = dashboardSource.indexOf("<section", frameIndex);
 
-    expect(dashboardSource).toContain("showDegradedNotice || centeredModeHome ? (");
-    expect(dashboardSource).toContain("reserveSpace={centeredModeHome}");
+    expect(dashboardSource).toContain(
+      "<DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} reserveSpace={centeredModeHome} />",
+    );
+    expect(dashboardSource).not.toContain("showDegradedNotice || centeredModeHome ? (");
     expect(frameIndex).toBeGreaterThanOrEqual(0);
     expect(heroIndex).toBeGreaterThan(frameIndex);
   });
@@ -34,31 +36,26 @@ describe("DegradedNoticeFrame", () => {
     expect(collapsedDrawerMaximumPx).toBe(62);
 
     const { rerender } = render(<DegradedNoticeFrame visible={false} isOnline reserveSpace />);
-    const frame = screen.getByTestId("dashboard-degraded-notice-frame");
 
-    expect(frame).toHaveClass("h-0");
-    expect(frame).toHaveAttribute("data-visible", "false");
+    expect(screen.queryByTestId("dashboard-degraded-notice-frame")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(frame).toBeEmptyDOMElement();
 
     rerender(<DegradedNoticeFrame visible isOnline={false} />);
 
-    expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
-    expect(frame).toHaveClass("h-0");
-    expect(frame).toHaveAttribute("data-visible", "true");
+    const overlayFrame = screen.getByTestId("dashboard-degraded-notice-frame");
+    expect(overlayFrame).toHaveClass("h-0", "!mt-0");
+    expect(overlayFrame).toHaveAttribute("data-visible", "true");
     expect(screen.getByRole("alert")).toHaveTextContent("Offline");
 
-    rerender(<DegradedNoticeFrame visible isOnline />);
+    rerender(<DegradedNoticeFrame visible isOnline reserveSpace />);
 
-    expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
-    expect(frame).toHaveClass("min-h-[3.875rem]");
+    const reservedFrame = screen.getByTestId("dashboard-degraded-notice-frame");
+    expect(reservedFrame).toHaveClass("min-h-[3.875rem]");
     expect(screen.getByRole("alert")).toHaveTextContent("Service unavailable");
 
     rerender(<DegradedNoticeFrame visible={false} isOnline />);
 
-    expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
-    expect(frame).toHaveClass("h-0");
+    expect(screen.queryByTestId("dashboard-degraded-notice-frame")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(frame).toBeEmptyDOMElement();
   });
 });

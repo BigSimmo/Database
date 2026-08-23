@@ -54,9 +54,11 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
 }
 
 /**
- * Keeps the dashboard's collapsed degraded-state control in normal flow on the
- * centred home surface. Result pages retain a zero-height frame so their notice
- * can overlay without inserting a band during a degraded transition.
+ * Mounts the dashboard's collapsed degraded-state control only while the
+ * notice is actually showing. A hidden zero-height frame still participates in
+ * the parent `space-y-*` gap and inflates phone/tablet geometry, so healthy
+ * views must omit the node entirely. Centred homes keep the notice in flow;
+ * result pages overlay it from a zero-height frame.
  */
 export function DegradedNoticeFrame({
   visible,
@@ -67,20 +69,20 @@ export function DegradedNoticeFrame({
   isOnline: boolean;
   reserveSpace?: boolean;
 }) {
+  if (!visible) {
+    return null;
+  }
+
   return (
     <div
       data-testid="dashboard-degraded-notice-frame"
-      data-visible={visible ? "true" : "false"}
-      className={reserveSpace ? "min-h-[3.875rem]" : "relative z-10 h-0 overflow-visible"}
+      data-visible="true"
+      className={reserveSpace ? "min-h-[3.875rem]" : "relative z-10 !mt-0 h-0 overflow-visible"}
     >
-      {visible ? (
-        <>
-          <span role="alert" className="sr-only">
-            {!isOnline ? "Offline" : "Service unavailable"}
-          </span>
-          <DegradedNotice isOnline={isOnline} />
-        </>
-      ) : null}
+      <span role="alert" className="sr-only">
+        {!isOnline ? "Offline" : "Service unavailable"}
+      </span>
+      <DegradedNotice isOnline={isOnline} />
     </div>
   );
 }

@@ -101,7 +101,6 @@ export const CLINICAL_TWMERGE_THEME = {
     "icon-xl",
     "mode-home-composer-phone",
     "mode-home-composer-wide",
-    "page-composer-wide",
     "safe",
     "safe-2",
     "search-band-badge",
