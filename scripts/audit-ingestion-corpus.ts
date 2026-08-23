@@ -7,6 +7,8 @@ import { australianSourceCatalogue } from "@/lib/australian-source-catalogue";
 import {
   auditDocument,
   normalizeIngestionFailedExpectationCodes,
+  parseIngestionAuditIdentifier,
+  type IngestionAuditIdentifierKind,
   type IngestionDocumentAuditInput,
 } from "@/lib/ingestion-audit";
 import { ragProgrammeFixture } from "@/lib/rag/rag-programme-eval";
@@ -35,11 +37,21 @@ function exactKeys(value: Record<string, unknown>, allowed: readonly string[], l
   if (unexpected.length) throw new Error(`${label} contains unsupported field ${unexpected.sort()[0]}.`);
 }
 
-function text(value: unknown, label: string, nullable = false): string | null {
+function boundedLabel(value: unknown, label: string, nullable = false): string | null {
   if (nullable && value === null) return null;
-  if (typeof value !== "string" || !value.trim() || value.length > 200)
+  if (typeof value !== "string" || !value.trim() || value.length > 200 || !/^[\x20-\x7e]+$/.test(value))
     throw new Error(`${label} must be bounded text.`);
   return value.trim();
+}
+
+function identifier(
+  value: unknown,
+  kind: IngestionAuditIdentifierKind,
+  label: string,
+  nullable = false,
+): string | null {
+  if (nullable && value === null) return null;
+  return parseIngestionAuditIdentifier(value, kind, label);
 }
 
 function count(value: unknown, label: string, nullable = false): number | null {
@@ -54,9 +66,9 @@ function booleanOrNull(value: unknown, label: string): boolean | null {
   throw new Error(`${label} must be boolean or null.`);
 }
 
-function stringArray(value: unknown, label: string): string[] {
+function identifierArray(value: unknown, label: string, kind: "document" | "generation"): string[] {
   if (!Array.isArray(value) || value.length > MAX_ARRAY) throw new Error(`${label} must be a bounded array.`);
-  const result = value.map((item, index) => text(item, `${label}[${index}]`) as string);
+  const result = value.map((item, index) => identifier(item, kind, `${label}[${index}]`) as string);
   if (new Set(result).size !== result.length) throw new Error(`${label} contains duplicate values.`);
   return result.sort();
 }
@@ -64,7 +76,16 @@ function stringArray(value: unknown, label: string): string[] {
 function failureCodeArray(value: unknown, label: string): string[] {
   if (!Array.isArray(value) || value.length > MAX_FAILED_EXPECTATIONS)
     throw new Error(`${label} must be a bounded array of failed expectation codes.`);
-  const result = value.map((item, index) => text(item, `${label}[${index}]`) as string);
+  const result = value.map((item, index) => {
+    if (
+      typeof item !== "string" ||
+      item.length === 0 ||
+      item.length > 160 ||
+      !/^[a-z][a-z0-9_]*(?::[a-z][a-z0-9_]*)?$/.test(item)
+    )
+      throw new Error(`${label}[${index}] must be an opaque failed expectation code.`);
+    return item;
+  });
   if (new Set(result).size !== result.length) throw new Error(`${label} contains duplicate values.`);
   try {
     return normalizeIngestionFailedExpectationCodes(result);
@@ -129,15 +150,25 @@ function parseDocument(value: unknown, index: number): IngestionDocumentAuditInp
       ],
       `${label}.integrityExpectation`,
     );
-  const lifecycle = text(raw.lifecycle, `${label}.lifecycle`) as IngestionDocumentAuditInput["lifecycle"];
+  const lifecycle = raw.lifecycle as IngestionDocumentAuditInput["lifecycle"];
   if (!new Set(["active", "quarantined", "withdrawn", "superseded"]).has(lifecycle))
     throw new Error(`${label}.lifecycle is invalid.`);
   const extractionQuality = raw.extractionQuality;
   if (extractionQuality !== null && extractionQuality !== "acceptable" && extractionQuality !== "poor")
     throw new Error(`${label}.extractionQuality is invalid.`);
   if (typeof raw.governanceValid !== "boolean") throw new Error(`${label}.governanceValid must be boolean.`);
-  const metadata = object(raw.metadata, `${label}.metadata`);
-  exactKeys(metadata, ["source_kind", "registry_record_id"], `${label}.metadata`);
+  const metadataRaw = object(raw.metadata, `${label}.metadata`);
+  exactKeys(metadataRaw, ["source_kind", "registry_record_id"], `${label}.metadata`);
+  if (typeof metadataRaw.source_kind !== "string" || !/^[a-z][a-z0-9_]{0,63}$/.test(metadataRaw.source_kind))
+    throw new Error(`${label}.metadata.source_kind must be a bounded ASCII metadata identifier.`);
+  const registryRecordId =
+    metadataRaw.registry_record_id === undefined || metadataRaw.registry_record_id === null
+      ? undefined
+      : identifier(metadataRaw.registry_record_id, "source key", `${label}.metadata.registry_record_id`);
+  const metadata = {
+    source_kind: metadataRaw.source_kind,
+    ...(registryRecordId === undefined ? {} : { registry_record_id: registryRecordId }),
+  };
   const mustPassRaw = raw.mustPassCases;
   if (!Array.isArray(mustPassRaw) || mustPassRaw.length > MAX_CASES)
     throw new Error(`${label}.mustPassCases must be bounded.`);
@@ -150,24 +181,27 @@ function parseDocument(value: unknown, index: number): IngestionDocumentAuditInp
       itemLabel,
     );
     if (typeof testCase.passed !== "boolean") throw new Error(`${itemLabel}.passed must be boolean.`);
+    const failedExpectations = failureCodeArray(testCase.failedExpectations, `${itemLabel}.failedExpectations`);
+    if (testCase.passed && failedExpectations.length > 0)
+      throw new Error(`${itemLabel}.passed cannot be true when failed expectations are present.`);
     return {
-      id: text(testCase.id, `${itemLabel}.id`) as string,
+      id: identifier(testCase.id, "case", `${itemLabel}.id`) as string,
       passed: testCase.passed,
       expectedDocumentRank: count(testCase.expectedDocumentRank, `${itemLabel}.expectedDocumentRank`, true),
       actualDocumentRank: count(testCase.actualDocumentRank, `${itemLabel}.actualDocumentRank`, true),
-      failedExpectations: failureCodeArray(testCase.failedExpectations, `${itemLabel}.failedExpectations`),
+      failedExpectations,
     };
   });
   const caseIds = mustPassCases.map(({ id }) => id);
   const duplicateCaseId = caseIds.filter((id, caseIndex) => caseIds.indexOf(id) !== caseIndex).sort()[0];
   if (duplicateCaseId) throw new Error(`${label}.mustPassCases contains duplicate case id ${duplicateCaseId}.`);
   return {
-    documentId: text(raw.documentId, `${label}.documentId`) as string,
-    fileName: text(raw.fileName, `${label}.fileName`, true),
+    documentId: identifier(raw.documentId, "document", `${label}.documentId`) as string,
+    fileName: boundedLabel(raw.fileName, `${label}.fileName`, true),
     metadata,
     registryProjection: isRegistryProjectionDocument({
       status: "indexed",
-      file_name: raw.fileName === null ? null : (text(raw.fileName, `${label}.fileName`) as string),
+      file_name: raw.fileName === null ? null : (boundedLabel(raw.fileName, `${label}.fileName`) as string),
       page_count: count(raw.indexedPageCount, `${label}.indexedPageCount`, true),
       chunk_count: count(raw.chunkCount, `${label}.chunkCount`) as number,
       metadata,
@@ -180,31 +214,37 @@ function parseDocument(value: unknown, index: number): IngestionDocumentAuditInp
           images: count(expectationRaw.images, `${label}.integrityExpectation.images`, true),
           searchableUnits: count(expectationRaw.searchableUnits, `${label}.integrityExpectation.searchableUnits`, true),
           embeddings: count(expectationRaw.embeddings, `${label}.integrityExpectation.embeddings`, true),
-          unitQualityPolicyVersion: text(
+          unitQualityPolicyVersion: identifier(
             expectationRaw.unitQualityPolicyVersion,
+            "policy",
             `${label}.integrityExpectation.unitQualityPolicyVersion`,
           ) as string,
-          embeddingModel: text(expectationRaw.embeddingModel, `${label}.integrityExpectation.embeddingModel`) as string,
+          embeddingModel: identifier(
+            expectationRaw.embeddingModel,
+            "model",
+            `${label}.integrityExpectation.embeddingModel`,
+          ) as string,
           embeddingDimensions: count(
             expectationRaw.embeddingDimensions,
             `${label}.integrityExpectation.embeddingDimensions`,
           ) as number,
-          embeddingStrategy: text(
+          embeddingStrategy: identifier(
             expectationRaw.embeddingStrategy,
+            "strategy",
             `${label}.integrityExpectation.embeddingStrategy`,
           ) as string,
         }
       : null,
-    activeGenerationId: text(raw.activeGenerationId, `${label}.activeGenerationId`, true),
+    activeGenerationId: identifier(raw.activeGenerationId, "generation", `${label}.activeGenerationId`, true),
     lifecycle,
     governanceValid: raw.governanceValid,
-    publisher: text(raw.publisher, `${label}.publisher`, true),
+    publisher: boundedLabel(raw.publisher, `${label}.publisher`, true),
     pageCount: count(raw.pageCount, `${label}.pageCount`, true),
     indexedPageCount: count(raw.indexedPageCount, `${label}.indexedPageCount`, true),
     chunkCount: count(raw.chunkCount, `${label}.chunkCount`) as number,
-    tableCount: count(raw.tableCount, `${label}.tableCount`) as number,
-    imageCount: count(raw.imageCount, `${label}.imageCount`) as number,
-    searchableUnitCount: count(raw.searchableUnitCount, `${label}.searchableUnitCount`) as number,
+    tableCount: count(raw.tableCount, `${label}.tableCount`, true),
+    imageCount: count(raw.imageCount, `${label}.imageCount`, true),
+    searchableUnitCount: count(raw.searchableUnitCount, `${label}.searchableUnitCount`, true),
     embeddingCount: count(raw.embeddingCount, `${label}.embeddingCount`) as number,
     duplicateChunks: count(raw.duplicateChunks, `${label}.duplicateChunks`) as number,
     orphanedArtifacts: count(raw.orphanedArtifacts, `${label}.orphanedArtifacts`) as number,
@@ -216,10 +256,10 @@ function parseDocument(value: unknown, index: number): IngestionDocumentAuditInp
     headingContinuityPassed: booleanOrNull(raw.headingContinuityPassed, `${label}.headingContinuityPassed`),
     tableContinuityPassed: booleanOrNull(raw.tableContinuityPassed, `${label}.tableContinuityPassed`),
     extractionQuality,
-    embeddingModel: text(raw.embeddingModel, `${label}.embeddingModel`, true),
+    embeddingModel: identifier(raw.embeddingModel, "model", `${label}.embeddingModel`, true),
     embeddingDimensions: count(raw.embeddingDimensions, `${label}.embeddingDimensions`, true),
-    embeddingStrategy: text(raw.embeddingStrategy, `${label}.embeddingStrategy`, true),
-    chunkGenerations: stringArray(raw.chunkGenerations, `${label}.chunkGenerations`),
+    embeddingStrategy: identifier(raw.embeddingStrategy, "strategy", `${label}.embeddingStrategy`, true),
+    chunkGenerations: identifierArray(raw.chunkGenerations, `${label}.chunkGenerations`, "generation"),
     mustPassCases,
   };
 }
@@ -242,8 +282,12 @@ function parseInventory(value: unknown): Inventory {
       const raw = object(item, `retrievalCases[${index}]`);
       exactKeys(raw, ["id", "retrievedDocumentIds"], `retrievalCases[${index}]`);
       return {
-        id: text(raw.id, `retrievalCases[${index}].id`) as string,
-        retrievedDocumentIds: stringArray(raw.retrievedDocumentIds, `retrievalCases[${index}].retrievedDocumentIds`),
+        id: identifier(raw.id, "case", `retrievalCases[${index}].id`) as string,
+        retrievedDocumentIds: identifierArray(
+          raw.retrievedDocumentIds,
+          `retrievalCases[${index}].retrievedDocumentIds`,
+          "document",
+        ),
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));

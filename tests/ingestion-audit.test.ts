@@ -78,6 +78,32 @@ describe("ingestion integrity audit", () => {
     expect(() => auditDocument(fixture({ indexedPageCount: null }))).toThrow(/indexed page.*measurement/i);
   });
 
+  it("targets measured governed extraction deficits and rejects unknown measurements", () => {
+    expect(auditDocument(fixture({ tableCount: 0 }))).toMatchObject({
+      action: "targeted_reprocess",
+      reasons: ["missing_tables"],
+      counts: { tables: { expected: 1, actual: 0 } },
+    });
+    expect(auditDocument(fixture({ imageCount: 1 }))).toMatchObject({
+      action: "targeted_reprocess",
+      reasons: ["missing_images"],
+      counts: { images: { expected: 2, actual: 1 } },
+    });
+    expect(auditDocument(fixture({ searchableUnitCount: 20 }))).toMatchObject({
+      action: "targeted_reprocess",
+      reasons: ["missing_searchable_units"],
+      counts: { searchableUnits: { expected: 24, actual: 20 } },
+    });
+
+    for (const unknownMeasurement of [
+      { tableCount: null },
+      { imageCount: null },
+      { searchableUnitCount: null },
+    ] satisfies Array<Partial<IngestionDocumentAuditInput>>) {
+      expect(() => auditDocument(fixture(unknownMeasurement))).toThrow(/measurement is required/i);
+    }
+  });
+
   it("classifies unit-quality and embedding defects with deterministic precedence", () => {
     expect(auditDocument(fixture({ emptyIndexUnits: 2, oversizedIndexUnits: 1 }))).toMatchObject({
       action: "targeted_reprocess",
@@ -138,6 +164,7 @@ describe("ingestion integrity audit", () => {
 
   it("fails closed when the state digest changes between plan and apply", () => {
     const audit = auditDocument(fixture());
+    expect(audit.expectedStateDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(() => assertAuditTargetState(audit, "different-digest")).toThrow(/state digest changed/i);
     expect(() => assertAuditTargetState(audit, audit.expectedStateDigest)).not.toThrow();
   });
@@ -192,6 +219,40 @@ describe("ingestion integrity audit", () => {
         ),
       ).toThrow(/failed expectation code/i);
     }
+  });
+
+  it("rejects contradictory evaluator evidence without suppressing retrieval action", () => {
+    expect(() =>
+      auditDocument(
+        fixture({
+          mustPassCases: [
+            {
+              id: "must-pass-1",
+              passed: true,
+              expectedDocumentRank: 1,
+              actualDocumentRank: null,
+              failedExpectations: ["expected_document_not_retrieved"],
+            },
+          ],
+        }),
+      ),
+    ).toThrow(/passed.*failed expectation/i);
+
+    expect(
+      auditDocument(
+        fixture({
+          mustPassCases: [
+            {
+              id: "must-pass-1",
+              passed: false,
+              expectedDocumentRank: 1,
+              actualDocumentRank: null,
+              failedExpectations: [],
+            },
+          ],
+        }),
+      ),
+    ).toMatchObject({ action: "shadow_reindex", reasons: ["must_pass_retrieval_failed"] });
   });
 
   it("normalizes real P01 evaluator reasons to opaque audit categories", () => {

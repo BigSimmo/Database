@@ -43,8 +43,8 @@ describe("expected source coverage", () => {
     const base = expectedCoverageFixture()[0]!;
     const findings = auditExpectedSourceCoverage({
       expected: [
-        { ...base, key: "retired", reviewStatus: "retired" },
-        { ...base, key: "not-approved", reviewStatus: "not_approved" },
+        { ...base, key: "retired", owner: "source_governance:retired", reviewStatus: "retired" },
+        { ...base, key: "not-approved", owner: "source_governance:not-approved", reviewStatus: "not_approved" },
       ],
       activeDocumentIds: new Set(["expected-doc"]),
       retrievedDocumentIdsByCase: new Map([["must-pass-1", new Set(["expected-doc"])]]),
@@ -101,6 +101,33 @@ describe("expected source coverage", () => {
         ]),
       }),
     ).toEqual([expect.objectContaining({ key: "two-doc-source", outcome: "available" })]);
+  });
+
+  it("rejects incomplete or invalid plain-value case expectation mappings", () => {
+    const base = expectedCoverageFixture()[0]!;
+    const malformed: ExpectedSourceCoverageRecord[] = [
+      { ...base, caseExpectations: [{ caseId: "must-pass-1", expectedDocumentIds: [] }] },
+      { ...base, caseExpectations: [{ caseId: "must-pass-1", expectedDocumentIds: ["foreign-doc"] }] },
+      {
+        ...base,
+        caseExpectations: [{ caseId: "must-pass-1", expectedDocumentIds: ["expected-doc", "expected-doc"] }],
+      },
+      {
+        ...base,
+        expectedDocumentIds: ["expected-doc", "unmapped-doc"],
+        caseExpectations: [{ caseId: "must-pass-1", expectedDocumentIds: ["expected-doc"] }],
+      },
+    ];
+
+    for (const entry of malformed) {
+      expect(() =>
+        auditExpectedSourceCoverage({
+          expected: structuredClone([entry]),
+          activeDocumentIds: new Set(entry.expectedDocumentIds),
+          retrievedDocumentIdsByCase: new Map([["must-pass-1", new Set(entry.expectedDocumentIds)]]),
+        }),
+      ).toThrow(/case expectation/i);
+    }
   });
 
   it("rejects duplicate identities, missing owners, bad case-document mappings, and active link-only sources", () => {
@@ -160,6 +187,7 @@ describe("expected source coverage", () => {
     expect(firstBytes.equals(secondBytes)).toBe(true);
     const report = JSON.parse(firstBytes.toString("utf8")) as Record<string, unknown>;
     expect(report).toMatchObject({ schemaVersion: 1, mode: "offline_read_only" });
+    expect(report.populationFingerprint).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(JSON.stringify(report)).not.toMatch(
       /clinicalText|content|title|prompt|canonicalUrl|ownerId|embeddingVector/,
     );
@@ -264,6 +292,92 @@ describe("expected source coverage", () => {
       "documents[0].mustPassCases contains duplicate case id site-sync-unavailable.",
       "documents[0].mustPassCases contains duplicate case id site-sync-unavailable.",
     ]);
+  });
+
+  it("rejects contradictory evaluator state deterministically before writing a report", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "ingestion-audit-contradiction-"));
+    const canonicalInput = fileURLToPath(new URL("fixtures/ingestion/active-corpus-inventory.json", import.meta.url));
+    const expected = fileURLToPath(new URL("../data/rag-expected-source-coverage.v1.json", import.meta.url));
+    const inventory = JSON.parse(await readFile(canonicalInput, "utf8")) as {
+      documents: Array<{ mustPassCases: Array<{ passed: boolean; failedExpectations: string[] }> }>;
+    };
+    inventory.documents[0]!.mustPassCases[0]!.passed = true;
+    inventory.documents[0]!.mustPassCases[0]!.failedExpectations = ["expected_document_not_retrieved"];
+    const messages: string[] = [];
+    for (let index = 0; index < 2; index += 1) {
+      const input = path.join(directory, `input-${index}.json`);
+      const output = path.join(directory, `output-${index}.json`);
+      await writeFile(input, JSON.stringify(inventory));
+      try {
+        await runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", output]);
+        messages.push("resolved");
+      } catch (error) {
+        messages.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+    expect(messages[0]).toMatch(/passed.*failed expectation/i);
+    expect(messages[1]).toBe(messages[0]);
+  });
+
+  it("rejects unsafe inventory identifiers before report creation", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "ingestion-audit-identifiers-"));
+    const canonicalInput = fileURLToPath(new URL("fixtures/ingestion/active-corpus-inventory.json", import.meta.url));
+    const expected = fileURLToPath(new URL("../data/rag-expected-source-coverage.v1.json", import.meta.url));
+    const canonical = JSON.parse(await readFile(canonicalInput, "utf8")) as {
+      documents: Array<{
+        documentId: string;
+        activeGenerationId: string | null;
+        integrityExpectation: {
+          unitQualityPolicyVersion: string;
+          embeddingModel: string;
+          embeddingStrategy: string;
+        };
+        chunkGenerations: string[];
+        mustPassCases: Array<{ id: string }>;
+      }>;
+      retrievalCases: Array<{ id: string; retrievedDocumentIds: string[] }>;
+    };
+    const mutations: Array<(inventory: typeof canonical) => void> = [
+      (inventory) => {
+        inventory.documents[0]!.documentId = "Patient reports suicidal thoughts";
+      },
+      (inventory) => {
+        inventory.documents[0]!.activeGenerationId = "https://private.example.test/generation";
+      },
+      (inventory) => {
+        inventory.documents[0]!.integrityExpectation.unitQualityPolicyVersion = "sk-secret-key-v1";
+      },
+      (inventory) => {
+        inventory.documents[0]!.integrityExpectation.embeddingModel = "owner@example.test";
+      },
+      (inventory) => {
+        inventory.documents[0]!.integrityExpectation.embeddingStrategy = "chunk|provider-error";
+      },
+      (inventory) => {
+        inventory.documents[0]!.chunkGenerations[0] = "550e8400-e29b-41d4-a716-446655440000";
+      },
+      (inventory) => {
+        inventory.documents[0]!.mustPassCases[0]!.id = "case\nid";
+      },
+      (inventory) => {
+        inventory.retrievalCases[0]!.id = "casé-id";
+      },
+      (inventory) => {
+        inventory.retrievalCases[0]!.retrievedDocumentIds[0] = "https://private.example.test/document";
+      },
+    ];
+
+    for (const [index, mutate] of mutations.entries()) {
+      const inventory = structuredClone(canonical);
+      mutate(inventory);
+      const input = path.join(directory, `input-${index}.json`);
+      const output = path.join(directory, `output-${index}.json`);
+      await writeFile(input, JSON.stringify(inventory));
+      await expect(
+        runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", output]),
+      ).rejects.toThrow(/ASCII identifier/i);
+      await expect(readFile(output)).rejects.toThrow();
+    }
   });
 
   it("checks input size before allocating the bounded read buffer", async () => {

@@ -1,3 +1,5 @@
+import { parseIngestionAuditIdentifier } from "./ingestion-audit";
+
 export type ExpectedSourceCoverageRecord = Readonly<{
   key: string;
   owner: string;
@@ -35,15 +37,9 @@ function exactKeys(value: Record<string, unknown>, allowed: readonly string[], l
   if (unexpected.length) throw new Error(`${label} contains unsupported field ${unexpected.sort()[0]}.`);
 }
 
-function boundedString(value: unknown, label: string) {
-  if (typeof value !== "string" || !value.trim() || value.length > 200)
-    throw new Error(`${label} must be a bounded string.`);
-  return value.trim();
-}
-
-function stringIds(value: unknown, label: string) {
+function stringIds(value: unknown, label: string, kind: "document" | "case") {
   if (!Array.isArray(value) || value.length > MAX_IDS) throw new Error(`${label} must be a bounded array.`);
-  const ids = value.map((item, index) => boundedString(item, `${label}[${index}]`));
+  const ids = value.map((item, index) => parseIngestionAuditIdentifier(item, kind, `${label}[${index}]`));
   if (new Set(ids).size !== ids.length) throw new Error(`${label} contains a duplicate identifier.`);
   return ids.sort();
 }
@@ -65,8 +61,8 @@ export function parseExpectedSourceCoverageRegistry(
   const records = root.records.map((item, index): ExpectedSourceCoverageRecord => {
     const raw = record(item, `records[${index}]`);
     exactKeys(raw, ["key", "owner", "reviewStatus", "expectedDocumentIds", "mustPassCaseIds"], `records[${index}]`);
-    const key = boundedString(raw.key, `records[${index}].key`);
-    const owner = boundedString(raw.owner, `records[${index}].owner`);
+    const key = parseIngestionAuditIdentifier(raw.key, "source key", `records[${index}].key`);
+    const owner = raw.owner;
     if (keys.has(key)) throw new Error(`Duplicate expected source key: ${key}.`);
     keys.add(key);
     const catalogue = catalogueByKey.get(key);
@@ -82,8 +78,8 @@ export function parseExpectedSourceCoverageRegistry(
       throw new Error(`${key} is link-only or index-forbidden and cannot be active.`);
     if (reviewStatus === "active" && catalogue.lifecycle !== "active")
       throw new Error(`${key} is not an active catalogue source.`);
-    const expectedDocumentIds = stringIds(raw.expectedDocumentIds, `${key}.expectedDocumentIds`);
-    const mustPassCaseIds = stringIds(raw.mustPassCaseIds, `${key}.mustPassCaseIds`);
+    const expectedDocumentIds = stringIds(raw.expectedDocumentIds, `${key}.expectedDocumentIds`, "document");
+    const mustPassCaseIds = stringIds(raw.mustPassCaseIds, `${key}.mustPassCaseIds`, "case");
     for (const documentId of expectedDocumentIds) {
       if (claimedDocuments.has(documentId)) throw new Error(`Duplicate expected document ownership: ${documentId}.`);
       claimedDocuments.add(documentId);
@@ -122,29 +118,76 @@ export function auditExpectedSourceCoverage(args: {
   retrievedDocumentIdsByCase: ReadonlyMap<string, ReadonlySet<string>>;
 }): readonly SourceCoverageFinding[] {
   return [...args.expected]
-    .sort((left, right) => left.key.localeCompare(right.key))
     .map((entry) => {
-      const expectedByCase = new Map(
-        entry.caseExpectations.map(({ caseId, expectedDocumentIds }) => [caseId, expectedDocumentIds]),
+      if (!entry || typeof entry !== "object") throw new Error("Expected source record must be an object.");
+      const key = parseIngestionAuditIdentifier(entry.key, "source key", "expected source key");
+      if (entry.owner !== `source_governance:${key}`)
+        throw new Error("Expected source owner must match its controlled source-governance identifier.");
+      if (!statuses.has(entry.reviewStatus)) throw new Error("Expected source review status is invalid.");
+      if (
+        !Array.isArray(entry.expectedDocumentIds) ||
+        !Array.isArray(entry.mustPassCaseIds) ||
+        entry.expectedDocumentIds.length > MAX_IDS ||
+        entry.mustPassCaseIds.length > MAX_IDS
+      )
+        throw new Error("Expected source identifier arrays must be bounded.");
+      const expectedDocumentIds = entry.expectedDocumentIds.map((documentId) =>
+        parseIngestionAuditIdentifier(documentId, "document", "expected document id"),
+      );
+      const mustPassCaseIds = entry.mustPassCaseIds.map((caseId) =>
+        parseIngestionAuditIdentifier(caseId, "case", "must-pass case id"),
       );
       if (
+        new Set(expectedDocumentIds).size !== expectedDocumentIds.length ||
+        new Set(mustPassCaseIds).size !== mustPassCaseIds.length
+      )
+        throw new Error("Expected source record contains duplicate identifiers.");
+      if (!Array.isArray(entry.caseExpectations) || entry.caseExpectations.length > MAX_IDS)
+        throw new Error("Expected source record has an invalid case expectation mapping.");
+      const expectedByCase = new Map(
+        entry.caseExpectations.map((caseExpectation) => {
+          if (!caseExpectation || typeof caseExpectation !== "object")
+            throw new Error("Expected source record has an invalid case expectation mapping.");
+          const { caseId, expectedDocumentIds: expectedForCase } = caseExpectation;
+          const validatedCaseId = parseIngestionAuditIdentifier(caseId, "case", "case expectation id");
+          if (!Array.isArray(expectedForCase) || expectedForCase.length === 0 || expectedForCase.length > MAX_IDS)
+            throw new Error("Expected source record has an invalid case expectation mapping.");
+          const validatedDocuments = expectedForCase.map((documentId) =>
+            parseIngestionAuditIdentifier(documentId, "document", "case expectation document id"),
+          );
+          if (
+            new Set(validatedDocuments).size !== validatedDocuments.length ||
+            validatedDocuments.some((documentId) => !expectedDocumentIds.includes(documentId))
+          )
+            throw new Error("Expected source record has an invalid case expectation mapping.");
+          return [validatedCaseId, validatedDocuments] as const;
+        }),
+      );
+      const mappedDocumentIds = new Set([...expectedByCase.values()].flat());
+      if (
         expectedByCase.size !== entry.caseExpectations.length ||
-        entry.mustPassCaseIds.some((caseId) => !expectedByCase.has(caseId)) ||
-        entry.caseExpectations.some(({ caseId }) => !entry.mustPassCaseIds.includes(caseId))
+        mustPassCaseIds.some((caseId) => !expectedByCase.has(caseId)) ||
+        [...expectedByCase.keys()].some((caseId) => !mustPassCaseIds.includes(caseId)) ||
+        expectedDocumentIds.some((documentId) => !mappedDocumentIds.has(documentId)) ||
+        [...mappedDocumentIds].some((documentId) => !expectedDocumentIds.includes(documentId))
       ) {
-        throw new Error(`${entry.key} must provide one explicit expected-document subset per must-pass case.`);
+        throw new Error("Expected source record has an invalid case expectation mapping.");
       }
+      return { entry, key, expectedDocumentIds, mustPassCaseIds, expectedByCase };
+    })
+    .sort((left, right) => left.key.localeCompare(right.key))
+    .map(({ entry, key, expectedDocumentIds, mustPassCaseIds, expectedByCase }) => {
       let outcome: SourceCoverageFinding["outcome"];
       if (entry.reviewStatus === "retired") outcome = "retired";
       else if (entry.reviewStatus === "not_approved") outcome = "not_approved";
       else {
         const allExpectedActive =
           entry.reviewStatus === "active" &&
-          entry.expectedDocumentIds.length > 0 &&
-          entry.expectedDocumentIds.every((documentId) => args.activeDocumentIds.has(documentId));
+          expectedDocumentIds.length > 0 &&
+          expectedDocumentIds.every((documentId) => args.activeDocumentIds.has(documentId));
         if (!allExpectedActive) outcome = "not_in_corpus";
         else {
-          const retrievalMiss = entry.mustPassCaseIds.some((caseId) => {
+          const retrievalMiss = mustPassCaseIds.some((caseId) => {
             const retrieved = args.retrievedDocumentIdsByCase.get(caseId);
             const expectedForCase = expectedByCase.get(caseId)!;
             return !retrieved || expectedForCase.some((documentId) => !retrieved.has(documentId));
@@ -152,6 +195,6 @@ export function auditExpectedSourceCoverage(args: {
           outcome = retrievalMiss ? "retrieval_miss" : "available";
         }
       }
-      return { key: entry.key, outcome, owner: entry.owner, mustPassCaseIds: [...entry.mustPassCaseIds].sort() };
+      return { key, outcome, owner: entry.owner, mustPassCaseIds: [...mustPassCaseIds].sort() };
     });
 }
