@@ -48,6 +48,10 @@ const staticRouteRedirects: Record<string, string> = {
   // and are now one route; `view`, `letter`, `topic` and `kind` mean the same
   // thing there, so the query string travels unchanged.
   "/dictionary/browse": "/dictionary/search",
+  // Ward Flow Constellation was retired into the coordinator screen in Phase 2;
+  // keep /ward-management/constellation as an intentional unlinked compatibility
+  // redirect preserving historical deep-links.
+  "/ward-management/constellation": "/ward-management",
 };
 
 const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);

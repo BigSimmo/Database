@@ -94,6 +94,16 @@ if [ -n "$hooks_path" ]; then
   normalised="$(printf '%s' "$hooks_path" | tr '\\' '/')"
   repo_root_n="$(printf '%s' "$repo_root" | tr '\\' '/')"
   repo_root_n="${repo_root_n%/}"
+  common_dir="$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git -C "$repo_root" rev-parse --git-common-dir 2>/dev/null || true)"
+  if [ -n "$common_dir" ]; then
+    case "$common_dir" in
+    /* | ?:/*) primary_root_n="$(dirname "$common_dir" | tr '\\' '/')" ;;
+    *) primary_root_n="$(cd "$repo_root" && cd "$common_dir/.." 2>/dev/null && pwd | tr '\\' '/')" ;;
+    esac
+    primary_root_n="${primary_root_n%/}"
+  else
+    primary_root_n="$repo_root_n"
+  fi
   # `core.hooksPath` is absolute OR relative to the top of the working tree, and
   # git treats `.githooks`, `./.githooks` and the absolute spelling as the same
   # directory. Resolve to one form before comparing. A `*/.githooks` suffix glob
@@ -108,6 +118,7 @@ if [ -n "$hooks_path" ]; then
   esac
   resolved="${resolved%/}"
   expected="$repo_root_n/.githooks"
+  expected_primary="$primary_root_n/.githooks"
   # Windows drive-letter paths are case-insensitive, and Bash `=` is not. Git
   # wires `d:/Database/.githooks` and `D:/Database/.githooks` to the same
   # directory, so comparing the raw bytes puts the primary (Windows ReFS Dev
@@ -122,12 +133,13 @@ if [ -n "$hooks_path" ]; then
   ?:/*)
     resolved="$(printf '%s' "$resolved" | tr '[:upper:]' '[:lower:]')"
     expected="$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')"
+    expected_primary="$(printf '%s' "$expected_primary" | tr '[:upper:]' '[:lower:]')"
     ;;
   esac
   # Exact equality, not a suffix match: another repository's `.githooks` also
   # ends in `/.githooks`, and its pre-push hook would not guard THIS push.
-  if [ "$resolved" = "$expected" ] \
-    && [ -x "$repo_root/.githooks/pre-push" ]; then
+  if { [ "$resolved" = "$expected" ] || [ "$resolved" = "$expected_primary" ]; } \
+    && { [ -x "$repo_root/.githooks/pre-push" ] || [ -x "$primary_root_n/.githooks/pre-push" ]; }; then
     exit 0
   fi
 fi

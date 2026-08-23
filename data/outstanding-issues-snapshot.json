@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39+00:00"
+    "committed_at": "2026-08-22T20:52:39Z"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 60,
+    "pending": 72,
     "resolved": 376
   },
   "queue": [
@@ -810,6 +810,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "0e3c05e2-b381-4e7b-9cfd-9721eaeca155",
+      "action": "done",
+      "summary": "#CM7DG9: Updated .claude/hooks/push-format-guard.sh to resolve core.hooksPath against both worktree and common git directory (git rev-parse --git-common-dir), ensuring linked worktrees are recognized as wired without triggering whole-repo Prettier checks.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0f9238c1-8add-450c-92d1-917376761248",
       "action": "add",
       "summary": "Caring Contacts patient-visible reply wording is now factually wrong and must change before any demonstration",
@@ -852,6 +858,18 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "256bf4a0-9189-4a42-aca9-e6518a7d5c39",
+      "action": "done",
+      "summary": "#6SMMB4: Verified on workstation that npm cache resolves to D:\\.npm-cache and fsutil devdrv query returns Error 5 without elevation. Documented the Dev Drive trusted package cache verification and Defender exclusion workflow in docs/testing.md.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "2a0a150f-19f5-4c92-8438-90b1806c8830",
+      "action": "done",
+      "summary": "#RZQQBT: Settled PreCompact hook contract in docs/testing.md: .claude/hooks/precompact-issues-capture.sh acts as a silent append-only log (.git/claude-precompact.log) and transcript notice, guaranteed never to throw or disrupt context compaction.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "32d58b0f-a504-434e-8360-d6969160ec06",
       "action": "done",
       "summary": "#NPQJKP: Resolved by PR #2285 (predicate commit 957b76afa), live canary run 32589154243, and the follow-up allowance on current main (commit 62cfcab48). generatedAnswerQualityFailureReason now rejects both captured incoherent answers as guidance_wrapper_fragment; tests/rag-guidance-wrapper-quality-gate.test.ts pins both shapes, legitimate prose, enforcing-gate reachability, and the preformatted grounded bypass. The canary converted exactly the two named cases to source-backed review fallbacks with flat retrieval metrics; scripts/eval-quality.ts records the documented two-case allowance instead of leaving the weekly canary permanently red. The newly exposed antipsychotic metabolic-monitoring written-answer defect remains separately open as #J8SJQ9 and is not hidden by this closure. The post-PR #2302 canonical row already preserves the full predicate, canary, baseline, threshold, and dispatch-limitation evidence.",
@@ -876,10 +894,22 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "399ff5bd-d489-453f-a6b7-d185b9de7155",
+      "action": "done",
+      "summary": "#72G3XZ: Authored docs/ci-operations.md assessing runner usage under the base-branch per-run concurrency group (github.run_id). Confirmed that change-scoping in the changes job prevents queue starvation and runner minute overruns.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "3aa167d6-e12d-4a76-944b-8e7b96f9f5f7",
       "action": "done",
       "summary": "#QSHHGK: Resolved by existing merged evidence, not a fresh run: PR #2186 commit d7ffae1a5782394bd7af14f1a46b8fb6a88fc691 added bundle-budget baselineSource and updatedAt provenance, JSON baselineSource/baselineCommitDistance output, a stale-baseline warning above the 50-commit threshold, and focused provenance/drift tests in scripts/check-bundle-budget.mjs and tests/bundle-budget.test.ts. bundle-budget.json now carries updatedAt and baselineSource. The row chosen remediation was to make staleness visible before unrelated PRs inherit the hard failure; no scheduled rebuild is required for that option.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "4751f8ff-d012-4cbb-afce-2c458b272515",
+      "action": "cancel",
+      "summary": "Cancel request 7dc2d09a-b05c-4d10-b198-263af3c0f45e: Superseded by done request c4b1de28-7e91-46d6-9129-aa8b4d58f685 resolving #RSD9EJ on feature branch.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "48b805df-a419-4204-85bf-9ba2cbf8d250",
@@ -1044,6 +1074,18 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "ad833519-1b0b-4f02-b965-a7be0667cac4",
+      "action": "done",
+      "summary": "#97VQK5: Added accessible H1 to Documents mode home (src/app/(search-app)/documents/documents-home-client.tsx), unified placeholder punctuation across all app modes to ASCII ... in src/lib/app-modes.ts, and synchronized docs/site-map.md (npm run sitemap:check passed).",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "ae0fdbd3-4ccf-4584-9342-916851070516",
+      "action": "cancel",
+      "summary": "Cancel request b5d6b1be-d1c9-4739-898a-33aec4a656a5: Resolved on feature branch: added /ward-management/constellation to staticRouteRedirects in src/proxy.ts and documented in ward flow phase 2 plan.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "b171ae43-ab0f-4edf-9497-9e57eb031aff",
       "action": "done",
       "summary": "#V15EAS: Removed the unreachable Therapy home catalogue asset end to end. The generator now emits only full and index manifests, derives THERAPY_CATALOGUE_SUMMARY from the retained browse projection, preserves the current and previous full/index hashes, prunes legacy hashed home assets, and refuses a reintroduced unversioned home alias. The loader union, fallback alias, Next cache-header and rewrite matchers, browser fixture allowlists, and policy examples no longer expose therapies-home; the Therapy home remains summary-only with catalogue I/O disabled. Generation deleted the byte-identical 136,288-byte therapies-home.211dab554c4ec62d.json while retaining full 09b25b0fff3a2b44/d0358686e452b00b and index 211dab554c4ec62d/8455f92cf736cbfa. Red-first proof failed on the old three-kind manifest, then npm run check:therapy-data-index passed for 205 records, the focused wiring test passed 19/19, and the CI-scope and PR-policy self-tests passed.",
@@ -1054,6 +1096,12 @@
       "action": "add",
       "summary": "Document /ward-management/constellation as an intentional unlinked compatibility redirect",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "b887e3ab-faad-4134-b207-8ef7562d128a",
+      "action": "done",
+      "summary": "#164Z0H: Confirmed .claude/hooks/session-start.sh is checked into git index with mode 100755, contains 0 CR bytes, and executes hermetically in web container environments. Verified with tests/session-start-hook.test.ts (11/11 passed).",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "ba2bdfba-b1e1-4e13-83b4-8cb0f3ddc092",
@@ -1074,6 +1122,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "c4b1de28-7e91-46d6-9129-aa8b4d58f685",
+      "action": "done",
+      "summary": "#RSD9EJ: Updated scripts/guard-push.mjs (newlyIntegratedMainMergeBase) to resolve comparison baselines against git merge-base HEAD origin/main rather than previous remote tip, preventing false-positive ledger violations after merging main into a feature branch. Pinned by unit test in tests/guard-push.test.ts (55/55 passed).",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "c5d6045b-6493-4c8b-a1c8-6e151629d561",
       "action": "update",
       "summary": "#057: detail → Staging migration parity is closed. Run SHA-bound tenancy evidence, transition the same candidate image from the offline tenancy profile to the authenticated auto-provider load profile, execute the staging soak, and rehearse rollback. Retain checkout/deployed SHA, latency, error, throttling, authentication, cleanup, and rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision.",
@@ -1092,6 +1146,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "cb863b4d-a600-4992-b0d5-73aa1a4e9054",
+      "action": "done",
+      "summary": "#5MMK5R: Documented in docs/testing.md that npm run verify:phone-chrome inspects working-tree diffs relative to merge-base and selects zero browser stages against clean trees by design, with guidance for explicit --files or --full=always execution.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
       "action": "add",
       "summary": "Caring Contacts: the desktop session gate renders as a 1392x170 letterbox, not a gate",
@@ -1108,6 +1168,12 @@
       "action": "add",
       "summary": "Caring Contacts database and row-level-security suite runs in no automated gate",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "dbee1d86-48e5-4d16-b12a-fee4ee71f24f",
+      "action": "cancel",
+      "summary": "Cancel request 2a0a150f-19f5-4c92-8438-90b1806c8830: Duplicate of existing pending done request 346c12f3-fbcb-478f-bd86-d0c4aa0436c0 for #RZQQBT.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "e603434c-3ac2-40e2-bc36-d47e2e0e7efb",
@@ -1137,6 +1203,12 @@
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Claude Code 2.1.238 ran the hook in real auto-compactions: D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\caring-contacts-phase-2a-11b-a37803\\\\claude-precompact.log records 2026-08-22T11:37:51Z before transcript d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl's 2026-08-22T11:39:38.041Z compact boundary; ward-flow-phase-3-49f201 records 2026-08-22T18:33:10Z before transcript d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl's 2026-08-22T18:34:57.371Z boundary. The exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. The current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks) explains the result: successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event and did not create D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\Database36\\\\claude-precompact.log when checked at 2026-08-23T06:41:54.9955991Z; it is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "f8cabe84-9be5-4527-ae38-aecb9a61c84c",
+      "action": "cancel",
+      "summary": "Cancel request 0f9238c1-8add-450c-92d1-917376761248: Resolved on feature branch: verified patient-visible automated reply strings for therapeutic neutrality, emergency escalation, and GSM-7 limit in message-copy.ts with tests.",
       "created_at": "2026-08-23"
     },
     {
