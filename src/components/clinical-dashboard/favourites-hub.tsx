@@ -179,6 +179,9 @@ export function FavouritesHub({
   return (
     <div data-testid="favourites-hub" className="mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden sm:space-y-5">
       <div className="mx-auto grid w-full max-w-5xl justify-items-center gap-3 pt-3 text-center sm:gap-4 sm:pt-5">
+        {/* Owner decision 2026-08-23: retain the compact dashboard hero here.
+            The standalone /favourites command library deliberately starts at
+            its workspace heading so the saved-item controls remain above fold. */}
         <ModeHomeHero
           testId="favourites-home"
           title={sharedHomePresentation.favourites.title}

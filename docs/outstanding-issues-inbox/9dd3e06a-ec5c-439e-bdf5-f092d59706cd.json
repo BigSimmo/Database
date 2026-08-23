@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9dd3e06a-ec5c-439e-bdf5-f092d59706cd",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#XCAX01",
+    "outcome": "Resolved 2026-08-23 for the repository fleet-sweep surfaces only. scripts/clean-worktree.mjs and scripts/worktree-inventory.mjs are now permanently report-only across CLI, exported, and programmatic paths: any remove/apply-shaped option is rejected before adapters; Git is confined to an exact read-only allowlist with optional locks and lazy fetch suppressed, and prune is permitted only as --dry-run -v; inspection and Windows reparse-boundary uncertainty fail closed; liveness is tri-state and absence remains unknown; explicit-root inventory has no removal API and immutable mutation counts stay zero. For worktree tooling, verify:preflight invokes only worktrees:report -- --self-test rather than inspecting the fleet. Synthetic proof: tests/clean-worktree.test.ts plus tests/worktree-inventory.test.ts, 46/46 passed, plus both pure self-tests and git diff --check. No live fleet report, cleanup, prune, or file/ref/object/registration/worktree/directory removal occurred. This closure does not change or claim to remove guard-push.mjs's separate exact temporary-worktree lifecycle. Exact-path fleet cleanup remains deferred under #6GW95D.",
+    "baseRowFingerprint": "5f5ff98041a28b845a1b49d8bf0d83b856ef0ae4a9b47772f8f62eb2e0f7ef8a"
+  }
+}

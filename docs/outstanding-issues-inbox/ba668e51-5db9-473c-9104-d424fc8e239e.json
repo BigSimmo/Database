@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ba668e51-5db9-473c-9104-d424fc8e239e",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
+    "reason": "The canceled request incorrectly says the two correlated compact_boundary records were produced by Claude Code 2.1.238. Both source records explicitly carry version 2.1.237; 2.1.238 was only the later locally installed CLI observed on 2026-08-23 and is not valid provenance for those 2026-08-22 compactions. Its Windows paths also used ambiguous doubled separators. Superseded by a corrected done request with exact v2.1.237 provenance and relative or forward-slash paths."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c7d62328-4fa1-48cc-8509-1d463bc05e64",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#800E5M",
+    "outcome": "Implemented a cross-platform, fail-closed dead-code candidate gate: repository-rooted Node filesystem scans replace external grep, reported paths and Windows separator exclusions are normalized, git rev-parse --is-shallow-repository supplies history state, and failed search, diff, or history checks refuse instead of clearing. Unfinished plans refuse while completed plans warn; committed tests, dynamic literals, recent or unknown introduction history, sibling exports, and signature-change filtering remain protected. Focused proof passed 10/10 in tests/dead-code-candidate.test.ts, and npm run check:dead-code-candidate passed its self-test plus default diff gate.",
+    "baseRowFingerprint": "b2f94f1f6a993a2312267dcdf98fb3306858f642d2c78c59d102de6492e9b200"
+  }
+}

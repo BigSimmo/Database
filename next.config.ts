@@ -124,6 +124,14 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Static design-review assets under public/mockups remain intentionally
+        // retrievable, but must not appear in search results. Next applies
+        // headers before public-file handling, so this covers nested assets as
+        // well as the app-route namespace without broadening to other files.
+        source: "/mockups/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+      {
         source: "/manifest.webmanifest",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
@@ -131,7 +139,7 @@ const nextConfig: NextConfig = {
         // Therapy catalogues are content-addressed by the generator. A new data
         // revision gets a new URL, so browsers and the CDN can retain old bytes
         // without revalidation while an already-open client finishes using them.
-        source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\.[a-f0-9]{16}\\.json)",
+        source: "/therapy-compass-data/:asset(therapies(?:-index)?\\.[a-f0-9]{16}\\.json)",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
       {
@@ -140,7 +148,7 @@ const nextConfig: NextConfig = {
         // inheriting the hashed-asset immutable policy above. Matched on the
         // REQUEST path, so the rewrite below does not pull the destination's
         // immutable policy onto the alias.
-        source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\.json)",
+        source: "/therapy-compass-data/:asset(therapies(?:-index)?\\.json)",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
     ];
@@ -149,8 +157,8 @@ const nextConfig: NextConfig = {
   // asset instead of writing a byte-identical duplicate to disk. `useTherapyData`
   // falls back to these names when a bundle older than the one-deploy grace
   // generation names a hashed file that no longer exists, so the URLs must keep
-  // working — but they cost 2.81 MB of duplicated payload in the working tree and
-  // every Docker image when they were real files (5.34 MB mid-grace-window).
+  // working — but they cost 2.66 MB of duplicated payload in the working tree and
+  // every Docker image when they were real files (5.33 MB mid-grace-window).
   //
   // `afterFiles` rather than `beforeFiles`: the alias files no longer exist, so
   // the rewrite is reached once the static handler finds nothing, and nothing
@@ -167,7 +175,6 @@ const nextConfig: NextConfig = {
       afterFiles: [
         alias("therapies.json", THERAPY_CATALOGUE_ASSETS.full),
         alias("therapies-index.json", THERAPY_CATALOGUE_ASSETS.index),
-        alias("therapies-home.json", THERAPY_CATALOGUE_ASSETS.home),
       ],
       fallback: [],
     };

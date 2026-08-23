@@ -1650,7 +1650,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       >
         <div className="min-w-0 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-7">
           <div className="mx-auto grid min-w-0 max-w-[66rem] gap-3 2xl:max-w-[72rem]">
-            {/* The marketing lockup is retired (ledger #164): an icon tile, a
+            {/* Owner decision 2026-08-23: this standalone command library stays
+                structurally distinct from the compact dashboard Favourites hub.
+                The marketing lockup is retired here (ledger #164): an icon tile, a
                 "command library" title and a sentence explaining the page to
                 someone already standing on it cost the fold about 90px and
                 said nothing the nav had not. The count is the only thing worth

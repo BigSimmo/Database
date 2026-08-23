@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "eb48e257-140c-4f93-a3b9-e76688be61fe",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0968dc46-9f1b-47a9-afe6-689a76860981",
+    "reason": "The final clinical-role vocabulary and adjacency hardening expanded the focused workflow suite from 65 to 87 tests. Preserve immutable history and replace this update with current-head evidence for the strengthened placeholder contract."
+  }
+}

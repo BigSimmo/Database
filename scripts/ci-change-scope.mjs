@@ -218,8 +218,8 @@ const perfPatterns = [
   // render tree, so a path-based split would fail open.
   "src",
   // Route payload, both forms: data/** is imported into route chunks and public/** is
-  // fetched on the critical path (#117 therapies-home ~136 KB, #013 forms-catalog
-  // ~132 KB).
+  // fetched by route journeys (the Therapy browse index is ~136 KB; #013
+  // forms-catalog is ~132 KB).
   "data",
   "public",
   // These rewrite the emitted bundle/CSS for every route, so a change invalidates the
@@ -989,7 +989,7 @@ function selfTest() {
   assertScope("perf-on-for-css-entrypoints", ["src/app/globals.css"], { perf_changed: true });
   assertScope(
     "perf-on-for-route-payload",
-    ["public/therapy-compass-data/therapies-home.json", "data/medications-snapshot.json"],
+    ["public/therapy-compass-data/pathways.json", "data/medications-snapshot.json"],
     { perf_changed: true },
   );
   // Mockup-only ledger snapshot: same `data/` root as medications, but it

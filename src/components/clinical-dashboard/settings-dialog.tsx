@@ -544,6 +544,7 @@ export function SettingsDialog({
                 <button
                   key={item.id}
                   type="button"
+                  data-settings-nav-target={item.id}
                   onClick={() => scrollToSection(item.id)}
                   aria-current={active ? "true" : undefined}
                   className={cn(

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4b73054d-b058-42b3-acc4-a27d607c3d08",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#V0EDR4",
+    "outcome": "Resolved by an explicit 2026-08-23 owner decision: preserve two purpose-specific Favourites surfaces rather than force visual equality. The dashboard FavouritesHub is the compact browse hub and retains ModeHomeHero; /favourites is the full standalone command library and starts at its single workspace h1 so filters and saved-item controls remain above fold. Both still share sharedHomePresentation.favourites identity copy and composer geometry. The decision is now recorded beside both owners in src/components/clinical-dashboard/favourites-hub.tsx and favourites-command-library-page.tsx and pinned by tests/search-route-ownership.test.ts, which asserts the compact hub keeps ModeHomeHero while the standalone workspace does not. Focused verification: npm run test -- tests/search-route-ownership.test.ts passed 1 file and 22 tests on 2026-08-23. This supersedes the cancelled premature closure a1495b3e-29fb-489a-a261-df3dcb142f51, which relied on route topology without pinning the product decision.",
+    "baseRowFingerprint": "99c641f124f86f87f7e40e1bf8e28df21b431eb21b17cedc59f45d0876b1730a"
+  }
+}

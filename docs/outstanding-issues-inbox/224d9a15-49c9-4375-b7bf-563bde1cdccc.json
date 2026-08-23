@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "224d9a15-49c9-4375-b7bf-563bde1cdccc",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b9f8c826-070f-408b-b700-579117d2414f",
+    "reason": "This update correctly records the shipped predicate and canary evidence but leaves the completed issue open. Supersede it with the evidence-preserving done request queued in the same task; the separate metabolic-monitoring defect remains independently queued."
+  }
+}
