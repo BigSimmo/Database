@@ -18,11 +18,20 @@ describe("Therapy review regression contracts", () => {
   });
 
   it("keeps status and main-landmark semantics present through state changes", () => {
-    const detail = source("src/components/therapy-compass/screens/detail-screen.tsx");
+    // The live region moved out of the record screen into a shared component
+    // when Save moved into the record header: all three record pages announce
+    // the same result, and none of them may put the announcement inside the
+    // phone collapse portal, which scroll-hides.
+    const saveNotice = source("src/components/therapy-compass/record/save-notice.tsx");
     const workspace = source("src/components/therapy-compass/workspace.tsx");
 
-    expect(detail).toContain('role="status"');
-    expect(detail).toContain(': "sr-only"');
+    for (const screen of ["detail", "brief", "sheets"]) {
+      expect(source(`src/components/therapy-compass/screens/${screen}-screen.tsx`)).toContain(
+        "<TherapySaveNotice notice={notice} />",
+      );
+    }
+    expect(saveNotice).toContain('role="status"');
+    expect(saveNotice).toContain(': "sr-only"');
     expect(workspace).toContain('<InformationPageShell testId="therapy-information-loading">');
     expect(workspace.indexOf("if (b.error)")).toBeLessThan(
       workspace.indexOf("if (b.loading && b.therapies.length === 0)"),
@@ -103,13 +112,19 @@ describe("Therapy review regression contracts", () => {
     expect(nav).toContain('href: "/therapy-compass/compare"');
 
     const searchStart = select.indexOf("export function searchTherapies");
-    const searchEnd = select.indexOf("// ---- related", searchStart);
+    const searchEnd = select.indexOf("// ---- recommend", searchStart);
     expect(searchStart).toBeGreaterThanOrEqual(0);
     expect(searchEnd).toBeGreaterThan(searchStart);
     const searchImplementation = select.slice(searchStart, searchEnd);
     expect(searchImplementation.match(/scoreTherapyCandidate\(/g)).toHaveLength(1);
 
-    expect(detail).toContain("top-[calc(var(--shell-header-h)+1rem)]");
+    // Was: the sticky right rail's offset below the shell header. That rail is
+    // gone — its two cards were "At a glance" (now the key-facts strip above the
+    // body) and the provenance card (now the collapsed strip at the foot) — so
+    // what replaces the assertion is the reason it existed: exactly one sticky
+    // header owns this page, and it is the shared one.
+    expect(detail).not.toContain("sticky");
+    expect(detail).toContain("<TherapyRecordNavHeader");
 
     const printStart = globals.indexOf("  [data-print-provenance] {", globals.indexOf("@media print"));
     const printEnd = globals.indexOf("\n  }", printStart);

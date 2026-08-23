@@ -287,7 +287,6 @@
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
@@ -303,7 +302,6 @@
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
@@ -558,8 +556,14 @@
       "source": "src/components/ui/disclosure.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1734,13 +1738,13 @@
       "directImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "productImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "designSync": {
@@ -1800,13 +1804,13 @@
       "directImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "productImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "designSync": {

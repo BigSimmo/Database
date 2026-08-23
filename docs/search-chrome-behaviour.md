@@ -349,6 +349,38 @@ Rail items are `min-h-12` like every other production tap target. Two rails are 
 phone and `min-h-11` would buy back 4px per rail — do not take it. That is the substitution
 `AGENTS.md` calls out, and it reintroduces a known `ui-smoke` sub-pixel flake.
 
+**Band calibration is opt-in, and the default is the generic plan.** `planModeNavBands` fits
+four items from the 33rem band. Medications override that to 42rem — two priority slots plus
+More until every slot fits — because each of its labels carries a count badge, and that is
+now requested explicitly with `rail={{ countedLabels: true }}`. It used to be keyed on
+"exactly four sections", which silently applied medication's width budget to any four-item
+rail: Therapy's four unbadged labels inherited it and sat two-and-More on every phone.
+A rail whose labels carry no badge should pass a `density` from its own label family and
+leave `countedLabels` off — measured against its own labels, not assumed. Therapy's four
+render without truncation from 500px and clip at 430px, which is `balanced-four` (31rem);
+`compact-four` (23rem) does fit four slots on a large phone but clips every one of them.
+
+**Route rails: the sections may be other pages (`/therapy-compass/[slug]`).** Therapy's record
+header declares its sections as that therapy's own routes — the record, its patient sheet, its
+brief intervention, and the comparison — so selecting one navigates rather than swapping a
+panel or scrolling to an anchor. The rail is then "this record's pages", and `activeId` is the
+page you are on.
+
+Two rules follow, and both differ from the panel-swap adopters:
+
+- **A destination whose artefact does not exist is omitted, not disabled.** Not every therapy
+  ships a patient sheet or a brief version, and a rail slot has nowhere to carry the stated
+  reason that `docs/wiring-conventions.md` requires of a disabled control. Dropping the slot
+  is the same answer `useResolvedPageSections` gives for an anchor that is not rendered, so
+  the rail length varies per record by design.
+- **It is guarded by its own test, not by `in-page-nav-route-sections`.** That file asserts a
+  declared section resolves to rendered DOM — an anchor or a panel. A route destination
+  resolves to a navigation call, so `tests/therapy-record-nav.dom.test.tsx` asserts the
+  routing and the omission rule instead.
+
+Therapy's mode-level `ModeNav` is still a separate multi-route pattern and is unaffected: that
+bar moves between Therapy's tools, this rail moves within one record.
+
 ### The differentials presentations workflow keeps its own layout — decided, not pending
 
 `src/components/differentials/differential-presentation-workflow-page.tsx` is **not** being

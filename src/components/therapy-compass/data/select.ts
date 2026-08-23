@@ -29,7 +29,23 @@ export function parseSteps(text: string | null, max = 12): string[] {
     if (byMarker.length > 1) return clean(byMarker);
   }
 
-  // 3) Fall back to sentence boundaries (before a capital letter only, so a
+  // 3) Arrow-separated steps ("Build engagement → set goals → …"). 52 of the
+  //    205 records write their delivery this way, and without this they render
+  //    as one unbroken sentence occupying half a phone screen.
+  //
+  //    Strictly AFTER the numbered check, never before it. Three records
+  //    (behaviour-therapy, exposure-based-cbt, interoceptive-exposure) number
+  //    their steps and use an arrow *inside* one of them to write a causal
+  //    chain — "linking cue → behaviour → short-term payoff → long-term cost".
+  //    Splitting on arrows first shreds that clinical formulation into
+  //    fragments, which is worse than the wall of text this rule exists to fix.
+  const byArrow = text
+    .split(/\s*(?:→|->|➔|⟶)\s*/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (byArrow.length > 1) return clean(byArrow);
+
+  // 4) Fall back to sentence boundaries (before a capital letter only, so a
   //    numeric marker isn't treated as a new sentence).
   return clean(text.split(/(?<=\.)\s+(?=[A-Z])/));
 }
@@ -115,6 +131,45 @@ export function reviewStatusMeta(status: string): { label: string; tone: "warnin
   return { label: status.replace(/_/g, " "), tone: "neutral" };
 }
 
+/**
+ * The part of `indications` that is not already on the page.
+ *
+ * Every record in the catalogue builds `indications` by concatenating
+ * `bestUsedFor`, then `targetSymptoms`, then the treatment goals. Rendering the
+ * field whole therefore repeats two blocks the reader has just read, at length
+ * — which is exactly what made the old "When to use" section a wall of text on
+ * a phone.
+ *
+ * Both components are removed only when they are genuinely present, so a record
+ * that ever stops following that shape degrades to showing its `indications`
+ * unchanged rather than losing clinical content. A residue too short to be a
+ * sentence is treated as punctuation left behind, not as content.
+ */
+export function splitIndications(therapy: Therapy): string | null {
+  const indications = therapy.indications?.trim();
+  if (!indications) return null;
+
+  let rest = indications;
+  const bestUsedFor = therapy.bestUsedFor?.trim();
+  if (bestUsedFor && rest.toLowerCase().startsWith(bestUsedFor.toLowerCase())) {
+    rest = rest.slice(bestUsedFor.length);
+  }
+  const targetSymptoms = therapy.targetSymptoms?.trim();
+  if (targetSymptoms) {
+    const at = rest.toLowerCase().indexOf(targetSymptoms.toLowerCase());
+    if (at >= 0) rest = `${rest.slice(0, at)} ${rest.slice(at + targetSymptoms.length)}`;
+  }
+
+  const residue = rest
+    .replace(/\s+/g, " ")
+    .replace(/^[\s.,;:]+/, "")
+    .trim();
+  // Nothing was removed: the record does not follow the concatenated shape, so
+  // show the field as authored rather than guessing at its structure.
+  if (residue === indications) return indications;
+  return residue.length >= 20 ? residue : null;
+}
+
 export function complexityLabel(complexity: string | null): string {
   if (!complexity) return "Complexity not set";
   const c = complexity.toLowerCase();
@@ -183,25 +238,6 @@ export function searchTherapies(therapies: Therapy[], opts: SearchOptions): Ther
     .filter((candidate): candidate is { t: Therapy; s: number } => candidate !== null);
   scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
   return scored.map((x) => x.t);
-}
-
-// ---- related ------------------------------------------------------------
-
-/** Nearest neighbours by shared category then shared tags. */
-export function relatedTherapies(all: Therapy[], therapy: Therapy, n = 4): Therapy[] {
-  const others = all.filter((t) => t.slug !== therapy.slug);
-  const scored = others.map((t) => {
-    let s = 0;
-    if (t.category === therapy.category) s += 5;
-    const shared = t.tags.filter((tag) => therapy.tags.includes(tag)).length;
-    s += shared * 2;
-    return { t, s };
-  });
-  scored.sort((a, b) => b.s - a.s || a.t.name.localeCompare(b.t.name));
-  return scored
-    .filter((x) => x.s > 0)
-    .slice(0, n)
-    .map((x) => x.t);
 }
 
 // ---- recommend ----------------------------------------------------------
