@@ -419,6 +419,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Privacy readiness binds evidence to a reviewed ancestor commit.
+          # The default depth-one checkout only contains the synthetic PR merge
+          # commit, so the evidence commit cannot be verified.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node and dependencies
