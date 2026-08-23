@@ -247,6 +247,8 @@ describe("source metadata helpers", () => {
       registry_record_id: "svc-123",
       registry_record_slug: "perth-adult-mental-health",
       source_title: "Perth Adult Mental Health",
+      corpus_scope: "clinical_kb_site",
+      source_role: "service_directory",
       document_status: "current",
       clinical_validation_status: "approved",
     });
@@ -255,6 +257,8 @@ describe("source metadata helpers", () => {
     expect(metadata.registry_record_subkind).toBeNull();
     expect(metadata.registry_record_id).toBe("svc-123");
     expect(metadata.registry_record_slug).toBe("perth-adult-mental-health");
+    expect(metadata.corpus_scope).toBe("clinical_kb_site");
+    expect(metadata.source_role).toBe("service_directory");
   });
 
   it("preserves stale status labels for registry summaries", () => {

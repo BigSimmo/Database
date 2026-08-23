@@ -300,6 +300,8 @@ describe("source authority metadata tooling", () => {
       source_path: "WA Health/EMHS/Registry/emhs-crisis-service.json",
       metadata: {
         source_kind: "registry_record",
+        corpus_scope: "clinical_kb_site",
+        source_role: "service_directory",
         publisher: "Clinical KB registry",
         jurisdiction: "WA/local clinical workspace",
       },
@@ -322,6 +324,11 @@ describe("source authority metadata tooling", () => {
       missing_australian_locality_count: 0,
       proposed_locality_correction_count: 0,
       passed: true,
+    });
+    expect(classifySourceAuthority(registryRecord.metadata)).toMatchObject({
+      designation: "unclassified",
+      australianAugmentationEligible: false,
+      reasonCodes: expect.arrayContaining(["registry_summary_identity"]),
     });
   });
 

@@ -21,6 +21,7 @@ import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
 import { serviceRecordSearchText } from "@/lib/services";
 import type { Json, TablesInsert, Vector } from "@/lib/supabase/database.types";
+import type { ClinicalSourceRole } from "@/lib/types";
 
 export type RegistryCorpusKind = "service" | "form" | "medication" | "differential";
 
@@ -65,6 +66,21 @@ const registryDocumentIntents: Record<RegistryCorpusKind, RegistryDocumentIntent
   medication: "medication-instruction",
   differential: "decision-support",
 };
+
+const registrySourceRoles: Record<RegistryCorpusKind, ClinicalSourceRole> = {
+  service: "service_directory",
+  form: "form_reference",
+  medication: "clinical_reference",
+  differential: "clinical_reference",
+};
+
+function isAuditOnlyMetadataKey(key: string) {
+  const normalized = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  return (
+    ["ownerid", "actorid", "authorid", "editorid"].some((identity) => normalized.endsWith(identity)) ||
+    ["createdby", "updatedby", "publishedby", "reviewedby", "retiredby"].some((prefix) => normalized.startsWith(prefix))
+  );
+}
 
 /** Stable smart-v2 intent for each registry family. Registry identity is
  * authoritative here; document text must not collapse every registry record
@@ -130,6 +146,8 @@ function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> 
     document_status: entry.sourceStatus,
     clinical_validation_status: entry.validationStatus,
     clinical_validation_evidence: registryClinicalValidationEvidence(entry),
+    corpus_scope: "clinical_kb_site",
+    source_role: registrySourceRoles[entry.kind],
     extraction_quality: "good",
     publisher: "Clinical KB registry",
     jurisdiction: "WA/local clinical workspace",
@@ -180,15 +198,20 @@ function registryChunkId(entry: RegistryCorpusEntry) {
 }
 
 /** Registry entry metadata. */
-function registryEntryMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
-  return { ...registryBaseMetadata(entry), ...entry.metadata };
+export function registryCorpusMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
+  const retrievalMetadata = Object.fromEntries(
+    Object.entries(entry.metadata).filter(([key]) => !isAuditOnlyMetadataKey(key)),
+  );
+  // Canonical scope and role are producer-owned. Caller metadata may supply
+  // lineage/catalogue context, but cannot reclassify a first-party projection.
+  return { ...retrievalMetadata, ...registryBaseMetadata(entry) };
 }
 
 /** Registry corpus identity. */
 function registryCorpusIdentity(entry: RegistryCorpusEntry) {
   return {
     documentId: registryDocumentId(entry),
-    metadata: registryEntryMetadata(entry),
+    metadata: registryCorpusMetadata(entry),
   };
 }
 
