@@ -46,10 +46,10 @@ export function isSlugDetail(pathname: string, home: string, extraExcluded: stri
 }
 
 /**
- * Services, forms, and medication *record* pages keep the shared footer composer.
- * Submitted catalogue search (`/services/search`, `/forms/search`) is not a
- * record page — treating the `/search` suffix as a slug hid Clinical Ask on the
- * only dock those modes land after a catalog submit.
+ * Record pages that keep a footer search composer. Catalog result docks
+ * (`/services/search`, `/forms/search`) are not details — `isSlugDetail`
+ * already excludes the reserved `search` suffix so Clinical Ask chrome
+ * can stay on those submitted docks.
  */
 export function isToolDetailWithFooterSearch(pathname: string): boolean {
   return (

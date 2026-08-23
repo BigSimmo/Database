@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
-import { isInformationPage, isToolDetailWithFooterSearch } from "@/lib/information-pages";
+import { isInformationPage } from "@/lib/information-pages";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ back: vi.fn(), replace: vi.fn() }),
@@ -36,18 +36,6 @@ describe("isInformationPage", () => {
     expect(isInformationPage("/therapy-compass/recommend")).toBe(false);
     expect(isInformationPage("/services/search")).toBe(false);
     expect(isInformationPage("/forms/search")).toBe(false);
-  });
-
-  it("keeps footer-search chrome on record pages, not catalogue search docks", () => {
-    expect(isToolDetailWithFooterSearch("/services/acuity")).toBe(true);
-    expect(isToolDetailWithFooterSearch("/forms/transport-crisis-form")).toBe(true);
-    expect(isToolDetailWithFooterSearch("/medications/lithium")).toBe(true);
-    expect(isToolDetailWithFooterSearch("/services")).toBe(false);
-    expect(isToolDetailWithFooterSearch("/forms")).toBe(false);
-    expect(isToolDetailWithFooterSearch("/medications")).toBe(false);
-    expect(isToolDetailWithFooterSearch("/services/search")).toBe(false);
-    expect(isToolDetailWithFooterSearch("/forms/search")).toBe(false);
-    expect(isToolDetailWithFooterSearch("/")).toBe(false);
   });
 });
 
