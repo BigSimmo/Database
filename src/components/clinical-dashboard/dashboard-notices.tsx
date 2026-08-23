@@ -54,16 +54,24 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
 }
 
 /**
- * Keeps the dashboard's collapsed degraded-state control in normal flow even
- * while healthy. Network and API transitions may replace its contents, but
- * must not insert or remove a sibling above the centred home surface.
+ * Keeps the dashboard's collapsed degraded-state control in normal flow on the
+ * centred home surface. Other pages render it only while degraded, so a healthy
+ * result page does not inherit an empty notice band.
  */
-export function DegradedNoticeFrame({ visible, isOnline }: { visible: boolean; isOnline: boolean }) {
+export function DegradedNoticeFrame({
+  visible,
+  isOnline,
+  reserveSpace = false,
+}: {
+  visible: boolean;
+  isOnline: boolean;
+  reserveSpace?: boolean;
+}) {
   return (
     <div
       data-testid="dashboard-degraded-notice-frame"
       data-visible={visible ? "true" : "false"}
-      className="min-h-[3.875rem]"
+      className={visible || reserveSpace ? "min-h-[3.875rem]" : undefined}
     >
       {visible ? (
         <>

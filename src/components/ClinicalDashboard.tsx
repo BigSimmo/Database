@@ -3527,7 +3527,9 @@ function ClinicalDashboardContent({
                   {actionNotice.message}
                 </InlineNotice>
               )}
-              <DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} />
+              {showDegradedNotice || centeredModeHome ? (
+                <DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} reserveSpace={centeredModeHome} />
+              ) : null}
               {showSystemNotice && answer ? (
                 <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="hidden sm:block" />
               ) : null}

@@ -6,16 +6,18 @@ import { describe, expect, it } from "vitest";
 import { DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
 
 describe("DegradedNoticeFrame", () => {
-  it("is mounted unconditionally before the dashboard hero surface", () => {
+  it("reserves the notice frame only for the centred home surface", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
     const frameIndex = dashboardSource.indexOf(
       "<DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} />",
     );
     const heroIndex = dashboardSource.indexOf("<section", frameIndex);
 
+    expect(dashboardSource).toContain("showDegradedNotice || centeredModeHome ? (");
+    expect(dashboardSource).toContain("reserveSpace={centeredModeHome}");
     expect(frameIndex).toBeGreaterThanOrEqual(0);
     expect(heroIndex).toBeGreaterThan(frameIndex);
-    expect(dashboardSource).not.toContain("showDegradedNotice && <DegradedNoticeFrame");
+    expect(dashboardSource).not.toContain("<DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} />");
   });
 
   it("keeps one stable flow frame while exposing alert semantics only for degraded content", () => {
@@ -34,7 +36,7 @@ describe("DegradedNoticeFrame", () => {
     const collapsedDrawerMaximumPx = Math.max(56, 36 + 2 * 12) + 2;
     expect(collapsedDrawerMaximumPx).toBe(62);
 
-    const { rerender } = render(<DegradedNoticeFrame visible={false} isOnline />);
+    const { rerender } = render(<DegradedNoticeFrame visible={false} isOnline reserveSpace />);
     const frame = screen.getByTestId("dashboard-degraded-notice-frame");
 
     expect(frame).toHaveClass("min-h-[3.875rem]");
@@ -58,6 +60,7 @@ describe("DegradedNoticeFrame", () => {
     rerender(<DegradedNoticeFrame visible={false} isOnline />);
 
     expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
+    expect(frame).not.toHaveClass("min-h-[3.875rem]");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(frame).toBeEmptyDOMElement();
   });

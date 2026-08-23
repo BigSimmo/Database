@@ -151,12 +151,6 @@
      1025px. */
   --spacing-mode-home-composer-phone: 10.125rem;
   --spacing-mode-home-composer-wide: 5.5rem;
-  /* Generic page composers add 24px block padding around the same 160px
-     one-line surface. Their SSR slot therefore owns a separate 184px reserve
-     at every sm+ width instead of borrowing the intentionally narrower
-     mode-home diagnostic threshold. */
-  --spacing-page-composer-wide: 11.5rem;
-
   /* Hero medallion. Scales continuously with the viewport the way --text-hero
      does, instead of stepping 48→48→56 at sm/lg: the old steps served the
      768–1023px tablet band the phone size while the heading beside it had

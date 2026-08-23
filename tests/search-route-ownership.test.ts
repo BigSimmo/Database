@@ -295,8 +295,8 @@ describe("shared-search route ownership", () => {
 
     // Desktop page composer slot in GlobalSearchShell reserves height to avoid 0.118 CLS layout jump
     expect(shellSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
-    expect(shellSource).toContain("sm:data-[composer-reserve=pending]:min-h-[var(--spacing-page-composer-wide)]");
-    expect(shellSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-page-composer-wide)]");
+    expect(shellSource).toContain("sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]");
+    expect(shellSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
 
     // Unconditional always-on reserve would leave a permanent empty band when
     // the portal never adopts; pending/filled gating is the CLS-safe contract.
@@ -309,7 +309,7 @@ describe("shared-search route ownership", () => {
     // reserve above it would leave a permanent empty band.
     expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 10.125rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
-    expect(globalsSource).toContain("--spacing-page-composer-wide: 11.5rem");
+    expect(globalsSource).not.toContain("--spacing-page-composer-wide");
   });
 
   it("pre-reserves the measured narrow-desktop composer height while keeping its prompt rail on one line", () => {
