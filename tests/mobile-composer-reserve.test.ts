@@ -48,6 +48,15 @@ describe("mobile composer reserve contract", () => {
         differentialsCompareAddonActive: false,
       }),
     ).toBe(mobileComposerHiddenReserve);
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: false,
+        documentViewerOwnedRoute: false,
+        heroOwnsPhoneComposer: false,
+        searchMode: "therapy-compass",
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerIdleReserve);
   });
 
   it("keeps only the idle content pad on standalone mode homes (in-flow hero pill, no dock)", () => {
