@@ -578,6 +578,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(filterSheet.getByTestId("tools-search-filter-sheet-done")).toHaveText(/View 2 tools/);
     await filterSheet.getByTestId("tools-search-filter-sheet-done").click();
 
+    await expect(results.getByRole("link", { name: "Open Differentials" })).toHaveAttribute("href", "/differentials");
     const details = results.getByRole("button", { name: "View details for Differentials" });
     await details.click();
     const detailSheet = page.locator('[data-testid="tools-search-detail-sheet"]:visible');
