@@ -94,6 +94,7 @@ describe("therapy record header", () => {
       const sections = buildTherapyRecordNavSections(record);
       const total = sections.reduce((sum, section) => sum + (section.weight ?? 0), 0);
       expect(total).toBeCloseTo(1, 10);
+      for (const section of sections) expect(section.weight).toBe(1 / sections.length);
     }
   });
 

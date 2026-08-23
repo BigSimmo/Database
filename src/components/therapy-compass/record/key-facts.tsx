@@ -84,8 +84,7 @@ export function TherapyKeyFacts({ therapy }: { therapy: Therapy }) {
   // trial protocols — a body field, and now rendered as one.
   const format = therapy.sessionLength?.trim() || "Format not recorded";
   const setting = therapy.setting?.trim() || "Setting not recorded";
-  const complexity = therapy.complexity?.trim();
-  const suits = complexity ? `${complexity} complexity` : "Complexity not set";
+  const suits = therapy.patientPopulation?.trim() || "Audience not recorded";
 
   return (
     <section aria-label="Key facts" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">

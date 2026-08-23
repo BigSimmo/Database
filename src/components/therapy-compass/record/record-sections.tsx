@@ -9,6 +9,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
@@ -17,15 +18,7 @@ import { extractCitations, ProseBlock } from "../prose";
 import { parseSteps, splitIndications } from "../data/select";
 import type { Therapy } from "../data/types";
 
-function RecordSection({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  children: React.ReactNode;
-}) {
+function RecordSection({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: ReactNode }) {
   return (
     <section className="flex gap-3 border-b border-[color:var(--border)] px-4 py-4 last:border-b-0 sm:px-5">
       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
