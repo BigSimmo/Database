@@ -61,6 +61,16 @@ export PLAYWRIGHT_KEEP_BUILD_ROOT=true
 
 `verify:phone-chrome` sets a session keep-root automatically when it runs two or more browser stages, then cleans that root on exit. Its dry-run wording deliberately says **webpack cache reuse**, not build skipping.
 
+**Clean-tree selection behavior (`#5MMK5R`).** `npm run verify:phone-chrome` evaluates working-tree diffs relative to the branch merge-base to identify affected browser contracts and journeys. When run against a clean working tree with no diff relative to base, it selects zero browser stages by design. To test specific browser stages against a clean tree, supply explicit comma-separated paths via `npm run verify:phone-chrome -- --files <paths>` or force all stages via `npm run verify:phone-chrome -- --full=always`.
+
+### Dev Drive trusted package cache verification (#6SMMB4)
+
+On Windows workstations hosting worktrees on a Dev Drive (`D:`, ReFS) where `npm config get cache` resolves to `D:\.npm-cache`, register the whole volume as a trusted Dev Drive (`fsutil devdrv query D:` and `fsutil devdrv trust D:`). Trusting the volume enables Defender performance mode with asynchronous scanning; it does not disable Defender. Querying or trusting a Dev Drive requires an elevated administrator command prompt; non-elevated prompts return `Error 5: Access is denied`.
+
+### PreCompact hook contract and logging (#RZQQBT)
+
+`.claude/hooks/precompact-issues-capture.sh` is log-only and write-isolated. It appends firing receipts to `claude-precompact.log` under the directory from `git rev-parse --git-dir` (the worktree git dir for linked worktrees, not a hardcoded `.git/` path) and stays silent on stdout and stderr. Claude Code surfaces hook stdout to model context for `SessionStart` and `UserPromptSubmit`; `SessionStart` is the post-compaction backstop. The PreCompact hook is a silent audit log, guaranteed never to throw an unhandled error or break an automatic or manual context compaction.
+
 **Refuted levers (do not revive):** persistent Actions cache for the Next webpack tree (~804 MB, evicts browser cache); transporting the critical job's 1.09 GB webpack cache to three shard runners (CI 31285952061 spent 19–67s downloading it and the slowest runner was slower than a cold build); splitting `ui-phone-scroll*` to rebalance `--shard` (siblings still co-land); renaming specs to game alphabetical shard order; Playwright `workers > 1` or blocking retries; dropping Production UI from ordinary UI PRs; Firefox/WebKit on every PR (main/weekly matrix only).
 
 **Remote / Cloud browser drift.** When `check:installed-lock-parity` fails on `playwright`, or `check:playwright-browser-revision` reports `/opt/pw-browsers` revision drift, do **not** point `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` at a mismatched shell and do **not** set `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` to force a run — a browser gate against the wrong revision is not evidence. `run-playwright.mjs` applies the same revision check in its launch preflight and refuses a mismatched override before acquiring the heavy lock or building. Delegating browser proof to CI Production UI is always valid. Restoring the gates locally is also possible; the recipe below was verified end to end on 2026-08-09 (`#255`). See also [codex-cloud.md](codex-cloud.md).

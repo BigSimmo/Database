@@ -12,6 +12,13 @@ import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
 
 const AUTOMATIC_RETRY_DELAYS_MS = [250, 1_000] as const;
 
+type SharedAutomaticRetry = {
+  timeoutId: number;
+  callbacks: Set<() => void>;
+};
+
+const sharedAutomaticRetries = new Map<string, SharedAutomaticRetry>();
+
 function automaticRetryDelay(failure: SignedImageFailure | null, attempt: number) {
   const baseDelay = AUTOMATIC_RETRY_DELAYS_MS[attempt];
   if (!failure?.retryable || baseDelay === undefined) return null;
@@ -20,6 +27,41 @@ function automaticRetryDelay(failure: SignedImageFailure | null, attempt: number
   // earliest permissible retry, never an optional hint.
   if (failure.status === 429 && failure.retryAfterMs === null) return null;
   return Math.max(baseDelay, failure.retryAfterMs ?? 0);
+}
+
+/**
+ * One timer per endpoint so sibling `SignedImage` mounts retry in the same
+ * macrotask. Separate per-instance timeouts let the first retry settle and
+ * drop the in-flight map before the second timeout fires, which then starts a
+ * second fetch (and exhausts one-shot test mocks).
+ */
+function scheduleSharedAutomaticRetry(endpoint: string, delayMs: number, callback: () => void): () => void {
+  const existing = sharedAutomaticRetries.get(endpoint);
+  if (existing) {
+    existing.callbacks.add(callback);
+    return () => {
+      existing.callbacks.delete(callback);
+      if (existing.callbacks.size === 0) {
+        window.clearTimeout(existing.timeoutId);
+        sharedAutomaticRetries.delete(endpoint);
+      }
+    };
+  }
+
+  const callbacks = new Set<() => void>([callback]);
+  const entry: SharedAutomaticRetry = { callbacks, timeoutId: 0 };
+  entry.timeoutId = window.setTimeout(() => {
+    sharedAutomaticRetries.delete(endpoint);
+    for (const run of callbacks) run();
+  }, delayMs);
+  sharedAutomaticRetries.set(endpoint, entry);
+  return () => {
+    callbacks.delete(callback);
+    if (callbacks.size === 0) {
+      window.clearTimeout(entry.timeoutId);
+      sharedAutomaticRetries.delete(endpoint);
+    }
+  };
 }
 
 /**
@@ -135,14 +177,13 @@ export const SignedImage = memo(function SignedImage({
   useEffect(() => {
     if (nextAutomaticRetryDelay === null) return () => undefined;
 
-    const timer = window.setTimeout(() => {
+    return scheduleSharedAutomaticRetry(endpoint, nextAutomaticRetryDelay, () => {
       setLoaded(false);
       setShouldLoad(true);
       setAutomaticRetryCount((current) => current + 1);
       retry();
-    }, nextAutomaticRetryDelay);
-    return () => window.clearTimeout(timer);
-  }, [nextAutomaticRetryDelay, retry]);
+    });
+  }, [endpoint, nextAutomaticRetryDelay, retry]);
 
   function retryImage() {
     if (retryDisabled) return;

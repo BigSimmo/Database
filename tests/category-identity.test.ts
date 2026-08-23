@@ -63,6 +63,11 @@ describe("category identity registry", () => {
     );
     expect(source).toContain("APP_MODE_ACCENT[link.modeId]");
     expect(source).toContain("data-category-accent={APP_MODE_ACCENT[link.modeId]}");
+    expect(source).toMatch(/<article[\s\S]*?data-category-accent=\{APP_MODE_ACCENT\[link\.modeId\]\}/);
+    expect(source).toContain("hover:text-[color:var(--cat-accent)]");
+    expect(source).toContain("hover:border-[color:var(--cat-border)]");
+    expect(source).toContain("hover:bg-[color:var(--cat-soft)]");
+    expect(source).not.toMatch(/hover:(?:text|border|bg)-\[color:var\(--clinical-accent(?:-border|-soft)?\)\]/);
   });
 
   // The defect this registry was built to stop: `guidelines` and `risk-safety`

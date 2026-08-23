@@ -41,6 +41,16 @@ describe("caring-contacts patient-visible copy", () => {
     }
   });
 
+  it("includes emergency escalation and therapeutic neutrality in both patient-visible strings", () => {
+    for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
+      expect(text).toContain("In an emergency call 000");
+      expect(text).not.toContain("?");
+      for (const prohibited of ["high risk", "safe", "engagement score", "campaign", "lead", "conversion", "inbox"]) {
+        expect(text.toLowerCase()).not.toContain(prohibited);
+      }
+    }
+  });
+
   it("uses four distinct reserved fictional numbers", () => {
     expect(new Set(DESIGNATED_FICTIONAL_MOBILE_NUMBERS).size).toBe(4);
     expect(DESIGNATED_FICTIONAL_MOBILE_NUMBERS).toHaveLength(4);

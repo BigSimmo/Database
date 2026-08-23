@@ -200,7 +200,7 @@ export const appModeDefinitions = [
     href: "/differentials",
     search: {
       kind: "differentials",
-      placeholder: "Ask or search a presentation",
+      placeholder: "Ask or search a presentation...",
       inputAriaLabel: "Search differential presentations, symptoms, and scenarios",
       submitIdleLabel: "Diffs",
       submitBusyLabel: "Diffs",
@@ -381,7 +381,7 @@ export const appModeDefinitions = [
       // The longer phrase became the late portal's LCP element on Therapy Home.
       // Keep the full search scope in the accessible name below; the concise
       // visible prompt lets the already-painted hero remain the LCP owner.
-      placeholder: "Search therapies…",
+      placeholder: "Search therapies...",
       inputAriaLabel: "Search therapies by problem, symptom, skill, or population",
       submitIdleLabel: "Therapy",
       submitBusyLabel: "Therapy",
@@ -407,7 +407,7 @@ export const appModeDefinitions = [
       // library (not the document corpus), so it borrows the benign "tools" search
       // kind — like Therapy Compass — while keeping the shared composer visible.
       kind: "tools",
-      placeholder: "Search a medicine, condition, therapy or test…",
+      placeholder: "Search a medicine, condition, therapy or test...",
       inputAriaLabel: "Search patient information factsheets",
       submitIdleLabel: "Sheets",
       submitBusyLabel: "Sheets",
@@ -432,7 +432,7 @@ export const appModeDefinitions = [
       // Dictionary owns a local static catalogue. The shared composer uses the
       // benign tools command kind, then appModeHomeHref routes into its results.
       kind: "tools",
-      placeholder: "Search a term or abbreviation…",
+      placeholder: "Search a term or abbreviation...",
       inputAriaLabel: "Search clinical terms, abbreviations, and topics",
       submitIdleLabel: "Terms",
       submitBusyLabel: "Terms",

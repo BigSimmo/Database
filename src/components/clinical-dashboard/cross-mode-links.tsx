@@ -39,18 +39,16 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
   return (
     <article
       role="listitem"
+      data-category-accent={APP_MODE_ACCENT[link.modeId]}
       className={cn(sourceCard, "flex min-h-12 min-w-0 items-center gap-2.5 px-2.5 py-1.5", "md:max-w-full")}
     >
-      <span
-        data-category-accent={APP_MODE_ACCENT[link.modeId]}
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]"
-      >
+      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]">
         <Icon className="h-3.5 w-3.5" aria-hidden />
       </span>
       <Link
         href={link.detailHref}
         onClick={() => logCrossModeLinkOpen(query, link)}
-        className="inline-flex min-h-tap min-w-0 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="inline-flex min-h-tap min-w-0 items-center text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
       >
         <span className="truncate">{link.title}</span>
       </Link>
@@ -75,7 +73,7 @@ function CrossModeLinkCard({ link, Icon, query, onModeSearch }: CrossModeLinkCar
         }}
         aria-label={`Search ${link.title} in ${link.modeLabel}`}
         title={`Search in ${link.modeLabel}`}
-        className="ml-auto grid h-tap w-tap shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="ml-auto grid h-tap w-tap shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--cat-border)] hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden />
       </button>
@@ -91,17 +89,15 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
   return (
     <article
       role="listitem"
-      className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--e1)]"
+      data-category-accent={APP_MODE_ACCENT[link.modeId]}
+      className="flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--cat-border)] hover:shadow-[var(--e1)]"
     >
       <Link
         href={link.detailHref}
         onClick={() => logCrossModeLinkOpen(query, link)}
-        className="inline-flex min-h-tap min-w-0 items-center gap-2 px-2.5 transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9"
+        className="inline-flex min-h-tap min-w-0 items-center gap-2 px-2.5 transition hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9"
       >
-        <span
-          data-category-accent={APP_MODE_ACCENT[link.modeId]}
-          className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]"
-        >
+        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] text-[color:var(--cat-accent)]">
           <Icon className="h-3.5 w-3.5" aria-hidden />
         </span>
         <span className="max-w-[13rem] truncate text-xs font-semibold text-[color:var(--text-heading)]">
@@ -119,7 +115,7 @@ function CrossModeLinkChip({ link, Icon, query, onModeSearch }: CrossModeLinkCar
         // click would corrupt retrieval-quality/click telemetry.
         onClick={() => onModeSearch(link.modeId, link.modeSearchQuery)}
         aria-label={`Search ${link.title} in ${link.modeLabel}`}
-        className="grid min-h-tap w-tap shrink-0 place-items-center border-l border-[color:var(--border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9 md:w-9"
+        className="grid min-h-tap w-tap shrink-0 place-items-center border-l border-[color:var(--border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)] md:min-h-9 md:w-9"
       >
         <Search className="h-3.5 w-3.5" aria-hidden />
       </button>
