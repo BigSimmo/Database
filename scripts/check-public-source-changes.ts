@@ -31,14 +31,15 @@ export async function fetchPublicSourceChangeCandidate(
   planInput: PublicSourceAcquisitionPlan,
   currentHash: string,
   dependencies: Parameters<typeof fetchApprovedPublicSource>[1] & {
+    storageBucket: string;
     preflight(input: { manifest: Json }): Promise<unknown>;
     upload?: unknown;
   },
 ) {
   const plan = parsePublicSourceAcquisitionPlan(planInput);
-  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan) });
+  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan, dependencies.storageBucket) });
   const fetched = await fetchApprovedPublicSource(plan, dependencies);
-  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan) });
+  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan, dependencies.storageBucket) });
   return {
     fetched,
     change: classifyPublicSourceChange({ plan, currentHash, fetchedHash: fetched.contentHash }),
@@ -63,7 +64,7 @@ async function main() {
 
   const { loadEnvConfig } = await import("@next/env");
   loadEnvConfig(process.cwd());
-  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const [{ env }, { createAdminClient }] = await Promise.all([import("@/lib/env"), import("@/lib/supabase/admin")]);
   const supabase = createAdminClient();
   for (const plan of manifest.plans) {
     const { data: current, error: currentError } = await supabase
@@ -85,6 +86,7 @@ async function main() {
 
     try {
       const { fetched, change } = await fetchPublicSourceChangeCandidate(plan, current.content_hash, {
+        storageBucket: env.SUPABASE_DOCUMENT_BUCKET,
         preflight: async ({ manifest: authorityManifest }) => {
           const { data, error } = await supabase.rpc("preflight_public_source_acquisition", {
             p_manifest: authorityManifest,

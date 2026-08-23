@@ -74,9 +74,14 @@ create table public.public_source_versions (
   content_hash text not null check (content_hash ~ '^[0-9a-f]{64}$'),
   retrieved_at timestamptz not null,
   licence_evidence_digest text not null check (licence_evidence_digest ~ '^[0-9a-f]{64}$'),
-  steward_id uuid not null,
+  steward_id uuid not null references auth.users(id) on delete restrict,
   reserved_document_id uuid not null unique,
   reserved_storage_path text not null unique,
+  storage_bucket text not null check (storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'),
+  upload_lease_token uuid not null,
+  upload_lease_expires_at timestamptz not null,
+  upload_state text not null default 'reserved'
+    check (upload_state in ('reserved', 'uploading', 'finalized', 'cleanup_pending')),
   staging_document_id uuid unique references public.documents(id) on delete restrict,
   intended_disposition text not null check (intended_disposition in ('shadow', 'quarantined')),
   extraction_index_generation_id uuid,
@@ -105,6 +110,67 @@ create unique index public_source_versions_catalogue_hash_live_idx
 create unique index public_source_versions_one_active_per_catalogue_idx
   on public.public_source_versions(source_catalogue_key)
   where lifecycle = 'active';
+
+alter table public.storage_cleanup_jobs
+  add column public_source_reservation_id uuid references public.public_source_versions(id) on delete restrict,
+  add column public_source_storage_bucket text,
+  add column public_source_storage_path text,
+  add column public_source_cleanup_not_before timestamptz,
+  add constraint storage_cleanup_jobs_public_source_reservation_unique unique (public_source_reservation_id),
+  add constraint storage_cleanup_jobs_public_source_identity_check check (
+    (public_source_reservation_id is null and public_source_storage_bucket is null
+      and public_source_storage_path is null and public_source_cleanup_not_before is null)
+    or
+    (public_source_reservation_id is not null
+      and public_source_storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'
+      and char_length(public_source_storage_path) between 1 and 1024
+      and public_source_cleanup_not_before is not null)
+  );
+
+create unique index public_source_cleanup_bucket_path_idx
+  on public.storage_cleanup_jobs(public_source_storage_bucket, public_source_storage_path)
+  where public_source_reservation_id is not null;
+
+create or replace function public.guard_public_source_cleanup_job_identity()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_version public.public_source_versions%rowtype;
+begin
+  if tg_op = 'DELETE' and old.public_source_reservation_id is not null then
+    raise exception 'public source cleanup history is immutable';
+  end if;
+  if tg_op = 'UPDATE' and old.public_source_reservation_id is not null and (
+    new.public_source_reservation_id is distinct from old.public_source_reservation_id
+    or new.public_source_storage_bucket is distinct from old.public_source_storage_bucket
+    or new.public_source_storage_path is distinct from old.public_source_storage_path
+    or new.document_bucket is distinct from old.document_bucket
+    or new.document_paths is distinct from old.document_paths
+  ) then
+    raise exception 'public source cleanup identity is immutable';
+  end if;
+  if tg_op <> 'DELETE' and new.public_source_reservation_id is not null then
+    select * into v_version from public.public_source_versions
+    where id = new.public_source_reservation_id;
+    if not found
+      or new.public_source_storage_bucket is distinct from v_version.storage_bucket
+      or new.public_source_storage_path is distinct from v_version.reserved_storage_path
+      or new.document_bucket is distinct from new.public_source_storage_bucket
+      or new.document_paths is distinct from array[new.public_source_storage_path]
+      or new.document_id is not null then
+      raise exception 'public source cleanup identity does not match its reservation';
+    end if;
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+
+revoke all on function public.guard_public_source_cleanup_job_identity() from public, anon, authenticated, service_role;
+create trigger storage_cleanup_jobs_guard_public_source_identity
+before insert or update or delete on public.storage_cleanup_jobs
+for each row execute function public.guard_public_source_cleanup_job_identity();
 
 create table public.public_source_activation_guards (
   token uuid primary key,
@@ -167,9 +233,9 @@ begin
     raise exception 'terminal public source versions are immutable';
   end if;
   if (
-    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(new) - array['lifecycle', 'staging_document_id', 'upload_state', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) is distinct from (
-    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
+    to_jsonb(old) - array['lifecycle', 'staging_document_id', 'upload_state', 'extraction_index_generation_id', 'review_queued_at', 'review_reason', 'updated_at']
   ) then
     raise exception 'public source version immutable fields changed';
   end if;
@@ -179,6 +245,12 @@ begin
   if old.staging_document_id is null and new.staging_document_id is not null
     and new.staging_document_id is distinct from old.reserved_document_id then
     raise exception 'public source staging document does not match its reservation';
+  end if;
+  if new.upload_state is distinct from old.upload_state and (old.upload_state, new.upload_state) not in (
+    ('reserved', 'uploading'), ('reserved', 'cleanup_pending'), ('uploading', 'finalized'),
+    ('uploading', 'cleanup_pending')
+  ) then
+    raise exception 'illegal public source upload state transition';
   end if;
   v_transition_allowed := (old.lifecycle, new.lifecycle) in (
     ('discovered', 'shadow'), ('discovered', 'quarantined'), ('discovered', 'tombstoned'), ('discovered', 'abandoned'),
@@ -212,7 +284,7 @@ declare
     'corpus_scope', 'source_kind', 'source_catalogue_key', 'source_policy_version', 'source_policy_digest',
     'public_source_activation_event_id', 'public_source_activation_sequence', 'public_source_version_id', 'public_source_steward_id',
     'content_mode', 'licence_policy', 'canonical_url', 'exact_version_url', 'version', 'content_hash',
-    'acquisition_disposition'
+    'acquisition_disposition', 'public_source_storage_bucket'
   ];
 begin
   if new.metadata->>'public_source_version_id' is not null
@@ -340,16 +412,20 @@ declare
   v_event public.public_source_activation_events%rowtype;
   v_activation_event_id uuid;
   v_activation_sequence bigint;
+  v_steward_id uuid;
+  v_storage_bucket text := coalesce(p_manifest->>'storageBucket', '');
   v_url_prefix text;
 begin
   begin
     v_activation_event_id := nullif(p_manifest->>'activationEventId', '')::uuid;
     v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
+    v_steward_id := nullif(p_manifest->>'stewardId', '')::uuid;
   exception when invalid_text_representation or numeric_value_out_of_range then
     raise exception 'public source authority identity is invalid';
   end;
   if jsonb_typeof(p_manifest) is distinct from 'object'
     or v_activation_event_id is null or v_activation_sequence is null or v_activation_sequence < 1
+    or v_steward_id is null or v_storage_bucket !~ '^[a-z0-9][a-z0-9._-]{0,62}$'
     or p_manifest->>'sourcePolicyVersion' is distinct from 'australian-source-policy-v1'
     or p_manifest->>'sourcePolicyDigest' is distinct from '93b99a99f19ac2ae7f316e4b7b4aba24bc756e62c9c9cd51f113df996d517a3f'
     or char_length(p_source_catalogue_key) not between 1 and 100 then
@@ -375,6 +451,9 @@ begin
     and lifecycle = 'active' and content_mode = 'indexed_content'
     and exact_document_licence = 'public_index_permitted';
   if not found then raise exception 'source definition is not active for controlled acquisition'; end if;
+  if not exists (select 1 from auth.users where id = v_steward_id) then
+    raise exception 'public source steward authority is not current';
+  end if;
   v_url_prefix := 'https://' || v_policy.canonical_host;
   if p_manifest->>'exactCanonicalUrl' is distinct from v_policy.canonical_url
     or lower(coalesce(p_manifest->>'exactHostname', '')) is distinct from v_policy.canonical_host
@@ -393,6 +472,8 @@ begin
     'catalogueKey', p_source_catalogue_key,
     'activationEventId', v_event.id,
     'activationSequence', v_event.activation_sequence,
+    'stewardId', v_steward_id,
+    'storageBucket', v_storage_bucket,
     'authorized', true
   );
 end;
@@ -417,6 +498,9 @@ declare
   v_activation_sequence bigint;
   v_version_id uuid := gen_random_uuid();
   v_document_id uuid := gen_random_uuid();
+  v_upload_lease_token uuid := gen_random_uuid();
+  v_upload_lease_expires_at timestamptz := pg_catalog.clock_timestamp() + interval '15 minutes';
+  v_storage_bucket text := coalesce(p_manifest->>'storageBucket', '');
   v_storage_path text;
   v_url_prefix text;
 begin
@@ -431,6 +515,7 @@ begin
     or coalesce(p_manifest->>'reservationKey', '') !~ '^[0-9a-f]{64}$'
     or coalesce(p_manifest->>'contentHash', '') !~ '^[0-9a-f]{64}$'
     or coalesce(p_manifest->>'licenceEvidenceDigest', '') !~ '^[0-9a-f]{64}$'
+    or v_storage_bucket !~ '^[a-z0-9][a-z0-9._-]{0,62}$'
     or p_manifest->>'disposition' not in ('shadow', 'quarantined')
     or p_manifest->>'fileExtension' not in ('.pdf', '.docx', '.txt') then
     raise exception 'public source reservation manifest is invalid';
@@ -455,6 +540,9 @@ begin
     and lifecycle = 'active' and content_mode = 'indexed_content'
     and exact_document_licence = 'public_index_permitted';
   if not found then raise exception 'source definition is not active for controlled acquisition'; end if;
+  if not exists (select 1 from auth.users where id = v_steward_id) then
+    raise exception 'public source steward authority is not current';
+  end if;
   v_url_prefix := 'https://' || v_policy.canonical_host;
   if p_manifest->>'exactCanonicalUrl' is distinct from v_policy.canonical_url
     or coalesce(p_manifest->>'exactVersionUrl', '') !~ '^https://'
@@ -484,6 +572,7 @@ begin
       or v_version.content_hash is distinct from p_manifest->>'contentHash'
       or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
       or v_version.steward_id is distinct from v_steward_id
+      or v_version.storage_bucket is distinct from v_storage_bucket
       or v_version.intended_disposition is distinct from p_manifest->>'disposition' then
       raise exception 'public source reservation manifest conflicts with existing identity';
     end if;
@@ -502,13 +591,15 @@ begin
   insert into public.public_source_versions (
     id, reservation_key, source_catalogue_key, source_policy_version, source_policy_digest,
     exact_canonical_url, exact_version_url, exact_version, content_hash, retrieved_at,
-    licence_evidence_digest, steward_id, reserved_document_id, reserved_storage_path,
+    licence_evidence_digest, steward_id, reserved_document_id, reserved_storage_path, storage_bucket,
+    upload_lease_token, upload_lease_expires_at, upload_state,
     intended_disposition, lifecycle, supersedes_version_id, activation_event_id, activation_sequence
   ) values (
     v_version_id, p_manifest->>'reservationKey', p_source_catalogue_key, v_event.policy_version, v_event.policy_digest,
     p_manifest->>'exactCanonicalUrl', p_manifest->>'exactVersionUrl', trim(p_manifest->>'exactVersion'),
     p_manifest->>'contentHash', (p_manifest->>'retrievedAt')::timestamptz,
-    p_manifest->>'licenceEvidenceDigest', v_steward_id, v_document_id, v_storage_path,
+    p_manifest->>'licenceEvidenceDigest', v_steward_id, v_document_id, v_storage_path, v_storage_bucket,
+    v_upload_lease_token, v_upload_lease_expires_at, 'reserved',
     p_manifest->>'disposition', 'discovered', v_prior_version_id, v_event.id, v_event.activation_sequence
   ) returning * into v_version;
   return v_version;
@@ -517,6 +608,84 @@ $$;
 
 revoke all on function public.reserve_public_source_version(jsonb) from public, anon, authenticated;
 grant execute on function public.reserve_public_source_version(jsonb) to service_role;
+
+create or replace function public.authorize_public_source_upload(p_manifest jsonb)
+returns public.public_source_versions
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  p_source_catalogue_key text := trim(coalesce(p_manifest->>'catalogueKey', ''));
+  v_event public.public_source_activation_events%rowtype;
+  v_version public.public_source_versions%rowtype;
+  v_reservation_id uuid;
+  v_steward_id uuid;
+  v_activation_event_id uuid;
+  v_activation_sequence bigint;
+  v_upload_lease_token uuid;
+  v_upload_lease_expires_at timestamptz;
+begin
+  begin
+    v_reservation_id := nullif(p_manifest->>'reservationId', '')::uuid;
+    v_steward_id := nullif(p_manifest->>'stewardId', '')::uuid;
+    v_activation_event_id := nullif(p_manifest->>'activationEventId', '')::uuid;
+    v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
+    v_upload_lease_token := nullif(p_manifest->>'uploadLeaseToken', '')::uuid;
+    v_upload_lease_expires_at := nullif(p_manifest->>'uploadLeaseExpiresAt', '')::timestamptz;
+  exception when invalid_text_representation or numeric_value_out_of_range then
+    raise exception 'public source upload authority identity is invalid';
+  end;
+  if v_reservation_id is null or v_steward_id is null or v_activation_event_id is null
+    or v_activation_sequence is null or v_upload_lease_token is null or v_upload_lease_expires_at is null
+    or coalesce(p_manifest->>'storageBucket', '') !~ '^[a-z0-9][a-z0-9._-]{0,62}$' then
+    raise exception 'public source upload authority manifest is invalid';
+  end if;
+  -- lock-order: advisory
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0));
+  -- lock-order: latest-event
+  select * into v_event from public.public_source_activation_events
+  where source_catalogue_key = p_source_catalogue_key
+  order by activation_sequence desc limit 1 for update;
+  -- lock-order: document
+  perform 1 from public.documents
+  where id = nullif(p_manifest->>'reservedDocumentId', '')::uuid for update;
+  -- lock-order: version
+  select * into v_version from public.public_source_versions where id = v_reservation_id for update;
+  if not found or v_event.decision is distinct from 'activate'
+    or v_event.id is distinct from v_activation_event_id
+    or v_event.activation_sequence is distinct from v_activation_sequence
+    or v_version.activation_event_id is distinct from v_event.id
+    or v_version.activation_sequence is distinct from v_event.activation_sequence
+    or v_version.source_catalogue_key is distinct from p_source_catalogue_key
+    or v_version.source_policy_version is distinct from p_manifest->>'sourcePolicyVersion'
+    or v_version.source_policy_digest is distinct from p_manifest->>'sourcePolicyDigest'
+    or v_version.reservation_key is distinct from p_manifest->>'reservationKey'
+    or v_version.exact_canonical_url is distinct from p_manifest->>'exactCanonicalUrl'
+    or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
+    or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.steward_id is distinct from v_steward_id
+    or v_version.reserved_document_id::text is distinct from p_manifest->>'reservedDocumentId'
+    or v_version.reserved_storage_path is distinct from p_manifest->>'reservedStoragePath'
+    or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
+    or v_version.upload_lease_token is distinct from v_upload_lease_token
+    or v_version.upload_lease_expires_at is distinct from v_upload_lease_expires_at
+    or v_version.lifecycle is distinct from 'discovered'
+    or v_version.staging_document_id is not null
+    or v_version.upload_state not in ('reserved', 'uploading')
+    or pg_catalog.clock_timestamp() >= v_version.upload_lease_expires_at then
+    raise exception 'public source upload lease is stale or governance changed';
+  end if;
+  if not exists (select 1 from auth.users where id = v_version.steward_id) then
+    raise exception 'public source steward authority is not current';
+  end if;
+  update public.public_source_versions set upload_state = 'uploading'
+  where id = v_version.id returning * into v_version;
+  return v_version;
+end;
+$$;
+
+revoke all on function public.authorize_public_source_upload(jsonb) from public, anon, authenticated;
+grant execute on function public.authorize_public_source_upload(jsonb) to service_role;
 
 create or replace function public.finalize_public_source_version(p_manifest jsonb, p_max_attempts integer)
 returns public.public_source_versions
@@ -534,6 +703,8 @@ declare
   v_steward_id uuid;
   v_activation_event_id uuid;
   v_activation_sequence bigint;
+  v_upload_lease_token uuid;
+  v_upload_lease_expires_at timestamptz;
   v_url_prefix text;
 begin
   begin
@@ -542,11 +713,15 @@ begin
     v_steward_id := nullif(p_manifest->>'stewardId', '')::uuid;
     v_activation_event_id := nullif(p_manifest->>'activationEventId', '')::uuid;
     v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
+    v_upload_lease_token := nullif(p_manifest->>'uploadLeaseToken', '')::uuid;
+    v_upload_lease_expires_at := nullif(p_manifest->>'uploadLeaseExpiresAt', '')::timestamptz;
   exception when invalid_text_representation or numeric_value_out_of_range then
     raise exception 'public source finalization identity is invalid';
   end;
   if v_reservation_id is null or v_document_id is null or v_steward_id is null
-    or v_activation_event_id is null or v_activation_sequence is null
+    or v_activation_event_id is null or v_activation_sequence is null or v_upload_lease_token is null
+    or v_upload_lease_expires_at is null
+    or coalesce(p_manifest->>'storageBucket', '') !~ '^[a-z0-9][a-z0-9._-]{0,62}$'
     or p_manifest->>'disposition' not in ('shadow', 'quarantined')
     or p_max_attempts not between 1 and 25 then
     raise exception 'public source finalization manifest is invalid';
@@ -576,6 +751,11 @@ begin
     or v_version.content_hash is distinct from p_manifest->>'contentHash'
     or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
     or v_version.steward_id is distinct from v_steward_id
+    or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
+    or v_version.upload_lease_token is distinct from v_upload_lease_token
+    or v_version.upload_lease_expires_at is distinct from v_upload_lease_expires_at
+    or v_version.upload_state not in ('uploading', 'finalized')
+    or (v_version.upload_state = 'uploading' and pg_catalog.clock_timestamp() >= v_version.upload_lease_expires_at)
     or v_version.reserved_document_id is distinct from v_document_id
     or v_version.intended_disposition is distinct from p_manifest->>'disposition' then
     raise exception 'public source governance changed while locks were acquired';
@@ -586,6 +766,9 @@ begin
     and lifecycle = 'active' and content_mode = 'indexed_content'
     and exact_document_licence = 'public_index_permitted';
   if not found then raise exception 'source policy digest does not match the active definition'; end if;
+  if not exists (select 1 from auth.users where id = v_version.steward_id) then
+    raise exception 'public source steward authority is not current';
+  end if;
   v_url_prefix := 'https://' || v_policy.canonical_host;
   if v_version.exact_canonical_url is distinct from v_policy.canonical_url
     or not (
@@ -598,7 +781,8 @@ begin
     raise exception 'exact version URL is outside the eligible canonical host';
   end if;
   if v_version.staging_document_id is not null then
-    if not found or v_document.id is distinct from v_version.staging_document_id
+    if not found or v_version.upload_state is distinct from 'finalized'
+      or v_document.id is distinct from v_version.staging_document_id
       or v_document.storage_path is distinct from v_version.reserved_storage_path
       or v_document.content_hash is distinct from v_version.content_hash then
       raise exception 'public source finalized state is inconsistent';
@@ -623,7 +807,8 @@ begin
     or p_manifest->'document'->'metadata'->>'exact_version_url' is distinct from v_version.exact_version_url
     or p_manifest->'document'->'metadata'->>'version' is distinct from v_version.exact_version
     or p_manifest->'document'->'metadata'->>'content_hash' is distinct from v_version.content_hash
-    or p_manifest->'document'->'metadata'->>'acquisition_disposition' is distinct from v_version.intended_disposition then
+    or p_manifest->'document'->'metadata'->>'acquisition_disposition' is distinct from v_version.intended_disposition
+    or p_manifest->'document'->'metadata'->>'public_source_storage_bucket' is distinct from v_version.storage_bucket then
     raise exception 'public source finalization document evidence does not match its reservation';
   end if;
 
@@ -650,6 +835,7 @@ begin
   end if;
   update public.public_source_versions
   set staging_document_id = v_document.id,
+      upload_state = 'finalized',
       lifecycle = p_manifest->>'disposition',
       review_queued_at = case when p_manifest->>'disposition' = 'quarantined' then now() else null end,
       review_reason = case when p_manifest->>'disposition' = 'quarantined'
@@ -673,6 +859,8 @@ declare
   v_activation_sequence bigint;
   v_steward_id uuid;
   v_reserved_document_id uuid;
+  v_upload_lease_token uuid;
+  v_upload_lease_expires_at timestamptz;
   v_version public.public_source_versions%rowtype;
   v_event public.public_source_activation_events%rowtype;
 begin
@@ -682,6 +870,8 @@ begin
     v_activation_sequence := nullif(p_manifest->>'activationSequence', '')::bigint;
     v_steward_id := nullif(p_manifest->>'stewardId', '')::uuid;
     v_reserved_document_id := nullif(p_manifest->>'reservedDocumentId', '')::uuid;
+    v_upload_lease_token := nullif(p_manifest->>'uploadLeaseToken', '')::uuid;
+    v_upload_lease_expires_at := nullif(p_manifest->>'uploadLeaseExpiresAt', '')::timestamptz;
   exception when invalid_text_representation or numeric_value_out_of_range then
     raise exception 'public source abandonment identity is invalid';
   end;
@@ -711,10 +901,17 @@ begin
     or v_version.content_hash is distinct from p_manifest->>'contentHash'
     or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
     or v_version.steward_id is distinct from v_steward_id
+    or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
+    or v_version.upload_lease_token is distinct from v_upload_lease_token
+    or v_version.upload_lease_expires_at is distinct from v_upload_lease_expires_at
     or v_version.intended_disposition is distinct from p_manifest->>'disposition'
     or v_version.reserved_document_id is distinct from v_reserved_document_id
     or v_version.reserved_storage_path is distinct from p_manifest->>'reservedStoragePath' then
     raise exception 'public source governance changed while locks were acquired';
+  end if;
+
+  if not exists (select 1 from auth.users where id = v_version.steward_id) then
+    raise exception 'public source steward authority is not current';
   end if;
 
   if v_version.staging_document_id is not null then
@@ -732,24 +929,31 @@ begin
   end if;
   if v_version.lifecycle = 'discovered' then
     update public.public_source_versions
-    set lifecycle = 'abandoned', review_queued_at = now(),
+    set lifecycle = 'abandoned', upload_state = 'cleanup_pending', review_queued_at = now(),
         review_reason = 'Unfinalized reservation abandoned after definitive finalization failure.'
     where id = v_version.id;
   end if;
   insert into public.storage_cleanup_jobs (
-    owner_id, document_id, document_title, document_bucket, document_paths, metadata
+    owner_id, document_id, document_title, document_bucket, document_paths,
+    public_source_reservation_id, public_source_storage_bucket, public_source_storage_path,
+    public_source_cleanup_not_before, status, metadata
   )
-  select v_version.steward_id, null, 'Abandoned controlled public source', 'clinical-documents',
-    array[v_version.reserved_storage_path],
+  values (
+    v_version.steward_id, null, 'Abandoned controlled public source', v_version.storage_bucket,
+    array[v_version.reserved_storage_path], v_version.id, v_version.storage_bucket,
+    v_version.reserved_storage_path, v_version.upload_lease_expires_at + interval '5 minutes', 'pending',
     jsonb_build_object(
       'public_source_reservation_id', v_version.id,
       'public_source_reservation_key', v_version.reservation_key,
       'reason', 'abandoned_public_source_reservation'
     )
-  where not exists (
-    select 1 from public.storage_cleanup_jobs cleanup
-    where cleanup.metadata->>'public_source_reservation_id' = v_version.id::text
-  );
+  )
+  on conflict (public_source_reservation_id) do update
+  set status = 'pending', attempts = 0, last_error = null, completed_at = null,
+      public_source_cleanup_not_before = greatest(
+        public.storage_cleanup_jobs.public_source_cleanup_not_before,
+        excluded.public_source_cleanup_not_before
+      );
   return jsonb_build_object(
     'status', 'abandoned', 'storagePath', v_version.reserved_storage_path,
     'storageOwned', false, 'storage_owned', false, 'cleanupDurable', true
@@ -800,7 +1004,8 @@ begin
     raise exception 'public source governance changed while locks were acquired';
   end if;
   if v_document.owner_id is null
-    or v_document.owner_id::text is distinct from v_document.metadata->>'public_source_steward_id' then
+    or v_document.owner_id::text is distinct from v_document.metadata->>'public_source_steward_id'
+    or v_document.metadata->>'public_source_storage_bucket' is distinct from v_version.storage_bucket then
     raise exception 'governed public source document lost steward ownership';
   end if;
   if v_version.steward_id is distinct from v_document.owner_id
@@ -869,7 +1074,7 @@ begin
 end;
 $$;
 
-revoke all on function public.restore_public_source_document_to_steward(uuid, uuid, text) from public, anon, authenticated;
+revoke all on function public.restore_public_source_document_to_steward(uuid, uuid, text) from public, anon, authenticated, service_role;
 
 create or replace function public.transition_public_source_version(
   p_version_id uuid,
@@ -1046,7 +1251,8 @@ begin
     or v_document.metadata->>'source_policy_version' is distinct from v_version.source_policy_version
     or v_document.metadata->>'source_policy_digest' is distinct from v_version.source_policy_digest
     or v_document.metadata->>'exact_version_url' is distinct from v_version.exact_version_url
-    or v_document.metadata->>'public_source_steward_id' is distinct from v_version.steward_id::text then
+    or v_document.metadata->>'public_source_steward_id' is distinct from v_version.steward_id::text
+    or v_document.metadata->>'public_source_storage_bucket' is distinct from v_version.storage_bucket then
     raise exception 'public source activation document governance is invalid';
   end if;
   if jsonb_typeof(p_publication_manifest->'documents') is distinct from 'array'
@@ -1159,6 +1365,9 @@ begin
     or v_event.source_catalogue_key is distinct from v_catalogue_key then
     raise exception 'public source governance changed while locks were acquired';
   end if;
+  if not exists (select 1 from auth.users where id = v_version.steward_id) then
+    raise exception 'public source steward authority is not current';
+  end if;
   if v_version.lifecycle = 'tombstoned' then
     return jsonb_build_object('version_id', v_version.id, 'lifecycle', 'tombstoned', 'retrieval_removed', true);
   end if;
@@ -1261,6 +1470,7 @@ begin
               and d.metadata->>'canonical_url' = version.exact_canonical_url
               and d.metadata->>'exact_version_url' = version.exact_version_url
               and d.metadata->>'content_hash' = version.content_hash
+              and d.metadata->>'public_source_storage_bucket' = version.storage_bucket
               and latest.id = version.activation_event_id
               and latest.activation_sequence = version.activation_sequence
               and latest.decision = 'activate'
@@ -1318,7 +1528,7 @@ declare
     'corpus_scope', 'source_kind', 'source_catalogue_key', 'source_policy_version', 'source_policy_digest',
     'public_source_activation_event_id', 'public_source_activation_sequence', 'public_source_version_id', 'public_source_steward_id',
     'content_mode', 'licence_policy', 'canonical_url', 'exact_version_url', 'version', 'content_hash',
-    'acquisition_disposition'
+    'acquisition_disposition', 'public_source_storage_bucket'
   ];
 begin
   select * into v_job from public.ingestion_jobs where id = p_job_id for update;

@@ -2223,11 +2223,42 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(preflight).toContain("exact version URL is outside the eligible canonical host");
       expect(preflight).toContain("source definition is not active for controlled acquisition");
       expect(preflight).toContain("order by activation_sequence desc");
-      for (const name of ["reserve_public_source_version", "finalize_public_source_version"]) {
+      expect(preflight).toContain("from auth.users");
+      expect(preflight).toContain("stewardId");
+      expect(preflight).toContain("storageBucket");
+      for (const name of [
+        "reserve_public_source_version",
+        "authorize_public_source_upload",
+        "finalize_public_source_version",
+      ]) {
         const start = sql.indexOf(`create or replace function public.${name}(`);
         const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(start, name).toBeGreaterThan(-1);
         expect(body).toContain("order by activation_sequence desc");
         expect(body).toContain("v_event.activation_sequence");
+        expect(body).toContain("from auth.users");
+        expect(body).toContain("stewardId");
+        expect(body).toContain("storageBucket");
+      }
+    });
+
+    it("retains steward authority and exact storage identity for every governed lifecycle", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("steward_id uuid not null references auth.users(id) on delete restrict");
+      expect(sql).toContain("storage_bucket text not null");
+      expect(sql).toContain("upload_lease_token uuid not null");
+      expect(sql).toContain("upload_lease_expires_at timestamptz not null");
+      expect(sql).toContain("upload_state text not null");
+      expect(sql).toContain("storage_bucket ~ '^[a-z0-9][a-z0-9._-]{0,62}$'");
+      for (const name of [
+        "finalize_public_source_version",
+        "abandon_public_source_reservation",
+        "withdraw_public_source_version",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        expect(body, name).toContain("v_version.steward_id");
+        expect(body, name).toContain("auth.users");
       }
     });
 
@@ -2408,11 +2439,41 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(body).toContain("set lifecycle = 'abandoned'");
       expect(body).toContain("'storage_owned', false");
       expect(body).toContain("insert into public.storage_cleanup_jobs");
-      expect(body).toContain("'public_source_reservation_id', v_version.id");
+      expect(body).toContain("public_source_reservation_id");
+      expect(body).toContain("public_source_storage_bucket");
+      expect(body).toContain("public_source_storage_path");
+      expect(body).toContain("public_source_cleanup_not_before");
       expect(body).toContain("array[v_version.reserved_storage_path]");
-      expect(body).toContain("where not exists");
+      expect(body).toContain("on conflict (public_source_reservation_id)");
+      expect(body).toContain("status = 'pending'");
       expect(body).not.toContain("delete from public.public_source_versions");
       expect(body).not.toContain("delete from public.documents");
+    });
+
+    it("uses immutable cleanup columns, uniqueness, and lease grace instead of mutable metadata identity", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("add column public_source_reservation_id uuid");
+      expect(sql).toContain("add column public_source_storage_bucket text");
+      expect(sql).toContain("add column public_source_storage_path text");
+      expect(sql).toContain("add column public_source_cleanup_not_before timestamptz");
+      expect(sql).toContain("unique (public_source_reservation_id)");
+      expect(sql).toContain("public_source_cleanup_bucket_path_idx");
+      expect(sql).toContain("upload_lease_expires_at + interval '5 minutes'");
+      expect(sql).toContain("create trigger storage_cleanup_jobs_guard_public_source_identity");
+      expect(sql).toContain("public source cleanup identity is immutable");
+      const types = readFileSync("src/lib/supabase/database.types.ts", "utf8");
+      for (const field of [
+        "public_source_reservation_id",
+        "public_source_storage_bucket",
+        "public_source_storage_path",
+        "public_source_cleanup_not_before",
+        "storage_bucket",
+        "upload_lease_token",
+        "upload_lease_expires_at",
+        "upload_state",
+      ]) {
+        expect(types).toContain(`${field}:`);
+      }
     });
 
     it("withdraws atomically from retrieval and anonymous cache while preserving history", () => {
@@ -2437,6 +2498,7 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
         "record_public_source_activation(jsonb)",
         "preflight_public_source_acquisition(jsonb)",
         "reserve_public_source_version(jsonb)",
+        "authorize_public_source_upload(jsonb)",
         "finalize_public_source_version(jsonb, integer)",
         "abandon_public_source_reservation(jsonb)",
         "activate_public_source_version(uuid, uuid, jsonb, text, uuid[])",
@@ -2446,6 +2508,12 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
         expect(sql).toContain(`revoke all on function public.${signature} from public, anon, authenticated`);
         expect(sql).toContain(`grant execute on function public.${signature} to service_role`);
       }
+      expect(sql).toContain(
+        "revoke all on function public.restore_public_source_document_to_steward(uuid, uuid, text) from public, anon, authenticated, service_role",
+      );
+      expect(sql).not.toContain(
+        "grant execute on function public.restore_public_source_document_to_steward(uuid, uuid, text) to service_role",
+      );
     });
   });
 });

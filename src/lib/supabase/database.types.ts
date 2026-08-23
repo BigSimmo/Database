@@ -1064,6 +1064,10 @@ export type Database = {
           reservation_key: string;
           reserved_document_id: string;
           reserved_storage_path: string;
+          storage_bucket: string;
+          upload_lease_token: string;
+          upload_lease_expires_at: string;
+          upload_state: string;
           retrieved_at: string;
           review_queued_at: string | null;
           review_reason: string | null;
@@ -1091,6 +1095,10 @@ export type Database = {
           reservation_key: string;
           reserved_document_id: string;
           reserved_storage_path: string;
+          storage_bucket: string;
+          upload_lease_token: string;
+          upload_lease_expires_at: string;
+          upload_state?: string;
           retrieved_at: string;
           review_queued_at?: string | null;
           review_reason?: string | null;
@@ -1118,6 +1126,10 @@ export type Database = {
           reservation_key?: string;
           reserved_document_id?: string;
           reserved_storage_path?: string;
+          storage_bucket?: string;
+          upload_lease_token?: string;
+          upload_lease_expires_at?: string;
+          upload_state?: string;
           retrieved_at?: string;
           review_queued_at?: string | null;
           review_reason?: string | null;
@@ -2310,6 +2322,10 @@ export type Database = {
           last_error: string | null;
           metadata: Json;
           owner_id: string | null;
+          public_source_cleanup_not_before: string | null;
+          public_source_reservation_id: string | null;
+          public_source_storage_bucket: string | null;
+          public_source_storage_path: string | null;
           status: string;
           storage_removed: number;
           updated_at: string;
@@ -2328,6 +2344,10 @@ export type Database = {
           last_error?: string | null;
           metadata?: Json;
           owner_id?: string | null;
+          public_source_cleanup_not_before?: string | null;
+          public_source_reservation_id?: string | null;
+          public_source_storage_bucket?: string | null;
+          public_source_storage_path?: string | null;
           status?: string;
           storage_removed?: number;
           updated_at?: string;
@@ -2346,11 +2366,23 @@ export type Database = {
           last_error?: string | null;
           metadata?: Json;
           owner_id?: string | null;
+          public_source_cleanup_not_before?: string | null;
+          public_source_reservation_id?: string | null;
+          public_source_storage_bucket?: string | null;
+          public_source_storage_path?: string | null;
           status?: string;
           storage_removed?: number;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "storage_cleanup_jobs_public_source_reservation_id_fkey";
+            columns: ["public_source_reservation_id"];
+            isOneToOne: true;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       user_favourites: {
         Row: {
@@ -3132,6 +3164,10 @@ export type Database = {
         Returns: Json;
       };
       reserve_public_source_version: {
+        Args: { p_manifest: Json };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      authorize_public_source_upload: {
         Args: { p_manifest: Json };
         Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
       };

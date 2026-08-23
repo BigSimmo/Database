@@ -48,6 +48,10 @@ type PublicSourceVersionState = {
   intended_disposition?: string;
   reserved_document_id?: string;
   reserved_storage_path?: string;
+  storage_bucket?: string;
+  upload_lease_token?: string;
+  upload_lease_expires_at?: string;
+  upload_state?: string;
 };
 type PublicSourceReservation = {
   id: string;
@@ -55,19 +59,31 @@ type PublicSourceReservation = {
   storagePath: string;
   stagingDocumentId: string | null;
   lifecycle: string;
+  storageBucket: string;
+  uploadLeaseToken: string;
+  uploadLeaseExpiresAt: string;
+  uploadState: string;
 };
 
 export type PublicSourceStagingDependencies = {
+  storageBucket: string;
   preflight?(input: { manifest: Json }): Promise<unknown>;
   reserve(input: { manifest: Json }): Promise<PublicSourceReservation>;
+  authorizeUpload(input: { manifest: Json }): Promise<PublicSourceVersionState>;
   upload(input: { storagePath: string; content: Uint8Array; mime: string; upsert: true }): Promise<void>;
   finalize(input: { manifest: Json; maxAttempts: number }): Promise<PublicSourceVersionState>;
   lookup(reservationId: string): Promise<PublicSourceVersionState | null>;
   abandon?(input: { manifest: Json }): Promise<{ status: string; storagePath: string; storageOwned: boolean }>;
-  remove?(storagePath: string): Promise<void>;
 };
 
-export function publicSourceAuthorityManifest(planInput: PublicSourceAcquisitionPlan): Json {
+export function parsePublicSourceStorageBucket(value: string) {
+  if (!/^[a-z0-9][a-z0-9._-]{0,62}$/.test(value)) {
+    throw new Error("Public source storage bucket is invalid.");
+  }
+  return value;
+}
+
+export function publicSourceAuthorityManifest(planInput: PublicSourceAcquisitionPlan, storageBucket: string): Json {
   const plan = parsePublicSourceAcquisitionPlan(planInput);
   const definition = australianSourceByKey(plan.catalogueKey)!;
   return {
@@ -80,6 +96,7 @@ export function publicSourceAuthorityManifest(planInput: PublicSourceAcquisition
     exactVersionUrl: plan.exactUrl,
     exactHostname: new URL(plan.exactUrl).hostname.toLowerCase(),
     stewardId: plan.stewardId,
+    storageBucket: parsePublicSourceStorageBucket(storageBucket),
   };
 }
 
@@ -90,7 +107,7 @@ function acquisitionFileExtension(fetched: FetchedPublicSource) {
   return extname(new URL(fetched.finalUrl).pathname).toLowerCase() || ".bin";
 }
 
-function reservationKey(plan: PublicSourceAcquisitionPlan, fetched: FetchedPublicSource) {
+function reservationKey(plan: PublicSourceAcquisitionPlan, fetched: FetchedPublicSource, storageBucket: string) {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -102,6 +119,7 @@ function reservationKey(plan: PublicSourceAcquisitionPlan, fetched: FetchedPubli
         exactVersion: plan.exactVersion,
         contentHash: fetched.contentHash,
         disposition: fetched.disposition,
+        storageBucket,
       }),
       "utf8",
     )
@@ -119,6 +137,7 @@ async function defaultStagingDependencies(): Promise<{
   return {
     maxAttempts: env.WORKER_MAX_ATTEMPTS,
     dependencies: {
+      storageBucket: parsePublicSourceStorageBucket(env.SUPABASE_DOCUMENT_BUCKET),
       preflight: async ({ manifest }) => {
         const { data, error } = await supabase.rpc("preflight_public_source_acquisition", { p_manifest: manifest });
         if (error || !data) throw new Error("Current public source authority preflight failed.");
@@ -133,7 +152,16 @@ async function defaultStagingDependencies(): Promise<{
           storagePath: data.reserved_storage_path,
           stagingDocumentId: data.staging_document_id,
           lifecycle: data.lifecycle,
+          storageBucket: data.storage_bucket,
+          uploadLeaseToken: data.upload_lease_token,
+          uploadLeaseExpiresAt: data.upload_lease_expires_at,
+          uploadState: data.upload_state,
         };
+      },
+      authorizeUpload: async ({ manifest }) => {
+        const { data, error } = await supabase.rpc("authorize_public_source_upload", { p_manifest: manifest });
+        if (error || !data) throw new Error("Public source upload authority failed.");
+        return data;
       },
       upload: async ({ storagePath, content, mime, upsert }) => {
         const result = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, content, {
@@ -154,7 +182,7 @@ async function defaultStagingDependencies(): Promise<{
         const { data, error } = await supabase
           .from("public_source_versions")
           .select(
-            "id,lifecycle,staging_document_id,reservation_key,source_catalogue_key,source_policy_version,source_policy_digest,activation_event_id,activation_sequence,exact_canonical_url,exact_version_url,exact_version,content_hash,licence_evidence_digest,steward_id,intended_disposition,reserved_document_id,reserved_storage_path",
+            "id,lifecycle,staging_document_id,reservation_key,source_catalogue_key,source_policy_version,source_policy_digest,activation_event_id,activation_sequence,exact_canonical_url,exact_version_url,exact_version,content_hash,licence_evidence_digest,steward_id,intended_disposition,reserved_document_id,reserved_storage_path,storage_bucket,upload_lease_token,upload_lease_expires_at,upload_state",
           )
           .eq("id", reservationId)
           .maybeSingle();
@@ -175,10 +203,6 @@ async function defaultStagingDependencies(): Promise<{
           throw new Error("Public source reservation abandonment returned an invalid result.");
         }
         return { status: result.status, storagePath: result.storagePath, storageOwned: result.storageOwned };
-      },
-      remove: async (storagePath) => {
-        const { error } = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([storagePath]);
-        if (error) throw new Error("Abandoned public source storage cleanup failed.");
       },
     },
   };
@@ -205,7 +229,10 @@ function recoveryIdentityMatches(
     recovered.steward_id === manifest.stewardId &&
     recovered.intended_disposition === manifest.disposition &&
     recovered.reserved_document_id === reservation.reservedDocumentId &&
-    recovered.reserved_storage_path === reservation.storagePath
+    recovered.reserved_storage_path === reservation.storagePath &&
+    recovered.storage_bucket === reservation.storageBucket &&
+    recovered.upload_lease_token === reservation.uploadLeaseToken &&
+    recovered.upload_lease_expires_at === reservation.uploadLeaseExpiresAt
   );
 }
 
@@ -213,6 +240,25 @@ function isCommittedRecovery(recovered: PublicSourceVersionState, reservation: P
   return (
     recovered.staging_document_id === reservation.reservedDocumentId &&
     ["shadow", "quarantined", "approved", "active", "tombstoned"].includes(recovered.lifecycle)
+  );
+}
+
+function uploadAuthorityMatches(
+  authorized: PublicSourceVersionState,
+  reservation: PublicSourceReservation,
+  stewardId: string,
+) {
+  return (
+    authorized.id === reservation.id &&
+    authorized.lifecycle === "discovered" &&
+    authorized.staging_document_id === null &&
+    authorized.reserved_document_id === reservation.reservedDocumentId &&
+    authorized.reserved_storage_path === reservation.storagePath &&
+    authorized.storage_bucket === reservation.storageBucket &&
+    authorized.upload_lease_token === reservation.uploadLeaseToken &&
+    authorized.upload_lease_expires_at === reservation.uploadLeaseExpiresAt &&
+    authorized.upload_state === "uploading" &&
+    authorized.steward_id === stewardId
   );
 }
 
@@ -226,9 +272,10 @@ export async function stageFetchedPublicSource(
   const safeExtension = acquisitionFileExtension(fetched);
   const defaults = injectedDependencies ? null : await defaultStagingDependencies();
   const dependencies = injectedDependencies ?? defaults!.dependencies;
+  const storageBucket = parsePublicSourceStorageBucket(dependencies.storageBucket);
   const maxAttempts = defaults?.maxAttempts ?? 3;
   const reserveManifest = {
-    reservationKey: reservationKey(plan, fetched),
+    reservationKey: reservationKey(plan, fetched, storageBucket),
     catalogueKey: plan.catalogueKey,
     sourcePolicyVersion: plan.sourcePolicyVersion,
     sourcePolicyDigest: plan.sourcePolicyDigest,
@@ -243,47 +290,71 @@ export async function stageFetchedPublicSource(
     stewardId: plan.stewardId,
     disposition: fetched.disposition,
     fileExtension: safeExtension,
+    storageBucket,
   } satisfies Json;
   const reservation = await dependencies.reserve({
     manifest: reserveManifest,
   });
+  if (
+    reservation.storageBucket !== storageBucket ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(reservation.uploadLeaseToken) ||
+    !Number.isFinite(Date.parse(reservation.uploadLeaseExpiresAt))
+  ) {
+    throw new Error("Public source reservation storage identity was invalid.");
+  }
   if (reservation.stagingDocumentId) {
     return { disposition: "duplicate" as const, version: reservation };
   }
-
-  await dependencies.upload({
-    storagePath: reservation.storagePath,
-    content: fetched.content,
-    mime: fetched.mime,
-    upsert: true,
-  });
-  const metadata = {
-    corpus_scope: "australian_public",
-    source_kind: "document",
-    source_catalogue_key: plan.catalogueKey,
-    source_policy_version: plan.sourcePolicyVersion,
-    source_policy_digest: plan.sourcePolicyDigest,
-    public_source_activation_event_id: plan.activationEventId,
-    public_source_activation_sequence: String(plan.activationSequence),
-    public_source_version_id: reservation.id,
-    public_source_steward_id: plan.stewardId,
-    content_mode: "indexed_content",
-    licence_policy: "public_index_permitted",
-    acquisition_disposition: fetched.disposition,
-    publisher: definition.publisher,
-    publisher_code: definition.publisherCode,
-    jurisdiction: definition.jurisdiction,
-    source_role: definition.roles[0] ?? "clinical_guideline",
-    source_title: plan.exactVersion,
-    canonical_url: definition.canonicalUrl,
-    exact_version_url: fetched.finalUrl,
-    version: plan.exactVersion,
-    document_status: "current",
-    change_state: "changed",
-    clinical_validation_status: "unverified",
-    content_hash: fetched.contentHash,
-  };
+  let storageWriteAttempted = false;
   try {
+    const authorized = await dependencies.authorizeUpload({
+      manifest: {
+        ...reserveManifest,
+        reservationId: reservation.id,
+        reservedDocumentId: reservation.reservedDocumentId,
+        reservedStoragePath: reservation.storagePath,
+        uploadLeaseToken: reservation.uploadLeaseToken,
+        uploadLeaseExpiresAt: reservation.uploadLeaseExpiresAt,
+      },
+    });
+    if (!uploadAuthorityMatches(authorized, reservation, plan.stewardId)) {
+      throw new Error("Public source upload authority did not match the immutable reservation.");
+    }
+
+    storageWriteAttempted = true;
+    await dependencies.upload({
+      storagePath: reservation.storagePath,
+      content: fetched.content,
+      mime: fetched.mime,
+      upsert: true,
+    });
+    const metadata = {
+      corpus_scope: "australian_public",
+      source_kind: "document",
+      source_catalogue_key: plan.catalogueKey,
+      source_policy_version: plan.sourcePolicyVersion,
+      source_policy_digest: plan.sourcePolicyDigest,
+      public_source_activation_event_id: plan.activationEventId,
+      public_source_activation_sequence: String(plan.activationSequence),
+      public_source_version_id: reservation.id,
+      public_source_steward_id: plan.stewardId,
+      content_mode: "indexed_content",
+      licence_policy: "public_index_permitted",
+      acquisition_disposition: fetched.disposition,
+      public_source_storage_bucket: storageBucket,
+      publisher: definition.publisher,
+      publisher_code: definition.publisherCode,
+      jurisdiction: definition.jurisdiction,
+      source_role: definition.roles[0] ?? "clinical_guideline",
+      source_title: plan.exactVersion,
+      canonical_url: definition.canonicalUrl,
+      exact_version_url: fetched.finalUrl,
+      version: plan.exactVersion,
+      document_status: "current",
+      change_state: "changed",
+      clinical_validation_status: "unverified",
+      content_hash: fetched.contentHash,
+    };
     const version = await dependencies.finalize({
       manifest: {
         reservationId: reservation.id,
@@ -300,6 +371,9 @@ export async function stageFetchedPublicSource(
         licenceEvidenceDigest: plan.licenceEvidenceDigest,
         stewardId: plan.stewardId,
         disposition: fetched.disposition,
+        storageBucket,
+        uploadLeaseToken: reservation.uploadLeaseToken,
+        uploadLeaseExpiresAt: reservation.uploadLeaseExpiresAt,
         document: {
           id: reservation.reservedDocumentId,
           owner_id: plan.stewardId,
@@ -333,14 +407,16 @@ export async function stageFetchedPublicSource(
       recovered &&
       ["discovered", "abandoned"].includes(recovered.lifecycle) &&
       recovered.staging_document_id === null &&
-      dependencies.abandon &&
-      dependencies.remove
+      dependencies.abandon
     ) {
       const abandonmentManifest = {
         ...reserveManifest,
         reservationId: reservation.id,
         reservedDocumentId: reservation.reservedDocumentId,
         reservedStoragePath: reservation.storagePath,
+        storageBucket,
+        uploadLeaseToken: reservation.uploadLeaseToken,
+        uploadLeaseExpiresAt: reservation.uploadLeaseExpiresAt,
       };
       let abandoned: Awaited<ReturnType<NonNullable<PublicSourceStagingDependencies["abandon"]>>>;
       try {
@@ -363,8 +439,7 @@ export async function stageFetchedPublicSource(
         abandoned.storageOwned === false &&
         abandoned.storagePath === reservation.storagePath
       ) {
-        await dependencies.remove(reservation.storagePath);
-        throw new Error("Public source reservation was abandoned; retry requires fresh authority.");
+        throw new Error("Public source reservation was abandoned with durable storage cleanup pending.");
       }
       if (abandoned.status === "committed" && abandoned.storageOwned === true) {
         const committed = await dependencies.lookup(reservation.id);
@@ -378,7 +453,11 @@ export async function stageFetchedPublicSource(
         throw new Error("Public source committed abandonment result could not be verified.");
       }
     }
-    throw new Error("Public source finalization failed without definitive committed or abandoned state.");
+    throw new Error(
+      storageWriteAttempted
+        ? "Public source finalization failed without definitive committed or abandoned state."
+        : "Public source upload authority failed before storage.",
+    );
   }
 }
 
@@ -391,7 +470,7 @@ export async function fetchAndStageApprovedPublicSource(
   const defaults = injectedDependencies ? null : await defaultStagingDependencies();
   const dependencies = injectedDependencies ?? defaults!.dependencies;
   if (!dependencies.preflight) throw new Error("Current public source authority preflight is required.");
-  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan) });
+  await dependencies.preflight({ manifest: publicSourceAuthorityManifest(plan, dependencies.storageBucket) });
   const fetched = await fetchApprovedPublicSource(plan, acquisitionDependencies);
   return { fetched, result: await stageFetchedPublicSource(plan, fetched, dependencies) };
 }

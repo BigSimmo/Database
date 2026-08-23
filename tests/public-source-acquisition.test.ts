@@ -27,6 +27,11 @@ import {
   stageFetchedPublicSource,
   type PublicSourceStagingDependencies,
 } from "../scripts/fetch-approved-public-source-versions";
+import {
+  isPublicSourceCleanupReady,
+  publicSourceCleanupIdentityError,
+  type CleanupJob,
+} from "../scripts/cleanup-storage";
 
 vi.mock("@next/env", () => ({ loadEnvConfig: vi.fn() }));
 vi.mock("@/lib/env", () => ({ env: { SUPABASE_DOCUMENT_BUCKET: "offline-test", WORKER_MAX_ATTEMPTS: 3 } }));
@@ -40,6 +45,34 @@ const stewardId = "22222222-2222-4222-8222-222222222222";
 const activationEventId = "33333333-3333-4333-8333-333333333333";
 const activationSequence = 17;
 const licenceEvidenceDigest = "a".repeat(64);
+const reservationLease = {
+  storageBucket: "offline-test",
+  uploadLeaseToken: "66666666-6666-4666-8666-666666666666",
+  uploadLeaseExpiresAt: "2026-08-24T00:15:00.000Z",
+  uploadState: "reserved",
+};
+
+function authorizedUploadState(reservation: {
+  id: string;
+  reservedDocumentId: string;
+  storagePath: string;
+  storageBucket: string;
+  uploadLeaseToken: string;
+  uploadLeaseExpiresAt: string;
+}) {
+  return {
+    id: reservation.id,
+    lifecycle: "discovered",
+    staging_document_id: null,
+    reserved_document_id: reservation.reservedDocumentId,
+    reserved_storage_path: reservation.storagePath,
+    storage_bucket: reservation.storageBucket,
+    upload_lease_token: reservation.uploadLeaseToken,
+    upload_lease_expires_at: reservation.uploadLeaseExpiresAt,
+    upload_state: "uploading",
+    steward_id: stewardId,
+  };
+}
 
 function activation(catalogueKey = "wa-health") {
   return createPublicSourceActivationManifest({
@@ -456,6 +489,7 @@ describe("public source acquisition", () => {
     };
     let reservedManifest: Record<string, string | number> = {};
     const dependencies: PublicSourceStagingDependencies = {
+      storageBucket: "offline-test",
       reserve: vi.fn(async ({ manifest }) => {
         calls.push("reserve");
         reservedManifest = manifest as unknown as Record<string, string | number>;
@@ -465,7 +499,17 @@ describe("public source acquisition", () => {
           storagePath: `${stewardId}/public-source-staging/${committed.id}/source.txt`,
           stagingDocumentId: null,
           lifecycle: "discovered",
+          ...reservationLease,
         };
+      }),
+      authorizeUpload: vi.fn(async () => {
+        calls.push("authorize");
+        return authorizedUploadState({
+          id: committed.id,
+          reservedDocumentId: committed.staging_document_id,
+          storagePath: `${stewardId}/public-source-staging/${committed.id}/source.txt`,
+          ...reservationLease,
+        });
       }),
       upload: vi.fn(async () => {
         calls.push("upload");
@@ -493,6 +537,10 @@ describe("public source acquisition", () => {
           intended_disposition: fetched.disposition,
           reserved_document_id: committed.staging_document_id,
           reserved_storage_path: `${stewardId}/public-source-staging/${committed.id}/source.txt`,
+          storage_bucket: reservationLease.storageBucket,
+          upload_lease_token: reservationLease.uploadLeaseToken,
+          upload_lease_expires_at: reservationLease.uploadLeaseExpiresAt,
+          upload_state: "finalized",
         };
       }),
     };
@@ -501,7 +549,7 @@ describe("public source acquisition", () => {
       disposition: "quarantined",
       version: committed,
     });
-    expect(calls).toEqual(["reserve", "upload", "finalize", "lookup"]);
+    expect(calls).toEqual(["reserve", "authorize", "upload", "finalize", "lookup"]);
     expect(dependencies.upload).toHaveBeenCalledWith(expect.objectContaining({ upsert: true }));
   });
 
@@ -525,7 +573,17 @@ describe("public source acquisition", () => {
     await expect(
       execution.fetchAndStageApprovedPublicSource!(
         plan,
-        { preflight, reserve, upload, finalize: vi.fn(), lookup: vi.fn(), abandon: vi.fn(), remove: vi.fn() },
+        {
+          storageBucket: "offline-test",
+          preflight,
+          reserve,
+          authorizeUpload: vi.fn(),
+          upload,
+          finalize: vi.fn(),
+          lookup: vi.fn(),
+          abandon: vi.fn(),
+          remove: vi.fn(),
+        },
         { resolve, request },
       ),
     ).rejects.toThrow(/authority|stale|denied/i);
@@ -537,6 +595,8 @@ describe("public source acquisition", () => {
         sourcePolicyVersion: plan.sourcePolicyVersion,
         sourcePolicyDigest: plan.sourcePolicyDigest,
         exactVersionUrl: plan.exactUrl,
+        storageBucket: "offline-test",
+        stewardId: plan.stewardId,
       }),
     });
     expect(resolve).not.toHaveBeenCalled();
@@ -560,6 +620,7 @@ describe("public source acquisition", () => {
     const upload = vi.fn();
     await expect(
       changes.fetchPublicSourceChangeCandidate!(plan, "a".repeat(64), {
+        storageBucket: "offline-test",
         preflight: vi.fn(async () => {
           throw new Error("Stale activation sequence.");
         }),
@@ -571,6 +632,87 @@ describe("public source acquisition", () => {
     expect(resolve).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("requires a current reservation-bound upload lease before touching storage", async () => {
+    const plan = await activePlan();
+    const upload = vi.fn();
+    const leaseToken = "66666666-6666-4666-8666-666666666666";
+    const dependencies = {
+      storageBucket: "offline-test",
+      reserve: vi.fn(async () => ({
+        id: "44444444-4444-4444-8444-444444444444",
+        reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+        storagePath: `${stewardId}/public-source-staging/lease/source.txt`,
+        storageBucket: "offline-test",
+        uploadLeaseToken: leaseToken,
+        uploadLeaseExpiresAt: "2026-08-24T00:15:00.000Z",
+        uploadState: "reserved",
+        stagingDocumentId: null,
+        lifecycle: "discovered",
+      })),
+      authorizeUpload: vi.fn(async ({ manifest }: { manifest: Record<string, unknown> }) => {
+        expect(manifest).toMatchObject({
+          storageBucket: "offline-test",
+          uploadLeaseToken: leaseToken,
+          stewardId: plan.stewardId,
+        });
+        throw new Error("Upload lease expired or steward authority was revoked.");
+      }),
+      upload,
+      finalize: vi.fn(),
+      lookup: vi.fn(),
+    } as unknown as PublicSourceStagingDependencies;
+    await expect(
+      stageFetchedPublicSource(
+        plan,
+        {
+          finalUrl: plan.exactUrl,
+          contentHash: "5".repeat(64),
+          byteCount: 12,
+          mime: "text/plain",
+          content: Buffer.from("clinical text"),
+          disposition: "shadow",
+        },
+        dependencies,
+      ),
+    ).rejects.toThrow(/lease|steward|authority/i);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("keeps janitor cleanup bound to immutable non-default bucket/path identity after metadata mutation", () => {
+    const cleanupSource = readFileSync("scripts/cleanup-storage.ts", "utf8");
+    expect(cleanupSource).toContain("public_source_reservation_id");
+    expect(cleanupSource).toContain("public_source_storage_bucket");
+    expect(cleanupSource).toContain("public_source_storage_path");
+    expect(cleanupSource).toContain("public_source_cleanup_not_before");
+    expect(cleanupSource).toMatch(/\.or\([^\n]*public_source_cleanup_not_before\.is\.null/);
+    const update = cleanupSource.slice(cleanupSource.indexOf('.from("storage_cleanup_jobs")\n      .update'));
+    expect(update).not.toContain("public_source_reservation_id:");
+    expect(update).not.toContain("public_source_storage_bucket:");
+    expect(update).not.toContain("public_source_storage_path:");
+  });
+
+  it("validates the durable janitor job shape and waits for the upload lease grace", () => {
+    const path = `${stewardId}/public-source-staging/lease/source.txt`;
+    const job: CleanupJob = {
+      id: "77777777-7777-4777-8777-777777777777",
+      document_id: null,
+      document_bucket: "offline-test",
+      document_paths: [path],
+      image_bucket: "clinical-images",
+      image_paths: [],
+      attempts: 2,
+      public_source_reservation_id: "44444444-4444-4444-8444-444444444444",
+      public_source_storage_bucket: "offline-test",
+      public_source_storage_path: path,
+      public_source_cleanup_not_before: "2026-08-24T00:20:00.000Z",
+    };
+    expect(publicSourceCleanupIdentityError({ ...job, metadata: { mutated: true } } as CleanupJob)).toBeNull();
+    expect(isPublicSourceCleanupReady(job, Date.parse("2026-08-24T00:19:59.999Z"))).toBe(false);
+    expect(isPublicSourceCleanupReady(job, Date.parse("2026-08-24T00:20:00.000Z"))).toBe(true);
+    expect(publicSourceCleanupIdentityError({ ...job, document_bucket: "clinical-documents" })).toMatch(/identity/i);
+    expect(publicSourceCleanupIdentityError({ ...job, document_paths: ["wrong/path"] })).toMatch(/identity/i);
   });
 
   it("recovers ambiguous finalization from legal committed descendant lifecycles", async () => {
@@ -591,6 +733,7 @@ describe("public source acquisition", () => {
       storagePath: `${stewardId}/public-source-staging/descendant/source.txt`,
       stagingDocumentId: null,
       lifecycle: "discovered",
+      ...reservationLease,
     };
     const lookup = vi.fn(async () => ({
       id: reservation.id,
@@ -611,12 +754,18 @@ describe("public source acquisition", () => {
       intended_disposition: fetched.disposition,
       reserved_document_id: reservation.reservedDocumentId,
       reserved_storage_path: reservation.storagePath,
+      storage_bucket: reservation.storageBucket,
+      upload_lease_token: reservation.uploadLeaseToken,
+      upload_lease_expires_at: reservation.uploadLeaseExpiresAt,
+      upload_state: "finalized",
     }));
     const dependencies = {
+      storageBucket: "offline-test",
       reserve: vi.fn(async ({ manifest }: { manifest: Record<string, string | number> }) => {
         reservedManifest = manifest;
         return reservation;
       }),
+      authorizeUpload: vi.fn(async () => authorizedUploadState(reservation)),
       upload: vi.fn(async () => undefined),
       finalize: vi.fn(async () => {
         throw new Error("ambiguous after commit");
@@ -633,7 +782,7 @@ describe("public source acquisition", () => {
     expect((dependencies as unknown as { remove: ReturnType<typeof vi.fn> }).remove).not.toHaveBeenCalled();
   });
 
-  it("abandons only a definitively unowned reservation before deleting its blob", async () => {
+  it("abandons only a definitively unowned reservation before durable cleanup", async () => {
     const plan = await activePlan();
     const fetched = {
       finalUrl: plan.exactUrl,
@@ -652,6 +801,7 @@ describe("public source acquisition", () => {
       storagePath: `${stewardId}/public-source-staging/abandon/source.txt`,
       stagingDocumentId: null,
       lifecycle: "discovered",
+      ...reservationLease,
     };
     const recoveryState = () => ({
       id: reservation.id,
@@ -672,12 +822,21 @@ describe("public source acquisition", () => {
       intended_disposition: fetched.disposition,
       reserved_document_id: reservation.reservedDocumentId,
       reserved_storage_path: reservation.storagePath,
+      storage_bucket: reservation.storageBucket,
+      upload_lease_token: reservation.uploadLeaseToken,
+      upload_lease_expires_at: reservation.uploadLeaseExpiresAt,
+      upload_state: "uploading",
     });
     const dependencies = {
+      storageBucket: "offline-test",
       reserve: vi.fn(async ({ manifest }: { manifest: Record<string, string | number> }) => {
         calls.push("reserve");
         reservedManifest = manifest;
         return reservation;
+      }),
+      authorizeUpload: vi.fn(async () => {
+        calls.push("authorize");
+        return authorizedUploadState(reservation);
       }),
       upload: vi.fn(async () => calls.push("upload")),
       finalize: vi.fn(async () => {
@@ -695,10 +854,10 @@ describe("public source acquisition", () => {
       remove: vi.fn(async () => calls.push("remove")),
     } as unknown as PublicSourceStagingDependencies;
     await expect(stageFetchedPublicSource(plan, fetched, dependencies)).rejects.toThrow(/abandon|fresh authority/i);
-    expect(calls).toEqual(["reserve", "upload", "finalize", "lookup", "abandon", "remove"]);
+    expect(calls).toEqual(["reserve", "authorize", "upload", "finalize", "lookup", "abandon"]);
   });
 
-  it("rechecks an ambiguous abandonment and cleans only after its durable unowned result", async () => {
+  it("rechecks an ambiguous abandonment and relies only on its durable cleanup result", async () => {
     const plan = await activePlan();
     const fetched = {
       finalUrl: plan.exactUrl,
@@ -717,6 +876,7 @@ describe("public source acquisition", () => {
       storagePath: `${stewardId}/public-source-staging/ambiguous-abandon/source.txt`,
       stagingDocumentId: null,
       lifecycle: "discovered",
+      ...reservationLease,
     };
     const state = (lifecycle: string) => ({
       id: reservation.id,
@@ -737,6 +897,10 @@ describe("public source acquisition", () => {
       intended_disposition: fetched.disposition,
       reserved_document_id: reservation.reservedDocumentId,
       reserved_storage_path: reservation.storagePath,
+      storage_bucket: reservation.storageBucket,
+      upload_lease_token: reservation.uploadLeaseToken,
+      upload_lease_expires_at: reservation.uploadLeaseExpiresAt,
+      upload_state: lifecycle === "abandoned" ? "cleanup_pending" : "uploading",
     });
     const abandon = vi
       .fn()
@@ -744,10 +908,12 @@ describe("public source acquisition", () => {
       .mockResolvedValueOnce({ status: "abandoned", storagePath: reservation.storagePath, storageOwned: false });
     const remove = vi.fn(async () => undefined);
     const dependencies = {
+      storageBucket: "offline-test",
       reserve: vi.fn(async ({ manifest: reserved }: { manifest: Record<string, string | number> }) => {
         manifest = reserved;
         return reservation;
       }),
+      authorizeUpload: vi.fn(async () => authorizedUploadState(reservation)),
       upload: vi.fn(async () => undefined),
       finalize: vi.fn(async () => {
         throw new Error("authority revoked");
@@ -758,7 +924,7 @@ describe("public source acquisition", () => {
     } as unknown as PublicSourceStagingDependencies;
     await expect(stageFetchedPublicSource(plan, fetched, dependencies)).rejects.toThrow(/abandon|fresh authority/i);
     expect(abandon).toHaveBeenCalledTimes(2);
-    expect(remove).toHaveBeenCalledWith(reservation.storagePath);
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it("rejects mismatched recovery identity and never cleans up after an ambiguous lookup", async () => {
@@ -775,13 +941,23 @@ describe("public source acquisition", () => {
     const abandon = vi.fn();
     const remove = vi.fn();
     const dependencies = {
+      storageBucket: "offline-test",
       reserve: vi.fn(async () => ({
         id: "44444444-4444-4444-8444-444444444444",
         reservedDocumentId: "55555555-5555-4555-8555-555555555555",
         storagePath: `${stewardId}/public-source-staging/mismatch/source.txt`,
         stagingDocumentId: null,
         lifecycle: "discovered",
+        ...reservationLease,
       })),
+      authorizeUpload: vi.fn(async () =>
+        authorizedUploadState({
+          id: "44444444-4444-4444-8444-444444444444",
+          reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+          storagePath: `${stewardId}/public-source-staging/mismatch/source.txt`,
+          ...reservationLease,
+        }),
+      ),
       upload: vi.fn(async () => undefined),
       finalize: vi.fn(async () => {
         throw new Error("ambiguous finalize");
@@ -810,13 +986,23 @@ describe("public source acquisition", () => {
     };
     const documentId = "55555555-5555-4555-8555-555555555555";
     const dependencies: PublicSourceStagingDependencies = {
+      storageBucket: "offline-test",
       reserve: vi.fn(async () => ({
         id: "44444444-4444-4444-8444-444444444444",
         reservedDocumentId: documentId,
         storagePath: `${stewardId}/public-source-staging/mismatch/source.txt`,
         stagingDocumentId: null,
         lifecycle: "discovered",
+        ...reservationLease,
       })),
+      authorizeUpload: vi.fn(async () =>
+        authorizedUploadState({
+          id: "44444444-4444-4444-8444-444444444444",
+          reservedDocumentId: documentId,
+          storagePath: `${stewardId}/public-source-staging/mismatch/source.txt`,
+          ...reservationLease,
+        }),
+      ),
       upload: vi.fn(async () => undefined),
       finalize: vi.fn(async () => {
         throw new Error("ambiguous finalize");
@@ -846,13 +1032,16 @@ describe("public source acquisition", () => {
     const finalize = vi.fn();
     const lookup = vi.fn();
     const dependencies: PublicSourceStagingDependencies = {
+      storageBucket: "offline-test",
       reserve: vi.fn(async () => ({
         id: "44444444-4444-4444-8444-444444444444",
         reservedDocumentId: "55555555-5555-4555-8555-555555555555",
         storagePath: `${stewardId}/public-source-staging/final/source.txt`,
         stagingDocumentId: "55555555-5555-4555-8555-555555555555",
         lifecycle: "shadow",
+        ...reservationLease,
       })),
+      authorizeUpload: vi.fn(async () => undefined as never),
       upload,
       finalize,
       lookup,

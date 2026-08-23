@@ -1,15 +1,14 @@
 import { loadEnvConfig } from "@next/env";
+import { pathToFileURL } from "node:url";
 import { nonNullDocumentIds, partitionStorageCleanupJobs } from "@/lib/storage-cleanup-safety";
 import { loadAdminClient } from "./eval-utils";
-
-loadEnvConfig(process.cwd());
 
 type CleanupArgs = {
   limit: number;
   dryRun: boolean;
 };
 
-type CleanupJob = {
+export type CleanupJob = {
   id: string;
   document_id: string | null;
   document_bucket: string | null;
@@ -17,7 +16,31 @@ type CleanupJob = {
   image_bucket: string | null;
   image_paths: string[] | null;
   attempts: number;
+  public_source_reservation_id: string | null;
+  public_source_storage_bucket: string | null;
+  public_source_storage_path: string | null;
+  public_source_cleanup_not_before: string | null;
 };
+
+export function publicSourceCleanupIdentityError(job: CleanupJob) {
+  if (job.public_source_reservation_id === null) return null;
+  if (
+    !job.public_source_storage_bucket ||
+    !job.public_source_storage_path ||
+    job.document_bucket !== job.public_source_storage_bucket ||
+    job.document_paths?.length !== 1 ||
+    job.document_paths[0] !== job.public_source_storage_path
+  ) {
+    return "Controlled public source cleanup identity is inconsistent.";
+  }
+  return null;
+}
+
+export function isPublicSourceCleanupReady(job: CleanupJob, now = Date.now()) {
+  if (!job.public_source_cleanup_not_before) return true;
+  const notBefore = Date.parse(job.public_source_cleanup_not_before);
+  return Number.isFinite(notBefore) && notBefore <= now;
+}
 
 function parseArgs(argv: string[]): CleanupArgs {
   const args: CleanupArgs = { limit: 50, dryRun: false };
@@ -63,12 +86,16 @@ async function removePaths(args: {
 }
 
 async function main() {
+  loadEnvConfig(process.cwd());
   const args = parseArgs(process.argv.slice(2));
   const supabase = await loadAdminClient();
   const { data, error } = await supabase
     .from("storage_cleanup_jobs")
-    .select("id,document_id,document_bucket,document_paths,image_bucket,image_paths,attempts")
+    .select(
+      "id,document_id,document_bucket,document_paths,image_bucket,image_paths,attempts,public_source_reservation_id,public_source_storage_bucket,public_source_storage_path,public_source_cleanup_not_before",
+    )
     .in("status", ["pending", "failed"])
+    .or(`public_source_cleanup_not_before.is.null,public_source_cleanup_not_before.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: true })
     .limit(args.limit);
 
@@ -88,7 +115,8 @@ async function main() {
     for (const doc of liveDocs ?? []) liveDocumentIds.add(doc.id);
   }
 
-  const { safe: jobs, skipped } = partitionStorageCleanupJobs(allJobs, liveDocumentIds);
+  const { safe: ownershipSafeJobs, skipped } = partitionStorageCleanupJobs(allJobs, liveDocumentIds);
+  const jobs = ownershipSafeJobs.filter((job) => isPublicSourceCleanupReady(job));
   console.log(`Found ${allJobs.length} storage cleanup job(s); ${jobs.length} safe to process.`);
   if (skipped.length > 0) {
     console.warn(
@@ -103,6 +131,22 @@ async function main() {
   let failed = 0;
 
   for (const job of jobs) {
+    const identityError = publicSourceCleanupIdentityError(job);
+    if (identityError) {
+      const { error: identityUpdateError } = await supabase
+        .from("storage_cleanup_jobs")
+        .update({
+          status: "failed",
+          attempts: job.attempts + 1,
+          last_error: identityError,
+          completed_at: null,
+          metadata: { operation: "storage_cleanup_identity_rejected" },
+        })
+        .eq("id", job.id);
+      if (identityUpdateError) throw new Error(identityUpdateError.message);
+      failed += 1;
+      continue;
+    }
     const documentCleanup = await removePaths({
       supabase,
       bucket: job.document_bucket ?? "clinical-documents",
@@ -138,7 +182,9 @@ async function main() {
   console.log(`Storage cleanup complete: ${completed} completed, ${failed} failed.`);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

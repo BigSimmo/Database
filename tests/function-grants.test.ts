@@ -55,6 +55,20 @@ describe("check:function-grants", () => {
     expect(result.code).toBe(0);
   });
 
+  it("keeps the public-source restoration helper internal to controlled postgres-owned callers", () => {
+    const migration = readFileSync("supabase/migrations/20260824121000_create_public_source_control_plane.sql", "utf8");
+    expect(migration).toContain(
+      "revoke all on function public.restore_public_source_document_to_steward(uuid, uuid, text) from public, anon, authenticated, service_role;",
+    );
+    expect(migration).toContain("perform public.restore_public_source_document_to_steward(");
+    expect(migration).not.toContain(
+      "grant execute on function public.restore_public_source_document_to_steward(uuid, uuid, text) to service_role;",
+    );
+    expect(migration).toContain(
+      "revoke all on function public.guard_public_source_cleanup_job_identity() from public, anon, authenticated, service_role;",
+    );
+  });
+
   it("fails a SECURITY DEFINER function left anon-executable after the blanket revoke", () => {
     const result = run(fixture("leaky.sql", [BLANKET, DEFINER("leaky")].join("\n")));
     expect(result.code).toBe(1);
