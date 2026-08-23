@@ -1,7 +1,8 @@
 # Outstanding P2/P3 Remediation Programme Design
 
-**Date:** 2026-08-23  
-**Scope:** The 55 P2/P3 ledger rows supplied in the 2026-08-23 task attachment.  
+**Date:** 2026-08-23
+
+**Scope:** The 55 P2/P3 ledger rows supplied in the 2026-08-23 task attachment.
 **Base:** Fresh `origin/main` at programme start, rechecked before each collision-prone batch.
 
 ## Objective
