@@ -229,6 +229,148 @@ describe("hosted migration-role guard", () => {
     expect(output).not.toMatch(/SENSITIVE-DIAGNOSTIC|secret-owner/);
   });
 
+  it("retains safe repository evidence when the runtime dependency getter throws", () => {
+    const migration = "supabase/migrations/20990101000000_bad.sql";
+    const standardError: string[] = [];
+    const dependencies = syntheticRepository({
+      untracked: [migration],
+      entries: { [migration]: `grant ${RESERVED_HOSTED_ROLE} to postgres;` },
+    });
+    Object.defineProperty(dependencies, "runtime", {
+      configurable: true,
+      get() {
+        throw new Error("SENSITIVE-RUNTIME-GETTER C:\\Users\\secret-owner");
+      },
+    });
+
+    let exitCode: number | undefined;
+    expect(() => {
+      exitCode = runMigrationRoleGuard({
+        repoRoot: "C:\\Users\\secret-owner\\Database",
+        dependencies,
+        writeOutput: () => undefined,
+        writeError: (line) => standardError.push(line),
+      });
+    }).not.toThrow();
+
+    const output = standardError.join("\n");
+    expect(exitCode).toBe(1);
+    expect(output).toContain(`- HEAD: ${HEAD_SHA}`);
+    expect(output).toContain(
+      `- base: ref=origin/main commit=${BASE_SHA} merge-base=${MERGE_BASE_SHA} ahead=5 behind=2`,
+    );
+    expect(output).toContain("- shallow: false");
+    expect(output).toContain("- runtime: platform=unavailable architecture=unavailable node=unavailable");
+    expect(output).toContain("- entries: tracked=1 untracked=1 guarded=2 read-errors=0");
+    expect(output).toContain(
+      "- migrations: count=2 first=20260713102000_revoke_supabase_admin_default_privileges.sql last=20990101000000_bad.sql",
+    );
+    expect(output).not.toMatch(/SENSITIVE-RUNTIME-GETTER|secret-owner/);
+  });
+
+  it("fails closed without leaking a throwing runGit dependency getter", () => {
+    const standardError: string[] = [];
+    const dependencies = syntheticRepository();
+    Object.defineProperty(dependencies, "runGit", {
+      configurable: true,
+      get() {
+        throw new Error("SENSITIVE-RUNGIT-GETTER C:\\Users\\secret-owner");
+      },
+    });
+
+    let exitCode: number | undefined;
+    expect(() => {
+      exitCode = runMigrationRoleGuard({
+        repoRoot: "C:\\Users\\secret-owner\\Database",
+        dependencies,
+        writeOutput: () => undefined,
+        writeError: (line) => standardError.push(line),
+      });
+    }).not.toThrow();
+
+    const output = standardError.join("\n");
+    expect(exitCode).toBe(1);
+    expect(output).toContain("repository tracked discovery could not be completed (code=DEPENDENCY_ACCESS)");
+    expect(output).toContain("repository untracked discovery could not be completed (code=DEPENDENCY_ACCESS)");
+    expect(output).toContain("- HEAD: unavailable");
+    expect(output).toContain("- runtime: platform=win32 architecture=x64 node=24.19.0");
+    expect(output).toContain(
+      "- entries: tracked=unavailable untracked=unavailable guarded=unavailable read-errors=unavailable",
+    );
+    expect(output).not.toMatch(/SENSITIVE-RUNGIT-GETTER|secret-owner/);
+  });
+
+  it("fails closed without leaking a throwing inspectPath dependency getter", () => {
+    const standardError: string[] = [];
+    const dependencies = syntheticRepository();
+    Object.defineProperty(dependencies, "inspectPath", {
+      configurable: true,
+      get() {
+        throw new Error("SENSITIVE-INSPECT-GETTER C:\\Users\\secret-owner");
+      },
+    });
+
+    let exitCode: number | undefined;
+    expect(() => {
+      exitCode = runMigrationRoleGuard({
+        repoRoot: "C:\\Users\\secret-owner\\Database",
+        dependencies,
+        writeOutput: () => undefined,
+        writeError: (line) => standardError.push(line),
+      });
+    }).not.toThrow();
+
+    const output = standardError.join("\n");
+    expect(exitCode).toBe(1);
+    expect(output).toContain(
+      `${IMMUTABLE_HISTORICAL_MIGRATION} [tracked]: guarded entry could not be inspected ` +
+        "(category=read-error, code=DEPENDENCY_ACCESS)",
+    );
+    expect(output).toContain(`- HEAD: ${HEAD_SHA}`);
+    expect(output).toContain("- runtime: platform=win32 architecture=x64 node=24.19.0");
+    expect(output).toContain("- entries: tracked=1 untracked=0 guarded=1 read-errors=1");
+    expect(output).toContain(
+      `- migrations: count=1 first=${IMMUTABLE_HISTORICAL_MIGRATION.split("/").at(-1)} ` +
+        `last=${IMMUTABLE_HISTORICAL_MIGRATION.split("/").at(-1)}`,
+    );
+    expect(output).not.toMatch(/SENSITIVE-INSPECT-GETTER|secret-owner/);
+  });
+
+  it("uses constant unavailable diagnostics after an unexpected inspection failure", () => {
+    const standardError: string[] = [];
+    const dependencies = syntheticRepository();
+    const stableRunGit = dependencies.runGit;
+    let runGitGetterReads = 0;
+    Object.defineProperty(dependencies, "runGit", {
+      configurable: true,
+      get() {
+        runGitGetterReads += 1;
+        if (runGitGetterReads > 1) throw new Error("SENSITIVE-RETRIED-GETTER C:\\Users\\secret-owner");
+        return stableRunGit;
+      },
+    });
+
+    let exitCode: number | undefined;
+    expect(() => {
+      exitCode = runMigrationRoleGuard({
+        repoRoot: {} as unknown as string,
+        dependencies,
+        writeOutput: () => undefined,
+        writeError: (line) => standardError.push(line),
+      });
+    }).not.toThrow();
+
+    const output = standardError.join("\n");
+    expect(exitCode).toBe(1);
+    expect(runGitGetterReads).toBe(1);
+    expect(output).toContain("repository inspection could not be completed (code=UNEXPECTED)");
+    expect(output).toContain("- HEAD: unavailable");
+    expect(output).toContain(
+      "- entries: tracked=unavailable untracked=unavailable guarded=unavailable read-errors=unavailable",
+    );
+    expect(output).not.toMatch(/SENSITIVE-RETRIED-GETTER|secret-owner/);
+  });
+
   it("formats hostile diagnostic objects as a fixed unavailable block", () => {
     const hostileDiagnostics = {
       get base() {

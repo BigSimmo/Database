@@ -56,15 +56,30 @@ function defaultInspectPath(absolutePath) {
   return { kind: "non-regular" };
 }
 
+function unavailableCoreDependency() {
+  const error = new Error("repository dependency access failed");
+  error.code = "DEPENDENCY_ACCESS";
+  throw error;
+}
+
+function safeDependency(dependencies, key, fallback, brokenValue) {
+  try {
+    return dependencies?.[key] ?? fallback;
+  } catch {
+    return brokenValue;
+  }
+}
+
 function repositoryDependencies(dependencies = {}) {
+  const defaultRuntime = {
+    platform: process.platform,
+    architecture: process.arch,
+    nodeVersion: process.versions.node,
+  };
   return {
-    runGit: dependencies.runGit ?? defaultRunGit,
-    inspectPath: dependencies.inspectPath ?? defaultInspectPath,
-    runtime: dependencies.runtime ?? {
-      platform: process.platform,
-      architecture: process.arch,
-      nodeVersion: process.versions.node,
-    },
+    runGit: safeDependency(dependencies, "runGit", defaultRunGit, unavailableCoreDependency),
+    inspectPath: safeDependency(dependencies, "inspectPath", defaultInspectPath, unavailableCoreDependency),
+    runtime: safeDependency(dependencies, "runtime", defaultRuntime, null),
   };
 }
 
@@ -422,7 +437,7 @@ export function runMigrationRoleGuard({
   } catch {
     result = {
       failures: ["repository inspection could not be completed (code=UNEXPECTED)"],
-      diagnostics: collectRepositoryDiagnostics(repoRoot, unavailableDiscovery(), dependencies),
+      diagnostics: unavailableRepositoryDiagnostics(),
     };
   }
 
