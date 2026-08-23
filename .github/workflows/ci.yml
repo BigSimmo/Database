@@ -157,11 +157,16 @@ jobs:
               pull_number: pr.number,
               per_page: 100,
             });
-            const bodyTemplateWasAdded = changedFiles.some(
-              (file) => file.filename === "PR_POLICY_BODY.md" && file.status === "added",
+            // Inherited copies on main do not appear in this PR's file list, so they
+            // still cannot overwrite descriptions (#230). Added or modified in this
+            // diff is an intentional template change and must apply.
+            const bodyTemplateChanged = changedFiles.some(
+              (file) =>
+                file.filename === "PR_POLICY_BODY.md" &&
+                (file.status === "added" || file.status === "modified"),
             );
-            if (!bodyTemplateWasAdded) {
-              core.info("PR_POLICY_BODY.md was not added by this PR; skipping PR body sync.");
+            if (!bodyTemplateChanged) {
+              core.info("PR_POLICY_BODY.md was not added or modified by this PR; skipping PR body sync.");
               return;
             }
             const existingBody = pr.body || "";
