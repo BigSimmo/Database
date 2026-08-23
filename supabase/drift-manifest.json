@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-20T15:53:04.540Z",
+  "generated_at": "2026-08-23T08:15:05.320Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "6fe4883e03fa662dc90e09f3cfd8d35ab9fcf965bfe87bad64db73f1fab5986e",
-  "replay_seconds": 58,
+  "schema_sha256": "092607d98766f1d897181968d367f549c4ae93923f28eabeb5e7468acaa9ac84",
+  "replay_seconds": 11,
   "snapshot": {
     "views": [
       {
@@ -177,6 +177,198 @@
             "default": null,
             "identity": "",
             "not_null": false,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "clinical_quality_feedback_triage",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_role",
+            "type": "text",
+            "default": "'unassigned'::text",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "resolution_code",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "resolved_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "retest_reference",
+            "type": "text",
+            "default": "''::text",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "signal_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "signal_type",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "status",
+            "type": "text",
+            "default": "'untriaged'::text",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_by",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "clinical_quality_feedback_triage_events",
+        "columns": [
+          {
+            "name": "actor_user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_role",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "resolution_code",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "retest_reference",
+            "type": "text",
+            "default": "''::text",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "signal_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "signal_type",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "status",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
             "generated": ""
           }
         ],
@@ -4597,6 +4789,66 @@
           "postgres=arwdDxtm/postgres",
           "service_role=arwd/postgres"
         ],
+        "name": "user_favourite_sets",
+        "columns": [
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "sort_order",
+            "type": "integer",
+            "default": "0",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
         "name": "user_favourites",
         "columns": [
           {
@@ -4619,6 +4871,38 @@
             "name": "created_at",
             "type": "timestamp with time zone",
             "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "last_opened_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "pinned_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "set_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "sort_order",
+            "type": "integer",
+            "default": "0",
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -4721,6 +5005,30 @@
         "name": "audit_logs_pkey",
         "table": "audit_logs",
         "def_hash": "c46e5a1e2717dce747858c846533afb2"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX clinical_quality_feedback_triage_events_pkey ON public.clinical_quality_feedback_triage_events USING btree (id)",
+        "name": "clinical_quality_feedback_triage_events_pkey",
+        "table": "clinical_quality_feedback_triage_events",
+        "def_hash": "ed3d7e2259e3d85f5e2a4fd879fc9ab2"
+      },
+      {
+        "def": "CREATE INDEX clinical_quality_feedback_triage_events_signal_created_idx ON public.clinical_quality_feedback_triage_events USING btree (signal_type, signal_id, created_at DESC, id DESC)",
+        "name": "clinical_quality_feedback_triage_events_signal_created_idx",
+        "table": "clinical_quality_feedback_triage_events",
+        "def_hash": "57864b9c06140285d5ba04365511a6ae"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX clinical_quality_feedback_triage_pkey ON public.clinical_quality_feedback_triage USING btree (signal_type, signal_id)",
+        "name": "clinical_quality_feedback_triage_pkey",
+        "table": "clinical_quality_feedback_triage",
+        "def_hash": "e3a2aa8bab8f62e534fbcef5496e3d28"
+      },
+      {
+        "def": "CREATE INDEX clinical_quality_feedback_triage_work_queue_idx ON public.clinical_quality_feedback_triage USING btree (status, owner_role, updated_at DESC)",
+        "name": "clinical_quality_feedback_triage_work_queue_idx",
+        "table": "clinical_quality_feedback_triage",
+        "def_hash": "dd600137d1ae5e07e05af7d008a3a9b5"
       },
       {
         "def": "CREATE INDEX clinical_registry_record_sources_document_idx ON public.clinical_registry_record_sources USING btree (document_id)",
@@ -5923,6 +6231,36 @@
         "def_hash": "2cbfd92ff37d036d37344943f57dd95b"
       },
       {
+        "def": "CREATE INDEX user_favourite_sets_owner_order_idx ON public.user_favourite_sets USING btree (user_id, sort_order, created_at, id)",
+        "name": "user_favourite_sets_owner_order_idx",
+        "table": "user_favourite_sets",
+        "def_hash": "7b20dffc877d0c21751467e5abae60a0"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX user_favourite_sets_pkey ON public.user_favourite_sets USING btree (id)",
+        "name": "user_favourite_sets_pkey",
+        "table": "user_favourite_sets",
+        "def_hash": "832aa1af16160177564a0617e6e11876"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX user_favourite_sets_user_id_id_key ON public.user_favourite_sets USING btree (user_id, id)",
+        "name": "user_favourite_sets_user_id_id_key",
+        "table": "user_favourite_sets",
+        "def_hash": "7934650c5776bb1b3f190aa376ad6084"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX user_favourite_sets_user_name_key ON public.user_favourite_sets USING btree (user_id, name)",
+        "name": "user_favourite_sets_user_name_key",
+        "table": "user_favourite_sets",
+        "def_hash": "12f00140356af5b3f580ad14c6829d25"
+      },
+      {
+        "def": "CREATE INDEX user_favourites_owner_set_order_idx ON public.user_favourites USING btree (user_id, set_id, sort_order, created_at, content_type, content_key)",
+        "name": "user_favourites_owner_set_order_idx",
+        "table": "user_favourites",
+        "def_hash": "5ab964505c9fa613c739a7b6c8c537c7"
+      },
+      {
         "def": "CREATE UNIQUE INDEX user_favourites_pkey ON public.user_favourites USING btree (user_id, content_type, content_key)",
         "name": "user_favourites_pkey",
         "table": "user_favourites",
@@ -6406,6 +6744,54 @@
       },
       {
         "cmd": "DELETE",
+        "name": "users delete own favourite sets",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourite_sets",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "name": "users insert own favourite sets",
+        "qual": null,
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourite_sets",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "users read own favourite sets",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourite_sets",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "users update own favourite sets",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourite_sets",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
+      },
+      {
+        "cmd": "DELETE",
         "name": "users delete own favourites",
         "qual": "(( SELECT auth.uid() AS uid) = user_id)",
         "roles": [
@@ -6439,6 +6825,18 @@
         "schema": "public",
         "permissive": "PERMISSIVE",
         "with_check": null
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "users update own favourites",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourites",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
       },
       {
         "cmd": "DELETE",
@@ -7216,6 +7614,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "758192017ba316c760764ba3afa12aaa",
+        "signature": "public.record_clinical_quality_feedback_triage(uuid,text,uuid,text,text,uuid,text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "d9875e7dbcdf19b56945c9d8de05d7c2",
         "signature": "public.record_source_review_v2(uuid,uuid,text,text,text[],date,uuid,text,text)"
       },
@@ -7234,6 +7640,14 @@
         ],
         "def_hash": "843e3e00240d7fcbf6465bdfd3801525",
         "signature": "public.refresh_import_batch_status(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "1751faae973884f6d53197e402979787",
+        "signature": "public.reorder_user_favourite(uuid,text,text,text)"
       },
       {
         "acl": [
@@ -7476,6 +7890,106 @@
         "def": "PRIMARY KEY (id)",
         "name": "audit_logs_pkey",
         "table": "audit_logs"
+      },
+      {
+        "def": "CHECK (((status <> 'awaiting_retest'::text) OR (char_length(btrim(retest_reference)) > 0)))",
+        "name": "clinical_quality_feedback_triage_awaiting_retest_check",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "CHECK ((owner_role = ANY (ARRAY['clinical_governance'::text, 'content_owner'::text, 'engineering'::text, 'privacy'::text, 'unassigned'::text])))",
+        "name": "clinical_quality_feedback_triage_owner_role_check",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "name": "clinical_quality_feedback_triage_owner_user_id_fkey",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "PRIMARY KEY (signal_type, signal_id)",
+        "name": "clinical_quality_feedback_triage_pkey",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "CHECK (((resolution_code IS NULL) OR (resolution_code = ANY (ARRAY['content_corrected'::text, 'source_updated'::text, 'retrieval_retested'::text, 'not_reproducible'::text, 'expected_behaviour'::text, 'duplicate'::text, 'not_applicable'::text]))))",
+        "name": "clinical_quality_feedback_triage_resolution_check",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "CHECK ((char_length(retest_reference) <= 120))",
+        "name": "clinical_quality_feedback_triage_retest_check",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "CHECK ((signal_type = ANY (ARRAY['answer_feedback'::text, 'unsupported_claim'::text, 'source_conflict'::text, 'retrieval_failure'::text, 'evaluation_failure'::text])))",
+        "name": "clinical_quality_feedback_triage_signal_type_check",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "CHECK ((status = ANY (ARRAY['untriaged'::text, 'in_review'::text, 'awaiting_retest'::text, 'resolved'::text, 'dismissed'::text])))",
+        "name": "clinical_quality_feedback_triage_status_check",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "CHECK (((status <> 'resolved'::text) OR (resolution_code IS NOT NULL)))",
+        "name": "clinical_quality_feedback_triage_terminal_check",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE RESTRICT",
+        "name": "clinical_quality_feedback_triage_updated_by_fkey",
+        "table": "clinical_quality_feedback_triage"
+      },
+      {
+        "def": "FOREIGN KEY (actor_user_id) REFERENCES auth.users(id) ON DELETE RESTRICT",
+        "name": "clinical_quality_feedback_triage_events_actor_user_id_fkey",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "CHECK (((status <> 'awaiting_retest'::text) OR (char_length(btrim(retest_reference)) > 0)))",
+        "name": "clinical_quality_feedback_triage_events_awaiting_retest_check",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "CHECK ((owner_role = ANY (ARRAY['clinical_governance'::text, 'content_owner'::text, 'engineering'::text, 'privacy'::text, 'unassigned'::text])))",
+        "name": "clinical_quality_feedback_triage_events_owner_role_check",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "FOREIGN KEY (owner_user_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "name": "clinical_quality_feedback_triage_events_owner_user_id_fkey",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "clinical_quality_feedback_triage_events_pkey",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "CHECK (((resolution_code IS NULL) OR (resolution_code = ANY (ARRAY['content_corrected'::text, 'source_updated'::text, 'retrieval_retested'::text, 'not_reproducible'::text, 'expected_behaviour'::text, 'duplicate'::text, 'not_applicable'::text]))))",
+        "name": "clinical_quality_feedback_triage_events_resolution_check",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "CHECK ((char_length(retest_reference) <= 120))",
+        "name": "clinical_quality_feedback_triage_events_retest_check",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "CHECK ((signal_type = ANY (ARRAY['answer_feedback'::text, 'unsupported_claim'::text, 'source_conflict'::text, 'retrieval_failure'::text, 'evaluation_failure'::text])))",
+        "name": "clinical_quality_feedback_triage_events_signal_type_check",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "CHECK ((status = ANY (ARRAY['untriaged'::text, 'in_review'::text, 'awaiting_retest'::text, 'resolved'::text, 'dismissed'::text])))",
+        "name": "clinical_quality_feedback_triage_events_status_check",
+        "table": "clinical_quality_feedback_triage_events"
+      },
+      {
+        "def": "CHECK (((status <> 'resolved'::text) OR (resolution_code IS NOT NULL)))",
+        "name": "clinical_quality_feedback_triage_events_terminal_check",
+        "table": "clinical_quality_feedback_triage_events"
       },
       {
         "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
@@ -8233,8 +8747,43 @@
         "table": "storage_cleanup_jobs"
       },
       {
+        "def": "CHECK ((name = ANY (ARRAY['Clinical review'::text, 'Ward round'::text, 'On call'::text, 'Follow up'::text, 'Teaching'::text, 'Reference'::text])))",
+        "name": "user_favourite_sets_name_check",
+        "table": "user_favourite_sets"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "user_favourite_sets_pkey",
+        "table": "user_favourite_sets"
+      },
+      {
+        "def": "CHECK (((sort_order >= 0) AND (sort_order <= 10000)))",
+        "name": "user_favourite_sets_sort_order_check",
+        "table": "user_favourite_sets"
+      },
+      {
+        "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "user_favourite_sets_user_id_fkey",
+        "table": "user_favourite_sets"
+      },
+      {
+        "def": "UNIQUE (user_id, id)",
+        "name": "user_favourite_sets_user_id_id_key",
+        "table": "user_favourite_sets"
+      },
+      {
+        "def": "UNIQUE (user_id, name)",
+        "name": "user_favourite_sets_user_name_key",
+        "table": "user_favourite_sets"
+      },
+      {
         "def": "CHECK (((content_key = btrim(content_key)) AND ((char_length(content_key) >= 1) AND (char_length(content_key) <= 180))))",
         "name": "user_favourites_content_key_check",
+        "table": "user_favourites"
+      },
+      {
+        "def": "CHECK ((content_key ~ '^[a-z0-9]+([._:/-][a-z0-9]+)*$'::text)) NOT VALID",
+        "name": "user_favourites_content_key_format_check",
         "table": "user_favourites"
       },
       {
@@ -8243,8 +8792,18 @@
         "table": "user_favourites"
       },
       {
+        "def": "FOREIGN KEY (user_id, set_id) REFERENCES public.user_favourite_sets(user_id, id)",
+        "name": "user_favourites_owner_set_fkey",
+        "table": "user_favourites"
+      },
+      {
         "def": "PRIMARY KEY (user_id, content_type, content_key)",
         "name": "user_favourites_pkey",
+        "table": "user_favourites"
+      },
+      {
+        "def": "CHECK (((sort_order >= 0) AND (sort_order <= 1000000)))",
+        "name": "user_favourites_sort_order_check",
         "table": "user_favourites"
       },
       {

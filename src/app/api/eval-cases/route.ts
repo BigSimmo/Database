@@ -4,7 +4,7 @@ import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { clinicalQueryModeSchema } from "@/lib/clinical-query-mode";
 import { env, isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -119,7 +119,8 @@ async function ownedChunkReference(args: {
 
 export async function POST(request: Request) {
   try {
-    if (isDemoMode()) return NextResponse.json({ error: "Eval capture is unavailable in demo mode." }, { status: 400 });
+    if (isDemoMode())
+      return publicErrorResponse("Eval capture is unavailable in demo mode.", 400, { code: "demo_mode_unavailable" });
 
     const parsed = await parseJsonBody(request, evalCaptureSchema, "Eval capture payload is invalid.");
 

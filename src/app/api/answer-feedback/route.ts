@@ -6,7 +6,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -42,7 +42,9 @@ const bodySchema = z
 export async function POST(request: Request) {
   try {
     if (isDemoMode())
-      return NextResponse.json({ error: "Answer feedback is unavailable in demo mode." }, { status: 400 });
+      return publicErrorResponse("Answer feedback is unavailable in demo mode.", 400, {
+        code: "demo_mode_unavailable",
+      });
     const body = await parseJsonBody(request, bodySchema, "Invalid answer feedback.");
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
@@ -79,7 +81,9 @@ export async function POST(request: Request) {
     });
     if (error) {
       if (error.code === "23505") {
-        return NextResponse.json({ error: "Feedback has already been recorded for this answer." }, { status: 409 });
+        return publicErrorResponse("Feedback has already been recorded for this answer.", 409, {
+          code: "feedback_already_recorded",
+        });
       }
       throw new PublicApiError("Answer feedback could not be saved.", 500, { code: "feedback_insert_failed" });
     }

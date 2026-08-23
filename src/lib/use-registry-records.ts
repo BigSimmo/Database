@@ -5,7 +5,14 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import type { RegistryRecordKind, RegistrySourceStatus, RegistryValidationStatus } from "@/lib/registry-records";
 import type { ServiceRecord } from "@/lib/services";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import {
+  parseRegistryListResponse,
+  parseRegistryRecordResponse,
+  type RegistryListView,
+} from "@/lib/registry-client-contract";
 import { useAuthSession } from "@/lib/supabase/client";
+
+export type { RegistryListView } from "@/lib/registry-client-contract";
 
 export type RegistryRequestStatus = "loading" | "refetching" | "ready" | "unauthorized" | "not_found" | "error";
 
@@ -50,7 +57,6 @@ const recordLoading: RegistryRecordState = {
   demoMode: false,
   governance: null,
 };
-export type RegistryListView = "full" | "search" | "summary";
 type RegistryRecordsKeyedState = RegistryRecordsState & { kind: RegistryRecordKind; view: RegistryListView };
 
 function recordsState(
@@ -154,26 +160,19 @@ export function useRegistryRecords(
           setState(recordsState("error", kind, view));
           return;
         }
-        const payload = (await response.json()) as {
-          records?: ServiceRecord[];
-          total?: number;
-          verifiedCount?: number;
-          demoMode?: boolean;
-          governance?: Record<string, { validationStatus?: RegistryValidationStatus }>;
-        };
+        const responsePayload: unknown = await response.json().catch(() => null);
+        const payload = parseRegistryListResponse(responsePayload, view);
+        if (!payload) throw new Error("Registry records returned an invalid response.");
         if (!isCurrentRequest()) return;
         const governance: Record<string, RegistryValidationStatus> = {};
-        for (const [slug, entry] of Object.entries(payload.governance ?? {})) {
-          if (entry?.validationStatus) governance[slug] = entry.validationStatus;
+        for (const [slug, entry] of Object.entries(payload.governance)) {
+          governance[slug] = entry.validationStatus;
         }
         setState(
           recordsState("ready", kind, view, {
-            records: payload.records ?? [],
-            total: payload.total ?? payload.records?.length ?? 0,
-            verifiedCount:
-              payload.verifiedCount ??
-              Object.values(governance).filter((status) => status === "locally_reviewed" || status === "approved")
-                .length,
+            records: payload.records,
+            total: payload.total,
+            verifiedCount: payload.verifiedCount,
             demoMode: Boolean(payload.demoMode),
             governance,
           }),
@@ -233,22 +232,15 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
           setState({ status: "error", record: null, linkedDocuments: [], demoMode: false, governance: null });
           return;
         }
-        const payload = (await response.json()) as {
-          record?: ServiceRecord;
-          linkedDocuments?: Array<{ id: string; title: string; file_name: string; status: string }>;
-          demoMode?: boolean;
-          governance?: RegistryRecordGovernance;
-        };
-        if (!payload.record) {
-          setState({ status: "not_found", record: null, linkedDocuments: [], demoMode: false, governance: null });
-          return;
-        }
+        const responsePayload: unknown = await response.json().catch(() => null);
+        const payload = parseRegistryRecordResponse(responsePayload);
+        if (!payload) throw new Error("Registry record returned an invalid response.");
         setState({
           status: "ready",
           record: payload.record,
-          linkedDocuments: payload.linkedDocuments ?? [],
+          linkedDocuments: payload.linkedDocuments,
           demoMode: Boolean(payload.demoMode),
-          governance: payload.governance ?? null,
+          governance: payload.governance,
         });
       })
       .catch(() => {
