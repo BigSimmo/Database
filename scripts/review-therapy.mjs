@@ -233,6 +233,14 @@ function restoreGeneratedFiles(snapshot, fixedGeneratedPaths, listGeneratedPaths
   }
 }
 
+function sourceMatchesIntendedBytes(sourcePath, intendedRaw) {
+  try {
+    return readFileSync(sourcePath, "utf8") === intendedRaw;
+  } catch {
+    return false;
+  }
+}
+
 function acquireReviewTransactionLock(sourcePath) {
   const lockPath = `${sourcePath}.review.lock`;
   let descriptor;
@@ -263,9 +271,11 @@ function acquireReviewTransactionLock(sourcePath) {
 }
 
 /**
- * Commit source plus every generator-owned asset as one recoverable unit. Any
- * generator/check failure restores the exact pre-review bytes and removes new
- * content-addressed artifacts before the error reaches the CLI.
+ * Commit source plus every generator-owned asset as one recoverable unit. A
+ * failure restores all pre-review bytes while source still matches this
+ * transaction. A concurrent source edit observed at the post-generator or
+ * guarded-replacement boundaries is preserved; generated assets return to
+ * their pre-review state and the transaction fails.
  */
 export function persistTherapyReviewTransaction({
   sourcePath = SOURCE_PATH,
@@ -281,27 +291,63 @@ export function persistTherapyReviewTransaction({
       throw new Error("Therapy source changed after review began; refusing to overwrite concurrent work.");
     }
     const sourceBefore = Buffer.from(expectedRaw);
+    const intendedRaw = JSON.stringify(records);
     const generatedBefore = captureGeneratedFiles(fixedGeneratedPaths, listGeneratedPaths);
-    let sourceCommitted = false;
+    replaceFileAtomically(sourcePath, intendedRaw, { expectedRaw });
+
+    let generatorError = null;
     try {
-      writeTherapySourceAtomically(sourcePath, records, { expectedRaw });
-      sourceCommitted = true;
       runGenerator();
     } catch (error) {
-      if (!sourceCommitted) throw error;
+      generatorError = error;
+    }
+
+    // This comparison is the optimistic CAS boundary for non-cooperating
+    // editors. It runs after generation and before any rollback. The guarded
+    // replacement rechecks the exact JSON again before replacing source bytes.
+    const sourceMatchedBeforeRollback = sourceMatchesIntendedBytes(sourcePath, intendedRaw);
+    if (generatorError === null && sourceMatchedBeforeRollback) return;
+
+    const failure =
+      generatorError ?? new Error("Canonical Therapy source changed while generated assets were being written.");
+    try {
+      restoreGeneratedFiles(generatedBefore, fixedGeneratedPaths, listGeneratedPaths);
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [failure, rollbackError],
+        "Therapy sign-off failed and rollback could not restore the safe pre-review generated state.",
+      );
+    }
+
+    let sourceRestored = false;
+    // Recheck after restoring potentially large assets so a concurrent edit
+    // arriving during rollback is preserved too.
+    if (sourceMatchedBeforeRollback && sourceMatchesIntendedBytes(sourcePath, intendedRaw)) {
       try {
-        restoreGeneratedFiles(generatedBefore, fixedGeneratedPaths, listGeneratedPaths);
-        replaceFileAtomically(sourcePath, sourceBefore);
+        replaceFileAtomically(sourcePath, sourceBefore, { expectedRaw: intendedRaw });
+        sourceRestored = true;
       } catch (rollbackError) {
-        throw new AggregateError(
-          [error, rollbackError],
-          "Therapy sign-off failed and rollback could not restore every pre-review byte.",
-        );
+        // An expected-byte refusal means a non-cooperating edit won the race;
+        // preserve it. Other I/O failures with our intended source still in
+        // place mean rollback genuinely could not complete.
+        if (sourceMatchesIntendedBytes(sourcePath, intendedRaw)) {
+          throw new AggregateError(
+            [failure, rollbackError],
+            "Therapy sign-off failed and rollback could not restore the pre-review source bytes.",
+          );
+        }
       }
+    }
+
+    if (sourceRestored) {
       throw new Error("Therapy sign-off failed; exact pre-review source and generated asset bytes were restored.", {
-        cause: error,
+        cause: failure,
       });
     }
+    throw new Error(
+      "Therapy sign-off failed after the canonical source changed concurrently; concurrent source bytes were preserved and generated assets were restored to their exact pre-review bytes.",
+      { cause: failure },
+    );
   } finally {
     releaseLock();
   }

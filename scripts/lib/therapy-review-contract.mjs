@@ -98,6 +98,8 @@ const TRIVIAL_REVIEWER_VALUES = new Set([
   "automated",
   "bot",
   "default",
+  "dummy",
+  "fake",
   "missing",
   "n/a",
   "na",
@@ -105,6 +107,7 @@ const TRIVIAL_REVIEWER_VALUES = new Set([
   "null",
   "pending",
   "placeholder",
+  "sample",
   "system",
   "tbd",
   "test",
@@ -116,8 +119,22 @@ const TRIVIAL_REVIEWER_VALUES = new Set([
   "unknown",
 ]);
 
-const PLACEHOLDER_REVIEWER_VARIANT =
-  /(?:\b(?:dummy|fake|placeholder|sample|tbd|test(?:ing)?|unknown)\b[\s:()/_-]*\b(?:clinician|committee|doctor|owner|professional|reviewer|user)\b|\b(?:clinician|committee|doctor|owner|professional|reviewer|user)\b[\s:()/_-]*\b(?:dummy|fake|placeholder|sample|tbd|test(?:ing)?|unknown)\b)/i;
+const REVIEWER_ROLE_WORDS = new Set([
+  "clinical",
+  "clinician",
+  "committee",
+  "doctor",
+  "governance",
+  "owner",
+  "professional",
+  "qualified",
+  "reviewer",
+  "treating",
+  "user",
+]);
+const reviewerWords = (value) => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+const TRIVIAL_REVIEWER_WORD_SEQUENCES = [...TRIVIAL_REVIEWER_VALUES].map(reviewerWords);
+const TRIVIAL_REVIEWER_WORDS = new Set(TRIVIAL_REVIEWER_WORD_SEQUENCES.flat());
 
 const EMAIL_LIKE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const UUID_LIKE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
@@ -144,6 +161,18 @@ function canonicalize(value) {
   );
 }
 
+function isRoleQualifiedPlaceholder(value) {
+  const words = reviewerWords(value);
+  const containsTrivialSequence = TRIVIAL_REVIEWER_WORD_SEQUENCES.some((sequence) =>
+    words.some((_, index) => sequence.every((word, offset) => words[index + offset] === word)),
+  );
+  return (
+    containsTrivialSequence &&
+    words.some((word) => REVIEWER_ROLE_WORDS.has(word)) &&
+    words.every((word) => TRIVIAL_REVIEWER_WORDS.has(word) || REVIEWER_ROLE_WORDS.has(word))
+  );
+}
+
 /** A content-only digest: changing any non-review field invalidates sign-off. */
 export function therapyReviewedContentSha256(record) {
   if (!isPlainRecord(record)) throw new TypeError("Therapy review content must be an object.");
@@ -165,7 +194,7 @@ export function publicReviewerAttributionProblem(value) {
   if (TRIVIAL_REVIEWER_VALUES.has(trimmed.toLowerCase())) {
     return "reviewedBy must identify the clinician or governance owner, not a placeholder.";
   }
-  if (PLACEHOLDER_REVIEWER_VARIANT.test(trimmed)) {
+  if (isRoleQualifiedPlaceholder(trimmed)) {
     return "reviewedBy must identify the clinician or governance owner, not a placeholder variant.";
   }
   if (CONTROL_CHARACTER.test(trimmed)) return "reviewedBy must be a single display-safe line.";
