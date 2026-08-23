@@ -2,8 +2,32 @@ import { describe, expect, it } from "vitest";
 import {
   buildActiveJobsSafetyResult,
   checkIngestionMutationSafety,
+  ingestionMutationSafetyPayload,
   isActiveAgentEnrichmentJob,
 } from "../src/lib/ingestion-mutation-safety";
+import { apiErrorPayloadSchema } from "../src/lib/api-error-payload";
+
+describe("ingestion mutation safety error contract", () => {
+  it("uses the strict shared error envelope with typed operational details", () => {
+    const payload = ingestionMutationSafetyPayload({
+      ok: false,
+      status: 409,
+      checkedAt: "2026-08-23T00:00:00.000Z",
+      reason: "active_jobs",
+      message: "Reindex is paused.",
+      activeJobs: [],
+      staleProcessingJobs: [],
+    });
+
+    expect(apiErrorPayloadSchema.parse(payload)).toEqual(payload);
+    expect(payload).toMatchObject({
+      error: "Reindex is paused.",
+      message: "Reindex is paused.",
+      code: "ingestion_active_jobs",
+      details: { kind: "ingestion_mutation_safety", safeToRun: false },
+    });
+  });
+});
 
 describe("active enrichment-agent detection (R24d)", () => {
   const now = Date.parse("2026-07-07T00:00:00.000Z");

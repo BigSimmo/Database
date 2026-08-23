@@ -99,22 +99,23 @@ Smaller top-level directories that are easy to miss:
 
 ### API routes (`src/app/api/`)
 
-| Area            | Routes                                                                                                                 | Entry files                                                     |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account         | `/api/account/favourites`, `/api/account/preferences`                                                                  | `account/`                                                      |
-| Answers         | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                            | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
-| Search          | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                      | `search/`                                                       |
-| Upload          | `/api/upload`                                                                                                          | `upload/route.ts`                                               |
-| Documents       | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts    | `documents/`                                                    |
-| Differentials   | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                           | `differentials/`                                                |
-| Medications     | `/api/medications`, `/api/medications/[slug]`                                                                          | `medications/`                                                  |
-| Ingestion       | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                        | `ingestion/`                                                    |
-| Registry        | `/api/registry/records`, `/api/registry/records/[slug]`                                                                | `registry/records/`                                             |
-| Images          | `/api/images/[id]/signed-url`                                                                                          | `images/[id]/signed-url/route.ts`                               |
-| Ops             | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                       | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs     | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
-| Webhooks        | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)       | `webhooks/`                                                     |
-| Caring Contacts | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)            | `caring-contacts/`                                              |
+| Area             | Routes                                                                                                                 | Entry files                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                  | `account/`                                                      |
+| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                            | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                       | `clinical-quality/route.ts`                                     |
+| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                      | `search/`                                                       |
+| Upload           | `/api/upload`                                                                                                          | `upload/route.ts`                                               |
+| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts    | `documents/`                                                    |
+| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                           | `differentials/`                                                |
+| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                          | `medications/`                                                  |
+| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                        | `ingestion/`                                                    |
+| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                | `registry/records/`                                             |
+| Images           | `/api/images/[id]/signed-url`                                                                                          | `images/[id]/signed-url/route.ts`                               |
+| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                       | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
+| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)       | `webhooks/`                                                     |
+| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)            | `caring-contacts/`                                              |
 
 ---
 
@@ -214,7 +215,7 @@ is noindex, visibly marked synthetic, and has a single inbound entry from the To
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
 
 **Storage buckets:** `clinical-documents`, `clinical-images` (private)
 

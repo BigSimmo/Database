@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
-import { useRegistryRecords } from "@/lib/use-registry-records";
+import { useRegistryRecord, useRegistryRecords } from "@/lib/use-registry-records";
 
 const authSession = vi.hoisted(() => ({
   authorizationHeader: { Authorization: "Bearer user-a-token" },
@@ -62,7 +62,7 @@ describe("auth-backed catalogue background refresh", () => {
 
   it("preserves registry rows for a same-user refresh and clears them immediately on identity change", async () => {
     const record = { slug: "cmht", title: "Community Mental Health Team" };
-    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [record], total: 1, governance: {} }));
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [record], total: 1, verifiedCount: 0, governance: {} }));
 
     const { result, rerender } = renderHook(() => useRegistryRecords("service"));
     await flushMicrotasks();
@@ -81,13 +81,37 @@ describe("auth-backed catalogue background refresh", () => {
     rerender();
     expect(result.current).toMatchObject({ status: "loading", records: [], total: 0 });
 
-    await act(async () => resolveRefresh(jsonResponse({ records: [record], total: 1, governance: {} })));
+    await act(async () =>
+      resolveRefresh(jsonResponse({ records: [record], total: 1, verifiedCount: 0, governance: {} })),
+    );
     await flushMicrotasks();
     expect(result.current).toMatchObject({ status: "loading", records: [], total: 0 });
 
-    await act(async () => resolveNextIdentity(jsonResponse({ records: [], total: 0, governance: {} })));
+    await act(async () =>
+      resolveNextIdentity(jsonResponse({ records: [], total: 0, verifiedCount: 0, governance: {} })),
+    );
     await flushMicrotasks();
     expect(result.current).toMatchObject({ status: "ready", records: [], total: 0 });
+  });
+
+  it("fails closed when a registry list returns malformed success data", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: "not-an-array", total: 1, verifiedCount: 0 }));
+
+    const { result } = renderHook(() => useRegistryRecords("service"));
+    await flushMicrotasks();
+
+    expect(result.current).toMatchObject({ status: "error", records: [], total: 0 });
+  });
+
+  it("fails closed when a registry detail omits its governance contract", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ record: { slug: "cmht", title: "Community Mental Health Team" }, linkedDocuments: [] }),
+    );
+
+    const { result } = renderHook(() => useRegistryRecord("service", "cmht"));
+    await flushMicrotasks();
+
+    expect(result.current).toMatchObject({ status: "error", record: null, linkedDocuments: [] });
   });
 
   it("preserves medication data only while query and identity are unchanged", async () => {

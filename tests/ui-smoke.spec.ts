@@ -404,13 +404,16 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
     });
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
-    const kind = new URL(route.request().url()).searchParams.get("kind");
+    const url = new URL(route.request().url());
+    const kind = url.searchParams.get("kind");
+    const view = url.searchParams.get("view") ?? "full";
     const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
         total: records.length,
-        governance: {},
+        verifiedCount: 0,
+        ...(view === "full" ? { governance: {} } : {}),
         demoMode: true,
       },
     });
@@ -3582,8 +3585,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
         json: {
           records: [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }],
           total: 1,
+          verifiedCount: 0,
           demoMode: true,
-          governance: {},
         },
       });
     });
@@ -3599,7 +3602,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(hub.getByText("13YARN").first()).toBeVisible();
   });
 
-  test("favourites command library exposes truthful item details and a keyboard-operable action menu", async ({
+  test("favourites command library exposes truthful item details and a keyboard-operable action dialog", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1536, height: 900 });
@@ -3622,12 +3625,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const moreActions = page.getByRole("button", { name: "More actions for Lithium monitoring guideline" });
     await moreActions.focus();
     await page.keyboard.press("ArrowDown");
-    const menu = page.getByRole("menu");
-    await expect(menu.getByRole("menuitem", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(menu.getByRole("menuitem", { name: "Copy citation" })).toBeFocused();
+    const dialog = page.getByRole("dialog", { name: "Actions for Lithium monitoring guideline" });
+    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Copy citation" })).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(menu.getByRole("menuitem", { name: "Copied" })).toBeFocused();
+    await expect(dialog.getByRole("button", { name: "Copied" })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(moreActions).toBeFocused();
   });

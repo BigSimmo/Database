@@ -202,6 +202,9 @@ describe("/api/documents/bulk", () => {
     await expect(response.json()).resolves.toEqual({
       error:
         "Identity or provenance edits are unavailable for reviewed sources; record an auditable source-review disposition first.",
+      message:
+        "Identity or provenance edits are unavailable for reviewed sources; record an auditable source-review disposition first.",
+      code: "reviewed_source_edit_blocked",
     });
     expect(supabase.calls.filter((call) => call.operation !== "select")).toEqual([]);
     expect(invalidateRagCachesForOwner).not.toHaveBeenCalled();

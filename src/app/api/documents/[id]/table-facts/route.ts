@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { tableFactDetailProjection } from "@/lib/document-detail";
@@ -65,7 +65,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     ).maybeSingle();
     if (documentError) throw new Error(documentError.message);
     if (!document) {
-      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+      return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
     }
     const committedGeneration = committedIndexGeneration(document.metadata);
 
@@ -103,7 +103,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, tableFactsRouteParamsSchema, "Invalid document id.");
-    if (isDemoMode()) return NextResponse.json({ error: "Table review is unavailable in demo mode." }, { status: 400 });
+    if (isDemoMode())
+      return publicErrorResponse("Table review is unavailable in demo mode.", 400, { code: "demo_mode_unavailable" });
 
     const parsed = await parseJsonBody(request, updateSchema, "Table review payload is invalid.");
 
@@ -122,7 +123,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
     if (!document) {
-      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+      return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
     }
     const committedGeneration = committedIndexGeneration(document.metadata);
 
@@ -134,9 +135,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .eq("owner_id", user.id)
       .maybeSingle();
     if (factError) throw new Error(factError.message);
-    if (!fact) return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
+    if (!fact) return publicErrorResponse("Table fact not found.", 404, { code: "table_fact_not_found" });
     if (!isCommittedGenerationMetadata({ rowMetadata: fact.metadata, committedGeneration })) {
-      return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
+      return publicErrorResponse("Table fact not found.", 404, { code: "table_fact_not_found" });
     }
 
     let sourceImage: { id: string; metadata: unknown } | null = null;
@@ -149,7 +150,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .maybeSingle();
       if (imageError) throw new Error(imageError.message);
       if (image && !isCommittedGenerationMetadata({ rowMetadata: image.metadata, committedGeneration })) {
-        return NextResponse.json({ error: "Table fact not found." }, { status: 404 });
+        return publicErrorResponse("Table fact not found.", 404, { code: "table_fact_not_found" });
       }
       sourceImage = image;
     }
