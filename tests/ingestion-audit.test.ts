@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assertAuditTargetState, auditDocument, type IngestionDocumentAuditInput } from "../src/lib/ingestion-audit";
+import { evaluateRagProgrammeCase, ragProgrammeFixture } from "../src/lib/rag/rag-programme-eval";
 
 function fixture(overrides: Partial<IngestionDocumentAuditInput> = {}): IngestionDocumentAuditInput {
   return {
@@ -191,5 +192,49 @@ describe("ingestion integrity audit", () => {
         ),
       ).toThrow(/failed expectation code/i);
     }
+  });
+
+  it("normalizes real P01 evaluator reasons to opaque audit categories", () => {
+    const programmeCase = ragProgrammeFixture.cases.find(({ id }) => id === "direct-evidence-generic-refusal")!;
+    const result = evaluateRagProgrammeCase({
+      ...programmeCase,
+      diagnostics: {
+        observedCorpusScopes: [],
+        observedSourceRoles: programmeCase.expectation.expectedSourceRoles,
+        observedSiteDomains: programmeCase.expectation.expectedSiteDomains,
+        publicSiteContentState: programmeCase.expectation.expectedPublicSiteContentState,
+        answerShape: programmeCase.expectation.allowedAnswerShapes[0]!,
+        directSubquestionPurposes: programmeCase.expectation.expectedSubquestionPurposes,
+        directEvidenceSubquestionCount: programmeCase.expectation.minimumDirectSubquestions,
+        insufficiencyReason: null,
+        supportedPartRetained: programmeCase.expectation.requireSupportedPart,
+        exactGapNamed: programmeCase.expectation.requireExactGap,
+        observedConflict: null,
+        requiredFactsPresent: programmeCase.expectation.requiredFacts,
+        forbiddenPatternsFound: [],
+        documentReciprocalRank: 1,
+        contentReciprocalRank: 1,
+        hardViolations: [],
+        totalLatencyMs: 100,
+        estimatedCostUsd: 0.01,
+      },
+    });
+    expect(result.failedExpectations).toContain("corpus_scope:uploaded_local");
+
+    const audit = auditDocument(
+      fixture({
+        mustPassCases: [
+          {
+            id: result.id,
+            passed: result.passed,
+            expectedDocumentRank: 1,
+            actualDocumentRank: 1,
+            failedExpectations: result.failedExpectations,
+          },
+        ],
+      }),
+    );
+    expect(audit.mustPassCases[0]!.failedExpectations).toEqual(["corpus_scope"]);
+    expect(JSON.stringify(audit)).not.toContain("uploaded_local");
   });
 });

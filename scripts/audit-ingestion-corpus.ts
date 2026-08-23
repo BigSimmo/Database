@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { australianSourceCatalogue } from "@/lib/australian-source-catalogue";
 import {
   auditDocument,
-  INGESTION_FAILED_EXPECTATION_CODES,
+  normalizeIngestionFailedExpectationCodes,
   type IngestionDocumentAuditInput,
 } from "@/lib/ingestion-audit";
 import { ragProgrammeFixture } from "@/lib/rag/rag-programme-eval";
@@ -24,7 +24,6 @@ const MAX_DOCUMENTS = 5_000;
 const MAX_CASES = 1_000;
 const MAX_ARRAY = 5_000;
 const MAX_FAILED_EXPECTATIONS = 32;
-const failedExpectationCodes = new Set<string>(INGESTION_FAILED_EXPECTATION_CODES);
 
 function object(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object.`);
@@ -67,9 +66,11 @@ function failureCodeArray(value: unknown, label: string): string[] {
     throw new Error(`${label} must be a bounded array of failed expectation codes.`);
   const result = value.map((item, index) => text(item, `${label}[${index}]`) as string);
   if (new Set(result).size !== result.length) throw new Error(`${label} contains duplicate values.`);
-  if (result.some((code) => !failedExpectationCodes.has(code)))
+  try {
+    return normalizeIngestionFailedExpectationCodes(result);
+  } catch {
     throw new Error(`${label} contains an unsupported failed expectation code.`);
-  return result.sort();
+  }
 }
 
 const DOCUMENT_FIELDS = [
@@ -157,6 +158,9 @@ function parseDocument(value: unknown, index: number): IngestionDocumentAuditInp
       failedExpectations: failureCodeArray(testCase.failedExpectations, `${itemLabel}.failedExpectations`),
     };
   });
+  const caseIds = mustPassCases.map(({ id }) => id);
+  const duplicateCaseId = caseIds.filter((id, caseIndex) => caseIds.indexOf(id) !== caseIndex).sort()[0];
+  if (duplicateCaseId) throw new Error(`${label}.mustPassCases contains duplicate case id ${duplicateCaseId}.`);
   return {
     documentId: text(raw.documentId, `${label}.documentId`) as string,
     fileName: text(raw.fileName, `${label}.fileName`, true),

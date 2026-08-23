@@ -20,6 +20,7 @@ const expectedCoverageFixture = (): ExpectedSourceCoverageRecord[] => [
     reviewStatus: "active",
     expectedDocumentIds: ["expected-doc"],
     mustPassCaseIds: ["must-pass-1"],
+    caseExpectations: [{ caseId: "must-pass-1", expectedDocumentIds: ["expected-doc"] }],
   },
 ];
 
@@ -89,9 +90,10 @@ describe("expected source coverage", () => {
       },
     );
 
+    const clonedRecords = structuredClone(registry.records);
     expect(
       auditExpectedSourceCoverage({
-        expected: registry.records,
+        expected: clonedRecords,
         activeDocumentIds: new Set(["doc-a", "doc-b"]),
         retrievedDocumentIdsByCase: new Map([
           ["case-a", new Set(["doc-a"])],
@@ -104,7 +106,7 @@ describe("expected source coverage", () => {
   it("rejects duplicate identities, missing owners, bad case-document mappings, and active link-only sources", () => {
     const valid = {
       schemaVersion: 1,
-      records: expectedCoverageFixture(),
+      records: expectedCoverageFixture().map(({ caseExpectations: _caseExpectations, ...record }) => record),
     };
     const catalogue = australianSourceCatalogue.filter(({ key }) => key === "wa-health");
     const evaluationCases = [{ id: "must-pass-1", expectedDocuments: ["expected-doc"] }];
@@ -120,6 +122,14 @@ describe("expected source coverage", () => {
         { catalogue, evaluationCases },
       ),
     ).toThrow(/owner/i);
+    for (const owner of ["person@example.test", "550e8400-e29b-41d4-a716-446655440000", "Clinical lead Jane"]) {
+      expect(() =>
+        parseExpectedSourceCoverageRegistry(
+          { ...valid, records: [{ ...valid.records[0], owner }] },
+          { catalogue, evaluationCases },
+        ),
+      ).toThrow(/owner.*source_governance:wa-health/i);
+    }
     expect(() =>
       parseExpectedSourceCoverageRegistry(
         { ...valid, records: [{ ...valid.records[0], expectedDocumentIds: ["other-doc"] }] },
@@ -129,7 +139,10 @@ describe("expected source coverage", () => {
     const linkOnly = australianSourceCatalogue.find(({ key }) => key === "etg-complete")!;
     expect(() =>
       parseExpectedSourceCoverageRegistry(
-        { schemaVersion: 1, records: [{ ...valid.records[0], key: linkOnly.key }] },
+        {
+          schemaVersion: 1,
+          records: [{ ...valid.records[0], key: linkOnly.key, owner: `source_governance:${linkOnly.key}` }],
+        },
         { catalogue: [linkOnly], evaluationCases },
       ),
     ).toThrow(/link-only|link_only/i);
@@ -212,6 +225,45 @@ describe("expected source coverage", () => {
         runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", output]),
       ).rejects.toThrow(/failed expectation code/i);
     }
+  });
+
+  it("rejects duplicate per-document must-pass case IDs deterministically", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "ingestion-audit-duplicate-cases-"));
+    const canonicalInput = fileURLToPath(new URL("fixtures/ingestion/active-corpus-inventory.json", import.meta.url));
+    const expected = fileURLToPath(new URL("../data/rag-expected-source-coverage.v1.json", import.meta.url));
+    const inventory = JSON.parse(await readFile(canonicalInput, "utf8")) as {
+      documents: Array<{
+        mustPassCases: Array<{
+          id: string;
+          passed: boolean;
+          expectedDocumentRank: number | null;
+          actualDocumentRank: number | null;
+          failedExpectations: string[];
+        }>;
+      }>;
+    };
+    const original = inventory.documents[0]!.mustPassCases[0]!;
+    const conflicting = { ...original, passed: !original.passed, failedExpectations: [] };
+    const messages: string[] = [];
+    for (const [index, cases] of [
+      [original, conflicting],
+      [conflicting, original],
+    ].entries()) {
+      inventory.documents[0]!.mustPassCases = cases;
+      const input = path.join(directory, `input-${index}.json`);
+      const output = path.join(directory, `output-${index}.json`);
+      await writeFile(input, JSON.stringify(inventory));
+      try {
+        await runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", output]);
+        messages.push("resolved");
+      } catch (error) {
+        messages.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+    expect(messages).toEqual([
+      "documents[0].mustPassCases contains duplicate case id site-sync-unavailable.",
+      "documents[0].mustPassCases contains duplicate case id site-sync-unavailable.",
+    ]);
   });
 
   it("checks input size before allocating the bounded read buffer", async () => {

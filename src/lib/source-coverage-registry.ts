@@ -4,6 +4,7 @@ export type ExpectedSourceCoverageRecord = Readonly<{
   reviewStatus: "active" | "absent" | "not_approved" | "retired";
   expectedDocumentIds: readonly string[];
   mustPassCaseIds: readonly string[];
+  caseExpectations: readonly Readonly<{ caseId: string; expectedDocumentIds: readonly string[] }>[];
 }>;
 
 export type SourceCoverageFinding = Readonly<{
@@ -23,7 +24,6 @@ export type ExpectedSourceCoverageRegistry = Readonly<{
 const MAX_RECORDS = 500;
 const MAX_IDS = 500;
 const statuses = new Set(["active", "absent", "not_approved", "retired"]);
-const expectedDocumentsByCase = new WeakMap<ExpectedSourceCoverageRecord, ReadonlyMap<string, readonly string[]>>();
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object.`);
@@ -71,6 +71,7 @@ export function parseExpectedSourceCoverageRegistry(
     keys.add(key);
     const catalogue = catalogueByKey.get(key);
     if (!catalogue) throw new Error(`Unknown expected source key: ${key}.`);
+    if (owner !== `source_governance:${key}`) throw new Error(`${key}.owner must be source_governance:${key}.`);
     if (typeof raw.reviewStatus !== "string" || !statuses.has(raw.reviewStatus))
       throw new Error(`Invalid reviewStatus for ${key}.`);
     const reviewStatus = raw.reviewStatus as ExpectedSourceCoverageRecord["reviewStatus"];
@@ -103,17 +104,11 @@ export function parseExpectedSourceCoverageRegistry(
       )
     )
       throw new Error(`${key} expected document mapping disagrees with the evaluation registry.`);
-    const parsedRecord = { key, owner, reviewStatus, expectedDocumentIds, mustPassCaseIds };
-    expectedDocumentsByCase.set(
-      parsedRecord,
-      new Map(
-        mappedCases.map((testCase) => [
-          testCase.id,
-          expectedDocumentIds.filter((documentId) => testCase.expectedDocuments.includes(documentId)),
-        ]),
-      ),
-    );
-    return parsedRecord;
+    const caseExpectations = mappedCases.map((testCase) => ({
+      caseId: testCase.id,
+      expectedDocumentIds: expectedDocumentIds.filter((documentId) => testCase.expectedDocuments.includes(documentId)),
+    }));
+    return { key, owner, reviewStatus, expectedDocumentIds, mustPassCaseIds, caseExpectations };
   });
   const missingCatalogueKeys = references.catalogue.map(({ key }) => key).filter((key) => !keys.has(key));
   if (missingCatalogueKeys.length)
@@ -129,6 +124,16 @@ export function auditExpectedSourceCoverage(args: {
   return [...args.expected]
     .sort((left, right) => left.key.localeCompare(right.key))
     .map((entry) => {
+      const expectedByCase = new Map(
+        entry.caseExpectations.map(({ caseId, expectedDocumentIds }) => [caseId, expectedDocumentIds]),
+      );
+      if (
+        expectedByCase.size !== entry.caseExpectations.length ||
+        entry.mustPassCaseIds.some((caseId) => !expectedByCase.has(caseId)) ||
+        entry.caseExpectations.some(({ caseId }) => !entry.mustPassCaseIds.includes(caseId))
+      ) {
+        throw new Error(`${entry.key} must provide one explicit expected-document subset per must-pass case.`);
+      }
       let outcome: SourceCoverageFinding["outcome"];
       if (entry.reviewStatus === "retired") outcome = "retired";
       else if (entry.reviewStatus === "not_approved") outcome = "not_approved";
@@ -141,7 +146,7 @@ export function auditExpectedSourceCoverage(args: {
         else {
           const retrievalMiss = entry.mustPassCaseIds.some((caseId) => {
             const retrieved = args.retrievedDocumentIdsByCase.get(caseId);
-            const expectedForCase = expectedDocumentsByCase.get(entry)?.get(caseId) ?? entry.expectedDocumentIds;
+            const expectedForCase = expectedByCase.get(caseId)!;
             return !retrieved || expectedForCase.some((documentId) => !retrieved.has(documentId));
           });
           outcome = retrievalMiss ? "retrieval_miss" : "available";

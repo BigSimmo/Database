@@ -24,14 +24,6 @@ export type IngestionAuditReason =
 
 export type ExpectedActualCount = { expected: number | null; actual: number };
 
-export type IngestionMustPassCase = {
-  id: string;
-  passed: boolean;
-  expectedDocumentRank: number | null;
-  actualDocumentRank: number | null;
-  failedExpectations: string[];
-};
-
 export const INGESTION_FAILED_EXPECTATION_CODES = [
   "answer_shape",
   "australian_document_id",
@@ -42,17 +34,62 @@ export const INGESTION_FAILED_EXPECTATION_CODES = [
   "fallback_reason",
   "false_insufficiency",
   "forbidden_pattern",
+  "jurisdiction",
   "local_document_id",
+  "local_primary_decision",
+  "material_difference",
   "minimum_direct_subquestions",
+  "publication_or_effective_date",
   "required_fact",
+  "review_flag",
   "site_content_state",
   "site_domain",
+  "source_identity",
   "source_role",
   "subquestion_purpose",
   "supported_part_retained",
 ] as const;
 
+export type IngestionFailedExpectationCode = (typeof INGESTION_FAILED_EXPECTATION_CODES)[number];
+
+export type IngestionMustPassCaseInput = {
+  id: string;
+  passed: boolean;
+  expectedDocumentRank: number | null;
+  actualDocumentRank: number | null;
+  failedExpectations: string[];
+};
+
+export type IngestionMustPassCase = Omit<IngestionMustPassCaseInput, "failedExpectations"> & {
+  failedExpectations: IngestionFailedExpectationCode[];
+};
+
 const FAILED_EXPECTATION_CODES = new Set<string>(INGESTION_FAILED_EXPECTATION_CODES);
+const SUFFIXED_FAILED_EXPECTATION_CATEGORIES = new Set<IngestionFailedExpectationCode>([
+  "corpus_scope",
+  "fallback_reason",
+  "forbidden_pattern",
+  "required_fact",
+  "site_content_state",
+  "site_domain",
+  "source_role",
+  "subquestion_purpose",
+]);
+const CANONICAL_REASON_VALUE = /^[a-z][a-z0-9_]{0,119}$/;
+
+export function normalizeIngestionFailedExpectationCodes(values: readonly string[]): IngestionFailedExpectationCode[] {
+  const normalized = values.map((value): IngestionFailedExpectationCode => {
+    if (FAILED_EXPECTATION_CODES.has(value)) return value as IngestionFailedExpectationCode;
+    const separator = value.indexOf(":");
+    const category = value.slice(0, separator) as IngestionFailedExpectationCode;
+    const suffix = value.slice(separator + 1);
+    if (separator > 0 && SUFFIXED_FAILED_EXPECTATION_CATEGORIES.has(category) && CANONICAL_REASON_VALUE.test(suffix)) {
+      return category;
+    }
+    throw new Error("Unsupported failed expectation code.");
+  });
+  return [...new Set(normalized)].sort();
+}
 
 export type IngestionIntegrityExpectation = {
   pages: number | null;
@@ -98,7 +135,7 @@ export type IngestionDocumentAuditInput = {
   embeddingDimensions: number | null;
   embeddingStrategy: string | null;
   chunkGenerations: string[];
-  mustPassCases: IngestionMustPassCase[];
+  mustPassCases: IngestionMustPassCaseInput[];
 };
 
 export type IngestionDocumentAudit = {
@@ -196,13 +233,21 @@ export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocu
   if (input.indexedPageCount === null) {
     throw new Error(`Indexed page count measurement is required for ${input.documentId}.`);
   }
-  for (const testCase of input.mustPassCases) {
-    for (const failedExpectation of testCase.failedExpectations) {
-      if (!FAILED_EXPECTATION_CODES.has(failedExpectation)) {
+  const caseIds = input.mustPassCases.map(({ id }) => id);
+  const duplicateCaseId = caseIds.filter((id, index) => caseIds.indexOf(id) !== index).sort()[0];
+  if (duplicateCaseId) throw new Error(`Document ${input.documentId} contains duplicate case id ${duplicateCaseId}.`);
+  const mustPassCases = input.mustPassCases
+    .map((testCase) => {
+      try {
+        return {
+          ...testCase,
+          failedExpectations: normalizeIngestionFailedExpectationCodes(testCase.failedExpectations),
+        };
+      } catch {
         throw new Error(`Unsupported failed expectation code for ${testCase.id}.`);
       }
-    }
-  }
+    })
+    .sort((left, right) => left.id.localeCompare(right.id));
   const expectation = input.integrityExpectation;
   const reasons = new Set<IngestionAuditReason>();
   if (!expectation) reasons.add("integrity_expectation_missing");
@@ -265,9 +310,6 @@ export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocu
       : !expectation || !input.governanceValid || input.lifecycle === "quarantined"
         ? "quarantine_review"
         : null;
-  const mustPassCases = input.mustPassCases
-    .map((testCase) => ({ ...testCase, failedExpectations: [...new Set(testCase.failedExpectations)].sort() }))
-    .sort((left, right) => left.id.localeCompare(right.id));
   const digestState = {
     documentId: input.documentId,
     registryProjection: input.registryProjection,
