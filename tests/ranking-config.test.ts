@@ -70,42 +70,56 @@ describe("resolveRankingConfig override merge", () => {
   });
 
   it("fails closed for unknown keys at every supported level", () => {
-    expect(() => resolveRankingConfig(JSON.stringify({ documentDiversityPenality: 0.03 }))).toThrow(/unrecognized|unknown/i);
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ documentDiversityPenality: 0.03 })),
+    ).toThrow(/unrecognized|unknown/i);
     expect(() =>
       resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBost: 0.22 } })),
     ).toThrow(/unrecognized|unknown/i);
     expect(() =>
-      resolveRankingConfig(JSON.stringify({ featureFusion: { comparison: { lexicalCoverge: 1.1 } } })),
+      resolveRankingConfig(
+        JSON.stringify({ featureFusion: { comparison: { lexicalCoverge: 1.1 } } }),
+      ),
     ).toThrow(/unrecognized|unknown/i);
-    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { mod: "linear" } }))).toThrow(/unrecognized|unknown/i);
+    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { mod: "linear" } }))).toThrow(
+      /unrecognized|unknown/i,
+    );
   });
 
   it("fails closed for invalid types rather than silently substituting defaults", () => {
-    expect(() => resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: "big" } }))).toThrow(
-      /doseAmountBoost/i,
-    );
     expect(() =>
-      resolveRankingConfig(JSON.stringify({ featureFusion: { document_lookup: { clinicalEvidence: "high" } } })),
+      resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: "big" } })),
+    ).toThrow(/doseAmountBoost/i);
+    expect(() =>
+      resolveRankingConfig(
+        JSON.stringify({
+          featureFusion: { document_lookup: { clinicalEvidence: "high" } },
+        }),
+      ),
     ).toThrow(/clinicalEvidence/i);
-    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { mode: "gradual" } }))).toThrow(/mode/i);
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ freshness: { mode: "gradual" } })),
+    ).toThrow(/mode/i);
   });
 
   it("rejects pathological or domain-invalid numeric values", () => {
-    expect(() => resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: 1_000_000 } }))).toThrow(
-      /doseAmountBoost/i,
-    );
-    expect(() => resolveRankingConfig(JSON.stringify({ secondStage: { lowIndexQualityThreshold: 1.1 } }))).toThrow(
-      /lowIndexQualityThreshold/i,
-    );
-    expect(() => resolveRankingConfig(JSON.stringify({ documentDiversityPenalty: -0.01 }))).toThrow(
-      /documentDiversityPenalty/i,
-    );
-    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { publicationCliffYears: -1 } }))).toThrow(
-      /publicationCliffYears/i,
-    );
-    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { publicationPenalty: 1 } }))).toThrow(
-      /publicationPenalty/i,
-    );
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: 1_000_000 } })),
+    ).toThrow(/doseAmountBoost/i);
+    expect(() =>
+      resolveRankingConfig(
+        JSON.stringify({ secondStage: { lowIndexQualityThreshold: 1.1 } }),
+      ),
+    ).toThrow(/lowIndexQualityThreshold/i);
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ documentDiversityPenalty: -0.01 })),
+    ).toThrow(/documentDiversityPenalty/i);
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ freshness: { publicationCliffYears: -1 } })),
+    ).toThrow(/publicationCliffYears/i);
+    expect(() =>
+      resolveRankingConfig(JSON.stringify({ freshness: { publicationPenalty: 1 } })),
+    ).toThrow(/publicationPenalty/i);
   });
 
   it("deep-merges valid provided fields and keeps defaults for the rest", () => {
@@ -126,7 +140,9 @@ describe("resolveRankingConfig override merge", () => {
   });
 
   it("accepts the linear freshness mode", () => {
-    const cfg = resolveRankingConfig(JSON.stringify({ freshness: { mode: "linear", linearRampYears: 4 } }));
+    const cfg = resolveRankingConfig(
+      JSON.stringify({ freshness: { mode: "linear", linearRampYears: 4 } }),
+    );
     expect(cfg.freshness.mode).toBe("linear");
     expect(cfg.freshness.linearRampYears).toBe(4);
   });
