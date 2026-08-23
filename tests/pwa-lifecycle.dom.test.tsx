@@ -519,18 +519,12 @@ body:has(
     ]);
   });
 
-  it("top-aligns the tablet hero canvas while the install card is showing", () => {
+  it("anchors the tablet hero install card away from the centred composer", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
-    const dashboardSource = readFileSync(
-      join(import.meta.dirname, "..", "src", "components", "ClinicalDashboard.tsx"),
-      "utf8",
-    );
     expect(styles).toContain(
-      'body:has(.pwa-notice-stack) #main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas]',
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {\n    top: calc(4.25rem + max(0.75rem, var(--safe-area-top)));\n    bottom: auto;',
     );
-    expect(styles).toContain("place-items: start center");
-    expect(dashboardSource).toContain(
-      'data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}',
-    );
+    expect(styles).not.toContain("body:has(.pwa-notice-stack) #main-content");
+    expect(styles).not.toContain("data-mode-home-canvas");
   });
 });
