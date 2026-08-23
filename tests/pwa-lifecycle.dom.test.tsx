@@ -66,9 +66,15 @@ const ALLOWED_HERO_MAIN_CONTENT_SELECTORS = new Set([
 function disallowedMainContentHasSelectors(styles: string) {
   return styles
     .split(/\r?\n/)
-    .map((line) => line.trim().replace(/,$/, ""))
+    .map((line) => line.trim())
     .filter((line) => line.includes("body:has(#main-content"))
-    .filter((selector) => !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector));
+    .map((line) => {
+      const blockStart = line.indexOf("{");
+      const selector = (blockStart >= 0 ? line.slice(0, blockStart) : line).trim().replace(/,$/, "");
+      return { line, selector };
+    })
+    .filter(({ selector }) => !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector))
+    .map(({ line }) => line);
 }
 
 beforeEach(() => {
