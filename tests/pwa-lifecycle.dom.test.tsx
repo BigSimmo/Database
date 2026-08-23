@@ -519,13 +519,14 @@ body:has(
     ]);
   });
 
-  it("anchors the tablet hero install card away from the centred composer", () => {
+  it("top-aligns the sm+ hero canvas from first paint so a bottom-right install card cannot overlap the composer", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
-    expect(styles).toContain("@media (min-width: 640px) and (max-width: 1279.98px)");
     expect(styles).toContain(
-      'body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {\n    top: calc(4.25rem + max(0.75rem, var(--safe-area-top)));\n    bottom: auto;',
+      '#main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {\n    place-items: start center;\n    align-content: start;',
     );
     expect(styles).not.toContain("body:has(.pwa-notice-stack) #main-content");
-    expect(styles).not.toContain("data-mode-home-canvas");
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) and \(max-width: 1279\.98px\) \{\s*body:has\(#main-content\[data-phone-footer-owner="hero"\]\) \.pwa-notice-stack \{/,
+    );
   });
 });

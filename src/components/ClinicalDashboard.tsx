@@ -3533,6 +3533,9 @@ function ClinicalDashboardContent({
               ) : null}
 
               <section
+                // sm+ first-paint top-align hook in globals.css. Do not restyle
+                // this from body:has(.pwa-notice-stack) — that caused CLS.
+                data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
                 className={cn(
                   compactMobileModeHome
                     ? cn(
