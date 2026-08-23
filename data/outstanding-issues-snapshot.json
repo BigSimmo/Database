@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 72,
+    "pending": 84,
     "resolved": 376
   },
   "queue": [
@@ -810,6 +810,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "0e3c05e2-b381-4e7b-9cfd-9721eaeca155",
+      "action": "done",
+      "summary": "#CM7DG9: Updated .claude/hooks/push-format-guard.sh to resolve core.hooksPath against both worktree and common git directory (git rev-parse --git-common-dir), ensuring linked worktrees are recognized as wired without triggering whole-repo Prettier checks.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0f9238c1-8add-450c-92d1-917376761248",
       "action": "add",
       "summary": "Caring Contacts patient-visible reply wording is now factually wrong and must change before any demonstration",
@@ -852,6 +858,18 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "256bf4a0-9189-4a42-aca9-e6518a7d5c39",
+      "action": "done",
+      "summary": "#6SMMB4: Verified on workstation that npm cache resolves to D:\\.npm-cache and fsutil devdrv query returns Error 5 without elevation. Documented the Dev Drive trusted package cache verification and Defender exclusion workflow in docs/testing.md.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "2a0a150f-19f5-4c92-8438-90b1806c8830",
+      "action": "done",
+      "summary": "#RZQQBT: Settled PreCompact hook contract in docs/testing.md: .claude/hooks/precompact-issues-capture.sh acts as a silent append-only log (.git/claude-precompact.log) and transcript notice, guaranteed never to throw or disrupt context compaction.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "32d58b0f-a504-434e-8360-d6969160ec06",
       "action": "done",
       "summary": "#NPQJKP: Resolved by PR #2285 (predicate commit 957b76afa), live canary run 32589154243, and the follow-up allowance on current main (commit 62cfcab48). generatedAnswerQualityFailureReason now rejects both captured incoherent answers as guidance_wrapper_fragment; tests/rag-guidance-wrapper-quality-gate.test.ts pins both shapes, legitimate prose, enforcing-gate reachability, and the preformatted grounded bypass. The canary converted exactly the two named cases to source-backed review fallbacks with flat retrieval metrics; scripts/eval-quality.ts records the documented two-case allowance instead of leaving the weekly canary permanently red. The newly exposed antipsychotic metabolic-monitoring written-answer defect remains separately open as #J8SJQ9 and is not hidden by this closure. The post-PR #2302 canonical row already preserves the full predicate, canary, baseline, threshold, and dispatch-limitation evidence.",
@@ -876,6 +894,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "399ff5bd-d489-453f-a6b7-d185b9de7155",
+      "action": "done",
+      "summary": "#72G3XZ: Authored docs/ci-operations.md assessing runner usage under the base-branch per-run concurrency group (github.run_id). Confirmed that change-scoping in the changes job prevents queue starvation and runner minute overruns.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "3a2cac06-0076-4e83-81fa-f98be7285444",
       "action": "done",
       "summary": "#2TAQDC: Resolved by the 2026-08-23 current-main performance remediation. The streaming-hydration gap is documented beside the search-chrome invariant; every current :has(#main-content ...) selector is bounded by explicit post-hydration PWA allowlist markers; and a whitespace-tolerant, mutation-tested whole-file contract rejects any future unclassified occurrence while retaining the valid selectors. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/pwa-lifecycle.dom.test.tsx.",
@@ -891,6 +915,12 @@
       "request_id": "43122ce4-bfa2-43d1-83b0-f859eae6fc84",
       "action": "add",
       "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "4751f8ff-d012-4cbb-afce-2c458b272515",
+      "action": "cancel",
+      "summary": "Cancel request 7dc2d09a-b05c-4d10-b198-263af3c0f45e: Superseded by done request c4b1de28-7e91-46d6-9129-aa8b4d58f685 resolving #RSD9EJ on feature branch.",
       "created_at": "2026-08-23"
     },
     {
@@ -1092,6 +1122,18 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "ad833519-1b0b-4f02-b965-a7be0667cac4",
+      "action": "done",
+      "summary": "#97VQK5: Added accessible H1 to Documents mode home (src/app/(search-app)/documents/documents-home-client.tsx), unified placeholder punctuation across all app modes to ASCII ... in src/lib/app-modes.ts, and synchronized docs/site-map.md (npm run sitemap:check passed).",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "ae0fdbd3-4ccf-4584-9342-916851070516",
+      "action": "cancel",
+      "summary": "Cancel request b5d6b1be-d1c9-4739-898a-33aec4a656a5: Resolved on feature branch: added /ward-management/constellation to staticRouteRedirects in src/proxy.ts and documented in ward flow phase 2 plan.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "b171ae43-ab0f-4edf-9497-9e57eb031aff",
       "action": "done",
       "summary": "#V15EAS: Removed the unreachable Therapy home catalogue asset end to end. The generator now emits only full and index manifests, derives THERAPY_CATALOGUE_SUMMARY from the retained browse projection, preserves the current and previous full/index hashes, prunes legacy hashed home assets, and refuses a reintroduced unversioned home alias. The loader union, fallback alias, Next cache-header and rewrite matchers, browser fixture allowlists, and policy examples no longer expose therapies-home; the Therapy home remains summary-only with catalogue I/O disabled. Generation deleted the byte-identical 136,288-byte therapies-home.211dab554c4ec62d.json while retaining full 09b25b0fff3a2b44/d0358686e452b00b and index 211dab554c4ec62d/8455f92cf736cbfa. Red-first proof failed on the old three-kind manifest, then npm run check:therapy-data-index passed for 205 records, the focused wiring test passed 19/19, and the CI-scope and PR-policy self-tests passed.",
@@ -1110,6 +1152,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "b887e3ab-faad-4134-b207-8ef7562d128a",
+      "action": "done",
+      "summary": "#164Z0H: Confirmed .claude/hooks/session-start.sh is checked into git index with mode 100755, contains 0 CR bytes, and executes hermetically in web container environments. Verified with tests/session-start-hook.test.ts (11/11 passed).",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "ba2bdfba-b1e1-4e13-83b4-8cb0f3ddc092",
       "action": "add",
       "summary": "Caring Contacts: three unmitigated hazards block any real-patient pilot (safety officer, lived-experience review, Aboriginal health review)",
@@ -1126,6 +1174,12 @@
       "action": "done",
       "summary": "#0YK2S3: Resolved on current main by commit ade30a9b3. CaringContactShellFrame stores the deferred focus timeout in focusTimerRef, clears it in a useEffect unmount cleanup, and resets the ref when the callback runs, preventing the document.querySelector callback from firing after jsdom teardown. The merged fix's recorded full-suite receipt covered the existing tests/caring-contact-product-redesign.dom.test.tsx and reported 7,599 passing with exit 0.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "c4b1de28-7e91-46d6-9129-aa8b4d58f685",
+      "action": "done",
+      "summary": "#RSD9EJ: Updated scripts/guard-push.mjs (newlyIntegratedMainMergeBase) to resolve comparison baselines against git merge-base HEAD origin/main rather than previous remote tip, preventing false-positive ledger violations after merging main into a feature branch. Pinned by unit test in tests/guard-push.test.ts (55/55 passed).",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "c5d6045b-6493-4c8b-a1c8-6e151629d561",
@@ -1152,6 +1206,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "cb863b4d-a600-4992-b0d5-73aa1a4e9054",
+      "action": "done",
+      "summary": "#5MMK5R: Documented in docs/testing.md that npm run verify:phone-chrome inspects working-tree diffs relative to merge-base and selects zero browser stages against clean trees by design, with guidance for explicit --files or --full=always execution.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
       "action": "add",
       "summary": "Caring Contacts: the desktop session gate renders as a 1392x170 letterbox, not a gate",
@@ -1168,6 +1228,12 @@
       "action": "add",
       "summary": "Caring Contacts database and row-level-security suite runs in no automated gate",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "dbee1d86-48e5-4d16-b12a-fee4ee71f24f",
+      "action": "cancel",
+      "summary": "Cancel request 2a0a150f-19f5-4c92-8438-90b1806c8830: Duplicate of existing pending done request 346c12f3-fbcb-478f-bd86-d0c4aa0436c0 for #RZQQBT.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "e603434c-3ac2-40e2-bc36-d47e2e0e7efb",
@@ -1203,6 +1269,12 @@
       "request_id": "f892c373-a1c3-4c5e-b252-cd594e8f4bd8",
       "action": "cancel",
       "summary": "Cancel request 3aa167d6-e12d-4a76-944b-8e7b96f9f5f7: Superseded by the newer 2026-08-23 update 505f3b8e-a800-4efa-809f-ad2ccc6e158e, which correctly retains the unresolved bundle-budget ownership work.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "f8cabe84-9be5-4527-ae38-aecb9a61c84c",
+      "action": "cancel",
+      "summary": "Cancel request 0f9238c1-8add-450c-92d1-917376761248: Resolved on feature branch: verified patient-visible automated reply strings for therapeutic neutrality, emergency escalation, and GSM-7 limit in message-copy.ts with tests.",
       "created_at": "2026-08-23"
     },
     {
