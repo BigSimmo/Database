@@ -469,7 +469,7 @@ function resolveAustralianCataloguePolicy(metadata: {
   publisher: string | null;
   jurisdiction: string | null;
 }): ResolvedAustralianCataloguePolicy | null {
-  if (metadata.source_kind === "registry_record") return null;
+  if (metadata.source_kind !== "document") return null;
   if (!metadata.source_catalogue_key || !metadata.publisher_code || !metadata.jurisdiction) return null;
   const entry = australianSourceByKey(metadata.source_catalogue_key);
   if (!entry) return null;
@@ -605,7 +605,7 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     eligible &&
     cataloguePolicyEligible &&
     cataloguePolicy?.identity.scope !== "international" &&
-    metadata.source_kind !== "registry_record";
+    metadata.source_kind === "document";
 
   const designationRecognized =
     Boolean(authorityEntry) &&

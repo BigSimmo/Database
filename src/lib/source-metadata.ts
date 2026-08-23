@@ -36,7 +36,20 @@ const knownLicencePolicies = new Set([
   "metadata_link_only",
   "index_forbidden",
 ]);
-const MAX_DIAGNOSTIC_VALUE_LENGTH = 120;
+
+type SourceMetadataDiagnosticReason =
+  | "credentialed_url"
+  | "https_required"
+  | "invalid_https_url"
+  | "invalid_iso_date"
+  | "invalid_sha256"
+  | "unrecognized_enum";
+
+type SourceMetadataDiagnostic = Readonly<{
+  reason: SourceMetadataDiagnosticReason;
+  input_type: string;
+  input_length: number | null;
+}>;
 
 function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -51,28 +64,31 @@ function stringOrNull(value: unknown) {
 // Exported as an object so tests can spy on the seam the way they previously spied
 // on `logger.warn`; the default implementation stays quiet under NODE_ENV=test.
 export const sourceMetadataDiagnostics = {
-  warn(field: string, value: string) {
+  warn(field: string, diagnostic: SourceMetadataDiagnostic) {
     if (typeof process !== "undefined" && process.env && process.env.NODE_ENV === "test") return;
     console.warn(
       JSON.stringify({
         level: "warn",
         message: `source-metadata: unrecognized ${field}`,
         field,
-        value: boundedDiagnosticValue(value),
+        ...diagnostic,
       }),
     );
   },
 };
 
-function boundedDiagnosticValue(value: string) {
-  const normalized = value.trim();
-  return normalized.length <= MAX_DIAGNOSTIC_VALUE_LENGTH
-    ? normalized
-    : `${normalized.slice(0, MAX_DIAGNOSTIC_VALUE_LENGTH - 1)}…`;
+function diagnosticInputType(value: unknown) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
 }
 
-function warnInvalid(field: string, value: string) {
-  sourceMetadataDiagnostics.warn(field, boundedDiagnosticValue(value));
+function warnInvalid(field: string, value: unknown, reason: SourceMetadataDiagnosticReason) {
+  sourceMetadataDiagnostics.warn(field, {
+    reason,
+    input_type: diagnosticInputType(value),
+    input_length: typeof value === "string" ? value.length : null,
+  });
 }
 
 function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
@@ -84,40 +100,62 @@ function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<str
   // are the common case and would drown the signal. The returned value is unchanged,
   // so this is observability only: no ranking/retrieval behaviour changes.
   if (typeof value === "string" && value.trim()) {
-    warnInvalid(field, value);
+    warnInvalid(field, value, "unrecognized_enum");
   }
   return fallback;
 }
 
-const isoDateOnly = /^\d{4}-\d{2}-\d{2}$/;
-const isoDateTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const isoDateOnly = /^(\d{4})-(\d{2})-(\d{2})$/;
+const isoDateTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/;
+
+function hasValidCalendarDate(year: number, month: number, day: number) {
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysInMonth[month - 1];
+}
 
 function isValidIsoDate(value: string) {
-  if (isoDateOnly.test(value)) {
-    const parsed = new Date(`${value}T00:00:00.000Z`);
-    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  const dateOnlyMatch = isoDateOnly.exec(value);
+  if (dateOnlyMatch) {
+    return hasValidCalendarDate(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]), Number(dateOnlyMatch[3]));
   }
-  return isoDateTime.test(value) && !Number.isNaN(Date.parse(value));
+
+  const dateTimeMatch = isoDateTime.exec(value);
+  if (!dateTimeMatch) return false;
+  const [, year, month, day, hour, minute, second, offsetHour, offsetMinute] = dateTimeMatch;
+  if (!hasValidCalendarDate(Number(year), Number(month), Number(day))) return false;
+  if (Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) return false;
+  if (offsetHour !== undefined) {
+    const parsedOffsetHour = Number(offsetHour);
+    const parsedOffsetMinute = Number(offsetMinute);
+    if (parsedOffsetHour > 14 || parsedOffsetMinute > 59) return false;
+    if (parsedOffsetHour === 14 && parsedOffsetMinute !== 0) return false;
+  }
+  return !Number.isNaN(Date.parse(value));
 }
 
 function isoDateOrNull(value: unknown, field: string) {
   const normalized = stringOrNull(value);
   if (!normalized) return null;
   if (isValidIsoDate(normalized)) return normalized;
-  warnInvalid(field, normalized);
+  warnInvalid(field, normalized, "invalid_iso_date");
   return null;
 }
 
 function httpsUrlOrNull(value: unknown, field: string) {
   const normalized = stringOrNull(value);
   if (!normalized) return null;
+  let reason: SourceMetadataDiagnosticReason = "invalid_https_url";
   try {
     const parsed = new URL(normalized);
-    if (parsed.protocol === "https:" && !parsed.username && !parsed.password) return normalized;
+    if (parsed.username || parsed.password) reason = "credentialed_url";
+    else if (parsed.protocol !== "https:") reason = "https_required";
+    else return normalized;
   } catch {
-    // The bounded diagnostic below is the single failure signal for malformed URLs.
+    // The redacted diagnostic below is the single failure signal for malformed URLs.
   }
-  warnInvalid(field, normalized);
+  warnInvalid(field, normalized, reason);
   return null;
 }
 
@@ -125,7 +163,7 @@ function sha256OrNull(value: unknown, field: string) {
   const normalized = stringOrNull(value);
   if (!normalized) return null;
   if (/^[a-fA-F0-9]{64}$/.test(normalized)) return normalized;
-  warnInvalid(field, normalized);
+  warnInvalid(field, normalized, "invalid_sha256");
   return null;
 }
 

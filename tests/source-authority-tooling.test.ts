@@ -166,6 +166,24 @@ describe("source authority metadata tooling", () => {
       tier: "supplementary",
       reasonCodes: expect.arrayContaining(["registry_summary_identity"]),
     });
+
+    for (const sourceKind of [undefined, "future_import"]) {
+      expect(
+        classifySourceAuthority(
+          activeAustralianMetadata({
+            source_kind: sourceKind,
+            source_catalogue_key: "wa-health",
+            publisher_code: "WAHEALTH",
+            publisher: "WA Health",
+            jurisdiction: "Australia/WA",
+            source_role: "service_policy",
+          }),
+        ),
+      ).toMatchObject({
+        cataloguePolicyResolved: false,
+        australianAugmentationEligible: false,
+      });
+    }
   });
 
   it("reports proposed policy metadata separately without widening locality mutations", () => {
