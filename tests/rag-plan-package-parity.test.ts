@@ -85,6 +85,20 @@ describe("RAG plan execution packages", () => {
     ).not.toThrow();
   });
 
+  it("keeps live ingestion plans off the retired Docling v1 manifest", () => {
+    const paths = [
+      "docs/superpowers/plans/2026-08-21-trusted-admin-document-ingestion.md",
+      "docs/superpowers/rag-upgrade/local/plans/2026-08-21-trusted-admin-document-ingestion.md",
+      "docs/superpowers/rag-upgrade/cloud/plans/2026-08-21-trusted-admin-document-ingestion.md",
+    ];
+
+    for (const path of paths) {
+      const plan = readFileSync(path, "utf8");
+      expect(plan).not.toContain("eval/docling/fixtures/manifest.v1.json");
+      expect(plan.match(/eval\/docling\/fixtures\/manifest\.v2\.json/g)).toHaveLength(2);
+    }
+  });
+
   it("extracts the exact manifest-selected task with the tracked Cloud helper", () => {
     const brief = execFileSync(
       process.execPath,
