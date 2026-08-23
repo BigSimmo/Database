@@ -22,7 +22,7 @@
  * `alerting=true|false` to $GITHUB_OUTPUT when present so the workflow can flag
  * the run without re-parsing.
  */
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { evaluateOperationalAlerts, summarizeOperationalAlerts } from "./lib/operational-alerts.mjs";
 
@@ -59,6 +59,63 @@ function argValue(name) {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
+const hourlyWindowMs = 60 * 60 * 1000;
+const hourlyHistoryVersion = 1;
+
+function hourStart(instant) {
+  const epoch = instant instanceof Date ? instant.getTime() : Date.parse(String(instant));
+  if (!Number.isFinite(epoch)) return null;
+  return new Date(Math.floor(epoch / hourlyWindowMs) * hourlyWindowMs).toISOString();
+}
+
+function canonicalRpcNames(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const names = Object.entries(value)
+    .filter(([name, count]) => /^[a-zA-Z][a-zA-Z0-9_]{0,127}$/.test(name) && Number.isInteger(count) && count > 0)
+    .map(([name]) => name)
+    .sort();
+  return Array.from(new Set(names));
+}
+
+function canonicalHistory(raw) {
+  if (!raw || typeof raw !== "object" || raw.version !== hourlyHistoryVersion || !Array.isArray(raw.windows)) return [];
+  const byHour = new Map();
+  for (const entry of raw.windows) {
+    const hour = hourStart(entry?.hour);
+    const rpcNames = Array.isArray(entry?.rpcNames)
+      ? Array.from(new Set(entry.rpcNames.filter((name) => typeof name === "string" && /^[a-zA-Z][a-zA-Z0-9_]{0,127}$/.test(name)))).sort()
+      : null;
+    if (hour) byHour.set(hour, { hour, rpcNames });
+  }
+  return [...byHour.values()].sort((left, right) => left.hour.localeCompare(right.hour)).slice(-3);
+}
+
+export function updateHybridRpcHourlyEvidence(rawHistory, health, observedAt = new Date()) {
+  const hour = hourStart(observedAt);
+  if (!hour) return { history: { version: hourlyHistoryVersion, windows: [] }, repeatedRpcNames: [] };
+  const prior = canonicalHistory(rawHistory).filter((entry) => entry.hour !== hour);
+  const slo = health?.slo;
+  const rpcNames = slo?.hybridRpcIdentityEvidenceComplete === true ? canonicalRpcNames(slo.hybridRpcErrorCounts) : null;
+  const windows = [...prior, { hour, rpcNames }].sort((left, right) => left.hour.localeCompare(right.hour)).slice(-3);
+  const lastThree = windows.slice(-3);
+  const contiguous =
+    lastThree.length === 3 &&
+    lastThree.every((entry) => Array.isArray(entry.rpcNames)) &&
+    lastThree.every((entry, index) => index === 0 || Date.parse(entry.hour) - Date.parse(lastThree[index - 1].hour) === hourlyWindowMs);
+  const repeatedRpcNames = contiguous
+    ? lastThree[0].rpcNames.filter((name) => lastThree.every((entry) => entry.rpcNames.includes(name)))
+    : [];
+  return { history: { version: hourlyHistoryVersion, windows }, repeatedRpcNames };
+}
+
+function readHybridRpcHistory(path) {
+  if (!path) return undefined;
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return undefined;
+  }
+}
 export function resolveHealthUrl(raw) {
   if (!raw) return undefined;
   const trimmed = raw.trim().replace(/\/+$/, "");
@@ -78,7 +135,14 @@ export function renderDigest(health, meta = {}) {
   const lines = [];
   const stamp = new Date().toISOString();
   const status = normalizeOpsStatus(health?.status ?? "unreachable");
-  const badge = status === "ok" ? "🟢 ok" : status === "degraded" ? "🟠 degraded" : "🔴 unreachable";
+  const badge =
+    status === "ok"
+      ? "🟢 ok"
+      : status === "degraded"
+        ? "🟠 degraded"
+        : status === "unknown"
+          ? "⚪ unknown"
+          : "🔴 unreachable";
   lines.push(`### Ops digest — ${stamp}`, "", `**Status:** ${badge}`);
   if (meta.error) lines.push("", `> Probe error: \`${meta.error}\``);
 
@@ -173,10 +237,15 @@ async function main() {
     }
   }
 
+  const historyPath = argValue("--history");
+  const hourlyEvidence = updateHybridRpcHourlyEvidence(readHybridRpcHistory(historyPath), health);
+  if (historyPath) writeFileSync(historyPath, JSON.stringify(hourlyEvidence.history) + "\n");
+
   const alertContext = {
     error,
     canaryStale: process.env.EVAL_CANARY_STALE === "true",
     canaryMessage: process.env.EVAL_CANARY_MESSAGE,
+    repeatedHybridRpcNames: hourlyEvidence.repeatedRpcNames,
   };
   const digest = renderDigest(health, alertContext);
   process.stdout.write(digest);

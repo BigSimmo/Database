@@ -42,7 +42,8 @@ describe("clinical quality triage storage", () => {
   });
 
   it("never selects query, answer, excerpt, or patient text", () => {
-    const selects = [...route.matchAll(/\.select\("([^"]+)"\)/g)].map((match) => match[1]).join(",");
+    const selects = [...route.matchAll(/\.select\(\s*"([^"]+)"/g)].map((match) => match[1]).join(",");
+    expect(selects.split(",").length).toBeGreaterThan(8);
     expect(selects).not.toMatch(/\b(query|answer|excerpt|patient)\b/i);
   });
 });

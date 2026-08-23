@@ -313,7 +313,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       mutation.pending -= 1;
       if (mutation.pending === 0) {
         applyFavourite(contentType, key, mutation.confirmed);
-        if (mutation.confirmedRecord) {
+        if (mutation.confirmed && mutation.confirmedRecord) {
           replaceFavouriteItems([
             mutation.confirmedRecord,
             ...favouriteItemsRef.current.filter((item) => item.contentType !== contentType || item.contentKey !== key),
@@ -419,8 +419,6 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
 
   const reorderFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, direction: "up" | "down") => {
-      const version = ++structuredMutationVersionRef.current;
-      const previous = favouriteItemsRef.current;
       const payload = await runStructuredMutation(
         "PATCH",
         { action: "reorderItem", contentType, contentKey, direction },
@@ -431,11 +429,9 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         return true;
       }
       if (payload) setError("Favourite order response was invalid.");
-      if (structuredMutationVersionRef.current === version) replaceFavouriteItems(previous);
-      else void structuredMutationTailRef.current.then(reload);
       return false;
     },
-    [reload, replaceFavouriteItems, runStructuredMutation],
+    [reload, runStructuredMutation],
   );
 
   const recordFavouriteOpen = useCallback(
@@ -497,6 +493,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       // server state if their later PUT fails.
       for (const mutation of favouriteMutationsRef.current.values()) {
         mutation.confirmed = false;
+        mutation.confirmedRecord = null;
       }
       replaceFavourites(emptyFavourites);
       replaceFavouriteItems([]);

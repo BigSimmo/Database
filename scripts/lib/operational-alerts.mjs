@@ -91,10 +91,9 @@ function validRate(value) {
 }
 
 /**
- * Evaluate one provider-neutral operations snapshot. A single hourly snapshot
- * can warn on hybrid-RPC errors, but it cannot prove the documented three
- * consecutive-window page condition. Callers may supply independently tracked
- * `hybridRpcNonzeroConsecutiveWindows` only when they have that history.
+ * Evaluate one provider-neutral operations snapshot. The hourly digest supplies
+ * identity-only history when it has three contiguous, persisted observations of
+ * the same failed RPC. Missing or incomplete history never upgrades a warning.
  */
 export function evaluateOperationalAlerts(health, context = {}) {
   const alerts = [];
@@ -124,26 +123,32 @@ export function evaluateOperationalAlerts(health, context = {}) {
           reason: "Hybrid-RPC error rate is missing, non-finite, or outside 0..1.",
         }),
       );
-    } else if (
-      Number.isInteger(context.hybridRpcNonzeroConsecutiveWindows) &&
-      context.hybridRpcNonzeroConsecutiveWindows >= 3 &&
-      hybridRate > 0
-    ) {
-      alerts.push(
-        alert(policies.hybridPage, {
-          observedValue: context.hybridRpcNonzeroConsecutiveWindows,
-          threshold: { operator: ">=", value: 3, unit: "consecutive nonzero hourly windows" },
-          windowMinutes: finiteNumber(slo.windowMinutes) ? slo.windowMinutes : 60,
-        }),
-      );
-    } else if (hybridRate > 0.005) {
-      alerts.push(
-        alert(policies.hybridWarning, {
-          observedValue: hybridRate,
-          threshold: { operator: ">", value: 0.005, unit: "rate" },
-          windowMinutes: finiteNumber(slo.windowMinutes) ? slo.windowMinutes : 60,
-        }),
-      );
+    } else {
+      const repeatedHybridRpcNames = Array.from(
+        new Set(
+          (Array.isArray(context.repeatedHybridRpcNames) ? context.repeatedHybridRpcNames : []).filter(
+            (name) => typeof name === "string" && /^[a-zA-Z][a-zA-Z0-9_]{0,127}$/.test(name),
+          ),
+        ),
+      ).sort();
+      if (hybridRate > 0 && repeatedHybridRpcNames.length > 0) {
+        alerts.push(
+          alert(policies.hybridPage, {
+            observedValue: repeatedHybridRpcNames,
+            threshold: { operator: ">=", value: 3, unit: "contiguous hourly windows for the same RPC" },
+            windowMinutes: finiteNumber(slo.windowMinutes) ? slo.windowMinutes : 60,
+            reason: `Persisted hourly evidence observed ${repeatedHybridRpcNames.join(", ")} in three contiguous windows.`,
+          }),
+        );
+      } else if (hybridRate > 0.005) {
+        alerts.push(
+          alert(policies.hybridWarning, {
+            observedValue: hybridRate,
+            threshold: { operator: ">", value: 0.005, unit: "rate" },
+            windowMinutes: finiteNumber(slo.windowMinutes) ? slo.windowMinutes : 60,
+          }),
+        );
+      }
     }
 
     const degradedRate = validRate(slo.degradedRate) ? slo.degradedRate : null;

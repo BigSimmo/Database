@@ -6,7 +6,7 @@
 
 **Spec:** [`../specs/2026-08-23-clinical-operations-programme-design.md`](../specs/2026-08-23-clinical-operations-programme-design.md)
 
-### Task 1: Favourite data contract
+## Task 1: Favourite data contract
 
 **Files:** migration, `supabase/schema.sql`, `database.types.ts`, favourites API/provider, tests.
 
@@ -16,7 +16,7 @@
 - [ ] Preserve optimistic mutation ordering, rollback, auth expiry, account export, and account deletion.
 - [ ] Do not apply the migration to hosted Supabase.
 
-### Task 2: Complete production favourites controls
+## Task 2: Complete production favourites controls
 
 **Files:** `favourites-command-library-page.tsx`, supporting hooks/components, focused DOM tests.
 
@@ -26,7 +26,7 @@
 - [ ] Do not enable save controls on generated answers, ad-hoc searches, quotes, or patient-bearing content.
 - [ ] Run focused API/provider and DOM tests; use `npm run ensure` only if browser QA is necessary after focused proof.
 
-### Task 3: Fail-closed reconciliation evidence
+## Task 3: Fail-closed reconciliation evidence
 
 **Files:** dated reconciliation report only unless a candidate passes every gate.
 

@@ -8,7 +8,7 @@
 
 **Effort:** plan/review `xhigh`; implementation `high`.
 
-### Task 1: Pure maturity and impact projections
+## Task 1: Pure maturity and impact projections
 
 **Files:** `src/lib/clinical-quality-dashboard.ts`, focused unit tests.
 
@@ -18,7 +18,7 @@
 - [ ] Treat missing aggregates as unknown; expose `asOf` and evidence source for every band.
 - [ ] Never select or return query text, answer text, source excerpts, or patient identifiers.
 
-### Task 2: Administrator API and quality triage state
+## Task 2: Administrator API and quality triage state
 
 **Files:** `src/app/api/clinical-quality/route.ts`, optional migration/schema/types if persistent triage is required, API tests.
 
@@ -28,7 +28,7 @@
 - [ ] Persist only structured workflow metadata for triage: signal type/ID, status, owner role/user ID, resolution code, retest reference, actor, and timestamps. Do not provide a free-text note field.
 - [ ] Add service-role-only grants and fail-closed RLS if a table is introduced; update schema/types/static schema tests but do not apply hosted migration.
 
-### Task 3: One authorised cockpit
+## Task 3: One authorised cockpit
 
 **Files:** developer-area hub panel, gated clinical-quality page/components, DOM and reachability tests, generated docs.
 
@@ -39,7 +39,7 @@
 - [ ] Keep human review actions explicit and audit-safe; no automatic content status change.
 - [ ] Update route documentation and run focused route/DOM/reachability checks.
 
-### Task 4: Product direction record
+## Task 4: Product direction record
 
 **Files:** `docs/product/clinical-trust-direction.md` and relevant links.
 

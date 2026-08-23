@@ -42,7 +42,7 @@ export const qualitySignalTypeSchema = z.enum([
 export const evidenceBandSchema = z
   .object({
     state: evidenceStateSchema,
-    asOf: z.string().datetime().nullable(),
+    asOf: z.iso.datetime({ offset: true }).nullable(),
     source: z.string().trim().min(1).max(160),
     note: z.string().trim().min(1).max(240).optional(),
   })
@@ -62,7 +62,7 @@ export const contentMaturityInputSchema = z
     sourceCurrent: nullableCountSchema,
     sourceReviewDue: nullableCountSchema,
     sourceOverdue: nullableCountSchema,
-    asOf: z.string().datetime().nullable(),
+    asOf: z.iso.datetime({ offset: true }).nullable(),
     evidenceSource: z.string().trim().min(1).max(160),
   })
   .strict();
@@ -104,7 +104,7 @@ export const ragAnswerFeedbackRowSchema = z
     feedback_category: z.enum(answerFeedbackTypes),
     source_ids: z.array(z.string().trim().min(1).max(160)).max(80),
     cited_source_ids: z.array(z.string().trim().min(1).max(160)).max(80),
-    created_at: z.string().datetime(),
+    created_at: z.iso.datetime({ offset: true }),
   })
   .strict();
 
@@ -118,9 +118,9 @@ export const clinicalQualityTriageRowSchema = z
     resolution_code: triageResolutionCodeSchema.nullable(),
     retest_reference: z.string().max(120),
     updated_by: z.string().uuid(),
-    created_at: z.string().datetime(),
-    updated_at: z.string().datetime(),
-    resolved_at: z.string().datetime().nullable(),
+    created_at: z.iso.datetime({ offset: true }),
+    updated_at: z.iso.datetime({ offset: true }),
+    resolved_at: z.iso.datetime({ offset: true }).nullable(),
   })
   .strict();
 
@@ -133,7 +133,7 @@ export const sourceReviewEventRowSchema = z
     new_validation_status: z.string().trim().min(1).max(80),
     replacement_document_id: z.string().uuid().nullable(),
     review_date: z.string().date().nullable(),
-    created_at: z.string().datetime(),
+    created_at: z.iso.datetime({ offset: true }),
   })
   .strict();
 
@@ -152,7 +152,7 @@ export const clinicalRegistryRecordAreaRowSchema = z
 export const retrievalReachRowSchema = z
   .object({
     id: z.string().uuid(),
-    created_at: z.string().datetime(),
+    created_at: z.iso.datetime({ offset: true }),
     selected_document_ids: z.array(z.string().uuid()).max(80),
     is_miss: z.boolean(),
     miss_reason: z.string().trim().max(120).nullable(),
@@ -167,7 +167,7 @@ export const visualEvalFailureRowSchema = z
     passed: z.boolean(),
     top_hit: z.boolean(),
     matched_count: z.number().int().nonnegative(),
-    created_at: z.string().datetime(),
+    created_at: z.iso.datetime({ offset: true }),
   })
   .strict();
 
@@ -187,7 +187,7 @@ export const qualityQueueItemSchema = z
     interactionId: z.string().uuid().nullable(),
     answerHash: z.string().nullable(),
     documentIds: z.array(z.string().uuid()),
-    createdAt: z.string().datetime(),
+    createdAt: z.iso.datetime({ offset: true }),
     priority: z.enum(["high", "medium", "routine"]),
     triage: z
       .object({
@@ -197,7 +197,7 @@ export const qualityQueueItemSchema = z
         resolutionCode: triageResolutionCodeSchema.nullable(),
         retestReference: z.string().max(120),
         updatedBy: z.string().uuid().nullable(),
-        updatedAt: z.string().datetime().nullable(),
+        updatedAt: z.iso.datetime({ offset: true }).nullable(),
       })
       .strict(),
   })
@@ -222,7 +222,7 @@ export const sourceImpactItemSchema = z
 export const clinicalQualitySnapshotSchema = z
   .object({
     version: z.literal(clinicalQualitySnapshotVersion),
-    generatedAt: z.string().datetime(),
+    generatedAt: z.iso.datetime({ offset: true }),
     state: evidenceStateSchema,
     qualityQueue: z.object({ evidence: evidenceBandSchema, items: z.array(qualityQueueItemSchema) }).strict(),
     sourceImpact: z.object({ evidence: evidenceBandSchema, items: z.array(sourceImpactItemSchema) }).strict(),
@@ -512,7 +512,9 @@ export function projectSourceImpact(args: {
   const latestByDocument = new Map<string, z.infer<typeof sourceReviewEventRowSchema>>();
   for (const review of reviews) {
     const current = latestByDocument.get(review.document_id);
-    if (!current || review.created_at > current.created_at) latestByDocument.set(review.document_id, review);
+    if (!current || Date.parse(review.created_at) > Date.parse(current.created_at)) {
+      latestByDocument.set(review.document_id, review);
+    }
   }
   return [...latestByDocument.values()]
     .map((review) => {

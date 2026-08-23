@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { getDifferentialRecord } from "@/lib/differentials";
 import {
+  accountFavouriteSchema,
   accountFavouriteSetSchema,
   favouriteMembershipResponseSchema,
   favouriteContentKeySchema,
@@ -13,13 +13,13 @@ import {
   favouriteUpdateResponseSchema,
   favouritesClearResponseSchema,
   favouritesContractVersion,
+  maxFavouritesPerAccount,
   favouritesSnapshotSchema,
 } from "@/lib/favourites-contract";
 import { PublicApiError, jsonError } from "@/lib/http";
-import { defaultRegistryRecords } from "@/lib/registry-seed";
+import { requireCanonicalFavouriteReference } from "@/lib/favourites-reference";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
-import { therapyRecordExists } from "@/lib/therapies";
 import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
@@ -111,30 +111,13 @@ async function requireOwnedSet(supabase: AdminClient, userId: string, setId: str
   if (!data) throw new PublicApiError("Favourite set was not found.", 404, { code: "favourite_set_not_found" });
 }
 
-export async function requireCanonicalFavouriteReference(
-  supabase: AdminClient,
-  userId: string,
-  contentType: z.infer<typeof contentTypeSchema>,
-  contentKey: string,
-) {
-  if (contentType === "therapy") {
-    if (therapyRecordExists(contentKey)) return;
-  } else if (contentType === "differential") {
-    if (getDifferentialRecord(contentKey)) return;
-  } else {
-    const sharedExists = defaultRegistryRecords(contentType).some((record) => record.slug === contentKey);
-    if (sharedExists) return;
-    const { data, error } = await supabase
-      .from("clinical_registry_records")
-      .select("id")
-      .eq("owner_id", userId)
-      .eq("kind", contentType)
-      .eq("slug", contentKey)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (data) return;
+function throwFavouriteSetWriteError(error: { code?: string; message: string }) {
+  if (error.code === "23505") {
+    throw new PublicApiError("A favourite set with that name already exists.", 409, {
+      code: "favourite_set_name_conflict",
+    });
   }
-  throw new PublicApiError("Favourite content was not found.", 422, { code: "favourite_content_not_found" });
+  throw new Error(error.message);
 }
 
 function handleRouteError(error: unknown) {
@@ -154,38 +137,43 @@ export async function GET(request: Request) {
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true })
         .order("content_type", { ascending: true })
-        .order("content_key", { ascending: true }),
+        .order("content_key", { ascending: true })
+        .limit(maxFavouritesPerAccount),
       supabase
         .from("user_favourite_sets")
         .select("id,name,sort_order,created_at,updated_at")
         .eq("user_id", user.id)
         .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true }),
+        .order("created_at", { ascending: true })
+        .limit(50),
     ]);
     if (favouritesResult.error) throw new Error(favouritesResult.error.message);
     if (setsResult.error) throw new Error(setsResult.error.message);
 
-    return Response.json(
-      snapshotSchema.parse({
-        version: contractVersion,
-        favourites: (favouritesResult.data ?? []).map((row) => ({
-          contentType: row.content_type,
-          contentKey: row.content_key,
-          createdAt: row.created_at,
-          setId: row.set_id,
-          sortOrder: row.sort_order,
-          pinnedAt: row.pinned_at,
-          lastOpenedAt: row.last_opened_at,
-        })),
-        sets: (setsResult.data ?? []).map((row) => ({
-          id: row.id,
-          name: row.name,
-          sortOrder: row.sort_order,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        })),
-      }),
-    );
+    const favourites = (favouritesResult.data ?? []).flatMap((row) => {
+      const parsed = accountFavouriteSchema.safeParse({
+        contentType: row.content_type,
+        contentKey: row.content_key,
+        createdAt: row.created_at,
+        setId: row.set_id,
+        sortOrder: row.sort_order,
+        pinnedAt: row.pinned_at,
+        lastOpenedAt: row.last_opened_at,
+      });
+      return parsed.success ? [parsed.data] : [];
+    });
+    const sets = (setsResult.data ?? []).flatMap((row) => {
+      const parsed = favouriteSetSchema.safeParse({
+        id: row.id,
+        name: row.name,
+        sortOrder: row.sort_order,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      });
+      return parsed.success ? [parsed.data] : [];
+    });
+
+    return Response.json(snapshotSchema.parse({ version: contractVersion, favourites, sets }));
   } catch (error) {
     return handleRouteError(error);
   }
@@ -198,6 +186,24 @@ export async function PUT(request: Request) {
     const input = await parseJsonBody(request, membershipSchema, "Saved-item request is invalid.");
     if (input.saved) {
       await requireCanonicalFavouriteReference(supabase, user.id, input.contentType, input.contentKey);
+      const { data: existingFavourite, error: existingError } = await supabase
+        .from("user_favourites")
+        .select("content_key")
+        .eq("user_id", user.id)
+        .eq("content_type", input.contentType)
+        .eq("content_key", input.contentKey)
+        .maybeSingle();
+      if (existingError) throw new Error(existingError.message);
+      if (!existingFavourite) {
+        const { count, error: countError } = await supabase
+          .from("user_favourites")
+          .select("content_key", { count: "exact", head: true })
+          .eq("user_id", user.id);
+        if (countError) throw new Error(countError.message);
+        if ((count ?? 0) >= maxFavouritesPerAccount) {
+          throw new PublicApiError("Favourite capacity was reached.", 409, { code: "favourite_capacity" });
+        }
+      }
       const { data: lastFavourite, error: orderError } = await supabase
         .from("user_favourites")
         .select("sort_order")
@@ -260,7 +266,7 @@ export async function POST(request: Request) {
         .insert({ user_id: user.id, name: input.name, sort_order: sortOrder })
         .select("id,name,sort_order,created_at,updated_at")
         .single();
-      if (error) throw new Error(error.message);
+      if (error) throwFavouriteSetWriteError(error);
       return Response.json(
         favouriteSetResponseSchema.parse({
           version: contractVersion,
@@ -282,7 +288,7 @@ export async function POST(request: Request) {
       .eq("id", input.setId)
       .select("id,name,sort_order,created_at,updated_at")
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throwFavouriteSetWriteError(error);
     if (!data) throw new PublicApiError("Favourite set was not found.", 404, { code: "favourite_set_not_found" });
     return Response.json(
       favouriteSetResponseSchema.parse({

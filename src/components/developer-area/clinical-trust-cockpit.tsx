@@ -15,7 +15,7 @@ type LoadState =
   | { kind: "loading" }
   | { kind: "permission"; message: string }
   | { kind: "error"; message: string }
-  | { kind: "ready"; snapshot: ClinicalQualitySnapshot };
+  | { kind: "ready"; snapshot: ClinicalQualitySnapshot; acceptedAt: number };
 
 const sectionClass = "grid gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4";
 const cardClass = "grid gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3";
@@ -40,7 +40,6 @@ export function ClinicalTrustCockpit() {
   const [saveMessage, setSaveMessage] = useState("");
 
   const load = useCallback(async () => {
-    setState({ kind: "loading" });
     try {
       const response = await fetch("/api/clinical-quality", { cache: "no-store" });
       if (response.status === 401 || response.status === 403) {
@@ -65,7 +64,7 @@ export function ClinicalTrustCockpit() {
         setState({ kind: "error", message: "Clinical trust evidence returned an invalid shape and was rejected." });
         return;
       }
-      setState({ kind: "ready", snapshot: parsed.data });
+      setState({ kind: "ready", snapshot: parsed.data, acceptedAt: Date.now() });
     } catch {
       setState({ kind: "error", message: "Clinical trust evidence could not be loaded." });
     }
@@ -141,7 +140,7 @@ export function ClinicalTrustCockpit() {
 
   const { snapshot } = state;
   const maturityAsOf = snapshot.contentMaturity.evidence.asOf;
-  const maturityStale = !maturityAsOf || Date.now() - Date.parse(maturityAsOf) > 30 * 24 * 60 * 60 * 1000;
+  const maturityStale = !maturityAsOf || state.acceptedAt - Date.parse(maturityAsOf) > 30 * 24 * 60 * 60 * 1000;
   return (
     <div className="grid gap-6" data-testid="clinical-trust-cockpit">
       <p role="status" className={cardClass}>

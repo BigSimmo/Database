@@ -9157,7 +9157,7 @@ create table if not exists public.user_favourites (
     check (content_key = btrim(content_key) and char_length(content_key) between 1 and 180),
   constraint user_favourites_sort_order_check check (sort_order between 0 and 1000000),
   constraint user_favourites_owner_set_fkey
-    foreign key (user_id, set_id) references public.user_favourite_sets (user_id, id) on delete restrict
+    foreign key (user_id, set_id) references public.user_favourite_sets (user_id, id) on delete no action
 );
 
 do $guard$

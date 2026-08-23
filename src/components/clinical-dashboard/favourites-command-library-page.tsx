@@ -527,10 +527,15 @@ export function RowActionsMenu({
                   disabled={actionPending}
                   onChange={async (event) => {
                     setActionPending(true);
-                    const moved = await onMove(item, event.target.value || null);
-                    setActionStatus(moved ? `${item.title} moved` : `Could not move ${item.title}`);
-                    setActionPending(false);
-                    if (moved) setOpen(false);
+                    try {
+                      const moved = await onMove(item, event.target.value || null);
+                      setActionStatus(moved ? `${item.title} moved` : `Could not move ${item.title}`);
+                      if (moved) setOpen(false);
+                    } catch {
+                      setActionStatus(`Could not move ${item.title}`);
+                    } finally {
+                      setActionPending(false);
+                    }
                   }}
                   className="min-h-9 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm text-[color:var(--text)]"
                 >
@@ -551,10 +556,15 @@ export function RowActionsMenu({
                 )}
                 onClick={async () => {
                   setActionPending(true);
-                  const removed = await onRemove(item);
-                  setActionStatus(removed ? `${item.title} removed` : `Could not remove ${item.title}`);
-                  setActionPending(false);
-                  if (removed) setOpen(false);
+                  try {
+                    const removed = await onRemove(item);
+                    setActionStatus(removed ? `${item.title} removed` : `Could not remove ${item.title}`);
+                    if (removed) setOpen(false);
+                  } catch {
+                    setActionStatus(`Could not remove ${item.title}`);
+                  } finally {
+                    setActionPending(false);
+                  }
                 }}
               >
                 <Trash2 className="h-4 w-4" aria-hidden />
@@ -1199,9 +1209,14 @@ function ItemWorkspace({
                     disabled={mutationPending}
                     onChange={async (event) => {
                       setMutationPending(true);
-                      const moved = await onMove(item, event.target.value || null);
-                      setMutationStatus(moved ? "Favourite moved." : "Favourite could not be moved.");
-                      setMutationPending(false);
+                      try {
+                        const moved = await onMove(item, event.target.value || null);
+                        setMutationStatus(moved ? "Favourite moved." : "Favourite could not be moved.");
+                      } catch {
+                        setMutationStatus("Favourite could not be moved.");
+                      } finally {
+                        setMutationPending(false);
+                      }
                     }}
                     className="min-h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)]"
                   >
@@ -1223,11 +1238,16 @@ function ItemWorkspace({
                         disabled={mutationPending}
                         onClick={async () => {
                           setMutationPending(true);
-                          const reordered = await onReorder(item, direction);
-                          setMutationStatus(
-                            reordered ? "Favourite order updated." : "Favourite order could not be updated.",
-                          );
-                          setMutationPending(false);
+                          try {
+                            const reordered = await onReorder(item, direction);
+                            setMutationStatus(
+                              reordered ? "Favourite order updated." : "Favourite order could not be updated.",
+                            );
+                          } catch {
+                            setMutationStatus("Favourite order could not be updated.");
+                          } finally {
+                            setMutationPending(false);
+                          }
                         }}
                         className={cn(
                           "inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] disabled:opacity-60",
@@ -1245,10 +1265,15 @@ function ItemWorkspace({
                   disabled={mutationPending}
                   onClick={async () => {
                     setMutationPending(true);
-                    const removed = await onRemove(item);
-                    setMutationStatus(removed ? "Favourite removed." : "Favourite could not be removed.");
-                    setMutationPending(false);
-                    if (removed) onClose();
+                    try {
+                      const removed = await onRemove(item);
+                      setMutationStatus(removed ? "Favourite removed." : "Favourite could not be removed.");
+                      if (removed) onClose();
+                    } catch {
+                      setMutationStatus("Favourite could not be removed.");
+                    } finally {
+                      setMutationPending(false);
+                    }
                   }}
                   className={cn(
                     "inline-flex min-h-9 items-center justify-start gap-2 rounded-lg border border-[color:var(--danger-border)] bg-transparent px-3 text-sm font-bold text-[color:var(--danger)] disabled:opacity-60",
@@ -1394,6 +1419,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const availableSetNames = favouriteSetNames.filter(
     (name) => !(accountData?.favouriteSets ?? []).some((set) => set.name === name),
   );
+  const effectiveNewSetName = availableSetNames.includes(newSetName) ? newSetName : availableSetNames[0];
 
   function clearSearch() {
     router.push("/favourites");
@@ -1646,7 +1672,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 <label className="grid min-w-[12rem] flex-1 gap-1 text-2xs font-semibold text-[color:var(--text-muted)]">
                   New controlled set
                   <select
-                    value={newSetName}
+                    value={effectiveNewSetName ?? ""}
                     disabled={setMutationPending || availableSetNames.length === 0}
                     onChange={(event) => setNewSetName(event.target.value as FavouriteSetName)}
                     className="min-h-10 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)]"
@@ -1661,16 +1687,25 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 <button
                   type="button"
                   disabled={setMutationPending || availableSetNames.length === 0}
-                  onClick={async () => {
-                    setSetMutationPending(true);
-                    const created = await accountData?.createFavouriteSet(newSetName);
-                    setSetMutationStatus(
-                      created ? `${created.name} set created.` : "Favourite set could not be created.",
-                    );
-                    setSetMutationPending(false);
-                    const remaining = availableSetNames.filter((name) => name !== newSetName);
-                    if (remaining[0]) setNewSetName(remaining[0]);
-                  }}
+                   onClick={async () => {
+                     const name = effectiveNewSetName;
+                     if (!name) return;
+                     setSetMutationPending(true);
+                     try {
+                       const created = await accountData?.createFavouriteSet(name);
+                       setSetMutationStatus(
+                         created ? `${created.name} set created.` : "Favourite set could not be created.",
+                       );
+                       if (created) {
+                         const remaining = availableSetNames.filter((candidate) => candidate !== name);
+                         if (remaining[0]) setNewSetName(remaining[0]);
+                       }
+                     } catch {
+                       setSetMutationStatus("Favourite set could not be created.");
+                     } finally {
+                       setSetMutationPending(false);
+                     }
+                   }}
                   className={cn(
                     "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] disabled:opacity-60",
                     focusRing,

@@ -22,13 +22,19 @@ describe("evaluateOperationalAlerts", () => {
     ]);
   });
 
-  it("pages hybrid-RPC errors only with independently supplied consecutive-window evidence", () => {
+  it("pages only when persisted evidence names the same failing RPC across three contiguous hours", () => {
     expect(evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.01 }))[0]?.severity).toBe("warning");
     expect(
       evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.001 }), {
-        hybridRpcNonzeroConsecutiveWindows: 3,
+        repeatedHybridRpcNames: ["hybrid_search"],
       })[0],
-    ).toMatchObject({ code: "OPS_HYBRID_RPC_ERROR_RATE_PAGE", severity: "page", observedValue: 3 });
+    ).toMatchObject({
+      code: "OPS_HYBRID_RPC_ERROR_RATE_PAGE",
+      severity: "page",
+      observedValue: ["hybrid_search"],
+    });
+    expect(evaluateOperationalAlerts(snapshot({ hybridRpcErrorRate: 0.001 }), { repeatedHybridRpcNames: ["bad name"] }))
+      .toEqual([]);
   });
 
   it("warns above 20% and pages above 50% degraded answers", () => {

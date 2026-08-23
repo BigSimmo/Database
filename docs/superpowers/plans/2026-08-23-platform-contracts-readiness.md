@@ -8,7 +8,7 @@
 
 **Effort:** plan/review `xhigh`; implementation `high`.
 
-### Task 1: Canonical API payload validation
+## Task 1: Canonical API payload validation
 
 **Files:** `src/lib/http.ts`, `src/lib/api-client-error.ts`, selected model consumers, API contract tests.
 
@@ -19,7 +19,7 @@
 - [ ] Extend the static API contract so new ad-hoc public error objects or unsafe external-response casts fail focused tests.
 - [ ] Run `node scripts/run-vitest.mjs run tests/http-error-response.test.ts tests/api-client-error.test.ts tests/api-validation-contract.test.ts tests/api-route-coverage.test.ts` and focused model-parser tests.
 
-### Task 2: Privacy readiness register
+## Task 2: Privacy readiness register
 
 **Files:** `docs/governance/privacy-readiness.v1.json`, `scripts/check-privacy-readiness.mjs`, privacy docs, production-readiness wiring, tests.
 
@@ -30,7 +30,7 @@
 - [ ] Wire structural validation into governance checks; do not place agreements or secrets in the repository.
 - [ ] Run the checker plus privacy/readiness focused tests.
 
-### Task 3: Operational alert evaluator
+## Task 3: Operational alert evaluator
 
 **Files:** `scripts/lib/operational-alerts.mjs`, `scripts/ops-digest.mjs`, workflow contract, observability docs/runbooks, tests.
 
@@ -41,7 +41,7 @@
 - [ ] Document provider-neutral delivery configuration and an acknowledgement/recovery drill.
 - [ ] Run ops-digest, answer-SLO, and workflow-contract tests.
 
-### Task 4: Clinical hazard evidence refresh
+## Task 4: Clinical hazard evidence refresh
 
 **Files:** `docs/clinical-hazard-analysis.md`, `docs/clinical-hazard-controls.json`, checker/test.
 

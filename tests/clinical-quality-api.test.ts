@@ -97,8 +97,8 @@ vi.mock("@/lib/supabase/admin", () => ({
             resolution_code: null,
             retest_reference: "",
             updated_by: "00000000-0000-4000-8000-000000000099",
-            created_at: "2026-08-23T00:00:00.000Z",
-            updated_at: "2026-08-23T00:00:00.000Z",
+            created_at: "2026-08-23T00:00:00+00:00",
+            updated_at: "2026-08-23T00:00:00+00:00",
             resolved_at: null,
           },
           error: null,
@@ -111,7 +111,7 @@ vi.mock("@/lib/supabase/admin", () => ({
             limit_value: 60,
             remaining: 59,
             retry_after_seconds: 60,
-            reset_at: "2026-08-23T01:00:00.000Z",
+            reset_at: "2026-08-23T01:00:00+00:00",
           },
         ],
         error: null,
@@ -169,7 +169,7 @@ describe("clinical quality API", () => {
         feedback_category: "unsupported_answer",
         source_ids: [],
         cited_source_ids: [],
-        created_at: "2026-08-23T00:00:00.000Z",
+        created_at: "2026-08-23T00:00:00+00:00",
       },
     ];
     state.triageUnavailable = true;

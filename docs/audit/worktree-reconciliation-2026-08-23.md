@@ -14,19 +14,19 @@ No worktree passed all required ownership, process, open-PR, Git-operation, ledg
 
 | Registered worktree                                                       | Branch                                       | Observed HEAD                              | Evidence obtained                                       | Missing gates                                                                                                     |
 | ------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------ | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `D:\Repos\Database\.claude\worktrees\agent-ac295f35b1b90b024`             | `claude/dictionary-merge-search-browse`      | `3c94d555357d790730dc7b5c685a05b8f1ef335d` | clean; no Git-operation marker; ancestor of cached base | frozen fetched base, session/process ownership, open PR/review, ledger lookup, patch-unique proof, archive bundle |
-| `D:\Repos\Database\.claude\worktrees\caring-contacts-phase-2a-11b-a37803` | `claude/caring-contacts-phase-2a-11b-a37803` | `d7025947e2f98c8135ca1dfd984ef734edf84ed7` | clean; no Git-operation marker; ancestor of cached base | frozen fetched base, session/process ownership, open PR/review, ledger lookup, patch-unique proof, archive bundle |
+| `<local-worktree-root>\.claude\worktrees\agent-ac295f35b1b90b024`             | `claude/dictionary-merge-search-browse`      | `3c94d555357d790730dc7b5c685a05b8f1ef335d` | clean; no Git-operation marker; ancestor of cached base | frozen fetched base, session/process ownership, open PR/review, ledger lookup, patch-unique proof, archive bundle |
+| `<local-worktree-root>\.claude\worktrees\caring-contacts-phase-2a-11b-a37803` | `claude/caring-contacts-phase-2a-11b-a37803` | `d7025947e2f98c8135ca1dfd984ef734edf84ed7` | clean; no Git-operation marker; ancestor of cached base | frozen fetched base, session/process ownership, open PR/review, ledger lookup, patch-unique proof, archive bundle |
 
 These are candidates for evidence collection, not approved deletion targets.
 
 ## Explicitly retained
 
-- All `C:\Users\joshs\.codex\worktrees\<task>\Database` checkouts because they represent Codex task ownership.
+- All `<codex-worktree-root>\<task>\Database` checkouts because they represent Codex task ownership.
 - All detached worktrees and all worktrees not individually inspected.
-- `D:\Repos\Database\.claude\worktrees\agent-abcc3122b5a4407a7`, which was dirty despite its commit being an ancestor of the cached base.
-- `C:\Users\joshs\AppData\Local\Temp\guard-push-format-sXM4Ak`, observed in an `initializing` lock state.
-- `D:\Worktrees\Database\care-plan-impl`, whose branch history explicitly describes interrupted work in progress.
-- `D:\Worktrees\Database\ledger-reconcile-0823`, observed ahead four and behind two.
+- `<local-worktree-root>\.claude\worktrees\agent-abcc3122b5a4407a7`, which was dirty despite its commit being an ancestor of the cached base.
+- `<local-temp-root>\guard-push-format-sXM4Ak`, observed in an `initializing` lock state.
+- `<local-worktree-root>\care-plan-impl`, whose branch history explicitly describes interrupted work in progress.
+- `<local-worktree-root>\ledger-reconcile-0823`, observed ahead four and behind two.
 - Every missing-upstream branch without independent content-equivalence evidence.
 
 ## Required quiescent execution sequence

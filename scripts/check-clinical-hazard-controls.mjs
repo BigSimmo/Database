@@ -169,8 +169,9 @@ export function validateClinicalHazardControls(
         if (!/^tests\/.+\.test\.(?:ts|tsx)$/.test(testPath)) errors.push(`${label}: invalid test path ${testPath}`);
       }
       const controlSource = (hazard.controlPaths ?? [])
-        .filter((path) => existsSync(resolve(root, path)))
-        .map((path) => readFileSync(resolve(root, path), "utf8"))
+        .map(repositoryPath)
+        .filter((path) => path && existsSync(path.absolute))
+        .map((path) => readFileSync(path.absolute, "utf8"))
         .join("\n");
       for (const symbol of hazard.controlSymbols ?? []) {
         if (!new RegExp(`\\b${String(symbol).replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`).test(controlSource)) {
@@ -181,8 +182,10 @@ export function validateClinicalHazardControls(
   }
   for (const id of requiredHazards) if (!ids.has(id)) errors.push(`missing required hazard ${id}`);
   const decisions = Array.isArray(manifest?.assuranceDecisions) ? manifest.assuranceDecisions : [];
-  const decisionIds = new Set(decisions.map((item) => item.id));
+  const decisionIds = new Set();
   for (const decision of decisions) {
+    if (decisionIds.has(decision.id)) errors.push(`${decision.id}: duplicate assurance decision id`);
+    decisionIds.add(decision.id);
     if (!states.has(decision.state) || !decision.owner || !decision.residualRisk)
       errors.push(`${decision.id}: invalid assurance decision`);
     validateCommit(errors, decision.reviewedCommit, decision.id, checkGit);

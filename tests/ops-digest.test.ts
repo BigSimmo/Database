@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { normalizeOpsStatus, renderDigest, resolveHealthUrl, serializeGitHubOutputs } from "../scripts/ops-digest.mjs";
+import {
+  normalizeOpsStatus,
+  renderDigest,
+  resolveHealthUrl,
+  serializeGitHubOutputs,
+  updateHybridRpcHourlyEvidence,
+} from "../scripts/ops-digest.mjs";
 
 describe("resolveHealthUrl", () => {
   it("appends the deep health path to a bare base URL", () => {
@@ -29,6 +35,9 @@ describe("ops digest workflow contract", () => {
     expect(workflow).toContain("steps.digest.outputs.alert_summary");
     expect(workflow).toContain("OPS_DIGEST_STATUS: ${{ steps.digest.outputs.status }}");
     expect(workflow).toContain("JSON.parse(process.env.OPS_DIGEST_ALERT_SUMMARY");
+    expect(workflow).toContain("publish_alert_comment");
+    expect(workflow).toContain("publishAttentionComment");
+    expect(workflow).toContain("ops-digest-rpc-history");
     expect(workflow).not.toContain('const status = "${{ steps.digest.outputs.status }}"');
     expect(workflow).not.toContain("const alertSummary = '${{ steps.digest.outputs.alert_summary }}'");
   });
@@ -45,6 +54,41 @@ describe("ops digest workflow contract", () => {
       'status=unknown\nalerting=true\nseverity=unknown\nalert_summary={"alerting":true,"severity":"unknown","count":1,"codes":["OPS_SAFE"]}\n',
     );
     expect(output).not.toContain("\nowned=true");
+  });
+});
+
+describe("hybrid RPC hourly evidence", () => {
+  it("requires three contiguous identity-complete hourly windows for the same RPC", () => {
+    let history: unknown;
+    for (const observedAt of ["2026-08-23T01:20:00Z", "2026-08-23T02:20:00Z", "2026-08-23T03:20:00Z"]) {
+      const result = updateHybridRpcHourlyEvidence(
+        history,
+        {
+          slo: {
+            hybridRpcIdentityEvidenceComplete: true,
+            hybridRpcErrorCounts: { hybrid_search: 1, keyword_search: observedAt.endsWith("02:20:00Z") ? 1 : 0 },
+          },
+        },
+        new Date(observedAt),
+      );
+      history = result.history;
+      if (observedAt.endsWith("03:20:00Z")) expect(result.repeatedRpcNames).toEqual(["hybrid_search"]);
+    }
+  });
+
+  it("breaks the paging sequence when an hourly identity snapshot is incomplete", () => {
+    const result = updateHybridRpcHourlyEvidence(
+      {
+        version: 1,
+        windows: [
+          { hour: "2026-08-23T01:00:00.000Z", rpcNames: ["hybrid_search"] },
+          { hour: "2026-08-23T02:00:00.000Z", rpcNames: ["hybrid_search"] },
+        ],
+      },
+      { slo: { hybridRpcIdentityEvidenceComplete: false, hybridRpcErrorCounts: { hybrid_search: 1 } } },
+      new Date("2026-08-23T03:20:00Z"),
+    );
+    expect(result.repeatedRpcNames).toEqual([]);
   });
 });
 

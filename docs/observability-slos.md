@@ -349,9 +349,9 @@ thresholds map directly onto these fields.
 
 ## 5. Operational alert delivery and drill
 
-`scripts/lib/operational-alerts.mjs` is the provider-neutral policy owner for the §2 answer SLOs. The daily digest evaluates one snapshot, emits stable alert codes with owner, escalation owner and this runbook, and publishes `alerting`, highest `severity`, and a compact JSON summary to the workflow. Missing SLO telemetry and a zero-query denominator are `unknown`, never healthy. A single snapshot may warn on hybrid-RPC error rate but cannot claim the documented page condition; `OPS_HYBRID_RPC_ERROR_RATE_PAGE` requires independently tracked evidence of three consecutive nonzero hourly windows. Degraded answers page immediately only above the documented 50% hourly threshold.
+`scripts/lib/operational-alerts.mjs` is the provider-neutral policy owner for the §2 answer SLOs. The hourly digest emits stable alert codes with owner, escalation owner and this runbook, and publishes `alerting`, highest `severity`, and a compact JSON summary to the workflow. Missing SLO telemetry and a zero-query denominator are `unknown`, never healthy. Each authorised deep probe returns only safe internal hybrid-RPC identifiers and counts. The workflow stores the last three identity-only hourly observations in the GitHub Actions cache, then pages `OPS_HYBRID_RPC_ERROR_RATE_PAGE` only when the same RPC has a nonzero count in all three contiguous UTC-hour buckets. A missing, evicted, malformed, incomplete, or non-contiguous history is never promoted to a page. Degraded answers page independently and immediately only above the documented 50% hourly threshold.
 
-Delivery remains configurable without changing policy: the checked-in workflow writes the rolling GitHub issue and comments on warning/page states; an operator may route the same summary to a host-native or incident channel. Repository wiring is not proof that provider delivery works.
+Delivery remains configurable without changing policy: the checked-in workflow updates the rolling GitHub issue each hour, but an attention comment requires the `publish_alert_comment` boolean on a manual operator-confirmed dispatch. An operator may route the same summary to a host-native or incident channel. Repository wiring is not proof that provider delivery works.
 
 The rolling issue is the provider-neutral queue. For every alert, the on-duty operator comments `ACK <alert-code> owner=<role> at=<ISO-8601>` before diagnosis and `RECOVERED <alert-code> at=<ISO-8601> evidence=<run-or-dashboard-reference>` only after the recovery condition below is observed. If the owner cannot acknowledge inside 30 minutes, route to the named escalation role using the organisation's configured incident channel; repository roles are routing identities, not GitHub usernames, so automatic issue assignment remains provider-gated.
 
@@ -385,7 +385,7 @@ The rolling issue is the provider-neutral queue. For every alert, the on-duty op
 
 ### `OPS_HYBRID_RPC_ERROR_RATE_PAGE`
 
-- **Diagnose:** verify the supplied history contains at least three consecutive, independently stored, nonzero hourly windows; inspect database/RPC availability and recent changes.
+- **Diagnose:** verify the cached identity-only history contains the same safe RPC identifier in three contiguous UTC-hour buckets with a nonzero count in each. Treat missing, incomplete, malformed, evicted, or non-contiguous history as insufficient for paging; inspect database/RPC availability and recent changes.
 - **Acknowledge:** Platform operations opens the configured incident route and records all three window references.
 - **Recover:** require a valid hourly snapshot with zero hybrid-RPC errors, followed by owner confirmation that the failing RPC path is restored.
 - **Escalate:** Clinical safety owner immediately; keep the incident open until recovery evidence is attached.
@@ -423,6 +423,6 @@ The rolling issue is the provider-neutral queue. For every alert, the on-duty op
 ## 6. Remaining gaps
 
 - Exercise and record the acknowledgement/recovery drill through the configured provider channel.
-- Add historical storage for the three-consecutive-hour hybrid escalation; the evaluator supports the evidence input but the current digest has only one snapshot.
+- Retain and periodically exercise the GitHub Actions cache path for the three-consecutive-hour hybrid escalation. Cache loss intentionally downgrades the condition to warning or unknown rather than inferring history.
 - **Host-level metrics** (CPU, memory, restart count) and log drains once the
   container host exists (`docs/deployment-architecture.md` §2).

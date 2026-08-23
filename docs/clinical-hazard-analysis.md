@@ -5,7 +5,7 @@
 **Status:** Historical analysis plus evidence refresh. [`docs/clinical-hazard-controls.json`](clinical-hazard-controls.json) is the current machine-checked status authority. Static proof does not establish clinical adequacy, source truth/authority, regulatory classification, or authorised risk acceptance.
 **Companion:** [`docs/rag-injection-threat-model.md`](rag-injection-threat-model.md) covers the adversarial (ingestion→context→answer) chain in depth; hazard **H6** here cross-references it.
 
-### Evidence refresh — 2026-08-23
+## Evidence refresh — 2026-08-23
 
 The detailed findings below remain useful historical failure descriptions, but some “none” and “not implemented” statements are obsolete. Only the following state changes are supported by exact repository controls and focused tests; the structured register keeps every top-level hazard `partial` while residual clinical or cross-path risk remains.
 

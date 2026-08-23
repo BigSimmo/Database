@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const favouritesContractVersion = 1 as const;
+export const maxFavouritesPerAccount = 2000 as const;
 export const favouriteContentTypeSchema = z.enum(["service", "form", "differential", "therapy"]);
 export const favouriteContentKeySchema = z
   .string()
@@ -17,7 +18,7 @@ export const favouriteSetNames = [
   "Reference",
 ] as const;
 export const favouriteSetNameSchema = z.enum(favouriteSetNames);
-export const favouriteSetIdSchema = z.string().uuid();
+export const favouriteSetIdSchema = z.uuid();
 export const favouriteSortOrderSchema = z.number().int().min(0).max(1_000_000);
 export const favouriteSetSortOrderSchema = z.number().int().min(0).max(10_000);
 export const favouriteItemReferenceShape = {
@@ -25,7 +26,7 @@ export const favouriteItemReferenceShape = {
   contentKey: favouriteContentKeySchema,
 };
 
-const timestampSchema = z.string().datetime({ offset: true });
+const timestampSchema = z.iso.datetime({ offset: true });
 export const accountFavouriteSchema = z
   .object({
     ...favouriteItemReferenceShape,
@@ -48,7 +49,7 @@ export const accountFavouriteSetSchema = z
 export const favouritesSnapshotSchema = z
   .object({
     version: z.literal(favouritesContractVersion),
-    favourites: z.array(accountFavouriteSchema).max(2000),
+    favourites: z.array(accountFavouriteSchema).max(maxFavouritesPerAccount),
     sets: z.array(accountFavouriteSetSchema).max(50),
   })
   .strict();

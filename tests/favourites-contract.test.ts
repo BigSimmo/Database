@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { requireCanonicalFavouriteReference } from "@/app/api/account/favourites/route";
+import { requireCanonicalFavouriteReference } from "@/lib/favourites-reference";
 import {
   favouriteSetResponseSchema,
   favouriteUpdateResponseSchema,

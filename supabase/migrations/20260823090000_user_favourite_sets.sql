@@ -58,7 +58,7 @@ alter table public.user_favourites
   add constraint user_favourites_owner_set_fkey
   foreign key (user_id, set_id)
   references public.user_favourite_sets (user_id, id)
-  on delete restrict;
+  on delete no action;
 
 create index if not exists user_favourite_sets_owner_order_idx
   on public.user_favourite_sets (user_id, sort_order, created_at, id);
@@ -128,17 +128,22 @@ alter table public.user_favourite_sets enable row level security;
 revoke all on table public.user_favourite_sets from public, anon, authenticated;
 grant select, insert, update, delete on table public.user_favourite_sets to service_role;
 
+drop policy if exists "users read own favourite sets" on public.user_favourite_sets;
 create policy "users read own favourite sets" on public.user_favourite_sets
   for select to authenticated using ((select auth.uid()) = user_id);
+drop policy if exists "users insert own favourite sets" on public.user_favourite_sets;
 create policy "users insert own favourite sets" on public.user_favourite_sets
   for insert to authenticated with check ((select auth.uid()) = user_id);
+drop policy if exists "users update own favourite sets" on public.user_favourite_sets;
 create policy "users update own favourite sets" on public.user_favourite_sets
   for update to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
+drop policy if exists "users delete own favourite sets" on public.user_favourite_sets;
 create policy "users delete own favourite sets" on public.user_favourite_sets
   for delete to authenticated using ((select auth.uid()) = user_id);
 
+drop policy if exists "users update own favourites" on public.user_favourites;
 create policy "users update own favourites" on public.user_favourites
   for update to authenticated
   using ((select auth.uid()) = user_id)
