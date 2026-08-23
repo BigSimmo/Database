@@ -98,7 +98,7 @@ const inactiveClinicalAskShellBindings = {
 } as ClinicalAskShellBindings;
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { isInformationPage } from "@/lib/information-pages";
+import { isInformationPage, isToolDetailWithFooterSearch } from "@/lib/information-pages";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import {
   desktopPageComposerSlotId,
@@ -309,14 +309,6 @@ function readInitialBrowserSubmittedSearchParamString(): string {
   return params.get("run") === "1" && query ? search : "";
 }
 
-function isToolDetailWithFooterSearch(pathname: string): boolean {
-  return (
-    (pathname.startsWith("/services/") && pathname !== "/services") ||
-    (pathname.startsWith("/forms/") && pathname !== "/forms") ||
-    (pathname.startsWith("/medications/") && pathname !== "/medications")
-  );
-}
-
 function GlobalStandaloneSearchShellClient(props: GlobalSearchShellProps) {
   // Empty until the bridge resolves — matches SSR/hydration, then syncs. Keeps
   // `{children}` outside the useSearchParams Suspense (no nested S: page clone).
@@ -454,7 +446,6 @@ function GlobalStandaloneSearchShellBody({
     // branch naming it can never be true and would only read as live ownership.
     (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
-  const showClinicalAskDockChrome = Boolean(clinicalAskMode) && !isToolDetailWithFooterSearch(pathname);
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -488,6 +479,13 @@ function GlobalStandaloneSearchShellBody({
   // the sidebar's cross-guide search usable by returning to Answer first.
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
+  // Idle empty homes already have the search composer; Ask / Dictate appear
+  // once the draft has text or a search has been submitted.
+  const showClinicalAskDockChrome =
+    Boolean(clinicalAskMode) &&
+    !isToolDetailWithFooterSearch(pathname) &&
+    !isStandaloneModeHome &&
+    !(pathname === "/" && !hasSubmittedModeSearch && !query.trim());
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
