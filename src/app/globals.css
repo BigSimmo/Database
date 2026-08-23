@@ -2256,11 +2256,13 @@ summary::-webkit-details-marker {
 /* BEGIN sm+ hero home canvas alignment */
 /* Mode homes optically centre a ~160px composer. A ~400px bottom-right
    install card overlaps that band at 640–1440px (Production UI `ui-pwa`).
-   Top-align the canvas from first paint at sm+ so the composer sits above
-   the card without restyling when the stack mounts. A
-   `body:has(.pwa-notice-stack)` canvas restyle caused 0.12 CLS; pinning the
-   overlay top-right at 1280px+ caused 0.025 CLS. Phones stay centred. */
-@media (min-width: 640px) {
+   Top-align the canvas from first paint in that band so the composer sits
+   above the card without restyling when the stack mounts. Do not apply at
+   1920px+: extra viewport height already clears a centred composer, and
+   top-aligning there shifted page content (~0.025 CLS, `ui-pwa` wide-desktop).
+   A `body:has(.pwa-notice-stack)` canvas restyle caused 0.12 CLS. Phones stay
+   centred. */
+@media (min-width: 640px) and (max-width: 1919.98px) {
   #main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {
     place-items: start center;
     align-content: start;
