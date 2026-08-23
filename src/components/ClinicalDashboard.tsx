@@ -3103,7 +3103,8 @@ function ClinicalDashboardContent({
           differentialsCompareAddonActive,
           patientDetailsAddonActive,
           heroOwnsPhoneComposer,
-          clinicalAskActionsVisible: Boolean(clinicalAskMode) && (!showDesktopHomeComposer || modeSearchSubmitted),
+          clinicalAskActionsVisible:
+            Boolean(clinicalAskMode) && (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim())),
         }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
@@ -3338,7 +3339,7 @@ function ClinicalDashboardContent({
           onAsk={ask}
           clinicalAskActive={clinicalAskSession.submitted}
           clinicalAskActions={
-            clinicalAskMode && (!showDesktopHomeComposer || modeSearchSubmitted) ? (
+            clinicalAskMode && (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim())) ? (
               <ClinicalAskComposerActions
                 mode={clinicalAskMode}
                 draft={query}

@@ -134,10 +134,6 @@ async function composer(page: Page) {
   return page.getByTestId("global-search-input").filter({ visible: true }).first();
 }
 
-async function openSubmittedModeDock(page: Page, mode: string) {
-  await page.goto(`/?mode=${mode}&q=probe&run=1`);
-}
-
 async function clickClinicalAsk(page: Page, label: string) {
   const ask = page.getByRole("button", { name: `Ask ${label}`, exact: true });
   await expect(ask).toBeVisible();
@@ -170,7 +166,6 @@ test("@critical renders governed answers for all seven Clinical Ask modes withou
   for (const [mode, label, sections] of modes) {
     await page.goto(`/?mode=${mode}`);
     await expect(page.getByRole("button", { name: `Ask ${label}`, exact: true })).toHaveCount(0);
-    await openSubmittedModeDock(page, mode);
     const input = await composer(page);
     await input.fill(syntheticQuestion);
     await clickClinicalAsk(page, label);
@@ -224,7 +219,8 @@ test("@critical keeps dictated text reviewable and requires explicit Ask", async
   const askCount = await mockClinicalAsk(page);
   await page.goto("/?mode=services");
   await expect(page.getByRole("button", { name: "Dictate question for Services" })).toHaveCount(0);
-  await openSubmittedModeDock(page, "services");
+  const starter = await composer(page);
+  await starter.fill("synthetic dictate probe");
   await page.getByRole("button", { name: "Dictate question for Services" }).click();
   await page.getByRole("button", { name: "Stop recording" }).click();
   const input = await composer(page);
@@ -250,13 +246,10 @@ test("@critical remains accessible and within the viewport at required widths an
     });
     await page.goto("/?mode=differentials");
     const homeInput = await composer(page);
-    await homeInput.fill("Synthetic comparison presentation");
     await expect(page.getByRole("button", { name: "Ask Differentials", exact: true })).toHaveCount(0);
+    await homeInput.fill("Synthetic comparison presentation");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow).toBeLessThanOrEqual(2);
-    await openSubmittedModeDock(page, "differentials");
-    const input = await composer(page);
-    await input.fill("Synthetic comparison presentation");
     await clickClinicalAsk(page, "Differentials");
     await expect(page.getByLabel("Differentials answer")).toBeVisible();
     const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();

@@ -487,13 +487,13 @@ function GlobalStandaloneSearchShellBody({
   // the sidebar's cross-guide search usable by returning to Answer first.
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
-  // Empty mode homes already have the search composer; the extra Ask / Dictate
-  // rail belongs on submitted docks, not the empty hero.
+  // Idle empty homes already have the search composer; Ask / Dictate appear
+  // once the draft has text or a search has been submitted.
   const showClinicalAskDockChrome =
     Boolean(clinicalAskMode) &&
     !isToolDetailWithFooterSearch(pathname) &&
     !isStandaloneModeHome &&
-    !(pathname === "/" && !hasSubmittedModeSearch);
+    !(pathname === "/" && !hasSubmittedModeSearch && !query.trim());
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
