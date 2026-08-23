@@ -95,8 +95,15 @@ describe("MasterSearchHeader DOM", () => {
     expect(input).toHaveAttribute("title", "Search setup not ready");
   });
 
-  it("keeps the query input enabled for local document search when live data is not ready", () => {
+  it("disables the query input for documents search when live data is not ready", () => {
     render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="documents" realDataReady={false} />);
+    const input = screen.getByTestId("global-search-input");
+    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute("title", "Search setup not ready");
+  });
+
+  it("keeps the query input enabled for local forms search when live data is not ready", () => {
+    render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="forms" realDataReady={false} />);
     expect(screen.getByTestId("global-search-input")).toBeEnabled();
   });
 

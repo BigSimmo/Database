@@ -381,8 +381,11 @@ export function MasterSearchHeader({
   const isServicesMode = searchMode === "services";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
+  // Documents search is API-backed (`requestSourceLibrarySearch`) and
+  // `ClinicalDashboard.executeSearch` rejects it when `!canRunSearch`. Only
+  // catalogue / namespaced modes whose submit path never hits that gate stay
+  // enabled while live data is not ready.
   const canRunLocalSearch =
-    selectedSearch.kind === "documents" ||
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "therapies" ||
