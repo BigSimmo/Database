@@ -33,7 +33,7 @@
  *                                            [--profiles <names>] [--port <n>]
  *                                            [--settle-ms <n>]
  *                                            [--exercise-offline]
- *                                            [--exercise-api-unavailable]
+ *                                            [--exercise-local-identity-unavailable]
  *
  * Chromium: honours `CHROME_PATH` or `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`, and
  * otherwise lets Playwright resolve its own browser (which respects
@@ -102,7 +102,7 @@ const profilesFlag = flag("profiles", undefined);
 const profilesExplicit = argv.includes("--profiles");
 const profiles = parseBrowserProfiles(profilesFlag);
 const exerciseOffline = argv.includes("--exercise-offline");
-const exerciseApiUnavailable = argv.includes("--exercise-api-unavailable");
+const exerciseLocalIdentityUnavailable = argv.includes("--exercise-local-identity-unavailable");
 const portFlag = flag("port", null);
 const port = portFlag === null ? await findFreePort(stableProjectPort(projectRoot)) : Number(portFlag);
 if (!Number.isInteger(port) || port < projectPortStart || port > projectPortEnd || isReservedDevPort(port)) {
@@ -132,11 +132,11 @@ const env = offlineTestEnvironment(process.env, {
   NODE_ENV: "production",
   PLAYWRIGHT_OFFLINE_MODE: "true",
   NEXT_PUBLIC_MOCKUPS_ENABLED: "false",
-  // The default stays on the safe synthetic corpus. The explicit outage
-  // exercise turns demo capability off so apiUnavailable is not intentionally
-  // masked by a still-runnable demo search; provider endpoints remain scrubbed
-  // and inert through offlineTestEnvironment.
-  NEXT_PUBLIC_DEMO_MODE: exerciseApiUnavailable ? "false" : "true",
+  // The default stays on the safe synthetic corpus. The explicit local identity
+  // outage turns demo capability off so the degraded notice is not masked by a
+  // still-runnable demo search; provider endpoints remain scrubbed and inert
+  // through offlineTestEnvironment.
+  NEXT_PUBLIC_DEMO_MODE: exerciseLocalIdentityUnavailable ? "false" : "true",
 });
 
 function isThisProject(body) {
@@ -452,10 +452,19 @@ async function markPhase(page, phase) {
 }
 
 const setupStatusPattern = "**/api/setup-status**";
+const localIdentityPattern = "**/api/local-project-id**";
 
 function isSetupStatusResponse(response, expectedStatus) {
   try {
     return new URL(response.url()).pathname === "/api/setup-status" && response.status() === expectedStatus;
+  } catch {
+    return false;
+  }
+}
+
+function isLocalIdentityResponse(response, expectedStatus) {
+  try {
+    return new URL(response.url()).pathname === "/api/local-project-id" && response.status() === expectedStatus;
   } catch {
     return false;
   }
@@ -505,19 +514,19 @@ async function exerciseDegradedTransitions({ page, context }) {
     await page.waitForTimeout(transitionSettleMs);
   }
 
-  if (exerciseApiUnavailable) {
-    let apiUnavailableInterceptHits = 0;
+  if (exerciseLocalIdentityUnavailable) {
+    let localIdentityUnavailableInterceptHits = 0;
     const unavailableHandler = async (route) => {
-      apiUnavailableInterceptHits += 1;
-      await route.fulfill({ status: 503, json: { error: "Deterministic CLS attribution outage." } });
+      localIdentityUnavailableInterceptHits += 1;
+      await route.fulfill({ status: 503, json: { error: "Deterministic local identity outage." } });
     };
-    await page.route(setupStatusPattern, unavailableHandler, { times: 1 });
+    await page.route(localIdentityPattern, unavailableHandler, { times: 1 });
     let exerciseError = null;
     try {
-      const unavailableResponse = page.waitForResponse((response) => isSetupStatusResponse(response, 503), {
+      const unavailableResponse = page.waitForResponse((response) => isLocalIdentityResponse(response, 503), {
         timeout: 30_000,
       });
-      await markPhase(page, "api-unavailable");
+      await markPhase(page, "local-identity-unavailable");
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
       await unavailableResponse;
       await waitForDegradedNotice(page, "service-unavailable");
@@ -525,10 +534,12 @@ async function exerciseDegradedTransitions({ page, context }) {
     } catch (error) {
       exerciseError = error;
     } finally {
-      await page.unroute(setupStatusPattern, unavailableHandler);
+      await page.unroute(localIdentityPattern, unavailableHandler);
     }
-    if (apiUnavailableInterceptHits !== 1) {
-      throw new Error(`Expected one setup-status outage intercept; observed ${apiUnavailableInterceptHits}.`);
+    if (localIdentityUnavailableInterceptHits !== 1) {
+      throw new Error(
+        `Expected one local identity outage intercept; observed ${localIdentityUnavailableInterceptHits}.`,
+      );
     }
     if (exerciseError) throw exerciseError;
   }
@@ -595,7 +606,7 @@ try {
       const cdp = await context.newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
-      const initialHealthySetupResponse = exerciseApiUnavailable
+      const initialHealthySetupResponse = exerciseLocalIdentityUnavailable
         ? page.waitForResponse((response) => isSetupStatusResponse(response, 200), { timeout: 30_000 })
         : null;
       await page.goto(`${baseUrl}${route}`, { waitUntil: "load", timeout: 90_000 });
@@ -637,7 +648,7 @@ try {
         profile: { ...profile },
         exercises: {
           offlineReconnect: exerciseOffline,
-          apiUnavailable: exerciseApiUnavailable,
+          localIdentityUnavailable: exerciseLocalIdentityUnavailable,
         },
         total,
         entryCount: entries.length,

@@ -197,7 +197,8 @@ describe("CLS attribution evidence contract", () => {
 
   it("keeps degraded exercises opt-in and bounds race-proof asset readiness", () => {
     expect(source).toContain('argv.includes("--exercise-offline")');
-    expect(source).toContain('argv.includes("--exercise-api-unavailable")');
+    expect(source).toContain('argv.includes("--exercise-local-identity-unavailable")');
+    expect(source).not.toContain("--exercise-api-unavailable");
     expect(source).toContain("await waitForLoadedAssets(page)");
     expect(source).toContain("window.__clsObserverReady === true");
     expect(source).toContain("window.__reserveObserverReady === true");
@@ -221,18 +222,20 @@ describe("CLS attribution evidence contract", () => {
     expect(source).toContain("await waitForHealthySetupResponse(page)");
   });
 
-  it("faults exactly one post-healthy setup refresh and removes the route", () => {
-    expect(source).toContain('NEXT_PUBLIC_DEMO_MODE: exerciseApiUnavailable ? "false" : "true"');
-    expect(source).toContain('const setupStatusPattern = "**/api/setup-status**"');
-    expect(source).toContain("apiUnavailableInterceptHits += 1");
+  it("faults exactly one post-healthy local identity refresh and removes the route", () => {
+    expect(source).toContain('NEXT_PUBLIC_DEMO_MODE: exerciseLocalIdentityUnavailable ? "false" : "true"');
+    expect(source).toContain('const localIdentityPattern = "**/api/local-project-id**"');
+    expect(source).toContain("localIdentityUnavailableInterceptHits += 1");
     expect(source).toContain("{ times: 1 }");
     expect(source).toContain("status: 503");
-    expect(source).toContain("apiUnavailableInterceptHits !== 1");
-    expect(source).toContain("await page.unroute(setupStatusPattern, unavailableHandler)");
-    expect(source).not.toContain('page.route("**/api/local-project-id**"');
-    expect(source).toContain('await markPhase(page, "api-unavailable")');
+    expect(source).toContain("localIdentityUnavailableInterceptHits !== 1");
+    expect(source).toContain("await page.unroute(localIdentityPattern, unavailableHandler)");
+    expect(source).toContain("isLocalIdentityResponse(response, 503)");
+    expect(source).toContain('await markPhase(page, "local-identity-unavailable")');
     expect(source).toContain('window.dispatchEvent(new Event("focus"))');
     expect(source).toContain('await waitForDegradedNotice(page, "service-unavailable")');
+    expect(source).toContain("localIdentityUnavailable: exerciseLocalIdentityUnavailable");
+    expect(source).not.toContain("apiUnavailable: exerciseApiUnavailable");
     expect(source.indexOf("await waitForLoadedAssets(page)")).toBeLessThan(
       source.lastIndexOf("await exerciseDegradedTransitions({ page, context })"),
     );
