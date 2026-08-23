@@ -188,6 +188,13 @@ function workflowJobPermissionMaps(source: string) {
 }
 
 describe("live-drift workflow triggers and privileges", () => {
+  it("runs both drift diagnostics once and keeps migration history visible after a drift failure", () => {
+    expect(workflow.match(/npm run check:drift/g)).toHaveLength(1);
+    expect(workflow.match(/npm run check:migration-history/g)).toHaveLength(1);
+    expect(workflow.indexOf("npm run check:drift")).toBeLessThan(workflow.indexOf("npm run check:migration-history"));
+    expect(workflow).toMatch(/- name: Align migration history for Supabase Preview\n\s+if: \$\{\{ !cancelled\(\) \}\}/);
+  });
+
   it("keeps the weekly schedule and manual dispatch", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain('- cron: "30 18 * * 0"');

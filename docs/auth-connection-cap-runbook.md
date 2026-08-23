@@ -101,11 +101,10 @@ exercises the auth pool and bypasses anonymous rate limits; the script refuses
 production markers):
 
 ```bash
-npx tsx scripts/soak-test.ts \
+SOAK_BEARER_TOKEN="$STAGING_ACCESS_TOKEN" npx tsx scripts/soak-test.ts \
   --target https://<staging-app-host> \
   --confirm-staging \
-  --users 60 --duration-s 600 --ramp-s 120 \
-  --bearer "$STAGING_ACCESS_TOKEN"
+  --users 60 --duration-s 600 --ramp-s 120
 ```
 
 ## Verification log

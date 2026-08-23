@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39+00:00"
+    "committed_at": "2026-08-22T20:52:39Z"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 16,
+    "pending": 19,
     "resolved": 376
   },
   "queue": [
@@ -804,6 +804,12 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "1902cbe5-1188-4e3e-b96e-7578419ab071",
+      "action": "queue",
+      "summary": "#057: Run SHA-bound tenancy proof, authenticated staging soak, and rollback against one exact candidate image; retain strict evidence.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "6a617628-6b65-4f7f-b361-f96da2d0880a",
       "action": "add",
       "summary": "Railway has no Australian region, so the current app tier cannot host a real-patient Caring Contacts deployment",
@@ -826,6 +832,12 @@
       "action": "add",
       "summary": "docs:check-links passes over a broken relative markdown link in a spec, so a binding document went missing unnoticed",
       "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "8fbea84f-9053-494e-9458-f6158cadf138",
+      "action": "update",
+      "summary": "#231: detail → PHASE 5.2 CONFIRMED SATISFIED with fresh data 2026-08-22 Perth (2026-08-21 UTC), not reopened. This row already recorded that remediation-plan Phase 5.2 is satisfied by S1's 2026-08-17 healthy-latency probes; the Phase 5 close-out re-measured production end to end and confirms it. Retrieval now costs 955 ms on the text fast path and 6,720 ms on hybrid (from 31,610 ms and 21,757 ms at the incident), against answerRouteBudgetMs.fast of 25,000 ms -- so retrieval consumes 4-27% of the fast budget and is no longer capable of binding it. The 2026-08-14 verdict that pre-generation latency WAS the binding cause stands for that window and is now closed out. Residual R4 (chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback) is generation-side and unchanged; no separate R4 row was created, per this row's own instruction.  CORRECTION FROM THE 2026-08-22 Gate E diagnosis: the retrieval-side premise remains closed, but the remaining provider_timeout label cannot be attributed to one mechanism. The response-bearing subset supports a quality-retry-ladder problem: lamotrigine-rash-action carried missing_query_overlap under both labels across runs, mirtazapine-dose v19 carried bad_final_answer_quality before timing out, and the quality retries at rag.ts:3623 and rag.ts:3709 have no deadline-admission check. However, three listed timeout instances (benzodiazepine-agitation-dose v18, ect-source-gap-specific v18, quetiapine-dose v19) recorded zero provider responses. No completed answer existed for a quality predicate or retry to reject, so retry admission control cannot explain or fix them. NEXT: preserve these as two mechanisms. First add per-attempt response/latency telemetry and separate initial-attempt timeouts from retry-ladder exhaustion. Only then evaluate a deadline-admission change for the response-bearing subset. Do not raise answerRouteBudgetMs or weaken quality gates. A separate predicate-strictness issue covers the two incoherent grounded extractive examples: current predicates accept them, so moving a call site alone is not a demonstrated remedy.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "95eba5d7-8f01-46e5-8342-3e01ddf6d3a1",
@@ -856,6 +868,12 @@
       "action": "add",
       "summary": "Caring Contacts: three unmitigated hazards block any real-patient pilot (safety officer, lived-experience review, Aboriginal health review)",
       "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "c5d6045b-6493-4c8b-a1c8-6e151629d561",
+      "action": "update",
+      "summary": "#057: detail → Staging migration parity is closed. Run SHA-bound tenancy evidence, transition the same candidate image from the offline tenancy profile to the authenticated auto-provider load profile, execute the staging soak, and rehearse rollback. Retain checkout/deployed SHA, latency, error, throttling, authentication, cleanup, and rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
