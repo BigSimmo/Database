@@ -1929,7 +1929,9 @@ export function MasterSearchHeader({
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
           />
         ) : null}
-        {clinicalAskActions ? (
+        {clinicalAskActions && !isDesktopHomeComposer ? (
+          // Home heroes already have the search composer; Ask / Dictate are
+          // submitted-dock chrome so the empty home is not a second action row.
           <div className="relative z-10 w-full" aria-busy={clinicalAskActive}>
             {clinicalAskActions}
           </div>

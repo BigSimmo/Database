@@ -454,7 +454,6 @@ function GlobalStandaloneSearchShellBody({
     // branch naming it can never be true and would only read as live ownership.
     (pathname === "/differentials/diagnoses" || pathname === "/differentials/search");
   const clinicalAskMode = isClinicalAskModeId(searchMode) ? searchMode : null;
-  const showClinicalAskDockChrome = Boolean(clinicalAskMode) && !isToolDetailWithFooterSearch(pathname);
   // No shell-owned route claims the Patient details dock addon. `/medications`
   // is a standalone mode home (composer in the hero, no dock to portal into),
   // and `/medications/[slug]` already opens the same sheet from its own nav
@@ -488,6 +487,13 @@ function GlobalStandaloneSearchShellBody({
   // the sidebar's cross-guide search usable by returning to Answer first.
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
+  // Empty mode homes already have the search composer; the extra Ask / Dictate
+  // rail belongs on submitted docks, not the empty hero.
+  const showClinicalAskDockChrome =
+    Boolean(clinicalAskMode) &&
+    !isToolDetailWithFooterSearch(pathname) &&
+    !isStandaloneModeHome &&
+    !(pathname === "/" && !hasSubmittedModeSearch);
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
