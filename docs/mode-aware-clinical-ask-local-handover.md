@@ -26,6 +26,9 @@ PR [#2293](https://github.com/BigSimmo/Database/pull/2293) retains the original 
 The reviewed Clinical Ask tree was integrated locally and verified at `5a265fc6bd4c585f77acd5425b8accf411ecae45`. This is historical pre-reconciliation evidence, not proof of the later PR head.
 
 - `npm run verify:pr-local` passed: 9,354 tests passed, 74 skipped; the production build generated 1,982 pages; 627 offline RAG and 25 adversarial cases passed.
+- The exact reconciled code tree `8da6c287c2a9b6fc158d2dcbd2253f82a6b642df` passed the five-file focused suite (53/53) and the single medication-home Production UI journey (1/1); its isolated production build compiled, passed TypeScript, and generated 1,984 pages.
+- `npm run check:migration-role` passed. `npm run check:production-readiness` remains release-gated by current-main privacy readiness before it reaches the Clinical Ask device finding: its reviewed commit is unavailable and HMAC, retention, ZDR, DPA, APP 8/notice, and PHI-minimisation entries remain pending or partial. Physical iPhone/PWA acceptance remains separately deferred.
+- The immutable repository review ledger records the reconciled code tree under scope `PR #2293 full diff and Clinical Ask reconciliation`, with no new P0/P1 finding and the four planned P2 repairs applied.
 - The merge into PR #2293 preserves the existing HTTP and SSE request/response contracts, current-main schema changes, the widened Clinical Ask feedback taxonomy, current-main Playwright/provenance configuration, and the Clinical Ask UI shard.
 - The live-proven authority-search adapter accepts current OpenAI `snippet` results and unknown metadata, screens the complete raw snippet for prompt injection, and exposes at most 2,000 characters.
 - Date-shaped questions no longer trigger the generic phone-number identifier warning, and the medication-home browser assertion is scoped through the existing visible-owner helper.
