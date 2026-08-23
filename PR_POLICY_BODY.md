@@ -1,20 +1,48 @@
 ## Summary
 
-Adds a gated, synthetic Care Plan prototype: clinicians can read approved Management Plans, author governed revisions, record ED presentations, and generate patient-facing Care Plans from an approved source. Patient copies stay readable when the source changes or is withdrawn, with a visible needs-updating warning (including on print). Contact and print actions honour the mutation guard instead of launching when blocked.
+- Harden the staging soak as authenticated, redirect-refusing, production-denying release evidence with enforceable latency, error, throttling, and authentication thresholds.
+- Bind the cross-tenant staging workflow to the exact deployed candidate SHA before any client creation or fixture write, and record checkout/deployed SHAs in evidence.
+- Keep both live-drift diagnostics visible, correct the migration remedy, update current database/privacy/release documentation, and queue immutable ledger corrections for #057 and #231.
+- Revalidated the maturity report's two stale P0 premises: production/staging migration history is already aligned at 211 versions through 20260820120000, and the existing fast-route generation deadline already reserves 2 seconds below the 25-second outer budget.
 
 ## Verification
 
-- [x] `npm run verify:pr-local` — hosted Static PR checks, Safety and config checks, Unit coverage, and Build passed on head `cb6d65eec6e84598b771c3241d10db25b77af943`
-- [x] `npm run verify:ui` — hosted Production UI critical and Production UI (1/2/3) passed on the same head
-- Retrieval/ranking evals not applicable: this PR does not change retrieval, ranking, selection, chunking, or scoring behaviour.
-- `npm run verify:release` not run: not a release/handoff-confidence request; no provider-backed gates authorised.
+- [ ] `npm run verify:pr-local`
+
+Verification not run: Work Mode rejected the outstanding-ledger umbrella command earlier in this task, so `verify:pr-local` and `verify:cheap` were not retried indirectly. Hosted CI runs the canonical aggregate gates.
+
+- [x] Focused Vitest: 74 tests across 7 files
+- [x] Full TypeScript check
+- [x] Changed-file ESLint
+- [x] Documentation links and npm-script references
+- [x] Codebase index and docs inventory
+- [x] GitHub Action pin and gate-manifest checks
+- [x] Changed-file formatting and `git diff --check`
+- [x] Outstanding-issues generated snapshot check
+- [x] Branch review ledger guard and self-tests
+- [ ] `npm run verify:ui`
+
+UI verification not run: no UI, routing, styling, or browser behavior changed.
+
+- [ ] `npm run verify:release`
+
+Verification not run: this requires an exact deployed candidate plus explicitly authorized staging/provider activity. The patch makes that future evidence stricter but does not claim it ran.
+
+- [ ] `npm run eval:retrieval:quality`
+
+Verification not run: no retrieval, ranking, selection, chunking, scoring, or answer behavior changed.
+
+- [ ] `npm run check:production-readiness`
+- [ ] `npm run check:deployment-readiness`
+
+Verification not run locally: no production/provider mutation was authorized. Focused offline checks cover the changed release tooling and documentation; the first hosted CI run passed its CI-safe production-readiness and offline RAG contract jobs.
 
 ## Risk and rollout
 
-- Risk: medium — patient-facing Care Plan authoring, print, and crisis-support contact surfaces are new, but they run as a synthetic in-memory prototype behind the existing admin-gated route family with no persistence or live provider calls.
-- Rollback: revert the squash merge. No migrations, schema, or production config ship with this change.
-- Provider or production effects: None
-- RAG impact: no retrieval behaviour change — Care Plan prototype and tests only; no rag/, retrieval RPC, ranking-config, or golden-fixture files.
+- Risk: Low to moderate. Operational evidence becomes deliberately stricter, so anonymous, redirecting, mismatched-SHA, heavily throttled, or partially successful staging runs now fail instead of appearing release-ready.
+- Rollback: Revert this PR.
+- Provider or production effects: None. No database migration, deployment, provider call, live soak, tenancy fixture write, or production configuration change was performed.
+- RAG impact: no retrieval behaviour change — test-only assertion pins the existing reserve-aware fast-route generation deadline; retrieval, ranking, selection, comparator, and answer behavior are unchanged.
 
 ## Clinical Governance Preflight
 
@@ -26,8 +54,10 @@ Adds a gated, synthetic Care Plan prototype: clinicians can read approved Manage
 - [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
 - [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
-This change is a clinician-facing synthetic prototype, not validated clinical decision support. Fixtures are labelled synthetic; there is no live patient document store, no service-role exposure, and no SaMD claim.
-
 ## Notes
 
-Codex P1 review threads on stale print warnings, withdrawal staleness, print/contact guards, and superseded Patient Plan approval were addressed on this branch and resolved.
+- The report's missing-live `migration_history_versions()` finding was already resolved on current main; issue #1963 is closed. This PR makes the workflow diagnostic and remediation text accurate rather than adding another migration.
+- The first hosted Static PR run identified only the expected generated pending-request snapshot drift. That snapshot was refreshed and its focused checker passes at the new head.
+- After this PR lands, reconcile the three immutable outstanding-issues inbox requests through the repository's serialized ledger workflow.
+- Live staging tenancy, authenticated soak, rollback, browser matrix, clinical approval, privacy/legal approval, and organisational ownership remain operator/governance evidence rather than code-only quick wins.
+- PR policy was blocked because the last Clinical Governance item was paraphrased; this template restores the exact required wording.
