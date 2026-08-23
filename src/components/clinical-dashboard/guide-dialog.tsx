@@ -13,12 +13,14 @@ import {
   Library,
   ListChecks,
   LockKeyhole,
+  Palette,
   PlayCircle,
   RotateCcw,
   ShieldCheck,
   SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useRef, useState, type UIEvent } from "react";
 
 import {
@@ -40,6 +42,7 @@ import {
   type GuideProgress,
 } from "@/components/clinical-dashboard/guide-progress";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { ColourCodingReferenceContent } from "@/components/reference/colour-coding-reference-content";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText, floatingControl, primaryControl, textMuted } from "@/components/ui-primitives";
 
@@ -51,6 +54,7 @@ const topicIcons: Record<GuideTopicId, LucideIcon> = {
   "document-scope": SlidersHorizontal,
   "answer-anatomy": ListChecks,
   "sources-citations": Library,
+  "colour-coding": Palette,
   "document-administration": FileSearch,
   "privacy-safe-use": ShieldCheck,
   "keyboard-shortcuts": Grid2X2,
@@ -344,7 +348,32 @@ function SafetyChecklist() {
   );
 }
 
-function TopicArticle({ topic }: { topic: GuideTopic }) {
+function ColourCodingCallout({ onOpen }: { onOpen: () => void }) {
+  return (
+    <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)]">
+      <div className="flex items-center gap-2.5">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+          <Palette aria-hidden="true" className="size-icon-md" />
+        </span>
+        <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Colour coding & badges</h2>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
+        Six tones flag what needs attention across answers, sources, medications, and documents. Meaning drives the
+        colour — green is source-backed, not clinically safe.
+      </p>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-3 inline-flex min-h-tap items-center gap-1 rounded-md text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      >
+        Open colour coding guide
+        <ChevronRight aria-hidden="true" className="size-icon-sm" />
+      </button>
+    </section>
+  );
+}
+
+function TopicArticle({ topic, onOpenColourCodingGuide }: { topic: GuideTopic; onOpenColourCodingGuide?: () => void }) {
   const Icon = topicIcons[topic.id];
   return (
     <article className="mx-auto max-w-[70ch]">
@@ -379,6 +408,18 @@ function TopicArticle({ topic }: { topic: GuideTopic }) {
                     </li>
                   ))}
                 </ul>
+              ) : null}
+              {topic.id === "answer-anatomy" &&
+              section.heading === "Read status badges with the answer" &&
+              onOpenColourCodingGuide ? (
+                <button
+                  type="button"
+                  onClick={onOpenColourCodingGuide}
+                  className="mt-2 inline-flex min-h-tap items-center gap-1 rounded-md text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                >
+                  Open colour coding guide
+                  <ChevronRight aria-hidden="true" className="size-icon-sm" />
+                </button>
               ) : null}
             </div>
           </section>
@@ -549,6 +590,7 @@ function TourView({
 }
 
 function GuideDialogSession({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
   const [view, setView] = useState<GuideView>("home");
   const [activeTopicId, setActiveTopicId] = useState<GuideTopicId>("answer-anatomy");
   const [progress, setProgress] = useState<GuideProgress>(() => loadGuideProgress());
@@ -622,6 +664,11 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
     setActiveTopicId(topicId);
     setView("topic");
     focusPageStart();
+  }
+
+  function openFullColourCodingReference() {
+    onClose();
+    router.push("/reference/colour-coding");
   }
 
   function restartTour() {
@@ -808,6 +855,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
               <VerificationDemo onOpenSourceGuide={() => openTopic("sources-citations")} />
               <aside className="grid content-start gap-3">
                 <SafetyChecklist />
+                <ColourCodingCallout onOpen={() => openTopic("colour-coding")} />
               </aside>
             </div>
           </>
@@ -821,7 +869,16 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
             </aside>
             <div className="space-y-4">
               <CompactContents activeTopicId={activeTopicId} onSelect={openTopic} />
-              <TopicArticle topic={guideTopicById[activeTopicId]} />
+              {activeTopicId === "colour-coding" ? (
+                <div className="mx-auto max-w-[70ch]">
+                  <ColourCodingReferenceContent variant="guide" onOpenFullReference={openFullColourCodingReference} />
+                </div>
+              ) : (
+                <TopicArticle
+                  topic={guideTopicById[activeTopicId]}
+                  onOpenColourCodingGuide={() => openTopic("colour-coding")}
+                />
+              )}
             </div>
           </div>
         ) : null}
