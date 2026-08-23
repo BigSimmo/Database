@@ -6,6 +6,7 @@ import {
   sourceAuthorityRegistry,
   type SourceAuthorityDefinition,
 } from "@/lib/source-authority-registry";
+import { australianSourcePolicyVersion } from "@/lib/australian-source-catalogue";
 
 export const localityMetadataKeys = ["publisher_code", "publisher", "jurisdiction"] as const;
 
@@ -339,5 +340,43 @@ export function auditSourceAuthorityDocuments(documents: SourceAuthorityDocument
       changed_keys: analysis.changedKeys,
       changes: analysis.changes,
     })),
+  };
+}
+
+/**
+ * Read-only proposal surface for the explicit-manifest workflow owned by a later
+ * task. It reports catalogue policy only after the classifier resolves the exact
+ * key/code/jurisdiction tuple; it never changes the locality patch allowlist or
+ * mutates a document.
+ */
+export function auditProposedSourcePolicyMetadata(documents: SourceAuthorityDocument[]) {
+  const proposals = documents.flatMap((document) => {
+    const classification = classifySourceAuthority(metadataRecord(document.metadata));
+    const entry = classification.catalogueEntry;
+    if (!classification.cataloguePolicyResolved || !entry) return [];
+    return [
+      {
+        id: document.id ?? null,
+        title: document.title,
+        file_name: document.file_name,
+        source_catalogue_key: entry.key,
+        publisher_code: entry.publisherCode,
+        publisher: entry.publisher,
+        jurisdiction: entry.jurisdiction,
+        corpus_scope: entry.corpusScope,
+        source_roles: [...entry.roles],
+        content_mode: entry.contentMode,
+        source_policy_version: australianSourcePolicyVersion,
+        canonical_url: entry.canonicalUrl,
+        catalogue_licence_policy: entry.licencePolicy,
+        lifecycle: entry.lifecycle,
+      },
+    ];
+  });
+
+  return {
+    mode: "read_only_policy_proposal" as const,
+    candidate_count: proposals.length,
+    proposals,
   };
 }

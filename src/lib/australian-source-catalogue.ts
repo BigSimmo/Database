@@ -1,6 +1,6 @@
-import type { ClinicalSourceRole, SourceCorpusScope } from "@/lib/types";
+import type { ClinicalSourceRole, SourceContentMode, SourceCorpusScope, SourceLicencePolicy } from "@/lib/types";
 
-export type SourceContentMode = "indexed_content" | "link_only";
+export type { SourceContentMode, SourceLicencePolicy } from "@/lib/types";
 export type SourceLifecycle = "active" | "historical" | "retired";
 export const sourceLicencePolicies = [
   "review_required",
@@ -8,7 +8,6 @@ export const sourceLicencePolicies = [
   "metadata_link_only",
   "index_forbidden",
 ] as const;
-export type SourceLicencePolicy = (typeof sourceLicencePolicies)[number];
 
 export type AustralianSourceDefinition = Readonly<{
   key: string;

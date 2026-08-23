@@ -93,6 +93,13 @@ export type DocumentOrganizationProfile = {
   review_status: DocumentOrganizationReviewStatus;
 };
 
+export type SourceContentMode = "indexed_content" | "link_only";
+
+export type SourceLicencePolicy =
+  "review_required" | "public_index_permitted" | "metadata_link_only" | "index_forbidden";
+
+export type SourceChangeState = "unchanged" | "changed" | "withdrawn" | "superseded" | "unknown";
+
 export type ClinicalSourceMetadata = {
   source_kind?: "document" | "registry_record" | string | null;
   registry_record_kind?: "service" | "form" | "medication" | "differential" | string | null;
@@ -109,11 +116,31 @@ export type ClinicalSourceMetadata = {
   uploaded_at: string | null;
   indexed_at: string | null;
   uploaded_by: string | null;
+  corpus_scope?: SourceCorpusScope | null;
+  source_role?: ClinicalSourceRole | null;
+  content_mode?: SourceContentMode | null;
+  source_catalogue_key?: string | null;
+  source_policy_version?: string | null;
+  canonical_url?: string | null;
+  effective_date?: string | null;
+  expiry_date?: string | null;
+  supersedes_document_id?: string | null;
+  superseded_by_document_id?: string | null;
+  retrieved_at?: string | null;
+  content_hash?: string | null;
+  change_state?: SourceChangeState;
+  licence_policy?: SourceLicencePolicy | null;
   document_status: "current" | "review_due" | "outdated" | "unknown";
   clinical_validation_status: "unverified" | "locally_reviewed" | "approved" | "unknown";
   clinical_validation_evidence?: Record<string, unknown> | null;
   extraction_quality: "good" | "partial" | "poor" | "unknown";
 };
+
+/** Untrusted metadata shape accepted at ingestion and API normalization boundaries. */
+export type ClinicalSourceMetadataInput =
+  | (Partial<{ [Field in keyof ClinicalSourceMetadata]: unknown }> & Readonly<Record<string, unknown>>)
+  | null
+  | undefined;
 
 /** Canonical corpus boundary used by programme evaluation, ingestion, and retrieval. */
 export type SourceCorpusScope =

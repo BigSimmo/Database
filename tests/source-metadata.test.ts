@@ -3,6 +3,7 @@ import {
   clipboardProvenanceLine,
   formatClinicalDate,
   hasRecordedGovernanceFields,
+  normalizeClinicalSourceMetadata,
   normalizeOptionalSourceMetadata,
   normalizeSourceMetadata,
   sourceMetadataDiagnostics,
@@ -13,6 +14,108 @@ import {
 import { classifySourceAuthority } from "../src/lib/source-authority-registry";
 
 describe("source metadata helpers", () => {
+  it("normalizes the canonical Australian policy metadata without inventing absent values", () => {
+    const contentHash = "a".repeat(64);
+    const metadata = normalizeClinicalSourceMetadata({
+      corpus_scope: "australian_public",
+      source_role: "clinical_guideline",
+      content_mode: "indexed_content",
+      source_catalogue_key: "wa-chief-psychiatrist",
+      source_policy_version: "australian-source-policy-v1",
+      canonical_url: "https://www.chiefpsychiatrist.wa.gov.au/guideline.pdf",
+      effective_date: "2026-08-20",
+      expiry_date: "2027-08-20T00:00:00.000Z",
+      supersedes_document_id: "document-old",
+      superseded_by_document_id: "document-next",
+      retrieved_at: "2026-08-20T08:30:00+08:00",
+      content_hash: contentHash,
+      change_state: "unchanged",
+      licence_policy: "public_index_permitted",
+    });
+
+    expect(metadata).toMatchObject({
+      corpus_scope: "australian_public",
+      source_role: "clinical_guideline",
+      content_mode: "indexed_content",
+      source_catalogue_key: "wa-chief-psychiatrist",
+      source_policy_version: "australian-source-policy-v1",
+      canonical_url: "https://www.chiefpsychiatrist.wa.gov.au/guideline.pdf",
+      effective_date: "2026-08-20",
+      expiry_date: "2027-08-20T00:00:00.000Z",
+      supersedes_document_id: "document-old",
+      superseded_by_document_id: "document-next",
+      retrieved_at: "2026-08-20T08:30:00+08:00",
+      content_hash: contentHash,
+      change_state: "unchanged",
+      licence_policy: "public_index_permitted",
+    });
+
+    expect(normalizeClinicalSourceMetadata(null)).toMatchObject({
+      corpus_scope: null,
+      source_role: null,
+      content_mode: null,
+      source_catalogue_key: null,
+      source_policy_version: null,
+      canonical_url: null,
+      effective_date: null,
+      expiry_date: null,
+      supersedes_document_id: null,
+      superseded_by_document_id: null,
+      retrieved_at: null,
+      content_hash: null,
+      change_state: "unknown",
+      licence_policy: null,
+    });
+  });
+
+  it("fails malformed policy metadata closed with bounded diagnostics", () => {
+    const warnSpy = vi.spyOn(sourceMetadataDiagnostics, "warn").mockImplementation(() => {});
+    try {
+      const metadata = normalizeClinicalSourceMetadata({
+        corpus_scope: "public-ish",
+        source_role: "treatment-advice",
+        content_mode: "scraped_content",
+        canonical_url: `http://example.test/${"x".repeat(300)}`,
+        effective_date: "2026-02-30",
+        expiry_date: "next Tuesday",
+        retrieved_at: "2026-08-20 08:30",
+        content_hash: "sha256:not-a-digest",
+        change_state: "fresh",
+        licence_policy: "probably-public",
+      });
+
+      expect(metadata).toMatchObject({
+        corpus_scope: null,
+        source_role: null,
+        content_mode: null,
+        canonical_url: null,
+        effective_date: null,
+        expiry_date: null,
+        retrieved_at: null,
+        content_hash: null,
+        change_state: "unknown",
+        licence_policy: null,
+      });
+      expect(warnSpy.mock.calls.map(([field]) => field)).toEqual(
+        expect.arrayContaining([
+          "corpus_scope",
+          "source_role",
+          "content_mode",
+          "canonical_url",
+          "effective_date",
+          "expiry_date",
+          "retrieved_at",
+          "content_hash",
+          "change_state",
+          "licence_policy",
+        ]),
+      );
+      expect(warnSpy.mock.calls.every(([, value]) => value.length <= 120)).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   it("normalizes missing legacy metadata to explicit unknown labels without suppressing content", () => {
     const metadata = normalizeSourceMetadata(null);
 
