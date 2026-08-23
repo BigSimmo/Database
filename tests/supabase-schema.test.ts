@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { australianSourceCatalogue } from "@/lib/australian-source-catalogue";
+
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
 const documentIndexUnitsMigration = readFileSync(
   new URL("../supabase/migrations/20260612006000_document_index_units.sql", import.meta.url),
@@ -2142,7 +2144,11 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
 
     it("creates append-only service-role-only activation and exact-version tables", () => {
       const sql = controlPlaneSql();
-      for (const table of ["public_source_activation_events", "public_source_versions"]) {
+      for (const table of [
+        "public_source_policy_entries",
+        "public_source_activation_events",
+        "public_source_versions",
+      ]) {
         expect(sql).toContain(`create table public.${table}`);
         expect(sql).toContain(`alter table public.${table} enable row level security`);
         expect(sql).toContain(`revoke all on table public.${table} from public, anon, authenticated`);
@@ -2154,6 +2160,31 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(sql).toContain("public source version immutable fields changed");
     });
 
+    it("binds activation and reservation to the immutable exact eligible-source policy", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create table public.public_source_policy_entries");
+      expect(sql).toContain("public source policy entries are immutable");
+      expect(sql).toContain("'wa-health', 'https://www.health.wa.gov.au/About-us/Policy-frameworks'");
+      expect(sql).not.toContain("('etg-complete', 'https://www.tg.org.au/'");
+      expect(sql).not.toContain("('nps-medicinewise', 'https://www.medicinewise.org.au/'");
+      expect(sql).toContain("exact_document_licence = 'public_index_permitted'");
+      for (const source of australianSourceCatalogue) {
+        const eligible =
+          source.lifecycle === "active" &&
+          source.contentMode === "indexed_content" &&
+          source.licencePolicy !== "index_forbidden";
+        const rowPrefix = `('${source.key}', '${source.canonicalUrl}'`;
+        if (eligible) expect(sql).toContain(rowPrefix);
+        else expect(sql).not.toContain(rowPrefix);
+      }
+      const activation = sql.slice(
+        sql.indexOf("create or replace function public.record_public_source_activation("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.record_public_source_activation(")),
+      );
+      expect(activation).toContain("from public.public_source_policy_entries");
+      expect(activation).toContain("source is not eligible for activation");
+    });
+
     it("serializes first activation and fetch-manifest races with fixed-path definers", () => {
       const sql = controlPlaneSql();
       expect(sql).toContain("pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(p_source_catalogue_key, 0))");
@@ -2163,7 +2194,38 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(sql).toContain("security definer set search_path = ''");
       expect(sql).toContain("source definition is not active for controlled acquisition");
       expect(sql).toContain("source policy digest does not match the active definition");
-      expect(sql).toContain("public source content version already staged");
+      expect(sql).toContain("public source reservation manifest conflicts with existing identity");
+    });
+
+    it("reserves current authority before writes and finalizes document, optional job, and version atomically", () => {
+      const sql = controlPlaneSql();
+      const reserve = sql.slice(
+        sql.indexOf("create or replace function public.reserve_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.reserve_public_source_version(")),
+      );
+      const finalize = sql.slice(
+        sql.indexOf("create or replace function public.finalize_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.finalize_public_source_version(")),
+      );
+      for (const body of [reserve, finalize]) {
+        expect(body).toContain("from public.public_source_policy_entries");
+        expect(body).toContain("source policy digest does not match the active definition");
+        expect(body).toContain("exact version URL is outside the eligible canonical host");
+      }
+      expect(reserve).toContain("reservation_key");
+      expect(reserve).toContain("supersedes_version_id");
+      expect(finalize).toContain("insert into public.documents");
+      expect(finalize).toContain("insert into public.ingestion_jobs");
+      expect(finalize).toContain("p_manifest->>'disposition' = 'shadow'");
+      expect(finalize).toContain("p_manifest->>'disposition' = 'quarantined'");
+      expect(finalize).toContain("review_queued_at = case when p_manifest->>'disposition' = 'quarantined'");
+      expect(finalize).toContain("v_document.content_hash is distinct from v_version.content_hash");
+      expect(finalize).toContain(
+        "v_document.metadata->>'exact_version_url' is distinct from v_version.exact_version_url",
+      );
+      expect(finalize).not.toContain("create_uploaded_document_with_ingestion_job(");
+      expect(finalize).not.toContain("publish_approved_documents(");
+      expect(finalize).not.toContain("activate_approved_public_documents(");
     });
 
     it("permits only the legal lifecycle and never discovered or shadow directly to active", () => {
@@ -2191,8 +2253,10 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       expect(sql).toContain("v_document.metadata->>'publication_approval_id'");
       expect(sql).toContain("v_document.owner_id is not null");
       expect(sql).not.toContain("insert into public.document_publication_approvals");
-      expect(sql).not.toContain("activate_approved_public_documents(");
       expect(sql).not.toContain("publish_approved_documents(");
+      const transitionStart = sql.indexOf("create or replace function public.transition_public_source_version(");
+      const transition = sql.slice(transitionStart, sql.indexOf("$$;", transitionStart));
+      expect(transition).not.toContain("activate_approved_public_documents(");
     });
 
     it("rechecks governance when workers claim and commit governed artifacts", () => {
@@ -2202,6 +2266,8 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       for (const gate of [
         "source_catalogue_key",
         "source_policy_version",
+        "source_policy_digest",
+        "corpus_scope",
         "public_source_activation_event_id",
         "public_source_version_id",
         "public_source_steward_id",
@@ -2212,6 +2278,64 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       }
       expect(sql).toContain("governed public source is no longer active");
       expect(sql).toContain("governed public source document lost steward ownership");
+      expect(sql).toContain("create trigger documents_guard_public_source_identity");
+      expect(sql).toContain("new.content_hash is distinct from old.content_hash");
+      expect(sql).toContain(
+        "v_merged_metadata := coalesce(v_document.metadata, '{}'::jsonb) || coalesce(p_metadata, '{}'::jsonb)",
+      );
+      expect(sql).toContain("governed public source artifact commit removed or changed policy identity");
+      expect(sql).toContain("not (v_merged_metadata ? v_key)");
+      expect(sql).toContain("jsonb_typeof(v_merged_metadata->v_key) = 'null'");
+    });
+
+    it("uses one global advisory-event-document-version lock order with post-lock revalidation", () => {
+      const sql = controlPlaneSql();
+      for (const name of [
+        "finalize_public_source_version",
+        "assert_public_source_document_governance",
+        "transition_public_source_version",
+        "activate_public_source_version",
+        "withdraw_public_source_version",
+      ]) {
+        const start = sql.indexOf(`create or replace function public.${name}(`);
+        const body = sql.slice(start, sql.indexOf("$$;", start));
+        const advisory = body.indexOf("lock-order: advisory");
+        const event = body.indexOf("lock-order: latest-event");
+        const document = body.indexOf("lock-order: document");
+        const version = body.indexOf("lock-order: version");
+        expect(advisory, name).toBeGreaterThan(-1);
+        expect(event, name).toBeGreaterThan(advisory);
+        expect(document, name).toBeGreaterThan(event);
+        expect(version, name).toBeGreaterThan(document);
+        expect(body).toContain("governance changed while locks were acquired");
+      }
+    });
+
+    it("performs controlled single-active replacement with linked immutable history", () => {
+      const sql = controlPlaneSql();
+      expect(sql).toContain("create unique index public_source_versions_one_active_per_catalogue_idx");
+      expect(sql).toContain("where lifecycle = 'active'");
+      expect(sql).toContain("supersedes_version_id");
+      const transition = sql.slice(
+        sql.indexOf("create or replace function public.transition_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.transition_public_source_version(")),
+      );
+      const activation = sql.slice(
+        sql.indexOf("create or replace function public.activate_public_source_version("),
+        sql.indexOf("$$;", sql.indexOf("create or replace function public.activate_public_source_version(")),
+      );
+      expect(transition).toContain("controlled public source activation RPC");
+      expect(activation).toContain("activate_approved_public_documents(");
+      expect(activation).toContain("app.public_source_controlled_activation");
+      expect(activation).toContain("replacement requires the currently active predecessor");
+      expect(activation).toContain("v_prior_approval");
+      expect(activation).toContain("lifecycle = 'tombstoned'");
+      expect(activation).toContain("v_prior_document.id, v_prior_version.steward_id, 'superseded'");
+      expect(activation).toContain("public.restore_public_source_document_to_steward(");
+      expect(activation.indexOf("set lifecycle = 'tombstoned'")).toBeLessThan(
+        activation.indexOf("set lifecycle = 'active'"),
+      );
+      expect(sql).toContain("generic P02 publication is forbidden for governed public sources");
     });
 
     it("withdraws atomically from retrieval and anonymous cache while preserving history", () => {
@@ -2220,22 +2344,23 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       const body = sql.slice(start, sql.indexOf("$$;", start));
       expect(body).toContain("for update");
       expect(body).toContain("lifecycle = 'tombstoned'");
-      expect(body).toContain("owner_id = v_version.steward_id");
-      expect(body).toContain("'change_state', 'withdrawn'");
-      expect(body).toContain("'public_corpus', false");
-      expect(body).toContain("delete from public.rag_response_cache");
-      expect(body).toContain("cache_kind in ('search', 'answer')");
+      expect(body).toContain("public.restore_public_source_document_to_steward(");
       expect(body).not.toContain("delete from public.document_publication_approvals");
-      expect(body.indexOf("update public.documents")).toBeLessThan(
-        body.indexOf("delete from public.rag_response_cache"),
-      );
+      const helperStart = sql.indexOf("create or replace function public.restore_public_source_document_to_steward(");
+      const helper = sql.slice(helperStart, sql.indexOf("$$;", helperStart));
+      expect(helper).toContain("owner_id = p_steward_id");
+      expect(helper).toContain("'public_corpus', false");
+      expect(helper).toContain("delete from public.rag_response_cache");
+      expect(helper).toContain("cache_kind in ('search', 'answer')");
     });
 
     it("keeps public-source functions off public, anon, and authenticated roles", () => {
       const sql = controlPlaneSql();
       for (const signature of [
         "record_public_source_activation(jsonb)",
-        "stage_public_source_version(jsonb)",
+        "reserve_public_source_version(jsonb)",
+        "finalize_public_source_version(jsonb, integer)",
+        "activate_public_source_version(uuid, uuid, jsonb, text, uuid[])",
         "transition_public_source_version(uuid, text, uuid)",
         "withdraw_public_source_version(uuid, uuid, text)",
       ]) {

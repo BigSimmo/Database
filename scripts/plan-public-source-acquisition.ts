@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 
 import { planAcquisition } from "@/lib/public-source-acquisition";
 
@@ -61,7 +62,9 @@ async function main() {
   process.stdout.write(manifest);
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : "Public source planning failed.");
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : "Public source planning failed.");
+    process.exit(1);
+  });
+}

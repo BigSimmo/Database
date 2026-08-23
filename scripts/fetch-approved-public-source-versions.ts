@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -28,104 +28,198 @@ export function parseAcquisitionBatch(raw: string) {
   return plans;
 }
 
-export async function stageFetchedPublicSource(
-  plan: PublicSourceAcquisitionPlan,
-  fetched: Awaited<ReturnType<typeof fetchApprovedPublicSource>>,
-) {
+type FetchedPublicSource = Awaited<ReturnType<typeof fetchApprovedPublicSource>>;
+type PublicSourceVersionState = {
+  id: string;
+  lifecycle: string;
+  staging_document_id: string | null;
+};
+type PublicSourceReservation = {
+  id: string;
+  reservedDocumentId: string;
+  storagePath: string;
+  stagingDocumentId: string | null;
+  lifecycle: string;
+};
+
+export type PublicSourceStagingDependencies = {
+  reserve(input: { manifest: Json }): Promise<PublicSourceReservation>;
+  upload(input: { storagePath: string; content: Uint8Array; mime: string; upsert: true }): Promise<void>;
+  finalize(input: { manifest: Json; maxAttempts: number }): Promise<PublicSourceVersionState>;
+  lookup(reservationId: string): Promise<PublicSourceVersionState | null>;
+};
+
+function acquisitionFileExtension(fetched: FetchedPublicSource) {
+  if (fetched.mime === "text/plain") return ".txt";
+  if (fetched.mime === "application/pdf") return ".pdf";
+  if (fetched.mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return ".docx";
+  return extname(new URL(fetched.finalUrl).pathname).toLowerCase() || ".bin";
+}
+
+function reservationKey(plan: PublicSourceAcquisitionPlan, fetched: FetchedPublicSource) {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        version: 1,
+        catalogueKey: plan.catalogueKey,
+        activationEventId: plan.activationEventId,
+        exactUrl: fetched.finalUrl,
+        exactVersion: plan.exactVersion,
+        contentHash: fetched.contentHash,
+        disposition: fetched.disposition,
+      }),
+      "utf8",
+    )
+    .digest("hex");
+}
+
+async function defaultStagingDependencies(): Promise<{
+  dependencies: PublicSourceStagingDependencies;
+  maxAttempts: number;
+}> {
   const { loadEnvConfig } = await import("@next/env");
   loadEnvConfig(process.cwd());
   const [{ env }, { createAdminClient }] = await Promise.all([import("@/lib/env"), import("@/lib/supabase/admin")]);
   const supabase = createAdminClient();
-  const definition = australianSourceByKey(plan.catalogueKey)!;
-  const { data: duplicateVersion, error: duplicateError } = await supabase
-    .from("public_source_versions")
-    .select("id,lifecycle,content_hash")
-    .eq("source_catalogue_key", plan.catalogueKey)
-    .eq("content_hash", fetched.contentHash)
-    .maybeSingle();
-  if (duplicateError) throw new Error("Public source duplicate check failed.");
-  if (duplicateVersion) return { disposition: "duplicate" as const, version: duplicateVersion };
-
-  const documentId = randomUUID();
-  const safeExtension = fetched.mime === "text/plain" ? ".txt" : extname(new URL(fetched.finalUrl).pathname) || ".bin";
-  const storagePath = `${plan.stewardId}/public-source-staging/${documentId}/source${safeExtension.toLowerCase()}`;
-  let uploaded = false;
-  let documentCreated = false;
-  try {
-    const upload = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, fetched.content, {
-      contentType: fetched.mime,
-      upsert: false,
-    });
-    if (upload.error) throw new Error("Public source storage write failed.");
-    uploaded = true;
-
-    const metadata = {
-      corpus_scope: "australian_public",
-      source_kind: "document",
-      source_catalogue_key: plan.catalogueKey,
-      source_policy_version: plan.sourcePolicyVersion,
-      public_source_activation_event_id: plan.activationEventId,
-      public_source_steward_id: plan.stewardId,
-      content_mode: "indexed_content",
-      licence_policy: "public_index_permitted",
-      publisher: definition.publisher,
-      publisher_code: definition.publisherCode,
-      jurisdiction: definition.jurisdiction,
-      source_role: definition.roles[0] ?? "clinical_guideline",
-      source_title: plan.exactVersion,
-      canonical_url: definition.canonicalUrl,
-      exact_version_url: fetched.finalUrl,
-      version: plan.exactVersion,
-      document_status: "current",
-      change_state: "changed",
-      clinical_validation_status: "unverified",
-      content_hash: fetched.contentHash,
-    };
-    // The atomic owned-document RPC queues the job. claim_ingestion_jobs in the
-    // same migration rejects this Australian row until stage_public_source_version
-    // binds public_source_version_id under the document lock.
-    const { error: createError } = await supabase.rpc("create_uploaded_document_with_ingestion_job", {
-      p_document: {
-        id: documentId,
-        owner_id: plan.stewardId,
-        title: `${definition.publisher} — ${plan.exactVersion}`,
-        description: "Controlled public-source staging document.",
-        file_name: `source${safeExtension.toLowerCase()}`,
-        file_type: fetched.mime,
-        file_size: fetched.byteCount,
-        storage_path: storagePath,
-        content_hash: fetched.contentHash,
-        metadata,
+  return {
+    maxAttempts: env.WORKER_MAX_ATTEMPTS,
+    dependencies: {
+      reserve: async ({ manifest }) => {
+        const { data, error } = await supabase.rpc("reserve_public_source_version", { p_manifest: manifest });
+        if (error || !data) throw new Error("Public source authority reservation failed.");
+        return {
+          id: data.id,
+          reservedDocumentId: data.reserved_document_id,
+          storagePath: data.reserved_storage_path,
+          stagingDocumentId: data.staging_document_id,
+          lifecycle: data.lifecycle,
+        };
       },
-      p_max_attempts: env.WORKER_MAX_ATTEMPTS,
-    });
-    if (createError) throw new Error("Public source owned staging enqueue failed.");
-    documentCreated = true;
+      upload: async ({ storagePath, content, mime, upsert }) => {
+        const result = await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, content, {
+          contentType: mime,
+          upsert,
+        });
+        if (result.error) throw new Error("Public source storage write failed.");
+      },
+      finalize: async ({ manifest, maxAttempts }) => {
+        const { data, error } = await supabase.rpc("finalize_public_source_version", {
+          p_manifest: manifest,
+          p_max_attempts: maxAttempts,
+        });
+        if (error || !data) throw new Error("Public source version finalization failed.");
+        return data;
+      },
+      lookup: async (reservationId) => {
+        const { data, error } = await supabase
+          .from("public_source_versions")
+          .select("id,lifecycle,staging_document_id")
+          .eq("id", reservationId)
+          .maybeSingle();
+        if (error) throw new Error("Public source reservation recovery failed.");
+        return data;
+      },
+    },
+  };
+}
 
-    const { data: version, error: versionError } = await supabase.rpc("stage_public_source_version", {
-      p_manifest: {
+export async function stageFetchedPublicSource(
+  plan: PublicSourceAcquisitionPlan,
+  fetched: FetchedPublicSource,
+  injectedDependencies?: PublicSourceStagingDependencies,
+) {
+  plan = parsePublicSourceAcquisitionPlan(plan);
+  const definition = australianSourceByKey(plan.catalogueKey)!;
+  const safeExtension = acquisitionFileExtension(fetched);
+  const defaults = injectedDependencies ? null : await defaultStagingDependencies();
+  const dependencies = injectedDependencies ?? defaults!.dependencies;
+  const maxAttempts = defaults?.maxAttempts ?? 3;
+  const reservation = await dependencies.reserve({
+    manifest: {
+      reservationKey: reservationKey(plan, fetched),
+      catalogueKey: plan.catalogueKey,
+      sourcePolicyVersion: plan.sourcePolicyVersion,
+      sourcePolicyDigest: plan.sourcePolicyDigest,
+      activationEventId: plan.activationEventId,
+      exactCanonicalUrl: definition.canonicalUrl,
+      exactVersionUrl: fetched.finalUrl,
+      exactVersion: plan.exactVersion,
+      contentHash: fetched.contentHash,
+      retrievedAt: new Date().toISOString(),
+      licenceEvidenceDigest: plan.licenceEvidenceDigest,
+      stewardId: plan.stewardId,
+      disposition: fetched.disposition,
+      fileExtension: safeExtension,
+    } satisfies Json,
+  });
+  if (reservation.stagingDocumentId) {
+    return { disposition: "duplicate" as const, version: reservation };
+  }
+
+  await dependencies.upload({
+    storagePath: reservation.storagePath,
+    content: fetched.content,
+    mime: fetched.mime,
+    upsert: true,
+  });
+  const metadata = {
+    corpus_scope: "australian_public",
+    source_kind: "document",
+    source_catalogue_key: plan.catalogueKey,
+    source_policy_version: plan.sourcePolicyVersion,
+    source_policy_digest: plan.sourcePolicyDigest,
+    public_source_activation_event_id: plan.activationEventId,
+    public_source_version_id: reservation.id,
+    public_source_steward_id: plan.stewardId,
+    content_mode: "indexed_content",
+    licence_policy: "public_index_permitted",
+    acquisition_disposition: fetched.disposition,
+    publisher: definition.publisher,
+    publisher_code: definition.publisherCode,
+    jurisdiction: definition.jurisdiction,
+    source_role: definition.roles[0] ?? "clinical_guideline",
+    source_title: plan.exactVersion,
+    canonical_url: definition.canonicalUrl,
+    exact_version_url: fetched.finalUrl,
+    version: plan.exactVersion,
+    document_status: "current",
+    change_state: "changed",
+    clinical_validation_status: "unverified",
+    content_hash: fetched.contentHash,
+  };
+  try {
+    const version = await dependencies.finalize({
+      manifest: {
+        reservationId: reservation.id,
         catalogueKey: plan.catalogueKey,
-        sourcePolicyVersion: plan.sourcePolicyVersion,
-        sourcePolicyDigest: plan.sourcePolicyDigest,
         activationEventId: plan.activationEventId,
-        exactCanonicalUrl: definition.canonicalUrl,
-        exactVersionUrl: fetched.finalUrl,
-        exactVersion: plan.exactVersion,
-        contentHash: fetched.contentHash,
-        retrievedAt: new Date().toISOString(),
-        licenceEvidenceDigest: plan.licenceEvidenceDigest,
         stewardId: plan.stewardId,
-        stagingDocumentId: documentId,
+        disposition: fetched.disposition,
+        document: {
+          id: reservation.reservedDocumentId,
+          owner_id: plan.stewardId,
+          title: `${definition.publisher} — ${plan.exactVersion}`,
+          description: "Controlled public-source staging document.",
+          file_name: `source${safeExtension}`,
+          file_type: fetched.mime,
+          file_size: fetched.byteCount,
+          storage_path: reservation.storagePath,
+          content_hash: fetched.contentHash,
+          metadata,
+        },
       } satisfies Json,
+      maxAttempts,
     });
-    if (versionError || !version) throw new Error("Public source version staging failed.");
     return { disposition: fetched.disposition, version };
-  } catch (error) {
-    if (documentCreated) {
-      await supabase.from("documents").delete().eq("id", documentId).eq("owner_id", plan.stewardId);
+  } catch {
+    const recovered = await dependencies.lookup(reservation.id);
+    if (
+      recovered?.staging_document_id === reservation.reservedDocumentId &&
+      recovered.lifecycle === fetched.disposition
+    ) {
+      return { disposition: fetched.disposition, version: recovered };
     }
-    if (uploaded) await supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([storagePath]);
-    throw error;
+    throw new Error("Public source finalization failed without committed state; reservation remains retryable.");
   }
 }
 
@@ -152,7 +246,9 @@ async function main() {
       `[public-sources:fetch] ${plan.catalogueKey} ${new URL(plan.exactUrl).hostname} ${fetched.contentHash} ${result.disposition}`,
     );
   }
-  console.log("[public-sources:fetch] staged owned shadow versions only; no content was activated or published.");
+  console.log(
+    "[public-sources:fetch] persisted owned shadow/quarantined versions only; no content was activated or published.",
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

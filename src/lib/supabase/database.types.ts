@@ -937,6 +937,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      public_source_policy_entries: {
+        Row: {
+          canonical_host: string;
+          canonical_url: string;
+          content_mode: string;
+          created_at: string;
+          exact_document_licence: string;
+          lifecycle: string;
+          policy_digest: string;
+          policy_version: string;
+          source_catalogue_key: string;
+        };
+        Insert: {
+          canonical_host: string;
+          canonical_url: string;
+          content_mode: string;
+          created_at?: string;
+          exact_document_licence: string;
+          lifecycle: string;
+          policy_digest: string;
+          policy_version: string;
+          source_catalogue_key: string;
+        };
+        Update: {
+          canonical_host?: string;
+          canonical_url?: string;
+          content_mode?: string;
+          created_at?: string;
+          exact_document_licence?: string;
+          lifecycle?: string;
+          policy_digest?: string;
+          policy_version?: string;
+          source_catalogue_key?: string;
+        };
+        Relationships: [];
+      };
       public_source_activation_events: {
         Row: {
           created_at: string;
@@ -976,6 +1012,38 @@ export type Database = {
         };
         Relationships: [];
       };
+      public_source_activation_guards: {
+        Row: {
+          backend_pid: number;
+          created_at: string;
+          token: string;
+          transaction_id: number;
+          version_id: string;
+        };
+        Insert: {
+          backend_pid: number;
+          created_at?: string;
+          token: string;
+          transaction_id: number;
+          version_id: string;
+        };
+        Update: {
+          backend_pid?: number;
+          created_at?: string;
+          token?: string;
+          transaction_id?: number;
+          version_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "public_source_activation_guards_version_id_fkey";
+            columns: ["version_id"];
+            isOneToOne: false;
+            referencedRelation: "public_source_versions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       public_source_versions: {
         Row: {
           activation_event_id: string;
@@ -986,15 +1054,19 @@ export type Database = {
           exact_version_url: string;
           extraction_index_generation_id: string | null;
           id: string;
+          intended_disposition: string;
           licence_evidence_digest: string;
           lifecycle: string;
+          reservation_key: string;
+          reserved_document_id: string;
+          reserved_storage_path: string;
           retrieved_at: string;
           review_queued_at: string | null;
           review_reason: string | null;
           source_catalogue_key: string;
           source_policy_digest: string;
           source_policy_version: string;
-          staging_document_id: string;
+          staging_document_id: string | null;
           steward_id: string;
           supersedes_version_id: string | null;
           updated_at: string;
@@ -1007,16 +1079,20 @@ export type Database = {
           exact_version: string;
           exact_version_url: string;
           extraction_index_generation_id?: string | null;
-          id?: string;
+          id: string;
+          intended_disposition: string;
           licence_evidence_digest: string;
           lifecycle?: string;
+          reservation_key: string;
+          reserved_document_id: string;
+          reserved_storage_path: string;
           retrieved_at: string;
           review_queued_at?: string | null;
           review_reason?: string | null;
           source_catalogue_key: string;
           source_policy_digest: string;
           source_policy_version: string;
-          staging_document_id: string;
+          staging_document_id?: string | null;
           steward_id: string;
           supersedes_version_id?: string | null;
           updated_at?: string;
@@ -1030,15 +1106,19 @@ export type Database = {
           exact_version_url?: string;
           extraction_index_generation_id?: string | null;
           id?: string;
+          intended_disposition?: string;
           licence_evidence_digest?: string;
           lifecycle?: string;
+          reservation_key?: string;
+          reserved_document_id?: string;
+          reserved_storage_path?: string;
           retrieved_at?: string;
           review_queued_at?: string | null;
           review_reason?: string | null;
           source_catalogue_key?: string;
           source_policy_digest?: string;
           source_policy_version?: string;
-          staging_document_id?: string;
+          staging_document_id?: string | null;
           steward_id?: string;
           supersedes_version_id?: string | null;
           updated_at?: string;
@@ -1050,6 +1130,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "public_source_activation_events";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "public_source_versions_source_catalogue_key_fkey";
+            columns: ["source_catalogue_key"];
+            isOneToOne: false;
+            referencedRelation: "public_source_policy_entries";
+            referencedColumns: ["source_catalogue_key"];
           },
           {
             foreignKeyName: "public_source_versions_staging_document_id_fkey";
@@ -3034,8 +3121,22 @@ export type Database = {
         Args: { p_manifest: Json };
         Returns: Database["public"]["Tables"]["public_source_activation_events"]["Row"];
       };
-      stage_public_source_version: {
+      reserve_public_source_version: {
         Args: { p_manifest: Json };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      finalize_public_source_version: {
+        Args: { p_manifest: Json; p_max_attempts: number };
+        Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
+      };
+      activate_public_source_version: {
+        Args: {
+          p_activation_event_id: string;
+          p_expected_generation_ids: string[];
+          p_expected_state_digest: string;
+          p_publication_manifest: Json;
+          p_version_id: string;
+        };
         Returns: Database["public"]["Tables"]["public_source_versions"]["Row"];
       };
       transition_public_source_version: {

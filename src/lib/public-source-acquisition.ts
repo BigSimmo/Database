@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { BlockList, isIP } from "node:net";
 import { request as httpsRequest } from "node:https";
@@ -25,6 +26,14 @@ import { assertUploadStructure } from "@/lib/upload-structure";
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const uuidSchema = z.string().uuid();
 const maximumAcquisitionBytes = MAX_UPLOAD_MB_CEILING * 1024 * 1024;
+const { JSDOM } = createRequire(import.meta.url)("jsdom") as {
+  JSDOM: new (
+    html: string,
+    options: { contentType: string },
+  ) => {
+    window: { document: Document; close(): void };
+  };
+};
 
 const acquisitionPlanSchema = z
   .object({
@@ -44,7 +53,7 @@ const acquisitionPlanSchema = z
 
 export type PublicSourceAcquisitionPlan = Readonly<z.infer<typeof acquisitionPlanSchema>>;
 export type ResolvedAcquisitionAddress = { address: string; family: 4 | 6 };
-export type AcquisitionResolver = (hostname: string) => Promise<ResolvedAcquisitionAddress[]>;
+export type AcquisitionResolver = (hostname: string, signal?: AbortSignal) => Promise<ResolvedAcquisitionAddress[]>;
 export type AcquisitionResponse = {
   status: number;
   headers: Record<string, string | undefined>;
@@ -100,12 +109,20 @@ for (const [network, prefix, family] of [
   ["203.0.113.0", 24, "ipv4"],
   ["224.0.0.0", 4, "ipv4"],
   ["240.0.0.0", 4, "ipv4"],
-  ["::", 128, "ipv6"],
+  ["::", 96, "ipv6"],
   ["::1", 128, "ipv6"],
+  ["64:ff9b:1::", 48, "ipv6"],
   ["100::", 64, "ipv6"],
+  ["2001::", 23, "ipv6"],
+  ["2001:2::", 48, "ipv6"],
   ["2001:db8::", 32, "ipv6"],
+  ["2002::", 16, "ipv6"],
+  ["2620:4f:8000::", 48, "ipv6"],
+  ["3fff::", 20, "ipv6"],
+  ["5f00::", 16, "ipv6"],
   ["fc00::", 7, "ipv6"],
   ["fe80::", 10, "ipv6"],
+  ["fec0::", 10, "ipv6"],
   ["ff00::", 8, "ipv6"],
 ] as const) {
   nonGlobalAddresses.addSubnet(network, prefix, family);
@@ -148,13 +165,33 @@ const defaultResolver: AcquisitionResolver = async (hostname) => {
   });
 };
 
+function raceWithAbort<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return operation;
+  if (signal.aborted) return Promise.reject(signal.reason ?? new Error("Acquisition cancelled."));
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new Error("Acquisition cancelled."));
+    signal.addEventListener("abort", abort, { once: true });
+    operation.then(
+      (value) => {
+        signal.removeEventListener("abort", abort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", abort);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function validateAcquisitionUrl(
   rawUrl: string,
   definition: AustralianSourceDefinition,
-  dependencies: { resolve?: AcquisitionResolver } = {},
+  dependencies: { resolve?: AcquisitionResolver; signal?: AbortSignal } = {},
 ) {
   const url = assertStaticAcquisitionUrl(rawUrl, definition);
-  const answers = await (dependencies.resolve ?? defaultResolver)(url.hostname);
+  const resolver = dependencies.resolve ?? defaultResolver;
+  const answers = await raceWithAbort(resolver(url.hostname, dependencies.signal), dependencies.signal);
   if (answers.length === 0) throw new Error("Acquisition hostname returned no DNS addresses.");
   if (answers.some((answer) => !isGlobalPublicAddress(answer.address))) {
     throw new Error("Acquisition hostname resolved to a private or non-global address.");
@@ -168,7 +205,7 @@ export async function validateAcquisitionUrl(
 export async function validateRedirect(
   rawUrl: string,
   definition: AustralianSourceDefinition,
-  dependencies: { resolve?: AcquisitionResolver } = {},
+  dependencies: { resolve?: AcquisitionResolver; signal?: AbortSignal } = {},
 ) {
   return validateAcquisitionUrl(rawUrl, definition, dependencies);
 }
@@ -328,7 +365,7 @@ export async function fetchApprovedPublicSource(
       visited.add(currentUrl.href);
       let validated: Awaited<ReturnType<typeof validateAcquisitionUrl>>;
       try {
-        validated = await validateAcquisitionUrl(currentUrl.href, definition, { resolve });
+        validated = await validateAcquisitionUrl(currentUrl.href, definition, { resolve, signal: controller.signal });
       } catch {
         throw safeError("Acquisition URL or DNS validation failed.", plan, currentUrl);
       }
@@ -437,38 +474,82 @@ export function normalizeAcquisitionMime(value: string): string {
   return value.split(";", 1)[0]!.trim().toLowerCase();
 }
 
-function decodeVisibleHtmlText(value: string) {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&#(\d+);/g, (_match, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export function extractTrustedHtmlContent(html: string): {
   text: string;
   content: Buffer;
   mime: "text/plain";
   disposition: "shadow" | "quarantined";
 } {
-  const withoutUnsafe = html.replace(
-    /<(script|style|template|noscript|iframe|object|embed|svg|canvas|form|button|input|video|audio|source|picture|img|link)\b[\s\S]*?<\/\1\s*>|<(img|link|input|source|embed)\b[^>]*\/?\s*>/gi,
-    " ",
-  );
-  const main = withoutUnsafe.match(/<main\b[^>]*>([\s\S]*?)<\/main\s*>/i)?.[1];
-  const article = withoutUnsafe.match(/<article\b[^>]*>([\s\S]*?)<\/article\s*>/i)?.[1];
-  const retained = main ?? article;
-  if (!retained) throw new Error("Trusted HTML must contain an explicit main or article region.");
-  const withoutNestedChrome = retained.replace(/<(nav|header|footer|aside)\b[\s\S]*?<\/\1\s*>/gi, " ");
-  const text = decodeVisibleHtmlText(withoutNestedChrome.replace(/<[^>]+>/g, " "));
-  if (!text) throw new Error("Trusted HTML main content is empty.");
-  const disposition = /health\s*direct/i.test(text) ? "quarantined" : "shadow";
-  return { text, content: Buffer.from(text, "utf8"), mime: "text/plain", disposition };
+  const dom = new JSDOM(html, { contentType: "text/html" });
+  try {
+    const directlyHidden = (element: Element) => {
+      const style = element.getAttribute("style") ?? "";
+      return (
+        element.hasAttribute("hidden") ||
+        element.hasAttribute("inert") ||
+        element.getAttribute("aria-hidden")?.toLowerCase() === "true" ||
+        /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)(?:\s*!important)?\s*(?:;|$)/i.test(style)
+      );
+    };
+    const hidden = (element: Element) => {
+      for (let current: Element | null = element; current; current = current.parentElement) {
+        if (directlyHidden(current)) return true;
+      }
+      return false;
+    };
+    const retained = [...dom.window.document.querySelectorAll("main, article")].find((element) => !hidden(element));
+    if (!retained) throw new Error("Trusted HTML must contain a visible explicit main or article region.");
+    const safe = retained.cloneNode(true) as Element;
+    for (const element of safe.querySelectorAll(
+      [
+        "script",
+        "style",
+        "template",
+        "noscript",
+        "iframe",
+        "object",
+        "embed",
+        "svg",
+        "canvas",
+        "form",
+        "button",
+        "input",
+        "video",
+        "audio",
+        "source",
+        "picture",
+        "img",
+        "link",
+        "meta",
+        "base",
+        "nav",
+        "header",
+        "footer",
+        "aside",
+        '[role="navigation"]',
+        '[role="banner"]',
+        '[role="contentinfo"]',
+        '[role="complementary"]',
+        '[role="search"]',
+        ".navigation",
+        ".site-header",
+        ".site-footer",
+        ".sidebar",
+        ".breadcrumb",
+        ".breadcrumbs",
+        ".cookie-banner",
+      ].join(","),
+    )) {
+      element.remove();
+    }
+    for (const element of safe.querySelectorAll("*")) if (hidden(element)) element.remove();
+    const text = (safe.textContent ?? "").replace(/\s+/g, " ").trim();
+    if (!text) throw new Error("Trusted HTML main content is empty.");
+    const disposition = /health\s*direct/i.test(text) ? "quarantined" : "shadow";
+    return { text, content: Buffer.from(text, "utf8"), mime: "text/plain", disposition };
+  } finally {
+    dom.window.close();
+  }
 }
 
 export async function validateFetchedPublicSource(input: { mime: string; content: Uint8Array }) {

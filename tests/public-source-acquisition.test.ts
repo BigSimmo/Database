@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 
@@ -22,6 +23,18 @@ import {
   type AcquisitionRequest,
   type PublicSourceAcquisitionPlan,
 } from "@/lib/public-source-acquisition";
+import {
+  stageFetchedPublicSource,
+  type PublicSourceStagingDependencies,
+} from "../scripts/fetch-approved-public-source-versions";
+
+vi.mock("@next/env", () => ({ loadEnvConfig: vi.fn() }));
+vi.mock("@/lib/env", () => ({ env: { SUPABASE_DOCUMENT_BUCKET: "offline-test", WORKER_MAX_ATTEMPTS: 3 } }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => {
+    throw new Error("default admin client is forbidden in provider-free tests");
+  },
+}));
 
 const stewardId = "22222222-2222-4222-8222-222222222222";
 const activationEventId = "33333333-3333-4333-8333-333333333333";
@@ -157,10 +170,20 @@ describe("public source acquisition", () => {
     "::",
     "::1",
     "::ffff:127.0.0.1",
+    "0:0:0:0:0:ffff:7f00:1",
+    "0:0:0:0:0:ffff:127.0.0.1",
+    "::ffff:7f00:1",
+    "::192.0.2.1",
     "100::1",
+    "64:ff9b:1::1",
+    "2001:2::1",
     "2001:db8::1",
+    "2002:c000:0201::1",
+    "3fff::1",
+    "5f00::1",
     "fc00::1",
     "fe80::1",
+    "fec0::1",
     "ff00::1",
   ])("rejects non-global IPv4 and IPv6 address %s", (address) => {
     expect(isGlobalPublicAddress(address)).toBe(false);
@@ -296,6 +319,23 @@ describe("public source acquisition", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
+  it("bounds a never-resolving DNS resolver under total timeout and caller abort", async () => {
+    const plan = await activePlan();
+    const never = vi.fn(() => new Promise<never>(() => undefined));
+    await expect(fetchApprovedPublicSource(plan, { resolve: never, totalTimeoutMs: 20 })).rejects.toThrow(
+      /cancel|timeout|dns/i,
+    );
+
+    const controller = new AbortController();
+    const pending = fetchApprovedPublicSource(plan, {
+      resolve: never,
+      signal: controller.signal,
+      totalTimeoutMs: 5_000,
+    });
+    controller.abort();
+    await expect(pending).rejects.toThrow(/cancel|abort|timeout|dns/i);
+  });
+
   it("normalizes MIME parameters and reuses file signature and structure validation", async () => {
     expect(normalizeAcquisitionMime("Application/PDF; charset=binary")).toBe("application/pdf");
     await expect(
@@ -326,6 +366,33 @@ describe("public source acquisition", () => {
       "<html><body><main><h1>Clinical page</h1><p>Republished from Healthdirect Australia.</p></main></body></html>",
     );
     expect(extracted).toMatchObject({ disposition: "quarantined" });
+  });
+
+  it("uses parsed visible content for entity decoding and quarantine decisions", () => {
+    const extracted = extractTrustedHtmlContent(`
+      <html><body><main>
+        <p hidden>Health&#x64;irect hidden marker</p>
+        <p aria-hidden="true">Healthdirect hidden marker</p>
+        <p>Republished from Health&#100;irect&nbsp;Australia &amp; partners.</p>
+      </main></body></html>
+    `);
+    expect(extracted.disposition).toBe("quarantined");
+    expect(extracted.text).toContain("Healthdirect Australia & partners.");
+    expect(extracted.text).not.toContain("hidden marker");
+    expect(() => extractTrustedHtmlContent("<main hidden><p>Health&#x64;irect</p></main>")).toThrow(/main|article/i);
+  });
+
+  it("inherits hidden state from ancestors before choosing retained main content", () => {
+    const extracted = extractTrustedHtmlContent(`
+      <html><body>
+        <section hidden><main>Healthdirect hidden ancestor marker</main></section>
+        <section aria-hidden="true"><article>Healthdirect aria-hidden ancestor marker</article></section>
+        <div style="display: none"><main>Healthdirect inline-hidden ancestor marker</main></div>
+        <main><p>Visible clinical guidance.</p></main>
+      </body></html>
+    `);
+    expect(extracted).toMatchObject({ disposition: "shadow" });
+    expect(extracted.text).toBe("Visible clinical guidance.");
   });
 
   it("never includes response bodies, query strings, signed URLs, or operator identities in errors", async () => {
@@ -365,6 +432,97 @@ describe("public source acquisition", () => {
       removeFromRetrieval: true,
       queueHumanReview: true,
     });
+  });
+
+  it("reserves authority before upload and recovers an ambiguous committed finalization", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "d".repeat(64),
+      byteCount: 12,
+      mime: "text/plain" as const,
+      content: Buffer.from("clinical text"),
+      text: "clinical text",
+      disposition: "quarantined" as const,
+    };
+    const calls: string[] = [];
+    const committed = {
+      id: "44444444-4444-4444-8444-444444444444",
+      lifecycle: "quarantined",
+      staging_document_id: "55555555-5555-4555-8555-555555555555",
+    };
+    const dependencies: PublicSourceStagingDependencies = {
+      reserve: vi.fn(async () => {
+        calls.push("reserve");
+        return {
+          id: committed.id,
+          reservedDocumentId: committed.staging_document_id,
+          storagePath: `${stewardId}/public-source-staging/${committed.id}/source.txt`,
+          stagingDocumentId: null,
+          lifecycle: "discovered",
+        };
+      }),
+      upload: vi.fn(async () => {
+        calls.push("upload");
+      }),
+      finalize: vi.fn(async () => {
+        calls.push("finalize");
+        throw new Error("ambiguous transport failure after commit");
+      }),
+      lookup: vi.fn(async () => {
+        calls.push("lookup");
+        return committed;
+      }),
+    };
+
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).resolves.toMatchObject({
+      disposition: "quarantined",
+      version: committed,
+    });
+    expect(calls).toEqual(["reserve", "upload", "finalize", "lookup"]);
+    expect(dependencies.upload).toHaveBeenCalledWith(expect.objectContaining({ upsert: true }));
+  });
+
+  it("does not upload a finalized retry or expose a destructive cleanup dependency", async () => {
+    const plan = await activePlan();
+    const fetched = {
+      finalUrl: plan.exactUrl,
+      contentHash: "e".repeat(64),
+      byteCount: 12,
+      mime: "text/plain",
+      content: Buffer.from("clinical text"),
+      disposition: "shadow" as const,
+    };
+    const upload = vi.fn();
+    const finalize = vi.fn();
+    const lookup = vi.fn();
+    const dependencies: PublicSourceStagingDependencies = {
+      reserve: vi.fn(async () => ({
+        id: "44444444-4444-4444-8444-444444444444",
+        reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+        storagePath: `${stewardId}/public-source-staging/final/source.txt`,
+        stagingDocumentId: "55555555-5555-4555-8555-555555555555",
+        lifecycle: "shadow",
+      })),
+      upload,
+      finalize,
+      lookup,
+    };
+    await expect(stageFetchedPublicSource(plan, fetched, dependencies)).resolves.toMatchObject({
+      disposition: "duplicate",
+    });
+    expect(upload).not.toHaveBeenCalled();
+    expect(finalize).not.toHaveBeenCalled();
+    expect(lookup).not.toHaveBeenCalled();
+    expect(dependencies).not.toHaveProperty("remove");
+  });
+
+  it("keeps plan and change CLI imports behind direct-entry guards", () => {
+    for (const file of ["scripts/plan-public-source-acquisition.ts", "scripts/check-public-source-changes.ts"]) {
+      const source = readFileSync(file, "utf8");
+      expect(source).toContain('import { pathToFileURL } from "node:url"');
+      expect(source).toContain("import.meta.url === pathToFileURL(process.argv[1]).href");
+    }
   });
 
   it("requires every explicit fetch confirmation while keeping dry-run arguments network-free", async () => {
