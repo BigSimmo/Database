@@ -28,7 +28,6 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cn } from "@/components/ui-primitives";
 import {
   allDictionaryEntries,
@@ -122,11 +121,13 @@ function catalogueNoun(scope: DictionaryCatalogueScope, count: number) {
  * a hard constraint with committed tests behind it.
  *
  * The phone control row is sized to its own labels rather than to the viewport.
- * The Terms / Abbreviations switch is the shared SegmentedControl, with counts
- * as separate hints rather than jammed digits. Filter stays on this row at
- * every breakpoint — including during a search — rather than moving into the
- * query ribbon. Idle controls remain one balanced row at common phone widths
- * and wrap, rather than clip, on compact screens.
+ * The Terms / Abbreviations switch is a joined two-cell toggle (one border, no
+ * gap), compact in type and height so it does not compete with Filter. Counts
+ * sit beside the labels with an explicit accessible name ("Terms (2)") so they
+ * do not concatenate. Filter stays on this row at every breakpoint — including
+ * during a search — rather than moving into the query ribbon. Idle controls
+ * remain one balanced row at common phone widths and wrap, rather than clip,
+ * on compact screens.
  */
 export function DictionaryCataloguePage() {
   const { searchParams, replace, setOne, toggleMany } = useDictionaryUrl();
@@ -288,30 +289,47 @@ export function DictionaryCataloguePage() {
     })),
   ];
 
-  /* Sized to its own labels, not to the viewport. Counts live in `hint` so the
-     accessible name is "Terms (2)" rather than the concatenated "Terms2" the
-     previous jammed digits produced. */
+  /* Joined two-cell toggle: one border, no gap, sized to its own labels.
+     Compact (28px, 11px type) so the row stays a control strip rather than a
+     second header. `aria-label` keeps the accessible name "Terms (2)" rather
+     than the concatenated "Terms2" jammed digits produced. */
   const scopeToggle = (
-    <div data-testid="dictionary-scope-toggle" className="max-w-full shrink-0">
-      <SegmentedControl
-        label="Show"
-        ariaControls="dictionary-catalogue-results"
-        layout="fit"
-        className="w-auto max-w-full"
-        value={params.scope}
-        onChange={(scope) => setOne("view", scope, "definitions")}
-        options={scopeOptions.map((option) => ({
-          value: option.value,
-          label: option.label,
-          hint: String(scopeCounts[option.value]),
-        }))}
-      />
+    <div
+      role="group"
+      aria-label="Show"
+      data-testid="dictionary-scope-toggle"
+      className="inline-flex h-7 shrink-0 items-stretch overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)]"
+    >
+      {scopeOptions.map((option) => {
+        const active = params.scope === option.value;
+        const count = scopeCounts[option.value];
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={active}
+            aria-label={`${option.label} (${count})`}
+            aria-controls="dictionary-catalogue-results"
+            onClick={() => setOne("view", option.value, "definitions")}
+            className={cn(
+              "inline-flex h-full items-center gap-1 px-2 text-2xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
+              focusRing,
+              active
+                ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
+                : "bg-transparent text-[color:var(--clinical-accent)] hover:bg-[color:var(--tone-purple-soft)]",
+            )}
+          >
+            <span>{option.label}</span>
+            <span className="nums font-medium tabular-nums">{count}</span>
+          </button>
+        );
+      })}
     </div>
   );
 
-  /* The phone's whole alphabet in one 63px control. 27 chips cost a band and a
+  /* The phone's whole alphabet in one compact chip. 27 chips cost a band and a
      horizontal scroll; the rail below is the same control at a width that can
-     afford it. */
+     afford it. Height matches the joined scope toggle so the row stays even. */
   const letterChip = (
     <button
       type="button"
@@ -322,7 +340,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex h-7 shrink-0 items-center gap-0.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
@@ -406,11 +424,12 @@ export function DictionaryCataloguePage() {
           </div>
         ) : null}
         <div className="border-y border-[color:var(--border)] bg-[color:var(--surface)]">
-          <div className="mx-auto grid w-full max-w-[76rem] gap-2 px-4 py-3 sm:gap-3 sm:px-6">
+          <div className="mx-auto grid w-full max-w-[76rem] gap-1.5 px-4 py-2 sm:gap-3 sm:px-6 sm:py-3">
             {/* Filter is a permanent member of this row, including during a
-                search. At 320px the intrinsic controls wrap rather than
+                search. The compact toggle is vertically centred against the
+                taller Filter; at 320px the intrinsic controls wrap rather than
                 squeezing counts or clipping the Filter wordmark. */}
-            <div className="flex flex-wrap items-stretch gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {scopeToggle}
               {/* The alphabet is meaningless against a ranked result set, so it
                   stands down rather than competing with the words for the line.
@@ -418,7 +437,7 @@ export function DictionaryCataloguePage() {
                   same time, so nothing narrows the list without a visible
                   control saying so. */}
               {searching ? null : letterChip}
-              <span className="ml-auto flex items-stretch gap-2 [&_button]:h-full">
+              <span className="ml-auto inline-flex shrink-0 items-center gap-2">
                 <span className="hidden sm:flex">{filterTrigger("desktop")}</span>
                 <span className="flex sm:hidden">{filterTrigger("phone")}</span>
               </span>

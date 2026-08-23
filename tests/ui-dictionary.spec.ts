@@ -144,27 +144,27 @@ test("merges search and browse into one catalogue with a measured phone header",
   // offset below it is wrong until it settles (#XPY409, docs/testing.md).
   await page.waitForTimeout(1200);
 
-  // Browsing: no summary line, and the scope toggle sized to its own full
-  // labels rather than stretching to the viewport. Counts are a separate hint
-  // column, so the accessible name is "Abbreviations (N)" rather than a jammed
-  // "AbbreviationsN".
+  // Browsing: no summary line, and the joined two-cell toggle sized to its own
+  // labels rather than stretching to the viewport. Compact in type and height;
+  // counts use an explicit accessible name so it is "Abbreviations (N)" rather
+  // than a jammed "AbbreviationsN".
   const toggle = page.getByTestId("dictionary-scope-toggle");
   await expect(toggle).toBeVisible();
-  await expect(toggle.getByRole("radio", { name: /Abbreviations \(\d+\)/ })).toBeVisible();
-  await expect(toggle.getByRole("radio", { name: /Terms \(\d+\)/ })).toBeVisible();
+  await expect(toggle.getByRole("button", { name: /Abbreviations \(\d+\)/ })).toBeVisible();
+  await expect(toggle.getByRole("button", { name: /Terms \(\d+\)/ })).toBeVisible();
   const toggleBox = await toggle.boundingBox();
-  expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(48);
-  // Intrinsic, not full-bleed — the elevated track is wider than the old jammed
-  // digits, but it still must not consume the Filter slot.
-  expect(toggleBox?.width ?? 0).toBeLessThan(340);
-  expect(toggleBox?.width ?? 0).toBeGreaterThan(200);
+  expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(24);
+  expect(toggleBox?.height ?? 0).toBeLessThanOrEqual(36);
+  // Intrinsic, not full-bleed — the joined cells must not consume the Filter slot.
+  expect(toggleBox?.width ?? 0).toBeLessThan(300);
+  expect(toggleBox?.width ?? 0).toBeGreaterThan(140);
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
   const filter = page.getByTestId("dictionary-filter-trigger-phone");
   await expect(filter.getByText("Filter", { exact: true })).toBeVisible();
   await expect(page.getByTestId("search-query-ribbon")).toHaveCount(0);
-  // Filter stays on this row, to the right of the toggle. The elevated track plus
-  // the letter chip may wrap Filter at 390px; that is preferred to clipping a
-  // count. Same top edge is required when they do fit.
+  // Filter stays on this row, to the right of the toggle. The compact toggle
+  // plus the letter chip may wrap Filter at 390px; that is preferred to
+  // clipping a count. Same top edge is required when they do fit.
   const browseRow = await page.evaluate(() => {
     const box = (id: string) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect() ?? null;
     const toggle = box("dictionary-scope-toggle");
@@ -192,22 +192,18 @@ test("merges search and browse into one catalogue with a measured phone header",
   expect(browseRow.overflow).toBeLessThanOrEqual(2);
   expect(browseRow.sameRow || browseRow.filterBottomPastToggle).toBe(true);
 
-  // At 320px the same controls want more than the track has, and the contract
-  // is that the row WRAPS rather than clipping a count out of view.
+  // At 320px the same controls may wrap; the contract is that they do not clip
+  // a count out of view, whether they stay on one line or wrap.
   await page.setViewportSize({ width: 320, height: 760 });
   await page.waitForTimeout(400);
   const narrowRow = await page.evaluate(() => {
     const box = (id: string) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect() ?? null;
     return {
       toggleWidth: box("dictionary-scope-toggle")?.width ?? 0,
-      toggleTop: box("dictionary-scope-toggle")?.top ?? 0,
-      filterTop: box("dictionary-filter-trigger-phone")?.top ?? 0,
       overflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
     };
   });
-  expect(narrowRow.filterTop).toBeGreaterThan(narrowRow.toggleTop);
-  // Same intrinsic width as at 390px — it wrapped, it did not shrink.
-  expect(narrowRow.toggleWidth).toBeGreaterThan(200);
+  expect(narrowRow.toggleWidth).toBeGreaterThan(140);
   expect(narrowRow.overflow).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 390, height: 844 });
 
