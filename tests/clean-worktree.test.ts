@@ -1,293 +1,368 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
 import {
-  formatBytes,
-  getDirectoryDiskUsage,
-  identifyMergedWorktrees,
+  assertReadOnlyGitArgs,
+  classifyLiveness,
+  collectRegisteredWorktreeReport,
+  inspectWindowsReparsePaths,
   parseArgs,
   parseWorktreePorcelain,
-  verifyWorktreeSafetyBeforeRemove,
+  runReadOnlyGit,
+  runRegisteredWorktreeReport,
 } from "../scripts/clean-worktree.mjs";
 
-const created: string[] = [];
+const mainPath = path.resolve("C:/repo/main");
+const taskPath = path.resolve("D:/worktrees/task");
 
-afterEach(() => {
-  for (const root of created.splice(0)) {
-    try {
-      rmSync(root, { recursive: true, force: true, maxRetries: 5 });
-    } catch {
-      // Ignore cleanup error
-    }
-  }
-});
-
-describe("clean-worktree parseArgs", () => {
-  it("parses --help and -h flags", () => {
-    expect(parseArgs(["--help"]).help).toBe(true);
-    expect(parseArgs(["-h"]).help).toBe(true);
-  });
-
-  it("parses valid combination of flags", () => {
-    const args = parseArgs([
-      "--merged",
-      "--squashed",
-      "--remove",
-      "--dry-run",
-      "--base",
-      "origin/main",
-      "--drive",
-      "D",
-      "--batch-size",
-      "5",
-    ]);
-    expect(args.merged).toBe(true);
-    expect(args.squashed).toBe(true);
-    expect(args.remove).toBe(true);
-    expect(args.dryRun).toBe(true);
-    expect(args.baseRef).toBe("origin/main");
-    expect(args.drive).toBe("D");
-    expect(args.batchSize).toBe(5);
-  });
-
-  it("parses equal-sign flags", () => {
-    const args = parseArgs(["--merged", "--base=upstream/main", "--drive=D:", "--batch-size=15"]);
-    expect(args.merged).toBe(true);
-    expect(args.baseRef).toBe("upstream/main");
-    expect(args.drive).toBe("D:");
-    expect(args.batchSize).toBe(15);
-  });
-
-  it("rejects --remove without --merged", () => {
-    expect(() => parseArgs(["--remove"])).toThrow(/--remove is only valid together with --merged/);
-  });
-
-  it("rejects --squashed without --merged", () => {
-    expect(() => parseArgs(["--squashed"])).toThrow(/--squashed is only valid together with --merged/);
-  });
-
-  it("rejects invalid batch size", () => {
-    expect(() => parseArgs(["--batch-size", "-1"])).toThrow(/Invalid --batch-size/);
-    expect(() => parseArgs(["--batch-size=abc"])).toThrow(/Invalid --batch-size/);
-  });
-
-  it("rejects unknown arguments", () => {
-    expect(() => parseArgs(["--unknown-flag"])).toThrow(/Unknown argument: --unknown-flag/);
-  });
-});
-
-describe("clean-worktree formatBytes", () => {
-  it("formats byte values cleanly", () => {
-    expect(formatBytes(0)).toBe("0 B");
-    expect(formatBytes(-10)).toBe("0 B");
-    expect(formatBytes(500)).toBe("500 B");
-    expect(formatBytes(1024)).toBe("1.00 KB");
-    expect(formatBytes(1024 * 1024 * 1.5)).toBe("1.50 MB");
-    expect(formatBytes(1024 * 1024 * 1024 * 4.25)).toBe("4.25 GB");
-  });
-});
-
-describe("clean-worktree getDirectoryDiskUsage", () => {
-  it("measures disk usage across real directory tree", () => {
-    const dir = join(tmpdir(), `clean-wt-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(join(dir, "nested"), { recursive: true });
-    created.push(dir);
-
-    writeFileSync(join(dir, "a.txt"), "hello world\n"); // 12 bytes
-    writeFileSync(join(dir, "nested", "b.txt"), "test 123456\n"); // 12 bytes
-
-    const usage = getDirectoryDiskUsage(dir);
-    expect(usage.fileCount).toBe(2);
-    expect(usage.bytes).toBe(24);
-  });
-
-  it("handles non-existent directory safely", () => {
-    expect(getDirectoryDiskUsage("/non/existent/path/here")).toEqual({ bytes: 0, fileCount: 0 });
-  });
-
-  it("uses lstatFn rather than statFn for symbolic links", () => {
-    const fakeEntries = [
-      { name: "regular.txt", isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false },
-      { name: "symlink.txt", isDirectory: () => false, isFile: () => false, isSymbolicLink: () => true },
-    ];
-    let statCalls = 0;
-    let lstatCalls = 0;
-
-    const usage = getDirectoryDiskUsage("fake-dir", {
-      existsFn: () => true,
-      readdirFn: (() => fakeEntries) as unknown as typeof import("node:fs").readdirSync,
-      statFn: (() => {
-        statCalls += 1;
-        return { size: 100 };
-      }) as unknown as typeof import("node:fs").statSync,
-      lstatFn: (() => {
-        lstatCalls += 1;
-        return { size: 20 };
-      }) as unknown as typeof import("node:fs").lstatSync,
-    });
-
-    expect(statCalls).toBe(1);
-    expect(lstatCalls).toBe(1);
-    expect(usage.fileCount).toBe(2);
-    expect(usage.bytes).toBe(120);
-  });
-});
-
-describe("clean-worktree identifyMergedWorktrees", () => {
-  const porcelain = [
-    "worktree C:/repo/main",
+function porcelain() {
+  return [
+    `worktree ${mainPath}`,
     "HEAD 1111111111111111111111111111111111111111",
     "branch refs/heads/main",
     "",
-    "worktree D:/worktrees/landed-c1",
+    `worktree ${taskPath}`,
     "HEAD 2222222222222222222222222222222222222222",
-    "branch refs/heads/landed-c1",
-    "",
-    "worktree C:/worktrees/landed-c2",
-    "HEAD 3333333333333333333333333333333333333333",
-    "branch refs/heads/landed-c2",
-    "",
-    "worktree D:/worktrees/dirty",
-    "HEAD 4444444444444444444444444444444444444444",
-    "branch refs/heads/dirty",
+    "branch refs/heads/task",
     "",
   ].join("\n");
+}
 
-  it("identifies clean merged candidates and can filter by drive", () => {
-    const parsed = parseWorktreePorcelain(porcelain);
-    const mockIsMerged = () => true;
-    const mockStatus = (p: string) => (p.includes("dirty") ? " M file.ts\n" : "");
-    const mockAhead = () => 0;
+function ok(stdout = "") {
+  return { ok: true, code: 0, stdout };
+}
 
-    const all = identifyMergedWorktrees(parsed, {
-      isMergedFn: mockIsMerged,
-      statusFn: mockStatus,
-      aheadCountFn: mockAhead,
-      existsFn: () => true,
-      mainPath: "C:/repo/main",
-      diskUsageFn: () => ({ bytes: 1024 * 1024, fileCount: 100 }),
-    });
+describe("clean-worktree report-only argument contract", () => {
+  it.each([
+    ["--remove"],
+    ["--merged", "--remove"],
+    ["--merged", "--remove", "--dry-run"],
+    ["--apply"],
+    ["--apply=true"],
+  ])("rejects mutation option %j before inspection", (...argv) => {
+    expect(() => parseArgs(argv)).toThrow(/report-only|unsupported/i);
+  });
 
-    expect(all).toHaveLength(2);
-    expect(all[0].path).toBe("D:/worktrees/landed-c1");
-    expect(all[1].path).toBe("C:/worktrees/landed-c2");
-    expect(all[0].diskUsage?.bytes).toBe(1024 * 1024);
+  it("cannot be unlocked by the legacy confirmation environment variable", () => {
+    const prior = process.env.CLEAN_WORKTREE_CONFIRM;
+    process.env.CLEAN_WORKTREE_CONFIRM = "1";
+    try {
+      expect(() => parseArgs(["--merged", "--remove"])).toThrow(/report-only|unsupported/i);
+    } finally {
+      if (prior === undefined) delete process.env.CLEAN_WORKTREE_CONFIRM;
+      else process.env.CLEAN_WORKTREE_CONFIRM = prior;
+    }
+  });
 
-    const devDriveOnly = identifyMergedWorktrees(parsed, {
-      isMergedFn: mockIsMerged,
-      statusFn: mockStatus,
-      aheadCountFn: mockAhead,
-      existsFn: () => true,
-      mainPath: "C:/repo/main",
+  it("keeps report filters while making dry-run an explicit compatibility no-op", () => {
+    expect(parseArgs(["--merged", "--squashed", "--dry-run", "--base=origin/main", "--drive=D"])).toMatchObject({
+      merged: true,
+      squashed: true,
+      dryRun: true,
+      baseRef: "origin/main",
       drive: "D",
+      reportOnly: true,
     });
+  });
 
-    expect(devDriveOnly).toHaveLength(1);
-    expect(devDriveOnly[0].path).toBe("D:/worktrees/landed-c1");
+  it("rejects malformed drive filters", () => {
+    expect(() => parseArgs(["--drive=DX"])).toThrow(/drive filter/i);
+  });
+
+  it("rejects every programmatic mutation-shaped option before any adapter call", () => {
+    let adapterCalls = 0;
+    const gitFn = () => {
+      adapterCalls += 1;
+      return ok();
+    };
+
+    expect(() => runRegisteredWorktreeReport({ remove: true }, { gitFn })).toThrow(/report-only|unsupported/i);
+    expect(() => runRegisteredWorktreeReport({ remove: "yes" }, { gitFn })).toThrow(/report-only|unsupported/i);
+    expect(() => runRegisteredWorktreeReport({ apply: false }, { gitFn })).toThrow(/report-only|unsupported/i);
+    expect(() => runRegisteredWorktreeReport({ drive: "DX" }, { gitFn })).toThrow(/drive filter/i);
+    expect(adapterCalls).toBe(0);
   });
 });
 
-describe("clean-worktree verifyWorktreeSafetyBeforeRemove", () => {
-  const candidate = {
-    path: "D:/worktrees/feature-done",
-    branch: "refs/heads/feature-done",
-    head: "2222222222222222222222222222222222222222",
-    detached: false,
-    locked: false,
-  };
-
-  it("approves a clean landed worktree", () => {
-    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
-      mainPath: "C:/repo/main",
-      currentPath: "C:/repo/current",
-      existsFn: () => true,
-      statusFn: () => "",
-      branchFn: () => "feature-done",
-      aheadCountFn: () => 0,
-      confidenceFn: () => "proven — every commit on this branch is reachable from origin/main",
-    });
-    expect(result.safe).toBe(true);
+describe("clean-worktree read-only Git boundary", () => {
+  it.each([
+    ["clean", "-fdx"],
+    ["worktree", "prune", "--expire", "now"],
+    ["worktree", "remove", taskPath],
+    ["commit-tree", "abc123"],
+    ["update-ref", "refs/heads/main", "abc123"],
+  ])("rejects mutating Git invocation %j", (...args) => {
+    expect(() => assertReadOnlyGitArgs(args)).toThrow(/read-only Git boundary/i);
   });
 
-  it("rejects deletion if working tree is dirty", () => {
-    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
-      mainPath: "C:/repo/main",
-      currentPath: "C:/repo/current",
-      existsFn: () => true,
-      statusFn: () => " M uncommitted.ts\n",
-      branchFn: () => "feature-done",
-      aheadCountFn: () => 0,
-    });
-    expect(result.safe).toBe(false);
-    expect(result.reason).toContain("uncommitted or untracked");
+  it("permits only the dry-run worktree prune form", () => {
+    expect(() => assertReadOnlyGitArgs(["worktree", "prune", "--dry-run", "-v"])).not.toThrow();
+    expect(() => assertReadOnlyGitArgs(["worktree", "prune", "-v", "--dry-run"])).toThrow(/read-only Git boundary/i);
   });
 
-  it("rejects deletion if branch was switched since scan", () => {
-    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
-      mainPath: "C:/repo/main",
-      currentPath: "C:/repo/current",
-      existsFn: () => true,
-      statusFn: () => "",
-      branchFn: () => "another-branch",
-      aheadCountFn: () => 0,
-    });
-    expect(result.safe).toBe(false);
-    expect(result.reason).toContain("branch switched");
+  it("pins exact read-only caller shapes and refuses write-capable lookalikes", () => {
+    const left = "a".repeat(40);
+    const right = "b".repeat(40);
+    expect(() => assertReadOnlyGitArgs(["merge-base", "--is-ancestor", left, right])).not.toThrow();
+    expect(() =>
+      assertReadOnlyGitArgs([
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        left,
+        right,
+        "--",
+      ]),
+    ).not.toThrow();
+    expect(() => assertReadOnlyGitArgs(["symbolic-ref", "HEAD", "refs/heads/evil"])).toThrow(/read-only Git boundary/i);
+    expect(() =>
+      assertReadOnlyGitArgs(["diff", "--no-ext-diff", "--no-textconv", `--output=${taskPath}`, left, right]),
+    ).toThrow(/read-only Git boundary/i);
+    expect(() => assertReadOnlyGitArgs(["rev-parse", "--verify", "--quiet", "main^{commit}"])).toThrow(
+      /read-only Git boundary/i,
+    );
   });
 
-  it("rejects deletion if unlanded commits are ahead of base", () => {
-    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
-      mainPath: "C:/repo/main",
-      currentPath: "C:/repo/current",
-      existsFn: () => true,
-      statusFn: () => "",
-      branchFn: () => "feature-done",
-      aheadCountFn: () => 3,
-    });
-    expect(result.safe).toBe(false);
-    expect(result.reason).toContain("3 unlanded commit(s) ahead");
+  it("suppresses optional index writes and lazy object fetches", () => {
+    let invocation: { args?: string[]; env?: NodeJS.ProcessEnv } = {};
+    const runner = (_file: string, args: string[], options: { env: NodeJS.ProcessEnv }) => {
+      invocation = { args, env: options.env };
+      return { status: 0, stdout: "ok\n", stderr: "" };
+    };
+
+    expect(runReadOnlyGit(["rev-parse", "HEAD"], { runner }).stdout).toBe("ok");
+    expect(invocation.args?.[0]).toBe("--no-optional-locks");
+    expect(invocation.args).toContain("--literal-pathspecs");
+    expect(invocation.env?.GIT_OPTIONAL_LOCKS).toBe("0");
+    expect(invocation.env?.GIT_NO_LAZY_FETCH).toBe("1");
+    expect(invocation.env?.GIT_LITERAL_PATHSPECS).toBe("1");
   });
 
-  it("blocks removal of NOT fully corroborated squash candidates (#6GW95D)", () => {
-    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
-      mainPath: "C:/repo/main",
-      currentPath: "C:/repo/current",
-      existsFn: () => true,
-      statusFn: () => "",
-      branchFn: () => "feature-done",
-      aheadCountFn: () => 0,
-      confidenceFn: () => "inferred from patch-id, NOT fully corroborated — 2 of 21 files differ",
-    });
-    expect(result.safe).toBe(false);
-    expect(result.reason).toContain("NOT fully corroborated");
+  it("preserves byte-delimited path output, including leading whitespace", () => {
+    const left = "a".repeat(40);
+    const right = "b".repeat(40);
+    const result = runReadOnlyGit(
+      ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-only", "-z", left, right, "--"],
+      { runner: () => ({ status: 0, stdout: " leading-space.ts\0", stderr: "" }) },
+    );
+
+    expect(result.stdout).toBe(" leading-space.ts\0");
   });
 
-  it("blocks removal when the corroboration check itself fails (#6GW95D)", () => {
-    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
-      mainPath: "C:/repo/main",
-      currentPath: "C:/repo/current",
-      existsFn: () => true,
-      statusFn: () => "",
-      branchFn: () => "feature-done",
-      aheadCountFn: () => 0,
-      confidenceFn: () => "inferred from patch-id; corroboration check failed — review before removing",
+  it("contains no direct fleet mutation command in the implementation", () => {
+    const source = readFileSync(path.resolve("scripts/clean-worktree.mjs"), "utf8");
+    expect(source).not.toMatch(/execFileSync\(\s*["']git["']/);
+    expect(source).not.toContain('"commit-tree"');
+    expect(source).not.toContain('["clean",');
+    expect(source).not.toContain('["worktree", "remove"');
+    expect(source).not.toContain('["worktree", "prune", "--expire"');
+  });
+});
+
+describe("Windows reparse attribute probe", () => {
+  it("batches literal paths through a fixed read-only script without command interpolation", () => {
+    const candidates = [path.resolve("D:/fleet/one"), path.resolve("D:/fleet/two")];
+    let invocation: { file?: string; args?: string[]; input?: string } = {};
+    const result = inspectWindowsReparsePaths(candidates, {
+      platform: "win32",
+      runner: (file: string, args: string[], options: { input: string }) => {
+        invocation = { file, args, input: options.input };
+        return {
+          status: 0,
+          stdout: JSON.stringify([
+            { state: "safe", code: "OK" },
+            { state: "reparse", code: "REPARSE" },
+          ]),
+        };
+      },
     });
-    expect(result.safe).toBe(false);
-    expect(result.reason).toContain("corroboration check failed");
+
+    expect(result).toEqual([{ state: "safe" }, { state: "reparse", code: "REPARSE" }]);
+    expect(invocation.file).toBe("powershell.exe");
+    expect(invocation.args?.join(" ")).toContain("Get-Item -LiteralPath");
+    expect(invocation.args?.join(" ")).not.toContain(candidates[0]);
+    expect(JSON.parse(invocation.input ?? "{}")).toEqual({ paths: candidates, stopOnBoundary: false });
   });
 
-  it("blocks removal when the confidence result is not a string (#6GW95D)", () => {
-    const result = verifyWorktreeSafetyBeforeRemove(candidate, {
-      mainPath: "C:/repo/main",
-      currentPath: "C:/repo/current",
-      existsFn: () => true,
-      statusFn: () => "",
-      branchFn: () => "feature-done",
-      aheadCountFn: () => 0,
-      confidenceFn: (() => null) as unknown as () => string,
-    });
-    expect(result.safe).toBe(false);
-    expect(result.reason).toContain("removal blocked");
+  it("fails closed when batch output is malformed or incomplete", () => {
+    const candidates = [path.resolve("D:/fleet/one"), path.resolve("D:/fleet/two")];
+    expect(
+      inspectWindowsReparsePaths(candidates, {
+        platform: "win32",
+        runner: () => ({ status: 0, stdout: JSON.stringify([{ state: "safe" }]) }),
+      }),
+    ).toEqual([
+      { state: "unknown", code: "MALFORMED_PROBE" },
+      { state: "unknown", code: "MALFORMED_PROBE" },
+    ]);
+  });
+});
+
+describe("clean-worktree fail-closed reporting", () => {
+  it("parses both newline and NUL-delimited porcelain deterministically", () => {
+    const expected = parseWorktreePorcelain(porcelain());
+    const nul = porcelain().split(/\r?\n/).filter(Boolean).join("\0");
+    expect(parseWorktreePorcelain(`${nul}\0`)).toEqual(expected);
+    expect(
+      parseWorktreePorcelain("worktree D:/trailing-space \0HEAD 1111111111111111111111111111111111111111\0"),
+    ).toEqual([expect.objectContaining({ path: "D:/trailing-space " })]);
+  });
+
+  it("treats absent liveness evidence as unknown, never inactive", () => {
+    expect(classifyLiveness()).toMatchObject({ state: "unknown" });
+    expect(classifyLiveness({ matchingProcesses: 0, probeComplete: true })).toMatchObject({ state: "unknown" });
+    expect(classifyLiveness({ matchingProcesses: 2, probeComplete: true })).toMatchObject({ state: "active" });
+    expect(classifyLiveness({ state: "inactive", authoritative: false })).toMatchObject({ state: "unknown" });
+    expect(
+      classifyLiveness({
+        state: "inactive",
+        authoritative: true,
+        source: "owner-registry",
+        checkedAt: "2026-08-23T00:00:00.000Z",
+      }),
+    ).toMatchObject({ state: "inactive" });
+  });
+
+  it("returns an incomplete report when dry-run prune inspection fails", () => {
+    const gitFn = (args: string[], options?: { cwd?: string }) => {
+      if (args.join(" ") === "worktree list --porcelain -z") return ok(porcelain());
+      if (args.join(" ") === "worktree prune --dry-run -v") {
+        return { ok: false, code: 2, stdout: "", category: "git-exit", errorCode: "2" };
+      }
+      if (args.join(" ") === "rev-parse --show-toplevel") return ok(options?.cwd ?? mainPath);
+      if (args.join(" ") === "rev-parse --path-format=absolute --git-common-dir") {
+        return ok(path.join(mainPath, ".git"));
+      }
+      if (args[0] === "status") return ok("");
+      if (args.join(" ") === "rev-parse HEAD") {
+        return ok(options?.cwd === taskPath ? "2222222222222222222222222222222222222222" : "1".repeat(40));
+      }
+      if (args[0] === "symbolic-ref") return ok(options?.cwd === taskPath ? "task" : "main");
+      throw new Error(`unexpected synthetic git call: ${args.join(" ")}`);
+    };
+
+    const report = collectRegisteredWorktreeReport(
+      {},
+      {
+        gitFn,
+        cwd: mainPath,
+        lstatFn: () => ({ reparsePoint: false, isSymbolicLink: () => false, isDirectory: () => true }),
+      },
+    );
+
+    expect(report.complete).toBe(false);
+    expect(report.inspectionErrors).toContainEqual(expect.objectContaining({ category: "prune-preview-unavailable" }));
+    expect(report.mutations).toEqual({ cleaned: 0, pruned: 0, removed: 0, deregistered: 0 });
+    expect(report.worktrees.every((item) => item.liveness.state === "unknown")).toBe(true);
+  });
+
+  it("detects an attached-to-detached race instead of reusing the listed branch", () => {
+    const commit = "1".repeat(40);
+    const gitFn = (args: string[], options?: { cwd?: string }) => {
+      if (args.join(" ") === "worktree list --porcelain -z") {
+        return ok([`worktree ${mainPath}`, `HEAD ${commit}`, "branch refs/heads/main", ""].join("\n"));
+      }
+      if (args.join(" ") === "worktree prune --dry-run -v") return ok("");
+      if (args.join(" ") === "rev-parse --show-toplevel") return ok(options?.cwd ?? mainPath);
+      if (args.join(" ") === "rev-parse --path-format=absolute --git-common-dir") {
+        return ok(path.join(mainPath, ".git"));
+      }
+      if (args.join(" ") === "rev-parse HEAD") return ok(commit);
+      if (args.join(" ") === "symbolic-ref --quiet --short HEAD") {
+        return { ok: false, code: 1, stdout: "", category: "git-exit", errorCode: "1" };
+      }
+      if (args[0] === "status") return ok("");
+      throw new Error(`unexpected synthetic git call: ${args.join(" ")}`);
+    };
+
+    const report = collectRegisteredWorktreeReport(
+      {},
+      {
+        gitFn,
+        cwd: mainPath,
+        lstatFn: () => ({ reparsePoint: false, isSymbolicLink: () => false, isDirectory: () => true }),
+      },
+    );
+
+    expect(report.complete).toBe(false);
+    expect(report.worktrees[0]).toMatchObject({ branch: null, detached: true });
+    expect(report.inspectionErrors).toContainEqual(
+      expect.objectContaining({ category: "branch-state-changed-during-report" }),
+    );
+  });
+
+  it("refuses rather than returning an empty success when worktree listing fails", () => {
+    expect(() =>
+      collectRegisteredWorktreeReport(
+        {},
+        {
+          gitFn: () => ({ ok: false, code: 2, stdout: "", category: "git-exit", errorCode: "2" }),
+        },
+      ),
+    ).toThrow(/worktree-list-unavailable/);
+  });
+
+  it("resolves a dash-prefixed base after --end-of-options and only compares object IDs", () => {
+    const baseCommit = "b".repeat(40);
+    const mainCommit = "1".repeat(40);
+    const calls: string[][] = [];
+    const mergeCwds: Array<string | undefined> = [];
+    const gitFn = (args: string[], options?: { cwd?: string }) => {
+      calls.push(args);
+      if (args.join(" ") === "worktree list --porcelain -z") {
+        return ok([`worktree ${mainPath}`, `HEAD ${mainCommit}`, "branch refs/heads/main", ""].join("\n"));
+      }
+      if (args.join(" ") === "worktree prune --dry-run -v") return ok("");
+      if (args.join(" ") === "rev-parse --is-shallow-repository") return ok("false");
+      if (args.join(" ") === "rev-parse --show-toplevel") return ok(options?.cwd ?? mainPath);
+      if (args.join(" ") === "rev-parse --path-format=absolute --git-common-dir") {
+        return ok(path.join(mainPath, ".git"));
+      }
+      if (args.join(" ") === "rev-parse HEAD") return ok(mainCommit);
+      if (args.join(" ") === "symbolic-ref --quiet --short HEAD") return ok("main");
+      if (args[0] === "status") return ok("");
+      if (args.join(" ") === "rev-parse --verify --quiet --end-of-options --evil^{commit}") {
+        return ok(baseCommit);
+      }
+      if (args.join(" ") === "rev-parse --verify --quiet --end-of-options refs/heads/main^{commit}") {
+        return ok(mainCommit);
+      }
+      if (args[0] === "merge-base" && args[1] === "--is-ancestor") {
+        mergeCwds.push(options?.cwd);
+        return ok("");
+      }
+      throw new Error(`unexpected synthetic git call: ${args.join(" ")}`);
+    };
+
+    const report = collectRegisteredWorktreeReport(
+      { merged: true, baseRef: "--evil" },
+      {
+        gitFn,
+        cwd: mainPath,
+        lstatFn: () => ({ reparsePoint: false, isSymbolicLink: () => false, isDirectory: () => true }),
+      },
+    );
+
+    expect(report.complete).toBe(true);
+    expect(calls).toContainEqual(["rev-parse", "--verify", "--quiet", "--end-of-options", "--evil^{commit}"]);
+    const comparison = calls.find((args) => args[0] === "merge-base");
+    expect(comparison).toEqual(["merge-base", "--is-ancestor", mainCommit, baseCommit]);
+    expect(mergeCwds).toEqual([mainPath]);
+  });
+});
+
+describe("package report-only routing", () => {
+  it("routes preflight through the explicit report command while retaining a safe compatibility alias", () => {
+    const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    expect(packageJson.scripts["worktrees:report"]).toBe("node scripts/clean-worktree.mjs");
+    expect(packageJson.scripts["worktrees:inventory"]).toBe("node scripts/worktree-inventory.mjs");
+    expect(packageJson.scripts["clean:worktree"]).toBe("npm run worktrees:report");
+    expect(packageJson.scripts["verify:preflight"]).toContain("npm run worktrees:report -- --self-test");
+    expect(packageJson.scripts["verify:preflight"]).not.toContain("npm run clean:worktree");
   });
 });
