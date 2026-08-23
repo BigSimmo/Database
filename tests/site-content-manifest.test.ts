@@ -1,13 +1,23 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
+
+import { writeJsonAtomically } from "../scripts/build-site-content-manifest";
 
 import { calculatorRecordHref } from "@/components/calculators/calculator-routes";
 import {
   allSiteContentRecords,
-  dynamicSiteContentRecords,
+  buildDynamicSiteContentProjections,
   staticSiteContentRecords,
 } from "@/lib/site-content/adapters";
+import { buildDefaultDifferentialRows } from "@/lib/differential-fixtures";
+import type { DifferentialRecordRow } from "@/lib/differential-records";
+import { buildDefaultMedicationRows } from "@/lib/medication-fixtures";
+import type { MedicationRecordRow } from "@/lib/medication-records";
+import { buildDefaultFormRows, buildDefaultServiceRows } from "@/lib/registry-fixtures";
 import {
   adoptCanonicalRegistryProjection,
   buildRegistryReconciliationReport,
@@ -22,7 +32,15 @@ import {
 } from "@/lib/site-content/site-content-manifest";
 import { SITE_CONTENT_REGISTRY_VERSION } from "@/lib/site-content/site-content-registry";
 import { publicKnowledgeToolCatalogRecords } from "@/lib/tools-catalog";
-import type { RegistryCorpusEntry } from "@/lib/registry-corpus";
+import {
+  clinicalRegistryRowsToCorpusEntries,
+  differentialRowsToCorpusEntries,
+  medicationRowsToCorpusEntries,
+  registryCorpusChunkId,
+  registryCorpusDocumentId,
+  type RegistryCorpusEntry,
+} from "@/lib/registry-corpus";
+import type { RegistryRecordRow } from "@/lib/registry-records";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import type { SiteContentDomain } from "@/lib/types";
 
@@ -31,6 +49,26 @@ const metadata = {
   registryVersion: SITE_CONTENT_REGISTRY_VERSION,
   generatedAt: "2026-08-23T00:00:00.000Z",
 };
+
+const baselinePath = "tests/fixtures/site-content/static-manifest-baseline.json";
+
+function runManifestCli(args: readonly string[]) {
+  return spawnSync(process.execPath, ["scripts/run-tsx.mjs", "scripts/build-site-content-manifest.ts", ...args], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+  });
+}
+
+function persistedRow<T>(row: object, id: string): T {
+  return {
+    id,
+    created_at: "2026-08-23T00:00:00.000Z",
+    updated_at: "2026-08-23T00:00:00.000Z",
+    last_reviewed_at: "2026-08-23T00:00:00.000Z",
+    review_due_at: "2027-08-23T00:00:00.000Z",
+    ...row,
+  } as T;
+}
 
 function record(logicalId: string, overrides: Partial<Omit<SiteContentRecord, "contentHash">> = {}): SiteContentRecord {
   const domain = logicalId.split(":")[0] as SiteContentDomain;
@@ -136,6 +174,134 @@ describe("static site-content manifest", () => {
       }),
     ).toThrow(/protected|link-only/i);
   });
+
+  it("keeps reviewed review-due content eligible while excluding superseded or unverified content", () => {
+    // `review_due` is still in force under answer-state semantics; `outdated` is superseded.
+    const manifest = buildStaticSiteContentManifest(
+      [
+        record("factsheets:review-due", { sourceStatus: "review_due", validationStatus: "locally_reviewed" }),
+        record("factsheets:unverified", { sourceStatus: "review_due", validationStatus: "unverified" }),
+        record("factsheets:outdated", { sourceStatus: "outdated", validationStatus: "approved" }),
+      ],
+      metadata,
+    );
+
+    expect(manifest.records).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ logicalId: "factsheets:review-due", eligible: true, exclusionReason: null }),
+        expect.objectContaining({
+          logicalId: "factsheets:unverified",
+          eligible: false,
+          exclusionReason: "validation_unverified",
+        }),
+        expect.objectContaining({
+          logicalId: "factsheets:outdated",
+          eligible: false,
+          exclusionReason: "source_outdated",
+        }),
+      ]),
+    );
+  });
+});
+
+describe("site-content manifest CLI integrity", () => {
+  it("rejects forged, stale, reordered, duplicate, and domain-mutated baselines", () => {
+    const baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as Record<string, unknown> & {
+      records: Array<Record<string, unknown>>;
+    };
+    const mutations: Array<[string, (manifest: typeof baseline) => void]> = [
+      ["manifest version", (manifest) => void (manifest.version = "clinical-kb-site-static-manifest-v0")],
+      ["registry version", (manifest) => void (manifest.registryVersion = "site-content-producers-v0")],
+      ["forged digest", (manifest) => void (manifest.staticManifestDigest = "f".repeat(64))],
+      ["record order", (manifest) => void manifest.records.reverse()],
+      ["duplicate record", (manifest) => void manifest.records.splice(1, 0, { ...manifest.records[0] })],
+      ["record domain", (manifest) => void (manifest.records[0]!.domain = "tools")],
+      ["missing governed field", (manifest) => void delete manifest.records[0]!.eligible],
+    ];
+
+    const directory = mkdtempSync(join(tmpdir(), "site-content-manifest-integrity-"));
+    try {
+      for (const [label, mutate] of mutations) {
+        const candidate = structuredClone(baseline);
+        mutate(candidate);
+        const candidatePath = join(directory, `${label.replaceAll(" ", "-")}.json`);
+        writeFileSync(candidatePath, `${JSON.stringify(candidate, null, 2)}\n`, "utf8");
+        const result = runManifestCli(["--check", "--baseline", candidatePath]);
+        expect(result.status, `${label}: ${result.stdout}\n${result.stderr}`).not.toBe(0);
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  it("rejects baseline/output aliases before writing any artifact", () => {
+    const directory = mkdtempSync(join(tmpdir(), "site-content-manifest-alias-"));
+    const baseline = join(directory, "baseline.json");
+    const output = join(directory, "output.json");
+    const sentinel = '{"sentinel":"preserve"}\n';
+    writeFileSync(baseline, sentinel, "utf8");
+    writeFileSync(output, sentinel, "utf8");
+    try {
+      for (const args of [
+        ["--baseline", baseline, "--out", baseline, "--diff", output],
+        ["--baseline", baseline, "--out", output, "--diff", baseline],
+        ["--baseline", baseline, "--out", output, "--diff", output],
+      ]) {
+        const result = runManifestCli(args);
+        expect(result.status, `${result.stdout}\n${result.stderr}`).not.toBe(0);
+        expect(readFileSync(baseline, "utf8")).toBe(sentinel);
+        expect(readFileSync(output, "utf8")).toBe(sentinel);
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves existing artifacts when baseline validation fails before publication", () => {
+    const directory = mkdtempSync(join(tmpdir(), "site-content-manifest-write-order-"));
+    const baseline = join(directory, "invalid-baseline.json");
+    const output = join(directory, "output.json");
+    const diff = join(directory, "diff.json");
+    const sentinel = '{"sentinel":"preserve"}\n';
+    writeFileSync(baseline, '{"invalid":true}\n', "utf8");
+    writeFileSync(output, sentinel, "utf8");
+    writeFileSync(diff, sentinel, "utf8");
+    try {
+      const result = runManifestCli(["--baseline", baseline, "--out", output, "--diff", diff]);
+      expect(result.status, `${result.stdout}\n${result.stderr}`).not.toBe(0);
+      expect(readFileSync(output, "utf8")).toBe(sentinel);
+      expect(readFileSync(diff, "utf8")).toBe(sentinel);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("atomically preserves the prior artifact and cleans its sibling temporary on an interrupted write", () => {
+    const directory = mkdtempSync(join(tmpdir(), "site-content-manifest-atomic-"));
+    const output = join(directory, "output.json");
+    const sentinel = '{"sentinel":"preserve"}\n';
+    writeFileSync(output, sentinel, "utf8");
+    try {
+      expect(() =>
+        writeJsonAtomically(
+          output,
+          { replacement: true },
+          {
+            writeFileSync: (temporaryPath, value, encoding) => {
+              writeFileSync(temporaryPath, value, encoding);
+              throw new Error("simulated interruption before atomic replacement");
+            },
+            renameSync,
+            rmSync,
+          },
+        ),
+      ).toThrow(/simulated interruption/i);
+      expect(readFileSync(output, "utf8")).toBe(sentinel);
+      expect(readdirSync(directory)).toEqual(["output.json"]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("canonical producer adapters", () => {
@@ -167,12 +333,71 @@ describe("canonical producer adapters", () => {
     ).toEqual(publicKnowledgeToolCatalogRecords.map((entry) => [entry.id, entry.href]));
   });
 
-  it("registers services, forms, medications, and differentials as dynamic canonical public projections", () => {
-    expect(new Set(dynamicSiteContentRecords.map((entry) => entry.domain))).toEqual(
+  it("adopts all dynamic families with the persisted row converters and their exact document/chunk IDs", () => {
+    const ownerId = "editor-owner";
+    const service = persistedRow<RegistryRecordRow>(
+      buildDefaultServiceRows(ownerId)[0]!,
+      "10000000-0000-4000-8000-000000000001",
+    );
+    const form = persistedRow<RegistryRecordRow>(
+      buildDefaultFormRows(ownerId)[0]!,
+      "10000000-0000-4000-8000-000000000002",
+    );
+    const medication = persistedRow<MedicationRecordRow>(
+      buildDefaultMedicationRows(ownerId)[0]!,
+      "10000000-0000-4000-8000-000000000003",
+    );
+    const differentialRows = buildDefaultDifferentialRows(ownerId);
+    const diagnosis = persistedRow<DifferentialRecordRow>(
+      differentialRows.find((row) => row.kind === "diagnosis")!,
+      "10000000-0000-4000-8000-000000000004",
+    );
+    const presentation = persistedRow<DifferentialRecordRow>(
+      differentialRows.find((row) => row.kind === "presentation")!,
+      "10000000-0000-4000-8000-000000000005",
+    );
+    const rows = {
+      clinicalRegistryRows: [service, form],
+      medicationRows: [medication],
+      differentialRows: [diagnosis, presentation],
+    };
+    const expectedEntries = [
+      ...clinicalRegistryRowsToCorpusEntries(rows.clinicalRegistryRows),
+      ...medicationRowsToCorpusEntries(rows.medicationRows),
+      ...differentialRowsToCorpusEntries(rows.differentialRows),
+    ];
+    const projections = buildDynamicSiteContentProjections(
+      rows,
+      expectedEntries.map((entry) => ({
+        kind: entry.kind,
+        recordId: entry.recordId,
+        publicRecordId: `public-${entry.recordId}`,
+        rowOwnerId: null,
+        publicationState: "published",
+        renderedByPublicSite: true,
+        explicitlyReconciled: true,
+      })),
+    );
+
+    expect(new Set(projections.map((projection) => projection.record.domain))).toEqual(
       new Set(["services", "forms", "medications", "differentials"]),
     );
-    expect(dynamicSiteContentRecords.every((entry) => entry.producerClass === "dynamic_registry")).toBe(true);
-    expect(allSiteContentRecords.length).toBe(staticSiteContentRecords.length + dynamicSiteContentRecords.length);
+    expect(projections.map((projection) => projection.record.logicalId)).toEqual(
+      expect.arrayContaining([
+        `services:${service.slug}`,
+        `forms:${form.slug}`,
+        `medications:${medication.slug}`,
+        `differentials:diagnosis:${diagnosis.slug}`,
+        `differentials:presentation:${presentation.slug}`,
+      ]),
+    );
+    for (const entry of expectedEntries) {
+      const projection = projections.find((candidate) => candidate.metadata.registry_record_id === entry.recordId);
+      expect(projection?.documentId).toBe(registryCorpusDocumentId(entry.kind, entry.recordId));
+      expect(projection?.chunkId).toBe(registryCorpusChunkId(entry.kind, entry.recordId));
+    }
+    expect(new Set(projections.map((projection) => projection.documentId)).size).toBe(projections.length);
+    expect(allSiteContentRecords).toEqual(staticSiteContentRecords);
   });
 
   it("keeps the CLI provider-free and bounded to metadata/hash outputs", () => {
@@ -220,9 +445,11 @@ describe("registry adoption", () => {
       explicitlyReconciled: true,
     });
 
-    expect(adopted).toEqual(direct);
-    expect(adopted.body).toBe(entry.content);
-    expect(adopted.publicationVersion).toBe(entry.recordId);
+    expect(adopted.record).toEqual(direct);
+    expect(adopted.record.body).toBe(entry.content);
+    expect(adopted.record.publicationVersion).toBe(entry.recordId);
+    expect(adopted.documentId).toBe(adopted.metadata.site_content_document_id);
+    expect(adopted.chunkId).toBe(adopted.metadata.site_content_chunk_id);
     const adoptedProjection = canonicalRegistrySiteContentProjection(entry, {
       logicalId: projection.logicalId,
       publicRecordId: projection.publicRecordId,
@@ -278,7 +505,11 @@ describe("registry adoption", () => {
   it("reports identical owner duplicates and rejects divergent adoption", () => {
     const identical = buildRegistryReconciliationReport([
       { logicalId: "services:crisis-service", rowOwnerId: "actor-a", entry },
-      { logicalId: "services:crisis-service", rowOwnerId: "actor-b", entry: { ...entry, ownerId: "actor-b" } },
+      {
+        logicalId: "services:crisis-service",
+        rowOwnerId: "actor-b",
+        entry: { ...entry, ownerId: "actor-b", recordId: "record-b" },
+      },
     ]);
     expect(identical.groups[0]?.disposition).toBe("identical_duplicates");
     expect(JSON.stringify(identical)).not.toMatch(/actor-a|actor-b/);
@@ -307,5 +538,58 @@ describe("registry adoption", () => {
       "divergent_requires_administrator_review",
     );
     expect(() => adoptCanonicalRegistryProjection(divergent)).toThrow(/divergent|administrator/i);
+  });
+
+  it("rejects colliding row/public IDs instead of reselecting an owner row", () => {
+    const candidates = [
+      {
+        entry: { ...entry, recordId: "owner-row", slug: "owner-only-route", sourceStatus: "outdated" },
+        logicalId: "services:crisis-service",
+        publicRecordId: "shared-public-id",
+        rowOwnerId: "actor-a",
+        publicationState: "published" as const,
+        renderedByPublicSite: false,
+        explicitlyReconciled: false,
+      },
+      {
+        entry: { ...entry, recordId: "shared-public-id" },
+        logicalId: "services:crisis-service",
+        publicRecordId: "shared-public-id",
+        rowOwnerId: null,
+        publicationState: "published" as const,
+        renderedByPublicSite: true,
+        explicitlyReconciled: true,
+      },
+    ];
+
+    expect(() => buildRegistryReconciliationReport(candidates)).toThrow(/duplicate.*(public|record).*id/i);
+    expect(() => adoptCanonicalRegistryProjection(candidates)).toThrow(/duplicate.*(public|record).*id/i);
+  });
+
+  it("treats route and governance drift as divergent even when text is identical", () => {
+    const candidates = [
+      {
+        entry,
+        logicalId: "services:crisis-service",
+        publicRecordId: "public-record",
+        rowOwnerId: null,
+        publicationState: "published" as const,
+        renderedByPublicSite: true,
+        explicitlyReconciled: true,
+      },
+      {
+        entry: { ...entry, recordId: "owner-row", slug: "different-route", validationStatus: "unverified" },
+        logicalId: "services:crisis-service",
+        rowOwnerId: "actor-b",
+        publicationState: "draft" as const,
+        renderedByPublicSite: false,
+        explicitlyReconciled: false,
+      },
+    ];
+
+    expect(buildRegistryReconciliationReport(candidates).groups[0]?.disposition).toBe(
+      "divergent_requires_administrator_review",
+    );
+    expect(() => adoptCanonicalRegistryProjection(candidates)).toThrow(/divergent|administrator/i);
   });
 });

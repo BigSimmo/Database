@@ -1,25 +1,28 @@
 import { calculators } from "@/components/calculators/calculator-fixtures";
 import { factsheets } from "@/components/factsheets/factsheets-data";
-import { differentialPresentations, differentialRecords } from "@/lib/differentials";
 import { dictionaryEntries, dictionarySource } from "@/lib/dictionary-data";
 import { dsmDiagnoses } from "@/lib/dsm";
-import { formRecords } from "@/lib/forms";
+import type { DifferentialRecordRow } from "@/lib/differential-records";
 import { formulationMechanisms, formulationSourceLibrary } from "@/lib/formulation";
-import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
+import type { MedicationRecordRow } from "@/lib/medication-records";
 import {
-  clinicalRegistryRecordToCorpusEntry,
-  differentialRecordToCorpusEntry,
-  medicationRecordToCorpusEntry,
+  clinicalRegistryRowsToCorpusEntries,
+  differentialRowsToCorpusEntries,
+  medicationRowsToCorpusEntries,
+  type RegistryCorpusEntry,
 } from "@/lib/registry-corpus";
-import { deriveGovernanceColumns } from "@/lib/registry-records";
-import { serviceRecords } from "@/lib/services";
+import type { RegistryRecordRow } from "@/lib/registry-records";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { siteContentProducerForMode } from "@/lib/site-content/site-content-registry";
 import { createSiteContentRecord, siteContentValueHash } from "@/lib/site-content/site-content-manifest";
 import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
 import { publicKnowledgeToolCatalogRecords } from "@/lib/tools-catalog";
 
-import { canonicalRegistrySiteContentProjection, type CanonicalRegistrySiteContentProjection } from "./registry";
+import {
+  adoptCanonicalRegistryProjection,
+  type CanonicalRegistrySiteContentProjection,
+  type RegistryReconciliationCandidate,
+} from "./registry";
 import { buildSpecifierSiteContentRecords } from "./specifiers";
 
 function staticProducer(modeId: Parameters<typeof siteContentProducerForMode>[0]) {
@@ -273,79 +276,53 @@ function buildToolRecords() {
   );
 }
 
-function dynamicProjection(
-  entry: Parameters<typeof canonicalRegistrySiteContentProjection>[0],
-  logicalId: string,
-): CanonicalRegistrySiteContentProjection {
-  return canonicalRegistrySiteContentProjection(entry, {
-    logicalId,
-    publicRecordId: siteContentValueHash({ logicalId, title: entry.title, content: entry.content }),
-    rowOwnerId: null,
-    publicationState: "published",
-    renderedByPublicSite: true,
-    explicitlyReconciled: true,
-  });
+export type DynamicSiteContentRows = {
+  clinicalRegistryRows: readonly RegistryRecordRow[];
+  medicationRows: readonly MedicationRecordRow[];
+  differentialRows: readonly DifferentialRecordRow[];
+};
+
+export type DynamicSiteContentReconciliation = Omit<RegistryReconciliationCandidate, "entry" | "logicalId"> & {
+  kind: RegistryCorpusEntry["kind"];
+  recordId: string;
+};
+
+function dynamicLogicalId(entry: RegistryCorpusEntry) {
+  if (entry.kind === "differential") return `differentials:${entry.subkind}:${entry.slug}`;
+  const domain = entry.kind === "medication" ? "medications" : `${entry.kind}s`;
+  return `${domain}:${entry.slug}`;
 }
 
-export function buildDynamicSiteContentProjections(): CanonicalRegistrySiteContentProjection[] {
-  const services = serviceRecords.map((record) => {
-    const governance = deriveGovernanceColumns(record);
-    return dynamicProjection(
-      clinicalRegistryRecordToCorpusEntry(record, "service", {
-        ownerId: "ownerless-public-projection",
-        recordId: `service:${record.slug}`,
-        sourceStatus: governance.source_status,
-        validationStatus: governance.validation_status,
-      }),
-      `services:${record.slug}`,
-    );
+export function buildDynamicSiteContentProjections(
+  rows: DynamicSiteContentRows,
+  reconciliation: readonly DynamicSiteContentReconciliation[],
+): CanonicalRegistrySiteContentProjection[] {
+  const entries = [
+    ...clinicalRegistryRowsToCorpusEntries(rows.clinicalRegistryRows),
+    ...medicationRowsToCorpusEntries(rows.medicationRows),
+    ...differentialRowsToCorpusEntries(rows.differentialRows),
+  ];
+  const candidates = reconciliation.map((decision) => {
+    const matches = entries.filter((entry) => entry.kind === decision.kind && entry.recordId === decision.recordId);
+    if (matches.length !== 1) {
+      throw new Error(`Dynamic site-content reconciliation must identify one persisted ${decision.kind} row.`);
+    }
+    const { kind: _kind, recordId: _recordId, ...identity } = decision;
+    return {
+      ...identity,
+      entry: matches[0]!,
+      logicalId: dynamicLogicalId(matches[0]!),
+    } satisfies RegistryReconciliationCandidate;
   });
-  const forms = formRecords.map((record) => {
-    const governance = deriveGovernanceColumns(record);
-    return dynamicProjection(
-      clinicalRegistryRecordToCorpusEntry(record, "form", {
-        ownerId: "ownerless-public-projection",
-        recordId: `form:${record.slug}`,
-        sourceStatus: governance.source_status,
-        validationStatus: governance.validation_status,
-      }),
-      `forms:${record.slug}`,
-    );
-  });
-  const medications = loadMedicationSnapshot().map((record) =>
-    dynamicProjection(
-      medicationRecordToCorpusEntry(record, {
-        ownerId: "ownerless-public-projection",
-        recordId: `medication:${record.slug}`,
-        sourceStatus: "current",
-        validationStatus: "locally_reviewed",
-      }),
-      `medications:${record.slug}`,
-    ),
-  );
-  const diagnoses = differentialRecords.map((record) =>
-    dynamicProjection(
-      differentialRecordToCorpusEntry(record, "diagnosis", {
-        ownerId: "ownerless-public-projection",
-        recordId: `differential:diagnosis:${record.slug}`,
-        sourceStatus: "review_due",
-        validationStatus: "unverified",
-      }),
-      `differentials:diagnosis:${record.slug}`,
-    ),
-  );
-  const presentations = differentialPresentations().map((record) =>
-    dynamicProjection(
-      differentialRecordToCorpusEntry(record, "presentation", {
-        ownerId: "ownerless-public-projection",
-        recordId: `differential:presentation:${record.id}`,
-        sourceStatus: "review_due",
-        validationStatus: "unverified",
-      }),
-      `differentials:presentation:${record.id}`,
-    ),
-  );
-  return [...services, ...forms, ...medications, ...diagnoses, ...presentations];
+  const byLogicalId = new Map<string, RegistryReconciliationCandidate[]>();
+  for (const candidate of candidates) {
+    const group = byLogicalId.get(candidate.logicalId) ?? [];
+    group.push(candidate);
+    byLogicalId.set(candidate.logicalId, group);
+  }
+  return [...byLogicalId.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, group]) => adoptCanonicalRegistryProjection(group));
 }
 
 export function buildStaticSiteContentRecords(): SiteContentRecord[] {
@@ -362,9 +339,7 @@ export function buildStaticSiteContentRecords(): SiteContentRecord[] {
 }
 
 export const staticSiteContentRecords = buildStaticSiteContentRecords();
-export const dynamicSiteContentProjections = buildDynamicSiteContentProjections();
-export const dynamicSiteContentRecords = dynamicSiteContentProjections.map((projection) => projection.record);
-export const allSiteContentRecords = [...staticSiteContentRecords, ...dynamicSiteContentRecords];
+export const allSiteContentRecords = staticSiteContentRecords;
 
 export { buildSpecifierSiteContentRecords } from "./specifiers";
 export * from "./registry";

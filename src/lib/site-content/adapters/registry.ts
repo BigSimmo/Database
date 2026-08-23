@@ -168,28 +168,62 @@ export type RegistryReconciliationReport = {
 };
 
 function reconciliationContentHash(candidate: RegistryReconciliationCandidate) {
+  const retrievalMetadata = { ...registryCorpusMetadata(candidate.entry) };
+  delete retrievalMetadata.registry_record_id;
+  delete retrievalMetadata.clinical_validation_evidence;
   return siteContentValueHash({
+    logicalId: candidate.logicalId,
+    kind: candidate.entry.kind,
+    subkind: candidate.entry.subkind,
+    slug: candidate.entry.slug,
+    route: registryCorpusDetailHref(detailTarget(candidate.entry)),
     title: canonicalSiteContentText(candidate.entry.title),
     content: canonicalSiteContentText(candidate.entry.content),
     searchText: canonicalSiteContentText(candidate.entry.searchText),
+    sourceRole: roleByKind[candidate.entry.kind],
+    sourceStatus: sourceStatus(candidate.entry.sourceStatus),
+    validationStatus: validationStatus(candidate.entry.validationStatus),
+    sourceLineage: candidate.sourceLineage ?? [],
+    retrievalMetadata,
   });
 }
 
 function canonicalCandidate(candidates: readonly RegistryReconciliationCandidate[]) {
-  return reconcileCanonicalPublicSiteContent(
+  const reconciled = reconcileCanonicalPublicSiteContent(
     candidates.map((candidate) => ({
-      ...candidate,
+      candidate,
       recordId: candidate.publicRecordId ?? candidate.entry.recordId,
+      logicalId: candidate.logicalId,
+      rowOwnerId: candidate.rowOwnerId,
       publicationState: candidate.publicationState ?? "draft",
       renderedByPublicSite: candidate.renderedByPublicSite ?? false,
       explicitlyReconciled: candidate.explicitlyReconciled ?? false,
     })),
   );
+  return reconciled?.candidate ?? null;
+}
+
+function assertUniqueReconciliationIds(candidates: readonly RegistryReconciliationCandidate[]) {
+  const recordIds = new Set<string>();
+  const publicRecordIds = new Set<string>();
+  for (const candidate of candidates) {
+    if (recordIds.has(candidate.entry.recordId)) {
+      throw new Error(`Duplicate registry record ID: ${candidate.entry.recordId}`);
+    }
+    recordIds.add(candidate.entry.recordId);
+    if (candidate.publicRecordId) {
+      if (publicRecordIds.has(candidate.publicRecordId)) {
+        throw new Error(`Duplicate registry public record ID: ${candidate.publicRecordId}`);
+      }
+      publicRecordIds.add(candidate.publicRecordId);
+    }
+  }
 }
 
 export function buildRegistryReconciliationReport(
   candidates: readonly RegistryReconciliationCandidate[],
 ): RegistryReconciliationReport {
+  assertUniqueReconciliationIds(candidates);
   const byLogicalId = new Map<string, RegistryReconciliationCandidate[]>();
   for (const candidate of candidates) {
     const group = byLogicalId.get(candidate.logicalId) ?? [];
@@ -209,11 +243,7 @@ export function buildRegistryReconciliationReport(
             : group.length > 1
               ? "identical_duplicates"
               : "divergent_requires_administrator_review";
-      const renderedPublicContentHash = canonical
-        ? reconciliationContentHash(
-            group.find((candidate) => (candidate.publicRecordId ?? candidate.entry.recordId) === canonical.recordId)!,
-          )
-        : null;
+      const renderedPublicContentHash = canonical ? reconciliationContentHash(canonical) : null;
       return {
         logicalId,
         candidateCount: group.length,
@@ -234,17 +264,15 @@ export function buildRegistryReconciliationReport(
 
 export function adoptCanonicalRegistryProjection(
   candidates: readonly RegistryReconciliationCandidate[],
-): SiteContentRecord {
+): CanonicalRegistrySiteContentProjection {
   if (candidates.length === 0) throw new Error("Registry adoption requires at least one candidate.");
   const report = buildRegistryReconciliationReport(candidates);
   if (report.groups.length !== 1 || report.groups[0]?.disposition !== "adoptable") {
     throw new Error("Registry adoption is divergent or requires administrator review.");
   }
-  const adopted = canonicalCandidate(candidates);
-  if (!adopted) throw new Error("Registry adoption has no unique reconciled canonical public projection.");
-  const candidate = candidates.find((entry) => (entry.publicRecordId ?? entry.entry.recordId) === adopted.recordId);
-  if (!candidate) throw new Error("Registry reconciliation selected an unknown candidate.");
-  return registryEntryToSiteContentRecord(candidate.entry, {
+  const candidate = canonicalCandidate(candidates);
+  if (!candidate) throw new Error("Registry adoption has no unique reconciled canonical public projection.");
+  return canonicalRegistrySiteContentProjection(candidate.entry, {
     logicalId: candidate.logicalId,
     publicRecordId: candidate.publicRecordId ?? candidate.entry.recordId,
     rowOwnerId: null,

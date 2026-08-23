@@ -583,7 +583,7 @@ export function differentialRecordToCorpusEntry(
 }
 
 /** Clinical registry rows to corpus entries. */
-export function clinicalRegistryRowsToCorpusEntries(rows: RegistryRecordRow[]): RegistryCorpusEntry[] {
+export function clinicalRegistryRowsToCorpusEntries(rows: readonly RegistryRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) => {
     const kind: RegistryRecordKind = row.kind === "form" ? "form" : "service";
     const record = rowToServiceRecord(row);
@@ -602,7 +602,7 @@ export function clinicalRegistryRowsToCorpusEntries(rows: RegistryRecordRow[]): 
 }
 
 /** Medication rows to corpus entries. */
-export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): RegistryCorpusEntry[] {
+export function medicationRowsToCorpusEntries(rows: readonly MedicationRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) =>
     medicationRecordToCorpusEntry(rowToMedicationRecord(row), {
       ownerId: row.owner_id,
@@ -619,7 +619,7 @@ export function medicationRowsToCorpusEntries(rows: MedicationRecordRow[]): Regi
 }
 
 /** Differential rows to corpus entries. */
-export function differentialRowsToCorpusEntries(rows: DifferentialRecordRow[]): RegistryCorpusEntry[] {
+export function differentialRowsToCorpusEntries(rows: readonly DifferentialRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) => {
     const isPresentation = row.kind === "presentation";
     const payload = isPresentation ? rowToPresentationWorkflow(row) : rowToDifferentialRecord(row);

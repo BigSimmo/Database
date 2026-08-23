@@ -32,6 +32,24 @@ export type SiteContentManifestMetadata = {
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const LOGICAL_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._:-]*$/;
 const protectedDerivedSourcePattern = /(^|[:/_-])(etg|amh|healthdirect)([:/_-]|$)/i;
+const staticManifestKeys = ["generatedAt", "gitSha", "records", "registryVersion", "staticManifestDigest", "version"];
+const staticManifestRecordKeys = [
+  "contentHash",
+  "domain",
+  "eligible",
+  "exclusionReason",
+  "lineageDigest",
+  "logicalId",
+  "route",
+  "sourceStatus",
+  "validationStatus",
+];
+const validationStatuses = new Set<SiteContentRecord["validationStatus"]>([
+  "unverified",
+  "locally_reviewed",
+  "approved",
+]);
+const sourceStatuses = new Set<SiteContentRecord["sourceStatus"]>(["current", "review_due", "outdated", "unknown"]);
 
 const auditIdentifierKeys = new Set([
   "actorid",
@@ -104,6 +122,13 @@ function assertCanonicalRoute(route: string) {
   const parsed = new URL(route, "https://clinical-kb.invalid");
   if (parsed.origin !== "https://clinical-kb.invalid" || parsed.hash || parsed.pathname !== route.split("?")[0]) {
     throw new Error(`Site-content route is invalid or non-canonical: ${route}`);
+  }
+}
+
+function assertExactObjectKeys(value: Record<string, unknown>, expected: readonly string[], label: string) {
+  const actual = Object.keys(value).sort();
+  if (canonicalSiteContentJson(actual) !== canonicalSiteContentJson([...expected].sort())) {
+    throw new Error(`${label} has missing or unsupported fields.`);
   }
 }
 
@@ -221,6 +246,8 @@ function eligibility(record: SiteContentRecord) {
   if (record.validationStatus === "unverified") {
     return { eligible: false, exclusionReason: "validation_unverified" } as const;
   }
+  // `review_due` remains in force under the answer-state contract. It is
+  // eligible only after local review/approval; `outdated` is superseded.
   if (record.sourceStatus === "outdated") {
     return { eligible: false, exclusionReason: "source_outdated" } as const;
   }
@@ -228,6 +255,119 @@ function eligibility(record: SiteContentRecord) {
     return { eligible: false, exclusionReason: "source_status_unknown" } as const;
   }
   return { eligible: true, exclusionReason: null } as const;
+}
+
+function computeStaticManifestDigest(registryVersion: string, records: StaticSiteContentManifest["records"]): string {
+  return siteContentValueHash({
+    version: "clinical-kb-site-static-manifest-v1",
+    registryVersion,
+    records,
+  });
+}
+
+export function validateStaticSiteContentManifest(
+  value: unknown,
+  options: { expectedRegistryVersion?: string } = {},
+): StaticSiteContentManifest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Static site-content manifest must be an object.");
+  }
+  const manifest = value as Record<string, unknown>;
+  assertExactObjectKeys(manifest, staticManifestKeys, "Static site-content manifest");
+  if (manifest.version !== "clinical-kb-site-static-manifest-v1") {
+    throw new Error("Unsupported static site-content manifest version.");
+  }
+  if (typeof manifest.gitSha !== "string" || !/^[0-9a-f]{40}$/i.test(manifest.gitSha)) {
+    throw new Error("Static site-content manifest gitSha must be a full Git SHA.");
+  }
+  if (typeof manifest.registryVersion !== "string" || !manifest.registryVersion.trim()) {
+    throw new Error("Static site-content manifest registryVersion is required.");
+  }
+  if (options.expectedRegistryVersion && manifest.registryVersion !== options.expectedRegistryVersion) {
+    throw new Error(
+      `Static site-content manifest registryVersion ${manifest.registryVersion} does not match ${options.expectedRegistryVersion}.`,
+    );
+  }
+  if (
+    typeof manifest.generatedAt !== "string" ||
+    !Number.isFinite(Date.parse(manifest.generatedAt)) ||
+    new Date(manifest.generatedAt).toISOString() !== manifest.generatedAt
+  ) {
+    throw new Error("Static site-content manifest generatedAt must be a canonical ISO timestamp.");
+  }
+  if (!Array.isArray(manifest.records)) throw new Error("Static site-content manifest records must be an array.");
+
+  const staticProducers = siteContentProducerRegistry.filter(
+    (producer) => producer.producerClass === "static_repository",
+  );
+  const logicalIds = new Set<string>();
+  let previousLogicalId: string | null = null;
+  const records = manifest.records.map((value, index) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error(`Static site-content manifest record ${index} must be an object.`);
+    }
+    const record = value as Record<string, unknown>;
+    assertExactObjectKeys(record, staticManifestRecordKeys, `Static site-content manifest record ${index}`);
+    if (typeof record.logicalId !== "string" || !LOGICAL_ID_PATTERN.test(record.logicalId)) {
+      throw new Error(`Static site-content manifest record ${index} has an invalid logicalId.`);
+    }
+    if (logicalIds.has(record.logicalId)) throw new Error(`Duplicate logicalId: ${record.logicalId}`);
+    if (previousLogicalId !== null && previousLogicalId.localeCompare(record.logicalId) >= 0) {
+      throw new Error("Static site-content manifest records are not in canonical logicalId order.");
+    }
+    logicalIds.add(record.logicalId);
+    previousLogicalId = record.logicalId;
+
+    const producer = staticProducers.find((candidate) => candidate.domain === record.domain);
+    if (!producer || !record.logicalId.startsWith(`${producer.domain}:`)) {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid domain.`);
+    }
+    if (typeof record.route !== "string") {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid route.`);
+    }
+    assertCanonicalRoute(record.route);
+    const slug = record.logicalId.slice(record.logicalId.indexOf(":") + 1);
+    if (record.route !== producer.routeBuilder(slug, null)) {
+      throw new Error(`Static site-content manifest record ${record.logicalId} route is not canonical.`);
+    }
+    if (typeof record.contentHash !== "string" || !SHA256_PATTERN.test(record.contentHash)) {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid contentHash.`);
+    }
+    if (typeof record.lineageDigest !== "string" || !SHA256_PATTERN.test(record.lineageDigest)) {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid lineageDigest.`);
+    }
+    if (!validationStatuses.has(record.validationStatus as SiteContentRecord["validationStatus"])) {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid validationStatus.`);
+    }
+    if (!sourceStatuses.has(record.sourceStatus as SiteContentRecord["sourceStatus"])) {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid sourceStatus.`);
+    }
+    if (typeof record.eligible !== "boolean") {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid eligible flag.`);
+    }
+    if (record.exclusionReason !== null && typeof record.exclusionReason !== "string") {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has an invalid exclusionReason.`);
+    }
+    const expectedEligibility = eligibility({
+      validationStatus: record.validationStatus,
+      sourceStatus: record.sourceStatus,
+    } as SiteContentRecord);
+    if (
+      record.eligible !== expectedEligibility.eligible ||
+      record.exclusionReason !== expectedEligibility.exclusionReason
+    ) {
+      throw new Error(`Static site-content manifest record ${record.logicalId} has inconsistent eligibility.`);
+    }
+    return record as StaticSiteContentManifest["records"][number];
+  });
+  if (typeof manifest.staticManifestDigest !== "string" || !SHA256_PATTERN.test(manifest.staticManifestDigest)) {
+    throw new Error("Static site-content manifest has an invalid staticManifestDigest.");
+  }
+  const expectedDigest = computeStaticManifestDigest(manifest.registryVersion, records);
+  if (manifest.staticManifestDigest !== expectedDigest) {
+    throw new Error("Static site-content manifest digest does not match its governed fields.");
+  }
+  return { ...manifest, records } as StaticSiteContentManifest;
 }
 
 export function buildStaticSiteContentManifest(
@@ -252,11 +392,7 @@ export function buildStaticSiteContentManifest(
       ...eligibility(record),
     }));
 
-  const staticManifestDigest = siteContentValueHash({
-    version: "clinical-kb-site-static-manifest-v1",
-    registryVersion: metadata.registryVersion,
-    records: staticRecords,
-  });
+  const staticManifestDigest = computeStaticManifestDigest(metadata.registryVersion, staticRecords);
 
   return {
     version: "clinical-kb-site-static-manifest-v1",
