@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "505f3b8e-a800-4efa-809f-ad2ccc6e158e",
+  "createdOn": "2026-08-23",
+  "action": "update",
+  "payload": {
+    "id": "#QSHHGK",
+    "detail": "PARTIALLY ADDRESSED 2026-08-23: the bundle checker now validates the configured 40-character baseline source before reporting distance and emits explicit, non-failing text plus structured JSON remediation when the commit is missing or not an ancestor. Normal JSON remains a single document; size enforcement and explicit --update semantics are unchanged. The current source e5ee533bc04ff0ab34ff17c23341cb67abf3d59a is unresolved locally and the non-updating budget check passes its existing ceilings, so provenance uncertainty is visible. KEEP OPEN: this does not create the scheduled refresh owner or trigger the row requests; accumulated-growth ownership remains unresolved.",
+    "source": "docs/evidence/performance-remediation-2026-08-23.md; scripts/check-bundle-budget.mjs; tests/bundle-budget.test.ts",
+    "baseRowFingerprint": "48b51b001f5bccea71e0663890ecb6f1c352a568316833bef460c1c55f36d7e2"
+  }
+}
