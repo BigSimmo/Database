@@ -75,7 +75,7 @@ answer's treatment, and a partial answer must never render as a whole one._ Thes
 
 Full reasoning in DECISIONS §C5. The resolution:
 
-**Three semantically-named identity families cover the thirteen modes**, because the system has
+**Three semantically-named identity families cover the fifteen modes**, because the system has
 **three separate colour channels** that must never borrow from each other:
 
 | Channel             | Job                                                                                      | Tokens                                                      |
@@ -85,18 +85,16 @@ Full reasoning in DECISIONS §C5. The resolution:
 | **Clinical state**  | Source currency and safety — the reserved channel of §2.1                                | status/danger/warning/success roles                         |
 
 The claim that mode identity needed more than three families conflated the first two channels.
-**[verified:** the four hue tones label _categories inside_ modes, not modes — Services home
-uses all four for ATSI / Youth / Telehealth / Free pathway pills
-(`src/components/services/services-home-page.tsx:47-83`), and `specifier-ui.tsx` reuses three
-of the same four for specifier categories. No mode carries a hue as its identity.**]**
+**[verified:** the four hue tones label _categories inside_ modes, not modes — `specifier-ui.tsx`
+reuses three of the same four for specifier categories. No mode carries a hue as its identity.**]**
 
 **Mode → kind mapping** (assumed per mode, cheap to veto — DECISIONS §C5 lists the reasoning):
 
-| Kind               | Modes                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------- |
-| `--kind-source`    | documents · factsheets · dsm · specifiers · formulation · prescribing · therapy-compass · differentials |
-| `--kind-answer`    | answer (any surface whose `resultsSurface` is `"answer"` in `src/lib/app-modes.ts`)                     |
-| `--kind-workspace` | services · forms · favourites · tools                                                                   |
+| Kind               | Modes                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `--kind-source`    | documents · factsheets · dictionary · dsm · specifiers · formulation · prescribing · therapy-compass · differentials |
+| `--kind-answer`    | answer · calculators (generated or calculated output)                                                                |
+| `--kind-workspace` | services · forms · favourites · tools                                                                                |
 
 Rules:
 
@@ -104,8 +102,8 @@ Rules:
   none matches its nearest `--type-*`, so delete-and-alias would silently change four dark
   colours. New category colour needs a role name, not a thirteenth tone.
 - Category colour may not borrow clinical-state colour, with **one sanctioned exception**: a
-  category that itself denotes urgency (the Services "Crisis" pathway pill wears the danger
-  tone — **[verified:** `services-home-page.tsx:50`**]**). This mirrors the `ClinicalCallout`
+  category that itself denotes urgency (the Services "Crisis" pathway used the danger
+  tone on the retired tile home). This mirrors the `ClinicalCallout`
   rule: only contraindication and urgent escalation may use red/amber.
 - Kind identity never varies by clinical state; a stale source is still `--kind-source`.
 

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   THERAPY_CATALOGUE_ASSETS,
   THERAPY_CATALOGUE_ASSETS_PREVIOUS,
@@ -38,10 +39,6 @@ const therapyMetadataFiles = [
 describe("Therapy Compass production-mode wiring", () => {
   it("uses Therapy for user-facing mode copy, search results ribbon, and page metadata", () => {
     const appModesSrc = readFileSync(new URL("../src/lib/app-modes.ts", import.meta.url), "utf8");
-    const homeSrc = readFileSync(
-      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
-      "utf8",
-    );
     const workspaceSrc = readFileSync(
       new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
       "utf8",
@@ -59,7 +56,7 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(appModesSrc).toContain('placeholder: "Search therapies…"');
     expect(appModesSrc).toContain('inputAriaLabel: "Search therapies by problem, symptom, skill, or population"');
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
-    expect(homeSrc).toContain('title={sharedHomePresentation["therapy-compass"].title}');
+    expect(sharedHomePresentation["therapy-compass"].title).toBe("Therapy");
     // Search route owns filters/results only; the results ribbon is the page h1.
     expect(searchSrc).toContain("SearchResultsHeaderBand");
     expect(searchSrc).toContain("headingLevel={1}");
@@ -71,7 +68,6 @@ describe("Therapy Compass production-mode wiring", () => {
     // Therapy stays out of the six-item sidebar; mode discovery is via Tools/search.
     expect(sidebarSrc).not.toContain('id: "therapy-compass"');
     expect(appModesSrc).not.toContain("Therapy mode");
-    expect(homeSrc).not.toContain("Therapy mode");
     expect(searchSrc).not.toContain("Therapy Search");
     expect(workspaceSrc).not.toContain("Therapy mode");
 
@@ -281,12 +277,8 @@ describe("Therapy Compass production-mode wiring", () => {
       new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
       "utf8",
     );
-    const homeSrc = readFileSync(
-      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
-      "utf8",
-    );
-    // Home uses ModeHomeMain; workspace must not wrap home in a second <main>.
-    expect(homeSrc).toMatch(/ModeHomeMain/);
+    // `/therapy-compass` redirects to the shared home, so workspace must not wrap
+    // that path in a second <main>. Error/loading on child routes still promote.
     expect(workspaceSrc).toMatch(/asMain=\{!isHome\}/);
     expect(workspaceSrc).toContain(
       "const homeNeedsMainLandmark = Boolean(b.error) || (b.loading && b.therapies.length === 0);",
@@ -300,16 +292,15 @@ describe("Therapy Compass production-mode wiring", () => {
       new URL("../src/components/clinical-dashboard/global-search-shell.tsx", import.meta.url),
       "utf8",
     );
-    const homeSrc = readFileSync(
-      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
+    const sharedHomeSrc = readFileSync(
+      new URL("../src/components/clinical-dashboard/answer-status.tsx", import.meta.url),
       "utf8",
     );
-    expect(homeSrc).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
+    expect(sharedHomeSrc).toContain("desktopComposerSlotId={desktopComposerSlotId}");
     // Mode homes are pathname-gated so optimistic searchMode cannot flip hero→dock mid-nav.
     expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
-    // `/therapy-compass` is no longer one of them — it redirects to the shared home,
-    // so there is no therapy-owned home render for the gate to protect. The screen
-    // itself is preserved as design scratch at /mockups/therapy-compass-home-detailed.
+    // `/therapy-compass` redirects to the shared home, so there is no
+    // therapy-owned home render for the gate to protect.
     expect(isStandaloneModeHomePath("/therapy-compass")).toBe(false);
   });
 
