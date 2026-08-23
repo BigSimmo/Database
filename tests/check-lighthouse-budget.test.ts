@@ -19,7 +19,12 @@ import {
 } from "../scripts/check-lighthouse-budget.mjs";
 import { routeWithLighthouseParams } from "../scripts/lib/lighthouse-route-params.mjs";
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
-import { deadlineAfter, processTimeoutMs, remainingMs } from "../scripts/lighthouse-time-budget.mjs";
+import {
+  deadlineAfter,
+  lighthouseBuildTimeoutMs,
+  processTimeoutMs,
+  remainingMs,
+} from "../scripts/lighthouse-time-budget.mjs";
 
 /**
  * Synthetic fixture routes for the unit cases below — deliberately more than the
@@ -484,6 +489,8 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain('ignoreDeprecations: "6.0"');
     expect(runner).toContain('baseUrl: "../.."');
     expect(runner).toContain('paths: { "@/*": ["src/*"] }');
+    expect(runner).toContain('extends: "../../tsconfig.typecheck.json"');
+    expect(runner).not.toContain('extends: "../../tsconfig.json"');
   });
 
   it("invokes npm's JavaScript npx CLI through Node when available", () => {
@@ -510,7 +517,10 @@ describe("committed lighthouse-budget.json", () => {
   it("bounds each Lighthouse process independently of its navigation timeout", () => {
     const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
 
-    expect(runner).toContain("timeout: LIGHTHOUSE_BUILD_TIMEOUT_MS");
+    expect(runner).toMatch(
+      /const buildTimeoutMs = lighthouseBuildTimeoutMs\(\{\s*platform: process\.platform,\s*ci: process\.env\.CI !== undefined,\s*\}\);/,
+    );
+    expect(runner).toContain("timeout: buildTimeoutMs");
     expect(runner).toContain("waitForServer(baseUrl, server, LIGHTHOUSE_SERVER_READY_TIMEOUT_MS)");
     expect(runner).toContain("if (requestTimeout === 0) break");
     expect(runner).toContain("deadlineAfter(LIGHTHOUSE_MEASUREMENT_SUITE_TIMEOUT_MS)");
@@ -543,6 +553,12 @@ describe("committed lighthouse-budget.json", () => {
 });
 
 describe("Lighthouse time budget", () => {
+  it("selects the supported build duration by execution environment", () => {
+    expect(lighthouseBuildTimeoutMs({ platform: "win32", ci: false })).toBe(20 * 60_000);
+    expect(lighthouseBuildTimeoutMs({ platform: "win32", ci: true })).toBe(10 * 60_000);
+    expect(lighthouseBuildTimeoutMs({ platform: "linux", ci: false })).toBe(10 * 60_000);
+  });
+
   it("uses a real deadline for server readiness and each process", () => {
     const deadline = deadlineAfter(120_000, 1_000);
 

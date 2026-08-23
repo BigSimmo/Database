@@ -52,3 +52,44 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
     </UtilityDrawer>
   );
 }
+
+/**
+ * Result pages overlay the notice from a zero-height frame and must unmount
+ * that node when healthy: a hidden `h-0` box still takes the parent
+ * `space-y-*` gap and inflates phone geometry.
+ *
+ * Centred homes keep a 62px reserved frame on first paint even while healthy.
+ * Unmounting that slot lets a late "Service unavailable" banner shove the
+ * hero (~0.075 CLS, Production UI `ui-pwa` wide-phone). Filling the reserved
+ * box does not change layout.
+ */
+export function DegradedNoticeFrame({
+  visible,
+  isOnline,
+  reserveSpace = false,
+}: {
+  visible: boolean;
+  isOnline: boolean;
+  reserveSpace?: boolean;
+}) {
+  if (!visible && !reserveSpace) {
+    return null;
+  }
+
+  return (
+    <div
+      data-testid="dashboard-degraded-notice-frame"
+      data-visible={visible ? "true" : "false"}
+      className={reserveSpace ? "min-h-[3.875rem]" : "relative z-10 !mt-0 h-0 overflow-visible"}
+    >
+      {visible ? (
+        <>
+          <span role="alert" className="sr-only">
+            {!isOnline ? "Offline" : "Service unavailable"}
+          </span>
+          <DegradedNotice isOnline={isOnline} />
+        </>
+      ) : null}
+    </div>
+  );
+}
