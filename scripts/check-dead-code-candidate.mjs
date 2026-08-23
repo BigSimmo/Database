@@ -26,6 +26,10 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+/**
+ * @param {string | number | null | undefined} [raw]
+ * @returns {number}
+ */
 export function parseRecentDays(raw = process.env.DEAD_CODE_RECENT_DAYS) {
   const fallback = raw === undefined || raw === null || raw === "" ? 30 : raw;
   const configuredRecentDays = Number(fallback);
