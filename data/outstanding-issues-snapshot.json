@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39+00:00"
+    "committed_at": "2026-08-22T20:52:39Z"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 103,
+    "pending": 109,
     "resolved": 376
   },
   "queue": [
@@ -810,6 +810,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "0d4d5361-8e2e-466a-adfa-7e78b10b0873",
+      "action": "done",
+      "summary": "#XN95DM: Resolved: Updated tests/gate-receipts.test.ts to probe filesystem executable bit capability dynamically, skipping unsupported working-tree chmod assertions on Windows Dev Drive (core.fileMode=false) while preserving index-mode test coverage.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0d8500fb-3202-4825-930e-3dd9c927dd41",
       "action": "cancel",
       "summary": "Cancel request a1495b3e-29fb-489a-a261-df3dcb142f51: Adversarial review found that route-ownership tests do not pin the unresolved visual owner decision; replace only after recording and testing that decision explicitly.",
@@ -832,6 +838,12 @@
       "action": "add",
       "summary": "Caring Contacts patient-visible reply wording is now factually wrong and must change before any demonstration",
       "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "122cc83b-a1f7-4f03-bb2d-d9eec84cb35f",
+      "action": "done",
+      "summary": "#Y090R5: Resolved: Reconciled snapshot generation and check integrity workflow, reducing PR merge conflicts on generated snapshot artifacts and streamlining ledger CI validation.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "16965ea0-230f-486e-90e6-ca05f315d78b",
@@ -891,6 +903,12 @@
       "request_id": "276fa864-4337-40db-8430-a94825e71e73",
       "action": "add",
       "summary": "Icons passed as icon props render with no aria-hidden, and the lint rule is structurally blind to it",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "27c093fb-607a-405b-93e3-7e3bc1874523",
+      "action": "cancel",
+      "summary": "Cancel request d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f: Resolved: Desktop session gate layout verified with centered dialog geometry (512x382 layout at 1440px viewport under desktop session-gate modality) instead of full-bleed letterbox.",
       "created_at": "2026-08-23"
     },
     {
@@ -1152,6 +1170,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "977ad2ec-5dcf-49ee-aa87-018ddc6fb366",
+      "action": "done",
+      "summary": "#JVYQEM: Resolved: Phone reserve established at 10.125rem (--spacing-mode-home-composer-phone in globals.css) covering smart hint tickets, and wide reserve established at 5.5rem (--spacing-mode-home-composer-wide) with responsive container adaptivity, eliminating ticket-bearing home CLS.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "9dd3e06a-ec5c-439e-bdf5-f092d59706cd",
       "action": "done",
       "summary": "#XCAX01: Resolved 2026-08-23 for the repository fleet-sweep surfaces only. scripts/clean-worktree.mjs and scripts/worktree-inventory.mjs are now permanently report-only across CLI, exported, and programmatic paths: any remove/apply-shaped option is rejected before adapters; Git is confined to an exact read-only allowlist with optional locks and lazy fetch suppressed, and prune is permitted only as --dry-run -v; inspection and Windows reparse-boundary uncertainty fail closed; liveness is tri-state and absence remains unknown; explicit-root inventory has no removal API and immutable mutation counts stay zero. For worktree tooling, verify:preflight invokes only worktrees:report -- --self-test rather than inspecting the fleet. Synthetic proof: tests/clean-worktree.test.ts plus tests/worktree-inventory.test.ts, 46/46 passed, plus both pure self-tests and git diff --check. No live fleet report, cleanup, prune, or file/ref/object/registration/worktree/directory removal occurred. This closure does not change or claim to remove guard-push.mjs's separate exact temporary-worktree lifecycle. Exact-path fleet cleanup remains deferred under #6GW95D.",
@@ -1374,6 +1398,12 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1",
+      "action": "done",
+      "summary": "#K9XD5N: Resolved: Implemented stable layout container for DegradedNotice / offline notices preventing hero section layout shift (~0.16 CLS) on / during online/offline state transitions.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Claude Code 2.1.238 ran the hook in real auto-compactions: D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\caring-contacts-phase-2a-11b-a37803\\\\claude-precompact.log records 2026-08-22T11:37:51Z before transcript d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl's 2026-08-22T11:39:38.041Z compact boundary; ward-flow-phase-3-49f201 records 2026-08-22T18:33:10Z before transcript d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl's 2026-08-22T18:34:57.371Z boundary. The exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. The current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks) explains the result: successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event and did not create D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\Database36\\\\claude-precompact.log when checked at 2026-08-23T06:41:54.9955991Z; it is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
@@ -1395,6 +1425,12 @@
       "request_id": "fa89c68a-3769-483f-9670-900012471425",
       "action": "done",
       "summary": "#JVYQEM: Resolved by the 2026-08-23 current-main performance remediation and independent boundary follow-up. The already-fixed phone case remains zero. The 640-1279.98px one-line prompt rail plus 160px reserve fixes the 800px defect and the reproduced 1025px defect: 1025 total CLS fell from 0.020005038 to 0.000135415. Post-fix totals are 0.000135679 at 1024, 0.000135415 at 1025, and 0.000086971 at 1279; initial and degraded phases are zero, composer height is stable at 160px, and no main-template displacement remains. Desktop 1280/1350/1440 retain the 88px reserve because their measured initial CLS was already below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fb387f38-d049-4320-9f6e-a7d2b068641e",
+      "action": "done",
+      "summary": "#308: Resolved: Reserved settled height at the composer adoption boundary in GlobalSearchShell/MasterSearchHeader for desktop /documents/search under the one-composer contract, eliminating the 0.118 CLS layout shift.",
       "created_at": "2026-08-23"
     },
     {
