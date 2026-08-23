@@ -43,7 +43,7 @@
  */
 import { spawn, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -137,6 +137,20 @@ const env = offlineTestEnvironment(process.env, {
   // demo search and exposes the degraded notice during the explicit fault.
   NEXT_PUBLIC_DEMO_MODE: "true",
 });
+
+function writeResultsArtifact(resultCells) {
+  const results = buildClsAttributionOutput(resultCells, { profilesExplicit, profiles });
+  mkdirSync(path.dirname(outFile), { recursive: true });
+  const temporaryOutFile = `${outFile}.${process.pid}.tmp`;
+  try {
+    writeFileSync(temporaryOutFile, `${JSON.stringify(results, null, 2)}\n`, "utf8");
+    renameSync(temporaryOutFile, outFile);
+  } catch (error) {
+    removePathSync(temporaryOutFile);
+    throw error;
+  }
+  return results;
+}
 
 function isThisProject(body) {
   try {
@@ -599,81 +613,83 @@ try {
         isMobile: profile.isMobile,
         hasTouch: profile.hasTouch,
       });
-      const page = await context.newPage();
-      await page.addInitScript(PAGE_INSTRUMENTATION);
-      const cdp = await context.newCDPSession(page);
-      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+      try {
+        const page = await context.newPage();
+        await page.addInitScript(PAGE_INSTRUMENTATION);
+        const cdp = await context.newCDPSession(page);
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
-      const initialHealthySetupResponse = exerciseLocalIdentityUnavailable
-        ? page.waitForResponse((response) => isSetupStatusResponse(response, 200), { timeout: 30_000 })
-        : null;
-      await page.goto(`${baseUrl}${route}`, { waitUntil: "load", timeout: 90_000 });
-      await initialHealthySetupResponse;
-      await waitForLoadedAssets(page);
-      await markPhase(page, "healthy");
-      // CLS keeps accruing well past `load`; sample after things settle.
-      await page.waitForTimeout(settleMs);
-      await exerciseDegradedTransitions({ page, context });
-      const entries = await page.evaluate(() => window.__clsEntries || []);
-      const timeline = await page.evaluate(() => window.__reserveTimeline || []);
-      const phases = await page.evaluate(() => window.__clsPhases || []);
-      const surfaces = await page.evaluate(() => window.__captureClsSnapshot());
-      const instrumentation = await page.evaluate(() => ({
-        clsObserverReady: window.__clsObserverReady === true,
-        reserveObserverReady: window.__reserveObserverReady === true,
-        geometryObserverReady: window.__geometryObserverReady === true,
-      }));
-      await context.close();
+        const initialHealthyLocalIdentityResponse = exerciseLocalIdentityUnavailable
+          ? page.waitForResponse((response) => isLocalIdentityResponse(response, 200), { timeout: 30_000 })
+          : null;
+        await page.goto(`${baseUrl}${route}`, { waitUntil: "load", timeout: 90_000 });
+        await initialHealthyLocalIdentityResponse;
+        await waitForLoadedAssets(page);
+        await markPhase(page, "healthy");
+        // CLS keeps accruing well past `load`; sample after things settle.
+        await page.waitForTimeout(settleMs);
+        await exerciseDegradedTransitions({ page, context });
+        const entries = await page.evaluate(() => window.__clsEntries || []);
+        const timeline = await page.evaluate(() => window.__reserveTimeline || []);
+        const phases = await page.evaluate(() => window.__clsPhases || []);
+        const surfaces = await page.evaluate(() => window.__captureClsSnapshot());
+        const instrumentation = await page.evaluate(() => ({
+          clsObserverReady: window.__clsObserverReady === true,
+          reserveObserverReady: window.__reserveObserverReady === true,
+          geometryObserverReady: window.__geometryObserverReady === true,
+        }));
 
-      const total = entries.reduce((sum, entry) => sum + entry.value, 0);
-      const bySource = new Map();
-      for (const entry of entries) {
-        // The whole entry value is charged to each of its sources: one shift is
-        // one relayout and every source moved in it. Read as "involved in shifts
-        // worth X", not as a partition of CLS.
-        for (const source of entry.sources) {
-          const key = source.selector || "(unknown)";
-          const current = bySource.get(key) || { value: 0, count: 0, sample: source };
-          current.value += entry.value;
-          current.count += 1;
-          bySource.set(key, current);
+        const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+        const bySource = new Map();
+        for (const entry of entries) {
+          // The whole entry value is charged to each of its sources: one shift is
+          // one relayout and every source moved in it. Read as "involved in shifts
+          // worth X", not as a partition of CLS.
+          for (const source of entry.sources) {
+            const key = source.selector || "(unknown)";
+            const current = bySource.get(key) || { value: 0, count: 0, sample: source };
+            current.value += entry.value;
+            current.count += 1;
+            bySource.set(key, current);
+          }
         }
-      }
 
-      const cellKey = browserProfileCellKey(profile.name, route);
-      const result = {
-        route,
-        profile: { ...profile },
-        exercises: {
-          offlineReconnect: exerciseOffline,
-          localIdentityUnavailable: exerciseLocalIdentityUnavailable,
-        },
-        total,
-        entryCount: entries.length,
-        sources: [...bySource.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 8),
-        entries,
-        reserveTimeline: timeline,
-        phases,
-        geometry: surfaces.geometry,
-        lcpCandidates: surfaces.lcpCandidates,
-        instrumentation,
-      };
-      resultCells.push({ cellKey, route, result });
+        const cellKey = browserProfileCellKey(profile.name, route);
+        const result = {
+          route,
+          profile: { ...profile },
+          exercises: {
+            offlineReconnect: exerciseOffline,
+            localIdentityUnavailable: exerciseLocalIdentityUnavailable,
+          },
+          total,
+          entryCount: entries.length,
+          sources: [...bySource.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 8),
+          entries,
+          reserveTimeline: timeline,
+          phases,
+          geometry: surfaces.geometry,
+          lcpCandidates: surfaces.lcpCandidates,
+          instrumentation,
+        };
+        resultCells.push({ cellKey, route, result });
+        writeResultsArtifact(resultCells);
 
-      console.log(
-        `[cls] ${profile.name.padEnd(20)} ${route.padEnd(20)} CLS=${total.toFixed(3)} shifts=${entries.length}`,
-      );
-      for (const step of timeline) {
-        console.log(`        reserve t=${step.t}ms ${step.value} (stack=${step.stackHeight})`);
+        console.log(
+          `[cls] ${profile.name.padEnd(20)} ${route.padEnd(20)} CLS=${total.toFixed(3)} shifts=${entries.length}`,
+        );
+        for (const step of timeline) {
+          console.log(`        reserve t=${step.t}ms ${step.value} (stack=${step.stackHeight})`);
+        }
+      } finally {
+        await context.close();
       }
     }
   }
 
   await browser.close();
   browser = null;
-  const results = buildClsAttributionOutput(resultCells, { profilesExplicit, profiles });
-  mkdirSync(path.dirname(outFile), { recursive: true });
-  writeFileSync(outFile, `${JSON.stringify(results, null, 2)}\n`, "utf8");
+  writeResultsArtifact(resultCells);
   console.log(`[cls] wrote ${path.relative(projectRoot, outFile)}`);
 
   const cellsMissingInstrumentation = resultCells

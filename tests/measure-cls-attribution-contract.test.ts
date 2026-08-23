@@ -130,6 +130,20 @@ describe("CLS attribution browser profiles", () => {
     });
   });
 
+  it("serializes only completed cells and never invents missing matrix results", () => {
+    const completed = { total: 0.239 };
+    expect(
+      optionsModule.buildClsAttributionOutput?.([{ cellKey: "mobile-lighthouse::/", route: "/", result: completed }], {
+        profilesExplicit: true,
+        profiles: [{ name: "mobile-lighthouse" }, { name: "desktop-1350" }],
+      }),
+    ).toEqual({
+      schemaVersion: 2,
+      profiles: [{ name: "mobile-lighthouse" }, { name: "desktop-1350" }],
+      cells: { "mobile-lighthouse::/": completed },
+    });
+  });
+
   it("reports exact missing instrumentation flags in stable order", () => {
     expect(
       optionsModule.missingReadinessFlags?.({
@@ -153,9 +167,14 @@ describe("CLS attribution evidence contract", () => {
     expect(source).toContain("Treat those cells as failed evidence");
   });
 
-  it("creates a requested nested evidence directory before writing", () => {
+  it("creates a requested nested evidence directory before the atomic temporary write", () => {
     expect(source).toContain("mkdirSync(path.dirname(outFile), { recursive: true })");
-    expect(source.indexOf("mkdirSync(path.dirname(outFile)")).toBeLessThan(source.indexOf("writeFileSync(outFile"));
+    expect(source.indexOf("mkdirSync(path.dirname(outFile)")).toBeLessThan(
+      source.indexOf("writeFileSync(temporaryOutFile"),
+    );
+    expect(source.indexOf("writeFileSync(temporaryOutFile")).toBeLessThan(
+      source.indexOf("renameSync(temporaryOutFile, outFile)"),
+    );
   });
 
   it("selects a free managed project port by default", () => {
@@ -240,6 +259,29 @@ describe("CLS attribution evidence contract", () => {
     expect(source.indexOf("await waitForLoadedAssets(page)")).toBeLessThan(
       source.lastIndexOf("await exerciseDegradedTransitions({ page, context })"),
     );
+  });
+
+  it("proves initial health with local identity on every exercised route", () => {
+    expect(source).toContain("const initialHealthyLocalIdentityResponse = exerciseLocalIdentityUnavailable");
+    expect(source).toContain("isLocalIdentityResponse(response, 200)");
+    expect(source).toContain("await initialHealthyLocalIdentityResponse");
+    expect(source).not.toContain("const initialHealthySetupResponse = exerciseLocalIdentityUnavailable");
+  });
+
+  it("atomically checkpoints each completed cell and always closes its browser context", () => {
+    expect(source).toContain('import { mkdirSync, renameSync, writeFileSync } from "node:fs"');
+    expect(source).toContain("function writeResultsArtifact(resultCells)");
+    expect(source).toContain("writeFileSync(temporaryOutFile");
+    expect(source).toContain("renameSync(temporaryOutFile, outFile)");
+    expect(source).toContain("removePathSync(temporaryOutFile)");
+    expect(source.match(/writeResultsArtifact\(resultCells\);/g)).toHaveLength(2);
+    expect(source.indexOf("resultCells.push({ cellKey, route, result });")).toBeLessThan(
+      source.indexOf(
+        "writeResultsArtifact(resultCells);",
+        source.indexOf("resultCells.push({ cellKey, route, result });"),
+      ),
+    );
+    expect(source).toContain("} finally {\n        await context.close();\n      }");
   });
 
   it("attributes delayed CLS callbacks against unrounded phase boundaries", () => {
