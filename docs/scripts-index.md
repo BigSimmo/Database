@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (268 files) and the `package.json` script surface (270 entries),
+Curated map of `scripts/` (270 files) and the `package.json` script surface (271 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -123,7 +123,8 @@ the task before you start.
 
 `seed-registry-records.ts`, `embed-registry-records.ts`, `reconcile-registry-governance.ts`,
 `import-services-export.ts`, `import-differentials-export.ts`, `seed-differential-records.ts`,
-`import-medications-export.ts`, `seed-medication-records.ts`.
+`import-medications-export.ts`, `seed-medication-records.ts`, `review-therapy.mjs`
+(`therapy:review` — report-only by default; qualified-clinician, interactive-TTY sign-off only).
 
 ## Build & assets [live/infra]
 

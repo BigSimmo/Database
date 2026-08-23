@@ -65,6 +65,11 @@ export type Therapy = {
   limitations: string | null;
   references: string | null;
   reviewStatus: ReviewStatus;
+  /** Display-approved public professional/governance attribution; never contact or account details. */
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  /** Pins a reviewed record to the exact non-review content that was attested. */
+  reviewedContentSha256?: string | null;
   confidenceLevel: string | null;
   contentOrigin: string | null;
   patientSheetAvailable: boolean;

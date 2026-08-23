@@ -12,6 +12,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { escapeFalseOpenAiKeySignatures } from "./lib/escape-false-openai-key-signatures.mjs";
+import { assertValidTherapyReviewRecords } from "./lib/therapy-review-contract.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const publicData = join(root, "public", "therapy-compass-data");
@@ -35,6 +36,12 @@ if (!existsSync(source)) {
 }
 
 const therapies = JSON.parse(readFileSync(source, "utf8"));
+
+// Review status is clinical governance, not display metadata. Validate the
+// canonical source before any derived file is checked, written, or pruned so a
+// bare `reviewStatus: "reviewed"` edit can never publish without all seven
+// explicit checks, public-safe attribution, timestamp, and content-bound hash.
+assertValidTherapyReviewRecords(therapies);
 
 const CATALOGUE_KINDS = ["full", "index"];
 const RETIRED_HOME_ALIAS = "therapies-home.json";
