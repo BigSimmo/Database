@@ -228,7 +228,7 @@ describe("MedicationInteractionCallout", () => {
 
     // Count + severity on the trigger; the drug names in the visible summary.
     expect(trigger()).toHaveAccessibleName(/2 interactions with this patient/i);
-    expect(screen.getByText("CRITICAL")).toBeVisible();
+    expect(screen.getByText("CRITICAL", { selector: "button span" })).toBeVisible();
     expect(screen.getByText(/Tramadol IR · Ibuprofen/)).toBeVisible();
   });
 

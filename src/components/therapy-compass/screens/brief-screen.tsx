@@ -17,6 +17,8 @@ import { therapyBtn } from "../controls";
 import { parseSteps, summarise } from "../data/select";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
+import { TherapySaveNotice } from "../record/save-notice";
+import { useTherapyFavourite } from "../use-therapy-favourite";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
 
 const CHECKLIST = [
@@ -41,6 +43,7 @@ export function BriefScreen() {
     [b.therapies, filter],
   );
 
+  const { notice, saved, toggleFavourite } = useTherapyFavourite(t?.slug ?? null);
   if (b.loading || !t) return <LoadingState label="Loading brief interventions…" />;
 
   const durationLabel = b.briefTab === "15min" ? "15-minute" : b.briefTab === "ground" ? "Grounding" : "5-minute";
@@ -70,13 +73,17 @@ export function BriefScreen() {
   return (
     <>
       <TherapyRecordNavHeader
-        title={`${t.name} brief intervention`}
+        therapy={t}
+        active="brief"
         backHref={b.workspaceHref(therapyRecordHref(t.slug))}
         backLabel={t.name}
         testIdPrefix="therapy-brief"
+        saved={saved}
+        onToggleSave={() => void toggleFavourite()}
       />
       <InformationPageShell testId="therapy-brief-page" gap={false}>
         <section data-screen-label="Brief">
+          <TherapySaveNotice notice={notice} />
           <PageHeader
             className="mb-5"
             title="Brief Intervention"
