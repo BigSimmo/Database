@@ -54,11 +54,14 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
 }
 
 /**
- * Mounts the dashboard's collapsed degraded-state control only while the
- * notice is actually showing. A hidden zero-height frame still participates in
- * the parent `space-y-*` gap and inflates phone/tablet geometry, so healthy
- * views must omit the node entirely. Centred homes keep the notice in flow;
- * result pages overlay it from a zero-height frame.
+ * Result pages overlay the notice from a zero-height frame and must unmount
+ * that node when healthy: a hidden `h-0` box still takes the parent
+ * `space-y-*` gap and inflates phone geometry.
+ *
+ * Centred homes keep a 62px reserved frame on first paint even while healthy.
+ * Unmounting that slot lets a late "Service unavailable" banner shove the
+ * hero (~0.075 CLS, Production UI `ui-pwa` wide-phone). Filling the reserved
+ * box does not change layout.
  */
 export function DegradedNoticeFrame({
   visible,
@@ -69,20 +72,24 @@ export function DegradedNoticeFrame({
   isOnline: boolean;
   reserveSpace?: boolean;
 }) {
-  if (!visible) {
+  if (!visible && !reserveSpace) {
     return null;
   }
 
   return (
     <div
       data-testid="dashboard-degraded-notice-frame"
-      data-visible="true"
+      data-visible={visible ? "true" : "false"}
       className={reserveSpace ? "min-h-[3.875rem]" : "relative z-10 !mt-0 h-0 overflow-visible"}
     >
-      <span role="alert" className="sr-only">
-        {!isOnline ? "Offline" : "Service unavailable"}
-      </span>
-      <DegradedNotice isOnline={isOnline} />
+      {visible ? (
+        <>
+          <span role="alert" className="sr-only">
+            {!isOnline ? "Offline" : "Service unavailable"}
+          </span>
+          <DegradedNotice isOnline={isOnline} />
+        </>
+      ) : null}
     </div>
   );
 }

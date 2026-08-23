@@ -37,7 +37,9 @@ describe("DegradedNoticeFrame", () => {
 
     const { rerender } = render(<DegradedNoticeFrame visible={false} isOnline reserveSpace />);
 
-    expect(screen.queryByTestId("dashboard-degraded-notice-frame")).not.toBeInTheDocument();
+    const reservedEmpty = screen.getByTestId("dashboard-degraded-notice-frame");
+    expect(reservedEmpty).toHaveClass("min-h-[3.875rem]");
+    expect(reservedEmpty).toHaveAttribute("data-visible", "false");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     rerender(<DegradedNoticeFrame visible isOnline={false} />);
