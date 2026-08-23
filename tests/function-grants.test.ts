@@ -88,6 +88,19 @@ describe("check:function-grants", () => {
     }
   });
 
+  it("revokes inherited service-role DML from core public-source control-plane tables", () => {
+    const migration = readFileSync("supabase/migrations/20260824121000_create_public_source_control_plane.sql", "utf8");
+    for (const table of ["public_source_policy_entries", "public_source_activation_events", "public_source_versions"]) {
+      expect(migration).toContain(
+        `revoke all on table public.${table} from public, anon, authenticated, service_role;`,
+      );
+      expect(migration).toContain(`grant select on table public.${table} to service_role;`);
+      expect(migration).not.toMatch(
+        new RegExp(`grant (insert|update|delete|all).*public\\.${table}.*service_role`, "i"),
+      );
+    }
+  });
+
   it("fails a SECURITY DEFINER function left anon-executable after the blanket revoke", () => {
     const result = run(fixture("leaky.sql", [BLANKET, DEFINER("leaky")].join("\n")));
     expect(result.code).toBe(1);

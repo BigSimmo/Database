@@ -1161,6 +1161,8 @@ export type Database = {
           intended_disposition: string;
           licence_evidence_digest: string;
           lifecycle: string;
+          raw_response_byte_count: number;
+          raw_response_hash: string;
           reservation_key: string;
           reserved_document_id: string;
           reserved_storage_path: string;
@@ -1194,6 +1196,8 @@ export type Database = {
           intended_disposition: string;
           licence_evidence_digest: string;
           lifecycle?: string;
+          raw_response_byte_count: number;
+          raw_response_hash: string;
           reservation_key: string;
           reserved_document_id: string;
           reserved_storage_path: string;
@@ -1227,6 +1231,8 @@ export type Database = {
           intended_disposition?: string;
           licence_evidence_digest?: string;
           lifecycle?: string;
+          raw_response_byte_count?: number;
+          raw_response_hash?: string;
           reservation_key?: string;
           reserved_document_id?: string;
           reserved_storage_path?: string;

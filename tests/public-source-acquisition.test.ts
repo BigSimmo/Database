@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
@@ -452,6 +453,127 @@ describe("public source acquisition", () => {
     expect(extracted.text).toBe("Visible clinical guidance.");
   });
 
+  it("persists retained HTML byte integrity separately from streamed raw-response provenance", async () => {
+    const plan = await activePlan({ exactUrl: "https://www.health.wa.gov.au/versioned/policy.html" });
+    const rawHtml = Buffer.from(
+      "<html><body><nav>Discarded chrome &amp; links</nav><main><h1>Clinical &amp; care</h1></main></body></html>",
+      "utf8",
+    );
+    const fetched = await fetchApprovedPublicSource(plan, {
+      resolve: async () => [{ address: "1.1.1.1", family: 4 }],
+      request: async () => ({
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+        body: chunks(rawHtml),
+      }),
+    });
+    const storedHash = createHash("sha256").update(fetched.content).digest("hex");
+    const rawHash = createHash("sha256").update(rawHtml).digest("hex");
+    expect(fetched).toMatchObject({
+      mime: "text/plain",
+      contentHash: storedHash,
+      byteCount: fetched.content.byteLength,
+      rawResponseHash: rawHash,
+      rawResponseByteCount: rawHtml.byteLength,
+    });
+    expect(fetched.contentHash).not.toBe(fetched.rawResponseHash);
+    const changedChrome = Buffer.from(
+      "<html><body><nav>Entirely different discarded chrome</nav><main><h1>Clinical &amp; care</h1></main></body></html>",
+      "utf8",
+    );
+    const fetchedChangedChrome = await fetchApprovedPublicSource(plan, {
+      resolve: async () => [{ address: "1.1.1.1", family: 4 }],
+      request: async () => ({
+        status: 200,
+        headers: { "content-type": "text/html" },
+        body: chunks(changedChrome),
+      }),
+    });
+    expect(fetchedChangedChrome.contentHash).toBe(fetched.contentHash);
+    expect(fetchedChangedChrome.rawResponseHash).not.toBe(fetched.rawResponseHash);
+
+    const identityKeys: unknown[] = [];
+    const duplicateDependencies: PublicSourceStagingDependencies = {
+      storageBucket: "offline-test",
+      reserve: vi.fn(async ({ manifest }) => {
+        identityKeys.push((manifest as Record<string, unknown>).reservationKey);
+        return {
+          id: "44444444-4444-4444-8444-444444444444",
+          reservedDocumentId: "55555555-5555-4555-8555-555555555555",
+          storagePath: `${stewardId}/public-source-staging/retained/source.txt`,
+          stagingDocumentId: "55555555-5555-4555-8555-555555555555",
+          lifecycle: "shadow",
+          ...reservationLease,
+        };
+      }),
+      authorizeUpload: vi.fn(async () => {
+        throw new Error("duplicate path must not authorize");
+      }),
+      upload: vi.fn(async () => {
+        throw new Error("duplicate path must not upload");
+      }),
+      finalize: vi.fn(async () => {
+        throw new Error("duplicate path must not finalize");
+      }),
+      lookup: vi.fn(async () => null),
+    };
+    await stageFetchedPublicSource(plan, fetched, duplicateDependencies);
+    await stageFetchedPublicSource(plan, fetchedChangedChrome, duplicateDependencies);
+    expect(identityKeys).toHaveLength(2);
+    expect(identityKeys[1]).toBe(identityKeys[0]);
+    expect(duplicateDependencies.authorizeUpload).not.toHaveBeenCalled();
+
+    const versionId = "44444444-4444-4444-8444-444444444444";
+    const documentId = "55555555-5555-4555-8555-555555555555";
+    const storagePath = `${stewardId}/public-source-staging/${versionId}/source.txt`;
+    let uploaded = Buffer.alloc(0);
+    let finalized: Record<string, unknown> = {};
+    const dependencies: PublicSourceStagingDependencies = {
+      storageBucket: "offline-test",
+      reserve: vi.fn(async () => ({
+        id: versionId,
+        reservedDocumentId: documentId,
+        storagePath,
+        stagingDocumentId: null,
+        lifecycle: "discovered",
+        ...reservationLease,
+      })),
+      authorizeUpload: vi.fn(async () =>
+        authorizedUploadState({
+          id: versionId,
+          reservedDocumentId: documentId,
+          storagePath,
+          ...reservationLease,
+        }),
+      ),
+      upload: vi.fn(async ({ content }) => {
+        uploaded = Buffer.from(content);
+      }),
+      finalize: vi.fn(async ({ manifest }) => {
+        finalized = manifest as Record<string, unknown>;
+        return { id: versionId, lifecycle: "shadow", staging_document_id: documentId };
+      }),
+      lookup: vi.fn(async () => null),
+    };
+
+    await stageFetchedPublicSource(plan, fetched, dependencies);
+
+    const document = finalized.document as Record<string, unknown>;
+    const metadata = document.metadata as Record<string, unknown>;
+    expect(createHash("sha256").update(uploaded).digest("hex")).toBe(finalized.contentHash);
+    expect(document.content_hash).toBe(finalized.contentHash);
+    expect(metadata.content_hash).toBe(finalized.contentHash);
+    expect(document.file_size).toBe(uploaded.byteLength);
+    expect(finalized).toMatchObject({
+      rawResponseHash: rawHash,
+      rawResponseByteCount: rawHtml.byteLength,
+    });
+    expect(metadata).toMatchObject({
+      raw_response_hash: rawHash,
+      raw_response_byte_count: rawHtml.byteLength,
+    });
+  });
+
   it("never includes response bodies, query strings, signed URLs, or operator identities in errors", async () => {
     const request = async () => ({
       status: 503,
@@ -553,6 +675,8 @@ describe("public source acquisition", () => {
           exact_version_url: plan.exactUrl,
           exact_version: plan.exactVersion,
           content_hash: fetched.contentHash,
+          raw_response_hash: fetched.contentHash,
+          raw_response_byte_count: fetched.byteCount,
           licence_evidence_digest: plan.licenceEvidenceDigest,
           steward_id: plan.stewardId,
           intended_disposition: fetched.disposition,
@@ -915,6 +1039,8 @@ describe("public source acquisition", () => {
         exact_version_url: plan.exactUrl,
         exact_version: plan.exactVersion,
         content_hash: fetched.contentHash,
+        raw_response_hash: fetched.contentHash,
+        raw_response_byte_count: fetched.byteCount,
         licence_evidence_digest: plan.licenceEvidenceDigest,
         intended_disposition: fetched.disposition,
       })),
@@ -977,6 +1103,8 @@ describe("public source acquisition", () => {
         exact_version_url: plan.exactUrl,
         exact_version: plan.exactVersion,
         content_hash: "4".repeat(64),
+        raw_response_hash: "4".repeat(64),
+        raw_response_byte_count: 12,
         licence_evidence_digest: plan.licenceEvidenceDigest,
         intended_disposition: "shadow",
       })),
@@ -1290,6 +1418,8 @@ describe("public source acquisition", () => {
           exact_version_url: plan.exactUrl,
           exact_version: plan.exactVersion,
           content_hash: "2".repeat(64),
+          raw_response_hash: "2".repeat(64),
+          raw_response_byte_count: 12,
           licence_evidence_digest: plan.licenceEvidenceDigest,
           steward_id: plan.stewardId,
           intended_disposition: "shadow",
@@ -1416,6 +1546,8 @@ describe("public source acquisition", () => {
       exact_version_url: plan.exactUrl,
       exact_version: plan.exactVersion,
       content_hash: fetched.contentHash,
+      raw_response_hash: fetched.contentHash,
+      raw_response_byte_count: fetched.byteCount,
       licence_evidence_digest: plan.licenceEvidenceDigest,
       steward_id: plan.stewardId,
       intended_disposition: fetched.disposition,
@@ -1484,6 +1616,8 @@ describe("public source acquisition", () => {
       exact_version_url: plan.exactUrl,
       exact_version: plan.exactVersion,
       content_hash: fetched.contentHash,
+      raw_response_hash: fetched.contentHash,
+      raw_response_byte_count: fetched.byteCount,
       licence_evidence_digest: plan.licenceEvidenceDigest,
       steward_id: plan.stewardId,
       intended_disposition: fetched.disposition,
@@ -1559,6 +1693,8 @@ describe("public source acquisition", () => {
       exact_version_url: plan.exactUrl,
       exact_version: plan.exactVersion,
       content_hash: fetched.contentHash,
+      raw_response_hash: fetched.contentHash,
+      raw_response_byte_count: fetched.byteCount,
       licence_evidence_digest: plan.licenceEvidenceDigest,
       steward_id: plan.stewardId,
       intended_disposition: fetched.disposition,

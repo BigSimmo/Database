@@ -450,7 +450,8 @@ export async function fetchApprovedPublicSource(
         clearTimeout(inactivityTimer);
       }
       const content = Buffer.concat(parts, byteCount);
-      const contentHash = hash.digest("hex");
+      const rawResponseHash = hash.digest("hex");
+      const rawResponseByteCount = byteCount;
       let validatedContent: Awaited<ReturnType<typeof validateFetchedPublicSource>>;
       try {
         validatedContent = await validateFetchedPublicSource({
@@ -460,13 +461,16 @@ export async function fetchApprovedPublicSource(
       } catch {
         throw safeError("Acquired content failed type or structure validation.", plan, currentUrl, {
           byteCount,
-          digest: contentHash,
+          digest: rawResponseHash,
         });
       }
+      const contentHash = createHash("sha256").update(validatedContent.content).digest("hex");
       return {
         finalUrl: currentUrl.href,
         contentHash,
-        byteCount,
+        byteCount: validatedContent.content.byteLength,
+        rawResponseHash,
+        rawResponseByteCount,
         ...validatedContent,
       };
     }

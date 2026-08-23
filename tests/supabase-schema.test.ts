@@ -2151,13 +2151,33 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
       ]) {
         expect(sql).toContain(`create table public.${table}`);
         expect(sql).toContain(`alter table public.${table} enable row level security`);
-        expect(sql).toContain(`revoke all on table public.${table} from public, anon, authenticated`);
+        expect(sql).toContain(`revoke all on table public.${table} from public, anon, authenticated, service_role`);
+        expect(sql).toContain(`grant select on table public.${table} to service_role`);
+        expect(sql).not.toMatch(new RegExp(`grant (insert|update|delete|all).*public\\.${table}.*service_role`, "i"));
         expect(sql).not.toContain(`grant select on table public.${table} to anon`);
         expect(sql).not.toContain(`grant select on table public.${table} to authenticated`);
       }
       expect(sql).toContain("before update or delete on public.public_source_activation_events");
       expect(sql).toContain("public source activation events are append-only");
       expect(sql).toContain("public source version immutable fields changed");
+    });
+
+    it("separates streamed raw-response provenance from stored document integrity", () => {
+      const sql = controlPlaneSql();
+      const types = readFileSync("src/lib/supabase/database.types.ts", "utf8");
+      expect(sql).toContain("raw_response_hash text not null check (raw_response_hash ~ '^[0-9a-f]{64}$')");
+      expect(sql).toContain("raw_response_byte_count bigint not null check (raw_response_byte_count >= 0)");
+      expect(sql).toContain("v_version.raw_response_hash is distinct from p_manifest->>'rawResponseHash'");
+      expect(sql).toContain(
+        "v_version.raw_response_byte_count is distinct from (p_manifest->>'rawResponseByteCount')::bigint",
+      );
+      expect(sql).toContain("metadata'->>'raw_response_hash' is distinct from v_version.raw_response_hash");
+      expect(sql).toContain(
+        "metadata'->>'raw_response_byte_count' is distinct from v_version.raw_response_byte_count::text",
+      );
+      expect(sql).toContain("'raw_response_hash', 'raw_response_byte_count'");
+      expect(types).toContain("raw_response_hash: string;");
+      expect(types).toContain("raw_response_byte_count: number;");
     });
 
     it("binds activation and reservation to the immutable exact eligible-source policy", () => {

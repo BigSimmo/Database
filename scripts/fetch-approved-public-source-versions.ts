@@ -28,7 +28,13 @@ export function parseAcquisitionBatch(raw: string) {
   return plans;
 }
 
-type FetchedPublicSource = Awaited<ReturnType<typeof fetchApprovedPublicSource>>;
+type FetchedPublicSource = Omit<
+  Awaited<ReturnType<typeof fetchApprovedPublicSource>>,
+  "rawResponseHash" | "rawResponseByteCount"
+> & {
+  rawResponseHash?: string;
+  rawResponseByteCount?: number;
+};
 type PublicSourceVersionState = {
   id: string;
   lifecycle: string;
@@ -43,6 +49,8 @@ type PublicSourceVersionState = {
   exact_version_url?: string;
   exact_version?: string;
   content_hash?: string;
+  raw_response_hash?: string;
+  raw_response_byte_count?: number;
   licence_evidence_digest?: string;
   steward_id?: string;
   intended_disposition?: string;
@@ -330,7 +338,7 @@ async function defaultStagingDependencies(): Promise<{
         const { data, error } = await supabase
           .from("public_source_versions")
           .select(
-            "id,lifecycle,staging_document_id,reservation_key,source_catalogue_key,source_policy_version,source_policy_digest,activation_event_id,activation_sequence,exact_canonical_url,exact_version_url,exact_version,content_hash,licence_evidence_digest,steward_id,intended_disposition,reserved_document_id,reserved_storage_path,storage_bucket,upload_lease_token,upload_lease_expires_at,upload_state,current_upload_attempt_id,finalized_upload_attempt_id",
+            "id,lifecycle,staging_document_id,reservation_key,source_catalogue_key,source_policy_version,source_policy_digest,activation_event_id,activation_sequence,exact_canonical_url,exact_version_url,exact_version,content_hash,raw_response_hash,raw_response_byte_count,licence_evidence_digest,steward_id,intended_disposition,reserved_document_id,reserved_storage_path,storage_bucket,upload_lease_token,upload_lease_expires_at,upload_state,current_upload_attempt_id,finalized_upload_attempt_id",
           )
           .eq("id", reservationId)
           .maybeSingle();
@@ -373,6 +381,8 @@ function recoveryIdentityMatches(
     recovered.exact_version_url === manifest.exactVersionUrl &&
     recovered.exact_version === manifest.exactVersion &&
     recovered.content_hash === manifest.contentHash &&
+    recovered.raw_response_hash === manifest.rawResponseHash &&
+    recovered.raw_response_byte_count === manifest.rawResponseByteCount &&
     recovered.licence_evidence_digest === manifest.licenceEvidenceDigest &&
     recovered.steward_id === manifest.stewardId &&
     recovered.intended_disposition === manifest.disposition &&
@@ -401,6 +411,8 @@ function recoveryGovernanceMatches(
     recovered.exact_version_url === manifest.exactVersionUrl &&
     recovered.exact_version === manifest.exactVersion &&
     recovered.content_hash === manifest.contentHash &&
+    recovered.raw_response_hash === manifest.rawResponseHash &&
+    recovered.raw_response_byte_count === manifest.rawResponseByteCount &&
     recovered.licence_evidence_digest === manifest.licenceEvidenceDigest &&
     recovered.steward_id === manifest.stewardId &&
     recovered.intended_disposition === manifest.disposition &&
@@ -450,6 +462,15 @@ export async function stageFetchedPublicSource(
   const defaults = injectedDependencies ? null : await defaultStagingDependencies();
   const dependencies = injectedDependencies ?? defaults!.dependencies;
   const storageBucket = parsePublicSourceStorageBucket(dependencies.storageBucket);
+  const rawResponseHash = fetched.rawResponseHash ?? fetched.contentHash;
+  const rawResponseByteCount = fetched.rawResponseByteCount ?? fetched.byteCount;
+  if (
+    !/^[0-9a-f]{64}$/.test(rawResponseHash) ||
+    !Number.isSafeInteger(rawResponseByteCount) ||
+    rawResponseByteCount < 0
+  ) {
+    throw new Error("Public source raw response provenance was invalid.");
+  }
   const maxAttempts = defaults?.maxAttempts ?? 3;
   const uploadTimeoutMs = options.uploadTimeoutMs ?? 60_000;
   if (!Number.isInteger(uploadTimeoutMs) || uploadTimeoutMs < 1 || uploadTimeoutMs > 60_000) {
@@ -466,6 +487,8 @@ export async function stageFetchedPublicSource(
     exactVersionUrl: fetched.finalUrl,
     exactVersion: plan.exactVersion,
     contentHash: fetched.contentHash,
+    rawResponseHash,
+    rawResponseByteCount,
     retrievedAt: new Date().toISOString(),
     licenceEvidenceDigest: plan.licenceEvidenceDigest,
     stewardId: plan.stewardId,
@@ -609,6 +632,8 @@ export async function stageFetchedPublicSource(
       change_state: "changed",
       clinical_validation_status: "unverified",
       content_hash: fetched.contentHash,
+      raw_response_hash: rawResponseHash,
+      raw_response_byte_count: rawResponseByteCount,
     };
     const version = await dependencies.finalize({
       manifest: {
@@ -623,6 +648,8 @@ export async function stageFetchedPublicSource(
         exactVersionUrl: fetched.finalUrl,
         exactVersion: plan.exactVersion,
         contentHash: fetched.contentHash,
+        rawResponseHash,
+        rawResponseByteCount,
         licenceEvidenceDigest: plan.licenceEvidenceDigest,
         stewardId: plan.stewardId,
         disposition: fetched.disposition,

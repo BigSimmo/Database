@@ -72,6 +72,8 @@ create table public.public_source_versions (
   exact_version_url text not null check (exact_version_url ~ '^https://'),
   exact_version text not null check (char_length(trim(exact_version)) between 1 and 200),
   content_hash text not null check (content_hash ~ '^[0-9a-f]{64}$'),
+  raw_response_hash text not null check (raw_response_hash ~ '^[0-9a-f]{64}$'),
+  raw_response_byte_count bigint not null check (raw_response_byte_count >= 0),
   retrieved_at timestamptz not null,
   licence_evidence_digest text not null check (licence_evidence_digest ~ '^[0-9a-f]{64}$'),
   steward_id uuid not null references auth.users(id) on delete restrict,
@@ -269,9 +271,9 @@ alter table public.public_source_activation_events enable row level security;
 alter table public.public_source_versions enable row level security;
 alter table public.public_source_upload_attempts enable row level security;
 alter table public.public_source_activation_guards enable row level security;
-revoke all on table public.public_source_policy_entries from public, anon, authenticated;
-revoke all on table public.public_source_activation_events from public, anon, authenticated;
-revoke all on table public.public_source_versions from public, anon, authenticated;
+revoke all on table public.public_source_policy_entries from public, anon, authenticated, service_role;
+revoke all on table public.public_source_activation_events from public, anon, authenticated, service_role;
+revoke all on table public.public_source_versions from public, anon, authenticated, service_role;
 revoke all on table public.public_source_upload_attempts from public, anon, authenticated, service_role;
 revoke all on table public.public_source_activation_guards from public, anon, authenticated, service_role;
 grant select on table public.public_source_policy_entries to service_role;
@@ -390,6 +392,7 @@ declare
     'corpus_scope', 'source_kind', 'source_catalogue_key', 'source_policy_version', 'source_policy_digest',
     'public_source_activation_event_id', 'public_source_activation_sequence', 'public_source_version_id', 'public_source_steward_id',
     'content_mode', 'licence_policy', 'canonical_url', 'exact_version_url', 'version', 'content_hash',
+    'raw_response_hash', 'raw_response_byte_count',
     'acquisition_disposition', 'public_source_storage_bucket'
   ];
 begin
@@ -620,6 +623,9 @@ begin
   if v_steward_id is null or v_activation_event_id is null or v_activation_sequence is null
     or coalesce(p_manifest->>'reservationKey', '') !~ '^[0-9a-f]{64}$'
     or coalesce(p_manifest->>'contentHash', '') !~ '^[0-9a-f]{64}$'
+    or coalesce(p_manifest->>'rawResponseHash', '') !~ '^[0-9a-f]{64}$'
+    or coalesce(p_manifest->>'rawResponseByteCount', '') !~ '^[0-9]{1,9}$'
+    or (p_manifest->>'rawResponseByteCount')::bigint > 157286400
     or coalesce(p_manifest->>'licenceEvidenceDigest', '') !~ '^[0-9a-f]{64}$'
     or v_storage_bucket !~ '^[a-z0-9][a-z0-9._-]{0,62}$'
     or p_manifest->>'disposition' not in ('shadow', 'quarantined')
@@ -696,14 +702,16 @@ begin
   v_storage_path := v_steward_id::text || '/public-source-staging/' || v_version_id::text || '/source' || p_manifest->>'fileExtension';
   insert into public.public_source_versions (
     id, reservation_key, source_catalogue_key, source_policy_version, source_policy_digest,
-    exact_canonical_url, exact_version_url, exact_version, content_hash, retrieved_at,
+    exact_canonical_url, exact_version_url, exact_version, content_hash,
+    raw_response_hash, raw_response_byte_count, retrieved_at,
     licence_evidence_digest, steward_id, reserved_document_id, reserved_storage_path, storage_bucket,
     upload_lease_token, upload_lease_expires_at, upload_state,
     intended_disposition, lifecycle, supersedes_version_id, activation_event_id, activation_sequence
   ) values (
     v_version_id, p_manifest->>'reservationKey', p_source_catalogue_key, v_event.policy_version, v_event.policy_digest,
     p_manifest->>'exactCanonicalUrl', p_manifest->>'exactVersionUrl', trim(p_manifest->>'exactVersion'),
-    p_manifest->>'contentHash', (p_manifest->>'retrievedAt')::timestamptz,
+    p_manifest->>'contentHash', p_manifest->>'rawResponseHash',
+    (p_manifest->>'rawResponseByteCount')::bigint, (p_manifest->>'retrievedAt')::timestamptz,
     p_manifest->>'licenceEvidenceDigest', v_steward_id, v_document_id, v_storage_path, v_storage_bucket,
     v_upload_lease_token, v_upload_lease_expires_at, 'reserved',
     p_manifest->>'disposition', 'discovered', v_prior_version_id, v_event.id, v_event.activation_sequence
@@ -884,6 +892,8 @@ begin
     or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
     or v_version.exact_version is distinct from p_manifest->>'exactVersion'
     or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.raw_response_hash is distinct from p_manifest->>'rawResponseHash'
+    or v_version.raw_response_byte_count is distinct from (p_manifest->>'rawResponseByteCount')::bigint
     or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
     or v_version.intended_disposition is distinct from p_manifest->>'disposition'
     or v_version.steward_id is distinct from v_steward_id
@@ -983,6 +993,8 @@ begin
     or v_version.exact_canonical_url is distinct from p_manifest->>'exactCanonicalUrl'
     or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
     or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.raw_response_hash is distinct from p_manifest->>'rawResponseHash'
+    or v_version.raw_response_byte_count is distinct from (p_manifest->>'rawResponseByteCount')::bigint
     or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
     or v_version.intended_disposition is distinct from p_manifest->>'disposition'
     or v_version.reserved_document_id::text is distinct from p_manifest->>'reservedDocumentId'
@@ -1089,6 +1101,8 @@ begin
     or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
     or v_version.exact_version is distinct from p_manifest->>'exactVersion'
     or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.raw_response_hash is distinct from p_manifest->>'rawResponseHash'
+    or v_version.raw_response_byte_count is distinct from (p_manifest->>'rawResponseByteCount')::bigint
     or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
     or v_version.steward_id is distinct from v_steward_id
     or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
@@ -1156,6 +1170,8 @@ begin
     or p_manifest->'document'->'metadata'->>'exact_version_url' is distinct from v_version.exact_version_url
     or p_manifest->'document'->'metadata'->>'version' is distinct from v_version.exact_version
     or p_manifest->'document'->'metadata'->>'content_hash' is distinct from v_version.content_hash
+    or p_manifest->'document'->'metadata'->>'raw_response_hash' is distinct from v_version.raw_response_hash
+    or p_manifest->'document'->'metadata'->>'raw_response_byte_count' is distinct from v_version.raw_response_byte_count::text
     or p_manifest->'document'->'metadata'->>'acquisition_disposition' is distinct from v_version.intended_disposition
     or p_manifest->'document'->'metadata'->>'public_source_storage_bucket' is distinct from v_version.storage_bucket then
     raise exception 'public source finalization document evidence does not match its reservation';
@@ -1259,6 +1275,8 @@ begin
     or v_version.exact_version_url is distinct from p_manifest->>'exactVersionUrl'
     or v_version.exact_version is distinct from p_manifest->>'exactVersion'
     or v_version.content_hash is distinct from p_manifest->>'contentHash'
+    or v_version.raw_response_hash is distinct from p_manifest->>'rawResponseHash'
+    or v_version.raw_response_byte_count is distinct from (p_manifest->>'rawResponseByteCount')::bigint
     or v_version.licence_evidence_digest is distinct from p_manifest->>'licenceEvidenceDigest'
     or v_version.steward_id is distinct from v_steward_id
     or v_version.storage_bucket is distinct from p_manifest->>'storageBucket'
@@ -1619,6 +1637,8 @@ begin
     or v_document.metadata->>'exact_version_url' is distinct from v_version.exact_version_url
     or v_document.metadata->>'version' is distinct from v_version.exact_version
     or v_document.metadata->>'content_hash' is distinct from v_version.content_hash
+    or v_document.metadata->>'raw_response_hash' is distinct from v_version.raw_response_hash
+    or v_document.metadata->>'raw_response_byte_count' is distinct from v_version.raw_response_byte_count::text
     or v_document.content_hash is distinct from v_version.content_hash
     or v_document.metadata->>'acquisition_disposition' is distinct from 'shadow' then
     raise exception 'governed public source document metadata is invalid';
@@ -2067,6 +2087,8 @@ begin
               and d.metadata->>'canonical_url' = version.exact_canonical_url
               and d.metadata->>'exact_version_url' = version.exact_version_url
               and d.metadata->>'content_hash' = version.content_hash
+              and d.metadata->>'raw_response_hash' = version.raw_response_hash
+              and d.metadata->>'raw_response_byte_count' = version.raw_response_byte_count::text
               and d.metadata->>'public_source_storage_bucket' = version.storage_bucket
               and latest.id = version.activation_event_id
               and latest.activation_sequence = version.activation_sequence
@@ -2125,6 +2147,7 @@ declare
     'corpus_scope', 'source_kind', 'source_catalogue_key', 'source_policy_version', 'source_policy_digest',
     'public_source_activation_event_id', 'public_source_activation_sequence', 'public_source_version_id', 'public_source_steward_id',
     'content_mode', 'licence_policy', 'canonical_url', 'exact_version_url', 'version', 'content_hash',
+    'raw_response_hash', 'raw_response_byte_count',
     'acquisition_disposition', 'public_source_storage_bucket'
   ];
 begin
