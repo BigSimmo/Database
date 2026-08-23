@@ -120,21 +120,91 @@ const TRIVIAL_REVIEWER_VALUES = new Set([
 ]);
 
 const REVIEWER_ROLE_WORDS = new Set([
+  "advanced",
+  "allied",
+  "associate",
+  "audiologist",
+  "case",
+  "chief",
+  "chiropractor",
   "clinical",
   "clinician",
   "committee",
+  "consultant",
+  "counsellor",
+  "counselor",
+  "dietician",
+  "dietitian",
+  "dentist",
   "doctor",
+  "dr",
+  "enrolled",
+  "general",
+  "gp",
   "governance",
+  "health",
+  "head",
+  "intern",
+  "lead",
+  "manager",
+  "medical",
+  "mental",
+  "midwife",
+  "mo",
+  "nurse",
+  "nursing",
+  "np",
+  "occupational",
+  "officer",
+  "optometrist",
+  "osteopath",
   "owner",
+  "paediatrician",
+  "paramedic",
+  "pathologist",
+  "pediatrician",
+  "pharmacist",
+  "physician",
+  "physio",
+  "physiotherapist",
+  "podiatrist",
+  "practice",
+  "practitioner",
+  "principal",
   "professional",
+  "prof",
+  "professor",
+  "psychiatrist",
+  "psychologist",
+  "psychotherapist",
   "qualified",
+  "radiologist",
+  "registered",
+  "registrar",
+  "resident",
   "reviewer",
+  "rn",
+  "senior",
+  "social",
+  "staff",
+  "specialist",
+  "speech",
+  "surgeon",
+  "therapist",
+  "trainee",
   "treating",
   "user",
+  "worker",
 ]);
 const reviewerWords = (value) => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 const TRIVIAL_REVIEWER_WORD_SEQUENCES = [...TRIVIAL_REVIEWER_VALUES].map(reviewerWords);
 const TRIVIAL_REVIEWER_WORDS = new Set(TRIVIAL_REVIEWER_WORD_SEQUENCES.flat());
+// Single-token `na` remains invalid alone or in role-only labels, but is too
+// name-like for adjacency rejection: `Dr Na Li` is a legitimate attribution.
+// The distinct `n/a` sequence (`n`, `a`) remains eligible for adjacency checks.
+const UNAMBIGUOUS_TRIVIAL_REVIEWER_WORD_SEQUENCES = TRIVIAL_REVIEWER_WORD_SEQUENCES.filter(
+  (sequence) => sequence.length !== 1 || sequence[0] !== "na",
+);
 
 const EMAIL_LIKE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const UUID_LIKE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
@@ -166,10 +236,17 @@ function isRoleQualifiedPlaceholder(value) {
   const containsTrivialSequence = TRIVIAL_REVIEWER_WORD_SEQUENCES.some((sequence) =>
     words.some((_, index) => sequence.every((word, offset) => words[index + offset] === word)),
   );
+  const containsAdjacentRoleQualifiedTrivialSequence = UNAMBIGUOUS_TRIVIAL_REVIEWER_WORD_SEQUENCES.some((sequence) =>
+    words.some((_, index) => {
+      if (!sequence.every((word, offset) => words[index + offset] === word)) return false;
+      return REVIEWER_ROLE_WORDS.has(words[index - 1]) || REVIEWER_ROLE_WORDS.has(words[index + sequence.length]);
+    }),
+  );
   return (
-    containsTrivialSequence &&
-    words.some((word) => REVIEWER_ROLE_WORDS.has(word)) &&
-    words.every((word) => TRIVIAL_REVIEWER_WORDS.has(word) || REVIEWER_ROLE_WORDS.has(word))
+    containsAdjacentRoleQualifiedTrivialSequence ||
+    (containsTrivialSequence &&
+      words.some((word) => REVIEWER_ROLE_WORDS.has(word)) &&
+      words.every((word) => TRIVIAL_REVIEWER_WORDS.has(word) || REVIEWER_ROLE_WORDS.has(word)))
   );
 }
 

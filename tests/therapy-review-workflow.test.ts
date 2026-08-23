@@ -282,6 +282,25 @@ describe("Therapy review source contract", () => {
     ["dummy clinician variant", "Dummy clinician"],
     ["fake reviewer variant", "Fake reviewer"],
     ["sample committee variant", "Sample committee"],
+    ["fake doctor abbreviation", "Fake Dr"],
+    ["reversed fake doctor abbreviation", "Dr Fake"],
+    ["test psychiatrist variant", "Test psychiatrist"],
+    ["anonymous GP variant", "Anonymous GP"],
+    ["dummy nurse variant", "Dummy nurse"],
+    ["unknown psychologist variant", "Unknown psychologist"],
+    ["placeholder therapist variant", "Placeholder therapist"],
+    ["TBD counsellor variant", "TBD counsellor"],
+    ["unassigned pharmacist variant", "Unassigned pharmacist"],
+    ["pending social worker variant", "Pending social worker"],
+    ["automated medical officer variant", "Automated medical officer"],
+    ["system occupational therapist variant", "System occupational therapist"],
+    ["default physiotherapist variant", "Default physiotherapist"],
+    ["fake doctor followed by identity word", "Fake Dr Jane"],
+    ["doctor followed by fake and identity word", "Dr Fake Jane"],
+    ["anonymous GP followed by identity word", "Anonymous GP Smith"],
+    ["N/A GP followed by identity word", "N/A GP Smith"],
+    ["fake senior doctor followed by identity word", "Fake senior doctor Jane"],
+    ["anonymous registered nurse followed by identity word", "Anonymous registered nurse Smith"],
   ])("rejects %s in public reviewedBy", (_label, value) => {
     expect(publicReviewerAttributionProblem(value)).not.toBeNull();
     const record = pendingRecord({ reviewedBy: value });
@@ -292,8 +311,11 @@ describe("Therapy review source contract", () => {
     "Dr Jane Smith (Consultant Psychiatrist)",
     "Therapy Clinical Governance Committee",
     "Clinical owner: J Smith",
+    "Dr Na Li",
     "Dr Na Li (Clinical reviewer)",
+    "Dr Maria Testa (Consultant Psychiatrist)",
     "Test Valley Clinical Governance Committee",
+    "Test Valley GP Governance Committee",
   ])("accepts display-approved public attribution %s", (value) => {
     expect(publicReviewerAttributionProblem(value)).toBeNull();
   });
