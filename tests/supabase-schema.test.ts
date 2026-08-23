@@ -1480,6 +1480,71 @@ describe("Supabase Preview replay guards", () => {
     );
   });
 
+  it.each([
+    ["absent", {}],
+    ["JSON null", { decision: null }],
+    ["non-string", { decision: 42 }],
+  ])("rejects a %s manifest decision before approval reuse", (_label, malformedEntry) => {
+    const functionStart = australianSourceActivationMigration.indexOf(
+      "create or replace function public.activate_approved_public_documents(",
+    );
+    const functionBody = australianSourceActivationMigration.slice(
+      functionStart,
+      australianSourceActivationMigration.indexOf("$$;", functionStart),
+    );
+    const decision = "decision" in malformedEntry ? malformedEntry.decision : undefined;
+    expect(typeof decision).not.toBe("string");
+    expect(functionBody).toContain("jsonb_typeof(document->'decision') is distinct from 'string'");
+    expect(functionBody).toContain("document->>'decision' is null");
+    expect(functionBody).toContain("jsonb_typeof(v_entry->'decision') is distinct from 'string'");
+    expect(functionBody).toContain("v_decision is null");
+    expect(functionBody.indexOf("jsonb_typeof(document->'decision')")).toBeLessThan(
+      functionBody.indexOf("for v_entry in"),
+    );
+  });
+
+  it("prevents one-statement publication from changing any reviewed document state", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain(
+      "to_jsonb(new) - array['owner_id', 'metadata', 'updated_at', 'search_tsv', 'title_search_tsv']",
+    );
+    expect(guardBody).toContain(
+      "to_jsonb(old) - array['owner_id', 'metadata', 'updated_at', 'search_tsv', 'title_search_tsv']",
+    );
+    expect(guardBody).toContain("new.index_generation_id is distinct from old.index_generation_id");
+    expect(guardBody).toContain("new.metadata - array[");
+    for (const receiptKey of [
+      "public_corpus",
+      "publication_approval_id",
+      "publication_manifest_digest",
+      "publication_reviewed_state_digest",
+      "published_at",
+    ]) {
+      expect(guardBody).toContain(`'${receiptKey}'`);
+    }
+    expect(guardBody).toContain("old.metadata - array[");
+    expect(guardBody.indexOf("new.metadata - array[")).toBeLessThan(guardBody.indexOf("old.metadata - array["));
+    expect(guardBody.indexOf("to_jsonb(new) - array[")).toBeLessThan(guardBody.indexOf("select * into v_approval"));
+    expect(sql).toContain("after update on public.documents");
+  });
+
+  it("treats an already-public Australian relabel as activation but permits same-scope receipt updates", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain("v_public_relabel_activation := old.owner_id is null");
+    expect(guardBody).toContain("and new.owner_id is null");
+    expect(guardBody).toContain("old.metadata->>'corpus_scope' is distinct from 'australian_public'");
+    expect(guardBody).toContain("and new.metadata->>'corpus_scope' = 'australian_public'");
+    expect(guardBody).toContain("if v_owned_public_activation or v_public_relabel_activation then");
+    expect(guardBody).toContain("v_approval.expected_prior_owner_id is distinct from old.owner_id");
+    expect(guardBody).not.toContain(
+      "v_public_relabel_activation := old.owner_id is null and old.metadata->>'corpus_scope' = 'australian_public'",
+    );
+  });
+
   it("keeps Australian activation append-only and service-role-only while rejecting v1/link-only transitions", () => {
     const sql = australianSourceActivationMigration;
     expect(sql).toContain("old.metadata->>'corpus_scope' = 'australian_public'");

@@ -101,13 +101,53 @@ as $$
 declare
   v_approval public.document_publication_approvals%rowtype;
   v_approval_id uuid;
+  v_owned_public_activation boolean;
+  v_public_relabel_activation boolean;
 begin
-  if old.owner_id is not null
+  v_owned_public_activation := old.owner_id is not null
     and new.owner_id is null
     and (
       old.metadata->>'corpus_scope' = 'australian_public'
       or new.metadata->>'corpus_scope' = 'australian_public'
-    ) then
+    );
+  v_public_relabel_activation := old.owner_id is null
+    and new.owner_id is null
+    and old.metadata->>'corpus_scope' is distinct from 'australian_public'
+    and new.metadata->>'corpus_scope' = 'australian_public';
+
+  if v_owned_public_activation or v_public_relabel_activation then
+    -- This is an AFTER trigger so generated columns, especially the committed
+    -- index generation, hold their final NEW values. Publication may change
+    -- ownership, updated_at, and the five established publication receipt
+    -- keys only; every reviewed document field remains byte-for-byte equal.
+    if new.index_generation_id is distinct from old.index_generation_id
+      or (
+        to_jsonb(new) - array['owner_id', 'metadata', 'updated_at', 'search_tsv', 'title_search_tsv']
+      ) is distinct from (
+        to_jsonb(old) - array['owner_id', 'metadata', 'updated_at', 'search_tsv', 'title_search_tsv']
+      )
+      or (
+        new.metadata - array[
+          'public_corpus',
+          'publication_approval_id',
+          'publication_manifest_digest',
+          'publication_reviewed_state_digest',
+          'published_at'
+        ]
+      ) is distinct from (
+        old.metadata - array[
+          'public_corpus',
+          'publication_approval_id',
+          'publication_manifest_digest',
+          'publication_reviewed_state_digest',
+          'published_at'
+        ]
+      ) then
+      raise exception 'Australian public activation changed document state after review';
+    end if;
+    if new.metadata->'public_corpus' is distinct from 'true'::jsonb then
+      raise exception 'Australian public activation requires the public-corpus receipt';
+    end if;
     if new.metadata->>'content_mode' = 'link_only' then
       raise exception 'Australian public transition rejects link-only content';
     end if;
@@ -132,15 +172,15 @@ begin
     from public.document_publication_approvals
     where id = v_approval_id;
     if not found
-      or v_approval.decision <> 'approved'
+      or v_approval.decision is distinct from 'approved'
       or v_approval.source_catalogue_key is null
-      or v_approval.source_policy_version <> 'australian-source-policy-v1'
+      or v_approval.source_policy_version is distinct from 'australian-source-policy-v1'
       or v_approval.reviewed_index_generation_id is null
-      or v_approval.document_id <> old.id
-      or v_approval.expected_prior_owner_id <> old.owner_id
+      or v_approval.document_id is distinct from old.id
+      or v_approval.expected_prior_owner_id is distinct from old.owner_id
       or v_approval.source_catalogue_key is distinct from new.metadata->>'source_catalogue_key'
       or v_approval.source_policy_version is distinct from new.metadata->>'source_policy_version'
-      or v_approval.reviewed_index_generation_id is distinct from old.index_generation_id then
+      or v_approval.reviewed_index_generation_id is distinct from new.index_generation_id then
       raise exception 'Australian public transition requires manifest v2 evidence';
     end if;
   end if;
@@ -152,7 +192,7 @@ revoke all on function public.guard_australian_source_activation() from public, 
 
 drop trigger if exists documents_require_australian_source_activation on public.documents;
 create trigger documents_require_australian_source_activation
-before update on public.documents
+after update on public.documents
 for each row execute function public.guard_australian_source_activation();
 
 -- publish_approved_documents remains the compatibility publication primitive.
@@ -240,6 +280,15 @@ begin
   ) then
     raise exception 'Australian activation manifest contains duplicate document ids';
   end if;
+  if exists (
+    select 1
+    from jsonb_array_elements(p_manifest->'documents') document
+    where jsonb_typeof(document->'decision') is distinct from 'string'
+      or document->>'decision' is null
+      or document->>'decision' not in ('approved', 'keep_private', 'quarantine')
+  ) then
+    raise exception 'Australian activation manifest contains an invalid decision';
+  end if;
   if p_expected_generation_ids is null
     or cardinality(p_expected_generation_ids) <> v_document_count then
     raise exception 'Australian activation expected generation ids do not match manifest cardinality';
@@ -317,7 +366,9 @@ begin
     if v_document_id is null or v_expected_owner_id is null or v_expected_index_generation_id is null then
       raise exception 'Australian activation manifest requires document, owner, and generation ids';
     end if;
-    if v_expected_document_state_digest !~ '^[0-9a-f]{64}$'
+    if jsonb_typeof(v_entry->'decision') is distinct from 'string'
+      or v_decision is null
+      or v_expected_document_state_digest !~ '^[0-9a-f]{64}$'
       or char_length(v_source_catalogue_key) not between 1 and 100
       or v_decision not in ('approved', 'keep_private', 'quarantine') then
       raise exception 'Australian activation manifest document fields are invalid';
