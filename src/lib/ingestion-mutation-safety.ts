@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { apiErrorPayloadSchema } from "@/lib/api-error-payload";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 
@@ -297,9 +298,12 @@ export async function checkIngestionMutationSafety(args: {
 }
 
 export function ingestionMutationSafetyPayload(safety: IngestionMutationSafetyResult) {
-  return {
-    error: safety.ok ? undefined : safety.message,
-    safety: {
+  return apiErrorPayloadSchema.parse({
+    error: safety.message,
+    message: safety.message,
+    code: safety.ok ? "ingestion_ready" : `ingestion_${safety.reason}`,
+    details: {
+      kind: "ingestion_mutation_safety",
       safeToRun: safety.ok,
       checkedAt: safety.checkedAt,
       reason: safety.reason,
@@ -318,5 +322,5 @@ export function ingestionMutationSafetyPayload(safety: IngestionMutationSafetyRe
         maxAttempts: job.max_attempts,
       })),
     },
-  };
+  });
 }

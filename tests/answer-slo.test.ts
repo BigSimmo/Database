@@ -10,7 +10,14 @@ import { answerSloSnapshot, type SloProbeClient } from "@/lib/observability/answ
 type SloFilterKey = "total" | "hybrid" | "degraded" | "truncation" | "timeout";
 
 function fakeClient(
-  counts: { total: number; hybrid: number; degraded: number; truncation?: number; timeout?: number },
+  counts: {
+    total: number;
+    hybrid: number;
+    degraded: number;
+    truncation?: number;
+    timeout?: number;
+    hybridRows?: Array<{ metadata: unknown }>;
+  },
   error?: unknown,
   observedBaseFilters: Array<{ column: string; value: null }> = [],
   observedNarrowingFilters: Array<{ method: "eq" | "not" | "or"; column: string; value: unknown }> = [],
@@ -41,7 +48,28 @@ function fakeClient(
     };
     return builder;
   };
-  return { from: () => ({ select: () => build("total") }) } as unknown as SloProbeClient;
+  const buildIdentity = () => {
+    const builder = {
+      gt: () => builder,
+      is: (column: string, value: null) => {
+        observedBaseFilters.push({ column, value });
+        return builder;
+      },
+      not: (column: string, _operator: string, value: null) => {
+        observedNarrowingFilters.push({ method: "not", column, value });
+        return builder;
+      },
+      limit: () => builder,
+      then: (resolve: (value: { data: Array<{ metadata: unknown }>; error: unknown }) => unknown) =>
+        resolve({ data: error ? [] : (counts.hybridRows ?? []), error: error ?? null }),
+    };
+    return builder;
+  };
+  return {
+    from: () => ({
+      select: (columns: string) => (columns === "metadata" ? buildIdentity() : build("total")),
+    }),
+  } as unknown as SloProbeClient;
 }
 
 describe("answerSloSnapshot", () => {
@@ -64,6 +92,23 @@ describe("answerSloSnapshot", () => {
     expect(snapshot.timeoutFallbackRate).toBeCloseTo(0.2, 5);
   });
 
+  it("returns only safe RPC identities when every hybrid-error row is represented", async () => {
+    const snapshot = await answerSloSnapshot(
+      fakeClient({
+        total: 20,
+        hybrid: 3,
+        degraded: 0,
+        hybridRows: [
+          { metadata: { hybrid_rpc_errors: { hybrid_search: "timeout" } } },
+          { metadata: { hybrid_rpc_errors: { hybrid_search: "timeout", keyword_search: "rpc_error" } } },
+          { metadata: { hybrid_rpc_errors: { hybrid_search: "timeout" } } },
+        ],
+      }),
+    );
+    expect(snapshot.hybridRpcIdentityEvidenceComplete).toBe(true);
+    expect(snapshot.hybridRpcErrorCounts).toEqual({ hybrid_search: 3, keyword_search: 1 });
+  });
+
   it("counts privacy-redacted answer rows while excluding search observations by event type", async () => {
     const observedBaseFilters: Array<{ column: string; value: null }> = [];
     const snapshot = await answerSloSnapshot(
@@ -71,9 +116,9 @@ describe("answerSloSnapshot", () => {
     );
 
     expect(snapshot.totalQueries).toBe(7);
-    // Five base() queries now scope by event_type: total, hybrid, degraded, truncation, timeout.
+    // Six queries scope by event_type, including the bounded hybrid-RPC identity evidence read.
     expect(observedBaseFilters).toEqual(
-      Array.from({ length: 5 }, () => ({ column: "metadata->>event_type", value: null })),
+      Array.from({ length: 6 }, () => ({ column: "metadata->>event_type", value: null })),
     );
   });
 
