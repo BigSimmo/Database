@@ -145,6 +145,9 @@ describe("dead-code candidate safety classifications", () => {
 
   it("rejects a non-numeric DEAD_CODE_RECENT_DAYS value before the recency check can fail open", () => {
     expect(parseRecentDays(undefined)).toBe(30);
+    expect(parseRecentDays("")).toBe(30);
+    expect(parseRecentDays(0)).toBe(0);
+    expect(parseRecentDays("0")).toBe(0);
     expect(parseRecentDays("14")).toBe(14);
     expect(() => parseRecentDays("nope")).toThrow(/DEAD_CODE_RECENT_DAYS must be a non-negative number: nope/);
     expect(() => parseRecentDays("-1")).toThrow(/DEAD_CODE_RECENT_DAYS must be a non-negative number: -1/);
@@ -178,6 +181,34 @@ describe("dead-code candidate safety classifications", () => {
     symlinkSync(join(root, "docs", "guides", "real.md"), join(root, "docs", "guides", "alias.md"));
 
     expect(docMentions("candidate", { root })).toEqual(["docs/guides/alias.md", "docs/guides/real.md"]);
+  });
+
+  it("refuses when a search-root symlink cannot be stated for a reason other than a missing target", () => {
+    const root = createFixture();
+    mkdirSync(join(root, "docs", "guides"), { recursive: true });
+    writeFileSync(join(root, "docs", "guides", "ok.md"), "unrelated\n", "utf8");
+    const blocked = join(root, "docs", "guides", "blocked.md");
+    symlinkSync(join(root, "docs", "guides", "ok.md"), blocked);
+    const fileSystem = {
+      readFileSync,
+      readdirSync,
+      statSync(path: Parameters<typeof statSync>[0]) {
+        if (resolve(String(path)) === resolve(blocked)) {
+          throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+        }
+        return statSync(path);
+      },
+    };
+
+    const result = assess("candidate", "src/candidate.ts", {
+      root,
+      runGit: completeHistory(),
+      today: FIXED_TODAY,
+      fileSystem,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.refusals.join("\n")).toMatch(/content search failed/);
   });
 });
 

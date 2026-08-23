@@ -27,7 +27,8 @@ import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export function parseRecentDays(raw = process.env.DEAD_CODE_RECENT_DAYS) {
-  const configuredRecentDays = Number(raw || 30);
+  const fallback = raw === undefined || raw === null || raw === "" ? 30 : raw;
+  const configuredRecentDays = Number(fallback);
   if (!Number.isFinite(configuredRecentDays) || configuredRecentDays < 0) {
     throw new Error(`DEAD_CODE_RECENT_DAYS must be a non-negative number: ${raw}`);
   }
@@ -110,8 +111,11 @@ function walkFiles(searchRoot, { root, fileSystem }) {
         let target;
         try {
           target = fileSystem.statSync(absolutePath);
-        } catch {
-          continue;
+        } catch (error) {
+          if (error?.code === "ENOENT" || error?.code === "ENOTDIR") continue;
+          throw new Error(`content search failed for ${relativeRepoPath(root, absolutePath)}: ${errorMessage(error)}`, {
+            cause: error,
+          });
         }
         if (target.isFile()) files.push(absolutePath);
       }

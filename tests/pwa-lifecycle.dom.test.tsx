@@ -82,6 +82,14 @@ function splitCssSelectors(prelude: string) {
   return parts.filter(Boolean);
 }
 
+function normalizeCssSelector(selector: string) {
+  return selector
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/:has\(\s+/g, ":has(")
+    .replace(/\s+\)/g, ")");
+}
+
 function disallowedMainContentHasSelectors(styles: string) {
   const withoutComments = styles.replace(/\/\*[\s\S]*?\*\//g, "");
   const disallowed: string[] = [];
@@ -90,7 +98,7 @@ function disallowedMainContentHasSelectors(styles: string) {
     if (char === "{") {
       const prelude = token.replace(/\s+/g, " ").trim();
       if (!prelude.startsWith("@")) {
-        for (const selector of splitCssSelectors(prelude)) {
+        for (const selector of splitCssSelectors(prelude).map(normalizeCssSelector)) {
           if (selector.includes("body:has(#main-content") && !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector)) {
             disallowed.push(selector);
           }
@@ -497,6 +505,16 @@ body:has(#main-content[data-phone-footer-owner="hero"])
   bottom: 0;
 }`;
     expect(disallowedMainContentHasSelectors(multilineUnsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+
+    const spacedHasFixture = `${styles}
+body:has(
+  #main-content[data-phone-footer-owner="hero"]
+) .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(spacedHasFixture)).toEqual([
       'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
     ]);
   });
