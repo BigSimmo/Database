@@ -321,10 +321,13 @@ test.describe("@mockup Caring Contact linked prototype", () => {
 
   test("refresh resets local mutations while protected deep links remain coherent", async ({ page }) => {
     await gotoRoute(page, `${routes.plan}?overlay=pause`, "Plan and contact detail");
+    const planDetail = page.getByTestId("caring-contact-screen-plan-detail");
+    const planStatusChip = planDetail.locator('[data-testid="chip"][data-appearance="status"]');
     await page.getByRole("button", { name: "Pause future contacts" }).click();
-    await expect(page.getByText("Paused", { exact: true })).toBeVisible();
+    await expect(planStatusChip.filter({ hasText: "Paused" })).toBeVisible();
+    await expect(page).not.toHaveURL(/overlay=pause/);
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByText("Active", { exact: true })).toBeVisible();
+    await expect(planStatusChip.filter({ hasText: "Active" })).toBeVisible();
     await gotoRoute(page, routes.contact, "Contact and delivery exception");
     await expect(page.getByRole("dialog", { name: "Permanent delivery exception" })).toBeVisible();
   });
