@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { assertIndexableCatalogueEntry, australianSourceByKey } from "@/lib/australian-source-catalogue";
 import { diagnosisFullText, presentationFullText } from "@/lib/differentials";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import {
@@ -140,6 +141,20 @@ function registryDocumentId(entry: RegistryCorpusEntry) {
   return registryCorpusDocumentId(entry.kind, entry.recordId);
 }
 
+/**
+ * A registry projection always creates content, a chunk, and (when changed) an
+ * embedding. Only the explicit governed metadata field can bind it to an
+ * Australian catalogue source; titles and body text are never identity input.
+ */
+function assertRegistryCorpusSourceIsIndexable(entry: RegistryCorpusEntry) {
+  if (!Object.hasOwn(entry.metadata, "source_catalogue_key")) return;
+  const catalogueKey = entry.metadata.source_catalogue_key;
+  if (typeof catalogueKey !== "string" || !catalogueKey || catalogueKey !== catalogueKey.trim()) {
+    throw new Error("Registry corpus source_catalogue_key must be an exact non-empty catalogue key.");
+  }
+  assertIndexableCatalogueEntry(australianSourceByKey(catalogueKey));
+}
+
 /** Corpus document id for a differential record row. Chunks cascade from the
  *  document, so deleting this id fully removes a pruned record from the
  *  corpus. Used by the differentials seed CLI when cleaning up stale rows. */
@@ -167,6 +182,7 @@ function registryCorpusIdentity(entry: RegistryCorpusEntry) {
 
 /** Registry document row. */
 function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"documents"> {
+  assertRegistryCorpusSourceIsIndexable(entry);
   const { documentId, metadata } = registryCorpusIdentity(entry);
   const detailHref = registryCorpusDetailHref({
     kind: entry.kind,

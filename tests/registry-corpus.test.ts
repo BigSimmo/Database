@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { assertIndexableCatalogueEntry, australianSourceByKey } from "../src/lib/australian-source-catalogue";
 import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
 import {
   clinicalRegistryRowsToCorpusEntries,
+  embedRegistryCorpusEntries,
   medicationRowsToCorpusEntries,
   registryDocumentIntent,
-  type RegistryCorpusEntry,
 } from "../src/lib/registry-corpus";
 import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
 import type { MedicationRecordRow } from "../src/lib/medication-records";
@@ -105,28 +104,41 @@ function corpusHarness() {
 }
 
 describe("registry corpus", () => {
-  it("forbids link-only Australian references from RegistryCorpusEntry projections", () => {
-    const contentBearingProjection = (key: string): RegistryCorpusEntry => {
-      const source = australianSourceByKey(key);
-      assertIndexableCatalogueEntry(source);
-      return {
-        kind: "service",
-        subkind: "source-reference",
-        ownerId: "22222222-2222-4222-8222-222222222222",
-        recordId: key,
-        slug: key,
-        title: source.publisher,
-        subtitle: null,
-        content: `Content projection for ${source.publisher}`,
-        searchText: source.publisher,
-        sourceStatus: "current",
-        validationStatus: "approved",
-        metadata: {},
-      };
-    };
+  it("rejects explicitly marked link-only sources in the production corpus projection", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [baseEntry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
 
-    expect(() => contentBearingProjection("etg-complete")).toThrow(/link-only/i);
-    expect(() => contentBearingProjection("australian-medicines-handbook")).toThrow(/link-only/i);
+    for (const catalogueKey of ["etg-complete", "australian-medicines-handbook"]) {
+      await expect(
+        embedRegistryCorpusEntries(supabase as never, [
+          {
+            ...baseEntry!,
+            metadata: { ...baseEntry!.metadata, source_catalogue_key: catalogueKey },
+          },
+        ]),
+      ).rejects.toThrow(/link-only/i);
+    }
+
+    expect(embedTextsMock).not.toHaveBeenCalled();
+    expect(documents.size).toBe(0);
+    expect(chunks.size).toBe(0);
+  });
+
+  it("does not infer catalogue identity from registry title or content", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [entry] = clinicalRegistryRowsToCorpusEntries([
+      registryRow({ title: "eTG and Australian Medicines Handbook access service" }),
+    ]);
+
+    await expect(embedRegistryCorpusEntries(supabase as never, [entry!])).resolves.toEqual({
+      documentCount: 1,
+      chunkCount: 1,
+    });
+    expect(embedTextsMock).toHaveBeenCalledOnce();
+    expect(documents.size).toBe(1);
+    expect(chunks.size).toBe(1);
   });
 
   it("retries a failed embed and stops calling OpenAI once corpus hashes are current", async () => {

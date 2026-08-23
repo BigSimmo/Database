@@ -8,7 +8,7 @@ import {
   australianSourcePolicyVersion,
   isIndexableAustralianSource,
 } from "@/lib/australian-source-catalogue";
-import { sourceAuthorityForPublisherCode, sourceAuthorityRegistry } from "@/lib/source-authority-registry";
+import { sourceAuthorityIdentityForPublisherCode, sourceAuthorityRegistry } from "@/lib/source-authority-registry";
 
 const expectedKeys = [
   "wa-health",
@@ -95,7 +95,15 @@ describe("Australian source catalogue", () => {
         authority.codes.includes(source.publisherCode),
       );
       expect(matchingAuthorities).toHaveLength(1);
-      expect(sourceAuthorityForPublisherCode(source.publisherCode)).toMatchObject({ publisher: source.publisher });
+      expect(sourceAuthorityIdentityForPublisherCode(source.publisherCode)).toMatchObject({
+        publisher: source.publisher,
+      });
+    }
+  });
+
+  it("keeps new catalogue-only publisher identities inert until metadata policy binds them", () => {
+    for (const publisherCode of ["OCPWA", "WALEG", "AUSPRES"]) {
+      expect(sourceAuthorityIdentityForPublisherCode(publisherCode)).toMatchObject({ catalogueIdentityOnly: true });
     }
   });
 

@@ -16,6 +16,7 @@ export type SourceAuthorityDefinition = {
   tier: Exclude<AustralianSourceTier, "supplementary"> | "supplementary";
   designation: SourceDesignation;
   officialBasis: SourceOfficialBasis;
+  catalogueIdentityOnly: boolean;
 };
 
 export type SourceAuthorityConflict = "publisher_mismatch" | "jurisdiction_mismatch";
@@ -65,15 +66,20 @@ const nationalJurisdictions = [
 ] as const;
 
 function authority(
-  definition: Omit<SourceAuthorityDefinition, "publisherAliases" | "designation" | "officialBasis"> & {
+  definition: Omit<
+    SourceAuthorityDefinition,
+    "publisherAliases" | "designation" | "officialBasis" | "catalogueIdentityOnly"
+  > & {
     publisherAliases?: readonly string[];
     designation?: SourceDesignation;
     officialBasis?: SourceOfficialBasis;
+    catalogueIdentityOnly?: boolean;
   },
 ): SourceAuthorityDefinition {
   return {
     designation: "trusted",
     officialBasis: null,
+    catalogueIdentityOnly: false,
     ...definition,
     publisherAliases: [definition.publisher, ...(definition.publisherAliases ?? [])],
   };
@@ -108,6 +114,7 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    catalogueIdentityOnly: true,
   }),
   authority({
     key: "wa-legislation",
@@ -117,6 +124,7 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    catalogueIdentityOnly: true,
   }),
   authority({
     key: "armadale-kalamunda-group",
@@ -256,6 +264,7 @@ export const sourceAuthorityRegistry = [
     jurisdictions: nationalJurisdictions,
     scope: "australian_national",
     tier: "australian_national",
+    catalogueIdentityOnly: true,
   }),
   authority({
     key: "australian-department-of-health",
@@ -389,12 +398,22 @@ const genericWaPublishers = new Set(
     .publisherAliases.map((publisher) => normalizeSourceAuthorityText(publisher)),
 );
 
-export function sourceAuthorityForPublisherCode(code: string | null | undefined) {
+export function sourceAuthorityIsRuntimeClassifiable(authorityEntry: SourceAuthorityDefinition) {
+  return !authorityEntry.catalogueIdentityOnly;
+}
+
+export function sourceAuthorityIdentityForPublisherCode(code: string | null | undefined) {
   return authorityByCode.get(normalizePublisherCode(code)) ?? null;
 }
 
+export function sourceAuthorityForPublisherCode(code: string | null | undefined) {
+  const authorityEntry = sourceAuthorityIdentityForPublisherCode(code);
+  return authorityEntry && sourceAuthorityIsRuntimeClassifiable(authorityEntry) ? authorityEntry : null;
+}
+
 export function sourceAuthorityForPublisher(publisher: string | null | undefined) {
-  return authorityByPublisher.get(normalizeSourceAuthorityText(publisher)) ?? null;
+  const authorityEntry = authorityByPublisher.get(normalizeSourceAuthorityText(publisher)) ?? null;
+  return authorityEntry && sourceAuthorityIsRuntimeClassifiable(authorityEntry) ? authorityEntry : null;
 }
 
 function publisherCompatible(authorityEntry: SourceAuthorityDefinition, publisher: string) {

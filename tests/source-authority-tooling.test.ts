@@ -348,6 +348,29 @@ describe("source authority metadata tooling", () => {
     });
   });
 
+  it("keeps catalogue-only publisher identities out of runtime authority priority", () => {
+    for (const publisherCode of ["OCPWA", "WALEG", "AUSPRES"]) {
+      expect(
+        classifySourceAuthority({
+          source_kind: "document",
+          publisher_code: publisherCode,
+          document_status: "current",
+          clinical_validation_status: "approved",
+          extraction_quality: "good",
+        }),
+      ).toMatchObject({
+        tier: "supplementary",
+        designation: "unclassified",
+        authorityKey: null,
+        authority: null,
+        matchedBy: "none",
+        codeKnown: false,
+        eligibilityReasons: expect.arrayContaining(["unrecognized_authority"]),
+        reasonCodes: expect.arrayContaining(["unrecognized_authority"]),
+      });
+    }
+  });
+
   it("fails closed when a locality metadata patch RPC is rejected", async () => {
     const rpc = vi.fn().mockResolvedValue({ error: { message: "write denied" } });
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);

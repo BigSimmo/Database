@@ -2,6 +2,7 @@ import {
   classifySourceAuthority,
   sourceAuthorityForPublisher,
   sourceAuthorityForPublisherCode,
+  sourceAuthorityIsRuntimeClassifiable,
   sourceAuthorityRegistry,
   type SourceAuthorityDefinition,
 } from "@/lib/source-authority-registry";
@@ -58,6 +59,7 @@ function escapeRegExp(value: string) {
 }
 
 const registeredCodes = sourceAuthorityRegistry
+  .filter(sourceAuthorityIsRuntimeClassifiable)
   .flatMap((authority) => authority.codes.map((code) => ({ code: code.toUpperCase(), authority })))
   .sort((left, right) => right.code.length - left.code.length || left.code.localeCompare(right.code));
 
