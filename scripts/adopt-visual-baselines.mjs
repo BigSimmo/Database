@@ -14,14 +14,16 @@
  *     or macOS shot lands in a directory ubuntu CI never reads; font hinting alone
  *     would make every later run red. The artifact is the only supported source.
  *   - It never invents the review. `--reviewed-by` is required and the caller is
- *     asserting they looked at the images. A baseline of a broken render silently
- *     blesses the break, and that is exactly what the human-review field in the
- *     provenance contract exists to prevent.
+ *     asserting they looked at the images. That field is a display name, not a
+ *     GitHub login — single-token names such as `Alice` are valid. Optional
+ *     `--reviewed-by-login` is the only allowlisted GitHub-login field. A baseline
+ *     of a broken render silently blesses the break, and that is exactly what the
+ *     human-review field in the provenance contract exists to prevent.
  *
  * Usage:
  *   node scripts/adopt-visual-baselines.mjs \
  *     --from <extracted-artifact-dir> --run-id <id> --head <40-char-sha> \
- *     --reviewed-by "<name>" [--write]
+ *     --reviewed-by "<display name>" [--reviewed-by-login <github-login>] [--write]
  *
  * Without `--write` it reports what would change and touches nothing.
  */
@@ -30,7 +32,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
-import { visualBaselineAwaitingIds } from "./generate-design-system-adoption.mjs";
+import { humanReviewerAttributionFailure, visualBaselineAwaitingIds } from "./generate-design-system-adoption.mjs";
 
 const ROOT = process.cwd();
 const BASELINE_DIR = "tests/__screenshots__/linux";
@@ -77,13 +79,21 @@ const from = arg("from");
 const runId = arg("run-id");
 const head = arg("head");
 const reviewedBy = arg("reviewed-by");
+const reviewedByLogin = arg("reviewed-by-login");
 
 if (!from) fail("--from <dir> is required (the extracted visual-baseline-<run_id> artifact)");
 if (!runId || !/^\d+$/.test(runId)) fail("--run-id <digits> is required and must match the artifact name");
 if (!head || !/^[0-9a-f]{40}$/.test(head)) fail("--head <sha> must be the full 40-character capture commit");
 if (!reviewedBy || !reviewedBy.trim()) {
-  fail("--reviewed-by '<name>' is required — this records a HUMAN review of the six images, so look at them first");
+  fail(
+    "--reviewed-by '<display name>' is required — this records a HUMAN review of the six images, so look at them first",
+  );
 }
+const attributionFailure = humanReviewerAttributionFailure({
+  login: reviewedByLogin,
+  displayName: reviewedBy,
+});
+if (attributionFailure) fail(attributionFailure);
 
 // The capture commit must be real and reachable, or the provenance describes a
 // tree nobody can check the images against.
@@ -312,6 +322,7 @@ const provenance = {
     status: "approved",
     reviewerType: "human",
     reviewedBy: reviewedBy.trim(),
+    ...(reviewedByLogin?.trim() ? { reviewerLogin: reviewedByLogin.trim() } : {}),
     reviewedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     candidateSourceHead: head,
   },

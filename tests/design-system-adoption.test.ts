@@ -13,6 +13,7 @@ import {
   checkAdoptionManifest,
   checkGeneratedAdoptionDocuments,
   deriveSurfaceV2Observation,
+  humanReviewerAttributionFailure,
   inspectPng,
   productionPageRoutes,
   productionNextUiEntries,
@@ -131,12 +132,16 @@ function writeBaselineSet(
     candidateNames = baselineNames,
     hashOverride,
     candidateSourceHead = git(fixtureRoot, ["rev-parse", "HEAD"]),
+    reviewedBy = "Fixture Reviewer",
+    reviewerLogin,
   }: {
     platform?: string;
     reviewStatus?: string;
     candidateNames?: string[];
     hashOverride?: string;
     candidateSourceHead?: string;
+    reviewedBy?: string;
+    reviewerLogin?: string;
   } = {},
 ) {
   const paths = candidateNames.map((name) => `tests/__screenshots__/linux/${name}`);
@@ -157,7 +162,8 @@ function writeBaselineSet(
       status: reviewStatus,
       reviewerType: "human",
       candidateSourceHead,
-      reviewedBy: "fixture-reviewer",
+      reviewedBy,
+      ...(reviewerLogin ? { reviewerLogin } : {}),
       reviewedAt: "2026-08-05T00:00:00.000Z",
     },
     source: {
@@ -755,11 +761,40 @@ describe("design-system adoption manifest", () => {
     const hashRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-hash-"));
     const platformRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-platform-"));
     const reviewRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-review-"));
+    const attributionRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-attribution-"));
+    const serviceAccountRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-service-account-"));
+    const smuggledLoginRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-smuggled-login-"));
+    const approvedLoginRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-approved-login-"));
+    const singleTokenDisplayRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-single-token-"));
     const countRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-count-"));
     try {
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        serviceAccountRoot,
+        smuggledLoginRoot,
+        approvedLoginRoot,
+        singleTokenDisplayRoot,
+        countRoot,
+      ])
         initialiseCandidateRepository(fixtureRoot);
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        serviceAccountRoot,
+        smuggledLoginRoot,
+        approvedLoginRoot,
+        singleTokenDisplayRoot,
+        countRoot,
+      ])
         setCurrentAwaitingValues(fixtureRoot, "");
       const valid = writeBaselineSet(validRoot);
       expect(
@@ -782,13 +817,83 @@ describe("design-system adoption manifest", () => {
         validateLinuxVisualBaselineSet(badHash.paths, { root: hashRoot, trackedFiles: badHash.trackedFiles }),
       ).toContain(`visual baseline provenance candidate ${badHash.paths[0]} has a SHA-256 mismatch`);
 
-      const wrongPlatform = writeBaselineSet(platformRoot, { platform: "win32" });
+      const wrongPlatform = writeBaselineSet(platformRoot, {
+        platform: "win32",
+        reviewedBy: "Claude Code — automated adopt; human confirmation pending",
+      });
+      const wrongPlatformFailures = validateLinuxVisualBaselineSet(wrongPlatform.paths, {
+        root: platformRoot,
+        trackedFiles: wrongPlatform.trackedFiles,
+      });
+      expect(wrongPlatformFailures).toContain("visual baseline provenance platform must be linux");
+      expect(wrongPlatformFailures).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const copilotReview = writeBaselineSet(attributionRoot, { reviewedBy: "GitHub Copilot" });
       expect(
-        validateLinuxVisualBaselineSet(wrongPlatform.paths, {
-          root: platformRoot,
-          trackedFiles: wrongPlatform.trackedFiles,
+        validateLinuxVisualBaselineSet(copilotReview.paths, {
+          root: attributionRoot,
+          trackedFiles: copilotReview.trackedFiles,
         }),
-      ).toContain("visual baseline provenance platform must be linux");
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const genericBotReview = writeBaselineSet(attributionRoot, { reviewedBy: "automated review bot" });
+      expect(
+        validateLinuxVisualBaselineSet(genericBotReview.paths, {
+          root: attributionRoot,
+          trackedFiles: genericBotReview.trackedFiles,
+        }),
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const pendingApproval = writeBaselineSet(attributionRoot, { reviewedBy: "human approval pending" });
+      expect(
+        validateLinuxVisualBaselineSet(pendingApproval.paths, {
+          root: attributionRoot,
+          trackedFiles: pendingApproval.trackedFiles,
+        }),
+      ).toContain(
+        "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review",
+      );
+
+      const serviceAccountLogin = writeBaselineSet(serviceAccountRoot, { reviewedBy: "build-service" });
+      expect(
+        validateLinuxVisualBaselineSet(serviceAccountLogin.paths, {
+          root: serviceAccountRoot,
+          trackedFiles: serviceAccountLogin.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance human reviewer GitHub login must be on the project allowlist");
+
+      const approvedHumanLogin = writeBaselineSet(approvedLoginRoot, { reviewedBy: "BigSimmo" });
+      expect(
+        validateLinuxVisualBaselineSet(approvedHumanLogin.paths, {
+          root: approvedLoginRoot,
+          trackedFiles: approvedHumanLogin.trackedFiles,
+        }),
+      ).toEqual([]);
+
+      const singleTokenDisplayName = writeBaselineSet(singleTokenDisplayRoot, { reviewedBy: "Alice" });
+      expect(
+        validateLinuxVisualBaselineSet(singleTokenDisplayName.paths, {
+          root: singleTokenDisplayRoot,
+          trackedFiles: singleTokenDisplayName.trackedFiles,
+        }),
+      ).toEqual([]);
+
+      const smuggledServiceLogin = writeBaselineSet(smuggledLoginRoot, {
+        reviewedBy: "Alice",
+        reviewerLogin: "build-service",
+      });
+      expect(
+        validateLinuxVisualBaselineSet(smuggledServiceLogin.paths, {
+          root: smuggledLoginRoot,
+          trackedFiles: smuggledServiceLogin.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance human reviewer GitHub login must be on the project allowlist");
 
       const unreviewed = writeBaselineSet(reviewRoot, { reviewStatus: "pending" });
       expect(
@@ -806,9 +911,42 @@ describe("design-system adoption manifest", () => {
         }),
       ).toContain("visual baseline provenance must contain exactly 6 candidates");
     } finally {
-      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+      for (const fixtureRoot of [
+        validRoot,
+        missingRoot,
+        hashRoot,
+        platformRoot,
+        reviewRoot,
+        attributionRoot,
+        serviceAccountRoot,
+        smuggledLoginRoot,
+        approvedLoginRoot,
+        singleTokenDisplayRoot,
+        countRoot,
+      ])
         fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
     }
+  });
+
+  it("keeps GitHub-login allowlisting off the display-name field", () => {
+    expect(humanReviewerAttributionFailure("Alice")).toBeNull();
+    expect(humanReviewerAttributionFailure({ displayName: "Alice" })).toBeNull();
+    expect(humanReviewerAttributionFailure({ displayName: "Fixture Reviewer" })).toBeNull();
+    expect(humanReviewerAttributionFailure({ login: "BigSimmo" })).toBeNull();
+    expect(humanReviewerAttributionFailure({ login: "BigSimmo", displayName: "Alice" })).toBeNull();
+
+    expect(humanReviewerAttributionFailure("build-service")).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
+    expect(humanReviewerAttributionFailure({ login: "build-service" })).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
+    expect(humanReviewerAttributionFailure({ login: "Alice" })).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
+    expect(humanReviewerAttributionFailure({ login: "build-service", displayName: "Alice" })).toBe(
+      "visual baseline provenance human reviewer GitHub login must be on the project allowlist",
+    );
   });
 
   it("pins baseline provenance to the canonical six target ids and paths", () => {
