@@ -22,7 +22,7 @@ a separate owner-reviewed run recorded in a copy of the Gate B decision record
 
 | Path                                          | Role                                                                                          |
 | --------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `fixtures/manifest.v1.json`                   | Committed ground truth: 36 synthetic fixtures across 6 difficulty strata + 10 hostile files   |
+| `fixtures/manifest.v2.json`                   | Committed ground truth: 36 synthetic fixtures across 6 difficulty strata + 10 hostile files   |
 | `fixtures/generate_fixtures.py`               | Renders the corpus **from** the manifest (PyMuPDF, seeded, self-checking); output uncommitted |
 | `requirements.in` / `requirements.txt`        | The lab's own hashed lock (`pip-compile --generate-hashes`, Python 3.11, CPU-only torch)      |
 | `generate-lock.mjs`                           | Lock generator (`npm run generate:docling-lab-lock`)                                          |
@@ -77,13 +77,16 @@ corpus. Generation is deterministic (fixed seed, pinned PDF dates, `no_new_id`);
 all outputs are byte-identical across runs except `hostile-encrypted`, whose
 AES-256 salts are inherently random.
 
-**Known limitation (v1 corpus):** the table strata are cleanly ruled grids, and a
-local smoke run showed the legacy extractor already scores cell F1 1.0 on them.
-That leaves the pre-agreed `table_heavy` improvement target little headroom to
-demonstrate a docling gain. Before treating the table-heavy delta as decisive,
-the owner should consider a `docling-lab-fixtures.v2` adding unruled,
-merged-cell, and rotated-header tables — where the legacy `find_tables` path is
-expected to degrade. This is a fixture-hardness note, not a harness change.
+**v2 table-hardness corpus:** five `table_heavy` fixtures now exercise unruled
+tables, real `colSpan` merged cells, rotated headers, and combinations of those
+shapes. Representative fixtures for each shape carry number, number/unit, and
+comparator assertions whose strings exist only in the declared table, so prose
+cannot accidentally satisfy the exactness check. The offline contract fails if a
+hard shape or its table-scoped checks disappear.
+
+This corpus change is not a quality verdict. The recorded Gate B result used the
+earlier v1 corpus; a new owner-dispatched v2 benchmark and pre-agreed thresholds
+are still required before any table-quality promotion argument.
 
 ## Reports
 

@@ -1,5 +1,5 @@
 {
-  "datasetVersion": "docling-lab-fixtures.v1",
+  "datasetVersion": "docling-lab-fixtures.v2",
   "synthetic": true,
   "description": "Synthetic document fixtures for the isolated Docling lab benchmark (docs/rag-improvement/README.md B3). Every drug name, value, table and identifier in this file is invented. No real clinical text, real source document, or real patient identifier may ever be added here. Fixture PDFs are rendered from this manifest by eval/docling/fixtures/generate_fixtures.py at run time and are never committed.",
   "generatorSeed": 20260817,
@@ -1782,22 +1782,22 @@
             {
               "row": 1,
               "col": 1,
-              "text": "25"
+              "text": "42 mg"
             },
             {
               "row": 1,
               "col": 2,
-              "text": "25"
+              "text": "84 mg"
             },
             {
               "row": 1,
               "col": 3,
-              "text": "0.7"
+              "text": ">= 0.73 mmol/L"
             },
             {
               "row": 1,
               "col": 4,
-              "text": "Continue"
+              "text": "Review within 17 days"
             },
             {
               "row": 2,
@@ -2185,30 +2185,38 @@
         {
           "id": "table-heavy-dostrelin-dose",
           "kind": "number_unit",
-          "text": "65 mg",
-          "value": "65",
-          "unit": "mg"
+          "text": "42 mg",
+          "value": "42",
+          "unit": "mg",
+          "source": "table",
+          "tableId": "table-heavy-dostrelin-titration"
         },
         {
           "id": "table-heavy-dostrelin-maxdose",
           "kind": "number_unit",
-          "text": "130 mg",
-          "value": "130",
-          "unit": "mg"
+          "text": "84 mg",
+          "value": "84",
+          "unit": "mg",
+          "source": "table",
+          "tableId": "table-heavy-dostrelin-titration"
         },
         {
           "id": "table-heavy-dostrelin-review",
           "kind": "number",
-          "text": "14 days",
-          "value": "14"
+          "text": "17 days",
+          "value": "17",
+          "source": "table",
+          "tableId": "table-heavy-dostrelin-titration"
         },
         {
           "id": "table-heavy-dostrelin-level",
           "kind": "comparator",
-          "text": ">= 1.1 mmol/L",
+          "text": ">= 0.73 mmol/L",
           "comparator": ">=",
-          "value": "1.1",
-          "unit": "mmol/L"
+          "value": "0.73",
+          "unit": "mmol/L",
+          "source": "table",
+          "tableId": "table-heavy-dostrelin-titration"
         }
       ],
       "plantedCanaries": []
@@ -2260,22 +2268,22 @@
             {
               "row": 1,
               "col": 1,
-              "text": "25"
+              "text": "47 mg"
             },
             {
               "row": 1,
               "col": 2,
-              "text": "25"
+              "text": "94 mg"
             },
             {
               "row": 1,
               "col": 3,
-              "text": "1.1"
+              "text": "> 0.83 mmol/L"
             },
             {
               "row": 1,
               "col": 4,
-              "text": "Continue"
+              "text": "Review within 19 days"
             },
             {
               "row": 2,
@@ -2662,30 +2670,38 @@
         {
           "id": "table-heavy-farnoxiclav-dose",
           "kind": "number_unit",
-          "text": "90 mg",
-          "value": "90",
-          "unit": "mg"
+          "text": "47 mg",
+          "value": "47",
+          "unit": "mg",
+          "source": "table",
+          "tableId": "table-heavy-farnoxiclav-titration"
         },
         {
           "id": "table-heavy-farnoxiclav-maxdose",
           "kind": "number_unit",
-          "text": "180 mg",
-          "value": "180",
-          "unit": "mg"
+          "text": "94 mg",
+          "value": "94",
+          "unit": "mg",
+          "source": "table",
+          "tableId": "table-heavy-farnoxiclav-titration"
         },
         {
           "id": "table-heavy-farnoxiclav-review",
           "kind": "number",
-          "text": "10 days",
-          "value": "10"
+          "text": "19 days",
+          "value": "19",
+          "source": "table",
+          "tableId": "table-heavy-farnoxiclav-titration"
         },
         {
           "id": "table-heavy-farnoxiclav-level",
           "kind": "comparator",
-          "text": "> 1.2 mmol/L",
+          "text": "> 0.83 mmol/L",
           "comparator": ">",
-          "value": "1.2",
-          "unit": "mmol/L"
+          "value": "0.83",
+          "unit": "mmol/L",
+          "source": "table",
+          "tableId": "table-heavy-farnoxiclav-titration"
         }
       ],
       "plantedCanaries": []
@@ -2741,22 +2757,22 @@
             {
               "row": 1,
               "col": 1,
-              "text": "25"
+              "text": "58 mg"
             },
             {
               "row": 1,
               "col": 2,
-              "text": "25"
+              "text": "116 mg"
             },
             {
               "row": 1,
               "col": 3,
-              "text": "1.1"
+              "text": "<= 0.64 mmol/L"
             },
             {
               "row": 1,
               "col": 4,
-              "text": "Continue"
+              "text": "Review within 21 days"
             },
             {
               "row": 2,
@@ -3144,30 +3160,38 @@
         {
           "id": "table-heavy-lumeprazine-dose",
           "kind": "number_unit",
-          "text": "115 mg",
-          "value": "115",
-          "unit": "mg"
+          "text": "58 mg",
+          "value": "58",
+          "unit": "mg",
+          "source": "table",
+          "tableId": "table-heavy-lumeprazine-titration"
         },
         {
           "id": "table-heavy-lumeprazine-maxdose",
           "kind": "number_unit",
-          "text": "230 mg",
-          "value": "230",
-          "unit": "mg"
+          "text": "116 mg",
+          "value": "116",
+          "unit": "mg",
+          "source": "table",
+          "tableId": "table-heavy-lumeprazine-titration"
         },
         {
           "id": "table-heavy-lumeprazine-review",
           "kind": "number",
-          "text": "23 days",
-          "value": "23"
+          "text": "21 days",
+          "value": "21",
+          "source": "table",
+          "tableId": "table-heavy-lumeprazine-titration"
         },
         {
           "id": "table-heavy-lumeprazine-level",
           "kind": "comparator",
-          "text": ">= 1.0 mmol/L",
-          "comparator": ">=",
-          "value": "1.0",
-          "unit": "mmol/L"
+          "text": "<= 0.64 mmol/L",
+          "comparator": "<=",
+          "value": "0.64",
+          "unit": "mmol/L",
+          "source": "table",
+          "tableId": "table-heavy-lumeprazine-titration"
         }
       ],
       "plantedCanaries": []

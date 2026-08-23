@@ -12,6 +12,7 @@ import {
   labDatasetVersion,
   labEngines,
   labGateIds,
+  labHardTableFeatureIds,
   labStrata,
   scanReportForLeaks,
   stratumStatKeys,
@@ -19,7 +20,7 @@ import {
   validateLabManifest,
 } from "../eval/docling/report/lab-contract.mjs";
 
-const manifestPath = "eval/docling/fixtures/manifest.v1.json";
+const manifestPath = "eval/docling/fixtures/manifest.v2.json";
 const configPath = "eval/docling/report/lab-config.json";
 const templatePath = "eval/docling/report/gate-b-decision-record.template.json";
 
@@ -115,6 +116,119 @@ describe("docling lab fixture manifest", () => {
   it("keeps assertion kinds within the scored vocabulary", () => {
     for (const fixture of manifest.fixtures) {
       for (const assertion of fixture.assertions) expect(assertionKinds).toContain(assertion.kind);
+    }
+  });
+
+  it("pins the v2 table-hardness corpus to real shapes and table-only exactness checks", () => {
+    expect(manifest.datasetVersion).toBe("docling-lab-fixtures.v2");
+    expect(labDatasetVersion).toBe("docling-lab-fixtures.v2");
+    expect([...labHardTableFeatureIds]).toEqual(["unruled", "merged_cell", "rotated_header"]);
+
+    const tableHeavy = manifest.fixtures.filter((fixture: { stratum: string }) => fixture.stratum === "table_heavy");
+    const candidates = tableHeavy.flatMap(
+      (fixture: {
+        assertions: Array<{ kind: string; source?: string; tableId?: string }>;
+        tables: Array<{
+          tableId: string;
+          unruled?: boolean;
+          style?: string;
+          rotatedHeaders?: boolean;
+          rotated_headers?: boolean;
+          cells: Array<{ row: number; colSpan?: number; rowSpan?: number; rotate?: number; rotated?: boolean }>;
+        }>;
+      }) =>
+        fixture.tables.map((table) => {
+          const features = new Set<string>();
+          if (table.unruled === true || table.style === "unruled") features.add("unruled");
+          if (table.cells.some((cell) => (cell.colSpan ?? 1) > 1 || (cell.rowSpan ?? 1) > 1)) {
+            features.add("merged_cell");
+          }
+          if (
+            table.rotatedHeaders === true ||
+            table.rotated_headers === true ||
+            table.cells.some((cell) => cell.row === 0 && (cell.rotate === 90 || cell.rotated === true))
+          ) {
+            features.add("rotated_header");
+          }
+          const scopedKinds = new Set(
+            fixture.assertions
+              .filter((assertion) => assertion.source === "table" && assertion.tableId === table.tableId)
+              .map((assertion) => assertion.kind),
+          );
+          return { features, scopedKinds };
+        }),
+    );
+
+    for (const feature of labHardTableFeatureIds) {
+      const matching = candidates.filter((candidate) => candidate.features.has(feature));
+      expect(matching.length).toBeGreaterThan(0);
+      expect(matching.some((candidate) => assertionKinds.every((kind) => candidate.scopedKinds.has(kind)))).toBe(true);
+    }
+  });
+
+  it("rejects removing a hard shape even when a decorative mergedCells marker remains", () => {
+    const cases = [
+      {
+        feature: "unruled",
+        mutate: (table: Record<string, unknown>) => {
+          delete table.unruled;
+          delete table.style;
+        },
+      },
+      {
+        feature: "merged_cell",
+        mutate: (table: { cells?: Array<Record<string, unknown>> }) => {
+          for (const cell of table.cells ?? []) {
+            delete cell.colSpan;
+            delete cell.rowSpan;
+          }
+        },
+      },
+      {
+        feature: "rotated_header",
+        mutate: (table: { cells?: Array<Record<string, unknown>> } & Record<string, unknown>) => {
+          delete table.rotatedHeaders;
+          delete table.rotated_headers;
+          for (const cell of table.cells ?? []) {
+            delete cell.rotate;
+            delete cell.rotated;
+          }
+        },
+      },
+    ];
+
+    for (const scenario of cases) {
+      const broken = clone(manifest) as typeof manifest;
+      for (const fixture of broken.fixtures.filter(
+        (candidate: { stratum: string }) => candidate.stratum === "table_heavy",
+      )) {
+        for (const table of fixture.tables) scenario.mutate(table);
+      }
+      expect(validateLabManifest(broken).join("\n")).toContain(
+        `table_heavy corpus requires at least one ${scenario.feature} table`,
+      );
+    }
+  });
+
+  it("rejects table-scoped checks that can pass from prose or no longer cover the hard shapes", () => {
+    const proseDuplicate = clone(manifest) as typeof manifest;
+    const fixture = proseDuplicate.fixtures.find(
+      (candidate: { id: string }) => candidate.id === "table-heavy-dostrelin",
+    );
+    const assertion = fixture.assertions.find((candidate: { source?: string }) => candidate.source === "table");
+    fixture.bodyText.push(`This synthetic prose repeats ${assertion.text}.`);
+    expect(validateLabManifest(proseDuplicate).join("\n")).toContain("must not also appear in title or bodyText");
+
+    const unscoped = clone(manifest) as typeof manifest;
+    for (const candidate of unscoped.fixtures) {
+      for (const item of candidate.assertions) {
+        delete item.source;
+        delete item.tableId;
+      }
+    }
+    const failures = validateLabManifest(unscoped).join("\n");
+    for (const feature of labHardTableFeatureIds) {
+      expect(failures).toContain(`${feature} table requires table-scoped`);
     }
   });
 });
