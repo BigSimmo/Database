@@ -2681,10 +2681,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(queue).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "1 diagnosis selected" })).toBeVisible();
     await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
-    await expect(page.getByTestId("differential-compare-edit-selection")).toHaveAttribute(
-      "href",
-      /\/differentials\/search\?.*ids=wernicke-encephalopathy/,
-    );
+    await page.getByTestId("differential-compare-edit-selection").click();
+    await expect(page.getByTestId("differential-compare-picker")).toBeVisible();
     await expect(page.getByTestId("differential-compare-open")).toBeVisible();
 
     await page.getByTestId("differential-compare-open").click();

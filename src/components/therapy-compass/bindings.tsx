@@ -92,6 +92,7 @@ export type TcBindings = {
   compareTherapies: Therapy[];
   toggleCompare: (slug: string) => void; // add/remove + navigate
   addCompare: (slug: string) => void;
+  replaceCompareSlugs: (slugs: readonly string[]) => void;
   removeCompare: (slug: string) => void;
   clearCompare: () => void;
   isInCompare: (slug: string) => boolean;
@@ -498,6 +499,17 @@ export function TcProvider({ children }: { children: ReactNode }) {
           compareSlugs.includes(slug) || compareSlugs.length >= THERAPY_MAX_COMPARE
             ? compareSlugs
             : [...compareSlugs, slug];
+        setCompareSlugs(next);
+        replaceWorkspace({ compareSlugs: next });
+      },
+      replaceCompareSlugs: (slugs) => {
+        const next: string[] = [];
+        for (const slug of slugs) {
+          const trimmed = slug.trim();
+          if (!trimmed || next.includes(trimmed)) continue;
+          next.push(trimmed);
+          if (next.length >= THERAPY_MAX_COMPARE) break;
+        }
         setCompareSlugs(next);
         replaceWorkspace({ compareSlugs: next });
       },

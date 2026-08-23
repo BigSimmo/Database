@@ -1,29 +1,18 @@
 import Link from "next/link";
-import {
-  BookOpenCheck,
-  ChevronRight,
-  CircleAlert,
-  GitCompareArrows,
-  ListChecks,
-  Plus,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { ChevronRight, GitCompareArrows, ListChecks, ShieldCheck, X } from "lucide-react";
 
+import { idsCompareHref, type CompareCatalogItem, type CompareStarterChip } from "@/components/compare";
+import { DsmCompareChrome } from "@/components/dsm/dsm-compare-chrome";
 import { DsmCompareRemoveLink } from "@/components/dsm/dsm-compare-remove-link";
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import { dsmCriteria, type DsmDiagnosis } from "@/lib/dsm";
 
 function compareHref(diagnoses: DsmDiagnosis[]) {
-  const params = new URLSearchParams({ ids: diagnoses.map((diagnosis) => diagnosis.slug).join(",") });
-  return `/dsm/compare?${params.toString()}`;
-}
-
-function chooseDiagnosesHref(diagnoses: DsmDiagnosis[]) {
-  if (!diagnoses.length) return "/dsm/search";
-  const params = new URLSearchParams({ ids: diagnoses.map((diagnosis) => diagnosis.slug).join(",") });
-  return `/dsm/search?${params.toString()}`;
+  return idsCompareHref(
+    "/dsm/compare",
+    diagnoses.map((diagnosis) => diagnosis.slug),
+  );
 }
 
 function removeDiagnosisHref(diagnoses: DsmDiagnosis[], slug: string) {
@@ -85,7 +74,15 @@ function comparisonRows(diagnoses: DsmDiagnosis[]): ComparisonRow[] {
   ];
 }
 
-export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) {
+export function DsmComparisonPage({
+  diagnoses,
+  catalog,
+  starters,
+}: {
+  diagnoses: DsmDiagnosis[];
+  catalog: readonly CompareCatalogItem[];
+  starters: readonly CompareStarterChip[];
+}) {
   const rows = comparisonRows(diagnoses);
 
   return (
@@ -94,59 +91,47 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
         eyebrow="Diagnosis comparison"
         title="Compare DSM diagnoses"
         description="Review core criteria, course-defining features, specifiers, and differential flags side by side. This is a structured review aid, not a diagnostic score."
-        actions={
-          <Link
-            href={chooseDiagnosesHref(diagnoses)}
-            className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--command-hover)]"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Choose diagnoses
-          </Link>
-        }
       />
 
       <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
-        <section className="grid gap-2.5 md:grid-cols-3" aria-label="Selected diagnoses">
-          {diagnoses.map((diagnosis, index) => (
-            <article
-              key={diagnosis.slug}
-              className="relative rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3.5 shadow-[var(--shadow-inset)]"
-            >
-              <div className="flex items-start gap-3 pr-8">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-sm font-extrabold text-[color:var(--clinical-accent)]">
-                  {index + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                    {diagnosis.category.label}
-                  </p>
-                  <h2 className="mt-1 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
-                    {diagnosis.title}
-                  </h2>
-                  <span className={cn("mt-2 inline-flex", metadataPill, codeText)}>{diagnosis.icd_code}</span>
-                </div>
-              </div>
-              <DsmCompareRemoveLink
-                href={removeDiagnosisHref(diagnoses, diagnosis.slug)}
-                aria-label={`Remove ${diagnosis.title} from comparison`}
-                className="absolute right-2 top-2 grid h-tap w-tap place-items-center rounded-lg text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--danger)]"
+        <DsmCompareChrome
+          selectedIds={diagnoses.map((diagnosis) => diagnosis.slug)}
+          items={catalog}
+          starters={starters}
+        />
+
+        {diagnoses.length > 0 ? (
+          <section className="grid gap-2.5 md:grid-cols-3" aria-label="Selected diagnoses">
+            {diagnoses.map((diagnosis, index) => (
+              <article
+                key={diagnosis.slug}
+                className="relative rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3.5 shadow-[var(--shadow-inset)]"
               >
-                <X className="h-4 w-4" aria-hidden />
-              </DsmCompareRemoveLink>
-            </article>
-          ))}
-          {diagnoses.length < 3 ? (
-            <Link
-              href={chooseDiagnosesHref(diagnoses)}
-              className="grid min-h-[7.5rem] place-items-center rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] p-3 text-center text-sm font-bold text-[color:var(--clinical-accent)]"
-            >
-              <span className="grid justify-items-center gap-2">
-                <Plus className="h-5 w-5" aria-hidden />
-                Add another diagnosis
-              </span>
-            </Link>
-          ) : null}
-        </section>
+                <div className="flex items-start gap-3 pr-8">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-sm font-extrabold text-[color:var(--clinical-accent)]">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                      {diagnosis.category.label}
+                    </p>
+                    <h2 className="mt-1 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                      {diagnosis.title}
+                    </h2>
+                    <span className={cn("mt-2 inline-flex", metadataPill, codeText)}>{diagnosis.icd_code}</span>
+                  </div>
+                </div>
+                <DsmCompareRemoveLink
+                  href={removeDiagnosisHref(diagnoses, diagnosis.slug)}
+                  aria-label={`Remove ${diagnosis.title} from comparison`}
+                  className="absolute right-2 top-2 grid h-tap w-tap place-items-center rounded-lg text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--danger)]"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </DsmCompareRemoveLink>
+              </article>
+            ))}
+          </section>
+        ) : null}
 
         {diagnoses.length >= 2 ? (
           <>
@@ -252,24 +237,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
               </Link>
             </section>
           </>
-        ) : (
-          <section className="grid justify-items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-12 text-center shadow-[var(--shadow-inset)]">
-            <CircleAlert className="h-8 w-8 text-[color:var(--clinical-accent)]" aria-hidden />
-            <div>
-              <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">Choose at least two diagnoses</h2>
-              <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
-                Search the catalogue, select two or three records, then return to this comparison.
-              </p>
-            </div>
-            <Link
-              href={chooseDiagnosesHref(diagnoses)}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
-            >
-              <BookOpenCheck className="h-4 w-4" aria-hidden />
-              Search diagnoses
-            </Link>
-          </section>
-        )}
+        ) : null}
 
         <footer className="flex flex-wrap items-center gap-2 border-t border-[color:var(--border)] pt-4 text-xs font-medium text-[color:var(--text-muted)]">
           <GitCompareArrows className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
