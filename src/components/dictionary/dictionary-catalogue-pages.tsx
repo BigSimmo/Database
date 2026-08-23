@@ -292,7 +292,8 @@ export function DictionaryCataloguePage() {
   /* Joined two-cell toggle: one border, no gap, sized to its own labels.
      Compact (28px, 11px type) so the row stays a control strip rather than a
      second header. `aria-label` keeps the accessible name "Terms (2)" rather
-     than the concatenated "Terms2" jammed digits produced. */
+     than the concatenated "Terms2" jammed digits produced. Focus uses an inset
+     outline because the joined track clips an outset ring. */
   const scopeToggle = (
     <div
       role="group"
@@ -313,7 +314,7 @@ export function DictionaryCataloguePage() {
             onClick={() => setOne("view", option.value, "definitions")}
             className={cn(
               "inline-flex h-full items-center gap-1 px-2 text-2xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
-              focusRing,
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
               active
                 ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "bg-transparent text-[color:var(--clinical-accent)] hover:bg-[color:var(--tone-purple-soft)]",
@@ -340,12 +341,12 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex h-7 shrink-0 items-center gap-0.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex h-7 max-h-7 shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
       {params.letter === "all" ? "A–Z" : params.letter}
-      <ChevronDown className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
+      <ChevronDown className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
       <span className="sr-only">
         {params.letter === "all" ? " · jump to a letter" : ` · jump to a letter, currently ${params.letter}`}
       </span>
