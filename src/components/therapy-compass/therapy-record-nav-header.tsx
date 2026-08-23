@@ -9,6 +9,7 @@ import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "./bindings";
+import { therapyBtn } from "./controls";
 import type { Therapy } from "./data/types";
 
 /**
@@ -146,7 +147,7 @@ export function TherapyRecordNavHeader({
               close();
               window.print();
             }}
-            className={inPageActionRowClass}
+            className={`${therapyBtn} ${inPageActionRowClass}`}
           >
             <Printer className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             Print this record
@@ -158,7 +159,7 @@ export function TherapyRecordNavHeader({
                 close();
                 b.removeCompare(therapy.slug);
               }}
-              className={inPageActionRowClass}
+              className={`${therapyBtn} ${inPageActionRowClass}`}
             >
               <X className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               Remove from comparison

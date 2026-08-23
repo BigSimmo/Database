@@ -28,72 +28,73 @@ export function TherapySourceProvenance({ therapy }: { therapy: Therapy }) {
   const source = therapy.sources[0] ?? null;
   const blob = source?.reference?.trim() || therapy.sourceNotes?.trim() || "";
   const { citations, notes } = splitSourceCitations(blob);
+  const reviewStatus = reviewed ? "Reviewed" : "Awaiting review";
+  const reviewStatusClass = reviewed
+    ? "text-xs font-semibold text-[color:var(--success-text)]"
+    : "text-xs font-semibold text-[color:var(--warning-text)]";
 
   return (
-    <Disclosure
-      className="text-sm"
-      headingLevel={2}
-      title="Source & review status"
-      meta={
-        <span
-          className={
-            reviewed
-              ? "text-xs font-semibold text-[color:var(--success-text)]"
-              : "text-xs font-semibold text-[color:var(--warning-text)]"
-          }
-        >
-          {reviewed ? "Reviewed" : "Awaiting review"}
-        </span>
-      }
-    >
-      <div className="space-y-3 pb-1">
-        {citations.length ? (
-          <ol className="m-0 list-none space-y-2 p-0">
-            {citations.map((citation, index) => (
-              <li
-                key={`${citation.authority}-${index}`}
-                className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2"
-              >
-                <p className="m-0 text-xs leading-5 text-[color:var(--text)]">{citation.text}</p>
-                {citation.authority ? (
-                  <span className="mt-1.5 inline-flex rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-px text-3xs font-semibold text-[color:var(--clinical-accent)]">
-                    {citation.authority}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="m-0 text-xs leading-5 text-[color:var(--text-muted)]">
-            No reference list was recorded for this therapy.
-          </p>
-        )}
-
-        {notes.length ? (
-          <div>
-            <p className="m-0 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-              Record note — not a clinical source
-            </p>
-            {notes.map((note) => (
-              <p key={note} className="m-0 mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
-                {note}
-              </p>
-            ))}
-          </div>
-        ) : null}
-
-        {source ? (
-          <div className="space-y-2 border-t border-[color:var(--border)] pt-2.5">
-            <p className="m-0 text-xs text-[color:var(--text-muted)]">
-              Imported from <span className="break-words font-medium">{source.title ?? "an uploaded source"}</span>
-            </p>
-            <span className="flex flex-wrap gap-2">
-              <SourceDesignationBadge metadata={therapySourceMetadata(source, therapy.reviewStatus)} />
-              <SourceStatusBadge metadata={therapySourceMetadata(source, therapy.reviewStatus)} />
-            </span>
-          </div>
-        ) : null}
+    <>
+      <div className="hidden print:block">
+        <h2 className="m-0 text-sm font-semibold text-[color:var(--text-heading)]">
+          Source & review status <span className={reviewStatusClass}>{reviewStatus}</span>
+        </h2>
       </div>
-    </Disclosure>
+      <Disclosure
+        className="text-sm"
+        headingLevel={2}
+        title="Source & review status"
+        meta={<span className={reviewStatusClass}>{reviewStatus}</span>}
+      >
+        <div className="space-y-3 pb-1">
+          {citations.length ? (
+            <ol className="m-0 list-none space-y-2 p-0">
+              {citations.map((citation, index) => (
+                <li
+                  key={`${citation.authority}-${index}`}
+                  className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2"
+                >
+                  <p className="m-0 text-xs leading-5 text-[color:var(--text)]">{citation.text}</p>
+                  {citation.authority ? (
+                    <span className="mt-1.5 inline-flex rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 py-px text-3xs font-semibold text-[color:var(--clinical-accent)]">
+                      {citation.authority}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="m-0 text-xs leading-5 text-[color:var(--text-muted)]">
+              No reference list was recorded for this therapy.
+            </p>
+          )}
+
+          {notes.length ? (
+            <div>
+              <p className="m-0 text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                Record note — not a clinical source
+              </p>
+              {notes.map((note) => (
+                <p key={note} className="m-0 mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                  {note}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          {source ? (
+            <div className="space-y-2 border-t border-[color:var(--border)] pt-2.5">
+              <p className="m-0 text-xs text-[color:var(--text-muted)]">
+                Imported from <span className="break-words font-medium">{source.title ?? "an uploaded source"}</span>
+              </p>
+              <span className="flex flex-wrap gap-2">
+                <SourceDesignationBadge metadata={therapySourceMetadata(source, therapy.reviewStatus)} />
+                <SourceStatusBadge metadata={therapySourceMetadata(source, therapy.reviewStatus)} />
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </Disclosure>
+    </>
   );
 }

@@ -238,7 +238,10 @@ export function relatedTherapies(all: Therapy[], therapy: Therapy, limit = 4): R
         (best, entry) => (best === null || entry.score > best.score ? entry : best),
         null,
       );
-      return { therapy: candidate, score, reason: strongest?.reason ?? "Related record" };
+      const explicitReason = contributions.find(
+        (entry) => entry.reason === "Named in this record" || entry.reason === "References this therapy",
+      );
+      return { therapy: candidate, score, reason: explicitReason?.reason ?? strongest?.reason ?? "Related record" };
     })
     .filter((entry) => entry.score > 0);
 

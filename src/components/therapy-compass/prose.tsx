@@ -4,6 +4,8 @@ import { useId, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
+import { therapyBtn } from "./controls";
+
 /**
  * A source marker the catalogue writes inline at the end of a sentence, e.g.
  * "… as unsupported self-help. (PubMed)".
@@ -234,6 +236,7 @@ export function ProseBlock({
             aria-hidden
             className={cn(
               "pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t to-transparent",
+              "print:hidden",
               tone === "warning" ? "from-[color:var(--warning-bg)]" : "from-[color:var(--surface-raised)]",
             )}
           />
@@ -250,7 +253,10 @@ export function ProseBlock({
           // text as its prefix, so "label in name" still holds for anyone
           // driving the page by voice.
           aria-label={expanded ? `Show less of ${label}` : `Show more of ${label}`}
-          className="focus-ring-tab -mx-1 mt-1 inline-flex min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline"
+          className={cn(
+            therapyBtn,
+            "-mx-1 mt-1 inline-flex min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline",
+          )}
         >
           {expanded ? "Show less" : "Show more"}
         </button>
