@@ -119,7 +119,7 @@
 
 - Add: `docs/evidence/performance-remediation-2026-08-23.md`
 - Modify: `docs/outstanding-issues.md` only through the repository issue workflow and only when current deterministic evidence justifies a status change.
-- Modify: `docs/branch-review-ledger.md` as required by the repository PR handoff workflow.
+- Before each branch or PR review, run `npm run ledger:lookup -- <ref> --scope "<scope>"`; record the result with `npm run ledger:append` and never read or hand-edit `docs/branch-review-ledger.md`.
 
 **Steps**
 
@@ -132,7 +132,7 @@
 - [ ] Update only issues proved resolved by current deterministic evidence. Keep `#308`/`#JVYQEM` open or explicitly narrowed if wide geometry is not proven fixed; mark `#2TAQDC` guardrail completion separately from its already-resolved live defect; do not close `#QSHHGK` unless the configured baseline source itself becomes valid.
 - [ ] Commit Task 5's evidence, issue, and ledger updates as a coherent documentation/handoff commit after their scoped checks pass.
 - [ ] Fetch and compare `origin/main`; merge a newer base only if required and conflict-safe, then rerun checkout-sensitive minimum gates and commit any required conflict-resolution/handoff adjustment.
-- [ ] Only after synchronization and all final commits, compute the exact PR diff base with `git merge-base origin/main HEAD` and obtain a final independent branch review to the exact final head, recording both SHAs. Resolve all Critical/Important findings and rerun affected checks and review; any later change invalidates the reviewed head and requires the affected verification/review again.
+- [ ] Only after synchronization and all final commits, compute the exact PR diff base with `git merge-base origin/main HEAD`, run `npm run ledger:lookup -- HEAD --scope "performance remediation final diff"`, and obtain a final independent branch review to the exact final head, recording both SHAs with `npm run ledger:append`. Resolve all Critical/Important findings and rerun affected checks and review; any later change invalidates the reviewed head and requires the affected verification/review again.
 - [ ] Push `codex/task-performance-remediation` and open the authorized PR. The PR body must include the full handoff context, exact commands/results, historical-versus-current evidence boundary, deferred items, and remaining Linux/CI verification. Do not enable or alter auto-merge.
 
 ## Completion proof

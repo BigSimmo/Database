@@ -332,7 +332,7 @@ describe("shared-search route ownership", () => {
     const homeTemplateSource = readFileSync(resolve(process.cwd(), "src/components/mode-home-template.tsx"), "utf8");
     expect(homeTemplateSource).toContain("sm:data-[composer-reserve=pending]:min-h");
     expect(homeTemplateSource).toContain("sm:[&:not(:empty)]:min-h");
-    expect(homeTemplateSource).not.toMatch(/sm:min-h-\[var\(--spacing-mode-home-composer-wide\)\](?![^\n]*data-)/);
+    expect(homeTemplateSource).not.toContain("sm:min-h-[var(--spacing-mode-home-composer-wide)]");
   });
 
   it("leaves the dashboard shell without eager chrome thrash", () => {

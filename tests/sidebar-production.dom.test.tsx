@@ -53,6 +53,9 @@ describe("production Clinical Guide sidebar", () => {
     const toolsLink = screen.getByRole("link", { name: "Tools" });
     expect(onPrefetchApplications).not.toHaveBeenCalled();
 
+    fireEvent.pointerEnter(screen.getByRole("link", { name: "Answer" }));
+    expect(onPrefetchApplications).not.toHaveBeenCalled();
+
     fireEvent.pointerEnter(toolsLink);
     expect(onPrefetchApplications).toHaveBeenCalledTimes(1);
 

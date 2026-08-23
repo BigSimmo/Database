@@ -55,8 +55,8 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
 
 /**
  * Keeps the dashboard's collapsed degraded-state control in normal flow on the
- * centred home surface. Other pages render it only while degraded, so a healthy
- * result page does not inherit an empty notice band.
+ * centred home surface. Result pages retain a zero-height frame so their notice
+ * can overlay without inserting a band during a degraded transition.
  */
 export function DegradedNoticeFrame({
   visible,
@@ -71,7 +71,7 @@ export function DegradedNoticeFrame({
     <div
       data-testid="dashboard-degraded-notice-frame"
       data-visible={visible ? "true" : "false"}
-      className={visible || reserveSpace ? "min-h-[3.875rem]" : undefined}
+      className={reserveSpace ? "min-h-[3.875rem]" : "relative z-10 h-0 overflow-visible"}
     >
       {visible ? (
         <>

@@ -8,19 +8,16 @@ import { DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-n
 describe("DegradedNoticeFrame", () => {
   it("reserves the notice frame only for the centred home surface", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
-    const frameIndex = dashboardSource.indexOf(
-      "<DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} />",
-    );
+    const frameIndex = dashboardSource.indexOf("<DegradedNoticeFrame");
     const heroIndex = dashboardSource.indexOf("<section", frameIndex);
 
     expect(dashboardSource).toContain("showDegradedNotice || centeredModeHome ? (");
     expect(dashboardSource).toContain("reserveSpace={centeredModeHome}");
     expect(frameIndex).toBeGreaterThanOrEqual(0);
     expect(heroIndex).toBeGreaterThan(frameIndex);
-    expect(dashboardSource).not.toContain("<DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} />");
   });
 
-  it("keeps one stable flow frame while exposing alert semantics only for degraded content", () => {
+  it("keeps a stable frame while exposing alert semantics only for degraded content", () => {
     const drawerSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/dashboard-shell.tsx"),
       "utf8",
@@ -39,7 +36,7 @@ describe("DegradedNoticeFrame", () => {
     const { rerender } = render(<DegradedNoticeFrame visible={false} isOnline reserveSpace />);
     const frame = screen.getByTestId("dashboard-degraded-notice-frame");
 
-    expect(frame).toHaveClass("min-h-[3.875rem]");
+    expect(frame).toHaveClass("h-0");
     expect(frame).toHaveAttribute("data-visible", "false");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(frame).toBeEmptyDOMElement();
@@ -47,7 +44,7 @@ describe("DegradedNoticeFrame", () => {
     rerender(<DegradedNoticeFrame visible isOnline={false} />);
 
     expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
-    expect(frame).toHaveClass("min-h-[3.875rem]");
+    expect(frame).toHaveClass("h-0");
     expect(frame).toHaveAttribute("data-visible", "true");
     expect(screen.getByRole("alert")).toHaveTextContent("Offline");
 
@@ -60,7 +57,7 @@ describe("DegradedNoticeFrame", () => {
     rerender(<DegradedNoticeFrame visible={false} isOnline />);
 
     expect(screen.getByTestId("dashboard-degraded-notice-frame")).toBe(frame);
-    expect(frame).not.toHaveClass("min-h-[3.875rem]");
+    expect(frame).toHaveClass("h-0");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(frame).toBeEmptyDOMElement();
   });
