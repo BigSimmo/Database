@@ -65,3 +65,20 @@ test.describe("React Hydration Safety", () => {
     });
   }
 });
+
+test.describe("request-rendered root start state", () => {
+  test.use({ javaScriptEnabled: false });
+
+  test("root dashboard is present in raw HTML and without hydration", async ({ page }) => {
+    const response = await page.goto("/");
+    expect(response?.ok()).toBe(true);
+
+    const html = await response!.text();
+    expect(html.match(/id="shared-home-empty-state-title"/g)).toHaveLength(1);
+    expect(html.match(/id="main-content"/g)).toHaveLength(1);
+
+    await expect(page.locator("#shared-home-empty-state-title")).toHaveCount(1);
+    await expect(page.locator('[data-testid="shared-home-empty-state"]')).toHaveCount(1);
+    await expect(page.locator("#main-content")).toHaveCount(1);
+  });
+});

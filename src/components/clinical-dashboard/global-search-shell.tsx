@@ -250,6 +250,14 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
     pathname,
   });
 
+  // The root route statically owns its dashboard so its public start state is
+  // request-rendered. Keep the shared shell's lazy dashboard for Documents and
+  // submitted dashboard routes only; mounting both would duplicate providers
+  // and the `#main-content` tree.
+  if (rendersClinicalDashboard && pathname === "/") {
+    return <>{props.children}</>;
+  }
+
   // PatientProfileProvider already wraps this gate in GlobalSearchShell.
   // SettingsStateProvider keeps dashboard settings/drawer state extracted for the
   // ClinicalDashboard tree only.

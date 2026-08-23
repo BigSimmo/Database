@@ -91,5 +91,12 @@ export default async function Home({ searchParams }: HomeProps) {
     }
   }
 
-  return <HomePageClient initialMode={initialSearchMode} />;
+  return (
+    <HomePageClient
+      initialMode={initialSearchMode}
+      initialQuery={query ?? ""}
+      focusSearch={focus}
+      autoRunSearch={submitted}
+    />
+  );
 }

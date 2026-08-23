@@ -1,17 +1,29 @@
 "use client";
 
-import type { ReactNode } from "react";
-
+import { ClinicalDashboard } from "@/components/ClinicalDashboard";
+import { SettingsStateProvider } from "@/components/clinical-dashboard/SettingsStateProvider";
 import type { AppModeId } from "@/lib/app-modes";
 
-/** Home page content slot; search chrome comes from the shared `(search-app)` layout. */
+/** Root-only dashboard body; shared search chrome comes from the `(search-app)` layout. */
 export function HomePageClient({
-  initialMode: _initialMode,
-  children,
+  initialMode,
+  initialQuery,
+  focusSearch,
+  autoRunSearch,
 }: {
   initialMode: AppModeId;
-  children?: ReactNode;
+  initialQuery: string;
+  focusSearch: boolean;
+  autoRunSearch: boolean;
 }) {
-  void _initialMode;
-  return <>{children ?? null}</>;
+  return (
+    <SettingsStateProvider>
+      <ClinicalDashboard
+        initialSearchMode={initialMode}
+        initialQuery={initialQuery}
+        focusSearch={focusSearch}
+        autoRunSearch={autoRunSearch}
+      />
+    </SettingsStateProvider>
+  );
 }
