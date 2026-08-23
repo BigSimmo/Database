@@ -49,6 +49,73 @@ function dispatchInstallEligibility(outcome: "accepted" | "dismissed" = "accepte
   return prompt;
 }
 
+const HERO_MAIN_CONTENT_SELECTOR = 'body:has(#main-content[data-phone-footer-owner="hero"])';
+const ALLOWED_HERO_MAIN_CONTENT_SELECTORS = new Set([
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-notice-stack`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-grip`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-tagline`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-support`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-benefits`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-header`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-body`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-compact-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-actions`,
+]);
+
+function splitCssSelectors(prelude: string) {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const char of prelude) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (char === "," && depth === 0) {
+      parts.push(current.replace(/\s+/g, " ").trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  const last = current.replace(/\s+/g, " ").trim();
+  if (last) parts.push(last);
+  return parts.filter(Boolean);
+}
+
+function normalizeCssSelector(selector: string) {
+  return selector
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/:has\(\s+/g, ":has(")
+    .replace(/\s+\)/g, ")");
+}
+
+function disallowedMainContentHasSelectors(styles: string) {
+  const withoutComments = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+  const disallowed: string[] = [];
+  let token = "";
+  for (const char of withoutComments) {
+    if (char === "{") {
+      const prelude = token.replace(/\s+/g, " ").trim();
+      if (!prelude.startsWith("@")) {
+        for (const selector of splitCssSelectors(prelude).map(normalizeCssSelector)) {
+          if (selector.includes("body:has(#main-content") && !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector)) {
+            disallowed.push(selector);
+          }
+        }
+      }
+      token = "";
+      continue;
+    }
+    if (char === "}") {
+      token = "";
+      continue;
+    }
+    token += char;
+  }
+  return disallowed;
+}
+
 beforeEach(() => {
   window.history.replaceState({}, "", "/");
   window.localStorage.clear();
@@ -422,29 +489,33 @@ describe("notice-stack hero-compact geometry selectors", () => {
     }
   });
 
-  it("keeps every :has(#main-content ...) selector inside the classified post-hydration PWA block", () => {
+  it("rejects every unguarded body:has(#main-content...) geometry consumer", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
-    const allowlistStart = styles.indexOf("/* BEGIN post-hydration PWA main-content selector allowlist */");
-    const allowlistEnd = styles.indexOf("/* END post-hydration PWA main-content selector allowlist */");
-    const collectMainContentHasSelectors = (source: string) => [...source.matchAll(/:has\(\s*#main-content\b[^)]*\)/g)];
-    const occurrences = collectMainContentHasSelectors(styles);
 
-    expect(allowlistStart).toBeGreaterThanOrEqual(0);
-    expect(allowlistEnd).toBeGreaterThan(allowlistStart);
-    expect(occurrences).toHaveLength(10);
-    for (const occurrence of occurrences) {
-      expect(occurrence.index).toBeGreaterThan(allowlistStart);
-      expect(occurrence.index).toBeLessThan(allowlistEnd);
-    }
+    expect(disallowedMainContentHasSelectors(styles)).toEqual([]);
 
-    const whitespaceMutation = `${styles}\nbody:has( #main-content[data-phone-footer-owner="hero"]) { color: red; }`;
-    const mutatedOccurrences = collectMainContentHasSelectors(whitespaceMutation);
-    const unclassifiedMutations = mutatedOccurrences.filter(
-      (occurrence) => occurrence.index <= allowlistStart || occurrence.index >= allowlistEnd,
-    );
+    const unsafeFixture = `${styles}\nbody:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay { bottom: 0; }`;
+    expect(disallowedMainContentHasSelectors(unsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
 
-    expect(mutatedOccurrences).toHaveLength(11);
-    expect(unclassifiedMutations).toHaveLength(1);
-    expect(unclassifiedMutations[0]?.[0]).toContain(":has( #main-content");
+    const multilineUnsafeFixture = `${styles}
+body:has(#main-content[data-phone-footer-owner="hero"])
+  .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(multilineUnsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+
+    const spacedHasFixture = `${styles}
+body:has(
+  #main-content[data-phone-footer-owner="hero"]
+) .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(spacedHasFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
   });
 });

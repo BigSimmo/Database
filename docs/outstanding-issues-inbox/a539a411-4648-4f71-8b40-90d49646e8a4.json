@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a539a411-4648-4f71-8b40-90d49646e8a4",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#243HCC",
+    "outcome": "Resolved by emitting data-settings-nav-target={item.id} on every Settings navigation control and removing the vacuous length guard from tests/settings-dialog-actions.dom.test.tsx, so the desktop rail must exactly match the rendered section ids. Focused combined verification on 2026-08-23 passed tests/settings-dialog-actions.dom.test.tsx, tests/pwa-lifecycle.dom.test.tsx, and tests/mockup-crawler-policy.test.ts: 3 files, 26 tests.",
+    "baseRowFingerprint": "88109c3d3be29e89faa7503ae01720afc377bdd78dce7036557099268caf412d"
+  }
+}

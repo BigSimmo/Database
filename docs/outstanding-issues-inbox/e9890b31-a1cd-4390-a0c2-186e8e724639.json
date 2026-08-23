@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e9890b31-a1cd-4390-a0c2-186e8e724639",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#VV83VA",
+    "outcome": "Documented the Windows process-spawn diagnostic in docs/testing.md: PowerShell and cmd-compatible Measure-Command node --version probes distinguish host-wide multi-second spawn starvation from gh, Git, or repository faults; the response is to close stale sessions or reboot, with an explicit prohibition on changing Windows security settings. docs:check-links and docs:check-scripts passed.",
+    "baseRowFingerprint": "92a45d3e624bc90ed650c3d8308ac29ed65a73b2cdb9a3e9c0ea42ee5887ac66"
+  }
+}

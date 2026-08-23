@@ -21,14 +21,14 @@ mkdir -p "$OUT/corpus" "$OUT/raw"
 
 echo "== phase 1: fixtures =="
 "$DOCLING_PY" "$LAB/fixtures/generate_fixtures.py" \
-  --manifest "$LAB/fixtures/manifest.v1.json" \
+  --manifest "$LAB/fixtures/manifest.v2.json" \
   --out "$OUT/corpus"
 
 echo "== phase 2: legacy engine =="
 PYTHON_BIN="$LEGACY_PY" "$LEGACY_PY" "$LAB/harness/run_corpus.py" \
   --engine legacy \
   --corpus "$OUT/corpus" \
-  --manifest "$LAB/fixtures/manifest.v1.json" \
+  --manifest "$LAB/fixtures/manifest.v2.json" \
   --config "$LAB/report/lab-config.json" \
   --out "$OUT/raw/legacy.json"
 
@@ -43,14 +43,14 @@ TORCHDYNAMO_DISABLE=1 DOCLING_PYTHON="$DOCLING_PY" DOCLING_ARTIFACTS_PATH=/opt/d
   "$DOCLING_PY" "$LAB/harness/run_corpus.py" \
   --engine docling \
   --corpus "$OUT/corpus" \
-  --manifest "$LAB/fixtures/manifest.v1.json" \
+  --manifest "$LAB/fixtures/manifest.v2.json" \
   --config "$LAB/report/lab-config.json" \
   --out "$OUT/raw/docling.json" \
   --warmup
 
 echo "== phase 4: score =="
 "$DOCLING_PY" "$LAB/harness/score.py" \
-  --manifest "$LAB/fixtures/manifest.v1.json" \
+  --manifest "$LAB/fixtures/manifest.v2.json" \
   --raw-dir "$OUT/raw" \
   --out "$OUT/raw/measurements.json"
 

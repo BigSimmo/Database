@@ -116,6 +116,29 @@ describe("shared-search route ownership", () => {
     expect(isAlwaysStandaloneShellPath("/documents/search")).toBe(false);
   });
 
+  it("preserves the deliberate compact-hub and standalone Favourites workspace distinction", () => {
+    const favouritesHubSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/favourites-hub.tsx"),
+      "utf8",
+    );
+    const favouritesPageSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
+      "utf8",
+    );
+
+    // The dashboard hub is a compact browse surface and keeps a ModeHomeHero.
+    // The standalone route is the full command library and starts at its one h1
+    // so its filters and saved-item controls stay above fold. Identity copy is
+    // shared; structural equality between the two entry doors is not.
+    expect(favouritesHubSource).toContain("Owner decision 2026-08-23");
+    expect(favouritesHubSource).toContain("<ModeHomeHero");
+    expect(favouritesHubSource).toContain("sharedHomePresentation.favourites");
+    expect(favouritesPageSource).toContain("Owner decision 2026-08-23");
+    expect(favouritesPageSource).not.toContain("ModeHomeHero");
+    expect(favouritesPageSource).toContain("<h1");
+    expect(favouritesPageSource).toContain("{sharedHomePresentation.favourites.title}");
+  });
+
   it("classifies dashboard mode hrefs without parsing the destination page", () => {
     expect(isDashboardModeHref("/")).toBe(true);
     expect(isDashboardModeHref("/?mode=answer")).toBe(true);

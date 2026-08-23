@@ -1863,7 +1863,9 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     expect(searchBox).not.toBeNull();
     expect(headingBox).not.toBeNull();
     expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-    expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.65);
+    // Clinical Ask adds composer chrome under the hero search. Keep the field
+    // in the upper viewport without encoding a pre-Ask pixel height.
+    expect((searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2).toBeLessThan(900 * 0.7);
     await expectNoPageHorizontalOverflow(page);
   });
 
