@@ -40,5 +40,7 @@ describe("favourites contract", () => {
     expect(migration).not.toContain("validate constraint user_favourites_content_key_format_check");
     expect(migration).toContain("partition by user_id\n");
     expect(migration).toContain("reorder_user_favourite");
+    expect(migration).toContain("target_set_id uuid");
+    expect(migration).toContain("set_id is not distinct from target_set_id");
   });
 });

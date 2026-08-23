@@ -12,6 +12,11 @@ describe("privacy readiness contract", () => {
     expect(validatePrivacyReadiness(manifest)).toEqual([]);
   });
 
+  it("keeps Railway processor evidence linked to the privacy impact assessment", () => {
+    const railwayDpa = manifest.requirements.find((item: { id: string }) => item.id === "PRIV-LEGAL-RAILWAY-DPA");
+    expect(railwayDpa.evidenceReferences).toContain("docs/privacy-impact-assessment.md");
+  });
+
   it("fails release closed while CI validates the structural register", () => {
     expect(validatePrivacyReadiness(manifest, { release: true })).toContain(
       "PRIV-PROVIDER-OPENAI-ZDR: release-blocking status pending",

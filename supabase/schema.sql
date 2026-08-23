@@ -9186,17 +9186,25 @@ security invoker
 set search_path = ''
 as $$
 declare
+  target_set_id uuid;
   target_position bigint;
   swap_position bigint;
 begin
   if p_direction not in ('up', 'down') then
     raise exception using errcode = '22023', message = 'Invalid favourite reorder direction.';
   end if;
+  select set_id into target_set_id
+  from public.user_favourites
+  where user_id = p_user_id
+    and content_type = p_content_type
+    and content_key = p_content_key;
   select position into target_position
   from (
     select content_type, content_key,
       row_number() over (order by sort_order, created_at, content_type, content_key) as position
-    from public.user_favourites where user_id = p_user_id
+    from public.user_favourites
+    where user_id = p_user_id
+      and set_id is not distinct from target_set_id
   ) ordered
   where content_type = p_content_type and content_key = p_content_key;
   if target_position is null then return false; end if;
@@ -9204,7 +9212,9 @@ begin
   with ordered as (
     select content_type, content_key,
       row_number() over (order by sort_order, created_at, content_type, content_key) as position
-    from public.user_favourites where user_id = p_user_id
+    from public.user_favourites
+    where user_id = p_user_id
+      and set_id is not distinct from target_set_id
   ), final_positions as (
     select content_type, content_key,
       case when position = target_position then swap_position
@@ -9215,6 +9225,7 @@ begin
   set sort_order = final_positions.position * 10
   from final_positions
   where favourite.user_id = p_user_id
+    and favourite.set_id is not distinct from target_set_id
     and favourite.content_type = final_positions.content_type
     and favourite.content_key = final_positions.content_key;
   return true;
