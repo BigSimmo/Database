@@ -5581,7 +5581,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     const dialog = await openGuide(page);
-    await dialog.evaluate((element) => element.style.setProperty("--safe-area-bottom", "34px"));
+    // Seed the inset on :root. An inline style on the dialog node is lost when
+    // React re-renders the Sheet, which made contentPaddingBottom flake at 80px
+    // (5rem + 0) instead of 114px (5rem + 34px).
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+    });
     const band = dialog.locator(".guide-tour-dock");
     await expect(band).toBeVisible();
 
