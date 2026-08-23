@@ -11,16 +11,16 @@
   },
   "routes": {
     "/": {
-      "gzipBytes": 253956,
+      "gzipBytes": 285184,
       "tolerancePct": 10
     },
     "/documents/search": {
-      "gzipBytes": 257115,
+      "gzipBytes": 288358,
       "tolerancePct": 10
     }
   },
   "totalGzipBytes": 2195036,
   "tolerancePct": 10,
-  "updatedAt": "2026-08-22T17:00:04.288Z",
-  "baselineSource": "3058585fdb9a27a00a2eebf28208cd4f93622566"
+  "updatedAt": "2026-08-23T10:15:00.000Z",
+  "baselineSource": "0764fb5813564cc1cb8933267597478ecff9c354"
 }
