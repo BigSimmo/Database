@@ -162,6 +162,7 @@ import {
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
 import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
+import { readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -813,6 +814,13 @@ export function ClinicalDashboard({
     (value: string) => {
       const trimmedValue = value.trim();
       if (!trimmedValue) return;
+      // "Save recent searches" off means nothing is recorded at all — not
+      // recorded and hidden. Read one-shot rather than subscribing: this
+      // component does not otherwise consume preferences, and a subscription
+      // here would re-render the whole dashboard on every unrelated preference
+      // change. Bail before touching state so no new question appears in the
+      // in-memory list either.
+      if (!readAppPreferences().saveRecentSearches) return;
       setRecentQueries((current) => {
         const next = [
           trimmedValue,

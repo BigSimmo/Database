@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   DEFAULT_PREFERENCES,
   normalizePreferences,
@@ -30,6 +30,23 @@ export type {
 
 const emptyAuthorizationHeader: Record<string, string> = {};
 const ignoreExpiredSession = () => undefined;
+
+/**
+ * Whether the last write of these preferences reached the signed-in account.
+ *
+ * `local-only` is the honest resting state for a signed-out browser rather than
+ * a failure: the choice is saved, just not anywhere else. Before this existed
+ * both the bootstrap read and every write swallowed their errors, so a failed
+ * sync was indistinguishable from a successful one and the settings surface had
+ * nothing truthful to show.
+ */
+export type PreferenceSyncState = "local-only" | "syncing" | "synced" | "error";
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : (error as { name?: string })?.name === "AbortError";
+}
 
 function useAuthSessionIfAvailable() {
   try {
@@ -158,25 +175,57 @@ export function useAppPreferences() {
   const authEpoch = auth?.authEpoch ?? 0;
   const markSessionExpired = auth?.markSessionExpired ?? ignoreExpiredSession;
   const preferences = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // `null` means "nothing observed for this session yet", which reads as
+  // "syncing" below. Keeping it nullable is what lets the resting states be
+  // derived rather than written from an effect: a signed-out browser is always
+  // `local-only`, and a freshly signed-in one is always `syncing` until the
+  // bootstrap request answers.
+  const [observedSync, setObservedSync] = useState<PreferenceSyncState | null>(null);
+  const [sessionKey, setSessionKey] = useState(`${authEpoch}:${authStatus}`);
+  // Only the newest write may set the resting sync state. Two quick toggles
+  // otherwise race, and a slow first response can overwrite a fast second one —
+  // showing "couldn't sync" for a write that has already succeeded.
+  const writeSequenceRef = useRef(0);
+
+  // Adjust during render rather than in an effect: a new session must not spend
+  // a frame reporting the previous session's sync outcome, and an effect always
+  // lands one render too late for that.
+  const currentSessionKey = `${authEpoch}:${authStatus}`;
+  if (sessionKey !== currentSessionKey) {
+    setSessionKey(currentSessionKey);
+    setObservedSync(null);
+  }
+
+  const syncState: PreferenceSyncState = authStatus !== "authenticated" ? "local-only" : (observedSync ?? "syncing");
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     const controller = new AbortController();
     const fetchStartedAt = Date.now();
-    fetch("/api/account/preferences", {
-      cache: "no-store",
-      headers: authorizationHeader,
-      signal: controller.signal,
-    })
-      .then(async (response) => {
+    void (async () => {
+      try {
+        const response = await fetch("/api/account/preferences", {
+          cache: "no-store",
+          headers: authorizationHeader,
+          signal: controller.signal,
+        });
         if (!response.ok) {
-          if (response.status === 401) markSessionExpired();
+          if (response.status === 401) {
+            markSessionExpired();
+            setObservedSync("local-only");
+            return;
+          }
+          setObservedSync("error");
           return;
         }
         const payload = await response.json().catch(() => ({}));
+        // A local change made while this read was in flight is newer than what
+        // the server returned; keep it rather than clobbering it, and treat the
+        // pending write it already queued as the authority on sync state.
         if (lastLocalPreferenceChangeAt > fetchStartedAt) return;
         if (payload.preferences) {
           persist(normalizePreferences(payload.preferences));
+          setObservedSync("synced");
           return;
         }
         const bootstrapResponse = await fetch("/api/account/preferences", {
@@ -185,9 +234,18 @@ export function useAppPreferences() {
           body: JSON.stringify(getSnapshot()),
           signal: controller.signal,
         });
-        if (bootstrapResponse.status === 401) markSessionExpired();
-      })
-      .catch(() => undefined);
+        if (bootstrapResponse.status === 401) {
+          markSessionExpired();
+          setObservedSync("local-only");
+          return;
+        }
+        setObservedSync(bootstrapResponse.ok ? "synced" : "error");
+      } catch (error) {
+        // An abort is this effect being torn down, not a failure to report.
+        if (isAbortError(error)) return;
+        setObservedSync("error");
+      }
+    })();
     return () => controller.abort();
   }, [authEpoch, authStatus, authorizationHeader, markSessionExpired]);
 
@@ -197,16 +255,29 @@ export function useAppPreferences() {
 
   const persistAccountPreferences = useCallback(
     (next: AppPreferences) => {
-      if (authStatus !== "authenticated") return;
+      if (authStatus !== "authenticated") {
+        setObservedSync("local-only");
+        return;
+      }
+      const sequence = ++writeSequenceRef.current;
+      const settle = (state: PreferenceSyncState) => {
+        if (sequence === writeSequenceRef.current) setObservedSync(state);
+      };
+      setObservedSync("syncing");
       fetch("/api/account/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...authorizationHeader },
         body: JSON.stringify(next),
       })
         .then((response) => {
-          if (response.status === 401) markSessionExpired();
+          if (response.status === 401) {
+            markSessionExpired();
+            settle("local-only");
+            return;
+          }
+          settle(response.ok ? "synced" : "error");
         })
-        .catch(() => undefined);
+        .catch(() => settle("error"));
     },
     [authStatus, authorizationHeader, markSessionExpired],
   );
@@ -222,10 +293,25 @@ export function useAppPreferences() {
     [persistAccountPreferences],
   );
 
-  const resetPreferences = useCallback(() => {
-    persist(DEFAULT_PREFERENCES);
-    persistAccountPreferences(DEFAULT_PREFERENCES);
+  /**
+   * Reset every preference, or only the named keys. A partial reset exists so
+   * repairing one section (appearance, say) does not also discard the clinical
+   * defaults, which the single all-or-nothing reset used to do silently.
+   */
+  const resetPreferences = useCallback(
+    (keys?: ReadonlyArray<keyof AppPreferences>) => {
+      const next = keys
+        ? keys.reduce<AppPreferences>((draft, key) => ({ ...draft, [key]: DEFAULT_PREFERENCES[key] }), getSnapshot())
+        : DEFAULT_PREFERENCES;
+      persist(next);
+      persistAccountPreferences(next);
+    },
+    [persistAccountPreferences],
+  );
+
+  const retrySync = useCallback(() => {
+    persistAccountPreferences(getSnapshot());
   }, [persistAccountPreferences]);
 
-  return { preferences, setPreference, resetPreferences };
+  return { preferences, setPreference, resetPreferences, syncState, retrySync };
 }

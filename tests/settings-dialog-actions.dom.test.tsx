@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The settings surface owns the destructive privacy actions (clear recent
@@ -160,11 +160,30 @@ describe("SettingsDialog — destructive and account actions", () => {
     mockRecentCount.set(3); // Reset for other tests
   });
 
-  it("clears saved items and confirms via a status notice", async () => {
+  // Clearing saved items deletes every favourite with no undo, so the row now
+  // opens a confirmation rather than doing it on the first tap. The row must not
+  // touch the data on its own; only the confirm control may.
+  it("asks before clearing saved items, then clears and confirms via a status notice", async () => {
     renderDialog();
     fireEvent.click(screen.getByRole("button", { name: "Clear saved items" }));
+    expect(clearFavourites).not.toHaveBeenCalled();
+
+    const confirm = await screen.findByRole("button", { name: /^Delete \d+ saved items?$/ });
+    fireEvent.click(confirm);
+
     expect(clearFavourites).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Saved items cleared.")).toBeVisible();
+  });
+
+  it("leaves saved items alone when the confirmation is cancelled", async () => {
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "Clear saved items" }));
+    // The confirmation renders "Cancel" twice on purpose — the sheet's close
+    // control borrows the cancel label — so address the footer button inside
+    // the dialog rather than by name alone.
+    const dialog = await screen.findByTestId("confirm-dialog");
+    fireEvent.click(within(dialog).getAllByRole("button", { name: "Cancel" }).at(-1)!);
+    expect(clearFavourites).not.toHaveBeenCalled();
   });
 
   it("signs out through the account action", () => {

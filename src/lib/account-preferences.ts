@@ -20,6 +20,13 @@ export type AppPreferences = {
   showRecentOnHome: boolean;
   showProtocolsOnHome: boolean;
   compactCitations: boolean;
+  /**
+   * Off means the app stops writing recent questions to session storage at all,
+   * rather than writing them and offering a clear button. Consumed by
+   * `rememberRecentQuery` in ClinicalDashboard, so it is a real privacy control
+   * on a shared machine — not a display toggle like `showRecentOnHome`.
+   */
+  saveRecentSearches: boolean;
   notifyGuidelineUpdates: boolean;
   notifyProductNews: boolean;
   notifySavedChanges: boolean;
@@ -82,6 +89,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = {
   showRecentOnHome: true,
   showProtocolsOnHome: true,
   compactCitations: false,
+  saveRecentSearches: true,
   notifyGuidelineUpdates: true,
   notifyProductNews: false,
   notifySavedChanges: true,
@@ -123,6 +131,7 @@ export function normalizePreferences(input: unknown): AppPreferences {
     showRecentOnHome: coerceBoolean(input.showRecentOnHome, DEFAULT_PREFERENCES.showRecentOnHome),
     showProtocolsOnHome: coerceBoolean(input.showProtocolsOnHome, DEFAULT_PREFERENCES.showProtocolsOnHome),
     compactCitations: coerceBoolean(input.compactCitations, DEFAULT_PREFERENCES.compactCitations),
+    saveRecentSearches: coerceBoolean(input.saveRecentSearches, DEFAULT_PREFERENCES.saveRecentSearches),
     notifyGuidelineUpdates: coerceBoolean(input.notifyGuidelineUpdates, DEFAULT_PREFERENCES.notifyGuidelineUpdates),
     notifyProductNews: coerceBoolean(input.notifyProductNews, DEFAULT_PREFERENCES.notifyProductNews),
     notifySavedChanges: coerceBoolean(input.notifySavedChanges, DEFAULT_PREFERENCES.notifySavedChanges),

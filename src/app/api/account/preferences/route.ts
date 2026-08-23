@@ -19,6 +19,7 @@ const preferencesSchema = z
     showRecentOnHome: z.boolean(),
     showProtocolsOnHome: z.boolean(),
     compactCitations: z.boolean(),
+    saveRecentSearches: z.boolean(),
     notifyGuidelineUpdates: z.boolean(),
     notifyProductNews: z.boolean(),
     notifySavedChanges: z.boolean(),
