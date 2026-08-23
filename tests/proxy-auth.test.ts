@@ -1,0 +1,131 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+import {
+  PROXY_AUTH_USER_HEADER,
+  extractProxyAuthenticatedUser,
+  resolveOptionalAuthentication,
+} from "@/lib/supabase/auth";
+import type { createAdminClient } from "@/lib/supabase/admin";
+
+const getClaims = vi.fn(async () => ({
+  data: {
+    claims: {
+      sub: "user-12345",
+      app_metadata: { role: "clinician", provider: "email" },
+    },
+  },
+  error: null,
+}));
+
+vi.mock("@supabase/ssr", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@supabase/ssr")>();
+  return {
+    ...actual,
+    createServerClient: vi.fn(
+      (_url, _key, options: { cookies: { setAll: (cookies: never[], headers: Record<string, string>) => void } }) => ({
+        auth: {
+          getClaims: async () => {
+            options.cookies.setAll(
+              [
+                {
+                  name: "sb-unit-test-auth-token",
+                  value: "rotated-session",
+                  options: { path: "/", httpOnly: true },
+                },
+              ] as never[],
+              {
+                "Cache-Control": "private, no-cache, no-store, must-revalidate, max-age=0",
+              },
+            );
+            return getClaims();
+          },
+        },
+      }),
+    ),
+  };
+});
+
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/lib/env")>();
+  return {
+    ...actual,
+    env: {
+      ...actual.env,
+      NEXT_PUBLIC_SUPABASE_URL: "https://unit-test.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_unit_test",
+    },
+  };
+});
+
+describe("proxy auth claims forwarding & anti-spoofing", () => {
+  beforeEach(() => {
+    getClaims.mockClear();
+  });
+
+  it("strips client-supplied x-proxy-auth-user header to prevent spoofing", async () => {
+    const { proxy } = await import("../src/proxy");
+    const maliciousRequest = new NextRequest(new URL("http://localhost/api/answer"), {
+      headers: {
+        [PROXY_AUTH_USER_HEADER]: Buffer.from(
+          JSON.stringify({ id: "spoofed-admin", appMetadata: { admin: true } }),
+        ).toString("base64"),
+      },
+    });
+
+    const response = await proxy(maliciousRequest);
+    expect(response).toBeTruthy();
+  });
+
+  it("extractProxyAuthenticatedUser safely handles malformed and invalid base64/JSON", () => {
+    const invalidHeaderRequest = new Request("http://localhost/api/test", {
+      headers: {
+        [PROXY_AUTH_USER_HEADER]: "not-valid-base64-!!!",
+      },
+    });
+    expect(extractProxyAuthenticatedUser(invalidHeaderRequest)).toBeNull();
+
+    const notJsonRequest = new Request("http://localhost/api/test", {
+      headers: {
+        [PROXY_AUTH_USER_HEADER]: Buffer.from("plain text not json").toString("base64"),
+      },
+    });
+    expect(extractProxyAuthenticatedUser(notJsonRequest)).toBeNull();
+
+    const missingFieldsRequest = new Request("http://localhost/api/test", {
+      headers: {
+        [PROXY_AUTH_USER_HEADER]: Buffer.from(JSON.stringify({ someOtherField: 123 })).toString("base64"),
+      },
+    });
+    expect(extractProxyAuthenticatedUser(missingFieldsRequest)).toBeNull();
+  });
+
+  it("fast-paths resolveOptionalAuthentication when valid forwarded proxy claims are present", async () => {
+    const validPayload = {
+      id: "verified-user-789",
+      appMetadata: { clinician: true },
+    };
+    const validHeader = Buffer.from(JSON.stringify(validPayload)).toString("base64");
+    const requestWithProxyClaims = new Request("http://localhost/api/test", {
+      headers: {
+        [PROXY_AUTH_USER_HEADER]: validHeader,
+      },
+    });
+
+    const mockAdmin = {
+      auth: {
+        getUser: vi.fn(),
+      },
+    } as unknown as ReturnType<typeof createAdminClient>;
+
+    const result = await resolveOptionalAuthentication(requestWithProxyClaims, mockAdmin);
+    expect(result).toEqual({
+      status: "valid",
+      user: {
+        id: "verified-user-789",
+        appMetadata: { clinician: true },
+      },
+    });
+    // Verified: No Supabase getUser RPC was made
+    expect(mockAdmin.auth.getUser).not.toHaveBeenCalled();
+  });
+});

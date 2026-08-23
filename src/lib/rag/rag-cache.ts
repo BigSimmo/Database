@@ -398,6 +398,7 @@ export async function setCachedSearch(
   throwIfAborted(args.signal);
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
+  const clonedResults = cloneSearchResults(results);
 
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
   throwIfAborted(args.signal);
@@ -405,7 +406,7 @@ export async function setCachedSearch(
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
-    results: cloneSearchResults(results),
+    results: clonedResults,
     telemetry: { ...cacheTelemetry },
     indexingVersion,
   });
@@ -415,7 +416,7 @@ export async function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, cacheTelemetry, indexingVersion, queryVariants);
+  setSharedCachedSearch(args, clonedResults, cacheTelemetry, indexingVersion, queryVariants);
 }
 
 type SharedCacheKind = "search" | "answer";
