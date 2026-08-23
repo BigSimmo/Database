@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b171ae43-ab0f-4edf-9497-9e57eb031aff",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#V15EAS",
+    "outcome": "Removed the unreachable Therapy home catalogue asset end to end. The generator now emits only full and index manifests, derives THERAPY_CATALOGUE_SUMMARY from the retained browse projection, preserves the current and previous full/index hashes, prunes legacy hashed home assets, and refuses a reintroduced unversioned home alias. The loader union, fallback alias, Next cache-header and rewrite matchers, browser fixture allowlists, and policy examples no longer expose therapies-home; the Therapy home remains summary-only with catalogue I/O disabled. Generation deleted the byte-identical 136,288-byte therapies-home.211dab554c4ec62d.json while retaining full 09b25b0fff3a2b44/d0358686e452b00b and index 211dab554c4ec62d/8455f92cf736cbfa. Red-first proof failed on the old three-kind manifest, then npm run check:therapy-data-index passed for 205 records, the focused wiring test passed 19/19, and the CI-scope and PR-policy self-tests passed.",
+    "baseRowFingerprint": "c2ac6af531956a82593a805886fe2e612fc8af938ef26b46a18d63556d680e8b"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "fda95495-3d07-41e3-a9b9-0c9c1d999087",
+  "createdOn": "2026-08-23",
+  "action": "update",
+  "payload": {
+    "id": "#SBKXZ7",
+    "summary": "Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented",
+    "detail": "Implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: a central generator guard requires exactly seven boolean checks, all true for reviewed; display-approved public reviewer attribution with placeholder, email, account-handle, phone and obvious private-identifier rejection; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata but rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows the fields governed by every check, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, has no batch/yes/answer/provider/production path, and rolls the canonical source plus every generator-owned fixed or content-addressed asset back to exact pre-review bytes if generation, checking or I/O fails. ReviewStatus is closed to reviewed or needs_review. Focused evidence: Therapy workflow tests 50/50 passed including deterministic partial-generation failure and byte-exact rollback; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; clinical-proof previously passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
+    "baseRowFingerprint": "691d9a45ced5cf8a92af83bf10d2350273e0c19fe7c5416a0eb313a9cead22d3"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "66ad26af-eac0-4157-8125-8644af34e455",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a680a25f-5aa7-4a19-94bc-0f30fcf9a61d",
+    "reason": "Adversarial review found the tooling-only implementation does not complete the 205 real qualified-clinician attestations, so the done request would close #SBKXZ7 prematurely. Preserve it for audit but cancel its mutation; a separate update request records implemented tooling while keeping the row open."
+  }
+}

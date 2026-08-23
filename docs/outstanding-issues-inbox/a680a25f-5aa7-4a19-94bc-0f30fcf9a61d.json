@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a680a25f-5aa7-4a19-94bc-0f30fcf9a61d",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#SBKXZ7",
+    "outcome": "Tooling defect closed 2026-08-23; this does not claim clinical review completion. A central source contract now runs before the Therapy generator can emit or prune assets: reviewed requires exactly seven true checklist booleans, a display-approved public reviewedBy value that rejects email addresses, account handles, phone numbers, registration/provider/staff identifiers and other obvious private identifiers, a valid non-future UTC reviewedAt, and a content-bound reviewedContentSha256 that invalidates stale sign-off; needs_review remains valid with null or absent attribution. npm run therapy:review is report-only by default and its only write path is one-record, interactive-TTY clinician input with every check and governed field shown, seven explicit answers, and exact final confirmation; there are no automatic-yes, answer, batch, provider, or production flags. Any no, quit, or failed confirmation performs no commit; a successful decision uses an optimistic concurrent-byte guard and same-directory atomic compact source replacement, then regenerates and checks assets through the central validator. Focused evidence: 3 Vitest files / 46 tests passed; ESLint and Prettier on touched files passed; check:therapy-data-index passed at 205 records; clinical-proof workflow passed; docs inventory/index/script-reference checks passed; source and generated Therapy assets remained byte-identical to HEAD. Zero attestations were made: 0 reviewed and all 205 remain needs_review for real qualified-clinician operation. No provider or production write was run.",
+    "baseRowFingerprint": "691d9a45ced5cf8a92af83bf10d2350273e0c19fe7c5416a0eb313a9cead22d3"
+  }
+}

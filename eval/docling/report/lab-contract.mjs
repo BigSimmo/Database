@@ -24,7 +24,7 @@ import {
   findRealSourceMentions,
 } from "../../../scripts/rag-adversarial-contract.mjs";
 
-export const labDatasetVersion = "docling-lab-fixtures.v1";
+export const labDatasetVersion = "docling-lab-fixtures.v2";
 export const labReportVersion = "docling-lab-report.v1";
 export const gateBRecordVersion = "docling-lab-gate-b.v1";
 
@@ -62,6 +62,7 @@ export const labGateIds = Object.freeze([
 ]);
 
 export const assertionKinds = Object.freeze(["number", "number_unit", "comparator"]);
+export const labHardTableFeatureIds = Object.freeze(["unruled", "merged_cell", "rotated_header"]);
 
 // Same shape as the S4 contract's token rule (letters only — digit-bearing canaries
 // read as secrets to Gitleaks/GitGuardian). The regex is not exported there, so it is
@@ -133,19 +134,32 @@ function validateTable(fixture, table, index, seenTableIds, failures) {
   }
   if (!Number.isInteger(table.rows) || table.rows < 2) failures.push(`${label}: rows must be an integer >= 2`);
   if (!Number.isInteger(table.cols) || table.cols < 2) failures.push(`${label}: cols must be an integer >= 2`);
+  for (const flag of ["unruled", "mergedCells", "rotatedHeaders", "rotated_headers"]) {
+    if (flag in table && typeof table[flag] !== "boolean") failures.push(`${label}: ${flag} must be a boolean`);
+  }
+  if ("style" in table && table.style !== "unruled") {
+    failures.push(`${label}: style, when present, must be 'unruled'`);
+  }
   if (!Array.isArray(table.cells) || table.cells.length === 0) {
     failures.push(`${label}: cells must be a non-empty array`);
     return;
   }
   const positions = new Set();
   const headerCols = new Set();
+  let hasMergedSpan = false;
   for (const cell of table.cells) {
     if (!isObject(cell) || !Number.isInteger(cell.row) || !Number.isInteger(cell.col) || !hasText(cell.text)) {
       failures.push(`${label}: every cell needs integer row/col and non-empty text`);
       continue;
     }
+    for (const span of ["colSpan", "rowSpan"]) {
+      if (span in cell && (!Number.isInteger(cell[span]) || cell[span] < 1)) {
+        failures.push(`${label}: ${span} must be a positive integer when present`);
+      }
+    }
     const colSpan = Number.isInteger(cell.colSpan) && cell.colSpan > 1 ? cell.colSpan : 1;
     const rowSpan = Number.isInteger(cell.rowSpan) && cell.rowSpan > 1 ? cell.rowSpan : 1;
+    if (colSpan > 1 || rowSpan > 1) hasMergedSpan = true;
     if (cell.row < 0 || cell.row + rowSpan > table.rows || cell.col < 0 || cell.col + colSpan > table.cols) {
       failures.push(
         `${label}: cell (${cell.row},${cell.col}) is outside the declared ${table.rows}x${table.cols} grid`,
@@ -165,9 +179,12 @@ function validateTable(fixture, table, index, seenTableIds, failures) {
   if (headerCols.size !== table.cols) {
     failures.push(`${label}: header row 0 must fill all ${table.cols} columns — table recall scoring anchors on it`);
   }
+  if (table.mergedCells === true && !hasMergedSpan) {
+    failures.push(`${label}: mergedCells true requires an actual colSpan or rowSpan greater than 1`);
+  }
 }
 
-function validateAssertion(fixture, assertion, index, seenAssertionIds, haystack, failures) {
+function validateAssertion(fixture, assertion, index, seenAssertionIds, haystack, proseHaystack, tableById, failures) {
   const label = `${fixture.id}.assertions[${index}]`;
   missingFields(assertion, ["id", "kind", "text", "value"], label, failures);
   if (!isObject(assertion)) return;
@@ -191,6 +208,32 @@ function validateAssertion(fixture, assertion, index, seenAssertionIds, haystack
   // declared text, because the generator renders exactly that text.
   if (!haystack.includes(flattenWhitespace(assertion.text))) {
     failures.push(`${label}: text '${assertion.text}' does not appear in the fixture's bodyText or table cells`);
+  }
+  if ("source" in assertion || "tableId" in assertion) {
+    if (assertion.source !== "table") {
+      failures.push(`${label}: scoped assertions must declare source 'table'`);
+    }
+    if (!hasText(assertion.tableId)) {
+      failures.push(`${label}: table-scoped assertions require tableId`);
+    } else {
+      const table = tableById.get(assertion.tableId);
+      if (!table) {
+        failures.push(`${label}: tableId '${assertion.tableId}' does not name a table in this fixture`);
+      } else {
+        const tableHaystack = flattenWhitespace(
+          table.cells
+            .filter((cell) => isObject(cell) && typeof cell.text === "string")
+            .map((cell) => cell.text)
+            .join("\n"),
+        );
+        if (!tableHaystack.includes(flattenWhitespace(assertion.text))) {
+          failures.push(`${label}: text '${assertion.text}' does not appear in declared table '${assertion.tableId}'`);
+        }
+      }
+    }
+    if (proseHaystack.includes(flattenWhitespace(assertion.text))) {
+      failures.push(`${label}: table-scoped text '${assertion.text}' must not also appear in title or bodyText`);
+    }
   }
 }
 
@@ -223,6 +266,16 @@ function validateFixture(fixture, index, tokens, seenIds, seenTableIds, failures
 
   const fragments = fixtureTextFragments(fixture);
   const haystack = flattenWhitespace(fragments.join("\n"));
+  const proseHaystack = flattenWhitespace(
+    [fixture.title, ...(Array.isArray(fixture.bodyText) ? fixture.bodyText : [])]
+      .filter((fragment) => typeof fragment === "string")
+      .join("\n"),
+  );
+  const tableById = new Map(
+    (Array.isArray(fixture.tables) ? fixture.tables : [])
+      .filter((table) => isObject(table) && hasText(table.tableId) && Array.isArray(table.cells))
+      .map((table) => [table.tableId, table]),
+  );
 
   for (const fragment of fragments) {
     for (const mention of findRealSourceMentions(fragment)) {
@@ -235,7 +288,16 @@ function validateFixture(fixture, index, tokens, seenIds, seenTableIds, failures
     failures.push(`${label}: assertions must be a non-empty array — an unscored fixture proves nothing`);
   } else {
     fixture.assertions.forEach((assertion, assertionIndex) =>
-      validateAssertion(fixture, assertion, assertionIndex, seenAssertionIds, haystack, failures),
+      validateAssertion(
+        fixture,
+        assertion,
+        assertionIndex,
+        seenAssertionIds,
+        haystack,
+        proseHaystack,
+        tableById,
+        failures,
+      ),
     );
   }
 
@@ -251,6 +313,66 @@ function validateFixture(fixture, index, tokens, seenIds, seenTableIds, failures
     for (const token of planted) {
       if (!fixture.plantedCanaries.includes(token))
         failures.push(`${label}: canary ${token} is planted but not declared`);
+    }
+  }
+}
+
+function tableHardnessFeatures(table) {
+  const features = new Set();
+  if (!isObject(table)) return features;
+  if (table.unruled === true || table.style === "unruled") features.add("unruled");
+  if (
+    Array.isArray(table.cells) &&
+    table.cells.some(
+      (cell) =>
+        isObject(cell) &&
+        ((Number.isInteger(cell.colSpan) && cell.colSpan > 1) || (Number.isInteger(cell.rowSpan) && cell.rowSpan > 1)),
+    )
+  ) {
+    features.add("merged_cell");
+  }
+  if (
+    table.rotatedHeaders === true ||
+    table.rotated_headers === true ||
+    (Array.isArray(table.cells) &&
+      table.cells.some((cell) => isObject(cell) && cell.row === 0 && (cell.rotate === 90 || cell.rotated === true)))
+  ) {
+    features.add("rotated_header");
+  }
+  return features;
+}
+
+function validateHardTableCoverage(manifest, failures) {
+  const candidates = [];
+  for (const fixture of manifest.fixtures) {
+    if (!isObject(fixture) || fixture.stratum !== "table_heavy" || !Array.isArray(fixture.tables)) continue;
+    for (const table of fixture.tables) {
+      if (!isObject(table) || !hasText(table.tableId)) continue;
+      candidates.push({ fixture, table, features: tableHardnessFeatures(table) });
+    }
+  }
+
+  for (const feature of labHardTableFeatureIds) {
+    const matching = candidates.filter((candidate) => candidate.features.has(feature));
+    if (matching.length === 0) {
+      failures.push(`manifest: table_heavy corpus requires at least one ${feature} table`);
+      continue;
+    }
+    const hasExactnessCoverage = matching.some(({ fixture, table }) => {
+      if (!Array.isArray(fixture.assertions)) return false;
+      const kinds = new Set(
+        fixture.assertions
+          .filter(
+            (assertion) => isObject(assertion) && assertion.source === "table" && assertion.tableId === table.tableId,
+          )
+          .map((assertion) => assertion.kind),
+      );
+      return assertionKinds.every((kind) => kinds.has(kind));
+    });
+    if (!hasExactnessCoverage) {
+      failures.push(
+        `manifest: ${feature} table requires table-scoped ${assertionKinds.join(", ")} assertions in table_heavy`,
+      );
     }
   }
 }
@@ -348,6 +470,7 @@ export function validateLabManifest(manifest) {
   manifest.fixtures.forEach((fixture, index) =>
     validateFixture(fixture, index, tokens, seenIds, seenTableIds, failures),
   );
+  validateHardTableCoverage(manifest, failures);
 
   const perStratum = new Map(labStrata.map((stratum) => [stratum, 0]));
   for (const fixture of manifest.fixtures) {

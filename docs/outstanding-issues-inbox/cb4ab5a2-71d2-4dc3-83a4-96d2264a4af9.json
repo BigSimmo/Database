@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "cb4ab5a2-71d2-4dc3-83a4-96d2264a4af9",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#XPY409",
+    "outcome": "Resolved on current main by PR #2186 / commit d7ffae1a5. docs/testing.md and docs/search-chrome-behaviour.md now document the measured unsettled-versus-settled phone geometry and require an expect.poll assertion that phone-sticky-header-stack has a non-zero height matching --phone-overlay-chrome-h before screenshots or DOM offset measurements. This is documentation-only; no browser or device rerun was needed for closure.",
+    "baseRowFingerprint": "acf39a868f846a38519d237940eea0c4aa7c743ebb3b3465baad8e7fc0c74b16"
+  }
+}

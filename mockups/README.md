@@ -27,7 +27,12 @@ Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header
 
 ## Production behavior
 
-- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.
+- Ordinary `/mockups/*` prototype routes return 404 in production. Explicit developer-gated subtrees and the isolated
+  Playwright advisory profile are the documented exceptions; neither makes the namespace public application content.
+- Static design-review assets under `public/mockups/` remain publicly retrievable by URL. Responses under
+  `/mockups/:path*` carry `X-Robots-Tag: noindex, nofollow`, so compliant crawlers do not index them. This header is a
+  crawler policy, not access control; `robots.txt` intentionally allows crawling so per-response indexing policy can
+  be observed.
 - `/mockups/favourites-hub` is a legacy compatibility route and redirects to `/favourites`.
 - `/mockups/medication-prescribing` redirects to `/medications/acamprosate`; prescribing mode also lives at `/?mode=prescribing`.
 

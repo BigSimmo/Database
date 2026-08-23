@@ -6428,7 +6428,7 @@ create table if not exists public.rag_answer_feedback (
   id uuid primary key default gen_random_uuid(),
   interaction_id uuid not null unique,
   owner_id uuid references auth.users(id) on delete set null,
-  feedback_category text not null check (feedback_category in ('verified', 'needs_correction', 'source_insufficient', 'wrong_source', 'missing_source', 'unsupported_answer', 'numeric_error', 'outdated_guidance')),
+  feedback_category text not null check (feedback_category in ('verified', 'needs_correction', 'source_insufficient', 'wrong_source', 'missing_source', 'unsupported_answer', 'numeric_error', 'outdated_guidance', 'wrong_mode', 'missed_source', 'unsupported_conclusion', 'important_information_missing', 'source_conflict', 'outdated_source', 'presentation_problem')),
   answer_hash text not null,
   cited_source_ids uuid[] not null default '{}',
   source_ids uuid[] not null default '{}',

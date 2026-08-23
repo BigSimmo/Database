@@ -33,6 +33,9 @@ export const mobileComposerDifferentialsCompareReserve =
  * globals.css; tests/mobile-composer-reserve.test.ts pins the pair.
  */
 export const mobileComposerPatientDetailsReserve = "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
+export const mobileComposerClinicalAskReserve = "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
+export const mobileComposerDifferentialsCompareClinicalAskReserve =
+  "calc(16rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
 
 // Every phone dock is the compact single-row pill (mode homes and result views
 // alike); only the answer dock with a follow-up chip row is taller. The answer
@@ -87,6 +90,7 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   patientDetailsAddonActive?: boolean;
   /** Hero owns the phone composer (no fixed bottom dock) — match shell idle pad. */
   heroOwnsPhoneComposer?: boolean;
+  clinicalAskActionsVisible?: boolean;
 }): string {
   // Mode homes / answer home keep the in-flow hero pill on phones, so there is
   // no floating dock to clear — only the idle content pad (same as standalone
@@ -94,6 +98,9 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   if (input.heroOwnsPhoneComposer) {
     return mobileComposerIdleReserve;
   }
+  if (input.differentialsCompareAddonActive && input.clinicalAskActionsVisible)
+    return mobileComposerDifferentialsCompareClinicalAskReserve;
+  if (input.clinicalAskActionsVisible) return mobileComposerClinicalAskReserve;
   if (input.searchMode === "answer") {
     return input.hasAnswerFollowUps
       ? mobileComposerVisibleReserve.dashboardAnswerWithFollowUps
@@ -118,6 +125,7 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   searchMode: string;
   differentialsCompareAddonActive: boolean;
   patientDetailsAddonActive?: boolean;
+  clinicalAskActionsVisible?: boolean;
 }): string {
   if (!input.shouldShowSearchComposer) {
     // Page-owned composers (DocumentViewer) manage their own dock
@@ -130,6 +138,9 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   // the pill. Standalone homes whose phone placement is the shared footer use
   // the normal shell dock reserve below.
   if (input.heroOwnsPhoneComposer) return mobileComposerIdleReserve;
+  if (input.differentialsCompareAddonActive && input.clinicalAskActionsVisible)
+    return mobileComposerDifferentialsCompareClinicalAskReserve;
+  if (input.clinicalAskActionsVisible) return mobileComposerClinicalAskReserve;
   if (input.searchMode === "answer") return mobileComposerVisibleReserve.shellAnswer;
   if (input.differentialsCompareAddonActive) return mobileComposerVisibleReserve.differentialsCompare;
   if (input.patientDetailsAddonActive) return mobileComposerVisibleReserve.patientDetails;

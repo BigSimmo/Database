@@ -67,3 +67,15 @@ export const IngestionQualityConsole = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IngestionQualityConsole),
   { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading ingestion quality" /> },
 );
+
+export const ClinicalAskWorkspace = dynamic(
+  () => import("@/components/clinical-dashboard/clinical-ask-workspace").then((m) => m.ClinicalAskWorkspace),
+  // Empty-home idle render is null. A skeleton here shifts SharedHomeEmptyState
+  // (Lighthouse CLS on `/`) and pushes the in-flow composer into the PWA sheet.
+  { ssr: false, loading: () => null },
+);
+// Composer actions sit *above* the in-flow hero form. `dynamic(..., loading: null)`
+// leaves that row missing on the first Clinical Ask mode, then present after the
+// chunk caches — a vertically centered hero then moves `formTop` by half the
+// 48px tap row (~24px). Production UI (3) caught that on specifiers → formulation.
+export { ClinicalAskComposerActions } from "./clinical-ask-composer-actions";

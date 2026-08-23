@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-23T08:15:05.320Z",
+  "generated_at": "2026-08-23T08:52:32.433Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "092607d98766f1d897181968d367f549c4ae93923f28eabeb5e7468acaa9ac84",
-  "replay_seconds": 11,
+  "schema_sha256": "33eb07e0797e3605aec88ecdd130ed3a6a88e68ffb2c96f1bd7c1e6a4d3005dd",
+  "replay_seconds": 18,
   "snapshot": {
     "views": [
       {
@@ -8602,7 +8602,7 @@
         "table": "rag_aliases"
       },
       {
-        "def": "CHECK ((feedback_category = ANY (ARRAY['verified'::text, 'needs_correction'::text, 'source_insufficient'::text, 'wrong_source'::text, 'missing_source'::text, 'unsupported_answer'::text, 'numeric_error'::text, 'outdated_guidance'::text])))",
+        "def": "CHECK ((feedback_category = ANY (ARRAY['verified'::text, 'needs_correction'::text, 'source_insufficient'::text, 'wrong_source'::text, 'missing_source'::text, 'unsupported_answer'::text, 'numeric_error'::text, 'outdated_guidance'::text, 'wrong_mode'::text, 'missed_source'::text, 'unsupported_conclusion'::text, 'important_information_missing'::text, 'source_conflict'::text, 'outdated_source'::text, 'presentation_problem'::text])))",
         "name": "rag_answer_feedback_feedback_category_check",
         "table": "rag_answer_feedback"
       },

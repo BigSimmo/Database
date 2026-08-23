@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "19ae3410-98fd-4ae4-952c-62a3440d81a4",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "48b805df-a419-4204-85bf-9ba2cbf8d250",
+    "reason": "Outcome was truncated by shell quoting before the focused proxy result; replace with a complete immutable closure."
+  }
+}
