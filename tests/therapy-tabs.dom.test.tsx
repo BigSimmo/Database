@@ -13,6 +13,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));
 
+// The record header owns Save on every therapy record page, so the screens
+// under test now read favourite state. Nothing here asserts on it.
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({ isAuthenticated: false, isSaved: () => false, setFavourite: vi.fn(async () => true) }),
+}));
+
 const therapy = vi.hoisted(() => (slug: string, name: string) => ({
   slug,
   name,
