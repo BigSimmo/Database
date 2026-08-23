@@ -820,6 +820,11 @@ export function SettingsDialog({
                   placeholder="Search settings"
                   data-testid="settings-search-input"
                   aria-describedby="settings-search-results-status"
+                  // `type="search"` earns the right on-screen keyboard and
+                  // semantics, but Chromium then paints its own clear glyph on
+                  // top of ours — two crosses side by side. Suppress the native
+                  // one; ours is the labelled, tap-sized control.
+                  className="pr-12 [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
                 />
                 {query ? (
                   <button
