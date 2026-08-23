@@ -39,7 +39,14 @@ export function deriveGovernanceFromSections(record: MedicationRecord): {
       : "unknown";
   return {
     source_status: sourceStatus,
-    validation_status: "locally_reviewed",
+    // Derived records carry no evidence of clinical review, so they must not claim it.
+    // `locally_reviewed` is not a label: `deriveTrust` accepts it as satisfying the
+    // authority gate for high-risk clinical claims, and the registry corpus writes the
+    // narrative "status changes require clinical review" alongside it. Asserting it from a
+    // literal cleared that gate for every record in the snapshot on the strength of nothing.
+    // Promotion belongs to the source-review flow, which records an actual reviewer.
+    // Mirrors `registry-records.ts`, which derives its status from recorded verification.
+    validation_status: "unverified",
   };
 }
 

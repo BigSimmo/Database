@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4eb99dcb-d19f-42b8-8dcd-835814b3780e",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Medication source_status current is derived from a substring and never expires",
+    "detail": "medication-records.ts derives source_status from sourceText.includes('checked'). The snapshot Sources rows carry real dates (all 2026-05/06 today) but nothing parses or ages them, so these records will still report current in 2028; medication-badges only ever renders Review due or Outdated from an explicit sourceStatus this derivation cannot produce. The same substring also matches the negative forms 'not checked' and 'unchecked'. The sibling validation_status literal was fixed in the audit branch; this half remains. FIX: parse the ISO date already present in the source text and return review_due past a defined interval, unknown when no date parses.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96QW5VK8ZYY47WG933PGD"
+  }
+}

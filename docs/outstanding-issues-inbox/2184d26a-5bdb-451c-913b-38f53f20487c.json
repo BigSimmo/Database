@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2184d26a-5bdb-451c-913b-38f53f20487c",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Therapy Compass labels itself Decision support in production, against the product's own stated boundary",
+    "detail": "therapy-compass/workspace.tsx:18 and screens/detail-screen.tsx:285 render 'Decision support', and recommend-screen.tsx:203 does so on the screen that RANKS therapies. The product boundary is 'clinical reference prototype, not validated clinical decision support', and the PR preflight carries a TGA SaMD classification item. Related: the boundary string itself appears nowhere in production outside a mockup file, so no answer surface carries a standing product-scope statement. FIX (clinical-owner copy decision): relabel to 'Clinical reference - not validated decision support' and mount the footer on the other mode homes.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96R6VPM9SP1NW0F63S1Z8"
+  }
+}

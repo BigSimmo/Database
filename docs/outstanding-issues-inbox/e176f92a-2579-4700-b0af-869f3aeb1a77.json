@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e176f92a-2579-4700-b0af-869f3aeb1a77",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A stale 'D4 is OFF' production-deploy claim survives uncorrected in two places in the live-drift forensics doc",
+    "detail": "docs/audit/live-drift-forensics-2026-08.md:1243-1244 and :1720 both assert flatly, with no forward pointer, that D4 is OFF and nothing reaches production on merge. A later section at :2056-2072 corrects this to 'treat D4 as UNRESOLVED and assume merging a migration PR deploys it to production'. A third instance at :2024 DOES carry a superseded pointer, so the doc's own convention exists and simply was not applied to the earlier two. A future session jumping to the Phase 4 or #Q5JHBJ sections would reasonably read the stale claim as settled fact about a live clinical database. FIX: add the same one-line superseded pointer at both sites. Also check docs/database-remediation-coordination.md:159, which references the same ambiguity.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96SCDCTA8CRANHBFNQH0Q"
+  }
+}

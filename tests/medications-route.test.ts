@@ -202,6 +202,25 @@ describe("medications API", () => {
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
+  it("does not claim locally_reviewed on the public and demo list catalog", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(request("/api/medications"));
+    const payload = (await response.json()) as {
+      governance?: Record<string, { sourceStatus?: string; validationStatus?: string }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.governance).toBeDefined();
+    expect(Object.keys(payload.governance ?? {}).length).toBeGreaterThan(0);
+    expect(Object.values(payload.governance ?? {}).every((entry) => entry.validationStatus === "unverified")).toBe(
+      true,
+    );
+    expect(payload.governance?.acamprosate?.validationStatus).toBe("unverified");
+  });
+
   it("serves an identity-only slim catalog for fields=index", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
@@ -300,6 +319,7 @@ describe("medications API", () => {
       records: Array<{ slug: string }>;
       matches?: Array<{ medication: { slug: string } }>;
       publicAccess?: boolean;
+      governance?: Record<string, { validationStatus?: string }>;
     };
 
     expect(response.status).toBe(200);
@@ -307,6 +327,7 @@ describe("medications API", () => {
     expect(payload.publicAccess).toBe(true);
     expect(payload.records.some((record) => record.slug === "acamprosate")).toBe(true);
     expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
+    expect(payload.governance?.acamprosate?.validationStatus).toBe("unverified");
     // The catalog is served from seed data (no table read) and no auth round-trip is needed,
     // but anonymous list requests must still pass the registry limiter (M4/C1).
     expect(client.from).not.toHaveBeenCalled();

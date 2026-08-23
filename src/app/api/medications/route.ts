@@ -10,12 +10,7 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
-import {
-  medicationSourceStatus,
-  medicationValidationStatus,
-  rowGovernance,
-  rowToMedicationRecord,
-} from "@/lib/medication-records";
+import { deriveGovernanceFromSections, rowGovernance, rowToMedicationRecord } from "@/lib/medication-records";
 import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
 import {
   medicationBrandNames,
@@ -112,13 +107,16 @@ function matchesPayload(matches: MedicationSearchMatch[]) {
 // aliasing the route did not already have. Ranking still runs per query.
 function buildPublicGovernance(records: MedicationRecord[]) {
   return Object.fromEntries(
-    records.map((record) => [
-      record.slug,
-      {
-        sourceStatus: medicationSourceStatus("current"),
-        validationStatus: medicationValidationStatus("locally_reviewed"),
-      },
-    ]),
+    records.map((record) => {
+      const governance = deriveGovernanceFromSections(record);
+      return [
+        record.slug,
+        {
+          sourceStatus: governance.source_status,
+          validationStatus: governance.validation_status,
+        },
+      ];
+    }),
   );
 }
 
