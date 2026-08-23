@@ -145,9 +145,10 @@
 
      The default wide value remains 88px. Current production attribution at
      1280–1440 measured the resulting initial shift below the 0.01 decision
-     threshold, so those profiles stay unchanged. The 640–1023px band has a
-     separate measured reserve and one-line prompt rail below: at 800px the old
-     wrapping surface grew 88→199px and produced 0.021676 CLS. */
+     threshold, so those profiles stay unchanged. The 640–1279px band has a
+     separate measured reserve and one-line prompt rail below: the old wrapping
+     surface grew 88→199px and produced 0.021676 CLS at 800px and 0.019870 at
+     1025px. */
   --spacing-mode-home-composer-phone: 10.125rem;
   --spacing-mode-home-composer-wide: 5.5rem;
   /* Generic page composers add 24px block padding around the same 160px
@@ -2238,12 +2239,13 @@ summary::-webkit-details-marker {
 }
 
 /* BEGIN tablet mode-home composer geometry */
-/* At 800px the settled one-line surface is 160px: rotating hint (24px),
-   composer, gaps, and prompt rail. Pre-reserve that exact height only in the
-   tablet band. The portal host's pending/non-empty selectors remain the owner,
-   so a hidden composer still reserves zero. At 1024px+ the existing 88px
-   default remains deliberately unchanged because measured CLS stays < 0.01. */
-@media (min-width: 640px) and (max-width: 1023.98px) {
+/* Across 640-1279px the settled one-line surface is 160px: rotating hint
+   (24px), composer, gaps, and prompt rail. Pre-reserve that exact height in
+   this bounded band. The portal host's pending/non-empty selectors remain the
+   owner, so a hidden composer still reserves zero. At 1280px+ the existing
+   88px default remains deliberately unchanged because measured CLS stays
+   below 0.01. */
+@media (min-width: 640px) and (max-width: 1279.98px) {
   :root {
     --spacing-mode-home-composer-wide: 10rem;
   }

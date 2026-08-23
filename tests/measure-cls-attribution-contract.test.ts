@@ -59,10 +59,38 @@ describe("CLS attribution browser profiles", () => {
   });
 
   it("supports the selected responsive desktop attribution profiles", () => {
-    expect(optionsModule.parseBrowserProfiles?.("desktop-800,desktop-1280,desktop-1440")).toEqual([
+    expect(
+      optionsModule.parseBrowserProfiles?.(
+        "desktop-800,desktop-1024,desktop-1025,desktop-1279,desktop-1280,desktop-1440",
+      ),
+    ).toEqual([
       {
         name: "desktop-800",
         width: 800,
+        height: 900,
+        dpr: 1,
+        isMobile: false,
+        hasTouch: false,
+      },
+      {
+        name: "desktop-1024",
+        width: 1024,
+        height: 900,
+        dpr: 1,
+        isMobile: false,
+        hasTouch: false,
+      },
+      {
+        name: "desktop-1025",
+        width: 1025,
+        height: 900,
+        dpr: 1,
+        isMobile: false,
+        hasTouch: false,
+      },
+      {
+        name: "desktop-1279",
+        width: 1279,
         height: 900,
         dpr: 1,
         isMobile: false,

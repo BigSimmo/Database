@@ -289,7 +289,7 @@ describe("shared-search route ownership", () => {
     expect(globalsSource).toContain("--spacing-page-composer-wide: 11.5rem");
   });
 
-  it("pre-reserves the measured tablet composer height while keeping its prompt rail on one line", () => {
+  it("pre-reserves the measured narrow-desktop composer height while keeping its prompt rail on one line", () => {
     const globalsSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
     const tabletBandStart = globalsSource.indexOf("/* BEGIN tablet mode-home composer geometry */");
     const tabletBandEnd = globalsSource.indexOf("/* END tablet mode-home composer geometry */");
@@ -298,7 +298,7 @@ describe("shared-search route ownership", () => {
     expect(tabletBandEnd).toBeGreaterThan(tabletBandStart);
     const tabletBand = globalsSource.slice(tabletBandStart, tabletBandEnd);
 
-    expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1023.98px)");
+    expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1279.98px)");
     expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 10rem");
     expect(tabletBand).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
     expect(tabletBand).toContain("flex-wrap: nowrap");

@@ -148,9 +148,18 @@ Before the fix, each offline, reconnecting, and local-identity-unavailable phase
 `DegradedNoticeFrame`, the main displacement is absent and every degraded phase is below 0.01.
 
 At 800 px, the mode-home composer grew from 88 px to 199 px and initial CLS was `0.02167583`, crossing
-the plan's 0.01 intervention threshold. A 640–1023.98 px one-line prompt rail plus 160 px reserve removes
-that shift. The 1280/1350/1440 initial shifts were already below 0.01, so the 88 px desktop reserve was
-deliberately left unchanged.
+the plan's 0.01 intervention threshold. The first independent final review correctly identified that the
+original 640–1023.98 px correction left 1024–1279 px unmeasured. A production follow-up at 1025 px
+reproduced the same 88→199 px growth with `0.019869624` initial CLS (`0.020005038` total); 1279 px was
+below threshold at `0.008255980` total but still displaced the main template. Exact 1024 px happened to
+remain low at `0.000135679`, which did not invalidate the defect immediately above the breakpoint.
+
+The bounded one-line prompt rail and 160 px reserve now cover 640–1279.98 px. The post-fix production
+matrix measured total CLS of `0.000135679` at 1024 px, `0.000135415` at 1025 px, and `0.000086971` at
+1279 px. Initial and every degraded phase were zero in all three cells, the composer was 160 px at first
+observation and settlement, all instrumentation readiness flags were true, and no main-template
+displacement source remained. The 1280/1350/1440 initial shifts were already below 0.01, so the 88 px
+desktop reserve remains deliberately unchanged there.
 
 ### `/documents/search`
 
@@ -173,6 +182,9 @@ Raw attribution artifacts are intentionally outside tracked source:
 - `output/performance-remediation/cls-after-layout-root.json`
 - evidence worktree `output/performance-remediation/cls-before-layout-documents.json`
 - evidence worktree `output/performance-remediation/cls-after-layout-documents.json`
+- `output/performance-remediation/cls-before-1024-review.json`
+- `output/performance-remediation/cls-review-boundary-matrix.json`
+- `output/performance-remediation/cls-review-boundary-after.json`
 
 ## Bundle analysis and budget
 
@@ -228,8 +240,9 @@ After this evidence document is complete, immutable inbox requests queue the fol
 ledger transitions; this feature branch does not directly edit or reconcile `docs/outstanding-issues.md`:
 
 - `#308`: queue done — generic `/documents/search` desktop CLS is below 0.01 at every measured profile.
-- `#JVYQEM`: queue done — the already-fixed phone case remains zero; 800 px is fixed; 1280+ remains
-  deliberately unchanged because measured initial CLS was already below 0.01.
+- `#JVYQEM`: queue done — the already-fixed phone case remains zero; 800 px and the independently
+  reviewed 1024/1025/1279 px boundary cells are below 0.01 with no main-template displacement; 1280+
+  remains deliberately unchanged because measured initial CLS was already below 0.01.
 - `#K9XD5N`: queue done — the always-mounted 62 px frame removes every attributed degraded insertion.
 - `#2TAQDC`: queue done — documentation, bounded CSS markers, whole-file scan, and a whitespace-mutation
   test reject an unclassified `:has(#main-content …)` consumer.
