@@ -1,4 +1,4 @@
-import { parseIngestionAuditIdentifier } from "./ingestion-audit";
+import { assertNoIngestionCredentialShape, parseIngestionAuditIdentifier } from "./ingestion-audit";
 
 export type ExpectedSourceCoverageRecord = Readonly<{
   key: string;
@@ -63,6 +63,7 @@ export function parseExpectedSourceCoverageRegistry(
     exactKeys(raw, ["key", "owner", "reviewStatus", "expectedDocumentIds", "mustPassCaseIds"], `records[${index}]`);
     const key = parseIngestionAuditIdentifier(raw.key, "source key", `records[${index}].key`);
     const owner = raw.owner;
+    assertNoIngestionCredentialShape(owner, `records[${index}].owner`);
     if (keys.has(key)) throw new Error(`Duplicate expected source key: ${key}.`);
     keys.add(key);
     const catalogue = catalogueByKey.get(key);
@@ -121,6 +122,7 @@ export function auditExpectedSourceCoverage(args: {
     .map((entry) => {
       if (!entry || typeof entry !== "object") throw new Error("Expected source record must be an object.");
       const key = parseIngestionAuditIdentifier(entry.key, "source key", "expected source key");
+      assertNoIngestionCredentialShape(entry.owner, "expected source owner");
       if (entry.owner !== `source_governance:${key}`)
         throw new Error("Expected source owner must match its controlled source-governance identifier.");
       if (!statuses.has(entry.reviewStatus)) throw new Error("Expected source review status is invalid.");

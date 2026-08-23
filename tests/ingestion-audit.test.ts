@@ -104,6 +104,33 @@ describe("ingestion integrity audit", () => {
     }
   });
 
+  it("accepts canonical repository UUIDs only for document and generation identities", () => {
+    const documentId = "2f1c9f62-4f10-4c71-a2f0-2f92c8fe0f31";
+    const generationId = "7f20770a-5471-43af-9c85-45c6f8d14e24";
+    expect(
+      auditDocument(
+        fixture({
+          documentId,
+          activeGenerationId: generationId,
+          chunkGenerations: [generationId],
+        }),
+      ),
+    ).toMatchObject({ documentId, activeGenerationId: generationId, action: "no_change" });
+
+    for (const invalidIdentity of [
+      {
+        mustPassCases: [
+          { id: documentId, passed: true, expectedDocumentRank: 1, actualDocumentRank: 1, failedExpectations: [] },
+        ],
+      },
+      { embeddingModel: documentId },
+      { embeddingStrategy: documentId },
+      { integrityExpectation: { ...fixture().integrityExpectation!, unitQualityPolicyVersion: documentId } },
+    ] satisfies Array<Partial<IngestionDocumentAuditInput>>) {
+      expect(() => auditDocument(fixture(invalidIdentity))).toThrow(/ASCII identifier/i);
+    }
+  });
+
   it("classifies unit-quality and embedding defects with deterministic precedence", () => {
     expect(auditDocument(fixture({ emptyIndexUnits: 2, oversizedIndexUnits: 1 }))).toMatchObject({
       action: "targeted_reprocess",
@@ -253,6 +280,59 @@ describe("ingestion integrity audit", () => {
         }),
       ),
     ).toMatchObject({ action: "shadow_reindex", reasons: ["must_pass_retrieval_failed"] });
+  });
+
+  it("rejects credential-shaped values before identifier admission without echoing them", () => {
+    const sentinels: Array<[string, Partial<IngestionDocumentAuditInput>]> = [
+      ["sk-proj-document-value", { documentId: "sk-proj-document-value" }],
+      ["sb_secret_generation_value", { activeGenerationId: "sb_secret_generation_value" }],
+      ["artifact_token_value", { chunkGenerations: ["artifact_token_value"] }],
+      [
+        "index-password-v1",
+        { integrityExpectation: { ...fixture().integrityExpectation!, unitQualityPolicyVersion: "index-password-v1" } },
+      ],
+      ["model-bearer-value", { embeddingModel: "model-bearer-value" }],
+      ["access_token_value", { embeddingStrategy: "access_token_value" }],
+      [
+        "case-token-value",
+        {
+          mustPassCases: [
+            {
+              id: "case-token-value",
+              passed: false,
+              expectedDocumentRank: 1,
+              actualDocumentRank: null,
+              failedExpectations: [],
+            },
+          ],
+        },
+      ],
+      [
+        "required_fact:access_token_value",
+        {
+          mustPassCases: [
+            {
+              id: "must-pass-1",
+              passed: false,
+              expectedDocumentRank: 1,
+              actualDocumentRank: null,
+              failedExpectations: ["required_fact:access_token_value"],
+            },
+          ],
+        },
+      ],
+    ];
+
+    for (const [sentinel, overrides] of sentinels) {
+      let message = "resolved";
+      try {
+        auditDocument(fixture(overrides));
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+      expect(message).toMatch(/credential-shaped/i);
+      expect(message).not.toContain(sentinel);
+    }
   });
 
   it("normalizes real P01 evaluator reasons to opaque audit categories", () => {

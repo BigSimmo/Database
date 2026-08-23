@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { australianSourceCatalogue } from "@/lib/australian-source-catalogue";
 import {
+  assertNoIngestionCredentialShape,
   auditDocument,
   normalizeIngestionFailedExpectationCodes,
   parseIngestionAuditIdentifier,
@@ -77,6 +78,7 @@ function failureCodeArray(value: unknown, label: string): string[] {
   if (!Array.isArray(value) || value.length > MAX_FAILED_EXPECTATIONS)
     throw new Error(`${label} must be a bounded array of failed expectation codes.`);
   const result = value.map((item, index) => {
+    assertNoIngestionCredentialShape(item, `${label}[${index}]`);
     if (
       typeof item !== "string" ||
       item.length === 0 ||
@@ -90,6 +92,8 @@ function failureCodeArray(value: unknown, label: string): string[] {
   try {
     return normalizeIngestionFailedExpectationCodes(result);
   } catch {
+    for (const failedExpectation of result)
+      assertNoIngestionCredentialShape(failedExpectation, "Failed expectation code");
     throw new Error(`${label} contains an unsupported failed expectation code.`);
   }
 }
@@ -164,7 +168,7 @@ function parseDocument(value: unknown, index: number): IngestionDocumentAuditInp
   const registryRecordId =
     metadataRaw.registry_record_id === undefined || metadataRaw.registry_record_id === null
       ? undefined
-      : identifier(metadataRaw.registry_record_id, "source key", `${label}.metadata.registry_record_id`);
+      : identifier(metadataRaw.registry_record_id, "registry record", `${label}.metadata.registry_record_id`);
   const metadata = {
     source_kind: metadataRaw.source_kind,
     ...(registryRecordId === undefined ? {} : { registry_record_id: registryRecordId }),

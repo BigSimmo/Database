@@ -157,6 +157,29 @@ describe("expected source coverage", () => {
         ),
       ).toThrow(/owner.*source_governance:wa-health/i);
     }
+    for (const records of [
+      [{ ...valid.records[0], key: "sk-proj-source-value", owner: "source_governance:sk-proj-source-value" }],
+      [{ ...valid.records[0], owner: "source_governance:sb_secret_owner_value" }],
+    ]) {
+      expect(() => parseExpectedSourceCoverageRegistry({ ...valid, records }, { catalogue, evaluationCases })).toThrow(
+        /credential-shaped/i,
+      );
+    }
+    expect(() =>
+      parseExpectedSourceCoverageRegistry(
+        {
+          ...valid,
+          records: [
+            {
+              ...valid.records[0],
+              key: "550e8400-e29b-41d4-a716-446655440000",
+              owner: "source_governance:550e8400-e29b-41d4-a716-446655440000",
+            },
+          ],
+        },
+        { catalogue, evaluationCases },
+      ),
+    ).toThrow(/ASCII identifier/i);
     expect(() =>
       parseExpectedSourceCoverageRegistry(
         { ...valid, records: [{ ...valid.records[0], expectedDocumentIds: ["other-doc"] }] },
@@ -337,47 +360,124 @@ describe("expected source coverage", () => {
       }>;
       retrievalCases: Array<{ id: string; retrievedDocumentIds: string[] }>;
     };
-    const mutations: Array<(inventory: typeof canonical) => void> = [
-      (inventory) => {
-        inventory.documents[0]!.documentId = "Patient reports suicidal thoughts";
-      },
-      (inventory) => {
-        inventory.documents[0]!.activeGenerationId = "https://private.example.test/generation";
-      },
-      (inventory) => {
-        inventory.documents[0]!.integrityExpectation.unitQualityPolicyVersion = "sk-secret-key-v1";
-      },
-      (inventory) => {
-        inventory.documents[0]!.integrityExpectation.embeddingModel = "owner@example.test";
-      },
-      (inventory) => {
-        inventory.documents[0]!.integrityExpectation.embeddingStrategy = "chunk|provider-error";
-      },
-      (inventory) => {
-        inventory.documents[0]!.chunkGenerations[0] = "550e8400-e29b-41d4-a716-446655440000";
-      },
-      (inventory) => {
-        inventory.documents[0]!.mustPassCases[0]!.id = "case\nid";
-      },
-      (inventory) => {
-        inventory.retrievalCases[0]!.id = "casé-id";
-      },
-      (inventory) => {
-        inventory.retrievalCases[0]!.retrievedDocumentIds[0] = "https://private.example.test/document";
-      },
+    const mutations: Array<[string, (inventory: typeof canonical) => void]> = [
+      [
+        "sk-proj-document-value",
+        (inventory) => {
+          inventory.documents[0]!.documentId = "sk-proj-document-value";
+        },
+      ],
+      [
+        "sb_secret_generation_value",
+        (inventory) => {
+          inventory.documents[0]!.activeGenerationId = "sb_secret_generation_value";
+        },
+      ],
+      [
+        "index-password-v1",
+        (inventory) => {
+          inventory.documents[0]!.integrityExpectation.unitQualityPolicyVersion = "index-password-v1";
+        },
+      ],
+      [
+        "model-bearer-value",
+        (inventory) => {
+          inventory.documents[0]!.integrityExpectation.embeddingModel = "model-bearer-value";
+        },
+      ],
+      [
+        "access_token_value",
+        (inventory) => {
+          inventory.documents[0]!.integrityExpectation.embeddingStrategy = "access_token_value";
+        },
+      ],
+      [
+        "artifact_token_value",
+        (inventory) => {
+          inventory.documents[0]!.chunkGenerations[0] = "artifact_token_value";
+        },
+      ],
+      [
+        "case-token-value",
+        (inventory) => {
+          inventory.documents[0]!.mustPassCases[0]!.id = "case-token-value";
+        },
+      ],
+      [
+        "refresh-token-value",
+        (inventory) => {
+          inventory.retrievalCases[0]!.id = "refresh-token-value";
+        },
+      ],
+      [
+        "api-key-document-value",
+        (inventory) => {
+          inventory.retrievalCases[0]!.retrievedDocumentIds[0] = "api-key-document-value";
+        },
+      ],
+      [
+        "api_key=value",
+        (inventory) => {
+          inventory.documents[0]!.integrityExpectation.embeddingModel = "api_key=value";
+        },
+      ],
+      [
+        "bearer:token",
+        (inventory) => {
+          inventory.documents[0]!.integrityExpectation.embeddingStrategy = "bearer:token";
+        },
+      ],
     ];
 
-    for (const [index, mutate] of mutations.entries()) {
+    for (const [index, [sentinel, mutate]] of mutations.entries()) {
       const inventory = structuredClone(canonical);
       mutate(inventory);
       const input = path.join(directory, `input-${index}.json`);
       const output = path.join(directory, `output-${index}.json`);
       await writeFile(input, JSON.stringify(inventory));
-      await expect(
-        runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", output]),
-      ).rejects.toThrow(/ASCII identifier/i);
+      let message = "resolved";
+      try {
+        await runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", output]);
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+      expect(message).toMatch(/credential-shaped/i);
+      expect(message).not.toContain(sentinel);
       await expect(readFile(output)).rejects.toThrow();
     }
+  });
+
+  it("accepts repository UUID document and generation identities deterministically through the CLI", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "ingestion-audit-uuid-identities-"));
+    const canonicalInput = fileURLToPath(new URL("fixtures/ingestion/active-corpus-inventory.json", import.meta.url));
+    const expected = fileURLToPath(new URL("../data/rag-expected-source-coverage.v1.json", import.meta.url));
+    const documentId = "2f1c9f62-4f10-4c71-a2f0-2f92c8fe0f31";
+    const generationId = "7f20770a-5471-43af-9c85-45c6f8d14e24";
+    const registryRecordId = "cc1c89ae-9f52-46df-903c-b660119922d8";
+    const inventory = JSON.parse(await readFile(canonicalInput, "utf8")) as {
+      documents: Array<{
+        documentId: string;
+        activeGenerationId: string | null;
+        chunkGenerations: string[];
+        metadata: { registry_record_id?: string };
+      }>;
+    };
+    inventory.documents[0]!.documentId = documentId;
+    inventory.documents[0]!.activeGenerationId = generationId;
+    inventory.documents[0]!.chunkGenerations = [generationId];
+    const registryProjection = inventory.documents.find(({ metadata }) => metadata.registry_record_id !== undefined)!;
+    registryProjection.metadata.registry_record_id = registryRecordId;
+    const input = path.join(directory, "input.json");
+    const first = path.join(directory, "first.json");
+    const second = path.join(directory, "second.json");
+    await writeFile(input, JSON.stringify(inventory));
+    const firstReport = await runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", first]);
+    await runOfflineIngestionAudit(["--input", input, "--expected", expected, "--output", second]);
+    const [firstBytes, secondBytes] = await Promise.all([readFile(first), readFile(second)]);
+    expect(firstBytes.equals(secondBytes)).toBe(true);
+    expect(firstReport.documents).toContainEqual(
+      expect.objectContaining({ documentId, activeGenerationId: generationId }),
+    );
   });
 
   it("checks input size before allocating the bounded read buffer", async () => {

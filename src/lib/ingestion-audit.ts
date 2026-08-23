@@ -28,10 +28,11 @@ export type IngestionAuditReason =
 export type ExpectedActualCount = { expected: number | null; actual: number };
 
 export type IngestionAuditIdentifierKind =
-  "source key" | "document" | "generation" | "case" | "policy" | "model" | "strategy";
+  "source key" | "registry record" | "document" | "generation" | "case" | "policy" | "model" | "strategy";
 
 const IDENTIFIER_LIMITS: Readonly<Record<IngestionAuditIdentifierKind, number>> = {
   "source key": 100,
+  "registry record": 128,
   document: 128,
   generation: 128,
   case: 128,
@@ -42,23 +43,37 @@ const IDENTIFIER_LIMITS: Readonly<Record<IngestionAuditIdentifierKind, number>> 
 const ASCII_SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const ASCII_STRATEGY = /^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/;
 const POLICY_VERSION = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*-v[1-9][0-9]*$/;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CREDENTIAL_SHAPE =
-  /(?:^|-)(?:api-key|access-token|credential|password|secret)(?:-|$)|^(?:sk|pk)-(?:live|test|secret)-/;
+const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_IDENTITY_KINDS = new Set<IngestionAuditIdentifierKind>(["document", "generation", "registry record"]);
+const CREDENTIAL_PREFIX =
+  /^(?:(?:sk|pk)[-_:][a-z0-9]|sb[-_:](?:secret|publishable)|gh[pousr]_|github_pat_|xox[baprs]-|akia[0-9a-z]|(?:api[-_:]?key|key|token|secret|password|passwd|bearer|credential)(?=$|[\s\-_:=]))/i;
+const CREDENTIAL_SEGMENT =
+  /(?:^|[\s\-_:=])(?:api[-_:]?key|access[-_:]?token|refresh[-_:]?token|service[-_:]?role[-_:]?key|private[-_:]?key|token|secret|password|passwd|bearer|credential)(?=$|[\s\-_:=])/i;
+const JWT_SHAPE = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\./;
+
+export function assertNoIngestionCredentialShape(value: unknown, label: string): void {
+  if (
+    typeof value === "string" &&
+    (CREDENTIAL_PREFIX.test(value) || CREDENTIAL_SEGMENT.test(value) || JWT_SHAPE.test(value))
+  )
+    throw new Error(`${label} contains a credential-shaped value.`);
+}
 
 export function parseIngestionAuditIdentifier(
   value: unknown,
   kind: IngestionAuditIdentifierKind,
   label: string,
 ): string {
+  assertNoIngestionCredentialShape(value, label);
   const pattern = kind === "strategy" ? ASCII_STRATEGY : kind === "policy" ? POLICY_VERSION : ASCII_SLUG;
+  if (typeof value === "string" && CANONICAL_UUID.test(value) && UUID_IDENTITY_KINDS.has(kind)) return value;
   if (
     typeof value !== "string" ||
     value.length === 0 ||
     value.length > IDENTIFIER_LIMITS[kind] ||
     !pattern.test(value) ||
-    UUID.test(value) ||
-    CREDENTIAL_SHAPE.test(value)
+    UUID_SHAPE.test(value)
   ) {
     throw new Error(`${label} must be a bounded ASCII identifier for ${kind}.`);
   }
@@ -120,6 +135,7 @@ const CANONICAL_REASON_VALUE = /^[a-z][a-z0-9_]{0,119}$/;
 
 export function normalizeIngestionFailedExpectationCodes(values: readonly string[]): IngestionFailedExpectationCode[] {
   const normalized = values.map((value): IngestionFailedExpectationCode => {
+    assertNoIngestionCredentialShape(value, "Failed expectation code");
     if (FAILED_EXPECTATION_CODES.has(value)) return value as IngestionFailedExpectationCode;
     const separator = value.indexOf(":");
     const category = value.slice(0, separator) as IngestionFailedExpectationCode;
@@ -319,6 +335,8 @@ export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocu
           throw new Error("A passed must-pass case cannot contain failed expectations.");
         return normalized;
       } catch {
+        for (const failedExpectation of testCase.failedExpectations)
+          assertNoIngestionCredentialShape(failedExpectation, "Failed expectation code");
         if (testCase.passed && testCase.failedExpectations.length > 0)
           throw new Error("A passed must-pass case cannot contain failed expectations.");
         throw new Error("Unsupported failed expectation code for must-pass case.");
