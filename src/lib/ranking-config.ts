@@ -248,8 +248,9 @@ function round4(value: number): number {
 /**
  * Build a RankingConfig by deep-merging an optional validated JSON override over the
  * evaluated defaults. A non-empty override is fail-closed: malformed JSON, unknown keys,
- * invalid types, and out-of-domain values throw a configuration error rather than silently
- * changing or reverting retrieval behaviour. Exported for unit testing.
+ * invalid types, out-of-domain values, and linear freshness ramps longer than either
+ * cliff throw a configuration error rather than silently changing or reverting retrieval
+ * behaviour. Exported for unit testing.
  */
 export function resolveRankingConfig(raw?: string | null): RankingConfig {
   const parsed: RankingConfigOverride = raw?.trim() ? parseRankingConfigOverride(raw) : {};
@@ -257,6 +258,24 @@ export function resolveRankingConfig(raw?: string | null): RankingConfig {
   const ss = parsed.secondStage ?? {};
   const fr = parsed.freshness ?? {};
   const fusion = parsed.featureFusion ?? {};
+  const freshness: FreshnessConfig = {
+    mode: fr.mode ?? d.freshness.mode,
+    publicationCliffYears: fr.publicationCliffYears ?? d.freshness.publicationCliffYears,
+    publicationPenalty: fr.publicationPenalty ?? d.freshness.publicationPenalty,
+    reviewCliffYears: fr.reviewCliffYears ?? d.freshness.reviewCliffYears,
+    reviewPenalty: fr.reviewPenalty ?? d.freshness.reviewPenalty,
+    linearRampYears: fr.linearRampYears ?? d.freshness.linearRampYears,
+  };
+
+  if (
+    freshness.mode === "linear" &&
+    (freshness.linearRampYears > freshness.publicationCliffYears ||
+      freshness.linearRampYears > freshness.reviewCliffYears)
+  ) {
+    throw new Error(
+      "Invalid RAG_RANKING_CONFIG: linearRampYears must not exceed publicationCliffYears or reviewCliffYears.",
+    );
+  }
 
   return {
     secondStage: {
@@ -288,14 +307,7 @@ export function resolveRankingConfig(raw?: string | null): RankingConfig {
     ) as Record<RagQueryClass, RankingFeatureWeights>,
     documentDiversityPenalty: parsed.documentDiversityPenalty ?? d.documentDiversityPenalty,
     documentDiversityPenaltyCap: parsed.documentDiversityPenaltyCap ?? d.documentDiversityPenaltyCap,
-    freshness: {
-      mode: fr.mode ?? d.freshness.mode,
-      publicationCliffYears: fr.publicationCliffYears ?? d.freshness.publicationCliffYears,
-      publicationPenalty: fr.publicationPenalty ?? d.freshness.publicationPenalty,
-      reviewCliffYears: fr.reviewCliffYears ?? d.freshness.reviewCliffYears,
-      reviewPenalty: fr.reviewPenalty ?? d.freshness.reviewPenalty,
-      linearRampYears: fr.linearRampYears ?? d.freshness.linearRampYears,
-    },
+    freshness,
   };
 }
 

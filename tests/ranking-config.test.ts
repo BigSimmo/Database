@@ -116,6 +116,24 @@ describe("resolveRankingConfig override merge", () => {
     expect(cfg.freshness.mode).toBe("linear");
     expect(cfg.freshness.linearRampYears).toBe(4);
   });
+
+  it("fails closed when a linear ramp exceeds either freshness cliff after merge", () => {
+    expectInvalidOverride({ freshness: { publicationCliffYears: 1, linearRampYears: 2 } }, /linearRampYears/i);
+    expectInvalidOverride({ freshness: { reviewCliffYears: 2, linearRampYears: 3 } }, /linearRampYears/i);
+    expectInvalidOverride({ freshness: { linearRampYears: 6 } }, /linearRampYears/i);
+  });
+
+  it("keeps a linear ramp that equals both cliffs and ignores ramp length in step mode", () => {
+    const equal = resolveRankingConfig(
+      JSON.stringify({
+        freshness: { publicationCliffYears: 2, reviewCliffYears: 2, linearRampYears: 2 },
+      }),
+    );
+    expect(equal.freshness.linearRampYears).toBe(2);
+    const step = resolveRankingConfig(JSON.stringify({ freshness: { mode: "step", linearRampYears: 10 } }));
+    expect(step.freshness.mode).toBe("step");
+    expect(step.freshness.linearRampYears).toBe(10);
+  });
 });
 
 describe("freshnessDecayPenalty", () => {
