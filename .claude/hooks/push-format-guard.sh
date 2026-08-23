@@ -138,8 +138,11 @@ if [ -n "$hooks_path" ]; then
   esac
   # Exact equality, not a suffix match: another repository's `.githooks` also
   # ends in `/.githooks`, and its pre-push hook would not guard THIS push.
-  if { [ "$resolved" = "$expected" ] || [ "$resolved" = "$expected_primary" ]; } \
-    && { [ -x "$repo_root/.githooks/pre-push" ] || [ -x "$primary_root_n/.githooks/pre-push" ]; }; then
+  # Pair each path match with THAT tree's pre-push: a match on the primary
+  # plus an executable hook only in the worktree (or the reverse) is the
+  # unwired case this guard exists to catch.
+  if { [ "$resolved" = "$expected" ] && [ -x "$repo_root/.githooks/pre-push" ]; } \
+    || { [ "$resolved" = "$expected_primary" ] && [ -x "$primary_root_n/.githooks/pre-push" ]; }; then
     exit 0
   fi
 fi
