@@ -3155,18 +3155,21 @@ summary::-webkit-details-marker {
     bottom: auto;
   }
 
-  /* Hero mode homes keep a centred composer through 1279px (160px reserve).
-     Pin the install card to the top-right so the overlay never shares that
-     band. Gate on the static per-route hero owner, not the stack's presence:
-     a `body:has(.pwa-notice-stack)` canvas restyle shifted page content
-     (~0.12 CLS, Production UI `ui-pwa` small-tablet). */
+  .pwa-install-grip {
+    display: none;
+  }
+}
+
+/* Hero mode homes keep a centred 160px composer through 1279px. Pin the
+   install card to the top-right in that band only so the overlay never
+   shares the composer. Do not apply this at 1280px+: the extra viewport
+   height already clears a bottom-right card, and lifting it there shifted
+   page content (~0.025 CLS, Production UI `ui-pwa` wide-desktop). Gate on
+   the static per-route hero owner, not the stack's presence. */
+@media (min-width: 640px) and (max-width: 1279.98px) {
   body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {
     top: calc(4.25rem + max(0.75rem, var(--safe-area-top)));
     bottom: auto;
-  }
-
-  .pwa-install-grip {
-    display: none;
   }
 }
 
