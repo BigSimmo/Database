@@ -674,7 +674,7 @@ test.describe("previously uncovered production routes", () => {
       "/reference/colour-coding",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Colour coding reference", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Colour coding & badges", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
         const skipLink = currentPage.getByRole("link", { name: "Skip to main content" });

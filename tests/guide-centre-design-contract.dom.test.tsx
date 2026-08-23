@@ -3,6 +3,12 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { GuideDialog } from "@/components/clinical-dashboard/guide-dialog";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 afterEach(async () => {
   cleanup();
   await new Promise<void>((resolve) => {

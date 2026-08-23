@@ -1,16 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  BadgeCheck,
-  ChevronRight,
-  ClipboardList,
-  Palette,
-  Search,
-  ShieldCheck,
-  Waves,
-  type LucideIcon,
-} from "lucide-react";
+import { BadgeCheck, ChevronRight, ClipboardList, Search, ShieldCheck, Waves, type LucideIcon } from "lucide-react";
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
@@ -525,13 +516,6 @@ export function ToolsSearchResultsPage({
           </aside>
         ) : null}
       </section>
-
-      <div className="mx-auto mt-7 flex max-w-6xl justify-center">
-        <Link href="/reference/colour-coding" className={floatingControl}>
-          <Palette className="h-4 w-4" aria-hidden="true" />
-          Colour coding reference
-        </Link>
-      </div>
 
       {selectedTool ? (
         <div className="lg:hidden">
