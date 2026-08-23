@@ -482,6 +482,20 @@ function isLocalIdentityResponse(response, expectedStatus) {
   }
 }
 
+function waitForHealthyLocalIdentityResponse(page) {
+  return page
+    .waitForResponse(
+      async (response) => isLocalIdentityResponse(response, 200) && isThisProject(await response.text()),
+      { timeout: 30_000 },
+    )
+    .catch((error) => {
+      throw new Error(
+        "Initial local identity validation failed: expected a 200 /api/local-project-id response matching appName, projectId, and safeLocalOrigin=true within 30000ms.",
+        { cause: error },
+      );
+    });
+}
+
 async function waitForHealthySetupResponse(page) {
   const response = page.waitForResponse((candidate) => isSetupStatusResponse(candidate, 200), { timeout: 30_000 });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -511,6 +525,16 @@ async function waitForDegradedNotice(page, state) {
   );
 }
 
+async function requireNoDegradedNoticeBeforeIdentityFault(page) {
+  try {
+    await waitForDegradedNotice(page, "absent");
+  } catch (error) {
+    throw new Error("Cannot exercise local identity outage: degraded notice was present before fault installation.", {
+      cause: error,
+    });
+  }
+}
+
 async function exerciseDegradedTransitions({ page, context }) {
   if (exerciseOffline) {
     await markPhase(page, "offline");
@@ -527,6 +551,7 @@ async function exerciseDegradedTransitions({ page, context }) {
   }
 
   if (exerciseLocalIdentityUnavailable) {
+    await requireNoDegradedNoticeBeforeIdentityFault(page);
     let localIdentityUnavailableInterceptHits = 0;
     const unavailableHandler = async (route) => {
       localIdentityUnavailableInterceptHits += 1;
@@ -574,6 +599,7 @@ let server = null;
 let browser = null;
 const lock = acquireHeavyRunLock({ projectRoot, command: "measure-cls-attribution" });
 try {
+  writeResultsArtifact([]);
   mkdirSync(absoluteRunRoot, { recursive: true });
   writeFileSync(
     path.join(absoluteRunRoot, "tsconfig.json"),
@@ -620,7 +646,7 @@ try {
         await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
         const initialHealthyLocalIdentityResponse = exerciseLocalIdentityUnavailable
-          ? page.waitForResponse((response) => isLocalIdentityResponse(response, 200), { timeout: 30_000 })
+          ? waitForHealthyLocalIdentityResponse(page)
           : null;
         await page.goto(`${baseUrl}${route}`, { waitUntil: "load", timeout: 90_000 });
         await initialHealthyLocalIdentityResponse;

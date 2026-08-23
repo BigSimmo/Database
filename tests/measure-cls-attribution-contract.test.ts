@@ -144,6 +144,19 @@ describe("CLS attribution browser profiles", () => {
     });
   });
 
+  it("represents a current run with no completed cells as an empty collection", () => {
+    expect(
+      optionsModule.buildClsAttributionOutput?.([], {
+        profilesExplicit: true,
+        profiles: [{ name: "mobile-lighthouse" }, { name: "desktop-1350" }],
+      }),
+    ).toEqual({
+      schemaVersion: 2,
+      profiles: [{ name: "mobile-lighthouse" }, { name: "desktop-1350" }],
+      cells: {},
+    });
+  });
+
   it("reports exact missing instrumentation flags in stable order", () => {
     expect(
       optionsModule.missingReadinessFlags?.({
@@ -261,11 +274,24 @@ describe("CLS attribution evidence contract", () => {
     );
   });
 
-  it("proves initial health with local identity on every exercised route", () => {
+  it("proves initial health with the expected local identity payload on every exercised route", () => {
     expect(source).toContain("const initialHealthyLocalIdentityResponse = exerciseLocalIdentityUnavailable");
-    expect(source).toContain("isLocalIdentityResponse(response, 200)");
+    expect(source).toContain("function waitForHealthyLocalIdentityResponse(page)");
+    expect(source).toContain("isLocalIdentityResponse(response, 200) && isThisProject(await response.text())");
+    expect(source).toContain("Initial local identity validation failed");
     expect(source).toContain("await initialHealthyLocalIdentityResponse");
     expect(source).not.toContain("const initialHealthySetupResponse = exerciseLocalIdentityUnavailable");
+  });
+
+  it("requires a clean degraded-notice baseline before installing the identity fault", () => {
+    const exerciseStart = source.indexOf("if (exerciseLocalIdentityUnavailable) {");
+    const absenceCheck = source.indexOf("await requireNoDegradedNoticeBeforeIdentityFault(page);", exerciseStart);
+    const routeInstall = source.indexOf("await page.route(localIdentityPattern, unavailableHandler", exerciseStart);
+    expect(absenceCheck).toBeGreaterThan(exerciseStart);
+    expect(absenceCheck).toBeLessThan(routeInstall);
+    expect(source).toContain(
+      "Cannot exercise local identity outage: degraded notice was present before fault installation.",
+    );
   });
 
   it("atomically checkpoints each completed cell and always closes its browser context", () => {
@@ -282,6 +308,16 @@ describe("CLS attribution evidence contract", () => {
       ),
     );
     expect(source).toContain("} finally {\n        await context.close();\n      }");
+  });
+
+  it("invalidates stale output immediately after taking the heavy-run lock", () => {
+    const lockAcquired = source.indexOf(
+      'const lock = acquireHeavyRunLock({ projectRoot, command: "measure-cls-attribution" });',
+    );
+    const emptyCheckpoint = source.indexOf("writeResultsArtifact([]);", lockAcquired);
+    const buildPreparation = source.indexOf("mkdirSync(absoluteRunRoot, { recursive: true });", lockAcquired);
+    expect(emptyCheckpoint).toBeGreaterThan(lockAcquired);
+    expect(emptyCheckpoint).toBeLessThan(buildPreparation);
   });
 
   it("attributes delayed CLS callbacks against unrounded phase boundaries", () => {
