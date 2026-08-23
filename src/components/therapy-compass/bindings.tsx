@@ -18,13 +18,13 @@ import {
 
 import { useTherapyData } from "./data/use-therapy-data";
 import { THERAPY_CATALOGUE_SUMMARY } from "./data/generated-assets";
+import { relatedTherapies, type RelatedTherapy } from "./data/related";
 import {
   EMPTY_SEARCH,
   RECOMMEND_CONSTRAINTS,
   inferRecommendConstraints,
-  rankRecommendations,
-  relatedTherapies,
   resolveRecommendConstraints,
+  rankRecommendations,
   searchTherapies,
   type Ranked,
   type SearchOptions,
@@ -62,7 +62,7 @@ export type TcBindings = {
   // ---- active therapy (detail / brief / sheet) ------------------------
   selectedSlug: string | null;
   selectedTherapy: Therapy | null;
-  relatedForSelected: Therapy[];
+  relatedForSelected: RelatedTherapy[];
   open: (slug: string) => void; // → detail
   openBrief: (slug: string) => void;
   openSheet: (slug: string) => void;

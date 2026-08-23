@@ -166,19 +166,19 @@ function mainMergeBase(range, cwd = PROJECT_ROOT) {
   return tryGit(["merge-base", MAIN_REMOTE_REF, range.localSha], cwd);
 }
 
-/** Return the current main tip when this fast-forward newly integrates it.
- * Comparing from the old feature tip would otherwise treat main-only ledger
- * transactions as changes introduced by the feature push. */
-function newlyIntegratedMainTip(range, cwd = PROJECT_ROOT) {
+/** Return the merge base with main when this fast-forward newly integrates
+ * commits from origin/main. Comparing from the old feature tip would otherwise
+ * treat main-only ledger transactions as changes introduced by the feature push. */
+function newlyIntegratedMainMergeBase(range, cwd = PROJECT_ROOT) {
   if (!range.remoteSha || range.remoteSha === ZERO_SHA) return undefined;
   if (!isAncestor(range.remoteSha, range.localSha, cwd)) return undefined;
-  const mainTip = tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
-  if (!mainTip || !isAncestor(mainTip, range.localSha, cwd)) return undefined;
-  return isAncestor(mainTip, range.remoteSha, cwd) ? undefined : mainTip;
+  const mergeBase = mainMergeBase(range, cwd);
+  if (!mergeBase) return undefined;
+  return isAncestor(mergeBase, range.remoteSha, cwd) ? undefined : mergeBase;
 }
 
 /** Exported for tests: a fast-forward push normally compares from its remote
- * tip. When it freshly integrates current main, compare from that main tip so
+ * tip. When it freshly integrates main commits, compare from that merge base so
  * main-only changes are out of scope. A new branch, or one whose history was
  * rewritten, compares from the PR merge base for the same reason.
  *
@@ -189,7 +189,7 @@ function newlyIntegratedMainTip(range, cwd = PROJECT_ROOT) {
 export function guardBaseForRange(range, cwd = PROJECT_ROOT) {
   if (range.remoteSha && range.remoteSha !== ZERO_SHA) {
     if (isAncestor(range.remoteSha, range.localSha, cwd)) {
-      return newlyIntegratedMainTip(range, cwd) ?? range.remoteSha;
+      return newlyIntegratedMainMergeBase(range, cwd) ?? range.remoteSha;
     }
     return mainMergeBase(range, cwd);
   }
@@ -202,7 +202,7 @@ export function changedFilesForRange(range, cwd = PROJECT_ROOT) {
   // actually introduces relative to main.
   const existingRemote =
     range.remoteSha && range.remoteSha !== ZERO_SHA && isAncestor(range.remoteSha, range.localSha, cwd);
-  const integratedMain = existingRemote ? newlyIntegratedMainTip(range, cwd) : undefined;
+  const integratedMain = existingRemote ? newlyIntegratedMainMergeBase(range, cwd) : undefined;
   const hasOriginMain = !existingRemote && tryGit(["rev-parse", "--verify", "--quiet", MAIN_REMOTE_REF], cwd);
   const spec = integratedMain
     ? `${integratedMain}..${range.localSha}`
