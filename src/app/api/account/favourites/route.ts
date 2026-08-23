@@ -4,8 +4,6 @@ import {
   accountFavouriteSchema,
   accountFavouriteSetSchema,
   favouriteMembershipResponseSchema,
-  favouriteContentKeySchema,
-  favouriteContentTypeSchema,
   favouriteItemReferenceShape,
   favouriteSetIdSchema,
   favouriteSetNameSchema,
@@ -25,8 +23,6 @@ import { parseJsonBody } from "@/lib/validation/body";
 export const runtime = "nodejs";
 
 const contractVersion = favouritesContractVersion;
-const contentTypeSchema = favouriteContentTypeSchema;
-const contentKeySchema = favouriteContentKeySchema;
 const setNameSchema = favouriteSetNameSchema;
 const setIdSchema = favouriteSetIdSchema;
 const itemReferenceShape = favouriteItemReferenceShape;
@@ -267,6 +263,7 @@ export async function POST(request: Request) {
         .select("id,name,sort_order,created_at,updated_at")
         .single();
       if (error) throwFavouriteSetWriteError(error);
+      if (!data) throw new Error("Favourite set creation did not return the created set.");
       return Response.json(
         favouriteSetResponseSchema.parse({
           version: contractVersion,
