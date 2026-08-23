@@ -27,24 +27,24 @@ export type RagProgrammeConflictField =
   | "review_flag";
 
 export type RagProgrammeExpectation = {
-  expectedCorpusScopes: SourceCorpusScope[];
-  expectedSourceRoles: ClinicalSourceRole[];
-  expectedSiteDomains: SiteContentDomain[];
-  expectedPublicSiteContentState: SiteContentPartitionState | "not_applicable";
-  expectedSubquestionPurposes: RagSubquestionPurpose[];
-  minimumDirectSubquestions: number;
-  allowedAnswerShapes: AdaptiveAnswerShape[];
-  requireSupportedPart: boolean;
-  requireExactGap: boolean;
-  expectedConflict: {
-    localDocumentId: string;
-    australianDocumentId: string;
-    requireVisibleFields: RagProgrammeConflictField[];
+  readonly expectedCorpusScopes: readonly SourceCorpusScope[];
+  readonly expectedSourceRoles: readonly ClinicalSourceRole[];
+  readonly expectedSiteDomains: readonly SiteContentDomain[];
+  readonly expectedPublicSiteContentState: SiteContentPartitionState | "not_applicable";
+  readonly expectedSubquestionPurposes: readonly RagSubquestionPurpose[];
+  readonly minimumDirectSubquestions: number;
+  readonly allowedAnswerShapes: readonly AdaptiveAnswerShape[];
+  readonly requireSupportedPart: boolean;
+  readonly requireExactGap: boolean;
+  readonly expectedConflict: {
+    readonly localDocumentId: string;
+    readonly australianDocumentId: string;
+    readonly requireVisibleFields: readonly RagProgrammeConflictField[];
   } | null;
-  forbiddenFallbackReasons: RagInsufficiencyReason[];
-  requiredFacts: string[];
-  forbiddenPatterns: string[];
-  incrementalEligibility: "none" | "lead" | "independent_sections";
+  readonly forbiddenFallbackReasons: readonly RagInsufficiencyReason[];
+  readonly requiredFacts: readonly string[];
+  readonly forbiddenPatterns: readonly string[];
+  readonly incrementalEligibility: "none" | "lead" | "independent_sections";
 };
 
 export type RagProgrammeHardViolation =
@@ -99,25 +99,25 @@ export const RAG_PROGRAMME_GATE_POLICY = Object.freeze({
 } satisfies RagProgrammeGatePolicy);
 
 export type RagProgrammeFixtureCase = {
-  id: string;
-  latencyTargetMs: number;
-  caseFingerprint: string;
-  privacyReview: {
-    status: "approved_deidentified";
-    reviewedOn: string;
-    reviewerRole: "clinical_governance";
+  readonly id: string;
+  readonly latencyTargetMs: number;
+  readonly caseFingerprint: string;
+  readonly privacyReview: {
+    readonly status: "approved_deidentified";
+    readonly reviewedOn: string;
+    readonly reviewerRole: "clinical_governance";
   };
-  expectedDocuments: string[];
-  expectation: RagProgrammeExpectation;
+  readonly expectedDocuments: readonly string[];
+  readonly expectation: RagProgrammeExpectation;
 };
 
 export type RagProgrammeEvaluationDiagnostics = {
-  observedCorpusScopes: SourceCorpusScope[];
-  observedSourceRoles: ClinicalSourceRole[];
-  observedSiteDomains: SiteContentDomain[];
+  observedCorpusScopes: readonly SourceCorpusScope[];
+  observedSourceRoles: readonly ClinicalSourceRole[];
+  observedSiteDomains: readonly SiteContentDomain[];
   publicSiteContentState: SiteContentPartitionState | "not_applicable";
   answerShape: AdaptiveAnswerShape;
-  directSubquestionPurposes: RagSubquestionPurpose[];
+  directSubquestionPurposes: readonly RagSubquestionPurpose[];
   directEvidenceSubquestionCount: number;
   insufficiencyReason: RagInsufficiencyReason | null;
   supportedPartRetained: boolean;
@@ -125,19 +125,25 @@ export type RagProgrammeEvaluationDiagnostics = {
   observedConflict: {
     localDocumentId: string;
     australianDocumentId: string;
-    visibleFields: RagProgrammeConflictField[];
+    visibleFields: readonly RagProgrammeConflictField[];
   } | null;
-  requiredFactsPresent: string[];
-  forbiddenPatternsFound: string[];
+  requiredFactsPresent: readonly string[];
+  forbiddenPatternsFound: readonly string[];
   documentReciprocalRank: number;
   contentReciprocalRank: number;
-  hardViolations: RagProgrammeHardViolation[];
+  hardViolations: readonly RagProgrammeHardViolation[];
   totalLatencyMs: number | null;
   estimatedCostUsd: number | null;
 };
 
 export type RagProgrammeEvaluationCase = RagProgrammeFixtureCase & {
   diagnostics: RagProgrammeEvaluationDiagnostics;
+};
+
+export type RagProgrammeFixture = {
+  readonly schemaVersion: 1;
+  readonly caseSetFingerprint: string;
+  readonly cases: readonly RagProgrammeFixtureCase[];
 };
 
 export type RagProgrammePopulationFingerprintInput = {
@@ -229,6 +235,13 @@ const SITE_CONTENT_STATES = new Set<SiteContentPartitionState | "not_applicable"
   "disabled",
   "not_applicable",
 ]);
+const SITE_CONTENT_PARTITION_STATES = new Set<SiteContentPartitionState>([
+  "current",
+  "updating",
+  "stale",
+  "unavailable",
+  "disabled",
+]);
 const SUBQUESTION_PURPOSES = new Set<RagSubquestionPurpose>([
   "primary",
   "comparison_side",
@@ -282,7 +295,7 @@ function withoutCaseFingerprint(testCase: RagProgrammeFixtureCase | Record<strin
 }
 
 export function fingerprintRagProgrammeCaseSet(
-  cases: Array<RagProgrammeFixtureCase | Record<string, unknown>>,
+  cases: ReadonlyArray<RagProgrammeFixtureCase | Record<string, unknown>>,
 ): string {
   return sha256Fingerprint({
     schemaVersion: 1,
@@ -290,12 +303,33 @@ export function fingerprintRagProgrammeCaseSet(
   });
 }
 
+function populationInputFailures(input: RagProgrammePopulationFingerprintInput): string[] {
+  const failures: string[] = [];
+  for (const field of ["sourcePolicyVersion", "indexGeneration", "siteContentRegistryVersion"] as const) {
+    if (typeof input[field] !== "string" || input[field].trim().length === 0) failures.push(field);
+  }
+  if (!SITE_CONTENT_PARTITION_STATES.has(input.publicSiteContentState)) failures.push("publicSiteContentState");
+  return failures;
+}
+
 export function fingerprintRagProgrammePopulation(input: RagProgrammePopulationFingerprintInput): string {
+  const failures = populationInputFailures(input);
+  if (failures.length > 0) {
+    throw new Error(`Invalid RAG programme population fields: ${failures.join(", ")}`);
+  }
   return sha256Fingerprint(input);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
+    Object.freeze(value);
+  }
+  return value;
 }
 
 function assertExactKeys(value: Record<string, unknown>, expected: readonly string[], path: string): void {
@@ -388,11 +422,7 @@ function assertExpectation(value: unknown, path: string): asserts value is RagPr
   }
 }
 
-export function validateRagProgrammeFixture(fixture: unknown): {
-  schemaVersion: 1;
-  caseSetFingerprint: string;
-  cases: RagProgrammeFixtureCase[];
-} {
+export function validateRagProgrammeFixture(fixture: unknown): RagProgrammeFixture {
   if (!isRecord(fixture) || fixture.schemaVersion !== 1)
     throw new Error("RAG programme fixture schemaVersion must be 1");
   assertExactKeys(fixture, ["schemaVersion", "caseSetFingerprint", "cases"], "RAG programme fixture");
@@ -427,11 +457,15 @@ export function validateRagProgrammeFixture(fixture: unknown): {
     const stableCase = {
       id: value.id,
       latencyTargetMs: Number(value.latencyTargetMs),
-      privacyReview: value.privacyReview,
+      privacyReview: {
+        status: "approved_deidentified" as const,
+        reviewedOn: value.privacyReview.reviewedOn,
+        reviewerRole: "clinical_governance" as const,
+      },
       expectedDocuments: value.expectedDocuments,
       expectation: value.expectation,
-    };
-    return { ...stableCase, caseFingerprint: sha256Fingerprint(stableCase) } as RagProgrammeFixtureCase;
+    } satisfies Omit<RagProgrammeFixtureCase, "caseFingerprint">;
+    return { ...stableCase, caseFingerprint: sha256Fingerprint(stableCase) };
   });
 
   const actualFingerprint = fingerprintRagProgrammeCaseSet(cases);
@@ -440,10 +474,10 @@ export function validateRagProgrammeFixture(fixture: unknown): {
       `RAG programme fixture fingerprint mismatch: expected ${fixture.caseSetFingerprint}, received ${actualFingerprint}`,
     );
   }
-  return { schemaVersion: 1, caseSetFingerprint: fixture.caseSetFingerprint, cases };
+  return deepFreeze({ schemaVersion: 1, caseSetFingerprint: fixture.caseSetFingerprint, cases });
 }
 
-export const ragProgrammeFixture = Object.freeze(validateRagProgrammeFixture(rawProgrammeFixture));
+export const ragProgrammeFixture = validateRagProgrammeFixture(rawProgrammeFixture);
 
 function assertNonNegativeFinite(name: string, value: number | null, maximum?: number): void {
   if (value === null) return;
@@ -453,7 +487,7 @@ function assertNonNegativeFinite(name: string, value: number | null, maximum?: n
   }
 }
 
-function missingValues<T extends string>(expected: T[], observed: T[]): T[] {
+function missingValues<T extends string>(expected: readonly T[], observed: readonly T[]): T[] {
   const observedSet = new Set(observed);
   return expected.filter((value) => !observedSet.has(value));
 }
@@ -576,11 +610,15 @@ function percentile95(values: number[]): number {
   return sorted[Math.max(0, Math.ceil(sorted.length * 0.95) - 1)] ?? 0;
 }
 
-function artifactValidationFailures(artifact: RagProgrammeEvalArtifact, label: string): string[] {
+function artifactValidationFailures(
+  artifact: RagProgrammeEvalArtifact,
+  label: string,
+  options: { enforceLatencyBudgets: boolean },
+): string[] {
   const failures: string[] = [];
   if (artifact.schemaVersion !== 1) failures.push(`${label}:schema_version`);
   if (!/^[0-9a-f]{40}$/i.test(artifact.evaluatedGitSha)) failures.push(`${label}:evaluated_git_sha`);
-  const expectedPopulationFingerprint = fingerprintRagProgrammePopulation({
+  const populationInput = {
     sourcePolicyVersion: artifact.sourcePolicyVersion,
     indexGeneration: artifact.indexGeneration,
     siteContentRegistryVersion: artifact.siteContentRegistryVersion,
@@ -590,9 +628,14 @@ function artifactValidationFailures(artifact: RagProgrammeEvalArtifact, label: s
     publicSiteContentReleaseDigest: artifact.publicSiteContentReleaseDigest,
     publicSiteContentState: artifact.publicSiteContentState,
     publicSiteContentSnapshotFingerprint: artifact.publicSiteContentSnapshotFingerprint,
-  });
-  if (artifact.populationFingerprint !== expectedPopulationFingerprint) {
-    failures.push(`${label}:invalid_population_fingerprint`);
+  };
+  const invalidPopulationFields = populationInputFailures(populationInput);
+  for (const field of invalidPopulationFields) failures.push(`${label}:invalid_population_field:${field}`);
+  if (invalidPopulationFields.length === 0) {
+    const expectedPopulationFingerprint = fingerprintRagProgrammePopulation(populationInput);
+    if (artifact.populationFingerprint !== expectedPopulationFingerprint) {
+      failures.push(`${label}:invalid_population_fingerprint`);
+    }
   }
   if (artifact.caseSetFingerprint !== ragProgrammeFixture.caseSetFingerprint) {
     failures.push(`${label}:noncanonical_case_set_fingerprint`);
@@ -693,7 +736,7 @@ function artifactValidationFailures(artifact: RagProgrammeEvalArtifact, label: s
       failures.push(`${label}:${testCase.id}:missing_total_latency_ms`);
     } else {
       latencies.push(testCase.totalLatencyMs);
-      if (testCase.totalLatencyMs > canonicalCase.latencyTargetMs) {
+      if (options.enforceLatencyBudgets && testCase.totalLatencyMs > canonicalCase.latencyTargetMs) {
         failures.push(`${label}:${testCase.id}:latency_budget`);
       }
     }
@@ -752,8 +795,8 @@ export function compareRagProgrammeRuns(
   policy: RagProgrammeGatePolicy = RAG_PROGRAMME_GATE_POLICY,
 ): RagProgrammeComparison {
   const reasons = [
-    ...artifactValidationFailures(baseline, "baseline"),
-    ...artifactValidationFailures(candidate, "candidate"),
+    ...artifactValidationFailures(baseline, "baseline", { enforceLatencyBudgets: false }),
+    ...artifactValidationFailures(candidate, "candidate", { enforceLatencyBudgets: true }),
   ];
   if (baseline.evaluationVariant !== "legacy") reasons.push("baseline:variant_must_be_legacy");
   if (candidate.evaluationVariant !== "candidate") reasons.push("candidate:variant_must_be_candidate");

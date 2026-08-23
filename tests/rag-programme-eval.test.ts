@@ -222,6 +222,52 @@ describe("RAG programme case evaluation", () => {
     changedAllowedPayload.cases[0]!.privacyReview.reviewedOn = "2026-08-21";
     expect(() => validateRagProgrammeFixture(changedAllowedPayload)).toThrow(/fingerprint mismatch/i);
   });
+
+  it("exposes the complete canonical fixture as recursively immutable", () => {
+    const canonicalCase = ragProgrammeFixture.cases[0]!;
+    const originalFingerprint = ragProgrammeFixture.caseSetFingerprint;
+    const originalBudget = canonicalCase.latencyTargetMs;
+
+    expect(Object.isFrozen(ragProgrammeFixture)).toBe(true);
+    expect(Object.isFrozen(ragProgrammeFixture.cases)).toBe(true);
+    expect(Object.isFrozen(canonicalCase)).toBe(true);
+    expect(Object.isFrozen(canonicalCase.privacyReview)).toBe(true);
+    expect(Object.isFrozen(canonicalCase.expectedDocuments)).toBe(true);
+    expect(Object.isFrozen(canonicalCase.expectation)).toBe(true);
+    expect(Object.isFrozen(canonicalCase.expectation.expectedCorpusScopes)).toBe(true);
+    expect(() => {
+      (canonicalCase as unknown as { latencyTargetMs: number }).latencyTargetMs = originalBudget + 60_000;
+    }).toThrow(TypeError);
+    expect(() => {
+      (canonicalCase.expectation.expectedCorpusScopes as unknown as string[]).push("international_supplementary");
+    }).toThrow(TypeError);
+    expect(canonicalCase.latencyTargetMs).toBe(originalBudget);
+    expect(ragProgrammeFixture.caseSetFingerprint).toBe(originalFingerprint);
+  });
+
+  it("rejects empty core population identifiers and invalid site partition states before fingerprinting", () => {
+    const validPopulation = {
+      sourcePolicyVersion: "source-policy-v1",
+      indexGeneration: "index-generation-v1",
+      siteContentRegistryVersion: "site-registry-v1",
+      publicSiteContentReleaseId: "site-release-v1",
+      publicSiteContentStaticManifestDigest: "sha256:static",
+      publicSiteContentDynamicStateDigest: "sha256:dynamic",
+      publicSiteContentReleaseDigest: "sha256:release",
+      publicSiteContentState: "current" as const,
+      publicSiteContentSnapshotFingerprint: "sha256:snapshot",
+    };
+
+    for (const field of ["sourcePolicyVersion", "indexGeneration", "siteContentRegistryVersion"] as const) {
+      expect(() => fingerprintRagProgrammePopulation({ ...validPopulation, [field]: " " })).toThrow(field);
+    }
+    expect(() =>
+      fingerprintRagProgrammePopulation({
+        ...validPopulation,
+        publicSiteContentState: "not_a_partition_state" as never,
+      }),
+    ).toThrow(/publicSiteContentState/);
+  });
 });
 
 describe("RAG programme aggregate gate", () => {
@@ -362,5 +408,20 @@ describe("RAG programme aggregate gate", () => {
       decision: "NO_GO",
       reasons: expect.arrayContaining(["candidate:narrow-fact-concise:latency_budget"]),
     });
+  });
+
+  it("allows an over-budget legacy baseline when the candidate is in budget and improves it", () => {
+    const baselineCases = baseline.cases.map((testCase) => ({
+      ...testCase,
+      totalLatencyMs: testCase.id === "narrow-fact-concise" ? 4_001 : testCase.totalLatencyMs,
+    }));
+    const candidateCases = candidate.cases.map((testCase) => ({
+      ...testCase,
+      totalLatencyMs: testCase.id === "narrow-fact-concise" ? 4_000 : testCase.totalLatencyMs,
+    }));
+
+    expect(
+      compareRagProgrammeRuns({ ...baseline, cases: baselineCases }, { ...candidate, cases: candidateCases }),
+    ).toEqual({ decision: "GO", reasons: [] });
   });
 });

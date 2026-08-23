@@ -1072,7 +1072,7 @@ function buildProgrammeEvalCases(): RagEvalCase[] {
     return {
       ...definition,
       latencyTargetMs: fixtureCase.latencyTargetMs,
-      expectedFiles: fixtureCase.expectedDocuments,
+      expectedFiles: [...fixtureCase.expectedDocuments],
       programmeExpectation: fixtureCase.expectation,
     };
   });
