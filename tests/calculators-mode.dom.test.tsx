@@ -29,8 +29,8 @@ import {
 import { calculators, type CalculatorFixture } from "@/components/calculators/calculator-fixtures";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
+import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { sharedHomePresentation } from "@/lib/ui-copy";
 
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
   return Object.fromEntries(calc.items.map((item) => [item.id, 0]));
@@ -111,12 +111,13 @@ describe("calculator mode routing", () => {
   });
 
   it("keeps calculator home copy on the shared lightweight home", () => {
-    expect(sharedHomePresentation.calculators.title).toBe("Clinical Calculators");
-    expect(sharedHomePresentation.calculators.suggestions).toEqual([
-      "depression severity",
-      "anxiety screening",
-      "alcohol use",
-    ]);
+    render(<SharedHomeEmptyState modeId="calculators" />);
+
+    expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Clinical Calculators" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Validated psychiatry scores with the indication, items, and next actions in one place."),
+    ).toBeInTheDocument();
   });
 });
 

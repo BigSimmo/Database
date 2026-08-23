@@ -23,6 +23,7 @@ import {
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import {
   formulationDomainsInUse,
   formulationDomainGroups,
@@ -50,7 +51,7 @@ function EmptySearchResults({ query }: { query: string }) {
         </p>
       </div>
       <Link
-        href="/formulation"
+        href={consolidatedModeSearchPath("formulation")}
         className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
       >
         Clear search

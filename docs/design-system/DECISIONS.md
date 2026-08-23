@@ -119,7 +119,7 @@ ancestor form in the same commit, both here and in the cascade port (SPEC §4.1)
 
 ---
 
-## C5 · Three identity families cover thirteen modes
+## C5 · Three identity families cover fifteen modes
 
 **Chose.** Three families — `--kind-source`, `--kind-answer`, `--kind-workspace` — with the
 mode mapping in SPEC §3. No fourth family. The four hue tones and the two specifier tones

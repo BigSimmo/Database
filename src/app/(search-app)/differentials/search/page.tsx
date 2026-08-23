@@ -28,7 +28,7 @@ function firstValue(value?: string | string[]) {
  */
 export default async function DifferentialsSearchRoute(props: RouteProps) {
   const params = props.searchParams ? await props.searchParams : {};
-  const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
+  const query = firstValue(params.q)?.trim() || firstValue(params.query)?.trim() || "";
   if (!query) redirect("/?mode=differentials");
 
   return <DifferentialsHomePage query={query} autoRunSearch />;

@@ -75,7 +75,7 @@ answer's treatment, and a partial answer must never render as a whole one._ Thes
 
 Full reasoning in DECISIONS §C5. The resolution:
 
-**Three semantically-named identity families cover the thirteen modes**, because the system has
+**Three semantically-named identity families cover the fifteen modes**, because the system has
 **three separate colour channels** that must never borrow from each other:
 
 | Channel             | Job                                                                                      | Tokens                                                      |
@@ -90,11 +90,11 @@ reuses three of the same four for specifier categories. No mode carries a hue as
 
 **Mode → kind mapping** (assumed per mode, cheap to veto — DECISIONS §C5 lists the reasoning):
 
-| Kind               | Modes                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------- |
-| `--kind-source`    | documents · factsheets · dsm · specifiers · formulation · prescribing · therapy-compass · differentials |
-| `--kind-answer`    | answer (any surface whose `resultsSurface` is `"answer"` in `src/lib/app-modes.ts`)                     |
-| `--kind-workspace` | services · forms · favourites · tools                                                                   |
+| Kind               | Modes                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `--kind-source`    | documents · factsheets · dictionary · dsm · specifiers · formulation · prescribing · therapy-compass · differentials |
+| `--kind-answer`    | answer · calculators (generated or calculated output)                                                                |
+| `--kind-workspace` | services · forms · favourites · tools                                                                                |
 
 Rules:
 
