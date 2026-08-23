@@ -161,6 +161,14 @@ observation and settlement, all instrumentation readiness flags were true, and n
 displacement source remained. The 1280/1350/1440 initial shifts were already below 0.01, so the 88 px
 desktop reserve remains deliberately unchanged there.
 
+After `origin/main` advanced to `576ac7b51` and removed ten detailed mockup routes, the final merge head
+`ff8a5a168` reproduced those same three post-fix totals and geometry. The first two merged-head harness
+attempts stopped before browser measurement because their isolated TypeScript config inherited stale
+root `.next/types` validators for the deleted routes. Canonical source typecheck still passed. The CLS and
+Lighthouse isolated configs now extend `tsconfig.typecheck.json`, preventing unrelated root-build residue
+from entering their builds while Next continues to validate the current isolated build. The changed-code
+rerun completed its production build and all three browser cells with exit 0.
+
 ### `/documents/search`
 
 | Profile                  |  Before CLS |   After CLS | Result                    |
@@ -185,6 +193,7 @@ Raw attribution artifacts are intentionally outside tracked source:
 - `output/performance-remediation/cls-before-1024-review.json`
 - `output/performance-remediation/cls-review-boundary-matrix.json`
 - `output/performance-remediation/cls-review-boundary-after.json`
+- `output/performance-remediation/cls-review-boundary-after-main-sync.json`
 
 ## Bundle analysis and budget
 
@@ -263,11 +272,12 @@ the landed requests.
 Passed:
 
 - Aggregate focused Vitest: 17 files, 283 tests.
+- Exact merged-head runner/boundary contracts: 5 files, 131 tests.
 - Tailwind-merge follow-up after the aggregate suite found the new token missing from its registry:
   `tests/tailwind-merge-config.test.ts`, 33/33. Scoped Prettier and ESLint also passed for the corrected
   file.
 - ESLint: 5,061 inputs.
-- TypeScript: 5,061 inputs.
+- TypeScript: 5,061 inputs before the final main sync; 5,049 inputs at the merged head.
 - Normal production build: compiled, TypeScript passed, 1,982/1,982 static pages, client-bundle secret
   check passed. This ran before the one-entry Tailwind-merge registry correction; the affected focused
   test, formatter, and linter were rerun after it.
@@ -275,7 +285,8 @@ Passed:
 - RAG fixture integrity: 36 golden cases / 26 regression fixtures.
 - Medication interaction index: 525 rows; medication lexicon: 37 entries.
 - Sitemap; docs index (60 roots); docs inventory (271 scripts / 271 npm scripts); docs script refs (797);
-  docs links (3,187); outstanding-issues guard (449 rows, 73 open, 26 pending after final requests);
+  docs links (3,187 before the final main sync; 3,175 at the merged head); outstanding-issues guard
+  (449 rows, 73 open, 28 pending after final requests);
   branch-review ledger (880 live, 1,206 archived, 491 immutable at the time of the check).
 - `git diff --check`.
 

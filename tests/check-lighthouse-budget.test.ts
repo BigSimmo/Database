@@ -489,6 +489,8 @@ describe("committed lighthouse-budget.json", () => {
     expect(runner).toContain('ignoreDeprecations: "6.0"');
     expect(runner).toContain('baseUrl: "../.."');
     expect(runner).toContain('paths: { "@/*": ["src/*"] }');
+    expect(runner).toContain('extends: "../../tsconfig.typecheck.json"');
+    expect(runner).not.toContain('extends: "../../tsconfig.json"');
   });
 
   it("invokes npm's JavaScript npx CLI through Node when available", () => {

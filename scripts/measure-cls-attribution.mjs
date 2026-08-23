@@ -603,7 +603,10 @@ try {
   mkdirSync(absoluteRunRoot, { recursive: true });
   writeFileSync(
     path.join(absoluteRunRoot, "tsconfig.json"),
-    `${JSON.stringify({ extends: "../../tsconfig.json", compilerOptions: { noEmit: true } }, null, 2)}\n`,
+    // The root config explicitly includes `.next/types`. Use the source-health
+    // base so an isolated run cannot ingest stale validators from a root build;
+    // Next still validates the generated types in this run's dist tree.
+    `${JSON.stringify({ extends: "../../tsconfig.typecheck.json", compilerOptions: { noEmit: true } }, null, 2)}\n`,
     "utf8",
   );
 

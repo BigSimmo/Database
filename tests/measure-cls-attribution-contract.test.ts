@@ -246,6 +246,11 @@ describe("CLS attribution evidence contract", () => {
     expect(source).not.toContain("rmSync(");
   });
 
+  it("isolates production type checking from stale root route validators", () => {
+    expect(source).toContain('extends: "../../tsconfig.typecheck.json"');
+    expect(source).not.toContain('extends: "../../tsconfig.json"');
+  });
+
   it("records complete browser-profile metadata in each stable output cell", () => {
     expect(source).toContain('flag("profiles", undefined)');
     expect(source).toContain("for (const profile of profiles)");

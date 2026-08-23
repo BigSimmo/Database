@@ -408,7 +408,10 @@ try {
     path.join(absoluteRunRoot, "tsconfig.json"),
     `${JSON.stringify(
       {
-        extends: "../../tsconfig.json",
+        // The root config explicitly includes `.next/types`. An isolated build
+        // must not inherit stale route validators from an earlier root build;
+        // Next still validates the generated types in this run's dist tree.
+        extends: "../../tsconfig.typecheck.json",
         compilerOptions: {
           // TypeScript 6 deprecates baseUrl (TS5101). Next 16.3+ typechecks this
           // isolated config during `next build`, so silence until paths migrate.
