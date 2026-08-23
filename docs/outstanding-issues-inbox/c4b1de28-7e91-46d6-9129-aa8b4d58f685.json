@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c4b1de28-7e91-46d6-9129-aa8b4d58f685",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#RSD9EJ",
+    "outcome": "Updated scripts/guard-push.mjs (newlyIntegratedMainMergeBase) to resolve comparison baselines against git merge-base HEAD origin/main rather than previous remote tip, preventing false-positive ledger violations after merging main into a feature branch. Pinned by unit test in tests/guard-push.test.ts (55/55 passed).",
+    "baseRowFingerprint": "b687cb212853e6b4c4df866ea79d625556cad416a0c3e406a2044f82691a4d4b"
+  }
+}
