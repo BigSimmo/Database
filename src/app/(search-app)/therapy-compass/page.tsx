@@ -12,9 +12,8 @@ import { appModeSelectionHref } from "@/lib/app-modes";
  * the query across, so a deep link never lands here without one.
  *
  * The rest of the Therapy workspace is untouched — search, compare, recommend,
- * pathways and every record route still render themselves. Only the home screen
- * retired, and it is preserved off the live routes at
- * `/mockups/therapy-compass-home-detailed`.
+ * pathways and every record route still render themselves. Only the detailed
+ * home retired.
  *
  * Consolidating this mode was blocked while it was `devOnly`: the shared home
  * hides devOnly modes in production, so `/?mode=therapy-compass` came back as

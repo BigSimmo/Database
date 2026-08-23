@@ -20,9 +20,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ModeHomeTemplate } from "@/components/mode-home-template";
-import { appModeIcons } from "@/lib/app-mode-icons";
-import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -48,26 +45,11 @@ import {
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   composeDifferentialSearchResults,
-  defaultDifferentialRecentQueries,
   type DifferentialSearchResultItem,
 } from "@/lib/differential-search-composition";
 import type { DifferentialRecord } from "@/lib/differential-snapshot";
 import type { DocumentMatch } from "@/lib/types";
 import { sortResultItems } from "@/lib/result-sort";
-
-type DifferentialAction = {
-  label: string;
-  description: string;
-  query: string;
-  icon: LucideIcon;
-  target: "search" | "presentations" | "diagnoses";
-};
-
-type RecentDifferential = {
-  label: string;
-  query: string;
-  icon: LucideIcon;
-};
 
 type DifferentialResult = {
   id: string;
@@ -87,29 +69,6 @@ type DifferentialResult = {
 };
 
 type DifferentialEvidenceState = "source-backed" | "guided";
-
-const primaryActions: DifferentialAction[] = [
-  {
-    label: "Search presentations",
-    description: "By symptom or scenario.",
-    query: "acute confusion differential diagnosis",
-    icon: Search,
-    target: "presentations",
-  },
-  {
-    label: "Compare differentials",
-    description: "Likely causes, side by side.",
-    query: "delirium vs dementia differential diagnosis",
-    icon: GitCompareArrows,
-    target: "diagnoses",
-  },
-];
-
-const recentDifferentials: RecentDifferential[] = defaultDifferentialRecentQueries.map((query) => ({
-  label: query.replace(/\bdifferential diagnosis\b/i, "").trim() || query,
-  query: query.includes("differential") ? query : `${query} differential diagnosis`,
-  icon: BrainCircuit,
-}));
 
 const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["substance", FlaskConical],
@@ -1267,12 +1226,7 @@ export function DifferentialsHome({
   searchSubmitted,
   documentMatches,
   evidenceQuery,
-  onQueryChange,
-  onSuggestedSearch,
   onRunSearch,
-  onOpenPresentations,
-  onOpenDiagnoses,
-  desktopComposerSlotId,
 }: {
   query: string;
   loading: boolean;
@@ -1304,29 +1258,6 @@ export function DifferentialsHome({
     router.push(appModeHomeHref("differentials", { query: searchText, run: true, focus: true }));
   }
 
-  function handleSuggestedSearch(nextQuery: string) {
-    onQueryChange?.(nextQuery);
-    if (onSuggestedSearch) {
-      onSuggestedSearch(nextQuery);
-      return;
-    }
-    router.push(appModeHomeHref("differentials", { query: nextQuery, run: true, focus: true }));
-  }
-
-  function handleAction(action: DifferentialAction) {
-    if (action.target === "presentations") {
-      if (onOpenPresentations) onOpenPresentations(action.query);
-      else router.push(differentialRouteWithQuery("/differentials/presentations", action.query));
-      return;
-    }
-    if (action.target === "diagnoses") {
-      if (onOpenDiagnoses) onOpenDiagnoses(action.query);
-      else router.push(differentialRouteWithQuery("/differentials/diagnoses", action.query));
-      return;
-    }
-    runSearch(action.query);
-  }
-
   // Only surface ranked results once an actual search has run (submitted,
   // loading, or evidence matches present) — not on every keystroke. The
   // catalogue results are the primary content, so a submitted search with
@@ -1343,48 +1274,7 @@ export function DifferentialsHome({
     );
   }
 
-  return (
-    <div data-testid="differentials-home" className="w-full">
-      <ModeHomeTemplate
-        testId="differentials-home-template"
-        title={sharedHomePresentation.differentials.title}
-        subtitle={sharedHomePresentation.differentials.subtitle}
-        icon={appModeIcons.differentials}
-        headingLevel={1}
-        desktopComposerSlotId={desktopComposerSlotId}
-        actionsLabel="Differential actions"
-        actions={primaryActions.map((action) => ({
-          title: action.label,
-          description: action.description,
-          icon: action.icon,
-          onClick: () => handleAction(action),
-          disabled: loading,
-        }))}
-        pillsTitle={hasEvidenceMatches ? "Library matches" : "Recent work"}
-        pillsAction={
-          <button
-            type="button"
-            onClick={() => router.push("/differentials/presentations?q=recent+differential+review")}
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-sm"
-          >
-            View all
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </button>
-        }
-        pills={
-          hasEvidenceMatches
-            ? documentMatches?.slice(0, 4).map((match) => ({
-                label: match.title,
-                icon: FlaskConical,
-                onClick: () => handleSuggestedSearch(match.title),
-              }))
-            : recentDifferentials.map((item) => ({
-                label: item.label,
-                icon: item.icon,
-                onClick: () => handleSuggestedSearch(item.query),
-              }))
-        }
-      />
-    </div>
-  );
+  // Empty unsubmitted visits 307 to `/?mode=differentials`. Returning null here
+  // so a dashboard loading flash cannot resurrect the retired tile home.
+  return null;
 }

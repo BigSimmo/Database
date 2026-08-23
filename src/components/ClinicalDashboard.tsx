@@ -3048,8 +3048,8 @@ function ClinicalDashboardContent({
           // Prescribing keeps MedicationHome (and the hero/phone composer) until
           // an explicit submit — draft keystrokes must not flip to results/dock.
           (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-          // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
-          // with stale evidence matches — keep the hero slot only while home mounts.
+          // Empty unsubmitted differentials visits 307 to the shared home;
+          // keep the hero slot only while that idle dashboard branch mounts.
           (activeModeResultKind === "differentials" &&
             !modeSearchSubmitted &&
             !(query.trim() && documentMatches.length > 0)))));

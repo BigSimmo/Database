@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "authority": "This register is the status authority for privacy readiness. Repository proof cannot satisfy provider, legal, or clinical evidence classes.",
-  "reviewedCommit": "f604bd41bee8173fdeca560c03d1c34344f61945",
+  "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
   "reviewedAt": "2026-08-23",
   "reviewExpiresAt": "2026-11-23",
   "requirements": [
