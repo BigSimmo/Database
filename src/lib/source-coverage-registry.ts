@@ -23,6 +23,7 @@ export type ExpectedSourceCoverageRegistry = Readonly<{
 const MAX_RECORDS = 500;
 const MAX_IDS = 500;
 const statuses = new Set(["active", "absent", "not_approved", "retired"]);
+const expectedDocumentsByCase = new WeakMap<ExpectedSourceCoverageRecord, ReadonlyMap<string, readonly string[]>>();
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object.`);
@@ -102,7 +103,17 @@ export function parseExpectedSourceCoverageRegistry(
       )
     )
       throw new Error(`${key} expected document mapping disagrees with the evaluation registry.`);
-    return { key, owner, reviewStatus, expectedDocumentIds, mustPassCaseIds };
+    const parsedRecord = { key, owner, reviewStatus, expectedDocumentIds, mustPassCaseIds };
+    expectedDocumentsByCase.set(
+      parsedRecord,
+      new Map(
+        mappedCases.map((testCase) => [
+          testCase.id,
+          expectedDocumentIds.filter((documentId) => testCase.expectedDocuments.includes(documentId)),
+        ]),
+      ),
+    );
+    return parsedRecord;
   });
   const missingCatalogueKeys = references.catalogue.map(({ key }) => key).filter((key) => !keys.has(key));
   if (missingCatalogueKeys.length)
@@ -130,7 +141,8 @@ export function auditExpectedSourceCoverage(args: {
         else {
           const retrievalMiss = entry.mustPassCaseIds.some((caseId) => {
             const retrieved = args.retrievedDocumentIdsByCase.get(caseId);
-            return !retrieved || entry.expectedDocumentIds.some((documentId) => !retrieved.has(documentId));
+            const expectedForCase = expectedDocumentsByCase.get(entry)?.get(caseId) ?? entry.expectedDocumentIds;
+            return !retrieved || expectedForCase.some((documentId) => !retrieved.has(documentId));
           });
           outcome = retrievalMiss ? "retrieval_miss" : "available";
         }

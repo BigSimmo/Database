@@ -32,6 +32,28 @@ export type IngestionMustPassCase = {
   failedExpectations: string[];
 };
 
+export const INGESTION_FAILED_EXPECTATION_CODES = [
+  "answer_shape",
+  "australian_document_id",
+  "corpus_scope",
+  "exact_gap_named",
+  "expected_content_not_retrieved",
+  "expected_document_not_retrieved",
+  "fallback_reason",
+  "false_insufficiency",
+  "forbidden_pattern",
+  "local_document_id",
+  "minimum_direct_subquestions",
+  "required_fact",
+  "site_content_state",
+  "site_domain",
+  "source_role",
+  "subquestion_purpose",
+  "supported_part_retained",
+] as const;
+
+const FAILED_EXPECTATION_CODES = new Set<string>(INGESTION_FAILED_EXPECTATION_CODES);
+
 export type IngestionIntegrityExpectation = {
   pages: number | null;
   chunks: number | null;
@@ -170,11 +192,17 @@ export function deterministicAuditDigest(value: unknown) {
     .digest("hex")}`;
 }
 
-function measuredCount(value: number | null) {
-  return value ?? 0;
-}
-
 export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocumentAudit {
+  if (input.indexedPageCount === null) {
+    throw new Error(`Indexed page count measurement is required for ${input.documentId}.`);
+  }
+  for (const testCase of input.mustPassCases) {
+    for (const failedExpectation of testCase.failedExpectations) {
+      if (!FAILED_EXPECTATION_CODES.has(failedExpectation)) {
+        throw new Error(`Unsupported failed expectation code for ${testCase.id}.`);
+      }
+    }
+  }
   const expectation = input.integrityExpectation;
   const reasons = new Set<IngestionAuditReason>();
   if (!expectation) reasons.add("integrity_expectation_missing");
@@ -183,9 +211,8 @@ export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocu
   if (input.lifecycle === "withdrawn" || input.lifecycle === "superseded") reasons.add("withdrawn_or_superseded");
 
   if (!input.registryProjection) {
-    const expectedPages = input.pageCount ?? expectation?.pages ?? null;
-    if (expectedPages !== null && input.indexedPageCount !== null && input.indexedPageCount < expectedPages)
-      reasons.add("missing_pages");
+    const expectedPages = expectation?.pages ?? input.pageCount;
+    if (expectedPages !== null && input.indexedPageCount < expectedPages) reasons.add("missing_pages");
     if (expectation?.chunks !== null && expectation?.chunks !== undefined && input.chunkCount < expectation.chunks)
       reasons.add("missing_chunks");
     if (input.duplicateChunks > 0) reasons.add("duplicate_chunks");
@@ -215,9 +242,9 @@ export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocu
       reasons.add("embedding_missing_or_mismatched");
     }
     if (
-      input.activeGenerationId &&
-      ((input.chunkCount > 0 && generations.length === 0) ||
-        generations.some((value) => value !== input.activeGenerationId))
+      input.activeGenerationId === null ||
+      (input.chunkCount > 0 && generations.length === 0) ||
+      generations.some((value) => value !== input.activeGenerationId)
     ) {
       reasons.add("generation_incomplete");
     }
@@ -279,7 +306,7 @@ export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocu
     blockingDisposition,
     reasons: orderedReasons,
     counts: {
-      pages: { expected: expectation?.pages ?? input.pageCount, actual: measuredCount(input.indexedPageCount) },
+      pages: { expected: expectation?.pages ?? input.pageCount, actual: input.indexedPageCount },
       chunks: { expected: expectation?.chunks ?? null, actual: input.chunkCount },
       tables: { expected: expectation?.tables ?? null, actual: input.tableCount },
       images: { expected: expectation?.images ?? null, actual: input.imageCount },

@@ -1,10 +1,14 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, open, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { australianSourceCatalogue } from "@/lib/australian-source-catalogue";
-import { auditDocument, type IngestionDocumentAuditInput } from "@/lib/ingestion-audit";
+import {
+  auditDocument,
+  INGESTION_FAILED_EXPECTATION_CODES,
+  type IngestionDocumentAuditInput,
+} from "@/lib/ingestion-audit";
 import { ragProgrammeFixture } from "@/lib/rag/rag-programme-eval";
 import { auditExpectedSourceCoverage, parseExpectedSourceCoverageRegistry } from "@/lib/source-coverage-registry";
 import { isRegistryProjectionDocument } from "./lib/indexing-health-document";
@@ -19,6 +23,8 @@ const MAX_BYTES = 2_000_000;
 const MAX_DOCUMENTS = 5_000;
 const MAX_CASES = 1_000;
 const MAX_ARRAY = 5_000;
+const MAX_FAILED_EXPECTATIONS = 32;
+const failedExpectationCodes = new Set<string>(INGESTION_FAILED_EXPECTATION_CODES);
 
 function object(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object.`);
@@ -53,6 +59,16 @@ function stringArray(value: unknown, label: string): string[] {
   if (!Array.isArray(value) || value.length > MAX_ARRAY) throw new Error(`${label} must be a bounded array.`);
   const result = value.map((item, index) => text(item, `${label}[${index}]`) as string);
   if (new Set(result).size !== result.length) throw new Error(`${label} contains duplicate values.`);
+  return result.sort();
+}
+
+function failureCodeArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value) || value.length > MAX_FAILED_EXPECTATIONS)
+    throw new Error(`${label} must be a bounded array of failed expectation codes.`);
+  const result = value.map((item, index) => text(item, `${label}[${index}]`) as string);
+  if (new Set(result).size !== result.length) throw new Error(`${label} contains duplicate values.`);
+  if (result.some((code) => !failedExpectationCodes.has(code)))
+    throw new Error(`${label} contains an unsupported failed expectation code.`);
   return result.sort();
 }
 
@@ -138,7 +154,7 @@ function parseDocument(value: unknown, index: number): IngestionDocumentAuditInp
       passed: testCase.passed,
       expectedDocumentRank: count(testCase.expectedDocumentRank, `${itemLabel}.expectedDocumentRank`, true),
       actualDocumentRank: count(testCase.actualDocumentRank, `${itemLabel}.actualDocumentRank`, true),
-      failedExpectations: stringArray(testCase.failedExpectations, `${itemLabel}.failedExpectations`),
+      failedExpectations: failureCodeArray(testCase.failedExpectations, `${itemLabel}.failedExpectations`),
     };
   });
   return {
@@ -266,9 +282,25 @@ function parseArgs(argv: string[]) {
 }
 
 async function readBoundedJson(filePath: string) {
-  const source = await readFile(filePath, "utf8");
-  if (Buffer.byteLength(source) > MAX_BYTES) throw new Error(`${filePath} exceeds the audit input size limit.`);
-  return JSON.parse(source) as unknown;
+  const handle = await open(filePath, "r");
+  try {
+    const stats = await handle.stat();
+    if (!stats.isFile()) throw new Error(`${filePath} must be a regular audit input file.`);
+    if (stats.size > MAX_BYTES) throw new Error(`${filePath} exceeds the audit input size limit.`);
+    const source = Buffer.alloc(stats.size);
+    let offset = 0;
+    while (offset < source.length) {
+      const { bytesRead } = await handle.read(source, offset, source.length - offset, offset);
+      if (bytesRead === 0) break;
+      offset += bytesRead;
+    }
+    const extra = Buffer.alloc(1);
+    const { bytesRead: extraBytesRead } = await handle.read(extra, 0, 1, offset);
+    if (extraBytesRead > 0) throw new Error(`${filePath} changed while the bounded audit input was read.`);
+    return JSON.parse(source.subarray(0, offset).toString("utf8")) as unknown;
+  } finally {
+    await handle.close();
+  }
 }
 
 function stableJson(value: unknown) {
@@ -282,13 +314,25 @@ export async function runOfflineIngestionAudit(argv: string[]) {
     catalogue: australianSourceCatalogue,
     evaluationCases: ragProgrammeFixture.cases,
   });
-  const activeDocumentIds = new Set(inventory.documents.map(({ documentId }) => documentId));
   const retrievedDocumentIdsByCase = new Map(
     inventory.retrievalCases.map(({ id, retrievedDocumentIds }) => [id, new Set(retrievedDocumentIds)]),
   );
   const documents = inventory.documents
     .map(auditDocument)
     .sort((left, right) => left.documentId.localeCompare(right.documentId));
+  const auditByDocumentId = new Map(documents.map((document) => [document.documentId, document]));
+  const activeDocumentIds = new Set(
+    inventory.documents
+      .filter(
+        (document) =>
+          document.lifecycle === "active" &&
+          document.governanceValid &&
+          document.integrityExpectation !== null &&
+          !document.registryProjection &&
+          auditByDocumentId.get(document.documentId)?.eligibleForShadowPlan === true,
+      )
+      .map(({ documentId }) => documentId),
+  );
   const sourceCoverage = auditExpectedSourceCoverage({
     expected: expected.records,
     activeDocumentIds,
