@@ -34,7 +34,7 @@ describe("consolidated mode home redirects", () => {
       "/medications",
       // Documents is dashboard-owned: the shell paints a real Documents home there.
       "/documents",
-      "/mockups/dsm-home-detailed",
+      "/mockups/favourites-hub",
     ]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
@@ -148,22 +148,24 @@ describe("consolidated mode home redirects", () => {
   });
 
   /*
-   * The scope is deliberately narrow — only `/calculators/search`. Differentials,
-   * Formulation and Specifiers search routes are NOT here even though they look
-   * like the same shape: their components render a real browsable catalogue on an
-   * empty query — the same content their bare mode paths held before
-   * consolidation, relocated rather than duplicated
-   * (`tests/ui-phone-scroll-routes.spec.ts` pins the long list rendering at
-   * `/formulation/search` with no query). Factsheets, Dictionary and Therapy are
-   * absent for the separate reason below: they are linked from their own mode
-   * nav with no query at all, so redirecting them would break the tab pointing
-   * at them.
+   * Calculators and differentials search have no browse view: empty visits
+   * forward home. Formulation and specifiers keep their empty `/search` as the
+   * catalogue (`tests/ui-phone-scroll-routes.spec.ts` pins formulation).
+   * Factsheets, Dictionary and Therapy stay off this map because mode nav links
+   * them with no query.
    */
+  it("forwards empty differentials search to the shared home, like calculators", () => {
+    const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
+
+    expect(search("/differentials/search")).toBe("/?mode=differentials");
+    expect(search("/differentials/search", "q=")).toBe("/?mode=differentials");
+    expect(search("/differentials/search", "q=%20")).toBe("/?mode=differentials");
+  });
+
   it("leaves query-free browse surfaces alone", () => {
     const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
 
     for (const pathname of [
-      "/differentials/search",
       "/formulation/search",
       "/specifiers/search",
       "/factsheets/search",

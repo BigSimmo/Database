@@ -16,19 +16,18 @@ function firstValue(value?: string | string[]) {
 }
 
 /**
- * Submitted formulation searches — and the browsable mechanism list when nothing
- * is submitted yet.
+ * Submitted formulation searches — and the browsable mechanism catalogue when
+ * nothing is submitted yet.
  *
  * Split out of the bare `/formulation` path when that became a redirect onto the shared
  * home: results need a route of their own, or `appModeHomeHref` would send a
- * submitted query back through the redirect and loop. An empty query renders the
- * same browse experience `/formulation` used to hold before consolidation — this is
- * where it lives now, not a duplicate of it (`tests/ui-phone-scroll-routes.spec.ts`
- * pins the long mechanism list rendering here with no query).
+ * submitted query back through the redirect and loop. An empty query lists the
+ * full mechanism catalogue (`tests/ui-phone-scroll-routes.spec.ts` pins that
+ * long list rendering here with no query).
  */
 export default async function FormulationSearchRoute(props: RouteProps) {
   const params = props.searchParams ? await props.searchParams : {};
   const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
 
-  return <FormulationHomePage query={query} autoRunSearch={query.length > 0} />;
+  return <FormulationHomePage query={query} />;
 }

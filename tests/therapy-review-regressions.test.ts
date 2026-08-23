@@ -47,9 +47,9 @@ describe("Therapy review regression contracts", () => {
     expect(therapies).toContain("export function therapyNeedsReview");
   });
 
-  it("keeps the catalogue-wide review notice on the Therapy library, above the hero", () => {
+  it("keeps the catalogue-wide review notice on the Therapy library, above the search band", () => {
     const notice = source("src/components/therapy-compass/therapy-review-notice.tsx");
-    const home = source("src/components/therapy-compass/screens/home-screen.tsx");
+    const search = source("src/components/therapy-compass/screens/search-screen.tsx");
 
     expect(notice).toContain('role="note"');
     expect(notice).toContain("THERAPY_CATALOGUE_SUMMARY.needsReviewCount");
@@ -57,9 +57,9 @@ describe("Therapy review regression contracts", () => {
     // Non-interactive: a caveat the reader can dismiss is not a caveat.
     expect(notice).not.toContain("<button");
     expect(notice).not.toContain("onClick");
-    // Above the hero, not buried in the quiet footer line.
-    expect(home).toContain("<TherapyReviewNotice");
-    expect(home.indexOf("<TherapyReviewNotice")).toBeLessThan(home.indexOf("<ModeHomeTemplate"));
+    // Live library surface is `/therapy-compass/search`, not a retired tile home.
+    expect(search).toContain("<TherapyReviewNotice");
+    expect(search.indexOf("<TherapyReviewNotice")).toBeLessThan(search.indexOf("<SearchResultsHeaderBand"));
   });
 
   it("keeps the per-record review badge on every Therapy surface that shows a record", () => {
@@ -92,17 +92,15 @@ describe("Therapy review regression contracts", () => {
   });
 
   it("keeps follow-up Therapy review fixes canonical, token-backed, and single-pass", () => {
-    const home = source("src/components/therapy-compass/screens/home-screen.tsx");
+    const nav = source("src/lib/mode-secondary-navigation.ts");
     const detail = source("src/components/therapy-compass/screens/detail-screen.tsx");
     const select = source("src/components/therapy-compass/data/select.ts");
     const globals = source("src/app/globals.css");
     const universalSearch = source("tests/ui-universal-search.spec.ts");
 
-    expect(home).toContain('therapyScreenHref("recommend")');
-    expect(home).toContain('therapyScreenHref("pathways")');
-    expect(home).toContain('therapyScreenHref("compare")');
-    expect(home).not.toContain('href: "/therapy-compass/');
-    expect(home).not.toContain("`/therapy-compass/search?q=");
+    expect(nav).toContain('href: "/therapy-compass/recommend"');
+    expect(nav).toContain('href: "/therapy-compass/pathways"');
+    expect(nav).toContain('href: "/therapy-compass/compare"');
 
     const searchStart = select.indexOf("export function searchTherapies");
     const searchEnd = select.indexOf("// ---- related", searchStart);

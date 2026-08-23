@@ -106,20 +106,21 @@ describe("mode-home loading contract", () => {
     expect(source).toContain("pathname === THERAPY_HOME");
   });
 
-  it("routes Factsheets' mode home body through the shared ModeHomeTemplate composer host", () => {
-    // A hand-rolled composer slot (as Factsheets briefly had) omits the SSR
-    // data-composer-reserve/min-h reserve that ModeHomeTemplate provides, which
-    // regresses the shared "one composer host" contract — see
-    // docs/search-chrome-behaviour.md Invariant 15.
-    const factsheetsSource = readFileSync(
-      join(process.cwd(), "src/components/factsheets/factsheets-home-page.tsx"),
+  it("routes the shared mode home body through the shared ModeHomeTemplate composer host", () => {
+    // A hand-rolled composer slot omits the SSR data-composer-reserve/min-h
+    // reserve that ModeHomeTemplate provides, which regresses the shared
+    // "one composer host" contract — see docs/search-chrome-behaviour.md
+    // Invariant 15. Factsheets (and every other consolidated mode) now land
+    // on this same SharedHomeEmptyState surface.
+    const sharedHomeSource = readFileSync(
+      join(process.cwd(), "src/components/clinical-dashboard/answer-status.tsx"),
       "utf8",
     );
-    expect(factsheetsSource).toMatch(
+    expect(sharedHomeSource).toMatch(
       /import\s*\{[^}]*ModeHomeTemplate[^}]*\}\s*from\s*"@\/components\/mode-home-template"/,
     );
-    expect(factsheetsSource).toMatch(/<ModeHomeTemplate\b/);
-    expect(factsheetsSource).not.toMatch(/DesktopComposerPortalSlot/);
+    expect(sharedHomeSource).toMatch(/<ModeHomeTemplate\b/);
+    expect(sharedHomeSource).not.toMatch(/DesktopComposerPortalSlot/);
   });
 
   it("keeps mode-home route loading top-aligned on phones", () => {

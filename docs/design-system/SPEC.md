@@ -85,10 +85,8 @@ Full reasoning in DECISIONS §C5. The resolution:
 | **Clinical state**  | Source currency and safety — the reserved channel of §2.1                                | status/danger/warning/success roles                         |
 
 The claim that mode identity needed more than three families conflated the first two channels.
-**[verified:** the four hue tones label _categories inside_ modes, not modes — Services home
-uses all four for ATSI / Youth / Telehealth / Free pathway pills
-(`src/components/services/services-home-page.tsx:47-83`), and `specifier-ui.tsx` reuses three
-of the same four for specifier categories. No mode carries a hue as its identity.**]**
+**[verified:** the four hue tones label _categories inside_ modes, not modes — `specifier-ui.tsx`
+reuses three of the same four for specifier categories. No mode carries a hue as its identity.**]**
 
 **Mode → kind mapping** (assumed per mode, cheap to veto — DECISIONS §C5 lists the reasoning):
 
@@ -104,8 +102,8 @@ Rules:
   none matches its nearest `--type-*`, so delete-and-alias would silently change four dark
   colours. New category colour needs a role name, not a thirteenth tone.
 - Category colour may not borrow clinical-state colour, with **one sanctioned exception**: a
-  category that itself denotes urgency (the Services "Crisis" pathway pill wears the danger
-  tone — **[verified:** `services-home-page.tsx:50`**]**). This mirrors the `ClinicalCallout`
+  category that itself denotes urgency (the Services "Crisis" pathway used the danger
+  tone on the retired tile home). This mirrors the `ClinicalCallout`
   rule: only contraindication and urgent escalation may use red/amber.
 - Kind identity never varies by clinical state; a stale source is still `--kind-source`.
 

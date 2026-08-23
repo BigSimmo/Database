@@ -8,7 +8,6 @@ import {
   THERAPY_CATALOGUE_ASSETS,
   THERAPY_CATALOGUE_SUMMARY,
 } from "@/components/therapy-compass/data/generated-assets";
-import { HomeScreen } from "@/components/therapy-compass/screens/home-screen";
 
 const navigation = vi.hoisted(() => ({ pathname: "/therapy-compass", push: vi.fn() }));
 
@@ -48,28 +47,20 @@ afterEach(() => {
 });
 
 describe("Therapy Compass required data recovery", () => {
-  it("paints the generated catalogue count without fetching a home projection", async () => {
+  it("does not fetch a home projection on the lightweight home path", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     render(
       <TherapyCompassWorkspace>
-        <HomeScreen />
+        <div>Home ready</div>
       </TherapyCompassWorkspace>,
     );
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Therapy" })).toBeInTheDocument();
-    expect(
-      screen.getByText(`${THERAPY_CATALOGUE_SUMMARY.totalCount} source-grounded therapy records.`),
-    ).toBeInTheDocument();
-    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByText("Home ready")).toBeInTheDocument();
+    expect(THERAPY_CATALOGUE_SUMMARY.totalCount).toBeGreaterThan(0);
     await waitFor(() => expect(fetchMock).not.toHaveBeenCalled());
-
-    expect(screen.getByRole("link", { name: /Compare therapies/i })).toHaveAttribute(
-      "href",
-      "/therapy-compass/compare",
-    );
   });
 
   it("shows an honest load error, retries all required files, and recovers", async () => {
@@ -180,13 +171,12 @@ describe("Therapy Compass required data recovery", () => {
     navigation.pathname = "/therapy-compass";
     view.rerender(
       <TherapyCompassWorkspace>
-        <HomeScreen />
+        <div>Home ready</div>
       </TherapyCompassWorkspace>,
     );
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Therapy" })).toBeInTheDocument();
-    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByText("Home ready")).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
     recover = true;

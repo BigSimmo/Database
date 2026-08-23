@@ -1866,9 +1866,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
 
   // `/differentials` no longer renders a home of its own: it redirects onto the
   // shared one, which is where a direct link, a bookmark and the sidebar's "More
-  // modes" sheet all now land. The detailed home this used to assert (Recent
-  // work, Library matches, the Compare action row) is design scratch at
-  // /mockups/differentials-home-detailed and 404s in production.
+  // modes" sheet all now land.
   test("a direct link to the differentials home lands on the shared home", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/differentials");
@@ -3180,33 +3178,5 @@ test.describe("Responsive layout guards", () => {
       .poll(() => page.evaluate(() => (window as typeof window & { __printCalled?: boolean }).__printCalled))
       .toBe(true);
     expect(appRequests).toEqual([]);
-  });
-
-  // Tagged @mockup because the surface moved, not because the contract lapsed:
-  // the detailed differentials home was retired to /mockups when the mode moved
-  // onto the shared home, and /mockups 404s in production. The scroll row and its
-  // touch targets still ship in the bundle, so they are still worth guarding —
-  // just in the project that can reach them.
-  test("differentials recent work remains touch-sized inside its mobile scroll row @mockup", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 760 });
-    await mockAnswerDashboardApi(page);
-    await gotoLauncher(page, "/mockups/differentials-home-detailed");
-
-    const recentWork = page.getByTestId("differentials-home-template").getByRole("region", { name: "Recent work" });
-    await expect(recentWork).toBeVisible();
-    const recentButtons = recentWork.locator(".answer-suggestion-row-scroll").getByRole("button");
-    expect(await recentButtons.count()).toBeGreaterThan(1);
-    for (const button of await recentButtons.all()) await expectMinTouchTarget(button);
-
-    const rowMetrics = await recentWork.locator(".answer-suggestion-row-scroll").evaluate((row) => {
-      const style = getComputedStyle(row);
-      return {
-        overflows: row.scrollWidth > row.clientWidth + 1,
-        maskImage: style.maskImage || style.webkitMaskImage,
-      };
-    });
-    expect(rowMetrics.overflows).toBe(true);
-    expect(rowMetrics.maskImage).not.toBe("none");
-    await expectNoPageHorizontalOverflow(page);
   });
 });

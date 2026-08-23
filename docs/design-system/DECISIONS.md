@@ -131,8 +131,8 @@ identity.
 formulation · therapy-compass was the candidate). Nothing loses its distinction under three:
 **[verified:** no mode carries a hue as its identity today — `mode-home-template.tsx`'s tone
 map serves pills, and the four hues in live use label Services _pathway categories_
-(ATSI / Youth / Telehealth / Free, `services-home-page.tsx:47-83`) plus specifier
-categories (`specifier-ui.tsx:282-294`), not modes.**]** The kind families answer the safety
+(ATSI / Youth / Telehealth / Free historically on the retired Services home) plus specifier
+categories (`specifier-ui.tsx:260-272`), not modes.**]** The kind families answer the safety
 question — _is this evidence, machine output, or my workspace?_ — and reference modes are
 evidence surfaces (`--kind-source`). A fourth family would re-split the channel the freeze
 exists to stabilise, for a distinction no current surface draws.

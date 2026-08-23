@@ -27,10 +27,10 @@ import {
   type CalculatorFilterState,
 } from "@/components/calculators/calculator-filters";
 import { calculators, type CalculatorFixture } from "@/components/calculators/calculator-fixtures";
-import { CalculatorsHomePage } from "@/components/calculators/home-page";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
+import { sharedHomePresentation } from "@/lib/ui-copy";
 
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
   return Object.fromEntries(calc.items.map((item) => [item.id, 0]));
@@ -110,16 +110,13 @@ describe("calculator mode routing", () => {
     expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=GAD-7");
   });
 
-  it("mounts the universal hero composer slot and canonical starter searches", () => {
-    const { container } = render(<CalculatorsHomePage />);
-
-    expect(screen.getByRole("heading", { level: 1, name: "Clinical Calculators" })).toBeVisible();
-    expect(container.querySelector(".mode-home-composer-slot")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Depression severity/ })).toHaveAttribute(
-      "href",
-      "/calculators/search?q=depression&run=1",
-    );
-    expect(screen.getByRole("link", { name: "PHQ-9" })).toHaveAttribute("href", "/calculators/search?q=PHQ-9&run=1");
+  it("keeps calculator home copy on the shared lightweight home", () => {
+    expect(sharedHomePresentation.calculators.title).toBe("Clinical Calculators");
+    expect(sharedHomePresentation.calculators.suggestions).toEqual([
+      "depression severity",
+      "anxiety screening",
+      "alcohol use",
+    ]);
   });
 });
 

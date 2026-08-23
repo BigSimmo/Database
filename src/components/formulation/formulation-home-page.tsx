@@ -3,18 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useDeferredValue, useId, useMemo, useState } from "react";
-import {
-  ArrowRight,
-  CheckCircle2,
-  ChevronRight,
-  GitCompareArrows,
-  Lightbulb,
-  ListChecks,
-  MessageSquareQuote,
-  Network,
-  Search,
-  Target,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, Lightbulb, MessageSquareQuote, Search, Target } from "lucide-react";
 
 import {
   FormulationPageShell,
@@ -22,10 +11,6 @@ import {
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
-import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
-import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
-import { appModeIcons } from "@/lib/app-mode-icons";
-import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -42,87 +27,13 @@ import {
   formulationDomainsInUse,
   formulationDomainGroups,
   formulationSearchPresets,
-  formulationTemplates,
   searchFormulationMechanisms,
 } from "@/lib/formulation";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
 
 function presetHref(query: string) {
   return appModeHomeHref("formulation", { query, run: true, focus: true });
-}
-
-function builderTemplateHref(templateId: string) {
-  const params = new URLSearchParams({ template: templateId });
-  return `/formulation/builder?${params.toString()}`;
-}
-
-function FormulationThreadStrip() {
-  return (
-    <ClinicalPathwayStrip
-      id="formulation-thread"
-      eyebrow="Formulation thread"
-      title="Carry evidence through to an actionable hypothesis"
-      steps={[
-        { label: "Notice", body: "Presenting patterns and patient language" },
-        { label: "Hypothesise", body: "Mechanisms that may explain the pattern" },
-        { label: "Test", body: "Fit, alternatives, and disconfirming evidence" },
-        { label: "Act", body: "Treatment leverage and review points" },
-      ]}
-    />
-  );
-}
-
-function FormulationHome() {
-  return (
-    <ModeHomeMain testId="formulation-home" contentAlign="startOnPhone">
-      <ModeHomeTemplate
-        testId="formulation"
-        title={sharedHomePresentation.formulation.title}
-        subtitle={sharedHomePresentation.formulation.subtitle}
-        icon={appModeIcons.formulation}
-        actionsLabel="Formulation workflows"
-        desktopComposerSlotId={modeHomeDesktopComposerSlotId}
-        actions={[
-          {
-            title: "Search mechanisms",
-            description: "Translate patient language into testable hypotheses.",
-            icon: Search,
-            href: "/formulation?focus=1",
-          },
-          {
-            title: "Build a formulation",
-            description: "Move from mechanisms to a structured draft.",
-            icon: ListChecks,
-            href: "/formulation/builder",
-          },
-          {
-            title: "Compare mechanisms",
-            description: "Clarify close alternatives side by side.",
-            icon: GitCompareArrows,
-            href: "/formulation/compare",
-          },
-        ]}
-        pillsTitle="Frameworks"
-        pills={formulationTemplates.slice(0, 5).map((template) => ({
-          label: template.label,
-          href: builderTemplateHref(template.id),
-          icon: Network,
-        }))}
-        pillsAction={
-          <Link
-            href="/formulation/map"
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
-          >
-            Mechanism map
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        }
-        footer={<FormulationThreadStrip />}
-      />
-    </ModeHomeMain>
-  );
 }
 
 function EmptySearchResults({ query }: { query: string }) {
@@ -443,12 +354,10 @@ function FormulationResults({ query }: { query: string }) {
 
 export function FormulationHomePage({
   query = "",
-  autoRunSearch = false,
 }: {
   query?: string;
+  /** Kept so existing callers can pass it; empty queries now browse the catalogue. */
   autoRunSearch?: boolean;
 }) {
-  const trimmedQuery = query.trim();
-  if (!autoRunSearch || !trimmedQuery) return <FormulationHome />;
-  return <FormulationResults query={trimmedQuery} />;
+  return <FormulationResults query={query.trim()} />;
 }

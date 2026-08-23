@@ -16,14 +16,13 @@ function firstValue(value?: string | string[]) {
 }
 
 /**
- * Submitted specifier searches — and the browsable specifier list when nothing is
- * submitted yet.
+ * Submitted specifier searches — and the browsable specifier catalogue when
+ * nothing is submitted yet.
  *
  * Split out of the bare `/specifiers` path when that became a redirect onto the shared
  * home: results need a route of their own, or `appModeHomeHref` would send a
- * submitted query back through the redirect and loop. An empty query renders the
- * same browse experience `/specifiers` used to hold before consolidation — this is
- * where it lives now, not a duplicate of it (`tests/ui-phone-scroll-routes.spec.ts`
+ * submitted query back through the redirect and loop. An empty query lists the
+ * specifier catalogue rather than a second home (`tests/ui-phone-scroll-routes.spec.ts`
  * exercises this same browse-without-a-query pattern for the sibling formulation
  * route).
  */
@@ -31,5 +30,5 @@ export default async function SpecifiersSearchRoute(props: RouteProps) {
   const params = props.searchParams ? await props.searchParams : {};
   const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
 
-  return <SpecifiersHomePage query={query} autoRunSearch={query.length > 0} />;
+  return <SpecifiersHomePage query={query} />;
 }

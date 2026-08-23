@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { DifferentialsHomePage } from "@/components/differentials/differentials-home-page";
 
@@ -16,19 +17,19 @@ function firstValue(value?: string | string[]) {
 }
 
 /**
- * Submitted differential searches — and the browsable diagnosis catalogue when
- * nothing is submitted yet.
+ * Submitted differential searches.
  *
  * Split out of the bare `/differentials` path when that became a redirect onto the shared
  * home: results need a route of their own, or `appModeHomeHref` would send a
- * submitted query back through the redirect and loop. An empty query renders the
- * same browse experience `/differentials` used to hold before consolidation — this
- * is where it lives now, not a duplicate of it (`tests/ui-phone-scroll-routes.spec.ts`
- * pins the long list rendering here with no query).
+ * submitted query back through the redirect and loop. An empty query has no
+ * browse view of its own — diagnoses and presentations are separate tabs — so
+ * it forwards to `/?mode=differentials` the same way `/calculators/search` does.
+ * The proxy issues the 307; this page-level redirect is the backstop.
  */
 export default async function DifferentialsSearchRoute(props: RouteProps) {
   const params = props.searchParams ? await props.searchParams : {};
   const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
+  if (!query) redirect("/?mode=differentials");
 
-  return <DifferentialsHomePage query={query} autoRunSearch={query.length > 0} />;
+  return <DifferentialsHomePage query={query} autoRunSearch />;
 }
