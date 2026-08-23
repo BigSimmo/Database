@@ -6,7 +6,12 @@ const source = readFileSync(new URL("../scripts/measure-cls-attribution.mjs", im
 const optionsModuleUrl = new URL("../scripts/lib/cls-attribution-options.mjs", import.meta.url);
 const optionsModule = existsSync(optionsModuleUrl)
   ? ((await import(optionsModuleUrl.href)) as {
+      buildClsAttributionOutput?: (
+        cells: Array<{ cellKey: string; route: string; result: unknown }>,
+        options: { profilesExplicit: boolean; profiles: unknown[] },
+      ) => unknown;
       browserProfileCellKey?: (profileName: string, route: string) => string;
+      missingReadinessFlags?: (instrumentation: Record<string, boolean>) => string[];
       parseBrowserProfiles?: (value?: string) => Array<{
         name: string;
         width: number;
@@ -92,17 +97,60 @@ describe("CLS attribution browser profiles", () => {
       "desktop-1350::/documents/search",
     );
   });
+
+  it("preserves the legacy route-keyed output when no profile flag is supplied", () => {
+    const result = { total: 0.01, instrumentation: { clsObserverReady: true } };
+    expect(
+      optionsModule.buildClsAttributionOutput?.([{ cellKey: "mobile-lighthouse::/", route: "/", result }], {
+        profilesExplicit: false,
+        profiles: [{ name: "mobile-lighthouse" }],
+      }),
+    ).toEqual({ "/": result });
+  });
+
+  it("uses a versioned cells collection for explicit multi-profile output", () => {
+    const mobile = { total: 0.01 };
+    const desktop = { total: 0.02 };
+    const profiles = [{ name: "mobile-lighthouse" }, { name: "desktop-1350" }];
+    expect(
+      optionsModule.buildClsAttributionOutput?.(
+        [
+          { cellKey: "mobile-lighthouse::/", route: "/", result: mobile },
+          { cellKey: "desktop-1350::/", route: "/", result: desktop },
+        ],
+        { profilesExplicit: true, profiles },
+      ),
+    ).toEqual({
+      schemaVersion: 2,
+      profiles,
+      cells: {
+        "mobile-lighthouse::/": mobile,
+        "desktop-1350::/": desktop,
+      },
+    });
+  });
+
+  it("reports exact missing instrumentation flags in stable order", () => {
+    expect(
+      optionsModule.missingReadinessFlags?.({
+        clsObserverReady: false,
+        reserveObserverReady: true,
+        geometryObserverReady: false,
+      }),
+    ).toEqual(["clsObserverReady", "geometryObserverReady"]);
+  });
 });
 
 describe("CLS attribution evidence contract", () => {
-  it("accepts zero-shift routes only when both observers report successful installation", () => {
-    expect(source).toContain("const routesMissingInstrumentation = Object.entries(results)");
+  it("accepts zero-shift cells only when every observer reports successful installation", () => {
+    expect(source).toContain("const cellsMissingInstrumentation = resultCells");
     expect(source).toContain("window.__clsObserverReady = true");
     expect(source).toContain("window.__reserveObserverReady = true");
-    expect(source).toContain("!result.instrumentation.clsObserverReady");
-    expect(source).toContain("!result.instrumentation.reserveObserverReady");
-    expect(source).toContain("if (routesMissingInstrumentation.length > 0)");
-    expect(source).toContain("Treat those routes as failed evidence");
+    expect(source).toContain("window.__geometryObserverReady = true");
+    expect(source).toContain("missingReadinessFlags(result.instrumentation)");
+    expect(source).toContain('missing.join(",")');
+    expect(source).toContain("if (cellsMissingInstrumentation.length > 0)");
+    expect(source).toContain("Treat those cells as failed evidence");
   });
 
   it("creates a requested nested evidence directory before writing", () => {
@@ -144,14 +192,19 @@ describe("CLS attribution evidence contract", () => {
     expect(source).toContain("browserProfileCellKey(profile.name, route)");
     expect(source).toContain("deviceScaleFactor: profile.dpr");
     expect(source).toContain("profile: { ...profile }");
+    expect(source).toContain("buildClsAttributionOutput(resultCells");
   });
 
-  it("keeps degraded exercises opt-in and waits for loaded assets and observers", () => {
+  it("keeps degraded exercises opt-in and bounds race-proof asset readiness", () => {
     expect(source).toContain('argv.includes("--exercise-offline")');
     expect(source).toContain('argv.includes("--exercise-api-unavailable")');
     expect(source).toContain("await waitForLoadedAssets(page)");
     expect(source).toContain("window.__clsObserverReady === true");
     expect(source).toContain("window.__reserveObserverReady === true");
+    expect(source).toContain("ASSET_READINESS_TIMEOUT_MS");
+    expect(source).toContain("if (image.complete) finish()");
+    expect(source).toContain("clearTimeout(timeout)");
+    expect(source).toContain("Asset readiness timed out");
     expect(source.indexOf("await waitForLoadedAssets(page)")).toBeLessThan(
       source.lastIndexOf("await exerciseDegradedTransitions({ page, context })"),
     );
@@ -163,25 +216,42 @@ describe("CLS attribution evidence contract", () => {
     expect(source).toContain("await context.setOffline(true)");
     expect(source).toContain('await markPhase(page, "reconnecting")');
     expect(source).toContain("await context.setOffline(false)");
+    expect(source).toContain("navigator.onLine === true");
+    expect(source).toContain('await waitForDegradedNotice(page, "absent")');
+    expect(source).toContain("await waitForHealthySetupResponse(page)");
   });
 
-  it("faults a post-load identity refresh and uses the dashboard focus retry for API-unavailable", () => {
+  it("faults exactly one post-healthy setup refresh and removes the route", () => {
     expect(source).toContain('NEXT_PUBLIC_DEMO_MODE: exerciseApiUnavailable ? "false" : "true"');
-    expect(source).toContain('await page.route("**/api/local-project-id**"');
+    expect(source).toContain('const setupStatusPattern = "**/api/setup-status**"');
+    expect(source).toContain("apiUnavailableInterceptHits += 1");
+    expect(source).toContain("{ times: 1 }");
     expect(source).toContain("status: 503");
+    expect(source).toContain("apiUnavailableInterceptHits !== 1");
+    expect(source).toContain("await page.unroute(setupStatusPattern, unavailableHandler)");
+    expect(source).not.toContain('page.route("**/api/local-project-id**"');
     expect(source).toContain('await markPhase(page, "api-unavailable")');
     expect(source).toContain('window.dispatchEvent(new Event("focus"))');
+    expect(source).toContain('await waitForDegradedNotice(page, "service-unavailable")');
     expect(source.indexOf("await waitForLoadedAssets(page)")).toBeLessThan(
       source.lastIndexOf("await exerciseDegradedTransitions({ page, context })"),
     );
   });
 
-  it("tags CLS entries with phases and records responsive geometry and LCP candidate timing", () => {
-    expect(source).toContain("window.__clsPhase");
+  it("attributes delayed CLS callbacks against unrounded phase boundaries", () => {
     expect(source).toContain("window.__clsPhases");
-    expect(source).toContain("phase: window.__clsPhase");
+    expect(source).toContain("t: performance.now()");
+    expect(source).toContain("phaseForStartTime(entry.startTime)");
+    expect(source).not.toContain('window.__clsPhase = "initial"');
+    expect(source).not.toContain('__clsPhases = [{ phase: "initial", t: Math.round');
+    expect(source).not.toContain("__clsPhases.push({ phase, t: Math.round");
+  });
+
+  it("records separate composer, desktop-header, phone-header, and LCP candidate geometry", () => {
     expect(source).toContain("modeHomeComposerSlot");
     expect(source).toContain("phoneStickyHeader");
+    expect(source).toContain("desktopHeaderCollapse");
+    expect(source).toContain('[data-testid="universal-header-collapse"]');
     expect(source).toContain("rootStartState");
     expect(source).toContain("documentsStartState");
     expect(source).toContain("firstPaint");

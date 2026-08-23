@@ -65,3 +65,20 @@ export function parseBrowserProfiles(value) {
 export function browserProfileCellKey(profileName, route) {
   return `${profileName}::${route}`;
 }
+
+export function buildClsAttributionOutput(cells, { profilesExplicit, profiles }) {
+  if (!profilesExplicit) {
+    return Object.fromEntries(cells.map(({ route, result }) => [route, result]));
+  }
+  return {
+    schemaVersion: 2,
+    profiles,
+    cells: Object.fromEntries(cells.map(({ cellKey, result }) => [cellKey, result])),
+  };
+}
+
+const readinessFlags = ["clsObserverReady", "reserveObserverReady", "geometryObserverReady"];
+
+export function missingReadinessFlags(instrumentation) {
+  return readinessFlags.filter((flag) => instrumentation[flag] !== true);
+}

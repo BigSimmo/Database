@@ -48,7 +48,12 @@ import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { browserProfileCellKey, parseBrowserProfiles } from "./lib/cls-attribution-options.mjs";
+import {
+  browserProfileCellKey,
+  buildClsAttributionOutput,
+  missingReadinessFlags,
+  parseBrowserProfiles,
+} from "./lib/cls-attribution-options.mjs";
 import { waitForHttpReadiness } from "./lib/http-readiness.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { removePathSync } from "./retryable-fs.mjs";
@@ -93,7 +98,9 @@ const routes = flag("routes", "/dsm,/documents/search,/forms,/therapy-compass,/"
   .split(",")
   .map((route) => route.trim())
   .filter(Boolean);
-const profiles = parseBrowserProfiles(flag("profiles", undefined));
+const profilesFlag = flag("profiles", undefined);
+const profilesExplicit = argv.includes("--profiles");
+const profiles = parseBrowserProfiles(profilesFlag);
 const exerciseOffline = argv.includes("--exercise-offline");
 const exerciseApiUnavailable = argv.includes("--exercise-api-unavailable");
 const portFlag = flag("port", null);
@@ -105,6 +112,7 @@ if (!Number.isInteger(port) || port < projectPortStart || port > projectPortEnd 
 }
 const settleMs = Number(flag("settle-ms", "6000"));
 const transitionSettleMs = Number(flag("transition-settle-ms", "1000"));
+const ASSET_READINESS_TIMEOUT_MS = 15_000;
 if (!Number.isFinite(settleMs) || settleMs < 0)
   throw new Error(`--settle-ms must be non-negative; received ${settleMs}.`);
 if (!Number.isFinite(transitionSettleMs) || transitionSettleMs < 0) {
@@ -165,8 +173,7 @@ async function waitForServer(url, child) {
 const PAGE_INSTRUMENTATION = () => {
   window.__clsEntries = [];
   window.__reserveTimeline = [];
-  window.__clsPhase = "initial";
-  window.__clsPhases = [{ phase: "initial", t: Math.round(performance.now()) }];
+  window.__clsPhases = [{ phase: "initial", t: performance.now() }];
   window.__clsObserverReady = false;
   window.__reserveObserverReady = false;
   window.__geometryObserverReady = false;
@@ -174,6 +181,7 @@ const PAGE_INSTRUMENTATION = () => {
   const geometryTargets = {
     modeHomeComposerSlot: ".mode-home-composer-slot",
     phoneStickyHeader: ".phone-sticky-header-stack",
+    desktopHeaderCollapse: '[data-testid="universal-header-collapse"]',
   };
   const lcpCandidates = {
     rootStartState: {
@@ -276,8 +284,7 @@ const PAGE_INSTRUMENTATION = () => {
   }
 
   window.__markClsPhase = (phase) => {
-    window.__clsPhase = phase;
-    window.__clsPhases.push({ phase, t: Math.round(performance.now()) });
+    window.__clsPhases.push({ phase, t: performance.now() });
     scheduleResponsiveSample();
   };
   window.__captureClsSnapshot = () => {
@@ -362,11 +369,19 @@ const PAGE_INSTRUMENTATION = () => {
   };
 
   const clsObserver = new PerformanceObserver((list) => {
+    const phaseForStartTime = (startTime) => {
+      let phase = window.__clsPhases[0]?.phase ?? "initial";
+      for (const boundary of window.__clsPhases) {
+        if (boundary.t > startTime) break;
+        phase = boundary.phase;
+      }
+      return phase;
+    };
     for (const entry of list.getEntries()) {
       // CLS excludes shifts within 500ms of user input; so does this.
       if (entry.hadRecentInput) continue;
       window.__clsEntries.push({
-        phase: window.__clsPhase,
+        phase: phaseForStartTime(entry.startTime),
         value: entry.value,
         startTime: entry.startTime,
         sources: (entry.sources || []).map((source) => ({
@@ -391,55 +406,131 @@ async function waitForLoadedAssets(page) {
     undefined,
     { timeout: 30_000 },
   );
-  await page.evaluate(async () => {
-    await document.fonts?.ready;
-    await Promise.all(
-      Array.from(document.images)
-        .filter((image) => !image.complete)
-        .map(
-          (image) =>
-            new Promise((resolve) => {
-              image.addEventListener("load", resolve, { once: true });
-              image.addEventListener("error", resolve, { once: true });
-            }),
-        ),
-    );
-  });
+  await page.evaluate(async (timeoutMs) => {
+    const waitForImage = (image) =>
+      new Promise((resolve) => {
+        if (image.complete) {
+          resolve();
+          return;
+        }
+        const finish = () => {
+          image.removeEventListener("load", finish);
+          image.removeEventListener("error", finish);
+          resolve();
+        };
+        image.addEventListener("load", finish, { once: true });
+        image.addEventListener("error", finish, { once: true });
+        // Close the race where the resource completes after the first check but
+        // before both listeners are installed.
+        if (image.complete) finish();
+      });
+    const assetsReady = Promise.all([
+      document.fonts?.ready ?? Promise.resolve(),
+      ...Array.from(document.images, waitForImage),
+    ]);
+    await new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(
+        () => reject(new Error(`Asset readiness timed out after ${timeoutMs}ms.`)),
+        timeoutMs,
+      );
+      assetsReady.then(
+        () => {
+          clearTimeout(timeout);
+          resolve();
+        },
+        (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+      );
+    });
+  }, ASSET_READINESS_TIMEOUT_MS);
 }
 
 async function markPhase(page, phase) {
   await page.evaluate((nextPhase) => window.__markClsPhase?.(nextPhase), phase);
 }
 
-async function waitForVisibleNotice(page, text, state) {
-  await page
-    .locator("#main-content button:visible, #main-content details:visible")
-    .filter({ hasText: text })
-    .first()
-    .waitFor({ state, timeout: 10_000 });
+const setupStatusPattern = "**/api/setup-status**";
+
+function isSetupStatusResponse(response, expectedStatus) {
+  try {
+    return new URL(response.url()).pathname === "/api/setup-status" && response.status() === expectedStatus;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForHealthySetupResponse(page) {
+  const response = page.waitForResponse((candidate) => isSetupStatusResponse(candidate, 200), { timeout: 30_000 });
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await response;
+}
+
+async function waitForDegradedNotice(page, state) {
+  await page.waitForFunction(
+    ({ expectedState }) => {
+      const main = document.querySelector("#main-content");
+      if (!main) return false;
+      const titles = Array.from(main.querySelectorAll("span")).filter((element) => {
+        const text = (element.textContent || "").trim();
+        return text === "Offline" || text === "Service unavailable";
+      });
+      if (expectedState === "absent") return titles.length === 0;
+      const expectedTitle = expectedState === "offline" ? "Offline" : "Service unavailable";
+      return titles.some((element) => {
+        if ((element.textContent || "").trim() !== expectedTitle) return false;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      });
+    },
+    { expectedState: state },
+    { timeout: 10_000 },
+  );
 }
 
 async function exerciseDegradedTransitions({ page, context }) {
   if (exerciseOffline) {
     await markPhase(page, "offline");
     await context.setOffline(true);
-    await waitForVisibleNotice(page, "Offline", "visible");
+    await waitForDegradedNotice(page, "offline");
     await page.waitForTimeout(transitionSettleMs);
 
     await markPhase(page, "reconnecting");
     await context.setOffline(false);
-    await waitForVisibleNotice(page, "Offline", "hidden");
+    await page.waitForFunction(() => navigator.onLine === true, undefined, { timeout: 10_000 });
+    await waitForHealthySetupResponse(page);
+    await waitForDegradedNotice(page, "absent");
     await page.waitForTimeout(transitionSettleMs);
   }
 
   if (exerciseApiUnavailable) {
-    await page.route("**/api/local-project-id**", async (route) => {
+    let apiUnavailableInterceptHits = 0;
+    const unavailableHandler = async (route) => {
+      apiUnavailableInterceptHits += 1;
       await route.fulfill({ status: 503, json: { error: "Deterministic CLS attribution outage." } });
-    });
-    await markPhase(page, "api-unavailable");
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await waitForVisibleNotice(page, "Service unavailable", "visible");
-    await page.waitForTimeout(transitionSettleMs);
+    };
+    await page.route(setupStatusPattern, unavailableHandler, { times: 1 });
+    let exerciseError = null;
+    try {
+      const unavailableResponse = page.waitForResponse((response) => isSetupStatusResponse(response, 503), {
+        timeout: 30_000,
+      });
+      await markPhase(page, "api-unavailable");
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await unavailableResponse;
+      await waitForDegradedNotice(page, "service-unavailable");
+      await page.waitForTimeout(transitionSettleMs);
+    } catch (error) {
+      exerciseError = error;
+    } finally {
+      await page.unroute(setupStatusPattern, unavailableHandler);
+    }
+    if (apiUnavailableInterceptHits !== 1) {
+      throw new Error(`Expected one setup-status outage intercept; observed ${apiUnavailableInterceptHits}.`);
+    }
+    if (exerciseError) throw exerciseError;
   }
 }
 
@@ -490,7 +581,7 @@ try {
   const executablePath = process.env.CHROME_PATH || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
   browser = await chromium.launch(executablePath ? { executablePath } : {});
 
-  const results = {};
+  const resultCells = [];
   for (const profile of profiles) {
     for (const route of routes) {
       const context = await browser.newContext({
@@ -504,7 +595,11 @@ try {
       const cdp = await context.newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
+      const initialHealthySetupResponse = exerciseApiUnavailable
+        ? page.waitForResponse((response) => isSetupStatusResponse(response, 200), { timeout: 30_000 })
+        : null;
       await page.goto(`${baseUrl}${route}`, { waitUntil: "load", timeout: 90_000 });
+      await initialHealthySetupResponse;
       await waitForLoadedAssets(page);
       await markPhase(page, "healthy");
       // CLS keeps accruing well past `load`; sample after things settle.
@@ -537,7 +632,7 @@ try {
       }
 
       const cellKey = browserProfileCellKey(profile.name, route);
-      results[cellKey] = {
+      const result = {
         route,
         profile: { ...profile },
         exercises: {
@@ -554,6 +649,7 @@ try {
         lcpCandidates: surfaces.lcpCandidates,
         instrumentation,
       };
+      resultCells.push({ cellKey, route, result });
 
       console.log(
         `[cls] ${profile.name.padEnd(20)} ${route.padEnd(20)} CLS=${total.toFixed(3)} shifts=${entries.length}`,
@@ -566,23 +662,19 @@ try {
 
   await browser.close();
   browser = null;
+  const results = buildClsAttributionOutput(resultCells, { profilesExplicit, profiles });
   mkdirSync(path.dirname(outFile), { recursive: true });
   writeFileSync(outFile, `${JSON.stringify(results, null, 2)}\n`, "utf8");
   console.log(`[cls] wrote ${path.relative(projectRoot, outFile)}`);
 
-  const routesMissingInstrumentation = Object.entries(results)
-    .filter(
-      ([, result]) =>
-        !result.instrumentation.clsObserverReady ||
-        !result.instrumentation.reserveObserverReady ||
-        !result.instrumentation.geometryObserverReady,
-    )
-    .map(([route]) => route);
-  if (routesMissingInstrumentation.length > 0) {
+  const cellsMissingInstrumentation = resultCells
+    .map(({ cellKey, result }) => ({ cellKey, missing: missingReadinessFlags(result.instrumentation) }))
+    .filter(({ missing }) => missing.length > 0);
+  if (cellsMissingInstrumentation.length > 0) {
     console.error(
-      `::error::CLS instrumentation produced neither shift entries nor a reserve timeline for ${routesMissingInstrumentation.join(
-        ", ",
-      )}. Treat those routes as failed evidence, not clean zero-CLS results.`,
+      `::error::CLS instrumentation readiness missing for ${cellsMissingInstrumentation
+        .map(({ cellKey, missing }) => `${cellKey}: ${missing.join(",")}`)
+        .join("; ")}. Treat those cells as failed evidence, not clean zero-CLS results.`,
     );
     process.exitCode = 1;
   }
