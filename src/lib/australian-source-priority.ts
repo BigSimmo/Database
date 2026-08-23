@@ -1,5 +1,6 @@
 import { classifySourceAuthority, type AustralianSourceTier } from "@/lib/source-authority-registry";
-import type { SearchResult } from "@/lib/types";
+import { searchResultEligibilityForClaim } from "@/lib/source-role-policy";
+import type { ClinicalClaimRole, SearchResult } from "@/lib/types";
 
 export type { AustralianSourceTier, SourceAuthorityClassification } from "@/lib/source-authority-registry";
 
@@ -85,6 +86,7 @@ export function selectAustralianClinicalContext(
     maxPerDocument?: number;
     sufficientAustralianChunks?: number;
     omitSupplementaryPadding?: boolean;
+    claimRole?: ClinicalClaimRole;
   } = {},
 ) {
   const limit = options.limit ?? 6;
@@ -92,6 +94,7 @@ export function selectAustralianClinicalContext(
   const sufficientAustralianChunks = options.sufficientAustralianChunks ?? 4;
   const omitSupplementaryPadding = options.omitSupplementaryPadding ?? true;
   const ranked = results
+    .filter((result) => !options.claimRole || searchResultEligibilityForClaim(result, options.claimRole).eligible)
     .map((result, index) => ({ result, index, tier: australianSourceTier(result) }))
     .filter(({ result }) => result.relevance?.verdict !== "none")
     .sort((left, right) => {
