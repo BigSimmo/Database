@@ -1294,6 +1294,11 @@ describe("Disclosure — print", () => {
     // On paper there is no control to open, so a collapsed section would print
     // as though the guideline never mentioned it — undetectably.
     expect(panel).toHaveClass("hidden", "print:block");
+    expect(screen.getByRole("button", { name: "Monitoring" })).toHaveClass("print:hidden");
+    const printTitle = screen.getByTestId("disclosure").querySelector("h3 > span.hidden");
+    expect(printTitle).toHaveClass("print:flex");
+    expect(printTitle).toHaveAttribute("aria-hidden", "true");
+    expect(printTitle).toHaveTextContent("Monitoring");
   });
 
   it("keeps an open panel visible and still print-expanded", () => {

@@ -91,6 +91,26 @@ describe("therapy relatedness", () => {
     expect(common!.reason).toBe("Also for crisis/risk");
   });
 
+  it("labels a named candidate as named even when several shared tags would outscore that signal", () => {
+    // NAMED_IN_RECORD is 8. Shared-tag score is sum(IDF) * 1.2. Three tags with
+    // IDF ≈ 2.37 already exceed 8, so picking the reason by contribution score
+    // would attribute the row to a tag even though the record named it.
+    const rareTags = ["alpha-protocol", "beta-protocol", "gamma-protocol"];
+    const corpus = [
+      ...Array.from({ length: 30 }, (_, index) => stubTherapy(`filler-${index}`, [])),
+      Object.assign(stubTherapy("cognitive-processing-therapy", rareTags), {
+        name: "Cognitive Processing Therapy",
+      }),
+    ];
+    const probe = stubTherapy("probe", rareTags);
+    probe.alternatives = "Consider Cognitive Processing Therapy when first-line care is unavailable.";
+    const related = relatedTherapies([...corpus, probe], probe, 8);
+    const named = related.find((entry) => entry.therapy.slug === "cognitive-processing-therapy");
+
+    expect(named).toBeDefined();
+    expect(named!.reason).toBe("Named in this record");
+  });
+
   it("labels every suggestion with the signal that produced it", () => {
     for (const slug of ["behavioural-activation-ba", "supported-digital-cbt", "supported-digital-trauma-focused-cbt"]) {
       for (const entry of relatedTherapies(catalogue, bySlug(slug))) {
