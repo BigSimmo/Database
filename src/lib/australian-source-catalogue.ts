@@ -2,8 +2,13 @@ import type { ClinicalSourceRole, SourceCorpusScope } from "@/lib/types";
 
 export type SourceContentMode = "indexed_content" | "link_only";
 export type SourceLifecycle = "active" | "historical" | "retired";
-export type SourceLicencePolicy =
-  "review_required" | "public_index_permitted" | "metadata_link_only" | "index_forbidden";
+export const sourceLicencePolicies = [
+  "review_required",
+  "public_index_permitted",
+  "metadata_link_only",
+  "index_forbidden",
+] as const;
+export type SourceLicencePolicy = (typeof sourceLicencePolicies)[number];
 
 export type AustralianSourceDefinition = Readonly<{
   key: string;
@@ -246,6 +251,10 @@ const australianSourceCatalogueByKey = new Map(
 
 export function australianSourceByKey(key: string): AustralianSourceDefinition | null {
   return australianSourceCatalogueByKey.get(key) ?? null;
+}
+
+export function isSourceLicencePolicy(value: unknown): value is SourceLicencePolicy {
+  return typeof value === "string" && sourceLicencePolicies.some((policy) => policy === value);
 }
 
 export function assertIndexableCatalogueEntry(

@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
-import { assertIndexableCatalogueEntry, australianSourceByKey } from "@/lib/australian-source-catalogue";
+import {
+  assertIndexableCatalogueEntry,
+  australianSourceByKey,
+  isIndexableAustralianSource,
+  isSourceLicencePolicy,
+} from "@/lib/australian-source-catalogue";
 import { diagnosisFullText, presentationFullText } from "@/lib/differentials";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import {
@@ -153,6 +158,13 @@ function assertRegistryCorpusSourceIsIndexable(entry: RegistryCorpusEntry) {
     throw new Error("Registry corpus source_catalogue_key must be an exact non-empty catalogue key.");
   }
   assertIndexableCatalogueEntry(australianSourceByKey(catalogueKey));
+  const licencePolicy = entry.metadata.licence_policy;
+  if (!isSourceLicencePolicy(licencePolicy)) {
+    throw new Error("Registry corpus catalogue source requires an explicit valid licence_policy.");
+  }
+  if (!isIndexableAustralianSource(catalogueKey, licencePolicy)) {
+    throw new Error(`Registry corpus catalogue source ${catalogueKey} lacks exact document index permission.`);
+  }
 }
 
 /** Corpus document id for a differential record row. Chunks cascade from the

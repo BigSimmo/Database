@@ -114,15 +114,67 @@ describe("registry corpus", () => {
         embedRegistryCorpusEntries(supabase as never, [
           {
             ...baseEntry!,
-            metadata: { ...baseEntry!.metadata, source_catalogue_key: catalogueKey },
+            metadata: {
+              ...baseEntry!.metadata,
+              source_catalogue_key: catalogueKey,
+              licence_policy: "public_index_permitted",
+            },
           },
         ]),
       ).rejects.toThrow(/link-only/i);
     }
 
     expect(embedTextsMock).not.toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
     expect(documents.size).toBe(0);
     expect(chunks.size).toBe(0);
+  });
+
+  it("requires exact document-level public indexing permission for an indexed catalogue source", async () => {
+    const deniedHarness = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [baseEntry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
+
+    for (const licencePolicy of [
+      undefined,
+      null,
+      "",
+      "unexpected",
+      "review_required",
+      "metadata_link_only",
+      "index_forbidden",
+    ]) {
+      const metadata = {
+        ...baseEntry!.metadata,
+        source_catalogue_key: "wa-health",
+        ...(licencePolicy === undefined ? {} : { licence_policy: licencePolicy }),
+      };
+      await expect(
+        embedRegistryCorpusEntries(deniedHarness.supabase as never, [{ ...baseEntry!, metadata }]),
+      ).rejects.toThrow(/licence|index permission/i);
+    }
+
+    expect(embedTextsMock).not.toHaveBeenCalled();
+    expect(deniedHarness.supabase.from).not.toHaveBeenCalled();
+    expect(deniedHarness.documents.size).toBe(0);
+    expect(deniedHarness.chunks.size).toBe(0);
+
+    const permittedHarness = corpusHarness();
+    await expect(
+      embedRegistryCorpusEntries(permittedHarness.supabase as never, [
+        {
+          ...baseEntry!,
+          metadata: {
+            ...baseEntry!.metadata,
+            source_catalogue_key: "wa-health",
+            licence_policy: "public_index_permitted",
+          },
+        },
+      ]),
+    ).resolves.toEqual({ documentCount: 1, chunkCount: 1 });
+    expect(embedTextsMock).toHaveBeenCalledOnce();
+    expect(permittedHarness.documents.size).toBe(1);
+    expect(permittedHarness.chunks.size).toBe(1);
   });
 
   it("does not infer catalogue identity from registry title or content", async () => {
