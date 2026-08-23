@@ -1664,25 +1664,32 @@ export const ragEvalCases: RagEvalCase[] = [
   ...programmeEvalCases,
 ];
 
-export function selectRagEvalCases(args: { limit?: number; question?: string }) {
+export function selectRagEvalCases(args: { limit?: number; question?: string; population?: "legacy" | "programme" }) {
+  const population = args.population ?? "legacy";
+  const eligibleCases = ragEvalCases.filter((testCase) =>
+    population === "programme"
+      ? testCase.programmeExpectation !== undefined
+      : testCase.programmeExpectation === undefined,
+  );
+
   if (args.question) {
     const normalizedQuestion = args.question.trim().toLowerCase();
-    const existing = ragEvalCases.find((item) => item.question.toLowerCase() === normalizedQuestion);
-    return existing
-      ? [existing]
-      : [
-          {
-            id: "custom-question",
-            question: args.question,
-            category: "routine",
-            supported: true,
-            expectedFiles: [],
-            allowedRoutes: ["extractive", "fast", "strong"],
-            minCitations: 1,
-            latencyTargetMs: 20000,
-          } satisfies RagEvalCase,
-        ];
+    const existing = eligibleCases.find((item) => item.question.toLowerCase() === normalizedQuestion);
+    if (existing) return [existing];
+    if (population === "programme") return [];
+    return [
+      {
+        id: "custom-question",
+        question: args.question,
+        category: "routine",
+        supported: true,
+        expectedFiles: [],
+        allowedRoutes: ["extractive", "fast", "strong"],
+        minCitations: 1,
+        latencyTargetMs: 20000,
+      } satisfies RagEvalCase,
+    ];
   }
 
-  return ragEvalCases.slice(0, args.limit ?? ragEvalCases.length);
+  return eligibleCases.slice(0, args.limit ?? eligibleCases.length);
 }

@@ -6,12 +6,60 @@ import {
   mapCapturedEvalCase,
   mergeRagEvalCases,
   ragEvalCases,
+  selectRagEvalCases,
   scoreAnswerQualityEvalCase,
   scoreAnswerTargeting,
   type AnswerQualityEvalCase,
 } from "../src/lib/rag/rag-eval-cases";
 import { ragProgrammeFixture } from "../src/lib/rag/rag-programme-eval";
 import type { RagAnswer } from "../src/lib/types";
+
+const legacyRagEvalCaseIds = [
+  "clozapine-monitoring",
+  "patient-safety-plan",
+  "ect-procedure",
+  "agitation-arousal-pharmacological-management",
+  "discharge-documentation",
+  "metabolic-screening",
+  "long-acting-injectables",
+  "nocc-requirements",
+  "duress-procedure",
+  "assessment-documentation",
+  "best-practice-prescribing",
+  "community-home-visits",
+  "community-admission",
+  "active-community-patient-ed",
+  "active-community-pt-ed-short-terms",
+  "illegal-substances",
+  "treatment-team-process",
+  "direct-document-lookup-nocc",
+  "summary-discharge-guidance",
+  "agitation-arousal-table-lookup",
+  "clozapine-fbc-acronym-threshold",
+  "agitation-im-po-route-short-terms",
+  "admission-discharge-comparison",
+  "neuroleptic-side-effect-escalation",
+  "clozapine-anc-withhold-threshold",
+  "clozapine-monitoring-paraphrase",
+  "clozapine-typo-acronym-threshold",
+  "clozapine-missed-dose-table",
+  "agitation-arousal-typo-dosing",
+  "admission-discharge-coverage-paraphrase",
+  "unsupported-coffee-machine",
+  "unsupported-air-fryer",
+  "unsupported-recipe",
+  "unsupported-dka-insulin",
+  "unsupported-pneumonia-antibiotic",
+  "unsupported-ssri-adolescent-dose",
+  "unsupported-hyperkalaemia-insulin",
+  "unsupported-future-upload-title",
+  "unsupported-nonexistent-clozapine-policy",
+  "unsupported-close-title-noise",
+  "unsupported-prompt-injection-secrets",
+  "unsupported-prompt-injection-citation-forge",
+  "unsupported-invented-florbizone",
+  "unsupported-invented-quxbyria",
+] as const;
 
 const row = {
   id: "capture-1",
@@ -46,6 +94,38 @@ function clientWithRows(rows: (typeof row)[]) {
 }
 
 describe("captured RAG eval cases", () => {
+  it("keeps default selection on the exact legacy population and semantics", () => {
+    const selected = selectRagEvalCases({});
+
+    expect(selected.map((testCase) => testCase.id)).toEqual(legacyRagEvalCaseIds);
+    expect(selected.every((testCase) => testCase.programmeExpectation === undefined)).toBe(true);
+    expect(selectRagEvalCases({ limit: 3 }).map((testCase) => testCase.id)).toEqual(legacyRagEvalCaseIds.slice(0, 3));
+
+    const knownLegacy = selected[0]!;
+    expect(selectRagEvalCases({ question: `  ${knownLegacy.question.toUpperCase()}  ` })).toEqual([knownLegacy]);
+
+    const programmeQuestion = ragEvalCases.find((testCase) => testCase.programmeExpectation)?.question;
+    const [customCase] = selectRagEvalCases({ question: programmeQuestion });
+    expect(customCase).toMatchObject({ id: "custom-question", expectedFiles: [] });
+    expect(customCase?.programmeExpectation).toBeUndefined();
+  });
+
+  it("selects every programme case exactly once only through the explicit population option", () => {
+    const selected = selectRagEvalCases({ population: "programme" });
+    const expectedIds = ragProgrammeFixture.cases.map((testCase) => testCase.id);
+
+    expect(selected.map((testCase) => testCase.id)).toEqual(expectedIds);
+    expect(new Set(selected.map((testCase) => testCase.id)).size).toBe(expectedIds.length);
+    expect(selected.every((testCase) => testCase.programmeExpectation !== undefined)).toBe(true);
+    expect(selectRagEvalCases({ population: "programme", limit: 4 })).toEqual(selected.slice(0, 4));
+
+    const knownProgramme = selected[0]!;
+    expect(
+      selectRagEvalCases({ population: "programme", question: `  ${knownProgramme.question.toUpperCase()}  ` }),
+    ).toEqual([knownProgramme]);
+    expect(selectRagEvalCases({ population: "programme", question: "not a canonical programme case" })).toEqual([]);
+  });
+
   it("extends the canonical registry with every privacy-reviewed programme case", () => {
     const programmeCases = ragEvalCases.filter((testCase) => testCase.programmeExpectation !== undefined);
 
