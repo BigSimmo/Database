@@ -46,6 +46,18 @@ export function isSlugDetail(pathname: string, home: string, extraExcluded: stri
 }
 
 /**
+ * Services, forms, and medication *record* pages keep the shared footer composer.
+ * Submitted catalogue search (`/services/search`, `/forms/search`) is not a
+ * record page — treating the `/search` suffix as a slug hid Clinical Ask on the
+ * only dock those modes land after a catalog submit.
+ */
+export function isToolDetailWithFooterSearch(pathname: string): boolean {
+  return (
+    isSlugDetail(pathname, "/services") || isSlugDetail(pathname, "/forms") || isSlugDetail(pathname, "/medications")
+  );
+}
+
+/**
  * True when `pathname` is a mode information (detail/record) page.
  * Keep in sync with adoption notes on `InformationPageShell`.
  */

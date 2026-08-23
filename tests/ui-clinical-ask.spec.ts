@@ -160,6 +160,18 @@ test("@critical hides Ask and Dictate on empty mode homes", async ({ page }) => 
   await expect(page.getByRole("button", { name: "Dictate question for Differentials" })).toHaveCount(0);
 });
 
+test("@critical keeps Ask reachable on submitted Services and Forms search docks", async ({ page }) => {
+  for (const [path, label] of [
+    ["/services/search?q=synthetic+question&run=1", "Services"],
+    ["/forms/search?q=synthetic+question&run=1", "Forms"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: `Ask ${label}`, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Dictate question for ${label}` })).toBeVisible();
+  }
+});
+
 test("@critical renders governed answers for all seven Clinical Ask modes without leaking input", async ({ page }) => {
   test.setTimeout(180_000);
   const requestCount = await mockClinicalAsk(page);

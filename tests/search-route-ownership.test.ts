@@ -393,6 +393,16 @@ describe("shared-search route ownership", () => {
     );
   });
 
+  it("does not treat catalogue search docks as tool-detail footer-search pages", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    expect(shellSource).toContain("isToolDetailWithFooterSearch");
+    expect(shellSource).toContain('from "@/lib/information-pages"');
+    expect(shellSource).not.toMatch(/pathname\.startsWith\("\/services\/"\) && pathname !== "\/services"/);
+  });
+
   it("keeps unsubmitted dashboard-owned mode homes from auto-running composer drafts", () => {
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),

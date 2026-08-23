@@ -98,7 +98,7 @@ const inactiveClinicalAskShellBindings = {
 } as ClinicalAskShellBindings;
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { isInformationPage } from "@/lib/information-pages";
+import { isInformationPage, isToolDetailWithFooterSearch } from "@/lib/information-pages";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import {
   desktopPageComposerSlotId,
@@ -307,14 +307,6 @@ function readInitialBrowserSubmittedSearchParamString(): string {
   const params = new URLSearchParams(search);
   const query = (params.get("q") ?? params.get("query") ?? "").trim();
   return params.get("run") === "1" && query ? search : "";
-}
-
-function isToolDetailWithFooterSearch(pathname: string): boolean {
-  return (
-    (pathname.startsWith("/services/") && pathname !== "/services") ||
-    (pathname.startsWith("/forms/") && pathname !== "/forms") ||
-    (pathname.startsWith("/medications/") && pathname !== "/medications")
-  );
 }
 
 function GlobalStandaloneSearchShellClient(props: GlobalSearchShellProps) {
