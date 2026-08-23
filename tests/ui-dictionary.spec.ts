@@ -159,6 +159,10 @@ test("merges search and browse into one catalogue with a measured phone header",
   expect(toggleBox?.width ?? 0).toBeLessThan(300);
   expect(toggleBox?.width ?? 0).toBeGreaterThan(140);
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
+  const letterChip = page.getByTestId("dictionary-letter-chip");
+  const letterBox = await letterChip.boundingBox();
+  expect(letterBox?.height ?? 0).toBeGreaterThanOrEqual(48);
+  expect(letterBox?.width ?? 0).toBeGreaterThanOrEqual(48);
   const filter = page.getByTestId("dictionary-filter-trigger-phone");
   await expect(filter.getByText("Filter", { exact: true })).toBeVisible();
   await expect(page.getByTestId("search-query-ribbon")).toHaveCount(0);

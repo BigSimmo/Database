@@ -328,9 +328,10 @@ export function DictionaryCataloguePage() {
     </div>
   );
 
-  /* The phone's whole alphabet in one compact chip. 27 chips cost a band and a
+  /* The phone's whole alphabet in one chip. 27 chips cost a band and a
      horizontal scroll; the rail below is the same control at a width that can
-     afford it. Height matches the joined scope toggle so the row stays even. */
+     afford it. Keep the 48px tap floor (`min-h-tap min-w-tap`) so this control
+     matches Filter on both axes; the compact toggle stays visually smaller. */
   const letterChip = (
     <button
       type="button"
@@ -341,7 +342,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex h-7 max-h-7 shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap min-w-tap shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
