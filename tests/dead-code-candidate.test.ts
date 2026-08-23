@@ -1,5 +1,14 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +20,7 @@ import {
   docMentions,
   historyIsComplete,
   main,
+  parseRecentDays,
   removedDeclarationsInDiff,
 } from "../scripts/check-dead-code-candidate.mjs";
 
@@ -131,6 +141,43 @@ describe("dead-code candidate safety classifications", () => {
     const source = readFileSync(SCRIPT, "utf8");
 
     expect(source).not.toMatch(/(?:execFileSync|\bsh\()\s*\(?(?:"|')grep(?:"|')/);
+  });
+
+  it("rejects a non-numeric DEAD_CODE_RECENT_DAYS value before the recency check can fail open", () => {
+    expect(parseRecentDays(undefined)).toBe(30);
+    expect(parseRecentDays("14")).toBe(14);
+    expect(() => parseRecentDays("nope")).toThrow(/DEAD_CODE_RECENT_DAYS must be a non-negative number: nope/);
+    expect(() => parseRecentDays("-1")).toThrow(/DEAD_CODE_RECENT_DAYS must be a non-negative number: -1/);
+
+    const result = spawnSync(process.execPath, [SCRIPT, "--self-test"], {
+      cwd: REPOSITORY_ROOT,
+      encoding: "utf8",
+      env: { ...process.env, DEAD_CODE_RECENT_DAYS: "nope" },
+    });
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toMatch(/DEAD_CODE_RECENT_DAYS must be a non-negative number: nope/);
+  });
+
+  it("does not refuse every candidate when a search root contains a directory or dangling symlink", () => {
+    const root = createFixture();
+    mkdirSync(join(root, "docs", "guides"), { recursive: true });
+    writeFileSync(join(root, "docs", "guides", "ok.md"), "unrelated\n", "utf8");
+    symlinkSync(join(root, "src"), join(root, "docs", "guides", "src-link"));
+    symlinkSync(join(root, "docs", "guides", "missing.md"), join(root, "docs", "guides", "dangling.md"));
+
+    const result = assessFixture(root, "candidate", completeHistory());
+
+    expect(result.refusals.join("\n")).not.toMatch(/content search failed/);
+    expect(result.ok).toBe(true);
+  });
+
+  it("still searches a file symlink inside a documentation root", () => {
+    const root = createFixture();
+    mkdirSync(join(root, "docs", "guides"), { recursive: true });
+    writeFileSync(join(root, "docs", "guides", "real.md"), "candidate\n", "utf8");
+    symlinkSync(join(root, "docs", "guides", "real.md"), join(root, "docs", "guides", "alias.md"));
+
+    expect(docMentions("candidate", { root })).toEqual(["docs/guides/alias.md", "docs/guides/real.md"]);
   });
 });
 
@@ -316,6 +363,9 @@ describe("dead-code candidate diff parsing", () => {
         const absolutePath = resolve(String(path));
         directoryReads.set(absolutePath, (directoryReads.get(absolutePath) ?? 0) + 1);
         return readdirSync(path, options);
+      },
+      statSync(path: Parameters<typeof statSync>[0]) {
+        return statSync(path);
       },
     };
     const diff = [

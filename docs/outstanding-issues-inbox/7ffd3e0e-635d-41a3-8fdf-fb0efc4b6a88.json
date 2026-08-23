@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "7ffd3e0e-635d-41a3-8fdf-fb0efc4b6a88",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "608150d5-7aa4-4b98-b497-1a9f1feaf4b5",
+    "reason": "Outcome stored a local account identifier under a personal home path; replace with repository-relative worktree logs, transcript filenames, and redacted home placeholders while keeping timestamps, hashes, and Claude Code 2.1.237 provenance."
+  }
+}

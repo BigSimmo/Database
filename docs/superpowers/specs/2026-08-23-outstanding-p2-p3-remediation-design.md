@@ -91,7 +91,7 @@ The user delegated the product and implementation decisions needed to execute th
 | `#JZM7RM`                                  | Authoritative identification and configuration of the app-level review watcher.                            |
 | `#61TZJA`                                  | Authoritative Linux visual artifact after the DocumentViewer fix.                                          |
 | `#8VAY97`, `#S19JRT`                       | Production database window, post-deploy drift check, and live EXPLAIN where applicable.                    |
-| `#C2D9JF`, `#NTAV3D`, `#VXB8XA`, `#S4R2W3` | Focused offline proof followed by exactly one approved baseline/post live canary pair per behavior change. |
+| `#C2D9JF`, `#NTAV3D`, `#VXB8XA`, `#S4R2W3` | Focused offline proof followed by exactly one approved baseline/post-live canary pair per behavior change. |
 
 ## Dependency Order
 

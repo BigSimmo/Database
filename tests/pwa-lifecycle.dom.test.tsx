@@ -63,18 +63,49 @@ const ALLOWED_HERO_MAIN_CONTENT_SELECTORS = new Set([
   `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-actions`,
 ]);
 
+function splitCssSelectors(prelude: string) {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const char of prelude) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (char === "," && depth === 0) {
+      parts.push(current.replace(/\s+/g, " ").trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  const last = current.replace(/\s+/g, " ").trim();
+  if (last) parts.push(last);
+  return parts.filter(Boolean);
+}
+
 function disallowedMainContentHasSelectors(styles: string) {
-  return styles
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.includes("body:has(#main-content"))
-    .map((line) => {
-      const blockStart = line.indexOf("{");
-      const selector = (blockStart >= 0 ? line.slice(0, blockStart) : line).trim().replace(/,$/, "");
-      return { line, selector };
-    })
-    .filter(({ selector }) => !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector))
-    .map(({ line }) => line);
+  const withoutComments = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+  const disallowed: string[] = [];
+  let token = "";
+  for (const char of withoutComments) {
+    if (char === "{") {
+      const prelude = token.replace(/\s+/g, " ").trim();
+      if (!prelude.startsWith("@")) {
+        for (const selector of splitCssSelectors(prelude)) {
+          if (selector.includes("body:has(#main-content") && !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector)) {
+            disallowed.push(selector);
+          }
+        }
+      }
+      token = "";
+      continue;
+    }
+    if (char === "}") {
+      token = "";
+      continue;
+    }
+    token += char;
+  }
+  return disallowed;
 }
 
 beforeEach(() => {
@@ -457,7 +488,16 @@ describe("notice-stack hero-compact geometry selectors", () => {
 
     const unsafeFixture = `${styles}\nbody:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay { bottom: 0; }`;
     expect(disallowedMainContentHasSelectors(unsafeFixture)).toEqual([
-      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay { bottom: 0; }',
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+
+    const multilineUnsafeFixture = `${styles}
+body:has(#main-content[data-phone-footer-owner="hero"])
+  .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(multilineUnsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
     ]);
   });
 });

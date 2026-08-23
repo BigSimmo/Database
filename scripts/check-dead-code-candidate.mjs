@@ -22,11 +22,19 @@
  * Exit 0 = every candidate cleared. Exit 1 = at least one REFUSE.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const RECENT_DAYS = Number(process.env.DEAD_CODE_RECENT_DAYS || 30);
+export function parseRecentDays(raw = process.env.DEAD_CODE_RECENT_DAYS) {
+  const configuredRecentDays = Number(raw || 30);
+  if (!Number.isFinite(configuredRecentDays) || configuredRecentDays < 0) {
+    throw new Error(`DEAD_CODE_RECENT_DAYS must be a non-negative number: ${raw}`);
+  }
+  return configuredRecentDays;
+}
+
+const RECENT_DAYS = parseRecentDays();
 
 /**
  * Minimal dependency surface used by the injectable filesystem adapter.
@@ -34,12 +42,13 @@ const RECENT_DAYS = Number(process.env.DEAD_CODE_RECENT_DAYS || 30);
  * @typedef {object} FileSystemAdapter
  * @property {(path: string, encoding: "utf8") => string} readFileSync
  * @property {(path: string, options: { withFileTypes: true }) => import("node:fs").Dirent[]} readdirSync
+ * @property {(path: string) => import("node:fs").Stats} statSync
  */
 
 /** @typedef {(args: string[], root: string) => string} GitRunner */
 
 /** @type {FileSystemAdapter} */
-const NODE_FILE_SYSTEM = { readFileSync, readdirSync };
+const NODE_FILE_SYSTEM = { readFileSync, readdirSync, statSync };
 
 const errorMessage = (error) => (error instanceof Error ? error.message.split(/\r?\n/, 1)[0] : String(error));
 
@@ -93,8 +102,18 @@ function walkFiles(searchRoot, { root, fileSystem }) {
       const absolutePath = resolve(directory, entry.name);
       if (entry.isDirectory()) {
         visit(absolutePath);
-      } else if (entry.isFile() || entry.isSymbolicLink()) {
+      } else if (entry.isFile()) {
         files.push(absolutePath);
+      } else if (entry.isSymbolicLink()) {
+        // Search the target only when it is a regular file. A directory link or
+        // a dangling link is not searchable content and must not fail the gate.
+        let target;
+        try {
+          target = fileSystem.statSync(absolutePath);
+        } catch {
+          continue;
+        }
+        if (target.isFile()) files.push(absolutePath);
       }
     }
   }

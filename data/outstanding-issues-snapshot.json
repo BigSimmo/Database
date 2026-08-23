@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 58,
+    "pending": 60,
     "resolved": 376
   },
   "queue": [
@@ -858,6 +858,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "346c12f3-fbcb-478f-bd86-d0c4aa0436c0",
+      "action": "done",
+      "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Two real Claude Code v2.1.237 auto-compactions correlate with the hook log. .git/worktrees/caring-contacts-phase-2a-11b-a37803/claude-precompact.log records 2026-08-22T11:37:51Z before ~/.claude/projects/<worktree-slug>/d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl line 1902 at the 2026-08-22T11:39:38.041Z compact boundary. .git/worktrees/ward-flow-phase-3-49f201/claude-precompact.log records 2026-08-22T18:33:10Z before ~/.claude/projects/<worktree-slug>/d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl line 2492 at the 2026-08-22T18:34:57.371Z boundary. Both compact_boundary records explicitly carry version 2.1.237, and the exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. Independently, the current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks), checked 2026-08-23, states that successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The later local claude --version result 2.1.238 was not the correlated runtime and is not used as provenance. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event; .git/worktrees/Database36/claude-precompact.log was absent when checked at 2026-08-23T06:41:54.9955991Z and is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "36b358f7-0fa8-46ab-9b72-585c7d2ceca9",
       "action": "done",
       "summary": "#2TAQDC: Resolved with both recommended safeguards. docs/search-chrome-behaviour.md now documents the Next streaming/hydration interval in which #main-content may be absent and limits body:has(#main-content...) geometry consumers to elements that cannot mount during that interval. tests/pwa-lifecycle.dom.test.tsx inventories the exact existing hero-scoped PWA selectors and rejects any unallowlisted consumer; its injected .future-overlay control proves the invariant fails for a new selector. The matcher was corrected after focused proof exposed opening-brace normalization, then the combined focused run passed 3 files and 26 tests on 2026-08-23.",
@@ -958,6 +964,12 @@
       "action": "update",
       "summary": "#RSD9EJ: source → PR #2298 push attempts 2026-08-22/23 (squash-merged as f3d1a3cce2c943ad3083425ed9c7c46dbef23087; the feature branch and its commits 90b5de61f/7703188ef/55f3a47fa are NOT reachable from any ref -- view them on the PR page, not via git); scripts/guard-push.mjs; scripts/check-ledger-write-discipline.mjs; commit 9a382a050 (#2294) is the reconcile whose applied/ records triggered the false positive and IS on main. REPRODUCTION without those commits: branch from main, let a reconcile PR land on main, merge origin/main into the branch, then push -- guard-push refuses with 'applied/<uuid>.json was introduced without moving the identical pending request from the base' while 'node scripts/check-ledger-write-discipline.mjs --base origin/main --head HEAD' passes on the same tree. The divergence between those two results is the bug.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "7ffd3e0e-635d-41a3-8fdf-fb0efc4b6a88",
+      "action": "cancel",
+      "summary": "Cancel request 608150d5-7aa4-4b98-b497-1a9f1feaf4b5: Outcome stored a local account identifier under a personal home path; replace with repository-relative worktree logs, transcript filenames, and redacted home placeholders while keeping timestamps, hashes, and Claude Code 2.1.237 provenance.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "82838fb1-7ed2-4f37-bd50-191a603ecd0f",
