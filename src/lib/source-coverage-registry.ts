@@ -44,6 +44,26 @@ function stringIds(value: unknown, label: string, kind: "document" | "case") {
   return ids.sort();
 }
 
+type CoverageOwnershipRecord = Pick<ExpectedSourceCoverageRecord, "key" | "expectedDocumentIds" | "mustPassCaseIds">;
+
+function validateGlobalCoverageOwnership(records: readonly CoverageOwnershipRecord[]) {
+  const keys = new Set<string>();
+  const claimedDocuments = new Set<string>();
+  const claimedCases = new Set<string>();
+  for (const entry of records) {
+    if (keys.has(entry.key)) throw new Error(`Duplicate expected source key: ${entry.key}.`);
+    keys.add(entry.key);
+    for (const documentId of entry.expectedDocumentIds) {
+      if (claimedDocuments.has(documentId)) throw new Error(`Duplicate expected document ownership: ${documentId}.`);
+      claimedDocuments.add(documentId);
+    }
+    for (const caseId of entry.mustPassCaseIds) {
+      if (claimedCases.has(caseId)) throw new Error(`Duplicate must-pass case ownership: ${caseId}.`);
+      claimedCases.add(caseId);
+    }
+  }
+}
+
 export function parseExpectedSourceCoverageRegistry(
   value: unknown,
   references: { catalogue: readonly CatalogueEntry[]; evaluationCases: readonly EvaluationCase[] },
@@ -55,17 +75,12 @@ export function parseExpectedSourceCoverageRegistry(
     throw new Error("Expected source coverage records must be a bounded array.");
   const catalogueByKey = new Map(references.catalogue.map((entry) => [entry.key, entry]));
   const casesById = new Map(references.evaluationCases.map((testCase) => [testCase.id, testCase]));
-  const keys = new Set<string>();
-  const claimedDocuments = new Set<string>();
-  const claimedCases = new Set<string>();
   const records = root.records.map((item, index): ExpectedSourceCoverageRecord => {
     const raw = record(item, `records[${index}]`);
     exactKeys(raw, ["key", "owner", "reviewStatus", "expectedDocumentIds", "mustPassCaseIds"], `records[${index}]`);
     const key = parseIngestionAuditIdentifier(raw.key, "source key", `records[${index}].key`);
     const owner = raw.owner;
     assertNoIngestionCredentialShape(owner, `records[${index}].owner`);
-    if (keys.has(key)) throw new Error(`Duplicate expected source key: ${key}.`);
-    keys.add(key);
     const catalogue = catalogueByKey.get(key);
     if (!catalogue) throw new Error(`Unknown expected source key: ${key}.`);
     if (owner !== `source_governance:${key}`) throw new Error(`${key}.owner must be source_governance:${key}.`);
@@ -81,14 +96,8 @@ export function parseExpectedSourceCoverageRegistry(
       throw new Error(`${key} is not an active catalogue source.`);
     const expectedDocumentIds = stringIds(raw.expectedDocumentIds, `${key}.expectedDocumentIds`, "document");
     const mustPassCaseIds = stringIds(raw.mustPassCaseIds, `${key}.mustPassCaseIds`, "case");
-    for (const documentId of expectedDocumentIds) {
-      if (claimedDocuments.has(documentId)) throw new Error(`Duplicate expected document ownership: ${documentId}.`);
-      claimedDocuments.add(documentId);
-    }
     const mappedCases: EvaluationCase[] = [];
     for (const caseId of mustPassCaseIds) {
-      if (claimedCases.has(caseId)) throw new Error(`Duplicate must-pass case ownership: ${caseId}.`);
-      claimedCases.add(caseId);
       const testCase = casesById.get(caseId);
       if (!testCase) throw new Error(`Unknown evaluation case: ${caseId}.`);
       if (!testCase.expectedDocuments.some((documentId) => expectedDocumentIds.includes(documentId)))
@@ -107,6 +116,8 @@ export function parseExpectedSourceCoverageRegistry(
     }));
     return { key, owner, reviewStatus, expectedDocumentIds, mustPassCaseIds, caseExpectations };
   });
+  validateGlobalCoverageOwnership(records);
+  const keys = new Set(records.map(({ key }) => key));
   const missingCatalogueKeys = references.catalogue.map(({ key }) => key).filter((key) => !keys.has(key));
   if (missingCatalogueKeys.length)
     throw new Error(`Expected source registry is missing catalogue key ${missingCatalogueKeys.sort()[0]}.`);
@@ -118,65 +129,66 @@ export function auditExpectedSourceCoverage(args: {
   activeDocumentIds: ReadonlySet<string>;
   retrievedDocumentIdsByCase: ReadonlyMap<string, ReadonlySet<string>>;
 }): readonly SourceCoverageFinding[] {
-  return [...args.expected]
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") throw new Error("Expected source record must be an object.");
-      const key = parseIngestionAuditIdentifier(entry.key, "source key", "expected source key");
-      assertNoIngestionCredentialShape(entry.owner, "expected source owner");
-      if (entry.owner !== `source_governance:${key}`)
-        throw new Error("Expected source owner must match its controlled source-governance identifier.");
-      if (!statuses.has(entry.reviewStatus)) throw new Error("Expected source review status is invalid.");
-      if (
-        !Array.isArray(entry.expectedDocumentIds) ||
-        !Array.isArray(entry.mustPassCaseIds) ||
-        entry.expectedDocumentIds.length > MAX_IDS ||
-        entry.mustPassCaseIds.length > MAX_IDS
-      )
-        throw new Error("Expected source identifier arrays must be bounded.");
-      const expectedDocumentIds = entry.expectedDocumentIds.map((documentId) =>
-        parseIngestionAuditIdentifier(documentId, "document", "expected document id"),
-      );
-      const mustPassCaseIds = entry.mustPassCaseIds.map((caseId) =>
-        parseIngestionAuditIdentifier(caseId, "case", "must-pass case id"),
-      );
-      if (
-        new Set(expectedDocumentIds).size !== expectedDocumentIds.length ||
-        new Set(mustPassCaseIds).size !== mustPassCaseIds.length
-      )
-        throw new Error("Expected source record contains duplicate identifiers.");
-      if (!Array.isArray(entry.caseExpectations) || entry.caseExpectations.length > MAX_IDS)
-        throw new Error("Expected source record has an invalid case expectation mapping.");
-      const expectedByCase = new Map(
-        entry.caseExpectations.map((caseExpectation) => {
-          if (!caseExpectation || typeof caseExpectation !== "object")
-            throw new Error("Expected source record has an invalid case expectation mapping.");
-          const { caseId, expectedDocumentIds: expectedForCase } = caseExpectation;
-          const validatedCaseId = parseIngestionAuditIdentifier(caseId, "case", "case expectation id");
-          if (!Array.isArray(expectedForCase) || expectedForCase.length === 0 || expectedForCase.length > MAX_IDS)
-            throw new Error("Expected source record has an invalid case expectation mapping.");
-          const validatedDocuments = expectedForCase.map((documentId) =>
-            parseIngestionAuditIdentifier(documentId, "document", "case expectation document id"),
-          );
-          if (
-            new Set(validatedDocuments).size !== validatedDocuments.length ||
-            validatedDocuments.some((documentId) => !expectedDocumentIds.includes(documentId))
-          )
-            throw new Error("Expected source record has an invalid case expectation mapping.");
-          return [validatedCaseId, validatedDocuments] as const;
-        }),
-      );
-      const mappedDocumentIds = new Set([...expectedByCase.values()].flat());
-      if (
-        expectedByCase.size !== entry.caseExpectations.length ||
-        mustPassCaseIds.some((caseId) => !expectedByCase.has(caseId)) ||
-        [...expectedByCase.keys()].some((caseId) => !mustPassCaseIds.includes(caseId)) ||
-        expectedDocumentIds.some((documentId) => !mappedDocumentIds.has(documentId)) ||
-        [...mappedDocumentIds].some((documentId) => !expectedDocumentIds.includes(documentId))
-      ) {
-        throw new Error("Expected source record has an invalid case expectation mapping.");
-      }
-      return { entry, key, expectedDocumentIds, mustPassCaseIds, expectedByCase };
-    })
+  const validated = [...args.expected].map((entry) => {
+    if (!entry || typeof entry !== "object") throw new Error("Expected source record must be an object.");
+    const key = parseIngestionAuditIdentifier(entry.key, "source key", "expected source key");
+    assertNoIngestionCredentialShape(entry.owner, "expected source owner");
+    if (entry.owner !== `source_governance:${key}`)
+      throw new Error("Expected source owner must match its controlled source-governance identifier.");
+    if (!statuses.has(entry.reviewStatus)) throw new Error("Expected source review status is invalid.");
+    if (
+      !Array.isArray(entry.expectedDocumentIds) ||
+      !Array.isArray(entry.mustPassCaseIds) ||
+      entry.expectedDocumentIds.length > MAX_IDS ||
+      entry.mustPassCaseIds.length > MAX_IDS
+    )
+      throw new Error("Expected source identifier arrays must be bounded.");
+    const expectedDocumentIds = entry.expectedDocumentIds.map((documentId) =>
+      parseIngestionAuditIdentifier(documentId, "document", "expected document id"),
+    );
+    const mustPassCaseIds = entry.mustPassCaseIds.map((caseId) =>
+      parseIngestionAuditIdentifier(caseId, "case", "must-pass case id"),
+    );
+    if (
+      new Set(expectedDocumentIds).size !== expectedDocumentIds.length ||
+      new Set(mustPassCaseIds).size !== mustPassCaseIds.length
+    )
+      throw new Error("Expected source record contains duplicate identifiers.");
+    if (!Array.isArray(entry.caseExpectations) || entry.caseExpectations.length > MAX_IDS)
+      throw new Error("Expected source record has an invalid case expectation mapping.");
+    const expectedByCase = new Map(
+      entry.caseExpectations.map((caseExpectation) => {
+        if (!caseExpectation || typeof caseExpectation !== "object")
+          throw new Error("Expected source record has an invalid case expectation mapping.");
+        const { caseId, expectedDocumentIds: expectedForCase } = caseExpectation;
+        const validatedCaseId = parseIngestionAuditIdentifier(caseId, "case", "case expectation id");
+        if (!Array.isArray(expectedForCase) || expectedForCase.length === 0 || expectedForCase.length > MAX_IDS)
+          throw new Error("Expected source record has an invalid case expectation mapping.");
+        const validatedDocuments = expectedForCase.map((documentId) =>
+          parseIngestionAuditIdentifier(documentId, "document", "case expectation document id"),
+        );
+        if (
+          new Set(validatedDocuments).size !== validatedDocuments.length ||
+          validatedDocuments.some((documentId) => !expectedDocumentIds.includes(documentId))
+        )
+          throw new Error("Expected source record has an invalid case expectation mapping.");
+        return [validatedCaseId, validatedDocuments] as const;
+      }),
+    );
+    const mappedDocumentIds = new Set([...expectedByCase.values()].flat());
+    if (
+      expectedByCase.size !== entry.caseExpectations.length ||
+      mustPassCaseIds.some((caseId) => !expectedByCase.has(caseId)) ||
+      [...expectedByCase.keys()].some((caseId) => !mustPassCaseIds.includes(caseId)) ||
+      expectedDocumentIds.some((documentId) => !mappedDocumentIds.has(documentId)) ||
+      [...mappedDocumentIds].some((documentId) => !expectedDocumentIds.includes(documentId))
+    ) {
+      throw new Error("Expected source record has an invalid case expectation mapping.");
+    }
+    return { entry, key, expectedDocumentIds, mustPassCaseIds, expectedByCase };
+  });
+  validateGlobalCoverageOwnership(validated);
+  return validated
     .sort((left, right) => left.key.localeCompare(right.key))
     .map(({ entry, key, expectedDocumentIds, mustPassCaseIds, expectedByCase }) => {
       let outcome: SourceCoverageFinding["outcome"];

@@ -335,6 +335,34 @@ describe("ingestion integrity audit", () => {
     }
   });
 
+  it("projects structurally compatible must-pass evidence to the exact public shape", () => {
+    const failedExpectations = ["expected_document_not_retrieved"];
+    const caseWithPrivateExtras = {
+      id: "must-pass-1",
+      passed: false,
+      expectedDocumentRank: 1,
+      actualDocumentRank: null,
+      failedExpectations,
+      clinicalText: "Patient reports suicidal thoughts",
+      providerError: "https://private.example.test/provider-error",
+      credential: "sk-proj-private-value",
+      nestedSecret: { password: "secret-value" },
+    };
+
+    const audit = auditDocument(fixture({ mustPassCases: [caseWithPrivateExtras] }));
+    expect(audit.mustPassCases[0]).toEqual({
+      id: "must-pass-1",
+      passed: false,
+      expectedDocumentRank: 1,
+      actualDocumentRank: null,
+      failedExpectations: ["expected_document_not_retrieved"],
+    });
+    expect(audit.mustPassCases[0]!.failedExpectations).not.toBe(failedExpectations);
+    expect(JSON.stringify(audit)).not.toMatch(
+      /clinicalText|providerError|credential|nestedSecret|suicidal|private\.example|secret-value/,
+    );
+  });
+
   it("normalizes real P01 evaluator reasons to opaque audit categories", () => {
     const programmeCase = ragProgrammeFixture.cases.find(({ id }) => id === "direct-evidence-generic-refusal")!;
     const result = evaluateRagProgrammeCase({

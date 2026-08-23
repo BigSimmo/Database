@@ -327,9 +327,12 @@ export function auditDocument(input: IngestionDocumentAuditInput): IngestionDocu
   const mustPassCases = input.mustPassCases
     .map((testCase) => {
       try {
-        const normalized = {
-          ...testCase,
-          failedExpectations: normalizeIngestionFailedExpectationCodes(testCase.failedExpectations),
+        const normalized: IngestionMustPassCase = {
+          id: testCase.id,
+          passed: testCase.passed,
+          expectedDocumentRank: testCase.expectedDocumentRank,
+          actualDocumentRank: testCase.actualDocumentRank,
+          failedExpectations: [...normalizeIngestionFailedExpectationCodes(testCase.failedExpectations)],
         };
         if (normalized.passed && normalized.failedExpectations.length > 0)
           throw new Error("A passed must-pass case cannot contain failed expectations.");

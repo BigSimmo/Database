@@ -43,11 +43,30 @@ describe("expected source coverage", () => {
     const base = expectedCoverageFixture()[0]!;
     const findings = auditExpectedSourceCoverage({
       expected: [
-        { ...base, key: "retired", owner: "source_governance:retired", reviewStatus: "retired" },
-        { ...base, key: "not-approved", owner: "source_governance:not-approved", reviewStatus: "not_approved" },
+        {
+          ...base,
+          key: "retired",
+          owner: "source_governance:retired",
+          reviewStatus: "retired",
+          expectedDocumentIds: ["retired-doc"],
+          mustPassCaseIds: ["retired-case"],
+          caseExpectations: [{ caseId: "retired-case", expectedDocumentIds: ["retired-doc"] }],
+        },
+        {
+          ...base,
+          key: "not-approved",
+          owner: "source_governance:not-approved",
+          reviewStatus: "not_approved",
+          expectedDocumentIds: ["not-approved-doc"],
+          mustPassCaseIds: ["not-approved-case"],
+          caseExpectations: [{ caseId: "not-approved-case", expectedDocumentIds: ["not-approved-doc"] }],
+        },
       ],
-      activeDocumentIds: new Set(["expected-doc"]),
-      retrievedDocumentIdsByCase: new Map([["must-pass-1", new Set(["expected-doc"])]]),
+      activeDocumentIds: new Set(["retired-doc", "not-approved-doc"]),
+      retrievedDocumentIdsByCase: new Map([
+        ["retired-case", new Set(["retired-doc"])],
+        ["not-approved-case", new Set(["not-approved-doc"])],
+      ]),
     });
     expect(findings).toEqual([
       expect.objectContaining({ key: "not-approved", outcome: "not_approved" }),
@@ -128,6 +147,80 @@ describe("expected source coverage", () => {
         }),
       ).toThrow(/case expectation/i);
     }
+  });
+
+  it("rejects cross-record identity conflicts in cloned plain values", () => {
+    const base = expectedCoverageFixture()[0]!;
+    const other = {
+      ...base,
+      key: "other-source",
+      owner: "source_governance:other-source",
+      expectedDocumentIds: ["other-doc"],
+      mustPassCaseIds: ["must-pass-2"],
+      caseExpectations: [{ caseId: "must-pass-2", expectedDocumentIds: ["other-doc"] }],
+    } satisfies ExpectedSourceCoverageRecord;
+    const conflicts: Array<[string, ExpectedSourceCoverageRecord[]]> = [
+      ["source key", [base, structuredClone(base)]],
+      [
+        "document ownership",
+        [
+          base,
+          {
+            ...other,
+            expectedDocumentIds: ["expected-doc"],
+            caseExpectations: [{ caseId: "must-pass-2", expectedDocumentIds: ["expected-doc"] }],
+          },
+        ],
+      ],
+      [
+        "case ownership",
+        [
+          base,
+          {
+            ...other,
+            mustPassCaseIds: ["must-pass-1"],
+            caseExpectations: [{ caseId: "must-pass-1", expectedDocumentIds: ["other-doc"] }],
+          },
+        ],
+      ],
+    ];
+
+    for (const [conflict, expected] of conflicts) {
+      expect(() =>
+        auditExpectedSourceCoverage({
+          expected: structuredClone(expected),
+          activeDocumentIds: new Set(["expected-doc", "other-doc"]),
+          retrievedDocumentIdsByCase: new Map([
+            ["must-pass-1", new Set(["expected-doc"])],
+            ["must-pass-2", new Set(["other-doc"])],
+          ]),
+        }),
+      ).toThrow(new RegExp(`duplicate.*${conflict}`, "i"));
+    }
+  });
+
+  it("emits canonical findings independent of plain caller order", () => {
+    const first = expectedCoverageFixture()[0]!;
+    const second = {
+      ...first,
+      key: "other-source",
+      owner: "source_governance:other-source",
+      expectedDocumentIds: ["other-doc"],
+      mustPassCaseIds: ["must-pass-2"],
+      caseExpectations: [{ caseId: "must-pass-2", expectedDocumentIds: ["other-doc"] }],
+    } satisfies ExpectedSourceCoverageRecord;
+    const args = {
+      activeDocumentIds: new Set(["expected-doc", "other-doc"]),
+      retrievedDocumentIdsByCase: new Map([
+        ["must-pass-1", new Set(["expected-doc"])],
+        ["must-pass-2", new Set(["other-doc"])],
+      ]),
+    };
+
+    const forwards = auditExpectedSourceCoverage({ ...args, expected: structuredClone([first, second]) });
+    const reversed = auditExpectedSourceCoverage({ ...args, expected: structuredClone([second, first]) });
+    expect(reversed).toEqual(forwards);
+    expect(forwards.map(({ key }) => key)).toEqual(["other-source", "wa-health"]);
   });
 
   it("rejects duplicate identities, missing owners, bad case-document mappings, and active link-only sources", () => {
