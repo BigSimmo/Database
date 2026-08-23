@@ -3160,6 +3160,19 @@ summary::-webkit-details-marker {
   }
 }
 
+/* Tablet mode homes vertically centre a 160px composer in the viewport. The
+   full install card is ~400px in the lower-right, so those two bands overlap
+   (~38px, Production UI `ui-pwa` small-tablet). While the card is showing,
+   pin the home canvas to the top so the composer sits above the card.
+   1280px+ keeps optical centering: the card is the same size and the extra
+   viewport height already clears a centred composer. */
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  body:has(.pwa-notice-stack) #main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {
+    place-items: start center;
+    align-content: start;
+  }
+}
+
 @media (display-mode: standalone) {
   .pwa-notice-stack {
     --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);

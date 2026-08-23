@@ -518,4 +518,19 @@ body:has(
       'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
     ]);
   });
+
+  it("top-aligns the tablet hero canvas while the install card is showing", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    const dashboardSource = readFileSync(
+      join(import.meta.dirname, "..", "src", "components", "ClinicalDashboard.tsx"),
+      "utf8",
+    );
+    expect(styles).toContain(
+      'body:has(.pwa-notice-stack) #main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas]',
+    );
+    expect(styles).toContain("place-items: start center");
+    expect(dashboardSource).toContain(
+      'data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}',
+    );
+  });
 });

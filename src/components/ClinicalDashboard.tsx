@@ -3533,6 +3533,7 @@ function ClinicalDashboardContent({
               ) : null}
 
               <section
+                data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
                 className={cn(
                   compactMobileModeHome
                     ? cn(
