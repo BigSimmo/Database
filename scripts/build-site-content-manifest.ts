@@ -8,6 +8,7 @@ import { allSiteContentRecords } from "../src/lib/site-content/adapters";
 import {
   buildStaticSiteContentManifest,
   canonicalSiteContentJson,
+  compareCanonicalSiteContentIdentifiers,
   type StaticSiteContentManifest,
   validateStaticSiteContentManifest,
 } from "../src/lib/site-content/site-content-manifest";
@@ -113,15 +114,19 @@ export function writeJsonAtomically(
 function manifestDiff(baseline: StaticSiteContentManifest, candidate: StaticSiteContentManifest) {
   const baselineById = new Map(baseline.records.map((record) => [record.logicalId, record] as const));
   const candidateById = new Map(candidate.records.map((record) => [record.logicalId, record] as const));
-  const added = [...candidateById.keys()].filter((id) => !baselineById.has(id)).sort();
-  const removed = [...baselineById.keys()].filter((id) => !candidateById.has(id)).sort();
+  const added = [...candidateById.keys()]
+    .filter((id) => !baselineById.has(id))
+    .sort(compareCanonicalSiteContentIdentifiers);
+  const removed = [...baselineById.keys()]
+    .filter((id) => !candidateById.has(id))
+    .sort(compareCanonicalSiteContentIdentifiers);
   const changed = [...candidateById.entries()]
     .filter(([id, record]) => {
       const previous = baselineById.get(id);
       return previous && canonicalSiteContentJson(previous) !== canonicalSiteContentJson(record);
     })
     .map(([logicalId]) => logicalId)
-    .sort();
+    .sort(compareCanonicalSiteContentIdentifiers);
   return {
     version: "clinical-kb-site-static-manifest-diff-v1",
     baselineDigest: baseline.staticManifestDigest,
@@ -142,7 +147,7 @@ function manifestDiff(baseline: StaticSiteContentManifest, candidate: StaticSite
 function summary(manifest: StaticSiteContentManifest) {
   const domains = Object.fromEntries(
     [...new Set(manifest.records.map((record) => record.domain))]
-      .sort()
+      .sort(compareCanonicalSiteContentIdentifiers)
       .map((domain) => [domain, manifest.records.filter((record) => record.domain === domain).length]),
   );
   return {

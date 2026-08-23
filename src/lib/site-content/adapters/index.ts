@@ -14,12 +14,17 @@ import {
 import type { RegistryRecordRow } from "@/lib/registry-records";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { siteContentProducerForMode } from "@/lib/site-content/site-content-registry";
-import { createSiteContentRecord, siteContentValueHash } from "@/lib/site-content/site-content-manifest";
+import {
+  compareCanonicalSiteContentIdentifiers,
+  createSiteContentRecord,
+  siteContentValueHash,
+} from "@/lib/site-content/site-content-manifest";
 import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
 import { publicKnowledgeToolCatalogRecords } from "@/lib/tools-catalog";
 
 import {
   adoptCanonicalRegistryProjection,
+  buildRegistryReconciliationReport,
   type CanonicalRegistrySiteContentProjection,
   type RegistryReconciliationCandidate,
 } from "./registry";
@@ -302,18 +307,41 @@ export function buildDynamicSiteContentProjections(
     ...medicationRowsToCorpusEntries(rows.medicationRows),
     ...differentialRowsToCorpusEntries(rows.differentialRows),
   ];
-  const candidates = reconciliation.map((decision) => {
-    const matches = entries.filter((entry) => entry.kind === decision.kind && entry.recordId === decision.recordId);
-    if (matches.length !== 1) {
-      throw new Error(`Dynamic site-content reconciliation must identify one persisted ${decision.kind} row.`);
+  const entryKey = (kind: RegistryCorpusEntry["kind"], recordId: string) => `${kind}\u0000${recordId}`;
+  const entriesById = new Map<string, RegistryCorpusEntry>();
+  for (const entry of entries) {
+    const key = entryKey(entry.kind, entry.recordId);
+    if (entriesById.has(key)) {
+      throw new Error(`Duplicate persisted dynamic entry ID for ${entry.kind} row ${entry.recordId}.`);
     }
+    entriesById.set(key, entry);
+  }
+  const decisionsById = new Map<string, DynamicSiteContentReconciliation>();
+  for (const decision of reconciliation) {
+    const key = entryKey(decision.kind, decision.recordId);
+    if (decisionsById.has(key)) {
+      throw new Error(`Duplicate reconciliation decision for persisted ${decision.kind} row ${decision.recordId}.`);
+    }
+    if (!entriesById.has(key)) {
+      throw new Error(
+        `Reconciliation decision does not match a persisted entry: ${decision.kind}/${decision.recordId}.`,
+      );
+    }
+    decisionsById.set(key, decision);
+  }
+  if (entriesById.size !== decisionsById.size) {
+    throw new Error("A reconciliation decision is required for every persisted dynamic entry.");
+  }
+  const candidates = entries.map((entry) => {
+    const decision = decisionsById.get(entryKey(entry.kind, entry.recordId))!;
     const { kind: _kind, recordId: _recordId, ...identity } = decision;
     return {
       ...identity,
-      entry: matches[0]!,
-      logicalId: dynamicLogicalId(matches[0]!),
+      entry,
+      logicalId: dynamicLogicalId(entry),
     } satisfies RegistryReconciliationCandidate;
   });
+  buildRegistryReconciliationReport(candidates);
   const byLogicalId = new Map<string, RegistryReconciliationCandidate[]>();
   for (const candidate of candidates) {
     const group = byLogicalId.get(candidate.logicalId) ?? [];
@@ -321,7 +349,7 @@ export function buildDynamicSiteContentProjections(
     byLogicalId.set(candidate.logicalId, group);
   }
   return [...byLogicalId.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => compareCanonicalSiteContentIdentifiers(left, right))
     .map(([, group]) => adoptCanonicalRegistryProjection(group));
 }
 

@@ -79,7 +79,7 @@ export function canonicalSiteContentJson(value: unknown): string {
   if (value && typeof value === "object") {
     const object = value as Record<string, unknown>;
     return `{${Object.keys(object)
-      .sort()
+      .sort(compareCanonicalSiteContentIdentifiers)
       .filter((key) => object[key] !== undefined)
       .map((key) => `${JSON.stringify(key)}:${canonicalSiteContentJson(object[key])}`)
       .join(",")}}`;
@@ -98,6 +98,17 @@ export function canonicalSiteContentText(value: string): string {
     .map((line) => line.replace(/[\t\f\v ]+/g, " ").trim())
     .filter(Boolean)
     .join("\n");
+}
+
+/** Locale/ICU-independent code-unit ordering over normalized identifiers. */
+export function compareCanonicalSiteContentIdentifiers(left: string, right: string): number {
+  const normalizedLeft = canonicalSiteContentText(left).normalize("NFC");
+  const normalizedRight = canonicalSiteContentText(right).normalize("NFC");
+  if (normalizedLeft < normalizedRight) return -1;
+  if (normalizedLeft > normalizedRight) return 1;
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 function assertNoAuditIdentifiers(value: unknown, path = "record") {
@@ -126,8 +137,11 @@ function assertCanonicalRoute(route: string) {
 }
 
 function assertExactObjectKeys(value: Record<string, unknown>, expected: readonly string[], label: string) {
-  const actual = Object.keys(value).sort();
-  if (canonicalSiteContentJson(actual) !== canonicalSiteContentJson([...expected].sort())) {
+  const actual = Object.keys(value).sort(compareCanonicalSiteContentIdentifiers);
+  if (
+    canonicalSiteContentJson(actual) !==
+    canonicalSiteContentJson([...expected].sort(compareCanonicalSiteContentIdentifiers))
+  ) {
     throw new Error(`${label} has missing or unsupported fields.`);
   }
 }
@@ -141,9 +155,9 @@ function normalizedLineage(lineage: SiteContentRecord["sourceLineage"]) {
     }))
     .sort(
       (left, right) =>
-        left.sourceId.localeCompare(right.sourceId) ||
-        left.sourceHash.localeCompare(right.sourceHash) ||
-        left.relationship.localeCompare(right.relationship),
+        compareCanonicalSiteContentIdentifiers(left.sourceId, right.sourceId) ||
+        compareCanonicalSiteContentIdentifiers(left.sourceHash, right.sourceHash) ||
+        compareCanonicalSiteContentIdentifiers(left.relationship, right.relationship),
     );
 }
 
@@ -312,7 +326,10 @@ export function validateStaticSiteContentManifest(
       throw new Error(`Static site-content manifest record ${index} has an invalid logicalId.`);
     }
     if (logicalIds.has(record.logicalId)) throw new Error(`Duplicate logicalId: ${record.logicalId}`);
-    if (previousLogicalId !== null && previousLogicalId.localeCompare(record.logicalId) >= 0) {
+    if (
+      previousLogicalId !== null &&
+      compareCanonicalSiteContentIdentifiers(previousLogicalId, record.logicalId) >= 0
+    ) {
       throw new Error("Static site-content manifest records are not in canonical logicalId order.");
     }
     logicalIds.add(record.logicalId);
@@ -380,7 +397,7 @@ export function buildStaticSiteContentManifest(
 
   const staticRecords = records
     .filter((record) => record.producerClass === "static_repository")
-    .sort((left, right) => left.logicalId.localeCompare(right.logicalId))
+    .sort((left, right) => compareCanonicalSiteContentIdentifiers(left.logicalId, right.logicalId))
     .map((record) => ({
       logicalId: record.logicalId,
       domain: record.domain,

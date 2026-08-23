@@ -1,8 +1,8 @@
 {
   "version": "clinical-kb-site-static-manifest-v1",
-  "gitSha": "d8078bbb6cf39d5a035133b94cf46bd0c9d1e08d",
+  "gitSha": "162aa1e28a3d4fa7facab4f8386034dd25a5a79a",
   "registryVersion": "site-content-registry-v1",
-  "generatedAt": "2026-08-23T13:11:01.802Z",
+  "generatedAt": "2026-08-23T14:13:20.815Z",
   "records": [
     {
       "logicalId": "calculators:auditc",
@@ -2803,7 +2803,7 @@
       "domain": "factsheets",
       "route": "/factsheets/gad",
       "contentHash": "38a01f1c5699b149c5d2128fb4b403dcfd3fb96a1d2e688881a01ea626459870",
-      "lineageDigest": "02bc1e8592fb98219fc9eaef59055b1fe742fad343ef7a139dce203357712ade",
+      "lineageDigest": "76b7f7cb73e8eb8b6253b02400a5a6534f74df890df4777e032eed4469b2d608",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -2825,7 +2825,7 @@
       "domain": "factsheets",
       "route": "/factsheets/sertraline",
       "contentHash": "8b6d4ad72a07ef2349b6ac2799b91bd1007ecc81790f1b6392262008b36ce2a0",
-      "lineageDigest": "75835325f0aa82224b9f93477a9f884fa3814e1a114bb9fdb635f5c1cbd17743",
+      "lineageDigest": "172f16b6437626a7568cb0878ef664cf341c78eceb1ad0029860d4d8fbf1fe89",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -11874,5 +11874,5 @@
       "exclusionReason": null
     }
   ],
-  "staticManifestDigest": "92e216f7c4fcc445c6ba927927c9145a67128abd6a7425285d0c52efbfd7e7b1"
+  "staticManifestDigest": "7dac17db89fa28da7dbfe47a0a1c190a1504d547c34fa758c67b70e248fcbbb4"
 }

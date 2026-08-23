@@ -12,6 +12,7 @@ import {
 } from "@/lib/site-content/site-content-registry";
 import {
   canonicalSiteContentText,
+  compareCanonicalSiteContentIdentifiers,
   createSiteContentRecord,
   siteContentValueHash,
 } from "@/lib/site-content/site-content-manifest";
@@ -231,9 +232,11 @@ export function buildRegistryReconciliationReport(
     byLogicalId.set(candidate.logicalId, group);
   }
   const groups = [...byLogicalId.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => compareCanonicalSiteContentIdentifiers(left, right))
     .map(([logicalId, group]) => {
-      const normalizedContentHashes = [...new Set(group.map(reconciliationContentHash))].sort();
+      const normalizedContentHashes = [...new Set(group.map(reconciliationContentHash))].sort(
+        compareCanonicalSiteContentIdentifiers,
+      );
       const canonical = canonicalCandidate(group);
       const disposition: RegistryReconciliationDisposition =
         normalizedContentHashes.length > 1

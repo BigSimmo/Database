@@ -27,7 +27,9 @@ import {
 } from "@/lib/site-content/adapters/registry";
 import {
   buildStaticSiteContentManifest,
+  compareCanonicalSiteContentIdentifiers,
   createSiteContentRecord,
+  siteContentValueHash,
   validateSiteContentRecords,
 } from "@/lib/site-content/site-content-manifest";
 import { SITE_CONTENT_REGISTRY_VERSION } from "@/lib/site-content/site-content-registry";
@@ -61,12 +63,12 @@ function runManifestCli(args: readonly string[]) {
 
 function persistedRow<T>(row: object, id: string): T {
   return {
+    ...row,
     id,
     created_at: "2026-08-23T00:00:00.000Z",
     updated_at: "2026-08-23T00:00:00.000Z",
     last_reviewed_at: "2026-08-23T00:00:00.000Z",
     review_due_at: "2027-08-23T00:00:00.000Z",
-    ...row,
   } as T;
 }
 
@@ -201,6 +203,42 @@ describe("static site-content manifest", () => {
         }),
       ]),
     );
+  });
+
+  it("uses code-unit canonical order for punctuation and case with stable reversed-input digests", () => {
+    expect(["a", "_", "A", ".", "-"].sort(compareCanonicalSiteContentIdentifiers)).toEqual(["-", ".", "A", "_", "a"]);
+    const lineage = ["source:a", "source:_", "source:A", "source:.", "source:-"].map((sourceId) => ({
+      sourceId,
+      sourceHash: "a".repeat(64),
+      relationship: "references" as const,
+    }));
+    const logicalIds = ["factsheets:aa", "factsheets:a_b", "factsheets:a.b", "factsheets:a-b", "factsheets:a"];
+    const first = buildStaticSiteContentManifest(
+      logicalIds.map((logicalId) => record(logicalId, { sourceLineage: lineage })),
+      metadata,
+    );
+    const reversed = buildStaticSiteContentManifest(
+      [...logicalIds].reverse().map((logicalId) => record(logicalId, { sourceLineage: [...lineage].reverse() })),
+      metadata,
+    );
+
+    expect(first.records.map((entry) => entry.logicalId)).toEqual([
+      "factsheets:a",
+      "factsheets:a-b",
+      "factsheets:a.b",
+      "factsheets:a_b",
+      "factsheets:aa",
+    ]);
+    expect(first.records[0]?.lineageDigest).toBe(
+      siteContentValueHash(
+        ["source:-", "source:.", "source:A", "source:_", "source:a"].map((sourceId) => ({
+          sourceId,
+          sourceHash: "a".repeat(64),
+          relationship: "references",
+        })),
+      ),
+    );
+    expect(first.staticManifestDigest).toBe(reversed.staticManifestDigest);
   });
 });
 
@@ -398,6 +436,48 @@ describe("canonical producer adapters", () => {
     }
     expect(new Set(projections.map((projection) => projection.documentId)).size).toBe(projections.length);
     expect(allSiteContentRecords).toEqual(staticSiteContentRecords);
+  });
+
+  it("requires exactly one reconciliation decision for every persisted dynamic entry", () => {
+    const ownerId = "editor-owner";
+    const first = persistedRow<RegistryRecordRow>(
+      buildDefaultServiceRows(ownerId)[0]!,
+      "20000000-0000-4000-8000-000000000001",
+    );
+    const divergent = persistedRow<RegistryRecordRow>(
+      { ...first, title: "Divergent persisted duplicate", validation_status: "unverified" },
+      "20000000-0000-4000-8000-000000000002",
+    );
+    const rows = { clinicalRegistryRows: [first, divergent], medicationRows: [], differentialRows: [] };
+    const decision = {
+      kind: "service" as const,
+      recordId: first.id,
+      publicRecordId: `public-${first.id}`,
+      rowOwnerId: null,
+      publicationState: "published" as const,
+      renderedByPublicSite: true,
+      explicitlyReconciled: true,
+    };
+
+    expect(() => buildDynamicSiteContentProjections(rows, [decision])).toThrow(/decision.*every persisted/i);
+    expect(() => buildDynamicSiteContentProjections(rows, [decision, decision])).toThrow(
+      /duplicate reconciliation decision/i,
+    );
+    expect(() =>
+      buildDynamicSiteContentProjections(rows, [
+        decision,
+        {
+          ...decision,
+          recordId: divergent.id,
+          publicRecordId: `public-${divergent.id}`,
+          rowOwnerId: ownerId,
+          publicationState: "draft",
+          renderedByPublicSite: false,
+          explicitlyReconciled: false,
+        },
+        { ...decision, recordId: "missing-row", publicRecordId: "public-missing-row" },
+      ]),
+    ).toThrow(/decision.*persisted entry/i);
   });
 
   it("keeps the CLI provider-free and bounded to metadata/hash outputs", () => {
