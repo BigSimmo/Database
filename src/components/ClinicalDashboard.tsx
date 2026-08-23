@@ -82,7 +82,7 @@ import {
 import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-health-strip";
 import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
-import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
+import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
@@ -3532,7 +3532,7 @@ function ClinicalDashboardContent({
                   {actionNotice.message}
                 </InlineNotice>
               )}
-              {showDegradedNotice && <DegradedNotice isOnline={isOnline} />}
+              <DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} />
               {showSystemNotice && answer ? (
                 <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="hidden sm:block" />
               ) : null}

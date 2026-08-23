@@ -421,4 +421,19 @@ describe("notice-stack hero-compact geometry selectors", () => {
       );
     }
   });
+
+  it("keeps every :has(#main-content ...) selector inside the classified post-hydration PWA block", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    const allowlistStart = styles.indexOf("/* BEGIN post-hydration PWA main-content selector allowlist */");
+    const allowlistEnd = styles.indexOf("/* END post-hydration PWA main-content selector allowlist */");
+    const occurrences = [...styles.matchAll(/:has\(#main-content[^)]*\)/g)];
+
+    expect(allowlistStart).toBeGreaterThanOrEqual(0);
+    expect(allowlistEnd).toBeGreaterThan(allowlistStart);
+    expect(occurrences).toHaveLength(10);
+    for (const occurrence of occurrences) {
+      expect(occurrence.index).toBeGreaterThan(allowlistStart);
+      expect(occurrence.index).toBeLessThan(allowlistEnd);
+    }
+  });
 });

@@ -272,8 +272,8 @@ describe("shared-search route ownership", () => {
 
     // Desktop page composer slot in GlobalSearchShell reserves height to avoid 0.118 CLS layout jump
     expect(shellSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
-    expect(shellSource).toContain("sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]");
-    expect(shellSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
+    expect(shellSource).toContain("sm:data-[composer-reserve=pending]:min-h-[var(--spacing-page-composer-wide)]");
+    expect(shellSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-page-composer-wide)]");
 
     // Unconditional always-on reserve would leave a permanent empty band when
     // the portal never adopts; pending/filled gating is the CLS-safe contract.
@@ -286,6 +286,30 @@ describe("shared-search route ownership", () => {
     // reserve above it would leave a permanent empty band.
     expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 10.125rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
+    expect(globalsSource).toContain("--spacing-page-composer-wide: 11.5rem");
+  });
+
+  it("pre-reserves the measured tablet composer height while keeping its prompt rail on one line", () => {
+    const globalsSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+    const tabletBandStart = globalsSource.indexOf("/* BEGIN tablet mode-home composer geometry */");
+    const tabletBandEnd = globalsSource.indexOf("/* END tablet mode-home composer geometry */");
+
+    expect(tabletBandStart).toBeGreaterThanOrEqual(0);
+    expect(tabletBandEnd).toBeGreaterThan(tabletBandStart);
+    const tabletBand = globalsSource.slice(tabletBandStart, tabletBandEnd);
+
+    expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1023.98px)");
+    expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 10rem");
+    expect(tabletBand).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
+    expect(tabletBand).toContain("flex-wrap: nowrap");
+    expect(tabletBand).toContain("overflow-x: auto");
+
+    // The reserve remains conditional on a pending or filled portal host, so a
+    // hidden composer still owns zero height rather than a permanent tablet gap.
+    const homeTemplateSource = readFileSync(resolve(process.cwd(), "src/components/mode-home-template.tsx"), "utf8");
+    expect(homeTemplateSource).toContain("sm:data-[composer-reserve=pending]:min-h");
+    expect(homeTemplateSource).toContain("sm:[&:not(:empty)]:min-h");
+    expect(homeTemplateSource).not.toMatch(/sm:min-h-\[var\(--spacing-mode-home-composer-wide\)\](?![^\n]*data-)/);
   });
 
   it("leaves the dashboard shell without eager chrome thrash", () => {

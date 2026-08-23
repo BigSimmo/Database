@@ -52,3 +52,23 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
     </UtilityDrawer>
   );
 }
+
+/**
+ * Keeps the dashboard's collapsed degraded-state control in normal flow even
+ * while healthy. Network and API transitions may replace its contents, but
+ * must not insert or remove a sibling above the centred home surface.
+ */
+export function DegradedNoticeFrame({ visible, isOnline }: { visible: boolean; isOnline: boolean }) {
+  return (
+    <div data-testid="dashboard-degraded-notice-frame" data-visible={visible ? "true" : "false"} className="min-h-14">
+      {visible ? (
+        <>
+          <span role="alert" className="sr-only">
+            {!isOnline ? "Offline" : "Service unavailable"}
+          </span>
+          <DegradedNotice isOnline={isOnline} />
+        </>
+      ) : null}
+    </div>
+  );
+}

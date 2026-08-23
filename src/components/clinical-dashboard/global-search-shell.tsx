@@ -1040,19 +1040,19 @@ function GlobalStandaloneSearchShellBody({
             flex/overflow combinations. The inner block box includes padding in
             its height, so end-of-page content clears the visible dock.
           */}
-            <div
-              data-testid="mobile-composer-reserve-pad"
-              className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)]"
-            >
-              {shouldShowSearchComposer && !isStandaloneModeHome ? (
-                <DesktopComposerPortalSlot
-                  id={desktopPageComposerSlotId}
-                  data-testid="desktop-page-search-composer-slot"
-                  data-composer-reserve={modeHomeComposerReservePendingValue}
-                  className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
-                />
-              ) : null}
-              {/*
+          <div
+            data-testid="mobile-composer-reserve-pad"
+            className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)]"
+          >
+            {shouldShowSearchComposer && !isStandaloneModeHome ? (
+              <DesktopComposerPortalSlot
+                id={desktopPageComposerSlotId}
+                data-testid="desktop-page-search-composer-slot"
+                data-composer-reserve={modeHomeComposerReservePendingValue}
+                className="hidden sm:block sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-page-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-page-composer-wide)]"
+              />
+            ) : null}
+            {/* 
               Shared mode navigation. It self-suppresses on clean mode homes, on
               Therapy Compass, and on every information page — those own their
               in-page navigation through `InPageNavHeader`, which is also why

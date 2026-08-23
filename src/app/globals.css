@@ -143,13 +143,18 @@
      and its gap are fixed-height on phone, so 162px is exact: the settled
      layout is unchanged and only the pre-adoption reserve grows.
 
-     The wide value is knowingly still short (88px against a settled 160px at
-     1280 and 199px at 800). It is NOT simply raised to match: the sm+ surface
-     swaps the phone ticket for a prompt-chip row that rewraps with viewport
-     width, so no single static value is correct at every width. That needs a
-     different mechanism and is tracked separately. */
+     The default wide value remains 88px. Current production attribution at
+     1280–1440 measured the resulting initial shift below the 0.01 decision
+     threshold, so those profiles stay unchanged. The 640–1023px band has a
+     separate measured reserve and one-line prompt rail below: at 800px the old
+     wrapping surface grew 88→199px and produced 0.021676 CLS. */
   --spacing-mode-home-composer-phone: 10.125rem;
   --spacing-mode-home-composer-wide: 5.5rem;
+  /* Generic page composers add 24px block padding around the same 160px
+     one-line surface. Their SSR slot therefore owns a separate 184px reserve
+     at every sm+ width instead of borrowing the intentionally narrower
+     mode-home diagnostic threshold. */
+  --spacing-page-composer-wide: 11.5rem;
 
   /* Hero medallion. Scales continuously with the viewport the way --text-hero
      does, instead of stepping 48→48→56 at sm/lg: the old steps served the
@@ -2232,6 +2237,26 @@ summary::-webkit-details-marker {
   }
 }
 
+/* BEGIN tablet mode-home composer geometry */
+/* At 800px the settled one-line surface is 160px: rotating hint (24px),
+   composer, gaps, and prompt rail. Pre-reserve that exact height only in the
+   tablet band. The portal host's pending/non-empty selectors remain the owner,
+   so a hidden composer still reserves zero. At 1024px+ the existing 88px
+   default remains deliberately unchanged because measured CLS stays < 0.01. */
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  :root {
+    --spacing-mode-home-composer-wide: 10rem;
+  }
+
+  .smart-search-prompt-row .answer-suggestion-chips-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+    -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
+  }
+}
+/* END tablet mode-home composer geometry */
+
 .smart-search-rotating-text {
   min-height: 1.5rem;
   align-items: center;
@@ -3043,6 +3068,7 @@ summary::-webkit-details-marker {
    and tests/pwa-lifecycle.dom.test.tsx) — this mirrors that fix across the
    remaining eight rules in this block, which still carried the same
    two-:has() pattern after that PR landed. */
+/* BEGIN post-hydration PWA main-content selector allowlist */
 @media (max-width: 639.98px) {
   body:has(#main-content[data-phone-footer-owner="hero"]) .pwa-notice-stack {
     --pwa-notice-bottom-gap: max(0.5rem, var(--safe-area-bottom));
@@ -3077,6 +3103,7 @@ summary::-webkit-details-marker {
     margin-top: var(--pwa-inset-sm);
   }
 }
+/* END post-hydration PWA main-content selector allowlist */
 
 .pwa-action {
   transition:
