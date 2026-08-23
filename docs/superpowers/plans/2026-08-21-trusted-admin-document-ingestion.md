@@ -361,7 +361,7 @@ Expected: focused checks pass. Production readiness may remain provider/operator
 - Modify: `worker/shadow-extraction.ts`
 - Modify: `src/lib/env.ts`
 - Modify: `src/lib/index-quality.ts`
-- Modify: `eval/docling/fixtures/manifest.v2.json`
+- Create: `eval/docling/fixtures/manifest.v2.json`
 - Modify: `eval/docling/harness/score.py`
 - Modify: `eval/docling/report/lab-config.json`
 - Modify: `tests/pdf-extractor.test.ts`

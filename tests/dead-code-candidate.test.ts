@@ -44,7 +44,8 @@ function assessFixture(root: string, symbol: string, runGit: GitRunner) {
 }
 
 afterEach(() => {
-  for (const root of fixtureRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of fixtureRoots.splice(0))
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe("dead-code candidate safety classifications", () => {
@@ -118,7 +119,7 @@ describe("dead-code candidate safety classifications", () => {
 
   it("refuses when an expected search root is missing", () => {
     const root = createFixture();
-    rmSync(join(root, "tests"), { recursive: true });
+    rmSync(join(root, "tests"), { recursive: true, maxRetries: 5, retryDelay: 100 });
 
     const result = assessFixture(root, "candidate", completeHistory());
 

@@ -125,7 +125,8 @@ describe("docling lab fixture manifest", () => {
     expect([...labHardTableFeatureIds]).toEqual(["unruled", "merged_cell", "rotated_header"]);
 
     const tableHeavy = manifest.fixtures.filter((fixture: { stratum: string }) => fixture.stratum === "table_heavy");
-    const candidates = tableHeavy.flatMap(
+    type HardTableCandidate = { features: Set<string>; scopedKinds: Set<string> };
+    const candidates: HardTableCandidate[] = tableHeavy.flatMap(
       (fixture: {
         assertions: Array<{ kind: string; source?: string; tableId?: string }>;
         tables: Array<{

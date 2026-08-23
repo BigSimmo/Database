@@ -110,9 +110,15 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(nextConfig).not.toContain("therapies-home");
 
     const generatorSource = readFileSync(new URL("../scripts/build-therapies-index.mjs", import.meta.url), "utf8");
-    expect(generatorSource).toContain('const RETIRED_HOME_ALIAS = "therapies-home.json"');
+    const therapyContractSource = readFileSync(
+      new URL("../scripts/lib/therapy-review-contract.mjs", import.meta.url),
+      "utf8",
+    );
+    expect(therapyContractSource).toContain('retiredHomeAlias: "therapies-home.json"');
+    expect(therapyContractSource).toContain("/^therapies(?:-(?:home|index))?");
+    expect(generatorSource).toContain("const RETIRED_HOME_ALIAS = THERAPY_GENERATED_PATHS.retiredHomeAlias");
     expect(generatorSource).toContain("existsSync(join(publicData, RETIRED_HOME_ALIAS))");
-    expect(generatorSource).toContain("/^therapies(?:-(?:home|index))?");
+    expect(generatorSource).toContain("const HASHED_ASSET_RE = THERAPY_HASHED_ASSET_RE");
 
     for (const filename of ["ui-therapy-nav-scroll.spec.ts", "ui-route-coverage.spec.ts"]) {
       const fixtureSource = readFileSync(new URL(filename, import.meta.url), "utf8");
