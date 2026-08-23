@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -55,6 +56,23 @@ describe("DifferentialCompareQueuePage", () => {
     expect(
       selectedLinks.at(-1)!.compareDocumentPosition(actionLinks[0]) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("opens the shared picker from Edit selection", async () => {
+    const user = userEvent.setup();
+    render(
+      <DifferentialCompareQueuePage
+        items={[{ slug: "delirium", title: "Delirium" }]}
+        openComparisonHref="/differentials/compare/view?ids=delirium"
+        catalog={[
+          { id: "delirium", title: "Delirium" },
+          { id: "dementia", title: "Dementia" },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit selection" }));
+    expect(screen.getByTestId("differential-compare-picker")).toBeVisible();
   });
 
   it("uses the shared tap-height token for selected rows", () => {
