@@ -6,6 +6,10 @@ import {
   type FreshnessConfig,
 } from "../src/lib/ranking-config";
 
+function expectInvalidOverride(value: unknown, errorPattern: RegExp) {
+  expect(() => resolveRankingConfig(JSON.stringify(value))).toThrow(errorPattern);
+}
+
 describe("ranking-config defaults (W6 — zero behavior change)", () => {
   it("reproduces the exact prior second-stage rerank constants", () => {
     const w = defaultRankingConfig.secondStage;
@@ -65,61 +69,29 @@ describe("resolveRankingConfig override merge", () => {
 
   it("fails closed for malformed JSON and non-object roots", () => {
     expect(() => resolveRankingConfig("{not json")).toThrow(/RAG_RANKING_CONFIG/i);
-    expect(() => resolveRankingConfig("[1,2,3]")).toThrow(/RAG_RANKING_CONFIG/i);
-    expect(() => resolveRankingConfig("null")).toThrow(/RAG_RANKING_CONFIG/i);
+    expectInvalidOverride([1, 2, 3], /RAG_RANKING_CONFIG/i);
+    expectInvalidOverride(null, /RAG_RANKING_CONFIG/i);
   });
 
   it("fails closed for unknown keys at every supported level", () => {
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ documentDiversityPenality: 0.03 })),
-    ).toThrow(/unrecognized|unknown/i);
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBost: 0.22 } })),
-    ).toThrow(/unrecognized|unknown/i);
-    expect(() =>
-      resolveRankingConfig(
-        JSON.stringify({ featureFusion: { comparison: { lexicalCoverge: 1.1 } } }),
-      ),
-    ).toThrow(/unrecognized|unknown/i);
-    expect(() => resolveRankingConfig(JSON.stringify({ freshness: { mod: "linear" } }))).toThrow(
-      /unrecognized|unknown/i,
-    );
+    expectInvalidOverride({ documentDiversityPenality: 0.03 }, /unrecognized|unknown/i);
+    expectInvalidOverride({ secondStage: { doseAmountBost: 0.22 } }, /unrecognized|unknown/i);
+    expectInvalidOverride({ featureFusion: { comparison: { lexicalCoverge: 1.1 } } }, /unrecognized|unknown/i);
+    expectInvalidOverride({ freshness: { mod: "linear" } }, /unrecognized|unknown/i);
   });
 
   it("fails closed for invalid types rather than silently substituting defaults", () => {
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: "big" } })),
-    ).toThrow(/doseAmountBoost/i);
-    expect(() =>
-      resolveRankingConfig(
-        JSON.stringify({
-          featureFusion: { document_lookup: { clinicalEvidence: "high" } },
-        }),
-      ),
-    ).toThrow(/clinicalEvidence/i);
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ freshness: { mode: "gradual" } })),
-    ).toThrow(/mode/i);
+    expectInvalidOverride({ secondStage: { doseAmountBoost: "big" } }, /doseAmountBoost/i);
+    expectInvalidOverride({ featureFusion: { document_lookup: { clinicalEvidence: "high" } } }, /clinicalEvidence/i);
+    expectInvalidOverride({ freshness: { mode: "gradual" } }, /mode/i);
   });
 
   it("rejects pathological or domain-invalid numeric values", () => {
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ secondStage: { doseAmountBoost: 1_000_000 } })),
-    ).toThrow(/doseAmountBoost/i);
-    expect(() =>
-      resolveRankingConfig(
-        JSON.stringify({ secondStage: { lowIndexQualityThreshold: 1.1 } }),
-      ),
-    ).toThrow(/lowIndexQualityThreshold/i);
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ documentDiversityPenalty: -0.01 })),
-    ).toThrow(/documentDiversityPenalty/i);
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ freshness: { publicationCliffYears: -1 } })),
-    ).toThrow(/publicationCliffYears/i);
-    expect(() =>
-      resolveRankingConfig(JSON.stringify({ freshness: { publicationPenalty: 1 } })),
-    ).toThrow(/publicationPenalty/i);
+    expectInvalidOverride({ secondStage: { doseAmountBoost: 1_000_000 } }, /doseAmountBoost/i);
+    expectInvalidOverride({ secondStage: { lowIndexQualityThreshold: 1.1 } }, /lowIndexQualityThreshold/i);
+    expectInvalidOverride({ documentDiversityPenalty: -0.01 }, /documentDiversityPenalty/i);
+    expectInvalidOverride({ freshness: { publicationCliffYears: -1 } }, /publicationCliffYears/i);
+    expectInvalidOverride({ freshness: { publicationPenalty: 1 } }, /publicationPenalty/i);
   });
 
   it("deep-merges valid provided fields and keeps defaults for the rest", () => {
@@ -140,9 +112,7 @@ describe("resolveRankingConfig override merge", () => {
   });
 
   it("accepts the linear freshness mode", () => {
-    const cfg = resolveRankingConfig(
-      JSON.stringify({ freshness: { mode: "linear", linearRampYears: 4 } }),
-    );
+    const cfg = resolveRankingConfig(JSON.stringify({ freshness: { mode: "linear", linearRampYears: 4 } }));
     expect(cfg.freshness.mode).toBe("linear");
     expect(cfg.freshness.linearRampYears).toBe(4);
   });
