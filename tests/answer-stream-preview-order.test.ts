@@ -4,7 +4,7 @@ const answerQuestionWithScope = vi.fn();
 const publicAccessContext = vi.fn();
 const consumeSubjectApiRateLimit = vi.fn();
 const resolveSearchScope = vi.fn();
-const logAnswerDiagnostics = vi.fn();
+const persistAnswerDiagnostics = vi.fn();
 
 vi.mock("@/lib/env", () => ({ isDemoMode: () => false }));
 vi.mock("@/lib/rag/rag", () => ({ answerQuestionWithScope, summarizeDocument: vi.fn() }));
@@ -28,7 +28,7 @@ vi.mock("@/lib/owner-scope", () => ({
   resolveRetrievalAccessScope: (ownerId?: string) => ({ ownerId }),
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
-vi.mock("@/lib/answer-telemetry", () => ({ logAnswerDiagnostics }));
+vi.mock("@/lib/answer-telemetry", () => ({ persistAnswerDiagnostics }));
 vi.mock("@/lib/observability/agent-monitoring", () => ({ setAgentConversationId: vi.fn() }));
 vi.mock("@/lib/sse-heartbeat", () => ({ startSseHeartbeat: () => () => undefined }));
 vi.mock("@/lib/server-timing", () => ({
@@ -69,6 +69,7 @@ beforeEach(() => {
     resetAt: new Date(Date.now() + 60_000).toISOString(),
   });
   resolveSearchScope.mockResolvedValue({ documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] });
+  persistAnswerDiagnostics.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -130,7 +131,7 @@ describe("answer stream verified preview ordering", () => {
     const observationContext = answerQuestionWithScope.mock.calls[0]?.[0]?.observationContext as
       { interactionId: string; rolloutMode: string } | undefined;
     expect(observationContext).toEqual({ interactionId: expect.any(String), rolloutMode: "legacy" });
-    expect(logAnswerDiagnostics).toHaveBeenCalledWith(
+    expect(persistAnswerDiagnostics).toHaveBeenCalledWith(
       expect.objectContaining({ interactionId: observationContext?.interactionId }),
     );
   });
@@ -154,7 +155,7 @@ describe("answer stream verified preview ordering", () => {
     await response.text();
 
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
-    const logged = logAnswerDiagnostics.mock.calls[0]?.[0] as
+    const logged = persistAnswerDiagnostics.mock.calls[0]?.[0] as
       { interactionId: string; answer: { fallbackReason?: string } } | undefined;
     expect(logged).toMatchObject({
       interactionId: expect.any(String),
@@ -162,5 +163,39 @@ describe("answer stream verified preview ordering", () => {
     });
     const { ragProgrammeTelemetryForAnswer } = await import("../src/lib/rag/rag-programme-telemetry");
     expect(ragProgrammeTelemetryForAnswer(logged!.answer as never)?.interaction_id).toBe(logged?.interactionId);
+  });
+
+  it("does not complete the SSE response before configured joined persistence settles", async () => {
+    let release!: () => void;
+    const persistence = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    persistAnswerDiagnostics.mockReturnValueOnce(persistence);
+    answerQuestionWithScope.mockResolvedValueOnce({
+      answer: "Source-backed answer.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    });
+
+    const { POST } = await import("../src/app/api/answer/stream/route");
+    const response = await POST(
+      new Request("http://localhost/api/answer/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "clozapine monitoring" }),
+      }),
+    );
+    let bodySettled = false;
+    const body = response.text().then((value) => {
+      bodySettled = true;
+      return value;
+    });
+    await vi.waitFor(() => expect(persistAnswerDiagnostics).toHaveBeenCalledOnce());
+
+    expect(bodySettled).toBe(false);
+    release();
+    expect(await body).toContain("event: final");
   });
 });

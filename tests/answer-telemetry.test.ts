@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildAnswerLogRow, logAnswerDiagnostics, type AnswerTelemetrySource } from "../src/lib/answer-telemetry";
 import { observeRagAnswer } from "../src/lib/rag/rag-programme-telemetry";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
@@ -6,6 +6,19 @@ import type { RagAnswer, SearchResult } from "../src/lib/types";
 const UUID_A = "11111111-1111-1111-1111-111111111111";
 const UUID_B = "22222222-2222-2222-2222-222222222222";
 const INTERACTION_ID = "33333333-3333-4333-8333-333333333333";
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
 
 function sourceRow(overrides: Partial<SearchResult>): SearchResult {
   return {
@@ -163,5 +176,83 @@ describe("buildAnswerLogRow (per-answer observability)", () => {
     expect(queryRow.metadata.interaction_id).toBe(INTERACTION_ID);
     expect(retrievalRow.metadata.answer.interaction_id).toBe(INTERACTION_ID);
     expect(queryRow.metadata).not.toHaveProperty("owner_id");
+  });
+
+  it("awaits both joined inserts when RAG_AWAIT_QUERY_LOGS is enabled", async () => {
+    vi.resetModules();
+    vi.stubEnv("RAG_AWAIT_QUERY_LOGS", "true");
+    const telemetry = await import("../src/lib/answer-telemetry");
+    const programme = await import("../src/lib/rag/rag-programme-telemetry");
+    const gate = deferred();
+    const started: string[] = [];
+    const completed: string[] = [];
+    const supabase = {
+      from: (table: string) => ({
+        insert: async () => {
+          started.push(table);
+          await gate.promise;
+          completed.push(table);
+          return { error: null };
+        },
+      }),
+    };
+    const observed = programme.observeRagAnswer(
+      { ...answer(), answer: "Final governed answer.", citations: [] } as RagAnswer,
+      { interactionId: INTERACTION_ID, rolloutMode: "legacy" },
+    );
+
+    let settled = false;
+    const write = telemetry
+      .persistAnswerDiagnostics({
+        supabase: supabase as never,
+        query: "max clozapine dose?",
+        ownerId: "owner-1",
+        interactionId: INTERACTION_ID,
+        answer: observed,
+      })
+      .then(() => {
+        settled = true;
+      });
+    await vi.waitFor(() => expect(started).toHaveLength(2));
+
+    expect(settled).toBe(false);
+    expect(completed).toEqual([]);
+    gate.resolve();
+    await write;
+    expect(completed).toHaveLength(2);
+  });
+
+  it("retains fire-and-forget completion when RAG_AWAIT_QUERY_LOGS is disabled", async () => {
+    vi.resetModules();
+    vi.stubEnv("RAG_AWAIT_QUERY_LOGS", "false");
+    const telemetry = await import("../src/lib/answer-telemetry");
+    const programme = await import("../src/lib/rag/rag-programme-telemetry");
+    const gate = deferred();
+    const completed: string[] = [];
+    const supabase = {
+      from: (table: string) => ({
+        insert: async () => {
+          await gate.promise;
+          completed.push(table);
+          return { error: null };
+        },
+      }),
+    };
+    const observed = programme.observeRagAnswer(
+      { ...answer(), answer: "Final governed answer.", citations: [] } as RagAnswer,
+      { interactionId: INTERACTION_ID, rolloutMode: "legacy" },
+    );
+
+    await telemetry.persistAnswerDiagnostics({
+      supabase: supabase as never,
+      query: "max clozapine dose?",
+      ownerId: "owner-1",
+      interactionId: INTERACTION_ID,
+      answer: observed,
+    });
+
+    expect(completed).toEqual([]);
+    gate.resolve();
+    await vi.waitFor(() => expect(completed).toHaveLength(2));
   });
 });

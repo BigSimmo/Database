@@ -255,6 +255,13 @@ function insufficiencyReasonForAnswer(answer: RagAnswer): RagInsufficiencyReason
 }
 
 function generationOutcomeForAnswer(answer: RagAnswer): RagGenerationOutcome {
+  if (
+    answer.grounded === false ||
+    answer.confidence === "unsupported" ||
+    answer.routingMode === "unsupported" ||
+    answer.responseMode === "evidence_gap"
+  )
+    return "failed";
   if (answer.answerQualityTier === "source_only" || answer.providerMode === "offline") return "source_only";
   if (answer.routingMode === "extractive" || (answer.modelUsed == null && answer.grounded)) return "extractive";
   if (answer.modelUsed) return "generated";
@@ -325,6 +332,23 @@ export function carryRagProgrammeTelemetry(source: RagAnswer, target: RagAnswer)
   const telemetry = programmeTelemetryByAnswer.get(source);
   if (telemetry) {
     observeRagAnswer(target, { interactionId: telemetry.interaction_id, rolloutMode: telemetry.rollout_mode });
+    const finalTelemetry = programmeTelemetryByAnswer.get(target)!;
+    programmeTelemetryByAnswer.set(target, {
+      ...finalTelemetry,
+      query_plan_kind: telemetry.query_plan_kind,
+      subquestion_count: telemetry.subquestion_count,
+      material_ambiguity: telemetry.material_ambiguity,
+      candidate_counts: { ...telemetry.candidate_counts },
+      selected_counts: { ...telemetry.selected_counts },
+      selected_site_domains: [...telemetry.selected_site_domains],
+      site_candidate_count: telemetry.site_candidate_count,
+      site_selected_count: telemetry.site_selected_count,
+      public_site_content_state: telemetry.public_site_content_state,
+      site_static_manifest_match: telemetry.site_static_manifest_match,
+      site_pending_count_bucket: telemetry.site_pending_count_bucket,
+      augmentation_outcome: telemetry.augmentation_outcome,
+      role_exclusion_count: telemetry.role_exclusion_count,
+    });
   }
   const observation = queryObservationByAnswer.get(source);
   if (observation) queryObservationByAnswer.set(target, observation);

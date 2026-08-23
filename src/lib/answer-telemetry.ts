@@ -181,13 +181,15 @@ export function buildRagQueryLogRow(args: {
 // detached and its error swallowed (with a throttled warning).
 let answerLogFailureCount = 0;
 
-export async function logAnswerDiagnostics(args: {
+type AnswerDiagnosticsArgs = {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
   ownerId?: string | null;
   interactionId: string;
   answer: AnswerTelemetrySource & RagAnswer;
-}) {
+};
+
+export async function logAnswerDiagnostics(args: AnswerDiagnosticsArgs) {
   try {
     const programmeTelemetry = ragProgrammeTelemetryForAnswer(args.answer);
     if (!programmeTelemetry || programmeTelemetry.interaction_id !== args.interactionId) {
@@ -216,6 +218,15 @@ export async function logAnswerDiagnostics(args: {
       });
     }
   }
+}
+
+export async function persistAnswerDiagnostics(args: AnswerDiagnosticsArgs): Promise<void> {
+  const persistence = logAnswerDiagnostics(args);
+  if (env.RAG_AWAIT_QUERY_LOGS) {
+    await persistence;
+    return;
+  }
+  void persistence;
 }
 
 export const DEFAULT_RETRIEVAL_LOG_RETENTION_DAYS = 90;

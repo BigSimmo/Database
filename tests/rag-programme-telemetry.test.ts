@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildRagQueryMetadata,
   buildRagProgrammeTelemetry,
-  carryRagProgrammeTelemetry,
   observeRagAnswer,
   ragProgrammeTelemetryForAnswer,
   type RagProgrammeTelemetryInput,
 } from "../src/lib/rag/rag-programme-telemetry";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { buildAnswerLogRow } from "../src/lib/answer-telemetry";
-import type { RagAnswer } from "../src/lib/types";
+import { buildGovernedAnswerClientResponse } from "../src/lib/answer-response";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 const INTERACTION_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -173,32 +173,71 @@ describe("RAG programme telemetry projection", () => {
     expect(JSON.stringify(second)).not.toContain(secondId);
   });
 
-  it("recomputes the final governed outcome while retaining the same opaque join", () => {
+  it("preserves retrieval facts while recomputing a generated danger-source refusal", () => {
+    const retrievedSource = {
+      id: "source-chunk-1",
+      document_id: "source-document-1",
+      title: "Superseded clinical guideline",
+      file_name: "superseded-guideline.pdf",
+      page_number: 2,
+      chunk_index: 0,
+      section_heading: "Monitoring",
+      content: "Use the superseded monitoring pathway.",
+      image_ids: [],
+      images: [],
+      similarity: 0.91,
+      source_metadata: {
+        source_title: "Superseded clinical guideline",
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+        version: null,
+        publication_date: null,
+        review_date: null,
+        uploaded_at: null,
+        indexed_at: null,
+        uploaded_by: null,
+        document_status: "outdated",
+        clinical_validation_status: "approved",
+        extraction_quality: "good",
+      },
+    } satisfies SearchResult;
     const original = observeRagAnswer(
       {
-        answer: "Candidate answer.",
+        answer: "Use the superseded monitoring pathway.",
         grounded: true,
         confidence: "high",
-        citations: [],
-        sources: [],
+        citations: [
+          {
+            chunk_id: retrievedSource.id,
+            document_id: retrievedSource.document_id,
+            title: retrievedSource.title,
+            file_name: retrievedSource.file_name,
+            page_number: retrievedSource.page_number,
+            chunk_index: retrievedSource.chunk_index,
+          },
+        ],
+        sources: [retrievedSource],
         routingMode: "strong",
         modelUsed: "gpt-5.6",
+        retrievalDiagnostics: {
+          candidateCount: 7,
+          retrievalDepth: 7,
+          distinctDocumentCount: 3,
+          topScore: 0.91,
+          secondScore: 0.84,
+          scoreSpread: 0.07,
+          gateStatus: "passed",
+        },
       } satisfies RagAnswer,
       { interactionId: INTERACTION_ID, rolloutMode: "legacy" },
     );
-    const refused = carryRagProgrammeTelemetry(original, {
-      ...original,
-      answer: "Governance refusal.",
-      grounded: false,
-      confidence: "unsupported",
-      routingMode: "unsupported",
-      routingReason: "source_governance_refusal",
-      fallbackReason: "source_governance_refusal",
-      modelUsed: null,
-    });
+    const refused = buildGovernedAnswerClientResponse(original);
 
-    expect(ragProgrammeTelemetryForAnswer(refused)).toMatchObject({
+    expect(refused.refused).toBe(true);
+    expect(ragProgrammeTelemetryForAnswer(refused.telemetryAnswer)).toMatchObject({
       interaction_id: INTERACTION_ID,
+      candidate_counts: { uploaded_local: 7 },
+      selected_counts: { uploaded_local: 1 },
       insufficiency_reason: "governance_block",
       generation_outcome: "failed",
     });

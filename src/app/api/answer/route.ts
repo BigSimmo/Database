@@ -26,7 +26,7 @@ import {
 } from "@/lib/answer-response";
 import { answerServerTimingEntries, buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
         } satisfies RagAnswer,
         observationContext,
       );
-      logAnswerDiagnostics({
+      await persistAnswerDiagnostics({
         supabase,
         query: answerBody.query,
         ownerId: access.ownerId,
@@ -174,7 +174,7 @@ export async function POST(request: Request) {
       signal: request.signal,
     });
     const governedResponse = buildGovernedAnswerClientResponse(observeRagAnswer(answer, observationContext));
-    logAnswerDiagnostics({
+    await persistAnswerDiagnostics({
       supabase,
       query: answerBody.query,
       ownerId: access.ownerId,

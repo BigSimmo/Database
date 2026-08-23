@@ -7,7 +7,7 @@ import { documentSummaryQuestion } from "@/lib/answer-contract";
 import { summarizeDocument } from "@/lib/rag/rag";
 import { observeRagAnswer } from "@/lib/rag/rag-programme-telemetry";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
-import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { jsonError } from "@/lib/http";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     setAgentConversationId(interactionId);
     const answer = await summarizeDocument(id, user.id, { signal: request.signal, observationContext });
     const governedResponse = buildGovernedAnswerClientResponse(observeRagAnswer(answer, observationContext));
-    logAnswerDiagnostics({
+    await persistAnswerDiagnostics({
       supabase,
       query: documentSummaryQuestion,
       ownerId: user.id,

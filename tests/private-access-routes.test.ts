@@ -394,6 +394,7 @@ function mockRuntime(
   vi.doUnmock("@/lib/document-enrichment");
   vi.doUnmock("@/lib/deep-memory");
   vi.doUnmock("@/lib/demo-data");
+  vi.doUnmock("@/lib/answer-telemetry");
   vi.doMock("@/lib/env", () => ({
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
@@ -4163,6 +4164,43 @@ describe("private document API access", () => {
       "consume_api_rate_limit",
       expect.objectContaining({ p_bucket: "search" }),
     );
+  });
+
+  it("does not complete the HTTP answer before configured joined persistence settles", async () => {
+    let release!: () => void;
+    const persistence = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const persistAnswerDiagnostics = vi.fn(() => persistence);
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "No owned evidence.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    vi.doMock("@/lib/answer-telemetry", () => ({ persistAnswerDiagnostics }));
+    const answerRoute = await import("../src/app/api/answer/route");
+
+    let responseSettled = false;
+    const response = answerRoute
+      .POST(
+        request("/api/answer", {
+          method: "POST",
+          body: JSON.stringify({ query: "monitoring" }),
+        }),
+      )
+      .then((value) => {
+        responseSettled = true;
+        return value;
+      });
+    await vi.waitFor(() => expect(persistAnswerDiagnostics).toHaveBeenCalledOnce());
+
+    expect(responseSettled).toBe(false);
+    release();
+    expect((await response).status).toBe(200);
   });
 
   it("rejects invalid bearer tokens instead of using anonymous search scope", async () => {

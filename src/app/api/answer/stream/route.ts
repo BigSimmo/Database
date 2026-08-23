@@ -26,7 +26,7 @@ import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
+import { persistAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
@@ -231,7 +231,7 @@ function streamAnswer(
               } satisfies RagAnswer,
               observationContext,
             );
-            logAnswerDiagnostics({
+            await persistAnswerDiagnostics({
               supabase: createAdminClient(),
               query: body.query,
               ownerId,
@@ -282,7 +282,7 @@ function streamAnswer(
                 });
           const governedResponse = buildGovernedAnswerClientResponse(observeRagAnswer(answer, observationContext));
 
-          logAnswerDiagnostics({
+          await persistAnswerDiagnostics({
             supabase: createAdminClient(),
             query: body.query,
             ownerId,
