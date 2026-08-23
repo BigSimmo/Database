@@ -394,6 +394,23 @@ describe("registry corpus", () => {
     );
   });
 
+  it("strips conventional audit actor noun ids from document and chunk retrieval metadata", async () => {
+    const { supabase, documents, chunks } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const [baseEntry] = clinicalRegistryRowsToCorpusEntries([registryRow()]);
+    const auditKeys = ["creator_id", "updater_id", "publisher_id", "reviewer_id", "retiree_id"] as const;
+    const metadata = Object.fromEntries(auditKeys.map((key) => [key, `audit-${key}`]));
+
+    await embedRegistryCorpusEntries(supabase as never, [{ ...baseEntry!, metadata }]);
+
+    const [document] = [...documents.values()] as Array<{ metadata: Record<string, unknown> }>;
+    const [chunk] = [...chunks.values()] as Array<{ metadata: Record<string, unknown> }>;
+    for (const key of auditKeys) {
+      expect(document?.metadata).not.toHaveProperty(key);
+      expect(chunk?.metadata).not.toHaveProperty(key);
+    }
+  });
+
   it("maps every registry family to its deterministic smart-v2 intent", () => {
     expect(registryDocumentIntent("medication")).toBe("medication-instruction");
     expect(registryDocumentIntent("differential")).toBe("decision-support");

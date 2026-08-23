@@ -77,7 +77,17 @@ const registrySourceRoles: Record<RegistryCorpusKind, ClinicalSourceRole> = {
 function isAuditOnlyMetadataKey(key: string) {
   const normalized = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
   return (
-    ["ownerid", "actorid", "authorid", "editorid"].some((identity) => normalized.endsWith(identity)) ||
+    [
+      "ownerid",
+      "actorid",
+      "authorid",
+      "editorid",
+      "creatorid",
+      "updaterid",
+      "publisherid",
+      "reviewerid",
+      "retireeid",
+    ].some((identity) => normalized.endsWith(identity)) ||
     ["createdby", "updatedby", "publishedby", "reviewedby", "retiredby"].some((prefix) => normalized.startsWith(prefix))
   );
 }

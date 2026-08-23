@@ -27,6 +27,7 @@ import {
   type CalculatorFilterState,
 } from "@/components/calculators/calculator-filters";
 import { calculators, type CalculatorFixture } from "@/components/calculators/calculator-fixtures";
+import { calculatorRecordHref } from "@/components/calculators/calculator-routes";
 import { CalculatorsHomePage } from "@/components/calculators/home-page";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
@@ -85,6 +86,34 @@ describe("calculator mode routing", () => {
     });
     expect(results.type).toBe(CalculatorsSearchPage);
     expect(results.props.initialQuery).toBe("depression");
+  });
+
+  it("opens an exact calculator from its canonical URL and rejects unknown selections", async () => {
+    navigation.redirect.mockClear();
+    Element.prototype.scrollTo = vi.fn();
+    expect(calculatorRecordHref("phq9")).toBe("/calculators/search?calculator=phq9");
+
+    const exact = await CalculatorsSearchRoute({ searchParams: Promise.resolve({ calculator: "phq9" }) });
+    expect(exact.type).toBe(CalculatorsSearchPage);
+    expect(exact.props).toMatchObject({ initialQuery: "PHQ-9", initialCalculatorId: "phq9" });
+
+    const exactRender = render(exact);
+    expect(screen.getAllByRole("dialog", { name: "PHQ-9 calculator" })).toHaveLength(1);
+    expect(screen.queryByRole("dialog", { name: "GAD-7 calculator" })).toBeNull();
+
+    await expect(
+      CalculatorsSearchRoute({ searchParams: Promise.resolve({ calculator: "unknown", q: "depression" }) }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=depression");
+
+    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({ calculator: "../phq9" }) })).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+
+    exactRender.unmount();
+    render(<CalculatorsSearchPage initialQuery="PHQ-9" initialCalculatorId="unknown" />);
+    expect(screen.queryByRole("dialog", { name: "PHQ-9 calculator" })).toBeNull();
   });
 
   it("normalizes the legacy query parameter to the canonical q URL", async () => {

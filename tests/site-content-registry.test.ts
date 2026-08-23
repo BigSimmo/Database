@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { calculators } from "@/components/calculators/calculator-fixtures";
+import { calculatorRecordHref } from "@/components/calculators/calculator-routes";
 import { factsheets } from "@/components/factsheets/factsheets-data";
 import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import { appModeIds } from "@/lib/app-modes";
@@ -26,7 +27,7 @@ import type {
   SiteContentPartitionSnapshot,
   SiteContentRecord,
 } from "@/lib/site-content/site-content-contracts";
-import { specifierCatalogItems } from "@/lib/specifiers-content";
+import { publicSpecifierRecordBySlug, publicSpecifierRecords, specifierCatalogItems } from "@/lib/specifiers-content";
 import { therapyRecords } from "@/lib/therapies";
 import { publicKnowledgeToolCatalogRecords, toolCatalogRecords } from "@/lib/tools-catalog";
 
@@ -152,7 +153,9 @@ describe("site content producer registry", () => {
       expect(producer.canonicalOwner).not.toMatch(/[*!?[\]{}]/);
       expect(producer.dataSource).not.toMatch(/[*!?[\]{}]/);
       expect(producer.adapter).not.toMatch(/[*!?[\]{}]/);
-      if (producer.modeId !== "tools") expect(producer.routeBuilder("record slug")).toMatch(/^\//);
+      if (producer.modeId !== "tools" && producer.modeId !== "calculators") {
+        expect(producer.routeBuilder("record slug")).toMatch(/^\//);
+      }
       expect(producer.allowedRoles).not.toHaveLength(0);
     }
 
@@ -202,7 +205,7 @@ describe("site content producer registry", () => {
       },
       specifiers: {
         owner: "src/lib/specifiers-content.ts",
-        dataSource: "specifierCatalogItems()",
+        dataSource: "publicSpecifierRecords()",
         version: "adapter_computed_sha256",
         route: "exact_public_record",
       },
@@ -228,7 +231,7 @@ describe("site content producer registry", () => {
         owner: "src/components/calculators/calculator-fixtures.ts",
         dataSource: "calculators",
         version: "adapter_computed_sha256",
-        route: "search_navigation",
+        route: "exact_public_record",
       },
       "therapy-compass": {
         owner: `public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`,
@@ -258,17 +261,30 @@ describe("site content producer registry", () => {
     expect(siteContentProducerForMode("dsm")?.routeBuilder(dsmDiagnoses[0]!.slug)).toBe(
       `/dsm/diagnoses/${dsmDiagnoses[0]!.slug}`,
     );
-    expect(siteContentProducerForMode("specifiers")?.routeBuilder(specifierCatalogItems()[0]!.slug)).toBe(
-      `/specifiers/${specifierCatalogItems()[0]!.slug}`,
+    const curatedSpecifier = publicSpecifierRecordBySlug("with-anxious-distress");
+    const catalogueOnlySpecifier = publicSpecifierRecords().find((record) => record.source === "catalogue")!;
+    expect(curatedSpecifier).toMatchObject({ source: "curated", slug: "with-anxious-distress" });
+    expect(catalogueOnlySpecifier).toBeDefined();
+    expect(specifierCatalogItems().some((item) => item.slug === catalogueOnlySpecifier.slug)).toBe(true);
+    expect(publicSpecifierRecordBySlug(catalogueOnlySpecifier.slug)).toMatchObject({ source: "catalogue" });
+    expect(siteContentProducerForMode("specifiers")?.routeBuilder(curatedSpecifier!.slug)).toBe(
+      "/specifiers/with-anxious-distress",
+    );
+    expect(siteContentProducerForMode("specifiers")?.routeBuilder(catalogueOnlySpecifier.slug)).toBe(
+      `/specifiers/${catalogueOnlySpecifier.slug}`,
     );
     expect(siteContentProducerForMode("formulation")?.routeBuilder(formulationMechanisms[0]!.id)).toBe(
       `/formulation/${formulationMechanisms[0]!.id}`,
     );
     expect(siteContentProducerForMode("prescribing")?.routeBuilder("lithium")).toBe("/medications/lithium");
     expect(siteContentProducerForMode("tools")?.routeBuilder("clinical-dictionary")).toBe("/dictionary");
-    expect(siteContentProducerForMode("calculators")?.routeBuilder(calculators[0]!.abbrev)).toBe(
-      `/calculators/search?q=${encodeURIComponent(calculators[0]!.abbrev)}&run=1`,
+    expect(siteContentProducerForMode("calculators")?.routeBuilder(calculators[0]!.id)).toBe(
+      calculatorRecordHref(calculators[0]!.id),
     );
+    expect(siteContentProducerForMode("calculators")).toMatchObject({
+      allowedRoles: ["tool_reference"],
+      contentProjection: "descriptive_metadata_only",
+    });
     expect(siteContentProducerForMode("therapy-compass")?.routeBuilder(therapyRecords[0]!.slug)).toBe(
       `/therapy-compass/${therapyRecords[0]!.slug}`,
     );
@@ -365,6 +381,11 @@ describe("site content producer registry", () => {
         published_by: "audit-publisher-id",
         reviewed_by: "audit-reviewer-id",
         editorId: "audit-editor-id",
+        creator_id: "audit-creator-noun-id",
+        updater_id: "audit-updater-noun-id",
+        publisher_id: "audit-publisher-noun-id",
+        reviewer_id: "audit-reviewer-noun-id",
+        retiree_id: "audit-retiree-noun-id",
         catalogue_label: "Service",
       },
     };
@@ -378,6 +399,11 @@ describe("site content producer registry", () => {
     expect(registryCorpusMetadata(entry)).not.toHaveProperty("published_by");
     expect(registryCorpusMetadata(entry)).not.toHaveProperty("reviewed_by");
     expect(registryCorpusMetadata(entry)).not.toHaveProperty("editorId");
+    expect(registryCorpusMetadata(entry)).not.toHaveProperty("creator_id");
+    expect(registryCorpusMetadata(entry)).not.toHaveProperty("updater_id");
+    expect(registryCorpusMetadata(entry)).not.toHaveProperty("publisher_id");
+    expect(registryCorpusMetadata(entry)).not.toHaveProperty("reviewer_id");
+    expect(registryCorpusMetadata(entry)).not.toHaveProperty("retiree_id");
   });
 });
 

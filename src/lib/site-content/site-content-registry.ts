@@ -1,4 +1,5 @@
 import type { AppModeId } from "@/lib/app-modes";
+import { calculatorRecordHref } from "@/components/calculators/calculator-routes";
 import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import type {
   ActiveSiteContentRelease,
@@ -19,6 +20,7 @@ export type SiteContentProducerDefinition = {
   canonicalOwner: string;
   dataSource: string;
   editorDataSource?: string;
+  contentProjection?: "descriptive_metadata_only";
   publicationVersionStrategy: "adapter_computed_sha256";
   adapter: string;
   allowedRoles: readonly ClinicalSourceRole[];
@@ -113,7 +115,7 @@ export const siteContentProducerRegistry = [
     domain: "specifiers",
     producerClass: "static_repository",
     canonicalOwner: "src/lib/specifiers-content.ts",
-    dataSource: "specifierCatalogItems()",
+    dataSource: "publicSpecifierRecords()",
     publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/specifiers",
     allowedRoles: ["clinical_reference"],
@@ -171,12 +173,13 @@ export const siteContentProducerRegistry = [
     producerClass: "static_repository",
     canonicalOwner: "src/components/calculators/calculator-fixtures.ts",
     dataSource: "calculators",
+    contentProjection: "descriptive_metadata_only",
     publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:calculators",
     allowedRoles: ["tool_reference"],
     mutationPolicy: "repository_release_only",
-    routeSemantics: "search_navigation",
-    routeBuilder: (abbreviation) => `/calculators/search?q=${encodeURIComponent(abbreviation)}&run=1`,
+    routeSemantics: "exact_public_record",
+    routeBuilder: calculatorRecordHref,
   }),
   producer({
     modeId: "therapy-compass",

@@ -39,6 +39,7 @@ import {
   type CalculatorFixture,
 } from "./calculator-fixtures";
 import { CalculatorSheet } from "./calculator-sheet";
+import { calculatorRecordById, calculatorRecordHref, calculatorSearchHref } from "./calculator-routes";
 import {
   MetaPill,
   SeverityPill,
@@ -252,7 +253,13 @@ function AboutPanel() {
   );
 }
 
-export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: string }) {
+export function CalculatorsSearchPage({
+  initialQuery = "",
+  initialCalculatorId,
+}: {
+  initialQuery?: string;
+  initialCalculatorId?: string;
+}) {
   const router = useRouter();
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
@@ -269,7 +276,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   const [time, setTime] = useState<CalculatorTimeFilter>("all");
   const [density, setDensity] = useState<Density>("comfortable");
   const [session, setSession] = useState<SessionAnswers>({});
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => calculatorRecordById(initialCalculatorId)?.id ?? null);
 
   const records = useMemo(
     () =>
@@ -296,9 +303,28 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   const activeFilterCount = selectedDomains.size + (progress === "all" ? 0 : 1) + (time === "all" ? 0 : 1);
 
   useEffect(() => {
+    setOpenId(calculatorRecordById(initialCalculatorId)?.id ?? null);
+  }, [initialCalculatorId]);
+
+  function openCalculator(calculatorId: string) {
+    const calculator = calculatorRecordById(calculatorId);
+    if (!calculator) return;
+    setOpenId(calculator.id);
+    router.push(calculatorRecordHref(calculator.id));
+  }
+
+  function closeCalculator() {
+    setOpenId(null);
+    router.push(calculatorSearchHref(query));
+  }
+
+  useEffect(() => {
     if (!activeCalc) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenId(null);
+      if (event.key === "Escape") {
+        setOpenId(null);
+        router.push(calculatorSearchHref(query));
+      }
     };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
@@ -306,7 +332,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [activeCalc]);
+  }, [activeCalc, query, router]);
 
   function toggleDomain(domain: CalculatorDomain) {
     setSelectedDomains((current) => {
@@ -456,13 +482,13 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
         }
         sidebar={
           <>
-            <ContinuePanel inProgress={inProgress} onOpen={setOpenId} />
+            <ContinuePanel inProgress={inProgress} onOpen={openCalculator} />
             <AboutPanel />
           </>
         }
         sidebarMobile={
           <div className="grid gap-4 xl:hidden">
-            <ContinuePanel inProgress={inProgress} onOpen={setOpenId} />
+            <ContinuePanel inProgress={inProgress} onOpen={openCalculator} />
             <AboutPanel />
           </div>
         }
@@ -476,7 +502,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
                 derived={derived}
                 context={context}
                 compact={density === "compact"}
-                onOpen={() => setOpenId(calc.id)}
+                onOpen={() => openCalculator(calc.id)}
               />
             ))}
           </div>
@@ -497,8 +523,8 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
           calc={activeCalc}
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
-          onClose={() => setOpenId(null)}
-          onOpenCalculator={setOpenId}
+          onClose={closeCalculator}
+          onOpenCalculator={openCalculator}
         />
       ) : null}
     </>
