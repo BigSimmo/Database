@@ -114,7 +114,8 @@ function seedRepository(fixtureRoot: string, awaitingValues: string) {
 }
 
 describe("adopt-visual-baselines.mjs", () => {
-  it("retains unchanged baselines during a partial refresh artifact", () => {
+  // git init + commit + adopt-visual-baselines.mjs under the full suite exceeds the 30s default.
+  it("retains unchanged baselines during a partial refresh artifact", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-partial-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
@@ -155,7 +156,7 @@ describe("adopt-visual-baselines.mjs", () => {
     }
   });
 
-  it("accepts a refresh capture head with empty AWAITING_BASELINE", () => {
+  it("accepts a refresh capture head with empty AWAITING_BASELINE", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-refresh-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
@@ -187,7 +188,7 @@ describe("adopt-visual-baselines.mjs", () => {
     }
   });
 
-  it("refuses to retain a baseline without a passing visual-junit result", () => {
+  it("refuses to retain a baseline without a passing visual-junit result", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-nojunit-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
@@ -207,7 +208,7 @@ describe("adopt-visual-baselines.mjs", () => {
     }
   });
 
-  it("refuses to stamp GitHub Copilot or other automated attributions as human approval", () => {
+  it("refuses to stamp GitHub Copilot or other automated attributions as human approval", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-copilot-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
@@ -250,7 +251,7 @@ describe("adopt-visual-baselines.mjs", () => {
     }
   });
 
-  it("records per-candidate SHA-256 values that match the written PNGs", () => {
+  it("records per-candidate SHA-256 values that match the written PNGs", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-hash-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
