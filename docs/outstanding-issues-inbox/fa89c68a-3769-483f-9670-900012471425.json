@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fa89c68a-3769-483f-9670-900012471425",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#JVYQEM",
+    "outcome": "Resolved by the 2026-08-23 current-main performance remediation and independent boundary follow-up. The already-fixed phone case remains zero. The 640-1279.98px one-line prompt rail plus 160px reserve fixes the 800px defect and the reproduced 1025px defect: 1025 total CLS fell from 0.020005038 to 0.000135415. Post-fix totals are 0.000135679 at 1024, 0.000135415 at 1025, and 0.000086971 at 1279; initial and degraded phases are zero, composer height is stable at 160px, and no main-template displacement remains. Desktop 1280/1350/1440 retain the 88px reserve because their measured initial CLS was already below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
+    "baseRowFingerprint": "953ffba540def0269d1f955ecc75d50754ee48e828a23838dbf545028694e9ce"
+  }
+}

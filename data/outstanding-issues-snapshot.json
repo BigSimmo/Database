@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39+00:00"
+    "committed_at": "2026-08-22T20:52:39Z"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 60,
+    "pending": 72,
     "resolved": 376
   },
   "queue": [
@@ -876,10 +876,22 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "3a2cac06-0076-4e83-81fa-f98be7285444",
+      "action": "done",
+      "summary": "#2TAQDC: Resolved by the 2026-08-23 current-main performance remediation. The streaming-hydration gap is documented beside the search-chrome invariant; every current :has(#main-content ...) selector is bounded by explicit post-hydration PWA allowlist markers; and a whitespace-tolerant, mutation-tested whole-file contract rejects any future unclassified occurrence while retaining the valid selectors. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/pwa-lifecycle.dom.test.tsx.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "3aa167d6-e12d-4a76-944b-8e7b96f9f5f7",
       "action": "done",
       "summary": "#QSHHGK: Resolved by existing merged evidence, not a fresh run: PR #2186 commit d7ffae1a5782394bd7af14f1a46b8fb6a88fc691 added bundle-budget baselineSource and updatedAt provenance, JSON baselineSource/baselineCommitDistance output, a stale-baseline warning above the 50-commit threshold, and focused provenance/drift tests in scripts/check-bundle-budget.mjs and tests/bundle-budget.test.ts. bundle-budget.json now carries updatedAt and baselineSource. The row chosen remediation was to make staleness visible before unrelated PRs inherit the hard failure; no scheduled rebuild is required for that option.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "43122ce4-bfa2-43d1-83b0-f859eae6fc84",
+      "action": "add",
+      "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "48b805df-a419-4204-85bf-9ba2cbf8d250",
@@ -894,9 +906,27 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "4e1ffb03-9151-4c88-a414-659a804b6a42",
+      "action": "done",
+      "summary": "#K9XD5N: Resolved by the 2026-08-23 current-main performance remediation. An always-mounted DegradedNoticeFrame reserves the exact 62px collapsed maximum while healthy state exposes no empty alert/live region. Before the fix, offline, reconnecting, and local-identity-unavailable each shifted the root by about 0.043-0.080 CLS; after the fix every degraded phase is below 0.01 and the main displacement is absent across mobile plus four desktop profiles. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/dashboard-degraded-notice.dom.test.tsx.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "505f3b8e-a800-4efa-809f-ad2ccc6e158e",
+      "action": "update",
+      "summary": "#QSHHGK: detail → PARTIALLY ADDRESSED 2026-08-23: the bundle checker now validates the configured 40-character baseline source before reporting distance and emits explicit, non-failing text plus structured JSON remediation when the commit is missing or not an ancestor. Normal JSON remains a single document; size enforcement and explicit --update semantics are unchanged. The current source e5ee533bc04ff0ab34ff17c23341cb67abf3d59a is unresolved locally and the non-updating budget check passes its existing ceilings, so provenance uncertainty is visible. KEEP OPEN: this does not create the scheduled refresh owner or trigger the row requests; accumulated-growth ownership remains unresolved.; source → docs/evidence/performance-remediation-2026-08-23.md; scripts/check-bundle-budget.mjs; tests/bundle-budget.test.ts",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "52442154-d1e3-4950-9235-1e13bdb09ce3",
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Final replacement implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: the generator is guarded by a central contract requiring exactly seven explicit boolean checks, all true for reviewed; display-approved public reviewer attribution that rejects the full central trivial placeholder set and role-qualified variants, email and account handles, phone and obvious private identifiers; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. The public-role vocabulary now covers common clinician titles, abbreviations, professions and role modifiers. A centralized token-sequence adjacency rule rejects trivial labels next to those roles even when identity-like words follow, including Fake Dr Jane, Dr Fake Jane, Anonymous GP Smith, N/A GP Smith, Fake senior doctor Jane and Anonymous registered nurse Smith. The single name-like token Na is excluded only from adjacency rejection so legitimate Dr Na Li remains valid; Test Valley Clinical Governance Committee and Dr Maria Testa also remain valid. needs_review permits null or absent sign-off metadata and rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. ReviewStatus is exactly reviewed or needs_review. npm run therapy:review remains report-only by default; its only write flow is one exact slug in an interactive TTY, shows every governed field, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, and has no batch, yes, answer, provider or production path. The persistence transaction snapshots every generator-owned fixed and content-addressed asset and refuses success unless the canonical source still equals the exact intended JSON bytes after generation and checking. A generator or check failure observed while the source remains unchanged restores the exact pre-review source and generated bytes; deterministic injected cases preserve concurrent source bytes and restore generated assets. Current-head focused evidence for the final role-only hardening: Therapy workflow tests passed 87 of 87; focused ESLint, Prettier, JavaScript syntax and diff checks passed. Broader gates were intentionally not rerun for this narrow vocabulary follow-up. Canonical source and generated catalogue bytes remain unchanged. Clinical state remains 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "5247dacd-b129-468a-8235-d60a1a7cc341",
+      "action": "add",
+      "summary": "Squash-merged governance manifests reference an unreachable intermediate reviewedCommit",
       "created_at": "2026-08-23"
     },
     {
@@ -948,6 +978,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "6d5512aa-1337-470c-98ab-4116a4143393",
+      "action": "done",
+      "summary": "#308: Resolved by the 2026-08-23 current-main performance remediation. The production CLS attribution matrix now measures /documents/search at 0 on mobile and 0.000061, 0.000335, 0.000269, and 0.000021 at desktop 800/1280/1350/1440 after splitting generic-page composer ownership into a settled 184px reserve. The former 96-135px main displacement is absent, header geometry is stable from first observation, and hidden composer owners retain zero reserve. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts; tests/header-scroll-hide-contract.test.ts.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "73810780-d91c-403f-96ab-e659a75c8688",
       "action": "add",
       "summary": "Caring Contacts hospital referral feed feasibility is unconfirmed and is the largest programme risk",
@@ -958,6 +994,18 @@
       "action": "cancel",
       "summary": "Cancel request 67381059-b223-450e-8f4e-2e0bd088f45d: PR #2302 applied update b9f8c826 and changed canonical #NPQJKP before this branch synchronized, so this closure carries the pre-update baseRowFingerprint. Cancel it and use the fresh closure queued against the post-PR #2302 row.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "77aec421-1595-4307-aaf1-447ec5414cbd",
+      "action": "cancel",
+      "summary": "Cancel request 7b276d24-acb7-423a-9730-6fc4dca309ce: Superseded after independent final review found an unmeasured 1024-1279px boundary. The replacement done request carries the production 1024/1025/1279 pre/post evidence and bounded 1279.98px correction.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "7b276d24-acb7-423a-9730-6fc4dca309ce",
+      "action": "done",
+      "summary": "#JVYQEM: Resolved by the 2026-08-23 current-main performance remediation. The already-fixed phone case remains zero. At desktop 800, where initial CLS 0.021676 crossed the intervention threshold, a 640-1023.98px one-line prompt rail plus 160px reserve removes the 88px-to-199px growth shift. Desktop 1280/1350/1440 deliberately retain the 88px reserve because their measured initial CLS was already below 0.01; post-fix totals remain below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "7dc2d09a-b05c-4d10-b198-263af3c0f45e",
@@ -1050,6 +1098,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "b3e7edcc-8184-4783-8d55-a43b204f036f",
+      "action": "cancel",
+      "summary": "Cancel request 5247dacd-b129-468a-8235-d60a1a7cc341: Superseded by origin/main 576ac7b51 (PR #2308), which updates both governance manifests to landed reviewedCommit 883f1007a. Exact merged-head governance contracts pass, so creating this P1 would be stale.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "b5d6b1be-d1c9-4739-898a-33aec4a656a5",
       "action": "add",
       "summary": "Document /ward-management/constellation as an intentional unlinked compatibility redirect",
@@ -1083,6 +1137,12 @@
       "request_id": "c7d62328-4fa1-48cc-8509-1d463bc05e64",
       "action": "done",
       "summary": "#800E5M: Implemented a cross-platform, fail-closed dead-code candidate gate: repository-rooted Node filesystem scans replace external grep, reported paths and Windows separator exclusions are normalized, git rev-parse --is-shallow-repository supplies history state, and failed search, diff, or history checks refuse instead of clearing. Unfinished plans refuse while completed plans warn; committed tests, dynamic literals, recent or unknown introduction history, sibling exports, and signature-change filtering remain protected. Focused proof passed 10/10 in tests/dead-code-candidate.test.ts, and npm run check:dead-code-candidate passed its self-test plus default diff gate.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "c856fe17-3acc-4ab5-a11b-8fb43dc0ff94",
+      "action": "cancel",
+      "summary": "Cancel request 36b358f7-0fa8-46ab-9b72-585c7d2ceca9: Superseded by the current-main PWA resolution request 3a2cac06-0076-4e83-81fa-f98be7285444, which records the accepted whole-file selector contract.",
       "created_at": "2026-08-23"
     },
     {
@@ -1137,6 +1197,18 @@
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Claude Code 2.1.238 ran the hook in real auto-compactions: D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\caring-contacts-phase-2a-11b-a37803\\\\claude-precompact.log records 2026-08-22T11:37:51Z before transcript d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl's 2026-08-22T11:39:38.041Z compact boundary; ward-flow-phase-3-49f201 records 2026-08-22T18:33:10Z before transcript d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl's 2026-08-22T18:34:57.371Z boundary. The exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. The current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks) explains the result: successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event and did not create D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\Database36\\\\claude-precompact.log when checked at 2026-08-23T06:41:54.9955991Z; it is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "f892c373-a1c3-4c5e-b252-cd594e8f4bd8",
+      "action": "cancel",
+      "summary": "Cancel request 3aa167d6-e12d-4a76-944b-8e7b96f9f5f7: Superseded by the newer 2026-08-23 update 505f3b8e-a800-4efa-809f-ad2ccc6e158e, which correctly retains the unresolved bundle-budget ownership work.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fa89c68a-3769-483f-9670-900012471425",
+      "action": "done",
+      "summary": "#JVYQEM: Resolved by the 2026-08-23 current-main performance remediation and independent boundary follow-up. The already-fixed phone case remains zero. The 640-1279.98px one-line prompt rail plus 160px reserve fixes the 800px defect and the reproduced 1025px defect: 1025 total CLS fell from 0.020005038 to 0.000135415. Post-fix totals are 0.000135679 at 1024, 0.000135415 at 1025, and 0.000086971 at 1279; initial and degraded phases are zero, composer height is stable at 160px, and no main-template displacement remains. Desktop 1280/1350/1440 retain the 88px reserve because their measured initial CLS was already below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
       "created_at": "2026-08-23"
     },
     {

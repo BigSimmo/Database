@@ -458,6 +458,17 @@ in-page navigation work defaults to the DocumentViewer template above.
     the empty-images lithium demo doc.
 23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
+The PWA notice rules that use `:has(#main-content ...)` are a deliberately
+bounded post-hydration exception. `#main-content` can disappear briefly while
+React replaces streamed route content, so those selectors are unsafe for
+first-paint page geometry and must never become a general shell or composer
+input. Every occurrence stays between the `BEGIN/END post-hydration PWA
+main-content selector allowlist` markers in `globals.css`, where
+`PwaLifecycle` waits for the settled shell signature before mounting notices.
+`tests/pwa-lifecycle.dom.test.tsx` rejects any unclassified occurrence outside
+that block. Add a non-`:has()` ownership signal when geometry is needed before
+hydration; do not widen the allowlist to make a new selector pass.
+
 ## Results band (`SearchResultsHeaderBand`)
 
 The band above every result list is not a composer and owns no dock reserve, but it is shared
