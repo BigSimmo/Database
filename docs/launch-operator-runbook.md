@@ -114,27 +114,40 @@ Detailed: [staging-setup.md](staging-setup.md). No code change — the identity 
 
 ## 4. Staging soak + rollback rehearsal 🧑 Railway
 
-1. Build image (real staging publishable key inlines into the client bundle):
+1. Name one candidate SHA and build one image from that exact checkout (real
+   staging publishable key inlines into the client bundle). Tag it with the full SHA:
    ```bash
    docker build --build-arg NEXT_PUBLIC_SUPABASE_URL=https://<staging-ref>.supabase.co \
      --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<staging sb_publishable_…> \
-     -t clinical-kb-app:staging .
+     -t clinical-kb-app:<candidate-sha> .
    ```
    (Local Docker can OOM on the 8 GiB Next heap — prefer the CI image-build workflow if it wedges.)
-2. **⏸ PAUSE** deploy to Railway staging + set runtime secrets (staging values, distinct from prod):
-   `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `SUPABASE_PROJECT_REF=<staging-ref>`,
+2. **⏸ PAUSE** deploy that candidate image in the tenancy profile. Set staging-only
+   secrets, but omit `OPENAI_API_KEY` and set `RAG_PROVIDER_MODE=offline`:
+   `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_PROJECT_REF=<staging-ref>`,
    `SUPABASE_PROJECT_NAME=Clinical KB Staging`, `SUPABASE_STAGING_PROJECT_REF=<staging-ref>`,
    `SUPABASE_STAGING_PROJECT_NAME=Clinical KB Staging`, `RAG_QUERY_HASH_SECRET` (staging),
-   `RAG_PROVIDER_MODE=auto`. Keep one warm instance (no scale-to-zero); Railway
-   health `/api/health/ready` (manual smoke: `GET /api/health`).
-3. **✅ verify** boot + soak (soak is hard-guarded against production):
+   `RAG_PROVIDER_MODE=offline`. Keep one warm instance. Confirm `GET /api/health`
+   reports `deploymentCommitSha=<candidate-sha>`, then dispatch the SHA-bound
+   tenancy workflow from a Git ref that resolves to that same `<candidate-sha>`
+   (`CROSS_TENANT_CHECKOUT_COMMIT_SHA` is `${{ github.sha }}`) and retain its
+   evidence artifact.
+3. **⏸ PAUSE** transition the same candidate image to the load profile: add the
+   staging-only `OPENAI_API_KEY`, set `RAG_PROVIDER_MODE=auto`, redeploy, and confirm
+   `/api/health` still reports the identical full candidate SHA. Run the authenticated
+   soak (hard-guarded against production and redirects):
    ```bash
-   npx tsx scripts/soak-test.ts --target https://<staging-host> --confirm-staging \
+   SOAK_BEARER_TOKEN="$STAGING_ACCESS_TOKEN" npx tsx scripts/soak-test.ts \
+     --target https://<staging-host> --confirm-staging \
      --users 30 --duration-s 600 --ramp-s 120
    ```
    Targets ([capacity-review.md](audit/capacity-review.md) §4): search p95 ≤ 3 s, **answer p95 ≤ 25 s**
-   (watch this given the Railway↔Sydney hop), non-429 error rate < 1 %.
-4. Rehearse rollback = redeploy the previous Railway image tag; confirm health returns.
+   (watch this given the Railway↔Sydney hop), non-429 error rate < 1 %, 429 rate ≤ 5 %,
+   and zero auth failures.
+4. Rehearse rollback by redeploying the previous image and recording its expected
+   health SHA. If one shared staging service backs the nightly tenancy check, restore
+   the same candidate image afterwards in `offline` mode, remove the OpenAI key, and
+   verify the candidate SHA again. A separate offline tenancy deployment is preferred.
 
 ## 5. Production deploy 🧑 Railway
 

@@ -12,7 +12,7 @@
   --tr-space-14: 0.875rem;
   --tr-space-16: 1rem;
   --tr-space-20: 1.25rem;
-  --tr-space-48: 3rem;
+  --tr-space-48: var(--spacing-tap);
   --tr-leading-body: 1.4;
   --tr-leading-prose: 1.5;
   display: grid;
