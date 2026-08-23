@@ -1,12 +1,18 @@
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { assess, docMentions, historyIsComplete } from "../scripts/check-dead-code-candidate.mjs";
+import {
+  assess,
+  docMentions,
+  historyIsComplete,
+  main,
+  removedDeclarationsInDiff,
+} from "../scripts/check-dead-code-candidate.mjs";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/check-dead-code-candidate.mjs", import.meta.url));
 const REPOSITORY_ROOT = dirname(dirname(SCRIPT));
@@ -156,5 +162,124 @@ describe("dead-code candidate CLI", () => {
 
     expect(result.status).toBe(1);
     expect(`${result.stdout}\n${result.stderr}`).toMatch(/REFUSE.*git diff/is);
+  });
+
+  it.each(["--diff", "--symbol", "--file"])("rejects a valueless %s option", (option) => {
+    const result = spawnSync(process.execPath, [SCRIPT, option], {
+      cwd: REPOSITORY_ROOT,
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(2);
+    expect(`${result.stdout}\n${result.stderr}`).toContain(`${option} requires a value`);
+  });
+});
+
+describe("dead-code candidate diff parsing", () => {
+  it("fails closed when Git quotes a non-ASCII café filename", () => {
+    const root = createFixture();
+    const candidatePath = join(root, "src", "café.ts");
+    writeFileSync(candidatePath, "export const cafeCandidate = 1;\n", "utf8");
+    execFileSync("git", ["init", "--quiet"], { cwd: root });
+    execFileSync("git", ["config", "core.quotePath", "true"], { cwd: root });
+    execFileSync("git", ["add", "src/café.ts"], { cwd: root });
+    execFileSync(
+      "git",
+      [
+        "-c",
+        "user.name=Dead Code Test",
+        "-c",
+        "user.email=dead-code@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        "base",
+      ],
+      { cwd: root },
+    );
+    const base = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
+    rmSync(candidatePath);
+
+    expect(() => removedDeclarationsInDiff(base, { root })).toThrow(/quoted|unparseable/i);
+  });
+
+  it("traverses each content root a bounded number of times for multiple candidates", () => {
+    const root = createFixture();
+    const directoryReads = new Map<string, number>();
+    const fileReads = new Map<string, number>();
+    const sentinels = [
+      "docs/guides/sentinel.md",
+      "docs/superpowers/plans/sentinel.md",
+      "docs/superpowers/specs/sentinel.md",
+      "tests/sentinel.ts",
+      "scripts/sentinel.mjs",
+      "worker/sentinel.py",
+    ];
+    for (const sentinel of sentinels) {
+      const absolutePath = resolve(root, sentinel);
+      mkdirSync(dirname(absolutePath), { recursive: true });
+      writeFileSync(absolutePath, "unrelated content\n", "utf8");
+    }
+    const fileSystem = {
+      readFileSync(path: Parameters<typeof readFileSync>[0], encoding: "utf8") {
+        const absolutePath = resolve(String(path));
+        fileReads.set(absolutePath, (fileReads.get(absolutePath) ?? 0) + 1);
+        return readFileSync(path, encoding);
+      },
+      readdirSync(path: Parameters<typeof readdirSync>[0], options: { withFileTypes: true }) {
+        const absolutePath = resolve(String(path));
+        directoryReads.set(absolutePath, (directoryReads.get(absolutePath) ?? 0) + 1);
+        return readdirSync(path, options);
+      },
+    };
+    const diff = [
+      "diff --git a/src/candidate.ts b/src/candidate.ts",
+      "--- a/src/candidate.ts",
+      "+++ b/src/candidate.ts",
+      "@@ -1,2 +0,0 @@",
+      "-export const candidateOne = 1;",
+      "-export const candidateTwo = 2;",
+      "",
+    ].join("\n");
+    const runGit: GitRunner = (args) => {
+      if (args[0] === "diff") {
+        expect(args).toEqual([
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--src-prefix=a/",
+          "--dst-prefix=b/",
+          "-U0",
+          "base",
+          "--",
+          "src",
+          "scripts",
+          "worker",
+        ]);
+        return diff;
+      }
+      if (args[0] === "rev-parse" && args[1] === "--is-shallow-repository") return "false\n";
+      if (args[0] === "log") return "2026-01-01\n";
+      throw new Error(`unexpected git call: ${args.join(" ")}`);
+    };
+
+    expect(
+      main(["--diff", "base"], {
+        root,
+        runGit,
+        fileSystem,
+        stdout: () => undefined,
+        stderr: () => undefined,
+      }),
+    ).toBe(0);
+    for (const searchRoot of ["tests", "src", "scripts", "worker"]) {
+      expect(directoryReads.get(resolve(root, searchRoot)), searchRoot).toBe(1);
+    }
+    for (const nestedPlanRoot of ["docs/superpowers/plans", "docs/superpowers/specs"]) {
+      expect(directoryReads.get(resolve(root, nestedPlanRoot)), nestedPlanRoot).toBe(2);
+    }
+    for (const sentinel of sentinels) {
+      expect(fileReads.get(resolve(root, sentinel)), sentinel).toBe(1);
+    }
   });
 });

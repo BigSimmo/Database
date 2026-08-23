@@ -88,22 +88,60 @@ function walkFiles(searchRoot, { root, fileSystem }) {
   return files;
 }
 
-function searchContent(matches, searchRoots, { root = process.cwd(), fileSystem = NODE_FILE_SYSTEM } = {}) {
-  const hits = [];
-  for (const searchRoot of searchRoots) {
-    for (const absolutePath of walkFiles(searchRoot, { root, fileSystem })) {
-      let body;
+function createContentIndex({ root = process.cwd(), fileSystem = NODE_FILE_SYSTEM } = {}) {
+  const rootCache = new Map();
+  const bodyCache = new Map();
+
+  const loadOnce = (cache, key, load) => {
+    if (!cache.has(key)) {
       try {
-        body = fileSystem.readFileSync(absolutePath, "utf8");
+        cache.set(key, { value: load() });
+      } catch (error) {
+        cache.set(key, { error });
+      }
+    }
+    const cached = cache.get(key);
+    if ("error" in cached) throw cached.error;
+    return cached.value;
+  };
+
+  const filesForRoot = (searchRoot) =>
+    loadOnce(rootCache, normalizeRepoPath(searchRoot), () => walkFiles(searchRoot, { root, fileSystem }));
+
+  const readBody = (absolutePath) =>
+    loadOnce(bodyCache, absolutePath, () => {
+      try {
+        return fileSystem.readFileSync(absolutePath, "utf8");
       } catch (error) {
         throw new Error(`content search failed for ${relativeRepoPath(root, absolutePath)}: ${errorMessage(error)}`, {
           cause: error,
         });
       }
-      if (matches(body)) hits.push(relativeRepoPath(root, absolutePath));
-    }
-  }
-  return [...new Set(hits)].sort();
+    });
+
+  return {
+    read(file) {
+      return readBody(absoluteRepoPath(root, file));
+    },
+    search(matches, searchRoots) {
+      const hits = [];
+      for (const searchRoot of searchRoots) {
+        for (const absolutePath of filesForRoot(searchRoot)) {
+          if (matches(readBody(absolutePath))) hits.push(relativeRepoPath(root, absolutePath));
+        }
+      }
+      return [...new Set(hits)].sort();
+    },
+  };
+}
+
+function searchContent(
+  matches,
+  searchRoots,
+  { root = process.cwd(), fileSystem = NODE_FILE_SYSTEM, contentIndex } = {},
+) {
+  const index = contentIndex ?? createContentIndex({ root, fileSystem });
+  return index.search(matches, searchRoots);
 }
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -127,12 +165,15 @@ export function historyIsComplete({ root = process.cwd(), runGit = sh } = {}) {
 
 /** A symbol named in a plan whose tasks are unchecked is scaffolding, not debris. */
 export function planContractHits(symbol, options = {}) {
-  const hits = rg(symbol, ["docs/superpowers/plans", "docs/superpowers/specs"], options);
+  const contentIndex =
+    options.contentIndex ??
+    createContentIndex({ root: options.root ?? process.cwd(), fileSystem: options.fileSystem ?? NODE_FILE_SYSTEM });
+  const hits = rg(symbol, ["docs/superpowers/plans", "docs/superpowers/specs"], {
+    ...options,
+    contentIndex,
+  });
   return hits.map((file) => {
-    const body = (options.fileSystem ?? NODE_FILE_SYSTEM).readFileSync(
-      absoluteRepoPath(options.root ?? process.cwd(), file),
-      "utf8",
-    );
+    const body = contentIndex.read(file);
     const open = (body.match(/^- \[ \]/gm) || []).length;
     const done = (body.match(/^- \[x\]/gim) || []).length;
     return { file, open, done, inFlight: open > 0 };
@@ -162,8 +203,15 @@ export function testPins(symbol, options = {}) {
 /** A string literal is a dynamic-lookup path a reachability scan cannot see. */
 export function stringLiteralHits(symbol, options = {}) {
   const roots = ["src", "tests", "scripts", "worker"];
+  const contentIndex =
+    options.contentIndex ??
+    createContentIndex({ root: options.root ?? process.cwd(), fileSystem: options.fileSystem ?? NODE_FILE_SYSTEM });
+  const searchOptions = { ...options, contentIndex };
   return [
-    ...new Set([...literalHits(`"${symbol}"`, roots, options), ...literalHits(`'${symbol}'`, roots, options)]),
+    ...new Set([
+      ...literalHits(`"${symbol}"`, roots, searchOptions),
+      ...literalHits(`'${symbol}'`, roots, searchOptions),
+    ]),
   ].sort();
 }
 
@@ -204,12 +252,18 @@ export function otherLiveExports(file, symbol, { root = process.cwd(), fileSyste
 export function assess(
   symbol,
   file,
-  { today = new Date(), root = process.cwd(), runGit = sh, fileSystem = NODE_FILE_SYSTEM } = {},
+  {
+    today = new Date(),
+    root = process.cwd(),
+    runGit = sh,
+    fileSystem = NODE_FILE_SYSTEM,
+    contentIndex = createContentIndex({ root, fileSystem }),
+  } = {},
 ) {
   const normalizedFile = normalizeRepoPath(file);
   const refusals = [];
   const warnings = [];
-  const searchOptions = { root, fileSystem };
+  const searchOptions = { root, fileSystem, contentIndex };
   let completeHistory = null;
 
   try {
@@ -289,16 +343,61 @@ export function assess(
 }
 
 export function removedDeclarationsInDiff(base, { root = process.cwd(), runGit = sh } = {}) {
-  const diff = runGit(["diff", base, "-U0", "--", "src", "scripts", "worker"], root);
+  const diff = runGit(
+    [
+      "diff",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--src-prefix=a/",
+      "--dst-prefix=b/",
+      "-U0",
+      base,
+      "--",
+      "src",
+      "scripts",
+      "worker",
+    ],
+    root,
+  );
   const removed = [];
   const added = new Set();
   let file = null;
+  let readingHeaders = false;
+  let oldHeaderSeen = false;
+
+  const parseHeader = (line, marker, prefix) => {
+    const path = line.slice(marker.length);
+    if (path === "/dev/null") return null;
+    if (!path.startsWith(prefix)) {
+      throw new Error(`quoted or unparseable git diff path header: ${line}`);
+    }
+    return normalizeRepoPath(path.slice(prefix.length));
+  };
+
   for (const line of diff.split(/\r?\n/)) {
-    if (line.startsWith("diff --git ")) file = null;
-    const oldHeader = /^--- a\/(.+)$/.exec(line);
-    const newHeader = /^\+\+\+ b\/(.+)$/.exec(line);
-    if (oldHeader) file = normalizeRepoPath(oldHeader[1]);
-    if (newHeader) file = normalizeRepoPath(newHeader[1]);
+    if (line.startsWith("diff --git ")) {
+      file = null;
+      readingHeaders = true;
+      oldHeaderSeen = false;
+      continue;
+    }
+    if (readingHeaders && line.startsWith("--- ")) {
+      const oldFile = parseHeader(line, "--- ", "a/");
+      if (oldFile) file = oldFile;
+      oldHeaderSeen = true;
+      continue;
+    }
+    if (readingHeaders && line.startsWith("+++ ")) {
+      if (!oldHeaderSeen) throw new Error(`git diff new-file header appeared before its old-file header: ${line}`);
+      const newFile = parseHeader(line, "+++ ", "b/");
+      if (newFile) file = newFile;
+      readingHeaders = false;
+      continue;
+    }
+    if (readingHeaders && line.startsWith("@@")) {
+      if (!file) throw new Error("git diff hunk has no parseable path header");
+      readingHeaders = false;
+    }
     if (!file) continue;
     const declaration =
       /^([-+])(?:export\s+)?(?:async\s+)?(?:function|const|class|type|interface)\s+([A-Za-z_$][\w$]*)/.exec(line);
@@ -345,18 +444,38 @@ function selfTest({ root = process.cwd(), stdout = console.log, stderr = console
 
 export function main(
   argv = process.argv.slice(2),
-  { root = process.cwd(), runGit = sh, stdout = console.log, stderr = console.error } = {},
+  {
+    root = process.cwd(),
+    runGit = sh,
+    fileSystem = NODE_FILE_SYSTEM,
+    stdout = console.log,
+    stderr = console.error,
+  } = {},
 ) {
   if (argv.includes("--self-test")) return selfTest({ root, stdout, stderr });
 
   const arg = (name) => {
     const index = argv.indexOf(name);
-    return index === -1 ? null : argv[index + 1];
+    if (index === -1) return null;
+    const value = argv[index + 1];
+    if (typeof value !== "string" || value.length === 0 || value.startsWith("--")) {
+      throw new Error(`${name} requires a value`);
+    }
+    return value;
   };
   let candidates = [];
 
-  const symbol = arg("--symbol");
-  const file = arg("--file");
+  let symbol;
+  let file;
+  let requestedBase;
+  try {
+    symbol = arg("--symbol");
+    file = arg("--file");
+    requestedBase = arg("--diff");
+  } catch (error) {
+    stderr(`${errorMessage(error)}\nusage: --symbol <name> --file <path> | --diff <base-ref> | --self-test`);
+    return 2;
+  }
   if (symbol && file) {
     candidates = [{ symbol, file: normalizeRepoPath(file) }];
   } else if (symbol || file) {
@@ -364,7 +483,6 @@ export function main(
     return 2;
   } else {
     try {
-      const requestedBase = arg("--diff");
       const base = requestedBase ?? runGit(["merge-base", "origin/main", "HEAD"], root).trim();
       if (!base) throw new Error("git merge-base returned no base commit");
       candidates = removedDeclarationsInDiff(base, { root, runGit });
@@ -380,8 +498,9 @@ export function main(
   }
 
   let refused = 0;
+  const contentIndex = createContentIndex({ root, fileSystem });
   for (const { symbol: candidateSymbol, file: candidateFile } of candidates) {
-    const result = assess(candidateSymbol, candidateFile, { root, runGit });
+    const result = assess(candidateSymbol, candidateFile, { root, runGit, fileSystem, contentIndex });
     if (result.ok && !result.warnings.length) {
       stdout(`  CLEAR   ${candidateSymbol}  (${candidateFile})`);
       continue;
