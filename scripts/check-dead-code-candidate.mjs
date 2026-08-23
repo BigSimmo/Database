@@ -343,6 +343,10 @@ export function assess(
 }
 
 export function removedDeclarationsInDiff(base, { root = process.cwd(), runGit = sh } = {}) {
+  const resolvedBase = runGit(["rev-parse", "--verify", "--end-of-options", `${base}^{commit}`], root).trim();
+  if (!/^[0-9a-f]{40}$/i.test(resolvedBase)) {
+    throw new Error(`git rev-parse returned an invalid base commit: ${resolvedBase || "<empty>"}`);
+  }
   const diff = runGit(
     [
       "diff",
@@ -351,7 +355,7 @@ export function removedDeclarationsInDiff(base, { root = process.cwd(), runGit =
       "--src-prefix=a/",
       "--dst-prefix=b/",
       "-U0",
-      base,
+      resolvedBase,
       "--",
       "src",
       "scripts",
@@ -442,6 +446,50 @@ function selfTest({ root = process.cwd(), stdout = console.log, stderr = console
   return 0;
 }
 
+const CLI_USAGE = "usage: --symbol <name> --file <path> | --diff <base-ref> | --self-test";
+
+function parseArguments(argv) {
+  if (argv.includes("--self-test")) {
+    if (argv.length !== 1 || argv[0] !== "--self-test") {
+      throw new Error("--self-test must be used alone");
+    }
+    return { mode: "self-test" };
+  }
+
+  const values = { symbol: null, file: null, diff: null };
+  const optionKeys = new Map([
+    ["--symbol", "symbol"],
+    ["--file", "file"],
+    ["--diff", "diff"],
+  ]);
+
+  for (let index = 0; index < argv.length; index++) {
+    const option = argv[index];
+    const key = optionKeys.get(option);
+    if (!key) throw new Error(`unknown argument: ${option}`);
+    if (values[key] !== null) throw new Error(`duplicate option: ${option}`);
+
+    const value = argv[++index];
+    if (typeof value !== "string" || value.length === 0) {
+      throw new Error(`${option} requires a value`);
+    }
+    if (value.startsWith("-")) {
+      throw new Error(`${option} requires a non-option value`);
+    }
+    values[key] = value;
+  }
+
+  if (values.diff && (values.symbol || values.file)) {
+    throw new Error("--diff cannot be combined with --symbol or --file");
+  }
+  if (values.diff) return { mode: "diff", base: values.diff };
+  if (values.symbol || values.file) {
+    if (!values.symbol || !values.file) throw new Error("--symbol and --file must be used together");
+    return { mode: "symbol", symbol: values.symbol, file: values.file };
+  }
+  return { mode: "default" };
+}
+
 export function main(
   argv = process.argv.slice(2),
   {
@@ -452,38 +500,22 @@ export function main(
     stderr = console.error,
   } = {},
 ) {
-  if (argv.includes("--self-test")) return selfTest({ root, stdout, stderr });
-
-  const arg = (name) => {
-    const index = argv.indexOf(name);
-    if (index === -1) return null;
-    const value = argv[index + 1];
-    if (typeof value !== "string" || value.length === 0 || value.startsWith("--")) {
-      throw new Error(`${name} requires a value`);
-    }
-    return value;
-  };
-  let candidates = [];
-
-  let symbol;
-  let file;
-  let requestedBase;
+  let parsed;
   try {
-    symbol = arg("--symbol");
-    file = arg("--file");
-    requestedBase = arg("--diff");
+    parsed = parseArguments(argv);
   } catch (error) {
-    stderr(`${errorMessage(error)}\nusage: --symbol <name> --file <path> | --diff <base-ref> | --self-test`);
+    stderr(`${errorMessage(error)}\n${CLI_USAGE}`);
     return 2;
   }
-  if (symbol && file) {
-    candidates = [{ symbol, file: normalizeRepoPath(file) }];
-  } else if (symbol || file) {
-    stderr("usage: --symbol <name> --file <path> | --diff <base-ref> | --self-test");
-    return 2;
+  if (parsed.mode === "self-test") return selfTest({ root, stdout, stderr });
+
+  let candidates = [];
+
+  if (parsed.mode === "symbol") {
+    candidates = [{ symbol: parsed.symbol, file: normalizeRepoPath(parsed.file) }];
   } else {
     try {
-      const base = requestedBase ?? runGit(["merge-base", "origin/main", "HEAD"], root).trim();
+      const base = parsed.mode === "diff" ? parsed.base : runGit(["merge-base", "origin/main", "HEAD"], root).trim();
       if (!base) throw new Error("git merge-base returned no base commit");
       candidates = removedDeclarationsInDiff(base, { root, runGit });
     } catch (error) {

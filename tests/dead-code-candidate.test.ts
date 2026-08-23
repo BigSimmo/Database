@@ -173,6 +173,53 @@ describe("dead-code candidate CLI", () => {
     expect(result.status).toBe(2);
     expect(`${result.stdout}\n${result.stderr}`).toContain(`${option} requires a value`);
   });
+
+  it("rejects an option-shaped diff base before Git can interpret it", () => {
+    const result = spawnSync(process.execPath, [SCRIPT, "--diff", "-s"], {
+      cwd: REPOSITORY_ROOT,
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(2);
+    expect(`${result.stdout}\n${result.stderr}`).toContain("--diff requires a non-option value");
+  });
+
+  it.each([
+    ["--self-test", "--diff"],
+    ["--diff", "--self-test"],
+  ])("rejects mixed self-test mode in either argument order: %s %s", (...args) => {
+    const result = spawnSync(process.execPath, [SCRIPT, ...args], {
+      cwd: REPOSITORY_ROOT,
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(2);
+    expect(`${result.stdout}\n${result.stderr}`).toContain("--self-test must be used alone");
+  });
+
+  it.each([
+    { args: ["--unknown"], message: "unknown argument: --unknown" },
+    { args: ["--diff", "HEAD", "--diff", "HEAD"], message: "duplicate option: --diff" },
+    {
+      args: ["--diff", "HEAD", "--symbol", "candidate", "--file", "src/candidate.ts"],
+      message: "--diff cannot be combined with --symbol or --file",
+    },
+  ])("rejects ambiguous arguments: $message", ({ args, message }) => {
+    const root = createFixture();
+    const errors: string[] = [];
+
+    expect(
+      main(args, {
+        root,
+        runGit: () => {
+          throw new Error("Git must not run for invalid arguments");
+        },
+        stdout: () => undefined,
+        stderr: (error: string) => errors.push(error),
+      }),
+    ).toBe(2);
+    expect(errors.join("\n")).toContain(message);
+  });
 });
 
 describe("dead-code candidate diff parsing", () => {
@@ -241,7 +288,12 @@ describe("dead-code candidate diff parsing", () => {
       "-export const candidateTwo = 2;",
       "",
     ].join("\n");
+    const resolvedBase = "a".repeat(40);
     const runGit: GitRunner = (args) => {
+      if (args[0] === "rev-parse" && args[1] === "--verify") {
+        expect(args).toEqual(["rev-parse", "--verify", "--end-of-options", "base^{commit}"]);
+        return `${resolvedBase}\n`;
+      }
       if (args[0] === "diff") {
         expect(args).toEqual([
           "diff",
@@ -250,7 +302,7 @@ describe("dead-code candidate diff parsing", () => {
           "--src-prefix=a/",
           "--dst-prefix=b/",
           "-U0",
-          "base",
+          resolvedBase,
           "--",
           "src",
           "scripts",
