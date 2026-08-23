@@ -2,7 +2,7 @@
 // (public/mockups/therapy-compass/*.json). Fields mirror the export's
 // `data/therapies.json` after trimming to what the UI renders.
 
-export type ReviewStatus = "reviewed" | "needs_review" | string;
+export type ReviewStatus = "reviewed" | "needs_review";
 
 export type TherapySource = {
   title: string | null;

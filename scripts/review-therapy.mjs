@@ -14,12 +14,24 @@
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync, fsyncSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  openSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
+  THERAPY_GENERATED_PATHS,
+  THERAPY_HASHED_ASSET_RE,
   THERAPY_REVIEW_CHECKS,
   assertValidTherapyReviewRecords,
   finalizeTherapyReview,
@@ -27,7 +39,13 @@ import {
 } from "./lib/therapy-review-contract.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const SOURCE_PATH = join(ROOT, "src", "data", "therapies-source.json");
+const SOURCE_PATH = join(ROOT, THERAPY_GENERATED_PATHS.source);
+const PUBLIC_DATA_PATH = join(ROOT, THERAPY_GENERATED_PATHS.publicDirectory);
+const FIXED_GENERATED_PATHS = Object.freeze([
+  join(ROOT, THERAPY_GENERATED_PATHS.serverIndex),
+  join(ROOT, THERAPY_GENERATED_PATHS.manifest),
+  join(PUBLIC_DATA_PATH, THERAPY_GENERATED_PATHS.retiredHomeAlias),
+]);
 const GENERATOR_PATH = join(ROOT, "scripts", "build-therapies-index.mjs");
 
 function usage() {
@@ -146,7 +164,7 @@ export async function conductTherapyReview({ record, reviewedBy, ask, commit, no
 
   const expectedConfirmation = `REVIEW ${record.slug}`;
   const confirmation = await ask(`\nType ${expectedConfirmation} to write this clinician sign-off: `);
-  if (confirmation.trim() !== expectedConfirmation) {
+  if (confirmation !== expectedConfirmation) {
     writeLine(output, "Confirmation did not match. The source remains unchanged.");
     return { status: "cancelled", record };
   }
@@ -157,8 +175,7 @@ export async function conductTherapyReview({ record, reviewedBy, ask, commit, no
   return { status: "reviewed", record: reviewed };
 }
 
-/** Compact, same-directory atomic replacement for the canonical one-line JSON. */
-export function writeTherapySourceAtomically(path, records, { expectedRaw } = {}) {
+function replaceFileAtomically(path, contents, { expectedRaw } = {}) {
   if (expectedRaw !== undefined && readFileSync(path, "utf8") !== expectedRaw) {
     throw new Error("Therapy source changed after review began; refusing to overwrite concurrent work.");
   }
@@ -166,7 +183,7 @@ export function writeTherapySourceAtomically(path, records, { expectedRaw } = {}
   let descriptor;
   try {
     descriptor = openSync(temporary, "wx");
-    writeFileSync(descriptor, JSON.stringify(records), "utf8");
+    writeFileSync(descriptor, contents);
     fsyncSync(descriptor);
     closeSync(descriptor);
     descriptor = undefined;
@@ -177,8 +194,116 @@ export function writeTherapySourceAtomically(path, records, { expectedRaw } = {}
     }
     renameSync(temporary, path);
   } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
-    if (existsSync(temporary)) rmSync(temporary, { force: true });
+    try {
+      if (descriptor !== undefined) closeSync(descriptor);
+    } finally {
+      if (existsSync(temporary)) rmSync(temporary, { force: true });
+    }
+  }
+}
+
+/** Compact, same-directory atomic replacement for the canonical one-line JSON. */
+export function writeTherapySourceAtomically(path, records, { expectedRaw } = {}) {
+  replaceFileAtomically(path, JSON.stringify(records), { expectedRaw });
+}
+
+function listGeneratedCataloguePaths() {
+  if (!existsSync(PUBLIC_DATA_PATH)) return [];
+  return readdirSync(PUBLIC_DATA_PATH)
+    .filter((name) => THERAPY_HASHED_ASSET_RE.test(name))
+    .map((name) => join(PUBLIC_DATA_PATH, name));
+}
+
+function captureGeneratedFiles(fixedGeneratedPaths, listGeneratedPaths) {
+  const paths = new Set([...fixedGeneratedPaths, ...listGeneratedPaths()]);
+  return new Map([...paths].map((path) => [path, existsSync(path) ? readFileSync(path) : null]));
+}
+
+function restoreGeneratedFiles(snapshot, fixedGeneratedPaths, listGeneratedPaths) {
+  const currentPaths = new Set([...fixedGeneratedPaths, ...listGeneratedPaths()]);
+  for (const path of currentPaths) {
+    if (!snapshot.has(path) && existsSync(path)) rmSync(path, { force: true });
+  }
+  for (const [path, contents] of snapshot) {
+    if (contents === null) {
+      if (existsSync(path)) rmSync(path, { force: true });
+    } else {
+      replaceFileAtomically(path, contents);
+    }
+  }
+}
+
+function acquireReviewTransactionLock(sourcePath) {
+  const lockPath = `${sourcePath}.review.lock`;
+  let descriptor;
+  let created = false;
+  try {
+    descriptor = openSync(lockPath, "wx");
+    created = true;
+    writeFileSync(descriptor, `${process.pid}\n`, "utf8");
+    fsyncSync(descriptor);
+  } catch (error) {
+    try {
+      if (descriptor !== undefined) closeSync(descriptor);
+    } finally {
+      if (created && existsSync(lockPath)) rmSync(lockPath, { force: true });
+    }
+    if (error?.code === "EEXIST") {
+      throw new Error("Another Therapy review transaction is active; refusing a concurrent write.");
+    }
+    throw error;
+  }
+  return () => {
+    try {
+      closeSync(descriptor);
+    } finally {
+      rmSync(lockPath, { force: true });
+    }
+  };
+}
+
+/**
+ * Commit source plus every generator-owned asset as one recoverable unit. Any
+ * generator/check failure restores the exact pre-review bytes and removes new
+ * content-addressed artifacts before the error reaches the CLI.
+ */
+export function persistTherapyReviewTransaction({
+  sourcePath = SOURCE_PATH,
+  records,
+  expectedRaw,
+  fixedGeneratedPaths = FIXED_GENERATED_PATHS,
+  listGeneratedPaths = listGeneratedCataloguePaths,
+  runGenerator = regenerateAndValidate,
+}) {
+  const releaseLock = acquireReviewTransactionLock(sourcePath);
+  try {
+    if (typeof expectedRaw !== "string" || readFileSync(sourcePath, "utf8") !== expectedRaw) {
+      throw new Error("Therapy source changed after review began; refusing to overwrite concurrent work.");
+    }
+    const sourceBefore = Buffer.from(expectedRaw);
+    const generatedBefore = captureGeneratedFiles(fixedGeneratedPaths, listGeneratedPaths);
+    let sourceCommitted = false;
+    try {
+      writeTherapySourceAtomically(sourcePath, records, { expectedRaw });
+      sourceCommitted = true;
+      runGenerator();
+    } catch (error) {
+      if (!sourceCommitted) throw error;
+      try {
+        restoreGeneratedFiles(generatedBefore, fixedGeneratedPaths, listGeneratedPaths);
+        replaceFileAtomically(sourcePath, sourceBefore);
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          "Therapy sign-off failed and rollback could not restore every pre-review byte.",
+        );
+      }
+      throw new Error("Therapy sign-off failed; exact pre-review source and generated asset bytes were restored.", {
+        cause: error,
+      });
+    }
+  } finally {
+    releaseLock();
   }
 }
 
@@ -263,8 +388,7 @@ export async function main(argv = process.argv.slice(2), io = {}) {
       commit: async (reviewed) => {
         const nextRecords = records.map((record, index) => (index === recordIndex ? reviewed : record));
         assertValidTherapyReviewRecords(nextRecords);
-        writeTherapySourceAtomically(SOURCE_PATH, nextRecords, { expectedRaw: raw });
-        regenerateAndValidate();
+        persistTherapyReviewTransaction({ sourcePath: SOURCE_PATH, records: nextRecords, expectedRaw: raw });
       },
     });
     if (result.status === "reviewed") {

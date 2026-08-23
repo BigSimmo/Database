@@ -124,7 +124,8 @@ the task before you start.
 `seed-registry-records.ts`, `embed-registry-records.ts`, `reconcile-registry-governance.ts`,
 `import-services-export.ts`, `import-differentials-export.ts`, `seed-differential-records.ts`,
 `import-medications-export.ts`, `seed-medication-records.ts`, `review-therapy.mjs`
-(`therapy:review` — report-only by default; qualified-clinician, interactive-TTY sign-off only).
+(`therapy:review` — report-only by default; qualified-clinician, interactive-TTY sign-off only;
+source and generator-owned asset bytes roll back together if generation or validation fails).
 
 ## Build & assets [live/infra]
 

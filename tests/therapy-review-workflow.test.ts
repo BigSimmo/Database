@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ import {
 import {
   conductTherapyReview,
   parseTherapyReviewArgs,
+  persistTherapyReviewTransaction,
   writeTherapySourceAtomically,
 } from "../scripts/review-therapy.mjs";
 
@@ -46,6 +47,13 @@ function pendingRecord(overrides: Record<string, unknown> = {}) {
     contraindicationsOrCautions: "Check individual suitability.",
     reviewStatus: "needs_review",
     reviewChecklist: falseChecklist(),
+    reviewCompleteness: 57,
+    warnings: [
+      "No explicit patient-facing explanation in uploaded record",
+      "No explicit last reviewed date in therapy card",
+      "Missing last reviewed date",
+      "Not clinically reviewed",
+    ],
     ...overrides,
   };
 }
@@ -109,6 +117,16 @@ describe("Therapy review source contract", () => {
     ).toEqual([]);
   });
 
+  it.each([
+    ["reviewedBy", "Clinical Governance Committee"],
+    ["reviewedAt", REVIEWED_AT],
+    ["reviewedContentSha256", "a".repeat(64)],
+  ])("rejects stale or partial %s metadata on needs_review", (key, value) => {
+    expect(therapyReviewProblems([pendingRecord({ [key]: value })], { now: NOW })).toContain(
+      `fixture-therapy: needs_review requires ${key} to be null or absent.`,
+    );
+  });
+
   it("refuses reviewed unless every check, attribution, timestamp, and content hash is valid", () => {
     const falseCheck = reviewedRecord();
     falseCheck.reviewChecklist.sourceChecked = false;
@@ -146,6 +164,31 @@ describe("Therapy review source contract", () => {
     );
   });
 
+  it("finalizes review-derived completeness and warnings consistently", () => {
+    const reviewed = reviewedRecord();
+    expect(reviewed.reviewCompleteness).toBe(100);
+    expect(reviewed.warnings).toEqual(["No explicit patient-facing explanation in uploaded record"]);
+    expect(therapyReviewProblems([reviewed], { now: NOW })).toEqual([]);
+
+    const staleCompleteness = { ...reviewed, reviewCompleteness: 71 };
+    staleCompleteness.reviewedContentSha256 = therapyReviewedContentSha256(staleCompleteness);
+    expect(therapyReviewProblems([staleCompleteness], { now: NOW })).toContain(
+      "fixture-therapy: reviewed requires reviewCompleteness to be 100.",
+    );
+
+    const staleWarning = { ...reviewed, warnings: [...reviewed.warnings, "Not clinically reviewed"] };
+    staleWarning.reviewedContentSha256 = therapyReviewedContentSha256(staleWarning);
+    expect(therapyReviewProblems([staleWarning], { now: NOW })).toContain(
+      'fixture-therapy: reviewed cannot retain pending-review warning "Not clinically reviewed".',
+    );
+
+    const malformedWarning = { ...reviewed, warnings: [42] };
+    malformedWarning.reviewedContentSha256 = therapyReviewedContentSha256(malformedWarning);
+    expect(therapyReviewProblems([malformedWarning], { now: NOW })).toContain(
+      "fixture-therapy: reviewed requires every warning to be a string.",
+    );
+  });
+
   it.each([
     ["email", "clinician@example.org"],
     ["account handle", "@clinical-reviewer"],
@@ -160,6 +203,11 @@ describe("Therapy review source contract", () => {
     ["staff id", "Staff ID WA-12345"],
     ["control character", "Dr Jane Smith\nprivate"],
     ["placeholder", "anonymous"],
+    ["test clinician placeholder", "Test Clinician"],
+    ["TBD clinician placeholder", "TBD clinician"],
+    ["unknown reviewer placeholder", "Unknown reviewer"],
+    ["placeholder clinician variant", "Placeholder clinician"],
+    ["reversed placeholder variant", "Reviewer - testing"],
   ])("rejects %s in public reviewedBy", (_label, value) => {
     expect(publicReviewerAttributionProblem(value)).not.toBeNull();
     const record = pendingRecord({ reviewedBy: value });
@@ -271,6 +319,26 @@ describe("Therapy clinician-input workflow", () => {
     expect(JSON.stringify(record)).toBe(before);
   });
 
+  it.each([" REVIEW fixture-therapy", "REVIEW fixture-therapy ", "REVIEW fixture-therapy\n"])(
+    "rejects non-exact final confirmation %j without committing",
+    async (confirmation) => {
+      const record = pendingRecord();
+      const before = JSON.stringify(record);
+      const commit = vi.fn();
+      const result = await conductTherapyReview({
+        record,
+        reviewedBy: "Clinical Governance Committee",
+        ask: sequenceAsk([...Array(7).fill("yes"), confirmation]),
+        commit,
+        now: () => NOW,
+        output: outputSink(),
+      });
+      expect(commit).not.toHaveBeenCalled();
+      expect(result.status).toBe("cancelled");
+      expect(JSON.stringify(record)).toBe(before);
+    },
+  );
+
   it("commits exactly once only after seven yes answers and exact confirmation", async () => {
     const record = pendingRecord();
     const commit = vi.fn();
@@ -319,6 +387,61 @@ describe("Therapy clinician-input workflow", () => {
     expect(readdirSync(directory)).toEqual(["therapies-source.json"]);
   });
 
+  it("restores exact source and generated bytes and removes new artifacts after injected generation failure", () => {
+    const directory = mkdtempSync(join(tmpdir(), "therapy-review-transaction-"));
+    temporaryDirectories.push(directory);
+    const publicDirectory = join(directory, "public");
+    mkdirSync(publicDirectory);
+
+    const sourcePath = join(directory, "therapies-source.json");
+    const serverIndex = join(directory, "therapies-index.json");
+    const manifest = join(directory, "generated-assets.ts");
+    const retiredAlias = join(publicDirectory, "therapies-home.json");
+    const oldFull = join(publicDirectory, "therapies.1111111111111111.json");
+    const oldIndex = join(publicDirectory, "therapies-index.2222222222222222.json");
+    const newFull = join(publicDirectory, "therapies.aaaaaaaaaaaaaaaa.json");
+    const newIndex = join(publicDirectory, "therapies-index.bbbbbbbbbbbbbbbb.json");
+    const expectedRaw = JSON.stringify([pendingRecord()]);
+    const originalBytes = new Map([
+      [sourcePath, Buffer.from(expectedRaw)],
+      [serverIndex, Buffer.from("server-before\n")],
+      [manifest, Buffer.from("manifest-before\n")],
+      [oldFull, Buffer.from("full-before")],
+      [oldIndex, Buffer.from("index-before\n")],
+    ]);
+    for (const [path, contents] of originalBytes) writeFileSync(path, contents);
+
+    const fixedGeneratedPaths = [serverIndex, manifest, retiredAlias];
+    const listGeneratedPaths = () => readdirSync(publicDirectory).map((name) => join(publicDirectory, name));
+    const reviewed = reviewedRecord();
+
+    expect(() =>
+      persistTherapyReviewTransaction({
+        sourcePath,
+        records: [reviewed],
+        expectedRaw,
+        fixedGeneratedPaths,
+        listGeneratedPaths,
+        runGenerator: () => {
+          writeFileSync(serverIndex, "partial-server\n");
+          writeFileSync(manifest, "partial-manifest\n");
+          rmSync(oldFull);
+          writeFileSync(newFull, "new-full");
+          writeFileSync(newIndex, "new-index\n");
+          writeFileSync(retiredAlias, "new-retired-alias\n");
+          throw Object.assign(new Error("injected generator/check I/O failure"), { code: "EIO" });
+        },
+      }),
+    ).toThrow("exact pre-review source and generated asset bytes were restored");
+
+    for (const [path, contents] of originalBytes) expect(readFileSync(path).equals(contents)).toBe(true);
+    expect(readdirSync(publicDirectory).sort()).toEqual([
+      "therapies-index.2222222222222222.json",
+      "therapies.1111111111111111.json",
+    ]);
+    expect(readdirSync(directory).some((name) => name.endsWith(".tmp") || name.endsWith(".review.lock"))).toBe(false);
+  });
+
   it("is report-only by default and refuses non-TTY writes before changing the source", () => {
     const before = canonicalSourceBytes();
     const report = spawnSync(process.execPath, [SCRIPT], { cwd: ROOT, encoding: "utf8" });
@@ -345,13 +468,15 @@ describe("Therapy clinician-input workflow", () => {
 
   it("guards the generator before any derived output and exposes the report-only npm command", () => {
     const generator = readFileSync(join(ROOT, "scripts", "build-therapies-index.mjs"), "utf8");
-    expect(generator).toContain('import { assertValidTherapyReviewRecords } from "./lib/therapy-review-contract.mjs";');
+    expect(generator).toContain('from "./lib/therapy-review-contract.mjs";');
     expect(generator.indexOf("assertValidTherapyReviewRecords(therapies)")).toBeGreaterThan(0);
     expect(generator.indexOf("assertValidTherapyReviewRecords(therapies)")).toBeLessThan(
       generator.indexOf("syncTarget(serverTarget"),
     );
     const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
     expect(packageJson.scripts["therapy:review"]).toBe("node scripts/review-therapy.mjs");
+    const types = readFileSync(join(ROOT, "src", "components", "therapy-compass", "data", "types.ts"), "utf8");
+    expect(types).toContain('export type ReviewStatus = "reviewed" | "needs_review";');
   });
 
   it("keeps the canonical source bytes stable under validation", () => {

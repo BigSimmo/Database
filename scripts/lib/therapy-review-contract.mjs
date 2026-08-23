@@ -72,6 +72,19 @@ export const THERAPY_REVIEW_CHECKS = Object.freeze([
 
 export const THERAPY_REVIEW_CHECK_KEYS = Object.freeze(THERAPY_REVIEW_CHECKS.map(({ key }) => key));
 
+// Shared by the generator and the transactional review writer. Keeping the
+// ownership surface in one place prevents a new generated Therapy asset from
+// silently falling outside rollback coverage.
+export const THERAPY_GENERATED_PATHS = Object.freeze({
+  source: "src/data/therapies-source.json",
+  serverIndex: "src/data/therapies-index.json",
+  manifest: "src/components/therapy-compass/data/generated-assets.ts",
+  publicDirectory: "public/therapy-compass-data",
+  retiredHomeAlias: "therapies-home.json",
+});
+
+export const THERAPY_HASHED_ASSET_RE = /^therapies(?:-(?:home|index))?\.[a-f0-9]{16}\.json$/;
+
 const REVIEW_METADATA_KEYS = new Set([
   "reviewStatus",
   "reviewChecklist",
@@ -103,6 +116,9 @@ const TRIVIAL_REVIEWER_VALUES = new Set([
   "unknown",
 ]);
 
+const PLACEHOLDER_REVIEWER_VARIANT =
+  /(?:\b(?:dummy|fake|placeholder|sample|tbd|test(?:ing)?|unknown)\b[\s:()/_-]*\b(?:clinician|committee|doctor|owner|professional|reviewer|user)\b|\b(?:clinician|committee|doctor|owner|professional|reviewer|user)\b[\s:()/_-]*\b(?:dummy|fake|placeholder|sample|tbd|test(?:ing)?|unknown)\b)/i;
+
 const EMAIL_LIKE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const UUID_LIKE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
 const LONG_NUMERIC_ID = /\d{6,}/;
@@ -112,6 +128,7 @@ const LABELLED_PRIVATE_ID =
 const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/;
 const UTC_ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 const SHA256 = /^[a-f0-9]{64}$/;
+const PENDING_REVIEW_WARNING = /(?:not clinically reviewed|(?:missing|no explicit) last reviewed date)/i;
 
 function isPlainRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -147,6 +164,9 @@ export function publicReviewerAttributionProblem(value) {
   if (trimmed.length > 160) return "reviewedBy must be 160 characters or fewer.";
   if (TRIVIAL_REVIEWER_VALUES.has(trimmed.toLowerCase())) {
     return "reviewedBy must identify the clinician or governance owner, not a placeholder.";
+  }
+  if (PLACEHOLDER_REVIEWER_VARIANT.test(trimmed)) {
+    return "reviewedBy must identify the clinician or governance owner, not a placeholder variant.";
   }
   if (CONTROL_CHARACTER.test(trimmed)) return "reviewedBy must be a single display-safe line.";
   if (EMAIL_LIKE.test(trimmed) || trimmed.includes("@")) {
@@ -210,26 +230,36 @@ export function therapyReviewProblems(records, { now = new Date() } = {}) {
       if (!requiredKeys.has(key)) problems.push(`${label}: reviewChecklist contains unknown check ${key}.`);
     }
 
-    if (record.reviewedBy !== undefined && record.reviewedBy !== null) {
-      const attributionProblem = publicReviewerAttributionProblem(record.reviewedBy);
-      if (attributionProblem) problems.push(`${label}: ${attributionProblem}`);
+    if (record.reviewStatus === "needs_review") {
+      for (const key of ["reviewedBy", "reviewedAt", "reviewedContentSha256"]) {
+        if (record[key] !== undefined && record[key] !== null) {
+          problems.push(`${label}: needs_review requires ${key} to be null or absent.`);
+        }
+      }
+      continue;
     }
-    if (record.reviewedAt !== undefined && record.reviewedAt !== null) {
-      const timestampProblem = utcTimestampProblem(record.reviewedAt, now);
-      if (timestampProblem) problems.push(`${label}: ${timestampProblem}`);
-    }
-
     if (record.reviewStatus !== "reviewed") continue;
+
     for (const key of THERAPY_REVIEW_CHECK_KEYS) {
       if (checklist[key] !== true) problems.push(`${label}: reviewed requires reviewChecklist.${key} to be true.`);
     }
     const attributionProblem = publicReviewerAttributionProblem(record.reviewedBy);
-    if (attributionProblem && (record.reviewedBy === undefined || record.reviewedBy === null)) {
-      problems.push(`${label}: ${attributionProblem}`);
-    }
+    if (attributionProblem) problems.push(`${label}: ${attributionProblem}`);
     const timestampProblem = utcTimestampProblem(record.reviewedAt, now);
-    if (timestampProblem && (record.reviewedAt === undefined || record.reviewedAt === null)) {
-      problems.push(`${label}: ${timestampProblem}`);
+    if (timestampProblem) problems.push(`${label}: ${timestampProblem}`);
+    if (record.reviewCompleteness !== 100) {
+      problems.push(`${label}: reviewed requires reviewCompleteness to be 100.`);
+    }
+    if (!Array.isArray(record.warnings)) {
+      problems.push(`${label}: reviewed requires warnings to be an array.`);
+    } else {
+      for (const warning of record.warnings) {
+        if (typeof warning !== "string") {
+          problems.push(`${label}: reviewed requires every warning to be a string.`);
+        } else if (PENDING_REVIEW_WARNING.test(warning)) {
+          problems.push(`${label}: reviewed cannot retain pending-review warning ${JSON.stringify(warning)}.`);
+        }
+      }
     }
     if (typeof record.reviewedContentSha256 !== "string" || !SHA256.test(record.reviewedContentSha256)) {
       problems.push(`${label}: reviewed requires a lowercase reviewedContentSha256.`);
@@ -271,6 +301,10 @@ export function finalizeTherapyReview(record, { answers, reviewedBy, reviewedAt,
     reviewChecklist: Object.fromEntries(THERAPY_REVIEW_CHECK_KEYS.map((key) => [key, true])),
     reviewedBy: typeof reviewedBy === "string" ? reviewedBy.trim() : reviewedBy,
     reviewedAt,
+    reviewCompleteness: 100,
+    warnings: Array.isArray(record.warnings)
+      ? record.warnings.filter((warning) => typeof warning !== "string" || !PENDING_REVIEW_WARNING.test(warning))
+      : record.warnings,
   };
   next.reviewedContentSha256 = therapyReviewedContentSha256(next);
   assertValidTherapyReviewRecords([next], { now });

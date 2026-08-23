@@ -12,12 +12,16 @@ import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { escapeFalseOpenAiKeySignatures } from "./lib/escape-false-openai-key-signatures.mjs";
-import { assertValidTherapyReviewRecords } from "./lib/therapy-review-contract.mjs";
+import {
+  THERAPY_GENERATED_PATHS,
+  THERAPY_HASHED_ASSET_RE,
+  assertValidTherapyReviewRecords,
+} from "./lib/therapy-review-contract.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const publicData = join(root, "public", "therapy-compass-data");
-const serverTarget = join(root, "src", "data", "therapies-index.json");
-const manifestTarget = join(root, "src", "components", "therapy-compass", "data", "generated-assets.ts");
+const publicData = join(root, THERAPY_GENERATED_PATHS.publicDirectory);
+const serverTarget = join(root, THERAPY_GENERATED_PATHS.serverIndex);
+const manifestTarget = join(root, THERAPY_GENERATED_PATHS.manifest);
 const checkOnly = process.argv.includes("--check");
 const currentManifest = existsSync(manifestTarget) ? readFileSync(manifestTarget, "utf8") : "";
 // The hand-edited source catalogue, deliberately OUTSIDE `publicData` — this
@@ -30,7 +34,7 @@ const currentManifest = existsSync(manifestTarget) ? readFileSync(manifestTarget
 // survived only because the scrub is idempotent — the raw input was still
 // destroyed, recoverable from git history alone. Keep this path out of
 // `publicData` so a re-run can never consume what it just wrote.
-const source = join(root, "src", "data", "therapies-source.json");
+const source = join(root, THERAPY_GENERATED_PATHS.source);
 if (!existsSync(source)) {
   throw new Error(`Missing therapy source dataset. Expected ${source}.`);
 }
@@ -44,14 +48,14 @@ const therapies = JSON.parse(readFileSync(source, "utf8"));
 assertValidTherapyReviewRecords(therapies);
 
 const CATALOGUE_KINDS = ["full", "index"];
-const RETIRED_HOME_ALIAS = "therapies-home.json";
+const RETIRED_HOME_ALIAS = THERAPY_GENERATED_PATHS.retiredHomeAlias;
 
 /**
  * Content-addressed catalogue assets this generator owns. Keep matching the
  * retired `therapies-home.*.json` stem so generation prunes it and check mode
  * refuses any copy that reappears instead of letting obsolete payloads hide.
  */
-const HASHED_ASSET_RE = /^therapies(?:-(?:home|index))?\.[a-f0-9]{16}\.json$/;
+const HASHED_ASSET_RE = THERAPY_HASHED_ASSET_RE;
 
 /** Every hashed catalogue asset currently sitting in `public/therapy-compass-data`. */
 function listHashedAssets() {
