@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 70,
+    "pending": 72,
     "resolved": 376
   },
   "queue": [
@@ -1140,6 +1140,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "c856fe17-3acc-4ab5-a11b-8fb43dc0ff94",
+      "action": "cancel",
+      "summary": "Cancel request 36b358f7-0fa8-46ab-9b72-585c7d2ceca9: Superseded by the current-main PWA resolution request 3a2cac06-0076-4e83-81fa-f98be7285444, which records the accepted whole-file selector contract.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "cb4ab5a2-71d2-4dc3-83a4-96d2264a4af9",
       "action": "done",
       "summary": "#XPY409: Resolved on current main by PR #2186 / commit d7ffae1a5. docs/testing.md and docs/search-chrome-behaviour.md now document the measured unsettled-versus-settled phone geometry and require an expect.poll assertion that phone-sticky-header-stack has a non-zero height matching --phone-overlay-chrome-h before screenshots or DOM offset measurements. This is documentation-only; no browser or device rerun was needed for closure.",
@@ -1191,6 +1197,12 @@
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Claude Code 2.1.238 ran the hook in real auto-compactions: D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\caring-contacts-phase-2a-11b-a37803\\\\claude-precompact.log records 2026-08-22T11:37:51Z before transcript d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl's 2026-08-22T11:39:38.041Z compact boundary; ward-flow-phase-3-49f201 records 2026-08-22T18:33:10Z before transcript d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl's 2026-08-22T18:34:57.371Z boundary. The exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. The current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks) explains the result: successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event and did not create D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\Database36\\\\claude-precompact.log when checked at 2026-08-23T06:41:54.9955991Z; it is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "f892c373-a1c3-4c5e-b252-cd594e8f4bd8",
+      "action": "cancel",
+      "summary": "Cancel request 3aa167d6-e12d-4a76-944b-8e7b96f9f5f7: Superseded by the newer 2026-08-23 update 505f3b8e-a800-4efa-809f-ad2ccc6e158e, which correctly retains the unresolved bundle-budget ownership work.",
       "created_at": "2026-08-23"
     },
     {
