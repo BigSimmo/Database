@@ -24,7 +24,6 @@ import { Tabs } from "@/components/ui/tabs";
 import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
-import { therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import { useClipboard } from "../use-clipboard";

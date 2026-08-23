@@ -26,7 +26,6 @@ import {
   padCompareIds,
   pairCompareHref,
   useComparePicker,
-  type CompareCatalogItem,
   type CompareSlot,
   type CompareStarterChip,
 } from "@/components/compare";

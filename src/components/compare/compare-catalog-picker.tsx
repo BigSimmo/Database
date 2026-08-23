@@ -47,7 +47,13 @@ export function CompareCatalogPicker({
 }) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [highlight, setHighlight] = useState(0);
+  const highlightScope = `${query}::${activeSlot}`;
+  const [highlightState, setHighlightState] = useState({ scope: highlightScope, index: 0 });
+  // Keep highlight scoped to the current query/slot during render — do not reset in an effect.
+  if (highlightState.scope !== highlightScope) {
+    setHighlightState({ scope: highlightScope, index: 0 });
+  }
+  const highlight = highlightState.scope === highlightScope ? highlightState.index : 0;
   const count = maxCount ?? Math.max(selectedIds.length, 1);
   const slots = padCompareIds(selectedIds, count);
   const labels = slotLetters(count);
@@ -62,10 +68,6 @@ export function CompareCatalogPicker({
     inputRef.current?.focus();
   }, [activeSlot]);
 
-  useEffect(() => {
-    setHighlight(0);
-  }, [query, activeSlot]);
-
   function choose(id: string) {
     if (taken.has(id) && slots[activeSlot] !== id) return;
     onChoose(id);
@@ -75,12 +77,12 @@ export function CompareCatalogPicker({
     if (!hits.length) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setHighlight((current) => (current + 1) % hits.length);
+      setHighlightState({ scope: highlightScope, index: (highlight + 1) % hits.length });
       return;
     }
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      setHighlight((current) => (current - 1 + hits.length) % hits.length);
+      setHighlightState({ scope: highlightScope, index: (highlight - 1 + hits.length) % hits.length });
       return;
     }
     if (event.key === "Enter") {
@@ -168,7 +170,6 @@ export function CompareCatalogPicker({
                 type="button"
                 role="option"
                 aria-selected={highlight === index}
-                aria-disabled={duplicate}
                 onClick={() => choose(item.id)}
                 disabled={duplicate}
                 className={cn(
