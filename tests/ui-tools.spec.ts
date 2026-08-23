@@ -3010,12 +3010,15 @@ test.describe("Responsive layout guards", () => {
       // Tall viewport exaggerates the free space so the anchor is unambiguous.
       await page.setViewportSize({ width, height: 900 });
       await gotoLauncher(page, "/medications");
-      const home = page.getByTestId("medication-home");
+      const home = visibleByTestId(page, "medication-home");
+      await expect(home).toHaveCount(1);
       await expect(home).toBeVisible();
       await settleLayout(page);
       const measure = () =>
         page.evaluate(() => {
-          const rect = document.querySelector('[data-testid="medication-home"]')?.getBoundingClientRect();
+          const rect = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="medication-home"]'))
+            .map((node) => node.getBoundingClientRect())
+            .find((candidate) => candidate.width > 0 && candidate.height > 0);
           if (!rect) return null;
           return { topGap: rect.top, bottomGap: window.innerHeight - rect.bottom };
         });
