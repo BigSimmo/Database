@@ -410,7 +410,7 @@ export function DictionaryCataloguePage() {
             {/* Filter is a permanent member of this row, including during a
                 search. At 320px the intrinsic controls wrap rather than
                 squeezing counts or clipping the Filter wordmark. */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-stretch gap-2">
               {scopeToggle}
               {/* The alphabet is meaningless against a ranked result set, so it
                   stands down rather than competing with the words for the line.
@@ -418,7 +418,7 @@ export function DictionaryCataloguePage() {
                   same time, so nothing narrows the list without a visible
                   control saying so. */}
               {searching ? null : letterChip}
-              <span className="ml-auto flex items-center gap-2">
+              <span className="ml-auto flex items-stretch gap-2 [&_button]:h-full">
                 <span className="hidden sm:flex">{filterTrigger("desktop")}</span>
                 <span className="flex sm:hidden">{filterTrigger("phone")}</span>
               </span>

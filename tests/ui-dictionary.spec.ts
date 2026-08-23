@@ -170,11 +170,19 @@ test("merges search and browse into one catalogue with a measured phone header",
     const toggle = box("dictionary-scope-toggle");
     const letter = box("dictionary-letter-chip");
     const filter = box("dictionary-filter-trigger-phone");
+    const sameRow = Boolean(
+      toggle &&
+      filter &&
+      filter.top < toggle.bottom - 4 &&
+      filter.bottom > toggle.top + 4 &&
+      filter.left >= toggle.right - 2,
+    );
     return {
       toggleTop: toggle?.top ?? -1,
       letterTop: letter?.top ?? -1,
       filterTop: filter?.top ?? -1,
-      filterRightOfToggle: (filter?.left ?? 0) >= (toggle?.right ?? 9999) - 2,
+      filterBottomPastToggle: (filter?.top ?? 0) >= (toggle?.bottom ?? 9999) - 2,
+      sameRow,
       overflow: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
     };
   });
@@ -182,11 +190,7 @@ test("merges search and browse into one catalogue with a measured phone header",
   expect(browseRow.letterTop).toBeGreaterThan(0);
   expect(browseRow.filterTop).toBeGreaterThan(0);
   expect(browseRow.overflow).toBeLessThanOrEqual(2);
-  if (Math.abs(browseRow.filterTop - browseRow.toggleTop) <= 2) {
-    expect(browseRow.filterRightOfToggle).toBe(true);
-  } else {
-    expect(browseRow.filterTop).toBeGreaterThan(browseRow.toggleTop);
-  }
+  expect(browseRow.sameRow || browseRow.filterBottomPastToggle).toBe(true);
 
   // At 320px the same controls want more than the track has, and the contract
   // is that the row WRAPS rather than clipping a count out of view.
@@ -220,15 +224,23 @@ test("merges search and browse into one catalogue with a measured phone header",
 
   const resultControls = await page.evaluate(() => {
     const box = (id: string) => document.querySelector(`[data-testid="${id}"]`)?.getBoundingClientRect() ?? null;
+    const toggle = box("dictionary-scope-toggle");
+    const filter = box("dictionary-filter-trigger-phone");
+    const toggleMid = toggle ? (toggle.top + toggle.bottom) / 2 : -1;
+    const filterMid = filter ? (filter.top + filter.bottom) / 2 : -1;
     return {
-      toggleTop: box("dictionary-scope-toggle")?.top ?? -1,
-      filterTop: box("dictionary-filter-trigger-phone")?.top ?? -1,
-      filterRightOfToggle:
-        (box("dictionary-filter-trigger-phone")?.left ?? 0) >= (box("dictionary-scope-toggle")?.right ?? 9999) - 2,
+      sameRow: Boolean(
+        toggle &&
+        filter &&
+        filter.top < toggle.bottom - 4 &&
+        filter.bottom > toggle.top + 4 &&
+        filter.left >= toggle.right - 2,
+      ),
+      centersAligned: Math.abs(filterMid - toggleMid) <= 4,
     };
   });
-  expect(Math.abs(resultControls.filterTop - resultControls.toggleTop)).toBeLessThanOrEqual(2);
-  expect(resultControls.filterRightOfToggle).toBe(true);
+  expect(resultControls.sameRow).toBe(true);
+  expect(resultControls.centersAligned).toBe(true);
 
   // Its own line: the band sits entirely above the control row.
   const geometry = await page.evaluate(() => {
