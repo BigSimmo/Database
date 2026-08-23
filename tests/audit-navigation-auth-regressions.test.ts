@@ -5,6 +5,10 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
+import {
+  canRunDashboardSearch,
+  shouldShowDashboardDegradedNotice,
+} from "@/components/clinical-dashboard/document-manager-contracts";
 import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 import { sourceSegment } from "./helpers/source-contract";
@@ -20,6 +24,28 @@ const universalCommandSurfaceSource = source("src/components/clinical-dashboard/
 const globalSearchShellSource = source("src/components/clinical-dashboard/global-search-shell.tsx");
 
 describe("audit navigation and auth regressions", () => {
+  it("fails demo search closed and exposes the degraded notice when local identity is unsafe", () => {
+    const capability = {
+      explicitDemoMode: true,
+      canUsePublicSearchApis: false,
+      canUseDegradedLocalSearchApis: false,
+      canUseNonProductionDemoFallback: false,
+      canAttemptDeployedPublicSearch: false,
+    };
+
+    const unsafeCanRunSearch = canRunDashboardSearch({ ...capability, localProjectReady: false });
+    expect(unsafeCanRunSearch).toBe(false);
+    expect(
+      shouldShowDashboardDegradedNotice({ isOnline: true, apiUnavailable: true, canRunSearch: unsafeCanRunSearch }),
+    ).toBe(true);
+
+    const safeCanRunSearch = canRunDashboardSearch({ ...capability, localProjectReady: true });
+    expect(safeCanRunSearch).toBe(true);
+    expect(
+      shouldShowDashboardDegradedNotice({ isOnline: true, apiUnavailable: true, canRunSearch: safeCanRunSearch }),
+    ).toBe(false);
+  });
+
   it("keeps the tappable phone suggestion ticker connected to standalone homes", () => {
     expect(globalSearchShellSource).toContain('isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)');
     expect(masterSearchHeaderSource).toContain("showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}");
@@ -219,7 +245,7 @@ describe("audit navigation and auth regressions", () => {
     const indexingAdministrationContract = sourceSegment(
       clinicalDashboardSource,
       "const openLibraryHealthTarget = useCallback(",
-      "const timeoutId = window.setTimeout(prefetchApplications, 250);",
+      "// The dashboard renders directly on",
       { label: "private indexing administration" },
     );
     expect(indexingAdministrationContract).toContain("if (!canUseAdministrativeApis) {");
@@ -251,6 +277,19 @@ describe("audit navigation and auth regressions", () => {
     // Rendering is gated on the same capability, so losing access mid-session cannot leave jobs,
     // batches or quality data painted from component state.
     expect(clinicalDashboardSource).toContain("{settingsState.indexingAdminDrawerOpen && canUseAdministrativeApis ? (");
+  });
+
+  it("defers the applications route prefetch until sidebar intent", () => {
+    expect(clinicalDashboardSource).not.toContain("window.setTimeout(prefetchApplications, 250)");
+
+    const desktopSidebar = sourceSegment(clinicalDashboardSource, "<ClinicalDesktopSidebar", "<PhoneFooterLayerFrame", {
+      label: "desktop sidebar prefetch wiring",
+    });
+    const mobileSidebar = sourceSegment(clinicalDashboardSource, "<ClinicalMobileSidebar", "</PhoneFooterLayerFrame>", {
+      label: "mobile sidebar prefetch wiring",
+    });
+    expect(desktopSidebar).toContain("onPrefetchApplications={prefetchApplications}");
+    expect(mobileSidebar).toContain("onPrefetchApplications={prefetchApplications}");
   });
 
   it("keeps private indexing administration associated without exposing uploads", () => {

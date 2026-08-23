@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5247dacd-b129-468a-8235-d60a1a7cc341",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Squash-merged governance manifests reference an unreachable intermediate reviewedCommit",
+    "detail": "After merging origin/main commit 883f1007a (PR #2306), the full unit suite fails tests/clinical-hazard-controls.test.ts and tests/privacy-readiness-contract.test.ts because both new manifests name f604bd41bee8173fdeca560c03d1c34344f61945, which is not an object in a clean main-based checkout and therefore cannot be proven an ancestor. GitHub reports PR #2306 final head 99158b7b and squash merge 883f1007a, so f604bd41 was an intermediate review point rather than the landed commit. This can block every later full-suite/CI run. Next: governance owner must choose and record a landed, evidence-faithful reviewed commit (or a durable tree/evidence identity contract), update both manifests coherently, and prove the referenced paths existed at that reviewed state. Stop: do not merely fetch an ephemeral PR object or weaken the ancestor/path checks; that would make local green depend on object-cache history.",
+    "source": "PR #2306; docs/clinical-hazard-controls.json; docs/governance/privacy-readiness.v1.json; full npm test on codex/task-performance-remediation 2026-08-23",
+    "issueUlid": "01M0Q07VH0Q9MXW2KW490WH72Z"
+  }
+}
