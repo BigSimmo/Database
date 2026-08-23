@@ -5,6 +5,10 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
+import {
+  canRunDashboardSearch,
+  shouldShowDashboardDegradedNotice,
+} from "@/components/clinical-dashboard/document-manager-contracts";
 import { resolveDifferentialCompareHandoff } from "@/lib/differentials";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 import { sourceSegment } from "./helpers/source-contract";
@@ -20,6 +24,28 @@ const universalCommandSurfaceSource = source("src/components/clinical-dashboard/
 const globalSearchShellSource = source("src/components/clinical-dashboard/global-search-shell.tsx");
 
 describe("audit navigation and auth regressions", () => {
+  it("fails demo search closed and exposes the degraded notice when local identity is unsafe", () => {
+    const capability = {
+      explicitDemoMode: true,
+      canUsePublicSearchApis: false,
+      canUseDegradedLocalSearchApis: false,
+      canUseNonProductionDemoFallback: false,
+      canAttemptDeployedPublicSearch: false,
+    };
+
+    const unsafeCanRunSearch = canRunDashboardSearch({ ...capability, localProjectReady: false });
+    expect(unsafeCanRunSearch).toBe(false);
+    expect(
+      shouldShowDashboardDegradedNotice({ isOnline: true, apiUnavailable: true, canRunSearch: unsafeCanRunSearch }),
+    ).toBe(true);
+
+    const safeCanRunSearch = canRunDashboardSearch({ ...capability, localProjectReady: true });
+    expect(safeCanRunSearch).toBe(true);
+    expect(
+      shouldShowDashboardDegradedNotice({ isOnline: true, apiUnavailable: true, canRunSearch: safeCanRunSearch }),
+    ).toBe(false);
+  });
+
   it("keeps the tappable phone suggestion ticker connected to standalone homes", () => {
     expect(globalSearchShellSource).toContain('isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)');
     expect(masterSearchHeaderSource).toContain("showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}");

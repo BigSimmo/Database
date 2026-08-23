@@ -132,11 +132,10 @@ const env = offlineTestEnvironment(process.env, {
   NODE_ENV: "production",
   PLAYWRIGHT_OFFLINE_MODE: "true",
   NEXT_PUBLIC_MOCKUPS_ENABLED: "false",
-  // The default stays on the safe synthetic corpus. The explicit local identity
-  // outage turns demo capability off so the degraded notice is not masked by a
-  // still-runnable demo search; provider endpoints remain scrubbed and inert
-  // through offlineTestEnvironment.
-  NEXT_PUBLIC_DEMO_MODE: exerciseLocalIdentityUnavailable ? "false" : "true",
+  // Keep the isolated production build inside instrumentation.ts's provider-free
+  // offline contract. ClinicalDashboard's local identity gate still disables
+  // demo search and exposes the degraded notice during the explicit fault.
+  NEXT_PUBLIC_DEMO_MODE: "true",
 });
 
 function isThisProject(body) {

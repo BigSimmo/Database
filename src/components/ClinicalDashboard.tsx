@@ -71,9 +71,11 @@ import {
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import {
+  canRunDashboardSearch,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
+  shouldShowDashboardDegradedNotice,
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/document-manager-contracts";
@@ -734,12 +736,14 @@ function ClinicalDashboardContent({
   const isAdministrator = isAdministratorUser(auth.session?.user);
   const canUseAdministrativeApis = localProjectReady && isAdministrator;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
-  const canRunSearch =
-    explicitDemoMode ||
-    canUsePublicSearchApis ||
-    canUseDegradedLocalSearchApis ||
-    canUseNonProductionDemoFallback ||
-    canAttemptDeployedPublicSearch;
+  const canRunSearch = canRunDashboardSearch({
+    localProjectReady,
+    explicitDemoMode,
+    canUsePublicSearchApis,
+    canUseDegradedLocalSearchApis,
+    canUseNonProductionDemoFallback,
+    canAttemptDeployedPublicSearch,
+  });
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
       indexingAdminReturnFocusRef.current =
@@ -2994,7 +2998,7 @@ function ClinicalDashboardContent({
     },
   ] as const;
   const showAuthPanel = false;
-  const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
+  const showDegradedNotice = shouldShowDashboardDegradedNotice({ isOnline, apiUnavailable, canRunSearch });
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
   const showSharedHome = shouldShowSharedHome({

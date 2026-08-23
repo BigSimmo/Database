@@ -223,7 +223,8 @@ describe("CLS attribution evidence contract", () => {
   });
 
   it("faults exactly one post-healthy local identity refresh and removes the route", () => {
-    expect(source).toContain('NEXT_PUBLIC_DEMO_MODE: exerciseLocalIdentityUnavailable ? "false" : "true"');
+    expect(source).toContain('NEXT_PUBLIC_DEMO_MODE: "true"');
+    expect(source).not.toContain('NEXT_PUBLIC_DEMO_MODE: exerciseLocalIdentityUnavailable ? "false" : "true"');
     expect(source).toContain('const localIdentityPattern = "**/api/local-project-id**"');
     expect(source).toContain("localIdentityUnavailableInterceptHits += 1");
     expect(source).toContain("{ times: 1 }");
