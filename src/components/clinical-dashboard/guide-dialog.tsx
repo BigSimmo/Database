@@ -43,6 +43,7 @@ import {
 } from "@/components/clinical-dashboard/guide-progress";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ColourCodingReferenceContent } from "@/components/reference/colour-coding-reference-content";
+import { colourCodingReferenceHref } from "@/lib/reference-routes";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText, floatingControl, primaryControl, textMuted } from "@/components/ui-primitives";
 
@@ -668,7 +669,7 @@ function GuideDialogSession({ onClose }: { onClose: () => void }) {
 
   function openFullColourCodingReference() {
     onClose();
-    router.push("/reference/colour-coding");
+    router.push(colourCodingReferenceHref());
   }
 
   function restartTour() {

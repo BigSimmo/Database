@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { NavigationBackButton } from "@/components/navigation-back-button";
 import { ColourCodingReferenceContent } from "@/components/reference/colour-coding-reference-content";
+import { SHARED_APP_HOME_ROUTE } from "@/lib/reference-routes";
 import { cn, searchPageCanvas, searchPageContainer, searchPageShellStandalone } from "@/components/ui-primitives";
 
 export const metadata: Metadata = {
@@ -23,7 +24,7 @@ export default function ColourCodingReferencePage() {
       <div className={cn(searchPageShellStandalone)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
           <div className="flex min-h-tap items-center">
-            <NavigationBackButton fallbackHref="/" />
+            <NavigationBackButton fallbackHref={SHARED_APP_HOME_ROUTE} />
           </div>
           <ColourCodingReferenceContent variant="page" />
         </div>

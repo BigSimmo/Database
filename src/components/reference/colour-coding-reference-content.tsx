@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 
 import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
 import { cn, eyebrowText, raisedCard } from "@/components/ui-primitives";
+import { colourCodingReferenceHref } from "@/lib/reference-routes";
 import { CONTENT_DOMAIN_META, CONTENT_DOMAIN_ORDER, flagsForDomain } from "@/lib/semantic-flags";
 import { SEMANTIC_TONE_META, SEMANTIC_TONES } from "@/lib/semantic-tone";
 
@@ -172,7 +173,7 @@ export function ColourCodingReferenceContent({ variant, onOpenFullReference }: C
             </button>
           ) : (
             <Link
-              href="/reference/colour-coding"
+              href={colourCodingReferenceHref()}
               className="inline-flex min-h-tap items-center gap-1 rounded-md text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               Open full reference
