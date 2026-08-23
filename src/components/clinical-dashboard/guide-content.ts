@@ -4,6 +4,7 @@ export const guideTopicIds = [
   "document-scope",
   "answer-anatomy",
   "sources-citations",
+  "colour-coding",
   "document-administration",
   "privacy-safe-use",
   "keyboard-shortcuts",
@@ -122,6 +123,12 @@ export const guideTopics: readonly GuideTopic[] = [
           "If a claim has no direct source, treat it as unconfirmed rather than filling the gap from memory.",
         ],
       },
+      {
+        heading: "Read status badges with the answer",
+        paragraphs: [
+          "Status badges around answers and sources use a fixed six-tone colour system. They flag how current, supported, or cautious a signal is — they are not decorative labels. See Colour coding & badges in this guide for what each tone means.",
+        ],
+      },
     ],
   },
   {
@@ -145,6 +152,38 @@ export const guideTopics: readonly GuideTopic[] = [
           "Notice current, review-due, outdated, or unverified source-status signals.",
           "Check that the passage supports the claim, not merely the same topic or terminology.",
           "If citations conflict, prefer the applicable primary guidance and resolve the discrepancy outside the generated answer.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "colour-coding",
+    title: "Colour coding & badges",
+    navLabel: "Colour coding",
+    summary: "Learn what each badge colour means and how to scan clinical screens faster.",
+    sections: [
+      {
+        heading: "Meaning drives colour",
+        paragraphs: [
+          "Clinical KB uses exactly six badge tones. The colour always reflects meaning — never the other way round. Green means current, reviewed, or source-backed; it does not mean clinically safe. Clinical blue means an action to carry out, not verified or trustworthy.",
+          "Badges highlight information for faster scanning. They supplement readable text and never replace contraindications, dosing detail, monitoring requirements, or source provenance.",
+        ],
+      },
+      {
+        heading: "How to scan",
+        bullets: [
+          "When several badges appear together, read danger first, then warning, clinical, success, neutral, and info.",
+          "Danger and warning badges carry icons so they stay distinguishable without colour.",
+          "If a badge label is unclear, read the surrounding row or section — the badge is a scan aid, not the full instruction.",
+        ],
+      },
+      {
+        heading: "Where badges appear",
+        bullets: [
+          "Answers — grounding, evidence strength, and source-currency signals.",
+          "Sources and documents — review state, ingestion status, and metadata.",
+          "Medications — dosing, access, safety, and contraindication flags.",
+          "Services and differentials — availability, referral requirements, and severity.",
         ],
       },
     ],
