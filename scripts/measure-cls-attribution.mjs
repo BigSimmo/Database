@@ -451,7 +451,6 @@ async function markPhase(page, phase) {
   await page.evaluate((nextPhase) => window.__markClsPhase?.(nextPhase), phase);
 }
 
-const setupStatusPattern = "**/api/setup-status**";
 const localIdentityPattern = "**/api/local-project-id**";
 
 function isSetupStatusResponse(response, expectedStatus) {
