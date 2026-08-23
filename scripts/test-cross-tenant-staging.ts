@@ -11,6 +11,7 @@ import type { Database } from "../src/lib/supabase/database.types";
 loadEnvConfig(process.cwd());
 
 const PRODUCTION_PROJECT_REF = "sjrfecxgysukkwxsowpy";
+const PRODUCTION_APP_HOST = "psychiatry.tools";
 const DEFAULT_EVIDENCE_PATH = "artifacts/staging-tenancy-evidence.json";
 const REQUEST_TIMEOUT_MS = 90_000;
 
@@ -29,7 +30,7 @@ type HarnessConfig = {
   userBPassword: string;
   documentBucket: string;
   evidencePath: string;
-  commitSha: string | null;
+  checkoutCommitSha: string;
   workflowRunUrl: string | null;
 };
 
@@ -47,7 +48,7 @@ export function crossTenantStagingFetch(
 ) {
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
   const signal = init.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
-  return fetch(input, { ...init, signal });
+  return fetch(input, { ...init, redirect: "error", signal });
 }
 
 export function crossTenantFixtureMarker(runId: string, tenant: "a" | "b") {
@@ -122,11 +123,20 @@ export function readCrossTenantStagingConfig(): HarnessConfig {
     throw new Error("CROSS_TENANT_SUPABASE_URL does not match CROSS_TENANT_PROJECT_REF.");
   }
   if (appUrl === supabaseUrl) throw new Error("CROSS_TENANT_STAGING_APP_URL must be the staging app, not Supabase.");
+  const appHost = new URL(appUrl).hostname.toLowerCase();
+  if (appHost === PRODUCTION_APP_HOST || appHost.endsWith(`.${PRODUCTION_APP_HOST}`)) {
+    throw new Error("Refusing to run the cross-tenant harness against the production application host.");
+  }
   if (userAEmail.toLowerCase() === userBEmail.toLowerCase()) {
     throw new Error("CROSS_TENANT_USER_A_EMAIL and CROSS_TENANT_USER_B_EMAIL must identify different users.");
   }
   if (userAPassword === userBPassword) {
     throw new Error("Cross-tenant test users must have distinct passwords.");
+  }
+
+  const checkoutCommitSha = required("CROSS_TENANT_CHECKOUT_COMMIT_SHA").toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(checkoutCommitSha)) {
+    throw new Error("CROSS_TENANT_CHECKOUT_COMMIT_SHA must be a full 40-character Git commit SHA.");
   }
 
   return {
@@ -141,7 +151,7 @@ export function readCrossTenantStagingConfig(): HarnessConfig {
     userBPassword,
     documentBucket,
     evidencePath: process.env.CROSS_TENANT_EVIDENCE_PATH?.trim() || DEFAULT_EVIDENCE_PATH,
-    commitSha: process.env.CROSS_TENANT_COMMIT_SHA?.trim() || null,
+    checkoutCommitSha,
     workflowRunUrl: process.env.CROSS_TENANT_WORKFLOW_RUN_URL?.trim() || null,
   };
 }
@@ -162,23 +172,13 @@ function assertCondition(condition: unknown, message: string): asserts condition
   if (!condition) throw new Error(message);
 }
 
-async function requestJson(
-  config: HarnessConfig,
-  token: string,
+export async function requestCrossTenantAppJson(
+  appUrl: string,
   path: string,
   init: RequestInit = {},
   expectedStatuses: number[] = [200],
 ) {
-  const headers = new Headers(init.headers);
-  headers.set("Accept", "application/json");
-  headers.set("Authorization", `Bearer ${token}`);
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-
-  const response = await fetch(`${config.appUrl}${path}`, {
-    ...init,
-    headers,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
+  const response = await crossTenantStagingFetch(`${appUrl}${path}`, init);
   const bodyText = await response.text();
   let body: unknown = null;
   if (bodyText) {
@@ -195,6 +195,47 @@ async function requestJson(
     );
   }
   return body;
+}
+
+export async function verifyCrossTenantDeploymentIdentity(config: HarnessConfig) {
+  const body = asRecord(
+    await requestCrossTenantAppJson(config.appUrl, "/api/health"),
+    "GET /api/health deployment identity",
+  );
+  const deployedCommitSha = typeof body.deploymentCommitSha === "string" ? body.deploymentCommitSha.toLowerCase() : "";
+  if (!/^[a-f0-9]{40}$/.test(deployedCommitSha)) {
+    throw new Error("GET /api/health did not report a full deploymentCommitSha.");
+  }
+  if (deployedCommitSha !== config.checkoutCommitSha) {
+    throw new Error(
+      `Staging deployment SHA ${deployedCommitSha} does not match checkout SHA ${config.checkoutCommitSha}.`,
+    );
+  }
+  return deployedCommitSha;
+}
+
+async function requestJson(
+  config: HarnessConfig,
+  token: string,
+  path: string,
+  init: RequestInit = {},
+  expectedStatuses: number[] = [200],
+) {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  headers.set("Authorization", `Bearer ${token}`);
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+
+  return requestCrossTenantAppJson(
+    config.appUrl,
+    path,
+    {
+      ...init,
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    },
+    expectedStatuses,
+  );
 }
 
 async function signIn(client: AppClient, email: string, password: string, label: string) {
@@ -552,6 +593,7 @@ function writeEvidence(args: {
   checkpoints: string[];
   cleanupErrors: string[];
   error: unknown;
+  deployedCommitSha: string | null;
 }) {
   const evidencePath = resolve(
     args.config?.evidencePath ?? process.env.CROSS_TENANT_EVIDENCE_PATH ?? DEFAULT_EVIDENCE_PATH,
@@ -559,7 +601,7 @@ function writeEvidence(args: {
   const completedAt = new Date().toISOString();
   const errorMessage = args.error instanceof Error ? args.error.message : args.error ? String(args.error) : null;
   const payload = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     check: "cross-tenant-staging",
     status: errorMessage || args.cleanupErrors.length > 0 ? "failed" : "passed",
     runId: args.runId,
@@ -568,7 +610,8 @@ function writeEvidence(args: {
     projectRef: args.config?.projectRef ?? null,
     projectRefSha256: args.config ? createHash("sha256").update(args.config.projectRef).digest("hex") : null,
     appOrigin: args.config?.appUrl ?? null,
-    commitSha: args.config?.commitSha ?? null,
+    checkoutCommitSha: args.config?.checkoutCommitSha ?? null,
+    deployedCommitSha: args.deployedCommitSha,
     workflowRunUrl: args.config?.workflowRunUrl ?? null,
     checkpoints: args.checkpoints,
     cleanup: args.cleanupErrors.length === 0 ? "passed" : "failed",
@@ -591,11 +634,18 @@ async function main() {
   let clientB: AppClient | null = null;
   let admin: AppClient | null = null;
   let failure: unknown = null;
+  let deployedCommitSha: string | null = null;
 
   try {
     // All project/credential safety validation happens before a Supabase client is created.
     config = readCrossTenantStagingConfig();
     checkpoints.push("configuration-safety");
+
+    // The public health response is self-reported deployment metadata rather
+    // than cryptographic attestation, but exact equality prevents evidence from
+    // silently combining a checkout with a different deployed candidate.
+    deployedCommitSha = await verifyCrossTenantDeploymentIdentity(config);
+    checkpoints.push("deployment-identity");
 
     clientA = createClient<Database>(config.supabaseUrl, config.publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -655,7 +705,15 @@ async function main() {
     clientA?.auth.signOut() ?? Promise.resolve(),
     clientB?.auth.signOut() ?? Promise.resolve(),
   ]);
-  const evidencePath = writeEvidence({ config, runId, startedAt, checkpoints, cleanupErrors, error: failure });
+  const evidencePath = writeEvidence({
+    config,
+    runId,
+    startedAt,
+    checkpoints,
+    cleanupErrors,
+    error: failure,
+    deployedCommitSha,
+  });
 
   if (failure) throw failure;
   if (cleanupErrors.length > 0)

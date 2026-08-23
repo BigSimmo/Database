@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "75f7bf2a-5062-4d61-b6cc-8413d678f761",
+  "createdOn": "2026-08-22",
+  "action": "cancel",
+  "payload": {
+    "requestId": "67381059-b223-450e-8f4e-2e0bd088f45d",
+    "reason": "PR #2302 applied update b9f8c826 and changed canonical #NPQJKP before this branch synchronized, so this closure carries the pre-update baseRowFingerprint. Cancel it and use the fresh closure queued against the post-PR #2302 row."
+  }
+}

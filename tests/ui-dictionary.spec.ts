@@ -4,9 +4,7 @@ import { expect, test, type Locator, type Page, type TestInfo } from "playwright
 /*
  * `/dictionary` is deliberately absent: it has no home of its own any more. The
  * bare path redirects to the shared lightweight home at `/?mode=dictionary`,
- * which is covered by the shared-home suites rather than here. The retired
- * detailed home lives at `/mockups/dictionary-home-detailed`, which 404s in
- * production and is out of scope for a production-route sweep.
+ * which is covered by the shared-home suites rather than here.
  */
 const routes = [
   { path: "/dictionary/search?q=MSE", testId: "dictionary-catalogue-main" },
@@ -106,6 +104,7 @@ test("keeps mixed result filters truthful, URL-owned, and phone-operable", async
 
   const trigger = page.getByTestId("dictionary-filter-trigger-phone");
   await expect(trigger).toBeVisible();
+  await expect(trigger.getByText("Filter", { exact: true })).toBeVisible();
   expect((await trigger.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
 
   const sheet = page.getByTestId("dictionary-filter-sheet");
@@ -146,15 +145,16 @@ test("merges search and browse into one catalogue with a measured phone header",
   await page.waitForTimeout(1200);
 
   // Browsing: one row of controls, no summary line, and the scope toggle sized
-  // to its own labels rather than to the viewport.
+  // to its own full labels rather than to the viewport.
   const toggle = page.getByTestId("dictionary-scope-toggle");
   await expect(toggle).toBeVisible();
+  await expect(toggle.getByRole("button", { name: /Abbreviations/ })).toBeVisible();
   const toggleBox = await toggle.boundingBox();
   expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(48);
-  // Half of a 390px phone is 195px. The retired control took that; this one is
-  // sized to "Terms 96" + "Abbrev 11".
-  expect(toggleBox?.width ?? 0).toBeLessThan(195);
+  // The complete labels remain intrinsic rather than stretching to fill the row.
+  expect(toggleBox?.width ?? 0).toBeLessThan(260);
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
+  await expect(page.getByTestId("dictionary-filter-trigger-phone").getByText("Filter", { exact: true })).toBeVisible();
   await expect(page.getByTestId("search-query-ribbon")).toHaveCount(0);
   // Every control on one line: same top edge, no wrap at 390px.
   const rowTops = await page.evaluate(() => {
@@ -188,7 +188,21 @@ test("merges search and browse into one catalogue with a measured phone header",
   await page.waitForTimeout(1200);
   const ribbon = page.getByTestId("search-query-ribbon");
   await expect(ribbon).toBeVisible();
+  await expect(ribbon.getByTestId("dictionary-clear-query")).toBeVisible();
+  await expect(
+    ribbon.getByTestId("dictionary-filter-trigger-phone").getByText("Filter", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByTestId("dictionary-letter-chip")).toHaveCount(0);
+
+  const resultControls = await page.evaluate(() => {
+    const ribbon = document.querySelector('[data-testid="search-query-ribbon"]');
+    const box = (testId: string) => ribbon?.querySelector(`[data-testid="${testId}"]`)?.getBoundingClientRect() ?? null;
+    return {
+      clearTop: box("dictionary-clear-query")?.top ?? -1,
+      filterTop: box("dictionary-filter-trigger-phone")?.top ?? -1,
+    };
+  });
+  expect(Math.abs(resultControls.clearTop - resultControls.filterTop)).toBeLessThanOrEqual(2);
 
   // Its own line: the band sits entirely above the control row.
   const geometry = await page.evaluate(() => {
@@ -214,7 +228,7 @@ test("merges search and browse into one catalogue with a measured phone header",
   await expect(ribbon.getByRole("status")).toHaveText(/^1 abbreviation$/);
 
   // Clearing returns the whole catalogue.
-  await clickUntil(page.getByTestId("dictionary-clear-query-phone"), page.getByTestId("dictionary-letter-chip"));
+  await clickUntil(page.getByTestId("dictionary-clear-query"), page.getByTestId("dictionary-letter-chip"));
   await expect(page).not.toHaveURL(/[?&]q=/);
   await expectNoHorizontalOverflow(page);
 });

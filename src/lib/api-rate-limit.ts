@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiErrorPayloadSchema } from "@/lib/api-error-payload";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
@@ -13,10 +14,14 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
 // Buckets that must FAIL CLOSED (503) rather than fall back to a per-instance in-memory limiter
 // when the durable limiter is unavailable. A per-process Map gives N× the intended limit across N
 // horizontally-scaled instances during a limiter outage — unacceptable for expensive/abusable
-// paths: `answer` (paid provider generation) and `document_upload` (storage writes + ingestion
-// cost).
+// paths: provider-backed answer/Clinical Ask/transcription and document upload ingestion.
 function failsClosedOnLimiterUnavailable(bucket: ApiRateLimitBucket) {
-  return bucket === "answer" || bucket === "document_upload";
+  return (
+    bucket === "answer" ||
+    bucket === "clinical_ask" ||
+    bucket === "speech_transcription" ||
+    bucket === "document_upload"
+  );
 }
 
 /** Production multi-instance deploys fail closed for expensive buckets. Single-instance
@@ -41,6 +46,8 @@ function allowAnonymousRateLimitFallback(bucket: ApiRateLimitBucket, allowInMemo
 
 export type ApiRateLimitBucket =
   | "answer"
+  | "clinical_ask"
+  | "speech_transcription"
   | "search"
   | "document_read"
   | "document_upload"
@@ -63,6 +70,8 @@ export type ApiRateLimitResult = {
 
 const apiRateLimitDefaults = {
   answer: { limit: 30, windowSeconds: 60 },
+  clinical_ask: { limit: 20, windowSeconds: 60 },
+  speech_transcription: { limit: 12, windowSeconds: 60 },
   search: { limit: 240, windowSeconds: 60 },
   document_read: { limit: 180, windowSeconds: 60 },
   document_upload: { limit: 12, windowSeconds: 60 },
@@ -82,6 +91,8 @@ const apiRateLimitDefaults = {
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
   answer: { limit: 6, windowSeconds: 60 },
+  clinical_ask: { limit: 4, windowSeconds: 60 },
+  speech_transcription: { limit: 3, windowSeconds: 60 },
   search: { limit: 60, windowSeconds: 60 },
   document_read: { limit: 45, windowSeconds: 60 },
   document_upload: { limit: 3, windowSeconds: 60 },
@@ -363,7 +374,12 @@ export async function consumeSubjectApiRateLimit(args: {
     return result;
   };
 
-  if (args.bucket !== "answer" && args.bucket !== "document_upload") {
+  if (
+    args.bucket !== "answer" &&
+    args.bucket !== "clinical_ask" &&
+    args.bucket !== "speech_transcription" &&
+    args.bucket !== "document_upload"
+  ) {
     return consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
   }
 
@@ -500,13 +516,16 @@ export function rateLimitJsonResponse(
     remaining: rateLimit.remaining,
   });
   return NextResponse.json(
-    {
+    apiErrorPayloadSchema.parse({
       error: message,
       message,
       code: "rate_limited",
-      retryAfterSeconds: rateLimit.retryAfterSeconds,
-      details: { retryAfterSeconds: rateLimit.retryAfterSeconds, resetAt: rateLimit.resetAt },
-    },
+      details: {
+        kind: "rate_limit",
+        retryAfterSeconds: rateLimit.retryAfterSeconds,
+        resetAt: rateLimit.resetAt,
+      },
+    }),
     {
       status: 429,
       headers: {

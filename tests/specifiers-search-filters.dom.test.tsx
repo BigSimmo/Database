@@ -26,6 +26,12 @@ afterEach(() => {
 });
 
 describe("SpecifiersHomePage filters", () => {
+  it("clears a failed search to the browsable catalogue route", () => {
+    render(<SpecifiersHomePage query="qzxvjkplm" autoRunSearch />);
+
+    expect(screen.getByRole("link", { name: "Clear search" })).toHaveAttribute("href", "/specifiers/search");
+  });
+
   it("filters the catalogue before applying the 24-item display limit", () => {
     const matches = searchSpecifierCatalog("disorder").filter(({ item }) => item.categoryId === "per");
     expect(matches.length).toBeGreaterThan(0);

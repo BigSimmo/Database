@@ -3,7 +3,7 @@ import { z } from "zod";
 import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoChunks, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { jsonError, publicErrorResponse } from "@/lib/http";
 import { matchesTermAtWordBoundary } from "@/lib/keyword-query";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -158,7 +158,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (isDemoMode()) {
       const document = getDemoDocument(rawId);
-      if (!document) return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
+      if (!document) return publicErrorResponse("Demo document not found.", 404, { code: "document_not_found" });
       const results = demoChunks
         .filter((chunk) => chunk.document_id === rawId)
         .map((chunk) => resultFromChunk(chunk, query, terms))
@@ -187,7 +187,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     ).maybeSingle();
 
     if (documentError) throw new Error(documentError.message);
-    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    if (!document) return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
     // Match search_document_chunks: only indexed documents are searchable. Without
     // this gate the portable_ilike fallback (admin client) can surface staged chunks
     // from processing/failed docs when the RPC is unavailable.

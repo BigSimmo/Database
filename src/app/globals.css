@@ -76,6 +76,11 @@
   --breakpoint-phone: 640px;
   --breakpoint-tablet: 768px;
   --breakpoint-desktop: 1024px;
+  /* The one narrow phone interval where the shared filter wordmark would make
+     a single-line control band wrap. The upper token is exclusive, so this is
+     exactly 414–429px. */
+  --breakpoint-filter-label-collapse: 414px;
+  --breakpoint-filter-label-restore: 430px;
 
   /* Radius ladder: 4 · 6 · 10 · 12 · 16 · 20 — the 4px grid with two deliberate
      half-steps. `sm` is 6px, for chips and pills that read as too heavy at 8.
@@ -449,6 +454,7 @@
   --danger-solid-hover: #85140d;
   --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
+  --print-furniture-gap: 4mm;
 
   --info: var(--info-text);
   --info-soft: var(--info-bg);
@@ -1087,7 +1093,7 @@ summary::-webkit-details-marker {
 /* Shared-home hero copy reserve.
  *
  * The mode toggle rewrites the title and subtitle in place, so the copy block
- * must already be as tall as the tallest copy any of the 13 modes can produce
+ * must already be as tall as the tallest copy any of the 15 modes can produce
  * or the composer below it jumps. That reserve used to sit on the heading and
  * the subtitle *individually* (`min-h-[2lh]` on each), which is why the pair
  * read as two unrelated lines: with a one-line title, half of each element's
@@ -2617,6 +2623,29 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge.document-mobile-search-compact,
   .answer-footer-search-dock.answer-footer-search-edge.document-mobile-search-compact {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
+  }
+
+  /* Guide Centre: the CTA stays above the Home Indicator while its dedicated
+     glass tray paints through the complete safe-area region. The shared search
+     dock deliberately fades to transparent at the physical edge; on this
+     fullscreen white Sheet that exposed a separate white strip below the CTA. */
+  .guide-tour-dock.answer-footer-search-dock.answer-footer-search-edge {
+    padding-top: var(--spacing-icon-xs);
+    padding-bottom: calc(var(--spacing-icon-xs) + var(--safe-area-bottom));
+  }
+
+  .guide-tour-dock.answer-footer-search-dock .answer-footer-search-backdrop {
+    height: max(7.5rem, calc(var(--safe-area-bottom) + 6rem));
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--surface-raised) 24%, transparent) 28%,
+      color-mix(in srgb, var(--surface-raised) 72%, transparent) 58%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 82%,
+      color-mix(in srgb, var(--surface-raised) 88%, var(--clinical-accent-soft)) 100%
+    );
+    mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, black 30%, black 100%);
   }
 
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
@@ -4258,6 +4287,24 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* Caring Contacts workspace (/caring-contacts) print safeguard.
+ * The transitional `header, nav, button { display: none }` rule above removes the
+ * workspace header when printing, and the "fictional data only" marker lives in
+ * it — so a printed page of invented patients would carry nothing saying they are
+ * invented. That marker is a safeguard, not chrome. Restore it and only it,
+ * scoped to its own attributes, the same way the safety-plan patient copy
+ * restores its document header below. */
+@media print {
+  [data-synthetic-marker-host] {
+    display: block !important;
+    position: static !important;
+  }
+
+  [data-synthetic-marker] {
+    display: inline-flex !important;
+  }
+}
+
 /* Safety plan generator (/safety-plan) print export.
  * "Print / PDF" (and Cmd+P) should hand over the patient copy only, so the
  * builder/editor chrome is removed and the patient-copy document header — which
@@ -4650,8 +4697,133 @@ html.theme-transitioning *:after {
     color: var(--text-muted);
     font-size: 9pt;
   }
+
+  /*
+   * Opt-in print capabilities, declared here beside the rules that decide what
+   * prints at all. Each is inert until a `PrintOutput` or `PrintSection` asks
+   * for it, so no existing printed document changes.
+   */
+
+  [data-print-break-inside="avoid"] {
+    break-inside: avoid;
+  }
+
+  [data-print-break-before="page"] {
+    break-before: page;
+  }
+
+  /*
+   * Monochrome output. A greyscale printer flattens the tint that carried a
+   * state on screen, so the tint is removed outright and the border and the
+   * words carry it instead. Deliberately fixed ink rather than a token: this is
+   * a paper palette and must not follow the reader's theme.
+   */
+  [data-print-monochrome],
+  [data-print-monochrome] * {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  [data-print-stamp],
+  [data-print-confidential] {
+    display: block !important;
+    margin-top: var(--print-furniture-gap);
+    color: var(--text-muted);
+    font-size: 9pt;
+  }
 }
 
 [data-print-provenance] {
+  display: none;
+}
+@media (max-width: 639px) {
+  .clinical-ask-action-rail {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: calc(2 * var(--radius-xs));
+    padding-inline: var(--spacing-icon-xs);
+  }
+  .clinical-ask-action-rail button {
+    min-height: var(--spacing-tap);
+    border-radius: var(--radius-pill);
+    padding-inline: var(--spacing-icon-sm);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .clinical-ask-action-rail p {
+    flex-basis: 100%;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+}
+.clinical-ask-workspace {
+  margin: var(--spacing-icon-md) auto;
+  max-width: 56rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-icon-md);
+  background: var(--surface);
+}
+.clinical-ask-action-rail,
+.clinical-ask-output-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--radius-xs));
+}
+.clinical-ask-action-rail {
+  flex-wrap: nowrap;
+}
+.clinical-ask-output-actions {
+  flex-wrap: wrap;
+}
+.clinical-ask-action-rail button,
+.clinical-ask-workspace button,
+.clinical-ask-output-actions button {
+  min-height: var(--spacing-tap);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--radius-md) var(--spacing-icon-sm);
+}
+.clinical-ask-field {
+  display: grid;
+  gap: var(--radius-sm);
+  margin-block: var(--spacing-icon-xs);
+}
+.clinical-ask-field input {
+  min-height: var(--spacing-tap);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding-inline: var(--spacing-icon-xs);
+  background: var(--surface);
+  color: var(--text);
+}
+.clinical-ask-context-item {
+  border-block-end: 1px solid var(--border);
+  padding-block: var(--spacing-icon-xs);
+}
+@media (prefers-reduced-motion: reduce) {
+  .clinical-ask-workspace *,
+  .clinical-ask-action-rail * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media (forced-colors: active) {
+  .search-band,
+  .clinical-ask-workspace,
+  .clinical-ask-workspace button,
+  .clinical-ask-action-rail button {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Print furniture. It exists for the paper and would only be noise on screen. */
+[data-print-confidential],
+[data-print-stamp] {
   display: none;
 }

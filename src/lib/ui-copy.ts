@@ -97,8 +97,8 @@ export const sharedHomePresentation = {
   },
   "therapy-compass": {
     // "Therapy", not "Therapy Compass": the mode's own copy rule, pinned by
-    // tests/therapy-compass-mode-wiring.test.ts, which the retired detailed home
-    // followed. This title became user-visible when that home was consolidated here.
+    // tests/therapy-compass-mode-wiring.test.ts. This title is user-visible on
+    // the shared lightweight home.
     title: "Therapy",
     subtitle: "Source-grounded therapy records.",
     suggestions: ["trauma-focused CBT", "behavioural activation", "insomnia"],
@@ -114,6 +114,11 @@ export const sharedHomePresentation = {
     suggestions: ["mental state examination", "auditory hallucination", "ACT"],
   },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
+
+/** Browser/assistive-technology title for the mode selected on the shared home. */
+export function sharedHomeDocumentTitle(modeId: AppModeId) {
+  return `${sharedHomePresentation[modeId].title} | Clinical KB`;
+}
 
 export const sharedHomeEmptyState = {
   starterActionsLabel: "Starter actions",

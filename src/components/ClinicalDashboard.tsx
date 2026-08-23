@@ -22,6 +22,7 @@ import {
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -48,6 +49,15 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
+import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
+import {
+  type ClinicalDashboardProps,
+  useClinicalAskDashboardChrome,
+} from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import {
+  ClinicalAskComposerActions,
+  ClinicalAskWorkspace,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -89,6 +99,7 @@ import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import {
+  mobileComposerIdleReserve,
   resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
@@ -117,7 +128,7 @@ import {
   setupRecheckPollMs,
   shorterPollDelay,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
-import { answerRecovery, errorCopy } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy, sharedHomeDocumentTitle } from "@/lib/ui-copy";
 import { summarizeBulkReindexPayload } from "@/lib/bulk-reindex-results";
 import {
   type DocumentDrawerMode,
@@ -264,20 +275,25 @@ import {
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
 
-/**
- * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
- *
- * @param initialSearchMode - The mode selected when the dashboard loads.
- * @param initialQuery - The initial search or composer query.
- * @param focusSearch - Whether to focus the search input on load.
- * @param autoRunSearch - Whether to automatically submit the initial query.
- */
-export function ClinicalDashboard({
+function ClinicalAskSessionBoundary({ children }: { children: ReactNode }) {
+  const auth = useAuthSession();
+  return <ClinicalAskSessionProvider accountId={auth.session?.user.id}>{children}</ClinicalAskSessionProvider>;
+}
+
+export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
+  return (
+    <ClinicalAskSessionBoundary>
+      <ClinicalDashboardContent {...props} />
+    </ClinicalAskSessionBoundary>
+  );
+}
+
+function ClinicalDashboardContent({
   initialSearchMode = "answer",
   initialQuery = "",
   focusSearch = false,
   autoRunSearch = false,
-}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
+}: ClinicalDashboardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -542,6 +558,11 @@ export function ClinicalDashboard({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
+  const { clinicalAskSession, clinicalAskOnline, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+    accountId: auth.session?.user.id,
+    searchMode,
+    query,
+  });
   const {
     status: authStatus,
     authorizationHeader,
@@ -2667,6 +2688,7 @@ export function ClinicalDashboard({
   }
 
   function startNewChat() {
+    clinicalAskSession.clear();
     modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
@@ -2984,6 +3006,13 @@ export function ClinicalDashboard({
     loading,
     submittedAnswerSearchActive,
   });
+  // The mode pill rewrites the shared-home URL with history.replaceState rather
+  // than asking Next to navigate. Server metadata therefore cannot update after
+  // an in-place mode choice; keep the accessible browser title aligned with the
+  // visible mode heading on that client-only path as well.
+  useEffect(() => {
+    if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
+  }, [searchMode, showSharedHome]);
   const showAnswerPending =
     activeModeResultKind === "answer" && !answer && (loading || (submittedAnswerSearchActive && !error));
   const answerProgressCompleted = answerProgressEvents.at(-1)?.stage === "complete";
@@ -3006,10 +3035,16 @@ export function ClinicalDashboard({
         activeModeResultKind === "services" ||
         activeModeResultKind === "forms") &&
         modeSearchSubmitted));
+  // `/tools` owns the tools catalogue, but the legacy `/?mode=tools` entry
+  // still renders this dashboard path. Keep both entry points composer-free so
+  // the alias cannot mount a second ownership model (hero/page/dock) behind
+  // the canonical route's no-composer contract. Modes that only borrow the
+  // `tools` result kind remain on the shared home and are intentionally exempt.
+  const toolsDirectoryWithoutComposer = activeModeResultKind === "tools" && !showSharedHome;
   const showDesktopHomeComposer =
     !error &&
     (showSharedHome ||
-      activeModeResultKind === "tools" ||
+      (!toolsDirectoryWithoutComposer && activeModeResultKind === "tools") ||
       (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
         ((searchMode === "documents" &&
@@ -3019,21 +3054,28 @@ export function ClinicalDashboard({
           // Prescribing keeps MedicationHome (and the hero/phone composer) until
           // an explicit submit — draft keystrokes must not flip to results/dock.
           (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-          // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
-          // with stale evidence matches — keep the hero slot only while home mounts.
+          // Empty unsubmitted differentials visits 307 to the shared home;
+          // keep the hero slot only while that idle dashboard branch mounts.
           (activeModeResultKind === "differentials" &&
             !modeSearchSubmitted &&
             !(query.trim() && documentMatches.length > 0)))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   const desktopResultComposerSlotId =
-    !desktopHomeComposerSlotId && searchMode !== "answer" ? desktopPageComposerSlotId : undefined;
-  // Most mounted mode homes keep the in-flow hero pill on phones. Tools is the
-  // deliberate exception: its content-rich directory keeps the compact footer.
-  // Modes borrowing `kind: "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via `showSharedHome`.
+    !desktopHomeComposerSlotId && searchMode !== "answer" && !toolsDirectoryWithoutComposer
+      ? desktopPageComposerSlotId
+      : undefined;
+  // Most mounted mode homes keep the in-flow hero pill on phones. The Tools
+  // directory has no composer at any breakpoint. Modes borrowing `kind:
+  // "tools"` (Factsheets, Dictionary, Therapy Compass) opt back in via
+  // `showSharedHome`.
   const heroComposerBreakpoint =
     showDesktopHomeComposer && (showSharedHome || activeModeResultKind !== "tools") ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
-  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
+  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer && !toolsDirectoryWithoutComposer;
+  // Tools owns its local catalogue controls, so the sidebar's cross-guide
+  // search action must leave the directory before trying to focus a shared
+  // composer that is intentionally absent.
+  const openSidebarSearch = toolsDirectoryWithoutComposer ? startNewChat : focusComposerInput;
   // Favourites and Tools are content-rich hubs that stay top-aligned; the shared
   // home mounts neither, so it centres like every other mode.
   const centeredModeHome =
@@ -3053,13 +3095,16 @@ export function ClinicalDashboard({
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
-    resolveDashboardVisibleMobileComposerReserve({
-      searchMode,
-      hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
-      differentialsCompareAddonActive,
-      patientDetailsAddonActive,
-      heroOwnsPhoneComposer,
-    }),
+    toolsDirectoryWithoutComposer
+      ? mobileComposerIdleReserve
+      : resolveDashboardVisibleMobileComposerReserve({
+          searchMode,
+          hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
+          differentialsCompareAddonActive,
+          patientDetailsAddonActive,
+          heroOwnsPhoneComposer,
+          clinicalAskActionsVisible: Boolean(clinicalAskMode),
+        }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
@@ -3268,7 +3313,7 @@ export function ClinicalDashboard({
         onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
         onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
-        onOpenSearch={focusComposerInput}
+        onOpenSearch={openSidebarSearch}
         showAccountLibrary={favouritesAccessible}
       />
       <PhoneFooterLayerFrame
@@ -3291,6 +3336,19 @@ export function ClinicalDashboard({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
+          clinicalAskActive={clinicalAskSession.submitted}
+          clinicalAskActions={
+            clinicalAskMode ? (
+              <ClinicalAskComposerActions
+                mode={clinicalAskMode}
+                draft={query}
+                active={clinicalAskSession.submitted}
+                offline={!clinicalAskOnline}
+                onDraftChange={setQuery}
+                onAsk={runModeClinicalAsk}
+              />
+            ) : undefined
+          }
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
@@ -3329,6 +3387,7 @@ export function ClinicalDashboard({
           composerFollowUpSuggestionsDisabled={loading}
           showPhoneSuggestionTickerOnHome={heroOwnsPhoneComposer}
           sharedHomeIdentity={showSharedHome}
+          searchComposerVisible={!toolsDirectoryWithoutComposer}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
           // Every phone dock is the compact single-row pill so content keeps
@@ -3625,6 +3684,7 @@ export function ClinicalDashboard({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
+                <ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />
                 {showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
@@ -4041,7 +4101,10 @@ export function ClinicalDashboard({
           open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
-          onSignOut={auth.signOut}
+          onSignOut={async () => {
+            clinicalAskSession.clear();
+            await auth.signOut();
+          }}
           onOpenGuide={settingsGuideFlow.openGuideFromSettings}
           onPrefetchGuide={loadGuideDialog}
           initialFocus={settingsGuideFlow.settingsInitialFocus}
@@ -4064,7 +4127,7 @@ export function ClinicalDashboard({
           onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
           onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
-          onOpenSearch={focusComposerInput}
+          onOpenSearch={openSidebarSearch}
           showAccountLibrary={favouritesAccessible}
         />
       </PhoneFooterLayerFrame>

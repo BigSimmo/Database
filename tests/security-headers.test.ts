@@ -55,6 +55,12 @@ describe("security headers", () => {
         expect(byKey.get("Cross-Origin-Opener-Policy")).toBe("same-origin");
       });
 
+      it("allows microphone capture only from this origin without widening provider access", () => {
+        expect(byKey.get("Permissions-Policy")).toContain("microphone=(self)");
+        expect(byKey.get("Permissions-Policy")).not.toContain("https:");
+        expect(csp).not.toContain("api.openai.com");
+      });
+
       it("restricts PWA workers and manifests to this origin", () => {
         const workerSrc = csp.split(";").find((directive) => directive.trim().startsWith("worker-src"));
         const manifestSrc = csp.split(";").find((directive) => directive.trim().startsWith("manifest-src"));

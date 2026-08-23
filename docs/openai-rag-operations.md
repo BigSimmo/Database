@@ -80,6 +80,28 @@ npm run eval:rag:offline
 npm run verify:cheap
 ```
 
+### Clinical Ask provider boundary
+
+Clinical Ask follows Catalogue → authorised Indexed → allowlisted External Authority, in that order. External web
+search is server-only and is permitted only for a deterministic evidence gap, unresolved conflict, staleness, or a
+`needs_review` source. The server validates the registered domain and path before and after redirects, retains exact
+publisher attribution and retrieval time, meters the request, and discards the fetched page/extract after the request.
+It does not turn provider output or an external page into durable catalogue or indexed content.
+
+Transcription, external-search, and synthesis output are untrusted provider outputs. The browser uploads the in-memory
+audio Blob only after format, size, and duration checks; it does not strip identifiers from speech before
+`/api/speech/transcribe`. The clinician reviews and may edit the returned transcript, and identifier-shaped text is
+blocked before Clinical Ask submission. Synthesis is accepted only after deterministic mode-shape, citation, claim-support, prohibited-outcome, and
+Clinician Confirmation gates. Provider confidence is not an evidence-sufficiency or release signal. Raw question,
+transcript, Case Context, audio, answer, and extracts are excluded from logs, telemetry, feedback, and public errors.
+
+Rollout uses three independent controls: `CLINICAL_ASK_ENABLED`,
+`CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED`, and `CLINICAL_ASK_DISABLED_MODES`. Set the master flag false for full rollback;
+set external false to preserve Catalogue/Indexed Ask while stopping web search. A seven-mode launch claim requires an
+empty emergency denylist and separate evidence for provider access, approved authorities, hosted migration,
+contractual retention/region, synthetic clinical evaluation, protected-staging canary, and physical iPhone
+Safari/installed-PWA microphone acceptance.
+
 Provider-backed evaluation requires explicit approval. Run classifier/vision/answer canaries
 separately and compare citation validity, unsupported-number rate, source-gap behavior, fallback
 rate, p50/p95 latency, output/reasoning tokens, cache reads/writes, and cost per accepted answer.

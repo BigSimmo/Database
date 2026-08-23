@@ -4,25 +4,24 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                                          | Composer placement                                                                  | Reserve owner                                                                  |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Shared home (`/`, any mode) / standalone mode homes | In-flow hero composer on phones and larger breakpoints                              | Page content; no fixed phone dock reserve                                      |
-| Tools directory (`/tools`, no submitted query)      | Compact bottom dock on phones; in-flow hero composer from `sm`                      | Shell dock reserve on phones; page content from `sm`                           |
-| Submitted/search-result views                       | Compact bottom dock on phones; in normal page flow on tablets and desktops          | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                                  | Overlaid glass header plus answer composer dock                                     | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes                       | `DocumentViewer` floating composer                                                  | `DocumentViewer` content padding                                               |
-| Document section navigation                         | Header row disclosure (phone sheet) + rail index card at `lg`                       | None — adds no chrome and no reserve                                           |
-| Record page breadcrumb header                       | Same header row without the disclosure or track; view mode inline from `sm`         | None — portals into the phone collapse row, sticky at `sm+`                    |
-| Calculators (`/calculators`)                        | In-flow hero composer at home; shared compact dock after submission                 | Page content at home; shell reserve for submitted results                      |
-| Info/detail pages with no composer                  | No fixed composer                                                                   | Idle shell padding only                                                        |
-| Guide Centre dialog (`GuideDialog`)                 | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm` | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)            |
+| Page state                                                   | Composer placement                                                                        | Reserve owner                                                                  |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                    | Page content; no fixed phone dock reserve                                      |
+| Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls | Idle shell padding only                                                        |
+| Therapy Recommend (`/therapy-compass/recommend`)             | In-flow clinical-situation composer; no shared composer or phone dock                     | Idle shell padding only                                                        |
+| Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
+| Answer result view                                           | Overlaid glass header plus answer composer dock                                           | Dashboard `#main-content` top/bottom reserves                                  |
+| Document detail/source routes                                | `DocumentViewer` floating composer                                                        | `DocumentViewer` content padding                                               |
+| Document section navigation                                  | Header row disclosure (phone sheet) + rail index card at `lg`                             | None — adds no chrome and no reserve                                           |
+| Record page breadcrumb header                                | Same header row without the disclosure or track; view mode inline from `sm`               | None — portals into the phone collapse row, sticky at `sm+`                    |
+| Calculators (`/calculators`)                                 | In-flow hero composer at home; shared compact dock after submission                       | Page content at home; shell reserve for submitted results                      |
+| Info/detail pages with no composer                           | No fixed composer                                                                         | Idle shell padding only                                                        |
+| Guide Centre dialog (`GuideDialog`)                          | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm`       | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)            |
 
 The Tools row is scoped to the **mounted Tools directory**, not to `resultKind: "tools"`. Factsheets,
 Dictionary and Therapy Compass borrow that result kind purely as a benign search kind, and on the
 shared home they render the same short `SharedHomeEmptyState` as every other mode — so they take the
-shared-home row above. `shouldShowSharedHome` already excludes `mode=tools`, which is why
-`showSharedHome` is the correct opt-back-in for `heroComposerBreakpoint` and `centeredModeHome` in
-`ClinicalDashboard.tsx`.
+shared-home row above.
 
 ### The Guide Centre footer is a dock, not a footer band — and carries no composer
 
@@ -39,13 +38,15 @@ the guided-tour action and nothing else; `tests/guide-centre.dom.test.tsx` and
 `--surface-raised` slab with a hard top border reads as a cover over the content behind
 the control, which is exactly what every phone composer avoids.
 
-So the guide footer carries `answer-footer-search-dock answer-footer-search-edge` and
-renders one `.answer-footer-search-backdrop` child, the same pair the shell dock uses.
-`globals.css` then owns the phone geometry — flush `left/right/bottom: 0`, safe-area
-padding, `background: transparent` — and the scrim tints only around the pill before
-tapering to zero at the physical edge. The band's own border, surface and elevation are
-`sm:` only, and the scrim is `sm:hidden`, so the tablet/desktop dialog footer is
-unchanged.
+So the guide footer carries `guide-tour-dock answer-footer-search-dock
+answer-footer-search-edge` and renders one `.answer-footer-search-backdrop` child. The
+shared classes own the phone geometry — flush `left/right/bottom: 0`, safe-area padding,
+`background: transparent` — while the guide modifier keeps a restrained surface tint
+through the Home Indicator region. The CTA remains above the effective inset; only its
+background paints behind system chrome. This guide-only terminal tint is deliberate: the
+shared search dock fades to transparent at the physical edge, which exposed a distinct
+white strip against the fullscreen Sheet. The band's own border, surface and elevation
+remain `sm:` only, and the scrim is `sm:hidden`, so tablet/desktop is unchanged.
 
 Four consequences worth keeping:
 
@@ -56,17 +57,20 @@ Four consequences worth keeping:
   the default was required, and it was, while the pill sat below the row.
 - The footer wrapper is the dock element, so its children need `relative z-10` to paint
   above the scrim.
-- **Only the dock hides; the Sheet header stays pinned.** This is not a symmetry violation —
+- **Only the dock hides; the Sheet header stays pinned and compacts.** This is not a symmetry violation —
   AGENTS.md's header/footer symmetry rule is scoped to chrome that _shares a scroll
-  container_, and the Sheet header is a sibling of `.polished-scroll`, not inside it. Two
-  reasons it must stay:
-  - "Close guide" and the view tabs live in that header. Collapsing it inert left a reader
+  container, and the Sheet header is a sibling of `.polished-scroll`, not inside it. On
+  phones the branded row enters its compact treatment beyond 48px and expands again only
+  within 8px of the top, avoiding threshold flicker. The title, "Close guide" control and
+  all three view tabs stay rendered, visible and interactive in both states. Two reasons
+  the complete header must never collapse or become inert:
+  - "Close guide" and the view tabs live there. Collapsing the full header left a reader
     who had scrolled down with no way out of the dialog.
   - The runway maths. Hiding is refused unless the release fits the remaining scroll
     (`collapseHasSafeRunway` in `use-hide-on-scroll.ts`). The header is ~153px and the dock
-    reserve ~96px against a ~330px range on a 390x820 phone, so charging both refused
-    **every** hide once these pages were shortened. Charging only the dock (~96px) leaves a
-    ~233px post-collapse range, which clears the bar.
+    reserve against a ~330px range on a 390x820 phone, so charging both refused **every**
+    hide once these pages were shortened. Charging only the guide-owned dock reserve leaves
+    enough post-collapse range to clear the action.
 - The dock's budget is read straight off `[data-guide-content]`'s padding, not through
   `readChromeCollapseMetrics`. That helper resolves `universal-header-collapse` against the
   **document**, which from inside a fullscreen modal is the shell header behind the dialog —
@@ -82,8 +86,9 @@ Four consequences worth keeping:
   pill radius and elevation stay `max-sm:`; from `sm` the footer is a real band where the
   square-cornered `primaryControl` is correct.
 - The band's glass and the pill are proven in a **browser**, not by class presence:
-  `tests/guide-centre-chrome.spec.ts` asserts the painted background, border, flush
-  geometry and the resolved scrim height, plus the pill's rendered radius and fill. jsdom
+  the Guide Centre journeys in `tests/ui-smoke.spec.ts` assert the painted background, border, flush
+  geometry, terminal safe-area tint and resolved scrim height, plus the pill's rendered
+  radius and fill. jsdom
   cannot evaluate the `max-sm:` media query or resolve the custom property
   `data-footer-variant` redefines, and tailwind-merge keeps both the base and the variant
   utility, so stylesheet order — not the class list — decides which one wins.
@@ -591,6 +596,24 @@ only for routes without an addon row; addon routes refine by that row's height.
 
 The clearance is only visible near scroll top, where the header is always
 revealed, so it costs no usable height.
+
+### Streaming shell-presence selector boundary
+
+Next can temporarily remove `#main-content` while it streams a route and React
+hydrates the replacement shell. During that gap every
+`body:has(#main-content...)` selector evaluates false. Geometry driven by one of
+those selectors is therefore safe only when the affected surface cannot mount
+until the app shell is present; otherwise it can paint once with fallback
+geometry and move when `#main-content` returns.
+
+The current exception is deliberately narrow. `PwaLifecycle` holds the PWA
+notice stack until the shell exists, so the phone-hero rules may target
+`.pwa-notice-stack` and descendants of its `.pwa-install-native-sheet`. The
+install-sheet selectors are intentional descendants of the guarded stack, not
+independent consumers. Do not add another `body:has(#main-content...)` geometry
+consumer without giving it the same mount-time shell gate and adding it to the
+explicit allowlist in `tests/pwa-lifecycle.dom.test.tsx`; that contract includes
+an unsafe negative fixture so a newly introduced consumer fails closed.
 
 ### Phone sticky-header mount and settle timing
 

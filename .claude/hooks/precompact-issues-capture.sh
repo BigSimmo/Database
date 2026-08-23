@@ -1,57 +1,33 @@
 #!/usr/bin/env bash
-# PreCompact hook — ask for /issues capture BEFORE the context is discarded.
+# PreCompact observability hook — record that compaction fired.
 #
-# The problem this closes: `.claude/hooks/issues-surface.sh` already prints a
-# "run /issues capture" reminder, but it is a SessionStart hook, so on a
-# `compact` trigger it fires *after* compaction has already happened. By then
-# the in-flight follow-ups, deferrals and half-formed risks it wants recorded
-# are exactly what was just summarised away. The reminder arrives after the
-# thing it is trying to save is gone.
+# Claude Code does not add successful plain-text stdout from PreCompact hooks
+# to model context. Its documented PreCompact output contract also has no
+# additionalContext path. This hook is therefore deliberately silent: it only
+# leaves execution evidence under the worktree's git dir. The SessionStart
+# reminder in `.claude/hooks/issues-surface.sh` remains the post-compaction
+# backstop that Claude can actually receive.
 #
-# PreCompact fires while that material is still in context, which is the only
-# moment the reminder can actually be acted on.
-#
-# KNOWN LIMIT — read before trusting this. Claude Code injects hook stdout into
-# the model's context for SessionStart / UserPromptSubmit / PreToolUse /
-# PostToolUse. Whether it does so for PreCompact is NOT verified here, and could
-# not be verified offline. So this hook deliberately prints plain human text
-# rather than a hookSpecificOutput JSON envelope: if the platform does inject
-# it, the text is useful as-is; if it does not, the operator still sees a clean,
-# readable transcript line rather than a raw JSON blob. Either way the
-# SessionStart reminder in issues-surface.sh remains the backstop, so nothing
-# regresses if this turns out to be transcript-only. Re-check when the hook
-# reference documents PreCompact context injection.
-#
-# Contract: READ-ONLY and always exits 0. It never writes the ledger, never
-# commits, and must never be able to fail a compaction.
+# Contract: log-only, silent on stdout/stderr, and always exits 0. It never
+# writes the ledger, never commits, and must never be able to fail compaction.
 set -uo pipefail
 
 payload="$(cat 2>/dev/null || true)"
 
 # `trigger` is "manual" (the user ran /compact) or "auto" (the context window
-# filled). Both lose the same material; the wording differs only so the operator
-# can tell which one they are looking at.
+# filled). Normalize anything else before it reaches the compact execution log.
 trigger="$(printf '%s' "$payload" \
   | grep -o '"trigger"[[:space:]]*:[[:space:]]*"[^"]*"' \
   | head -n1 | sed -E 's/.*"([^"]*)"$/\1/')"
 
+# Keep the log value bounded even if a malformed payload supplies another trigger.
 case "$trigger" in
-manual) why="This compaction was requested manually." ;;
-auto) why="The context window filled, so this compaction was automatic." ;;
-*) why="This session is about to be compacted." ;;
+manual | auto) ;;
+*) trigger="unknown" ;;
 esac
 
-echo "[issues] ${why} Anything this session discovered but has not written down is about to be summarised away: unresolved follow-ups, deferrals, known risks, and work you decided NOT to do and why. Record them now with /issues add … (or /issues capture for a sweep) — docs/outstanding-issues.md is the only memory that survives a context reset. Requests land as immutable files under docs/outstanding-issues-inbox/; they are not committed unless you are explicitly asked to commit."
-
-# Self-verification, because the KNOWN LIMIT above cannot be resolved by reading code.
-# Whether the platform injects this hook's stdout into model context is not something the
-# repo can determine — the installed CLI ships a compiled binary with no inspectable
-# bundle. What the repo CAN do is make the question answerable instead of permanently open:
-# append one line per firing to a log outside the worktree, so after the next compaction
-# `cat "$(git rev-parse --absolute-git-dir)/claude-precompact.log"` says whether the hook
-# ran at all. If lines appear but the reminder never reached the model, the limit is real
-# and the SessionStart backstop is doing the work; if no lines appear, the registration is
-# wrong. Either answer is actionable; "unverified" is not.
+# Append one line per firing outside the worktree so the hook remains observable
+# without putting ineffective output in the transcript or model context.
 #
 # Kept under the git dir, never the worktree, so it can never be staged or committed.
 log_dir="$(git rev-parse --git-dir 2>/dev/null || git rev-parse --absolute-git-dir 2>/dev/null || true)"

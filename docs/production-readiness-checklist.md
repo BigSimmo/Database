@@ -85,3 +85,30 @@ Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
 - `npm run eval:quality -- --fail-on-threshold` or `npm run eval:quality:release` output, including source-governance warning baseline if warnings remain.
 - Active source metadata debt file path and expiry, if `eval:quality:release` was used.
 - Any blocking warnings from readiness preflight should be cleared before publishing.
+
+## Clinical Ask evidence separation
+
+The readiness script reads local, gitignored evidence receipts from `.local/clinical-ask-evidence/`:
+`hosted-migration.json`, `authority-approval.json`, `synthetic-evaluation.json`,
+`protected-staging-canary.json`, `contractual-basis.json`, and `physical-iphone-acceptance.json`. A receipt counts as
+supplied only when it is a JSON object whose `area` exactly matches the readiness area, whose `issuer`, `target`,
+`date`, and `scope` are non-empty (`date` is ISO-shaped), and whose `status` is one of `accepted`, `applied`,
+`approved`, `green`, `passed`, or `verified`. This structural validation rejects empty or unrelated files; it does not
+independently establish truth, so reviewers must still inspect the receipt.
+
+- [ ] Clinical Ask master and external-search flags are explicitly set; a seven-mode launch has an empty
+      `CLINICAL_ASK_DISABLED_MODES` emergency denylist and an explicit `OPENAI_TRANSCRIPTION_MODEL`.
+- [ ] The feedback migration `20260822120000_expand_answer_feedback_for_clinical_ask.sql` is present locally, and a
+      separate hosted-migration artefact proves it was applied to the intended project. Repository presence is not
+      hosted state.
+- [ ] The external authority registry has a dated clinical/source-governance approval artefact. Code presence and
+      allowlist tests do not establish approval.
+- [ ] A synthetic seven-mode evaluation artefact covers clarification, Evidence Gap, conflicts, review states,
+      provider failure, prohibited outcomes, and leakage boundaries.
+- [ ] A protected-staging live canary artefact covers provider-backed transcription, indexed retrieval, external
+      authority fallback, synthesis, rollback, and source attribution without real patient data.
+- [ ] Provider retention, region, cross-border, and contractual basis are recorded and approved; `store:false` and a
+      requested cache lifetime are not zero-retention proof.
+- [ ] Physical iPhone Safari and installed-PWA microphone acceptance is recorded separately from Chromium emulation.
+- [ ] `npm run check:production-readiness` reports each item as code present, blocked, or not verified; missing live
+      evidence must never be converted into a pass.

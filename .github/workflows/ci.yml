@@ -157,11 +157,16 @@ jobs:
               pull_number: pr.number,
               per_page: 100,
             });
-            const bodyTemplateWasAdded = changedFiles.some(
-              (file) => file.filename === "PR_POLICY_BODY.md" && file.status === "added",
+            // Inherited copies on main do not appear in this PR's file list, so they
+            // still cannot overwrite descriptions (#230). Added or modified in this
+            // diff is an intentional template change and must apply.
+            const bodyTemplateChanged = changedFiles.some(
+              (file) =>
+                file.filename === "PR_POLICY_BODY.md" &&
+                (file.status === "added" || file.status === "modified"),
             );
-            if (!bodyTemplateWasAdded) {
-              core.info("PR_POLICY_BODY.md was not added by this PR; skipping PR body sync.");
+            if (!bodyTemplateChanged) {
+              core.info("PR_POLICY_BODY.md was not added or modified by this PR; skipping PR body sync.");
               return;
             }
             const existingBody = pr.body || "";
@@ -365,6 +370,13 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:cross-mode-index
 
+      # Guards the sign-off binding: a reviewed Act-section summary is pinned by hash to
+      # the statutory text its reviewer read, so changed law fails the gate instead of
+      # silently shipping a stale clinical claim.
+      - name: Act section summary drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:mha-act-sections
+
       - name: Design-system contract
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:design-system-contract
@@ -407,6 +419,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Privacy readiness binds evidence to a reviewed ancestor commit.
+          # The default depth-one checkout only contains the synthetic PR merge
+          # commit, so the evidence commit cannot be verified.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node and dependencies
@@ -992,7 +1008,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.db_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1043,6 +1059,39 @@ jobs:
 
       - name: Verify Migration Replay
         run: supabase migration up --local
+
+      # `drift:manifest` needs the same Docker-capable runner as migration
+      # replay. Generating it here gives a schema-changing PR an authoritative
+      # replacement artifact when the offline freshness check fails, rather
+      # than asking contributors to edit a catalog inventory by hand.
+      - name: Setup Node and dependencies for drift manifest
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Pull the pinned drift manifest image
+        run: docker pull supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83
+
+      - name: Regenerate and verify drift manifest freshness
+        run: |
+          cp supabase/drift-manifest.json /tmp/committed-drift-manifest.json
+          npm run drift:manifest
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const committed = JSON.parse(readFileSync("/tmp/committed-drift-manifest.json", "utf8"));
+          const generated = JSON.parse(readFileSync("supabase/drift-manifest.json", "utf8"));
+          if (committed.schema_sha256 !== generated.schema_sha256) {
+            throw new Error(
+              "supabase/schema.sql changed without a regenerated drift manifest. Download the drift-manifest artifact from this job and commit it.",
+            );
+          }
+          NODE
+
+      - name: Upload regenerated drift manifest
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: drift-manifest-${{ github.run_id }}
+          path: supabase/drift-manifest.json
+          if-no-files-found: error
 
       - name: Save Supabase Docker images
         if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'

@@ -105,12 +105,12 @@ describe("SettingsDialog — destructive and account actions", () => {
     renderDialog();
     const development = document.querySelector('[data-settings-section="development"]');
     expect(development).not.toBeNull();
-    expect(development).toHaveTextContent("Development");
+    expect(development).toHaveTextContent("Developer");
     expect(development).toHaveTextContent("Synthetic data only");
 
     const prototypeLink = screen.getByTestId("settings-row-development-page");
     expect(prototypeLink).toHaveAttribute("href", "/mockups/development");
-    expect(prototypeLink).toHaveTextContent("Open Development page");
+    expect(prototypeLink).toHaveTextContent("Developer");
     expect(prototypeLink).toHaveTextContent("Temporary");
     expect(development?.contains(prototypeLink)).toBe(true);
 
@@ -121,7 +121,7 @@ describe("SettingsDialog — destructive and account actions", () => {
     const renderedIds = [...document.querySelectorAll("[data-settings-section]")].map((el) =>
       el.getAttribute("data-settings-section"),
     );
-    if (railLabels.length) expect(railLabels).toEqual(renderedIds);
+    expect(railLabels).toEqual(renderedIds);
   });
 
   it("clears recent searches through the privacy action", () => {

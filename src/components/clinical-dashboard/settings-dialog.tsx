@@ -77,7 +77,7 @@ const SETTINGS_SECTIONS: ReadonlyArray<{ id: SettingsSectionId; navLabel: string
   { id: "privacy", navLabel: "Privacy", icon: ShieldCheck },
   { id: "keyboard", navLabel: "Shortcuts", icon: Keyboard },
   { id: "help", navLabel: "Help & About", icon: CircleHelp },
-  { id: "development", navLabel: "Development", icon: FlaskConical },
+  { id: "development", navLabel: "Developer", icon: FlaskConical },
 ];
 
 const APPEARANCE_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string; icon: LucideIcon }> = [
@@ -544,6 +544,7 @@ export function SettingsDialog({
                 <button
                   key={item.id}
                   type="button"
+                  data-settings-nav-target={item.id}
                   onClick={() => scrollToSection(item.id)}
                   aria-current={active ? "true" : undefined}
                   className={cn(
@@ -1035,11 +1036,11 @@ export function SettingsDialog({
 
             <SettingsSection
               id="development"
-              title="Development"
+              title="Developer"
               note="In-progress surfaces. Signing in with a developer account is required to open them. Not clinical content."
             >
               <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--e2),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
-                <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Development page</p>
+                <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Developer hub</p>
                 <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                   Index of the surfaces being built, including the Caring Contact prototype. Synthetic data only — no
                   patient record, message or schedule on them is real.
@@ -1051,7 +1052,7 @@ export function SettingsDialog({
                   data-testid="settings-row-development-page"
                 >
                   <FlaskConical aria-hidden="true" className="h-4 w-4" />
-                  Open Development page
+                  Developer
                   <span className="ml-auto text-xs font-semibold text-[color:var(--text-muted)]">Temporary</span>
                 </Link>
               </div>

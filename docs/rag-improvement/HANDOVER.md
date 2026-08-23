@@ -83,6 +83,8 @@ generation-quality verdict on fallback`), merged 2026-08-13 — structured
   rejected — generation completed inside the deadline and still failed the quality gate.
   Never "fix" A1 by raising `answerRouteBudgetMs` without new evidence that directly rebuts
   that recorded result. S1's evidence (2026-08-17) re-confirmed it.
+  Full evidence and the re-scope of the row itself:
+  [`231-diagnosis-2026-08-22.md`](231-diagnosis-2026-08-22.md).
 
 ## 2. Status table — update in every programme PR
 

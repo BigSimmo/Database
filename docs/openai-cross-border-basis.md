@@ -1,9 +1,11 @@
 # Cross-border disclosure basis — OpenAI (PIA-1)
 
-**Status:** Provider review refreshed — operator approved pursuit; legal execution pending · **Date:** 2026-07-14
+**Status:** Provider configuration and legal execution pending · **Date reviewed:** 2026-08-23
 **Owner of the open step:** account holder for `OPENAI_API_KEY` + privacy adviser
 **Tracks:** the OpenAI contractual portion of **PIA-1** in [docs/privacy-impact-assessment.md](privacy-impact-assessment.md) §10; Railway's companion contract is tracked below.
 **Companion:** the `/privacy` collection notice ([src/app/privacy/page.tsx](../src/app/privacy/page.tsx)) and composer reminder ([src/lib/ui-copy.ts](../src/lib/ui-copy.ts)) ship as draft APP 5 / APP 1 controls pending governance approval under **PIA-5**.
+
+**Status authority:** [`docs/governance/privacy-readiness.v1.json`](governance/privacy-readiness.v1.json). This decision record supplies context and operator steps; it does not prove DPA execution, ZDR configuration, APP 8 approval, or final notice approval.
 
 > **Not legal advice.** This records the current, verifiable facts about OpenAI's data-handling
 > terms and maps them to APP 8 so a qualified privacy adviser can sign off the cross-border basis.

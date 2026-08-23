@@ -2,8 +2,23 @@
 
 **System:** Clinical KB Database — source-backed clinical Q&A over user-uploaded guideline documents.
 **Scope:** Every pathway from a generated system output to potential patient harm. Answer-generation pipeline only (`src/lib/rag/rag.ts`, `answer-verification.ts`, `source-text-sanitizer.ts`, `ward-output.ts`, `answer-render-policy.ts`, `evidence.ts`, `source-governance.ts`, `clinical-search.ts`, and the copy/export surfaces).
-**Status:** Analysis only. No product code was changed. This document identifies hazards, the existing in-code controls, the tests that prove them, and the gaps where no control exists. It does **not** implement fixes.
+**Status:** Historical analysis plus evidence refresh. [`docs/clinical-hazard-controls.json`](clinical-hazard-controls.json) is the current machine-checked status authority. Static proof does not establish clinical adequacy, source truth/authority, regulatory classification, or authorised risk acceptance.
 **Companion:** [`docs/rag-injection-threat-model.md`](rag-injection-threat-model.md) covers the adversarial (ingestion→context→answer) chain in depth; hazard **H6** here cross-references it.
+
+## Evidence refresh — 2026-08-23
+
+The detailed findings below remain useful historical failure descriptions, but some “none” and “not implemented” statements are obsolete. Only the following state changes are supported by exact repository controls and focused tests; the structured register keeps every top-level hazard `partial` while residual clinical or cross-path risk remains.
+
+| Hazard | Current state | Exact local proof                                                                                                                                                                                                                                                                               | Remaining boundary                                                          |
+| ------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| H1     | partial       | `extractClinicalValueAtoms`, `verifyAnswerNumbers`, and `applyNumericVerification` now preserve rate denominators, ratios, ASCII micrograms, frequencies, routes, and comparators; `tests/answer-verification.test.ts`, `tests/rag-content-accuracy.test.ts`, `tests/rag-claim-support.test.ts` | Faithful-but-wrong source values and clinical plausibility are not proved.  |
+| H2     | partial       | review-due/unvalidated warnings and high-risk trust caps are pinned by `tests/source-governance.test.ts` and `tests/answer-render-policy.test.ts`                                                                                                                                               | Human source currency and clinical validation remain authoritative.         |
+| H3     | partial       | canonical table rows and reconstruction/numeric/review warnings reach answer copy in `formatAnswerRenderCopyText`; pinned by `tests/answer-render-policy.test.ts` and `tests/ward-output.test.ts`                                                                                               | All secondary quote/export paths still need clinical acceptance as a whole. |
+| H4     | partial       | deterministic claim support, review-only provenance wording, and direct-support source preference are pinned by `tests/rag-claim-support.test.ts`, `tests/answer-render-policy.test.ts`, and `tests/rag-trust.test.ts`                                                                          | Deterministic support is not clinical truth or authority.                   |
+| H5     | partial       | missing relevance fails closed and similarity origins are distinguished in `tests/answer-render-policy.test.ts`, `tests/rag-score.test.ts`, and `tests/rag-retrieval-row-contract.test.ts`                                                                                                      | Broader confidence policy remains subject to clinical validation.           |
+| H6     | partial       | prompt-facing titles, file names, image labels/titles/captions are neutralized and evidence is fenced; `tests/rag-injection.test.ts`                                                                                                                                                            | Faithful-but-wrong or corrupted clinical content remains open.              |
+
+Clinical truth/authority and external risk acceptance are explicitly `open` in the structured register. No code test can close either decision.
 
 ---
 

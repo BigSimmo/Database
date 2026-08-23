@@ -318,6 +318,10 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Not component effects.
   dark: "theme root selector, not a component class; token values are asserted by the dark-mode journeys",
   "touch-card": "sets outline/touch-action only; the shared focus treatment is asserted by ui-accessibility",
+  "clinical-ask-action-rail": "Clinical Ask composer geometry and accessibility are covered by ui-clinical-ask",
+  "clinical-ask-field": "Clinical Ask clarification fields are covered by ui-clinical-ask",
+  "clinical-ask-output-actions": "Clinical Ask output controls are covered by ui-clinical-ask",
+  "clinical-ask-workspace": "Clinical Ask responsive workspace is covered by ui-clinical-ask",
 
   // Phone/answer composer chrome. Covered behaviourally by verify:phone-chrome and
   // the chrome-scroll/overlap journeys, but not yet by computed-effect assertions.
@@ -339,6 +343,8 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
     "dashboard composer edge — found only after the multiline-selector parser fix; no effect contract yet (#094)",
   "document-mobile-search-edge": "document viewer composer — covered by ui-phone-scroll geometry, not effect",
   "document-mobile-search-pill": "document viewer composer — no effect contract yet (#094)",
+  "guide-tour-dock":
+    "Guide Centre phone dock — the UI smoke journey proves its safe-area paint, CTA clearance, and hide behaviour",
   "edge-glass-header":
     "overlaid glass header — found only after the multiline-selector parser fix; hide/reveal covered by ui-chrome-scroll, effect not contracted",
   "edge-glass-header-backdrop":

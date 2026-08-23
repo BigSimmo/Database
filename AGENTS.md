@@ -249,6 +249,18 @@ bytes. Do not weaken it.
 
 # Reasoning effort calibration
 
+**Repository baseline.** Use `gpt-5.6-sol` with `high` reasoning effort unless the user explicitly
+chooses another supported model or effort. `.codex/config.toml` records this default for trusted
+Codex clients that honor repository configuration; a task-level selection can override it.
+
+**Cloud xhigh gate.** A running Cloud task cannot raise its own reasoning effort. Before substantive
+inspection, planning, tool use, or edits, classify the request against the table and the risk rules
+below. If `xhigh` is required and the prompt does not contain the exact marker `[xhigh-confirmed]`,
+stop and ask the user to select `xhigh` in the Cloud reasoning control, then resubmit the same request
+with `[xhigh-confirmed]`. Do not begin the work at `high`, and do not claim the runtime changed. When
+the marker is present, treat it as the user's confirmation that `xhigh` was selected and proceed.
+Requests classified as `high` or lower proceed without this gate.
+
 Reasoning effort is a budget in the same way verification is a budget, and it is misspent the same
 way — by defaulting to the maximum instead of matching the spend to the risk. **Scale effort to how
 expensive the mistake is to undo (irreversibility × branching factor), never to the phase label.**
@@ -912,6 +924,38 @@ shell command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny mes
 Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and
 review sessions on someone else's PR still function normally.
 
+## Automated review coverage (owner decision, 2026-08-22)
+
+CodeRabbit's included allowance is exhausted and the organisation has reached its usage spending
+cap, so it declines most reviews with "Review limit reached" — measured on PRs #2113, #2252, #2255,
+#2256, #2263 and #2278 between 2026-08-18 and 2026-08-22. The owner has decided to **leave the cap
+as it is and accept that CodeRabbit review is intermittent**, rather than raise it (`#CCZ4HB`).
+
+**Read `docs/decisions/ccz4hb-review-coverage.md` before acting on this.** A separate analysis
+written the same day measured the cause and it is not primarily billing: CodeRabbit's included
+reviews refill at one per hour (24/day) while this repo merged 25.4 PRs/day on average over the
+preceding month. It also found that 285 of the last 1,190 merged PRs (24%) changed only
+documentation and 190 (16%) changed only the repo's own record-keeping files — roughly six review
+credits a day spent on files a code-review bot has nothing to say about. Two levers therefore remain
+open at **no cost and no loss of safety**, and the owner's decision above does not foreclose them:
+configure CodeRabbit to skip documentation-only PRs, and stop opening PRs whose only content is a
+bookkeeping record. Do those before anyone proposes raising the cap again.
+
+What the decision means in practice, and what it does not mean:
+
+- The ChatGPT Codex connector reviewed PR #2278 on 2026-08-22 in the same run CodeRabbit skipped, so
+  as of that date automated review is reduced rather than absent. Do not treat that as permanent —
+  the connector reported its own usage limit on PR #2113 on 2026-08-18, so it can lapse too.
+- Draft PRs are skipped by CodeRabbit outright, so a PR that stays in draft gets nothing from it
+  even when allowance is available. Undrafting mid-CI also cancels the in-flight run.
+- **Do not weaken, skip, or relax any required check to compensate.** The required gates are now
+  carrying more of the load, not less, and the whole point of accepting reduced bot review is that
+  the deterministic checks stay strict.
+- Clinical-risk and RAG-surface diffs still require their PR-body preflight sections in full; those
+  are enforced by `scripts/pr-policy.mjs` and are unaffected by review-bot availability.
+
+Reducing PR churn (below) remains the cheapest way to get more value from the allowance that exists.
+
 ## PR bundling (reduce one-task-one-PR churn)
 
 Every `newtask`/`handoff` cycle mints a dedicated `claude/<task-slug>` branch and PR, so a
@@ -1008,7 +1052,8 @@ named PR). Future process only.
   stale head that already shares hot files with the open queue.
 - The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**:
   normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record;
-  `npm run issues:add|update|done` creates one immutable inbox request. One fresh-base,
+  `npm run issues:add|update|queue|done` creates one immutable inbox request (`queue` corrects a
+  recommended-execution-queue row; see ledger `#M6JNR8`). One fresh-base,
   cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the
   canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits,
   changed request records, deleted requests, and a canonical issue diff that does not exactly
@@ -1109,7 +1154,7 @@ named PR). Future process only.
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 34 canonical single-word skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and Clinical KB plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 35 canonical skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and Clinical KB plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 

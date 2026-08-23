@@ -57,3 +57,28 @@ Source provenance is an issuer-identity signal only. It is independent from curr
 - **Unclassified**: unknown authority, ambiguous identity, conflicting metadata, publisher aliases without compatible jurisdiction, or registry summaries. Registry summaries retain their separate identity and never inherit Official or Trusted provenance from linked or nearby authorities.
 
 Authority must come from registered publisher codes or compatible canonical publisher/jurisdiction metadata. Arbitrary title, body, or extracted text claims do not establish source authority.
+
+## Mode-aware Clinical Ask governance
+
+Clinical Ask serves seven exhaustive clinician-reference modes: Services, Forms, Differentials, Formulation,
+DSM-5 Diagnosis, Specifiers, and Therapy. Every request uses the same deterministic Evidence Ladder: local
+Catalogue first, authorised owner-scoped Indexed evidence second, and an allowlisted External Authority only when
+there is a deterministic evidence gap, unresolved conflict, stale material, or a `needs_review` source. An unsupported
+conclusion is rendered as an Evidence Gap; source conflict and review state remain visible, and clinically material
+suggestions require Clinician Confirmation.
+
+The authority registry is the only external-domain approval owner. A change requires a reviewed registry edit naming
+the canonical HTTPS origin, publisher, jurisdiction, modes, and permitted path prefixes; focused redirect, private-IP,
+subdomain, attribution, and exact-extract tests; clinical/source-governance approval; and an updated approval artefact.
+Do not add a domain from request text, provider output, redirects, or retrieved page content. `reviewed` means the
+catalogue/indexed record passed its repository review process; `needs_review` remains usable only with a visible
+caution and can trigger external gap resolution; `unknown` never silently becomes reviewed.
+
+Provider output is untrusted draft data at the synthesis boundary. Deterministic response governance validates mode
+shape, claim-to-evidence support, citations, prohibited outcomes, and clinical confirmation before anything is shown.
+External extracts remain server-only and request-scoped: attributable citations and retrieval dates may reach the
+answer, but external pages are not durably imported into the catalogue, index, transcript, Case Context, logs, or
+telemetry. Roll back generation with `CLINICAL_ASK_ENABLED=false`; disable only external fallback with
+`CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED=false`; use `CLINICAL_ASK_DISABLED_MODES` only as the emergency per-mode
+denylist. None of these flags removes the separately required hosted migration, provider, clinical-evaluation,
+protected-staging canary, contractual, or physical-device evidence.

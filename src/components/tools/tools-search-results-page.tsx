@@ -1,16 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  BadgeCheck,
-  ChevronRight,
-  ClipboardList,
-  Palette,
-  Search,
-  ShieldCheck,
-  Waves,
-  type LucideIcon,
-} from "lucide-react";
+import { BadgeCheck, ChevronRight, ClipboardList, Search, ShieldCheck, Waves, type LucideIcon } from "lucide-react";
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import {
@@ -476,8 +467,11 @@ export function ToolsSearchResultsPage({
                 <Search className="h-7 w-7 text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">No tools match</h2>
                 <p className="max-w-md text-sm text-[color:var(--text-muted)]">
-                  Refine the search above or choose another tool category.
+                  Try another search or return to the full tools catalogue.
                 </p>
+                <Link href="/tools" className={floatingControl}>
+                  Show all tools
+                </Link>
               </div>
             )}
           </section>
@@ -522,13 +516,6 @@ export function ToolsSearchResultsPage({
           </aside>
         ) : null}
       </section>
-
-      <div className="mx-auto mt-7 flex max-w-6xl justify-center">
-        <Link href="/reference/colour-coding" className={floatingControl}>
-          <Palette className="h-4 w-4" aria-hidden="true" />
-          Colour coding reference
-        </Link>
-      </div>
 
       {selectedTool ? (
         <div className="lg:hidden">

@@ -26,6 +26,14 @@ const reviewedActionPins = new Map([
       // run output, config-snapshot scoping to the working tree, and checkout
       // auth cleanup when API commit signing is enabled.
       ["1623c36729ac1cd5895198cded705a287de7db79", "v1.0.187"],
+      // Reviewed 2026-08-17 for PR #2011 (Run PR sweep): annotated tag v1.0.193
+      // peels to this commit. Release notes for v1.0.188-v1.0.193 cover only
+      // MCP GitHub-Actions-results pagination, structured-tool-result text
+      // preservation, content-based (not extension-based) binary-file
+      // detection, branch-name validation under commit signing, docs fixes,
+      // and setup-bun cache tuning — no change to permissions, secrets
+      // handling, or the action's trust boundary.
+      ["9d7150bc8a3dae8149739a88019d192b579ad90c", "v1.0.193"],
     ]),
   ],
   // Reviewed 2026-08-13 for the credential-isolated Run PR operator: annotated
@@ -34,6 +42,8 @@ const reviewedActionPins = new Map([
   // credentials remain confined to later clean jobs.
   ["openai/codex-action", new Map([["52fe01ec70a42f454c9d2ebd47598f9fd6893d56", "v1"]])],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
+  ["actions/cache/restore", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
+  ["actions/cache/save", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/upload-artifact", new Map([["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7"]])],
   ["actions/download-artifact", new Map([["3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c", "v8.0.1"]])],
   ["denoland/setup-deno", new Map([["22d081ff2d3a40755e97629de92e3bcbfa7cf2ed", "v2.0.5"]])],

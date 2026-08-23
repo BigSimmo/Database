@@ -10,6 +10,7 @@ import {
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -20,12 +21,10 @@ import {
   ChevronDown,
   FileText,
   Filter,
-  Globe2,
   Loader2,
   Layers3,
   Menu,
   MessageSquarePlus,
-  Plus,
   Search,
   Send,
   ShieldCheck,
@@ -57,7 +56,6 @@ import {
   chatSendButton,
   floatingControl,
   glassOverlaySurface,
-  ignoreUnavailableActivation,
   shellChip,
   eyebrowText,
 } from "@/components/ui-primitives";
@@ -218,7 +216,6 @@ export function MasterSearchHeader({
   composerFollowUpSuggestions,
   onPickComposerFollowUpSuggestion,
   composerFollowUpSuggestionsDisabled = false,
-  headerVariant = "default",
   sharedHomeIdentity = false,
   mobileSearchPlacement = "default",
   mobileBottomSearchVariant = "default",
@@ -236,6 +233,8 @@ export function MasterSearchHeader({
   showDesktopNewChat = true,
   canAccessFavourites = false,
   onRequestAccountSetup,
+  clinicalAskActions,
+  clinicalAskActive = false,
 }: {
   demoMode: boolean;
   documents: ClinicalDocument[];
@@ -277,7 +276,6 @@ export function MasterSearchHeader({
   composerFollowUpSuggestions?: string[];
   onPickComposerFollowUpSuggestion?: (suggestion: string) => void;
   composerFollowUpSuggestionsDisabled?: boolean;
-  headerVariant?: "default" | "workflow";
   /** Keep the product identity stable while `/` retargets between modes. */
   sharedHomeIdentity?: boolean;
   mobileSearchPlacement?: "default" | "bottom";
@@ -360,6 +358,10 @@ export function MasterSearchHeader({
   canAccessFavourites?: boolean;
   /** Invoked when the user tries to open Favourites without access. */
   onRequestAccountSetup?: () => void;
+  clinicalAskMode?: import("@/lib/clinical-ask/contracts").ClinicalAskModeId;
+  onClinicalAsk?: () => void;
+  clinicalAskActive?: boolean;
+  clinicalAskActions?: ReactNode;
 }) {
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
@@ -376,7 +378,6 @@ export function MasterSearchHeader({
   const selectedAppMode = appModeDefinition(searchMode);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
-  const isWorkflowHeader = headerVariant === "workflow";
   const isServicesMode = searchMode === "services";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
@@ -1928,6 +1929,11 @@ export function MasterSearchHeader({
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
           />
         ) : null}
+        {clinicalAskActions ? (
+          <div className="relative z-10 w-full" aria-busy={clinicalAskActive}>
+            {clinicalAskActions}
+          </div>
+        ) : null}
         {showsAnswerFollowUpRow && composerFollowUpSuggestions?.length && onPickComposerFollowUpSuggestion ? (
           <AnswerFollowUpSuggestions
             suggestions={composerFollowUpSuggestions}
@@ -2249,24 +2255,12 @@ export function MasterSearchHeader({
       {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
     >
       <div className="edge-glass-header-backdrop" aria-hidden="true" />
-      <div
-        className={cn(
-          "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
-          isWorkflowHeader
-            ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
-            : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
-        )}
-      >
+      <div className="relative mx-auto grid min-h-14 max-w-7xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={onOpenMobileSidebar}
-            className={cn(
-              "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              // From md the desktop icon rail owns navigation, so the drawer
-              // trigger is phone-only outside workflow headers.
-              isWorkflowHeader ? "grid" : "grid md:hidden",
-            )}
+            className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:hidden"
             aria-label="Open Clinical Guide menu"
           >
             <Menu aria-hidden="true" className="size-icon-lg" />
@@ -2310,7 +2304,7 @@ export function MasterSearchHeader({
             if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
             setModeMenuOpen(false);
           }}
-          className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+          className="relative z-[60] min-w-0 justify-self-center"
         >
           <button
             ref={modeButtonRef}
@@ -2318,18 +2312,7 @@ export function MasterSearchHeader({
             onClick={toggleModeMenu}
             onKeyDown={handleModeTriggerKeyDown}
             className={cn(
-              // Size utilities live in the per-variant branch, never the shared
-              // base: cn() was plain concat (no tailwind-merge), so keeping the
-              // default h-/w-/min-w- here too made the workflow overrides dead —
-              // Tailwind v4 emits same-property utilities in canonical order and
-              // the base won at every breakpoint but lg:. That constraint is
-              // lifted (ledger #218): cn() merges, so a base size would now lose
-              // to the branch that follows it. The split stays because one place
-              // per size is still the clearer shape, not because it is forced.
-              "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-              isWorkflowHeader
-                ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
-                : "h-12 w-[min(13rem,calc(100vw-9rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
+              "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-9rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[13rem] sm:pr-3",
             )}
             aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
             aria-expanded={modeMenuOpen}
@@ -2375,49 +2358,19 @@ export function MasterSearchHeader({
         </div>
 
         <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
-          {isWorkflowHeader ? (
-            <>
-              <button
-                type="button"
-                aria-disabled="true"
-                onClick={ignoreUnavailableActivation}
-                aria-describedby="workflow-language-region-unavailable"
-                className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:not-aria-disabled:bg-[color:var(--surface-subtle)] hover:not-aria-disabled:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-label="Language and region settings (coming soon)"
-                title="Language and region — coming soon"
-              >
-                <Globe2 className="h-5 w-5" aria-hidden />
-              </button>
-              <span id="workflow-language-region-unavailable" className="sr-only">
-                Language and region settings are coming soon.
-              </span>
-              <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
-              <button
-                type="button"
-                onClick={onNewChat}
-                className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                aria-label="Start a new comparison"
-                title="New comparison"
-              >
-                <Plus className="h-5 w-5" aria-hidden />
-              </button>
-            </>
-          ) : null}
-          {!isWorkflowHeader ? (
-            <button
-              type="button"
-              onClick={onNewChat}
-              className={cn(
-                "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
-                !showDesktopNewChat && "md:hidden",
-              )}
-              aria-label="Start a new chat"
-              title="New chat"
-            >
-              <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
-              <span className="hidden whitespace-nowrap xl:inline">New chat</span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={onNewChat}
+            className={cn(
+              "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
+              !showDesktopNewChat && "md:hidden",
+            )}
+            aria-label="Start a new chat"
+            title="New chat"
+          >
+            <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
+            <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+          </button>
         </div>
       </div>
 
