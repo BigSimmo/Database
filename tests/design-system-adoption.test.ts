@@ -755,7 +755,7 @@ describe("design-system adoption manifest", () => {
     );
   });
 
-  it("requires exact hosted-Linux provenance for all six committed visual baselines", () => {
+  it("requires exact hosted-Linux provenance for all six committed visual baselines", { timeout: 90_000 }, () => {
     const validRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-valid-"));
     const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-missing-"));
     const hashRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-hash-"));

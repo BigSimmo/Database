@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { CalculatorsSearchPage } from "@/components/calculators";
+import { appModeSelectionHref } from "@/lib/app-modes";
+import { unsubmittedModeSearchTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 
 export const metadata: Metadata = {
   title: "Search clinical calculators | Clinical KB",
@@ -49,7 +51,12 @@ export default async function CalculatorsSearchRoute({ searchParams }: { searchP
     redirect(suffix ? `/calculators/search?${suffix}` : "/calculators/search");
   }
 
-  if (!query) redirect("/?mode=calculators");
+  if (!query) {
+    redirect(
+      unsubmittedModeSearchTargetForSearchParams("/calculators/search", resolvedSearchParams) ??
+        appModeSelectionHref("calculators"),
+    );
+  }
 
   return <CalculatorsSearchPage initialQuery={query} />;
 }

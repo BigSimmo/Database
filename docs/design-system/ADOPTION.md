@@ -58,7 +58,6 @@ src/components/ui/form-field.tsx
 src/components/ui/text-field.tsx
 src/components/ui/select.tsx
 src/components/ui/choice.tsx
-src/components/forms/forms-home-page.tsx
 src/components/forms/forms-search-results-page.tsx
 src/components/forms/form-detail-page.tsx
 src/components/forms/form-detail-client.tsx
@@ -110,14 +109,10 @@ add a field that looks like a composer. Both sides of that interaction stay in o
 ### 2.3 catalogues — Builder B
 
 ```text
-src/components/services/services-home-page.tsx
 src/components/clinical-dashboard/differentials-home.tsx
 src/components/clinical-dashboard/favourites-command-library-page.tsx
-src/components/dsm/dsm-home-page.tsx
 src/components/dsm/dsm-search-page.tsx
-src/components/factsheets/factsheets-home-page.tsx
 src/components/applications-launcher-page.tsx
-src/components/therapy-compass/screens/home-screen.tsx
 ```
 
 Complete empty/loading gaps with `EmptyState` and `LoadingPanel`; converge local chip

@@ -6,8 +6,7 @@ import type { AppModeId } from "@/lib/app-modes";
  * Every mode shares one lightweight home at `/?mode=<id>`, whose per-mode copy
  * lives in `sharedHomePresentation` (src/lib/ui-copy.ts). These paths stay so
  * bookmarks, the sitemap and external deep links keep resolving; they forward
- * to that shared home instead of rendering a second one. The retired detailed
- * pages are preserved off the live routes under `/mockups/<mode>-home-detailed`.
+ * to that shared home instead of rendering a second one.
  *
  * Five modes are deliberately absent, because none of them is a duplicate of the
  * shared home — each is its mode's only functional surface, so folding it in
@@ -114,6 +113,13 @@ export const consolidatedModeHomeModeIds: ReadonlySet<AppModeId> = new Set<AppMo
   Object.values(consolidatedModeHomePaths),
 );
 
+/** Canonical results or catalogue path for a mode whose bare path is consolidated. */
+export function consolidatedModeSearchPath(modeId: AppModeId): string {
+  const entry = Object.entries(consolidatedModeHomePaths).find(([, candidate]) => candidate === modeId);
+  if (!entry) throw new Error(`Mode ${modeId} does not have a consolidated search path`);
+  return `${entry[0]}/search`;
+}
+
 /**
  * The same decision as `consolidatedModeHomeTarget`, for a page's own
  * `searchParams` rather than a `URLSearchParams`.
@@ -125,40 +131,39 @@ export const consolidatedModeHomeModeIds: ReadonlySet<AppModeId> = new Set<AppMo
  * context — a worse answer than the proxy gives for the same URL. Routing both
  * through one resolver means the fallback cannot disagree with the proxy.
  */
-export function consolidatedModeHomeTargetForSearchParams(
-  pathname: string,
-  searchParams: Record<string, string | string[] | undefined>,
-): string | null {
+function urlSearchParamsFromRecord(searchParams: Record<string, string | string[] | undefined>) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {
     if (Array.isArray(value)) value.forEach((entry) => params.append(key, entry));
     else if (value !== undefined) params.set(key, value);
   }
-  return consolidatedModeHomeTarget(pathname, params);
+  return params;
+}
+
+export function consolidatedModeHomeTargetForSearchParams(
+  pathname: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string | null {
+  return consolidatedModeHomeTarget(pathname, urlSearchParamsFromRecord(searchParams));
 }
 
 /**
  * `<mode>/search` routes that have no browse view of their own.
  *
- * Only `/calculators/search`: its component has no fallback content for an empty
- * query, so an unsubmitted visit rendered nothing useful there. Redirecting it
- * home is correct and has its own passing coverage
- * (`tests/calculators-mode.dom.test.tsx`).
+ * `/calculators/search` and `/differentials/search`: their idle bodies were the
+ * retired tile homes, so an unsubmitted visit has nothing useful to show.
+ * Redirecting them home is correct. Calculators coverage is
+ * `tests/calculators-mode.dom.test.tsx`; differentials is this module's own
+ * unsubmitted-search cases.
  *
- * `/differentials/search`, `/formulation/search` and `/specifiers/search` are
- * deliberately NOT here, despite looking like the same shape: their components
- * render a real browsable catalogue on an empty query — the same content
- * `/differentials`, `/formulation` and `/specifiers` held before consolidation,
- * relocated here rather than duplicated. That is pinned by
+ * `/formulation/search` and `/specifiers/search` are deliberately NOT here:
+ * their components render a real browsable catalogue on an empty query — the
+ * same content `/formulation` and `/specifiers` held as a long list, relocated
+ * here rather than duplicated. That is pinned by
  * `tests/ui-phone-scroll-routes.spec.ts` ("phone scroll stays smooth on
  * /formulation/search"), which navigates there with no query and asserts the
- * long mechanism list renders and scrolls. Two earlier passes added these three
- * anyway, reasoning from the code shape alone without running that Playwright
- * spec (`npm run test` doesn't cover `.spec.ts` files) — both broke the pinned
- * behavior. Confirmed live a third time before writing this comment: with these
- * three included, `/formulation/search` 307s to `/?mode=formulation` and the
- * mechanism list never renders. Do not re-add them without first running
- * `tests/ui-phone-scroll-routes.spec.ts` and confirming it still passes.
+ * long mechanism list renders and scrolls. Do not add them without first
+ * running that spec and confirming it still passes.
  *
  * `/factsheets/search`, `/dictionary/search` and `/therapy-compass/search` are
  * absent for a different, unrelated reason: they're linked from their mode nav
@@ -167,6 +172,7 @@ export function consolidatedModeHomeTargetForSearchParams(
  */
 const modeSearchRoutesWithoutBrowseView = {
   "/calculators/search": "calculators",
+  "/differentials/search": "differentials",
 } as const satisfies Record<string, AppModeId>;
 
 /**
@@ -190,8 +196,22 @@ export function unsubmittedModeSearchTarget(pathname: string, search: URLSearchP
   const params = new URLSearchParams(search);
   params.delete("q");
   params.delete("query");
+  params.delete("run");
   params.set("mode", modeId);
   return `/?${params.toString()}`;
+}
+
+/**
+ * The same decision as `unsubmittedModeSearchTarget`, for a page's own
+ * `searchParams`. The `/calculators/search` and `/differentials/search`
+ * backstops must not hardcode `/?mode=<id>` — that drops navigation context
+ * (`focus`, `queryMode`, scope filters) the proxy would have kept.
+ */
+export function unsubmittedModeSearchTargetForSearchParams(
+  pathname: string,
+  searchParams: Record<string, string | string[] | undefined>,
+): string | null {
+  return unsubmittedModeSearchTarget(pathname, urlSearchParamsFromRecord(searchParams));
 }
 
 /**

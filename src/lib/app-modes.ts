@@ -1,6 +1,6 @@
 import type { ClinicalQueryMode } from "@/lib/types";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { consolidatedModeHomeModeIds } from "@/lib/consolidated-mode-home-redirect";
+import { consolidatedModeHomeModeIds, consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 
 export const appModeIds = [
@@ -515,7 +515,8 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     // shared home: routing a submitted query back to the bare path would bounce
     // through that redirect and return here, an infinite loop
     // (tests/app-modes.test.ts pins the no-loop property for every mode).
-    const namespacedHref = query && consolidatedModeHomeModeIds.has(modeId) ? `${mode.href}/search` : mode.href;
+    const namespacedHref =
+      query && consolidatedModeHomeModeIds.has(modeId) ? consolidatedModeSearchPath(modeId) : mode.href;
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 
