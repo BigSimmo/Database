@@ -361,7 +361,7 @@ Expected: focused checks pass. Production readiness may remain provider/operator
 - Modify: `worker/shadow-extraction.ts`
 - Modify: `src/lib/env.ts`
 - Modify: `src/lib/index-quality.ts`
-- Modify: `eval/docling/fixtures/manifest.v1.json`
+- Modify: `eval/docling/fixtures/manifest.v2.json`
 - Modify: `eval/docling/harness/score.py`
 - Modify: `eval/docling/report/lab-config.json`
 - Modify: `tests/pdf-extractor.test.ts`
@@ -723,7 +723,7 @@ Expected: offline contracts pass; real backup/PITR/Storage restore remains opera
 
 **Files:**
 
-- Modify: `eval/docling/fixtures/manifest.v1.json`
+- Modify: `eval/docling/fixtures/manifest.v2.json`
 - Modify: `scripts/fixtures/rag-retrieval-golden.json`
 - Modify: `src/lib/rag/rag-eval-cases.ts`
 - Modify: `scripts/fixtures/rag-adversarial-cases.v1.json`

@@ -80,9 +80,12 @@ AES-256 salts are inherently random.
 **v2 table-hardness corpus:** five `table_heavy` fixtures now exercise unruled
 tables, real `colSpan` merged cells, rotated headers, and combinations of those
 shapes. Representative fixtures for each shape carry number, number/unit, and
-comparator assertions whose strings exist only in the declared table, so prose
-cannot accidentally satisfy the exactness check. The offline contract fails if a
-hard shape or its table-scoped checks disappear.
+comparator assertions whose strings exist only in the declared source table, so
+prose cannot accidentally satisfy the fixture contract. The `source` and
+`tableId` fields establish fixture provenance only: numeric exactness still
+searches document-wide extracted text and table cells, while table cell F1
+measures structural association. The offline contract fails if a hard shape or
+its provenance binding disappears.
 
 This corpus change is not a quality verdict. The recorded Gate B result used the
 earlier v1 corpus; a new owner-dispatched v2 benchmark and pre-agreed thresholds

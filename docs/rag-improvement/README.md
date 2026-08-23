@@ -322,9 +322,12 @@ worker requirements, Dockerfile.worker, or the database.** Gate B: non-inferiori
 safety/exactness measures + pre-agreed table-heavy improvement.
 
 The committed `docling-lab-fixtures.v2` corpus now includes unruled, merged-cell,
-and rotated-header table cases with table-only exactness assertions. That closes
-the fixture-hardness gap only; the 2026-08-18 Gate B record remains v1 evidence,
-and no promotion may cite v2 until a new owner-dispatched benchmark is recorded.
+and rotated-header table cases with numeric assertion provenance bound to
+representative source tables. `source` and `tableId` constrain fixture construction;
+numeric exactness still searches document-wide extracted text and table cells, while
+table cell F1 measures structural association. That closes the fixture-hardness gap
+only; the 2026-08-18 Gate B record remains v1 evidence, and no promotion may cite v2
+until a new owner-dispatched benchmark is recorded.
 
 ### B4 — Docling worker shadow mode (conditional on Gate B)
 

@@ -505,10 +505,12 @@ a claim that one is better.
 and a positive delta says nothing about whether the extra tables are correct.
 
 The v2 hardness corpus now lives at `eval/docling/fixtures/manifest.v2.json`: it covers
-unruled tables, merged and spanning cells, and rotated headers, with table-only exact
-number/unit/comparator checks. This closes the fixture-construction task, not the evidence
-gate. Until a new lab run is recorded against v2 with thresholds agreed beforehand, shadow
-numbers are measurements and nothing more.
+unruled tables, merged and spanning cells, and rotated headers, with numeric assertion
+provenance bound to representative source tables. Those bindings govern fixture construction
+only: numeric exactness remains document-wide, while structural association is measured by
+table cell F1. This closes the fixture-construction task, not the evidence gate. Until a new
+lab run is recorded against v2 with thresholds agreed beforehand, shadow numbers are
+measurements and nothing more.
 
 The second Gate B caveat is already load-bearing above: docling's eager-mode latency of
 9–19 s/doc is why the cohort is bounded three ways in §3.4.
