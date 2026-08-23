@@ -175,6 +175,29 @@ const statusMarkerBase = "inline-block h-2 w-2 shrink-0";
 export const statusDotReady = `${statusMarkerBase} rounded-full border-2 border-[color:var(--text-heading)] bg-transparent`;
 export const statusDotReview = `${statusMarkerBase} rotate-45 rounded-sm bg-[color:var(--warning)]`;
 export const statusDotMuted = `${statusMarkerBase} rounded-full bg-[color:var(--decoration-soft)]`;
+export type StatusDotTone = "ready" | "review" | "muted";
+const STATUS_DOT_CLASS = {
+  ready: statusDotReady,
+  review: statusDotReview,
+  muted: statusDotMuted,
+} as const;
+
+export function StatusDotMarker({
+  tone,
+  label,
+  labelClassName,
+}: {
+  tone: StatusDotTone;
+  label: string;
+  labelClassName?: string;
+}) {
+  return (
+    <>
+      <span className={STATUS_DOT_CLASS[tone]} aria-hidden="true" />
+      <span className={labelClassName}>{label}</span>
+    </>
+  );
+}
 
 export const toneSuccess =
   "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
