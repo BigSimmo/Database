@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertAustralianPublicActivationMetadata,
   assertPublicationApplyConfirmation,
   parsePublicationCommandArgs,
   parsePublicationManifest,
@@ -39,6 +40,23 @@ const manifestV2 = {
       decision: "approved",
     },
   ],
+};
+
+const australianActivationMetadata = {
+  source_kind: "document",
+  publisher: "WA Health",
+  publisher_code: "WAHEALTH",
+  jurisdiction: "Australia/WA",
+  corpus_scope: "australian_public",
+  source_role: "service_policy",
+  content_mode: "indexed_content",
+  source_catalogue_key: "wa-health",
+  source_policy_version: "australian-source-policy-v1",
+  licence_policy: "public_index_permitted",
+  document_status: "current",
+  clinical_validation_status: "approved",
+  extraction_quality: "good",
+  change_state: "unchanged",
 };
 
 describe("publication manifests", () => {
@@ -182,5 +200,36 @@ describe("publication manifests", () => {
         }).documents[0].decision,
       ).toBe("quarantine");
     }
+  });
+
+  it("accepts exact normalized catalogue identity and role metadata for activation", () => {
+    expect(assertAustralianPublicActivationMetadata(australianActivationMetadata, "wa-health")).toMatchObject({
+      source_kind: "document",
+      source_catalogue_key: "wa-health",
+      publisher_code: "WAHEALTH",
+      source_role: "service_policy",
+      change_state: "unchanged",
+    });
+  });
+
+  it.each([
+    ["registry record", { source_kind: "registry_record" }, "wa-health"],
+    ["publisher mismatch", { publisher: "Therapeutic Goods Administration" }, "wa-health"],
+    ["jurisdiction mismatch", { jurisdiction: "Australia/NSW" }, "wa-health"],
+    [
+      "catalogue role mismatch",
+      {
+        source_catalogue_key: "wa-legislation",
+        publisher: "Western Australian Legislation",
+        publisher_code: "WALEG",
+        source_role: "clinical_guideline",
+      },
+      "wa-legislation",
+    ],
+    ["non-canonical new change state", { change_state: "new" }, "wa-health"],
+  ])("rejects %s metadata before publication approval insertion", (_label, overrides, expectedCatalogueKey) => {
+    expect(() =>
+      assertAustralianPublicActivationMetadata({ ...australianActivationMetadata, ...overrides }, expectedCatalogueKey),
+    ).toThrow(/activation metadata/i);
   });
 });

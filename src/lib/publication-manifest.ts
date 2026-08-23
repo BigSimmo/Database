@@ -5,6 +5,9 @@ import {
   australianSourceByKey,
   australianSourcePolicyVersion,
 } from "@/lib/australian-source-catalogue";
+import { classifySourceAuthority } from "@/lib/source-authority-registry";
+import { normalizeClinicalSourceMetadata } from "@/lib/source-metadata";
+import type { ClinicalSourceMetadataInput } from "@/lib/types";
 
 const publicationDecisionSchema = z.enum(["approved", "keep_private", "quarantine"]);
 const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -103,6 +106,44 @@ const publicationManifestV2Schema = z
 
 export type PublicationManifestV2 = z.infer<typeof publicationManifestV2Schema>;
 export type AnyPublicationManifest = PublicationManifest | PublicationManifestV2;
+
+/**
+ * Bind public activation to the canonical Task 2 authority tuple and Task 3
+ * catalogue role boundary. The reviewed-state digest then protects this exact
+ * normalized metadata until the database completes publication.
+ */
+export function assertAustralianPublicActivationMetadata(input: unknown, expectedCatalogueKey: string) {
+  const safeInput =
+    input && typeof input === "object" && !Array.isArray(input) ? (input as ClinicalSourceMetadataInput) : null;
+  const metadata = normalizeClinicalSourceMetadata(safeInput);
+  const authority = classifySourceAuthority(metadata);
+  const exactCatalogueIdentity =
+    metadata.source_catalogue_key === expectedCatalogueKey &&
+    authority.cataloguePolicyResolved &&
+    authority.catalogueEntry?.key === expectedCatalogueKey &&
+    authority.matchedBy === "source_catalogue_key";
+  const completePublisherIdentity = Boolean(metadata.publisher && metadata.publisher_code && metadata.jurisdiction);
+  const activeChangeState = metadata.change_state === "changed" || metadata.change_state === "unchanged";
+
+  if (
+    metadata.source_kind !== "document" ||
+    !exactCatalogueIdentity ||
+    !completePublisherIdentity ||
+    !authority.australianAugmentationEligible ||
+    !activeChangeState
+  ) {
+    const reasons = [
+      ...authority.conflicts,
+      ...authority.eligibilityReasons,
+      ...(activeChangeState ? [] : ["change_state_inactive_or_unknown"]),
+    ];
+    throw new Error(
+      `Australian activation metadata is not eligible for ${expectedCatalogueKey}: ${[...new Set(reasons)].join(", ") || "identity_or_role_mismatch"}`,
+    );
+  }
+
+  return metadata;
+}
 
 export type PublicationCommandArgs = {
   manifestPath: string;

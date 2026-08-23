@@ -54,6 +54,14 @@ begin
   where id = new.document_id;
 
   if found and v_document.metadata->>'corpus_scope' = 'australian_public' then
+    if v_document.status <> 'indexed'
+      or v_document.metadata->>'source_kind' is distinct from 'document'
+      or nullif(trim(v_document.metadata->>'publisher'), '') is null
+      or nullif(trim(v_document.metadata->>'publisher_code'), '') is null
+      or nullif(trim(v_document.metadata->>'jurisdiction'), '') is null
+      or nullif(trim(v_document.metadata->>'source_role'), '') is null then
+      raise exception 'Australian public approval requires exact document identity metadata';
+    end if;
     if new.source_catalogue_key is null
       or new.source_policy_version is null
       or new.reviewed_index_generation_id is null then
@@ -62,7 +70,12 @@ begin
     if new.source_policy_version <> 'australian-source-policy-v1'
       or v_document.metadata->>'source_catalogue_key' is distinct from new.source_catalogue_key
       or v_document.metadata->>'source_policy_version' is distinct from new.source_policy_version
-      or v_document.index_generation_id is distinct from new.reviewed_index_generation_id then
+      or v_document.index_generation_id is distinct from new.reviewed_index_generation_id
+      or v_document.metadata->>'content_mode' is distinct from 'indexed_content'
+      or v_document.metadata->>'licence_policy' is distinct from 'public_index_permitted'
+      or v_document.metadata->>'document_status' is distinct from 'current'
+      or v_document.metadata->>'change_state' in ('withdrawn', 'superseded')
+      or coalesce(v_document.metadata->>'change_state', '') not in ('changed', 'unchanged') then
       raise exception 'Australian public approval does not match document policy and committed generation';
     end if;
   end if;
@@ -103,6 +116,8 @@ declare
   v_approval_id uuid;
   v_owned_public_activation boolean;
   v_public_relabel_activation boolean;
+  v_same_scope_public_update boolean;
+  v_v2_receipt_keys text[] := array['publication_manifest_version', 'publication_source_policy_version', 'publication_reviewed_index_generation_id'];
 begin
   v_owned_public_activation := old.owner_id is not null
     and new.owner_id is null
@@ -114,6 +129,50 @@ begin
     and new.owner_id is null
     and old.metadata->>'corpus_scope' is distinct from 'australian_public'
     and new.metadata->>'corpus_scope' = 'australian_public';
+  v_same_scope_public_update := old.owner_id is null
+    and new.owner_id is null
+    and old.metadata->>'corpus_scope' = 'australian_public'
+    and new.metadata->>'corpus_scope' = 'australian_public';
+
+  if v_same_scope_public_update then
+    -- The activation RPC follows the ownership transition with one receipt
+    -- enrichment update. Only these three v2 keys may differ: the five
+    -- generic publication receipts and all reviewed state stay immutable.
+    if new.index_generation_id is distinct from old.index_generation_id
+      or (
+        to_jsonb(new) - array['metadata', 'updated_at', 'search_tsv', 'title_search_tsv']
+      ) is distinct from (
+        to_jsonb(old) - array['metadata', 'updated_at', 'search_tsv', 'title_search_tsv']
+      )
+      or (new.metadata - v_v2_receipt_keys) is distinct from (old.metadata - v_v2_receipt_keys) then
+      raise exception 'Australian public governed state changed; unpublish and reapprove';
+    end if;
+    if new.metadata->'publication_manifest_version' is distinct from '2'::jsonb
+      or new.metadata->>'publication_source_policy_version' is distinct from new.metadata->>'source_policy_version'
+      or new.metadata->>'publication_reviewed_index_generation_id' is distinct from new.index_generation_id::text then
+      raise exception 'Australian public v2 receipt enrichment is invalid';
+    end if;
+
+    begin
+      v_approval_id := nullif(new.metadata->>'publication_approval_id', '')::uuid;
+    exception when invalid_text_representation then
+      raise exception 'Australian public v2 receipt enrichment has an invalid approval id';
+    end;
+    select * into v_approval
+    from public.document_publication_approvals
+    where id = v_approval_id;
+    if not found
+      or v_approval.decision is distinct from 'approved'
+      or v_approval.document_id is distinct from new.id
+      or v_approval.manifest_digest is distinct from new.metadata->>'publication_manifest_digest'
+      or v_approval.reviewed_state_digest is distinct from new.metadata->>'publication_reviewed_state_digest'
+      or v_approval.source_catalogue_key is distinct from new.metadata->>'source_catalogue_key'
+      or v_approval.source_policy_version is distinct from new.metadata->>'source_policy_version'
+      or v_approval.reviewed_index_generation_id is distinct from new.index_generation_id then
+      raise exception 'Australian public v2 receipt enrichment requires matching approved evidence';
+    end if;
+    return new;
+  end if;
 
   if v_owned_public_activation or v_public_relabel_activation then
     -- This is an AFTER trigger so generated columns, especially the committed
@@ -151,12 +210,17 @@ begin
     if new.metadata->>'content_mode' = 'link_only' then
       raise exception 'Australian public transition rejects link-only content';
     end if;
-    if new.metadata->>'content_mode' is distinct from 'indexed_content'
+    if new.metadata->>'source_kind' is distinct from 'document'
+      or nullif(trim(new.metadata->>'publisher'), '') is null
+      or nullif(trim(new.metadata->>'publisher_code'), '') is null
+      or nullif(trim(new.metadata->>'jurisdiction'), '') is null
+      or nullif(trim(new.metadata->>'source_role'), '') is null
+      or new.metadata->>'content_mode' is distinct from 'indexed_content'
       or new.metadata->>'licence_policy' is distinct from 'public_index_permitted'
       or new.metadata->>'document_status' is distinct from 'current'
       or new.metadata->>'change_state' in ('withdrawn', 'superseded')
-      or coalesce(new.metadata->>'change_state', '') not in ('new', 'changed', 'unchanged') then
-      raise exception 'Australian public transition requires active, current, index-permitted content';
+      or coalesce(new.metadata->>'change_state', '') not in ('changed', 'unchanged') then
+      raise exception 'Australian public transition requires exact document identity and active, current, index-permitted content';
     end if;
 
     begin
@@ -390,14 +454,19 @@ begin
       raise exception 'Australian activation document % owner, index state, or committed generation changed', v_document_id;
     end if;
     if v_document.metadata->>'corpus_scope' is distinct from 'australian_public'
+      or v_document.metadata->>'source_kind' is distinct from 'document'
+      or nullif(trim(v_document.metadata->>'publisher'), '') is null
+      or nullif(trim(v_document.metadata->>'publisher_code'), '') is null
+      or nullif(trim(v_document.metadata->>'jurisdiction'), '') is null
+      or nullif(trim(v_document.metadata->>'source_role'), '') is null
       or v_document.metadata->>'source_catalogue_key' is distinct from v_source_catalogue_key
       or v_document.metadata->>'source_policy_version' is distinct from v_source_policy_version
       or v_document.metadata->>'content_mode' is distinct from 'indexed_content'
       or v_document.metadata->>'licence_policy' is distinct from 'public_index_permitted'
       or v_document.metadata->>'document_status' is distinct from 'current'
       or v_document.metadata->>'change_state' in ('withdrawn', 'superseded')
-      or coalesce(v_document.metadata->>'change_state', '') not in ('new', 'changed', 'unchanged') then
-      raise exception 'Australian activation document % fails source policy or lifecycle gates', v_document_id;
+      or coalesce(v_document.metadata->>'change_state', '') not in ('changed', 'unchanged') then
+      raise exception 'Australian activation document % fails source identity, policy, or lifecycle gates', v_document_id;
     end if;
 
     perform 1 from public.document_pages where document_id = v_document_id for update;

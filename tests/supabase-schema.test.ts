@@ -1545,6 +1545,72 @@ describe("Supabase Preview replay guards", () => {
     );
   });
 
+  it("requires digest-bound Australian document identity metadata at approval and activation boundaries", () => {
+    const sql = australianSourceActivationMigration;
+    for (const exactGate of [
+      "v_document.metadata->>'source_kind' is distinct from 'document'",
+      "nullif(trim(v_document.metadata->>'publisher'), '') is null",
+      "nullif(trim(v_document.metadata->>'publisher_code'), '') is null",
+      "nullif(trim(v_document.metadata->>'jurisdiction'), '') is null",
+      "nullif(trim(v_document.metadata->>'source_role'), '') is null",
+    ]) {
+      expect(sql).toContain(exactGate);
+    }
+    expect(sql).toContain("Australian public approval requires exact document identity metadata");
+    expect(sql).toContain("Australian activation document % fails source identity, policy, or lifecycle gates");
+  });
+
+  it("uses only the canonical active change states for Australian activation", () => {
+    const sql = australianSourceActivationMigration;
+    expect(sql).toContain("not in ('changed', 'unchanged')");
+    expect(sql).not.toContain("('new', 'changed', 'unchanged')");
+  });
+
+  it("allows only the exact bound v2 receipt enrichment on same-scope Australian public rows", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain("v_same_scope_public_update := old.owner_id is null");
+    expect(guardBody).toContain("old.metadata->>'corpus_scope' = 'australian_public'");
+    expect(guardBody).toContain("and new.metadata->>'corpus_scope' = 'australian_public'");
+    expect(guardBody).toContain(
+      "v_v2_receipt_keys text[] := array['publication_manifest_version', 'publication_source_policy_version', 'publication_reviewed_index_generation_id']",
+    );
+    expect(guardBody).toContain("new.metadata - v_v2_receipt_keys");
+    expect(guardBody).toContain("old.metadata - v_v2_receipt_keys");
+    expect(guardBody).toContain("new.metadata->'publication_manifest_version' is distinct from '2'::jsonb");
+    expect(guardBody).toContain(
+      "new.metadata->>'publication_source_policy_version' is distinct from new.metadata->>'source_policy_version'",
+    );
+    expect(guardBody).toContain(
+      "new.metadata->>'publication_reviewed_index_generation_id' is distinct from new.index_generation_id::text",
+    );
+    const v2KeysStart = guardBody.indexOf("v_v2_receipt_keys text[] := array[");
+    const v2KeysEnd = guardBody.indexOf("];", v2KeysStart);
+    const v2Keys = guardBody.slice(v2KeysStart, v2KeysEnd);
+    for (const genericReceiptKey of [
+      "public_corpus",
+      "publication_approval_id",
+      "publication_manifest_digest",
+      "publication_reviewed_state_digest",
+      "published_at",
+    ]) {
+      expect(v2Keys).not.toContain(`'${genericReceiptKey}'`);
+    }
+  });
+
+  it("rejects same-scope Australian governed-state mutations without recursive writes", () => {
+    const sql = australianSourceActivationMigration;
+    const guardStart = sql.indexOf("create or replace function public.guard_australian_source_activation(");
+    const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+    expect(guardBody).toContain("if v_same_scope_public_update then");
+    expect(guardBody).toContain("Australian public governed state changed; unpublish and reapprove");
+    expect(guardBody).not.toContain("update public.documents");
+    expect(guardBody.indexOf("new.metadata - v_v2_receipt_keys")).toBeLessThan(
+      guardBody.indexOf("Australian public governed state changed; unpublish and reapprove"),
+    );
+  });
+
   it("keeps Australian activation append-only and service-role-only while rejecting v1/link-only transitions", () => {
     const sql = australianSourceActivationMigration;
     expect(sql).toContain("old.metadata->>'corpus_scope' = 'australian_public'");

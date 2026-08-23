@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { loadEnvConfig } from "@next/env";
 import {
+  assertAustralianPublicActivationMetadata,
   assertPublicationApplyConfirmation,
   parsePublicationCommandArgs,
   parseVersionedPublicationManifest,
@@ -45,6 +46,14 @@ async function main() {
   for (const entry of manifest.documents) {
     const document = documentsById.get(entry.documentId);
     const governedEntry = governedDocumentsById?.get(entry.documentId);
+    let activationMetadataError: string | null = null;
+    if (document && manifest.version === 2 && governedEntry?.decision === "approved") {
+      try {
+        assertAustralianPublicActivationMetadata(document.metadata, governedEntry.sourceCatalogueKey);
+      } catch (error) {
+        activationMetadataError = error instanceof Error ? error.message : "Australian activation metadata is invalid";
+      }
+    }
     if (!document) validationErrors.push(`${entry.documentId}: not found`);
     else if (document.owner_id !== entry.expectedOwnerId) validationErrors.push(`${entry.documentId}: owner changed`);
     else if (document.status !== "indexed") validationErrors.push(`${entry.documentId}: status is ${document.status}`);
@@ -69,6 +78,8 @@ async function main() {
       metadataString(document.metadata, "source_policy_version") !== manifest.sourcePolicyVersion
     ) {
       validationErrors.push(`${entry.documentId}: source policy version changed`);
+    } else if (activationMetadataError) {
+      validationErrors.push(`${entry.documentId}: ${activationMetadataError}`);
     } else if (
       manifest.version === 2 &&
       governedEntry?.decision === "approved" &&
@@ -90,7 +101,7 @@ async function main() {
     } else if (
       manifest.version === 2 &&
       governedEntry?.decision === "approved" &&
-      !["new", "changed", "unchanged"].includes(metadataString(document.metadata, "change_state") ?? "")
+      !["changed", "unchanged"].includes(metadataString(document.metadata, "change_state") ?? "")
     ) {
       validationErrors.push(`${entry.documentId}: source lifecycle is not active`);
     } else {
