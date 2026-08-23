@@ -1,11 +1,17 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
+import { calculators } from "@/components/calculators/calculator-fixtures";
+import { factsheets } from "@/components/factsheets/factsheets-data";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import { appModeIds } from "@/lib/app-modes";
+import { dictionaryEntries } from "@/lib/dictionary-data";
+import { dsmDiagnoses } from "@/lib/dsm";
+import { formulationMechanisms } from "@/lib/formulation";
 import { registryCorpusMetadata, type RegistryCorpusEntry } from "@/lib/registry-corpus";
 import {
   canMutateSiteContent,
   evaluateSiteContentRegistration,
-  evidenceFamilyKey,
+  evidenceFamilyKeys,
   reconcileCanonicalPublicSiteContent,
   resolveSiteContentReadTarget,
   siteContentClaimPolicy,
@@ -20,6 +26,9 @@ import type {
   SiteContentPartitionSnapshot,
   SiteContentRecord,
 } from "@/lib/site-content/site-content-contracts";
+import { specifierCatalogItems } from "@/lib/specifiers-content";
+import { therapyRecords } from "@/lib/therapies";
+import { publicKnowledgeToolCatalogRecords, toolCatalogRecords } from "@/lib/tools-catalog";
 
 const activeRelease: ActiveSiteContentRelease = {
   version: "clinical-kb-site-release-v1",
@@ -130,9 +139,10 @@ describe("site content producer registry", () => {
     for (const producer of siteContentProducerRegistry) {
       expect(producer).toMatchObject({
         version: "site-content-producer-v1",
-        canonicalOwner: expect.stringMatching(/^(src|clinical_)/),
+        canonicalOwner: expect.stringMatching(/^(src|public|clinical_)/),
         dataSource: expect.any(String),
-        publicationVersionField: expect.any(String),
+        publicationVersionStrategy: "adapter_computed_sha256",
+        routeSemantics: expect.stringMatching(/^(exact_public_record|canonical_catalogue_href|search_navigation)$/),
         adapter: expect.any(String),
         allowedRoles: expect.any(Array),
         readPolicy: "public_active_release",
@@ -142,7 +152,7 @@ describe("site content producer registry", () => {
       expect(producer.canonicalOwner).not.toMatch(/[*!?[\]{}]/);
       expect(producer.dataSource).not.toMatch(/[*!?[\]{}]/);
       expect(producer.adapter).not.toMatch(/[*!?[\]{}]/);
-      expect(producer.routeBuilder("record slug")).toMatch(/^\//);
+      if (producer.modeId !== "tools") expect(producer.routeBuilder("record slug")).toMatch(/^\//);
       expect(producer.allowedRoles).not.toHaveLength(0);
     }
 
@@ -150,6 +160,124 @@ describe("site content producer registry", () => {
     expect(siteContentProducerForMode("specifiers")?.producerClass).toBe("static_repository");
     expect(siteContentProducerForMode("services")?.mutationPolicy).toBe("administrator_only");
     expect(siteContentProducerForMode("specifiers")?.mutationPolicy).toBe("repository_release_only");
+  });
+
+  it("binds all twelve producers to the unchanged public render owner, data source, and route", () => {
+    const triples = Object.fromEntries(
+      siteContentProducerRegistry.map((producer) => [
+        producer.modeId,
+        {
+          owner: producer.canonicalOwner,
+          dataSource: producer.dataSource,
+          version: producer.publicationVersionStrategy,
+          route: producer.routeSemantics,
+        },
+      ]),
+    );
+
+    expect(triples).toEqual({
+      services: {
+        owner: "src/lib/services.ts",
+        dataSource: "serviceRecords",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      forms: {
+        owner: "src/lib/forms.ts",
+        dataSource: "formRecords",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      differentials: {
+        owner: "src/lib/differentials.ts",
+        dataSource: "differentialRecords+differentialPresentations()",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      dsm: {
+        owner: "src/lib/dsm.ts",
+        dataSource: "dsmDiagnoses",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      specifiers: {
+        owner: "src/lib/specifiers-content.ts",
+        dataSource: "specifierCatalogItems()",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      formulation: {
+        owner: "src/lib/formulation.ts",
+        dataSource: "formulationMechanisms",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      prescribing: {
+        owner: "src/lib/medication-snapshot.ts",
+        dataSource: "loadMedicationSnapshot()",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      tools: {
+        owner: "src/lib/tools-catalog.ts",
+        dataSource: "publicKnowledgeToolCatalogRecords",
+        version: "adapter_computed_sha256",
+        route: "canonical_catalogue_href",
+      },
+      calculators: {
+        owner: "src/components/calculators/calculator-fixtures.ts",
+        dataSource: "calculators",
+        version: "adapter_computed_sha256",
+        route: "search_navigation",
+      },
+      "therapy-compass": {
+        owner: `public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`,
+        dataSource: "full therapy catalogue asset",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      factsheets: {
+        owner: "src/components/factsheets/factsheets-data.ts",
+        dataSource: "factsheets",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+      dictionary: {
+        owner: "src/lib/dictionary-data.ts",
+        dataSource: "dictionaryEntries",
+        version: "adapter_computed_sha256",
+        route: "exact_public_record",
+      },
+    });
+
+    expect(siteContentProducerForMode("services")?.routeBuilder("crisis-service")).toBe("/services/crisis-service");
+    expect(siteContentProducerForMode("forms")?.routeBuilder("transport-order")).toBe("/forms/transport-order");
+    expect(siteContentProducerForMode("differentials")?.routeBuilder("acute-confusion", "presentation")).toBe(
+      "/differentials/presentations/acute-confusion",
+    );
+    expect(siteContentProducerForMode("dsm")?.routeBuilder(dsmDiagnoses[0]!.slug)).toBe(
+      `/dsm/diagnoses/${dsmDiagnoses[0]!.slug}`,
+    );
+    expect(siteContentProducerForMode("specifiers")?.routeBuilder(specifierCatalogItems()[0]!.slug)).toBe(
+      `/specifiers/${specifierCatalogItems()[0]!.slug}`,
+    );
+    expect(siteContentProducerForMode("formulation")?.routeBuilder(formulationMechanisms[0]!.id)).toBe(
+      `/formulation/${formulationMechanisms[0]!.id}`,
+    );
+    expect(siteContentProducerForMode("prescribing")?.routeBuilder("lithium")).toBe("/medications/lithium");
+    expect(siteContentProducerForMode("tools")?.routeBuilder("clinical-dictionary")).toBe("/dictionary");
+    expect(siteContentProducerForMode("calculators")?.routeBuilder(calculators[0]!.abbrev)).toBe(
+      `/calculators/search?q=${encodeURIComponent(calculators[0]!.abbrev)}&run=1`,
+    );
+    expect(siteContentProducerForMode("therapy-compass")?.routeBuilder(therapyRecords[0]!.slug)).toBe(
+      `/therapy-compass/${therapyRecords[0]!.slug}`,
+    );
+    expect(siteContentProducerForMode("factsheets")?.routeBuilder(factsheets[0]!.slug)).toBe(
+      `/factsheets/${factsheets[0]!.slug}`,
+    );
+    expect(siteContentProducerForMode("dictionary")?.routeBuilder(dictionaryEntries[0]!.slug)).toBe(
+      `/dictionary/${dictionaryEntries[0]!.slug}`,
+    );
   });
 
   it("covers every current mode with a registered producer or permanent reviewed exclusion", () => {
@@ -229,6 +357,7 @@ describe("site content producer registry", () => {
       sourceStatus: "current",
       validationStatus: "approved",
       metadata: {
+        corpus_scope: "clinical_kb_site",
         owner_id: "audit-owner-id",
         actor_id: "audit-actor-id",
         created_by: "audit-creator-id",
@@ -240,11 +369,8 @@ describe("site content producer registry", () => {
       },
     };
 
-    expect(registryCorpusMetadata(entry)).toMatchObject({
-      corpus_scope: "clinical_kb_site",
-      source_role: "service_directory",
-      catalogue_label: "Service",
-    });
+    expect(registryCorpusMetadata(entry)).toMatchObject({ catalogue_label: "Service" });
+    expect(registryCorpusMetadata(entry)).not.toHaveProperty("corpus_scope");
     expect(registryCorpusMetadata(entry)).not.toHaveProperty("owner_id");
     expect(registryCorpusMetadata(entry)).not.toHaveProperty("actor_id");
     expect(registryCorpusMetadata(entry)).not.toHaveProperty("created_by");
@@ -310,6 +436,40 @@ describe("site content eligibility and authority", () => {
     }
   });
 
+  it("registers only the explicit public-knowledge subset of the real Tools catalogue", () => {
+    const eligibleIds = publicKnowledgeToolCatalogRecords.map((record) => record.id);
+    const forbiddenIds = [
+      "clinical-kb-search",
+      "documents",
+      "guidelines",
+      "risk-safety",
+      "care-plans",
+      "monitoring",
+      "ward-management",
+      "favourites",
+    ] as const;
+
+    expect(toolCatalogRecords.map((record) => record.id)).toEqual(expect.arrayContaining([...forbiddenIds]));
+    expect(eligibleIds).not.toEqual(expect.arrayContaining([...forbiddenIds]));
+    for (const producerRecordId of forbiddenIds) {
+      expect(evaluateSiteContentRegistration({ ...eligibleCandidate, modeId: "tools", producerRecordId })).toEqual({
+        eligible: false,
+        reason: "producer_record_excluded",
+      });
+    }
+
+    for (const record of publicKnowledgeToolCatalogRecords) {
+      expect(
+        evaluateSiteContentRegistration({
+          ...eligibleCandidate,
+          modeId: "tools",
+          producerRecordId: record.id,
+        }),
+      ).toMatchObject({ eligible: true });
+      expect(siteContentProducerForMode("tools")?.routeBuilder(record.id)).toBe(record.href);
+    }
+  });
+
   it("keeps product evidence separate from clinical authority and uploaded guidance primary", () => {
     expect(
       siteContentClaimPolicy({
@@ -348,21 +508,37 @@ describe("site content eligibility and authority", () => {
     });
   });
 
-  it("collapses lineage-derived summaries into the same evidence family", () => {
-    const uploaded = evidenceFamilyKey({
+  it("represents evidence-family membership by canonical hashes rather than source ids or combined parents", () => {
+    const uploaded = evidenceFamilyKeys({
       sourceId: "uploaded:lithium-guideline",
       sourceHash: "guideline-hash",
       sourceLineage: [],
     });
-    const siteSummary = evidenceFamilyKey({
+    const exactDuplicate = evidenceFamilyKeys({
+      sourceId: "uploaded:renamed-lithium-guideline",
+      sourceHash: "guideline-hash",
+      sourceLineage: [],
+    });
+    const siteSummary = evidenceFamilyKeys({
       sourceId: "site:medications:lithium",
       sourceHash: "summary-hash",
       sourceLineage: [
         { sourceId: "uploaded:lithium-guideline", sourceHash: "guideline-hash", relationship: "derived_from" },
+        { sourceId: "uploaded:monitoring-table", sourceHash: "monitoring-hash", relationship: "derived_from" },
+      ],
+    });
+    const secondDerivative = evidenceFamilyKeys({
+      sourceId: "site:factsheets:lithium-monitoring",
+      sourceHash: "other-summary-hash",
+      sourceLineage: [
+        { sourceId: "another-id-for-the-same-guideline", sourceHash: "guideline-hash", relationship: "derived_from" },
       ],
     });
 
-    expect(siteSummary).toBe(uploaded);
+    expect(exactDuplicate).toEqual(uploaded);
+    expect(siteSummary).toEqual(["source-family:guideline-hash", "source-family:monitoring-hash"]);
+    expect(secondDerivative).toEqual(["source-family:guideline-hash"]);
+    expect(siteSummary.filter((family) => secondDerivative.includes(family))).toEqual(uploaded);
   });
 
   it("selects only one explicitly reconciled public publication for duplicate legacy rows", () => {
@@ -370,6 +546,7 @@ describe("site content eligibility and authority", () => {
       {
         recordId: "editor-row-a",
         logicalId: "medications:lithium",
+        rowOwnerId: "editor-a",
         publicationState: "published",
         renderedByPublicSite: true,
         explicitlyReconciled: false,
@@ -377,6 +554,7 @@ describe("site content eligibility and authority", () => {
       {
         recordId: "canonical-publication",
         logicalId: "medications:lithium",
+        rowOwnerId: null,
         publicationState: "published",
         renderedByPublicSite: true,
         explicitlyReconciled: true,
@@ -384,6 +562,7 @@ describe("site content eligibility and authority", () => {
       {
         recordId: "editor-row-draft",
         logicalId: "medications:lithium",
+        rowOwnerId: "editor-draft",
         publicationState: "draft",
         renderedByPublicSite: false,
         explicitlyReconciled: false,
@@ -391,6 +570,9 @@ describe("site content eligibility and authority", () => {
     ] as const;
 
     expect(reconcileCanonicalPublicSiteContent(candidates)).toMatchObject({ recordId: "canonical-publication" });
+    expect(
+      reconcileCanonicalPublicSiteContent([{ ...candidates[1], rowOwnerId: "still-owner-partitioned" }]),
+    ).toBeNull();
     expect(
       reconcileCanonicalPublicSiteContent([
         ...candidates,

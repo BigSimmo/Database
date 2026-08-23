@@ -388,6 +388,31 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
   },
 ];
 
+/**
+ * Public knowledge records rendered by the Tools catalogue. Consumer shortcuts
+ * (Answer/Documents), account state, and synthetic operational workspaces stay
+ * in the launcher but are never site-content producers.
+ */
+export const publicKnowledgeToolCatalogIds = [
+  "differentials",
+  "clinical-dictionary",
+  "medication-prescribing",
+  "services",
+  "forms",
+  "safety-plan",
+  "calculators",
+] as const satisfies readonly ToolCatalogId[];
+
+const publicKnowledgeToolCatalogIdSet: ReadonlySet<string> = new Set(publicKnowledgeToolCatalogIds);
+
+export const publicKnowledgeToolCatalogRecords = toolCatalogRecords.filter((record) =>
+  publicKnowledgeToolCatalogIdSet.has(record.id),
+);
+
+export function publicKnowledgeToolCatalogRecordById(id: string): ToolCatalogRecord | null {
+  return publicKnowledgeToolCatalogRecords.find((record) => record.id === id) ?? null;
+}
+
 export function toolCatalogRecordById(id: string): ToolCatalogRecord {
   return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
 }

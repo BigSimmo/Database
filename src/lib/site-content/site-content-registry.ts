@@ -1,9 +1,11 @@
 import type { AppModeId } from "@/lib/app-modes";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import type {
   ActiveSiteContentRelease,
   SiteContentCorpusScope,
   SiteContentRecord,
 } from "@/lib/site-content/site-content-contracts";
+import { publicKnowledgeToolCatalogRecordById } from "@/lib/tools-catalog";
 import type { ClinicalSourceRole, SiteContentDomain, SourceCorpusScope } from "@/lib/types";
 
 export const SITE_CONTENT_REGISTRY_VERSION = "site-content-registry-v1" as const;
@@ -16,11 +18,13 @@ export type SiteContentProducerDefinition = {
   producerClass: SiteContentRecord["producerClass"];
   canonicalOwner: string;
   dataSource: string;
-  publicationVersionField: string;
+  editorDataSource?: string;
+  publicationVersionStrategy: "adapter_computed_sha256";
   adapter: string;
   allowedRoles: readonly ClinicalSourceRole[];
   readPolicy: "public_active_release";
   mutationPolicy: "administrator_only" | "repository_release_only";
+  routeSemantics: "exact_public_record" | "canonical_catalogue_href" | "search_navigation";
   routeBuilder: (slug: string, subkind?: string | null) => string;
   reviewOwner: "clinical_content_governance";
   activationState: "active";
@@ -52,36 +56,42 @@ export const siteContentProducerRegistry = [
     modeId: "services",
     domain: "services",
     producerClass: "dynamic_registry",
-    canonicalOwner: "src/lib/registry-records.ts",
-    dataSource: "clinical_registry_records:service",
-    publicationVersionField: "publication_version",
+    canonicalOwner: "src/lib/services.ts",
+    dataSource: "serviceRecords",
+    editorDataSource: "clinical_registry_records:service (owner-scoped, not canonical-public)",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/registry:services",
     allowedRoles: ["service_directory"],
     mutationPolicy: "administrator_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/services"),
   }),
   producer({
     modeId: "forms",
     domain: "forms",
     producerClass: "dynamic_registry",
-    canonicalOwner: "src/lib/registry-records.ts",
-    dataSource: "clinical_registry_records:form",
-    publicationVersionField: "publication_version",
+    canonicalOwner: "src/lib/forms.ts",
+    dataSource: "formRecords",
+    editorDataSource: "clinical_registry_records:form (owner-scoped, not canonical-public)",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/registry:forms",
     allowedRoles: ["form_reference"],
     mutationPolicy: "administrator_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/forms"),
   }),
   producer({
     modeId: "differentials",
     domain: "differentials",
     producerClass: "dynamic_registry",
-    canonicalOwner: "src/lib/differential-records.ts",
-    dataSource: "differential_records",
-    publicationVersionField: "publication_version",
+    canonicalOwner: "src/lib/differentials.ts",
+    dataSource: "differentialRecords+differentialPresentations()",
+    editorDataSource: "differential_records (owner-scoped, not canonical-public)",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/registry:differentials",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "administrator_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: (slug, subkind) =>
       `/differentials/${subkind === "presentation" ? "presentations" : "diagnoses"}/${encodeURIComponent(slug)}`,
   }),
@@ -91,22 +101,24 @@ export const siteContentProducerRegistry = [
     producerClass: "static_repository",
     canonicalOwner: "src/lib/dsm.ts",
     dataSource: "dsmDiagnoses",
-    publicationVersionField: "contentHash",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:dsm",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "repository_release_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/dsm/diagnoses"),
   }),
   producer({
     modeId: "specifiers",
     domain: "specifiers",
     producerClass: "static_repository",
-    canonicalOwner: "src/lib/specifiers.ts",
-    dataSource: "specifierRecords",
-    publicationVersionField: "contentHash",
+    canonicalOwner: "src/lib/specifiers-content.ts",
+    dataSource: "specifierCatalogItems()",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/specifiers",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "repository_release_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/specifiers"),
   }),
   producer({
@@ -115,22 +127,25 @@ export const siteContentProducerRegistry = [
     producerClass: "static_repository",
     canonicalOwner: "src/lib/formulation.ts",
     dataSource: "formulationMechanisms",
-    publicationVersionField: "contentHash",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:formulation",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "repository_release_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/formulation"),
   }),
   producer({
     modeId: "prescribing",
     domain: "medications",
     producerClass: "dynamic_registry",
-    canonicalOwner: "src/lib/medication-records.ts",
-    dataSource: "medication_records",
-    publicationVersionField: "publication_version",
+    canonicalOwner: "src/lib/medication-snapshot.ts",
+    dataSource: "loadMedicationSnapshot()",
+    editorDataSource: "medication_records (owner-scoped, not canonical-public)",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/registry:medications",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "administrator_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/medications"),
   }),
   producer({
@@ -138,12 +153,17 @@ export const siteContentProducerRegistry = [
     domain: "tools",
     producerClass: "static_repository",
     canonicalOwner: "src/lib/tools-catalog.ts",
-    dataSource: "toolCatalogRecords",
-    publicationVersionField: "contentHash",
+    dataSource: "publicKnowledgeToolCatalogRecords",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:tools",
     allowedRoles: ["tool_reference"],
     mutationPolicy: "repository_release_only",
-    routeBuilder: publicRoute("/tools"),
+    routeSemantics: "canonical_catalogue_href",
+    routeBuilder: (recordId) => {
+      const record = publicKnowledgeToolCatalogRecordById(recordId);
+      if (!record) throw new Error(`Tools site-content record is not public knowledge: ${recordId}`);
+      return record.href;
+    },
   }),
   producer({
     modeId: "calculators",
@@ -151,22 +171,24 @@ export const siteContentProducerRegistry = [
     producerClass: "static_repository",
     canonicalOwner: "src/components/calculators/calculator-fixtures.ts",
     dataSource: "calculators",
-    publicationVersionField: "contentHash",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:calculators",
     allowedRoles: ["tool_reference"],
     mutationPolicy: "repository_release_only",
-    routeBuilder: (slug) => `/calculators/search?q=${encodeURIComponent(slug)}`,
+    routeSemantics: "search_navigation",
+    routeBuilder: (abbreviation) => `/calculators/search?q=${encodeURIComponent(abbreviation)}&run=1`,
   }),
   producer({
     modeId: "therapy-compass",
     domain: "therapies",
     producerClass: "static_repository",
-    canonicalOwner: "src/lib/therapies.ts",
-    dataSource: "therapyRecords",
-    publicationVersionField: "contentHash",
+    canonicalOwner: `public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`,
+    dataSource: "full therapy catalogue asset",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:therapies",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "repository_release_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/therapy-compass"),
   }),
   producer({
@@ -175,10 +197,11 @@ export const siteContentProducerRegistry = [
     producerClass: "static_repository",
     canonicalOwner: "src/components/factsheets/factsheets-data.ts",
     dataSource: "factsheets",
-    publicationVersionField: "contentHash",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:factsheets",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "repository_release_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/factsheets"),
   }),
   producer({
@@ -187,10 +210,11 @@ export const siteContentProducerRegistry = [
     producerClass: "static_repository",
     canonicalOwner: "src/lib/dictionary-data.ts",
     dataSource: "dictionaryEntries",
-    publicationVersionField: "contentHash",
+    publicationVersionStrategy: "adapter_computed_sha256",
     adapter: "site-content/adapters/index:dictionary",
     allowedRoles: ["clinical_reference"],
     mutationPolicy: "repository_release_only",
+    routeSemantics: "exact_public_record",
     routeBuilder: publicRoute("/dictionary"),
   }),
 ] as const satisfies readonly SiteContentProducerDefinition[];
@@ -299,6 +323,7 @@ export function canMutateSiteContent(
 
 export type SiteContentRegistrationCandidate = {
   modeId: string;
+  producerRecordId?: string;
   access: "public" | "private";
   publicationState: "published" | "draft" | "preview";
   renderedByPublicSite: boolean;
@@ -325,7 +350,8 @@ export type SiteContentRegistrationDecision =
         | "not_published"
         | "not_publicly_rendered_version"
         | "forbidden_content_class"
-        | "forbidden_authority_source";
+        | "forbidden_authority_source"
+        | "producer_record_excluded";
     };
 
 export function evaluateSiteContentRegistration(
@@ -334,6 +360,12 @@ export function evaluateSiteContentRegistration(
   if (excludedModeIds.has(candidate.modeId)) return { eligible: false, reason: "mode_excluded" };
   const registeredProducer = siteContentProducerForMode(candidate.modeId);
   if (!registeredProducer) return { eligible: false, reason: "unregistered_mode" };
+  if (
+    candidate.modeId === "tools" &&
+    (!candidate.producerRecordId || !publicKnowledgeToolCatalogRecordById(candidate.producerRecordId))
+  ) {
+    return { eligible: false, reason: "producer_record_excluded" };
+  }
   if (candidate.access !== "public") return { eligible: false, reason: "not_public" };
   if (candidate.publicationState !== "published") return { eligible: false, reason: "not_published" };
   if (!candidate.renderedByPublicSite) return { eligible: false, reason: "not_publicly_rendered_version" };
@@ -383,19 +415,18 @@ export type EvidenceFamilySource = {
   sourceLineage: SiteContentRecord["sourceLineage"];
 };
 
-export function evidenceFamilyKey(source: EvidenceFamilySource) {
-  const parents = source.sourceLineage
+export function evidenceFamilyKeys(source: EvidenceFamilySource) {
+  const parentHashes = source.sourceLineage
     .filter((lineage) => lineage.relationship === "derived_from")
-    .map((lineage) => `${lineage.sourceId}:${lineage.sourceHash}`)
-    .sort();
-  return parents.length > 0
-    ? `source-family:${parents.join("|")}`
-    : `source-family:${source.sourceId}:${source.sourceHash}`;
+    .map((lineage) => lineage.sourceHash);
+  const familyHashes = parentHashes.length > 0 ? parentHashes : [source.sourceHash];
+  return [...new Set(familyHashes)].sort().map((sourceHash) => `source-family:${sourceHash}`);
 }
 
 export type LegacySiteContentPublicationCandidate = {
   recordId: string;
   logicalId: string;
+  rowOwnerId: string | null;
   publicationState: "published" | "draft" | "preview";
   renderedByPublicSite: boolean;
   explicitlyReconciled: boolean;
@@ -412,7 +443,10 @@ export function reconcileCanonicalPublicSiteContent<T extends LegacySiteContentP
   if (new Set(candidates.map((candidate) => candidate.logicalId)).size !== 1) return null;
   const eligible = candidates.filter(
     (candidate) =>
-      candidate.publicationState === "published" && candidate.renderedByPublicSite && candidate.explicitlyReconciled,
+      candidate.publicationState === "published" &&
+      candidate.renderedByPublicSite &&
+      candidate.explicitlyReconciled &&
+      candidate.rowOwnerId === null,
   );
   return eligible.length === 1 ? eligible[0]! : null;
 }

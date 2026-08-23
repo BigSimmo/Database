@@ -334,6 +334,8 @@ describe("registry corpus", () => {
         registry_record_kind: "service",
       },
     });
+    expect(document?.metadata).not.toHaveProperty("corpus_scope");
+    expect(chunk?.metadata).not.toHaveProperty("corpus_scope");
     expect(chunk?.metadata).toMatchObject({
       clinical_validation_evidence: { status: "locally_reviewed" },
     });

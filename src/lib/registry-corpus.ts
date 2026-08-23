@@ -82,6 +82,10 @@ function isAuditOnlyMetadataKey(key: string) {
   );
 }
 
+function isOwnerScopedClassificationMetadataKey(key: string) {
+  return key.replace(/[^a-z0-9]/gi, "").toLowerCase() === "corpusscope";
+}
+
 /** Stable smart-v2 intent for each registry family. Registry identity is
  * authoritative here; document text must not collapse every registry record
  * into the generic classifier fallback. */
@@ -146,7 +150,6 @@ function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> 
     document_status: entry.sourceStatus,
     clinical_validation_status: entry.validationStatus,
     clinical_validation_evidence: registryClinicalValidationEvidence(entry),
-    corpus_scope: "clinical_kb_site",
     source_role: registrySourceRoles[entry.kind],
     extraction_quality: "good",
     publisher: "Clinical KB registry",
@@ -200,10 +203,13 @@ function registryChunkId(entry: RegistryCorpusEntry) {
 /** Registry entry metadata. */
 export function registryCorpusMetadata(entry: RegistryCorpusEntry): Record<string, Json> {
   const retrievalMetadata = Object.fromEntries(
-    Object.entries(entry.metadata).filter(([key]) => !isAuditOnlyMetadataKey(key)),
+    Object.entries(entry.metadata).filter(
+      ([key]) => !isAuditOnlyMetadataKey(key) && !isOwnerScopedClassificationMetadataKey(key),
+    ),
   );
-  // Canonical scope and role are producer-owned. Caller metadata may supply
-  // lineage/catalogue context, but cannot reclassify a first-party projection.
+  // Generic registry documents remain owner-scoped until a separately governed
+  // public publication is adopted. Caller metadata cannot promote them into a
+  // public corpus or leak audit identities into retrieval metadata.
   return { ...retrievalMetadata, ...registryBaseMetadata(entry) };
 }
 
