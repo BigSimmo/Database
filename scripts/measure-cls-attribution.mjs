@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * measure-cls-attribution — attribute mobile CLS to the DOM elements that move.
+ * measure-cls-attribution — attribute responsive CLS to the DOM elements that move.
  *
  * Ledger `#147`. Lighthouse tells you a route's CLS but not what shifted: its
  * `layout-shift-elements` audit returned zero items on every route here, and the
@@ -30,7 +30,10 @@
  *
  * Usage:
  *   node scripts/measure-cls-attribution.mjs [--out <file>] [--routes a,b,c]
- *                                            [--port <n>] [--settle-ms <n>]
+ *                                            [--profiles <names>] [--port <n>]
+ *                                            [--settle-ms <n>]
+ *                                            [--exercise-offline]
+ *                                            [--exercise-api-unavailable]
  *
  * Chromium: honours `CHROME_PATH` or `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`, and
  * otherwise lets Playwright resolve its own browser (which respects
@@ -45,6 +48,7 @@ import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { browserProfileCellKey, parseBrowserProfiles } from "./lib/cls-attribution-options.mjs";
 import { waitForHttpReadiness } from "./lib/http-readiness.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { removePathSync } from "./retryable-fs.mjs";
@@ -89,6 +93,9 @@ const routes = flag("routes", "/dsm,/documents/search,/forms,/therapy-compass,/"
   .split(",")
   .map((route) => route.trim())
   .filter(Boolean);
+const profiles = parseBrowserProfiles(flag("profiles", undefined));
+const exerciseOffline = argv.includes("--exercise-offline");
+const exerciseApiUnavailable = argv.includes("--exercise-api-unavailable");
 const portFlag = flag("port", null);
 const port = portFlag === null ? await findFreePort(stableProjectPort(projectRoot)) : Number(portFlag);
 if (!Number.isInteger(port) || port < projectPortStart || port > projectPortEnd || isReservedDevPort(port)) {
@@ -97,6 +104,12 @@ if (!Number.isInteger(port) || port < projectPortStart || port > projectPortEnd 
   );
 }
 const settleMs = Number(flag("settle-ms", "6000"));
+const transitionSettleMs = Number(flag("transition-settle-ms", "1000"));
+if (!Number.isFinite(settleMs) || settleMs < 0)
+  throw new Error(`--settle-ms must be non-negative; received ${settleMs}.`);
+if (!Number.isFinite(transitionSettleMs) || transitionSettleMs < 0) {
+  throw new Error(`--transition-settle-ms must be non-negative; received ${transitionSettleMs}.`);
+}
 const outFile = path.resolve(projectRoot, flag("out", "cls-attribution.json"));
 const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -111,6 +124,11 @@ const env = offlineTestEnvironment(process.env, {
   NODE_ENV: "production",
   PLAYWRIGHT_OFFLINE_MODE: "true",
   NEXT_PUBLIC_MOCKUPS_ENABLED: "false",
+  // The default stays on the safe synthetic corpus. The explicit outage
+  // exercise turns demo capability off so apiUnavailable is not intentionally
+  // masked by a still-runnable demo search; provider endpoints remain scrubbed
+  // and inert through offlineTestEnvironment.
+  NEXT_PUBLIC_DEMO_MODE: exerciseApiUnavailable ? "false" : "true",
 });
 
 function isThisProject(body) {
@@ -147,8 +165,144 @@ async function waitForServer(url, child) {
 const PAGE_INSTRUMENTATION = () => {
   window.__clsEntries = [];
   window.__reserveTimeline = [];
+  window.__clsPhase = "initial";
+  window.__clsPhases = [{ phase: "initial", t: Math.round(performance.now()) }];
   window.__clsObserverReady = false;
   window.__reserveObserverReady = false;
+  window.__geometryObserverReady = false;
+
+  const geometryTargets = {
+    modeHomeComposerSlot: ".mode-home-composer-slot",
+    phoneStickyHeader: ".phone-sticky-header-stack",
+  };
+  const lcpCandidates = {
+    rootStartState: {
+      selector: "#shared-home-empty-state-title",
+      matches: (node) => node.matches("#shared-home-empty-state-title"),
+    },
+    documentsStartState: {
+      selector: "main p (documents explanatory copy)",
+      matches: (node) =>
+        node.matches("main p") &&
+        (node.textContent || "").includes("Enter a query in the Documents composer to search the indexed sources."),
+    },
+  };
+  window.__responsiveGeometry = Object.fromEntries(
+    Object.entries(geometryTargets).map(([key, selector]) => [key, { selector, firstPaint: null }]),
+  );
+  window.__lcpCandidateTimings = Object.fromEntries(
+    Object.entries(lcpCandidates).map(([key, candidate]) => [
+      key,
+      {
+        selector: candidate.selector,
+        firstPresentAt: null,
+        firstVisibleAt: null,
+        events: [],
+      },
+    ]),
+  );
+
+  const roundedRect = (rect) => ({
+    x: Math.round(rect.x * 100) / 100,
+    y: Math.round(rect.y * 100) / 100,
+    width: Math.round(rect.width * 100) / 100,
+    height: Math.round(rect.height * 100) / 100,
+  });
+  const visibleElement = (elements) =>
+    elements.find((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+    }) ||
+    elements[0] ||
+    null;
+  const elementSnapshot = (elements) => {
+    const element = visibleElement(elements);
+    if (!element) return { t: Math.round(performance.now()), present: false, visible: false, count: 0, rect: null };
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const visible = rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+    return {
+      t: Math.round(performance.now()),
+      present: true,
+      visible,
+      count: elements.length,
+      rect: roundedRect(rect),
+    };
+  };
+  const matchingCandidates = (candidate) =>
+    Array.from(document.querySelectorAll("#shared-home-empty-state-title, main p")).filter(candidate.matches);
+
+  let geometryFrame = null;
+  const sampleResponsiveSurfaces = () => {
+    geometryFrame = null;
+    for (const [key, selector] of Object.entries(geometryTargets)) {
+      const snapshot = elementSnapshot(Array.from(document.querySelectorAll(selector)));
+      if (!window.__responsiveGeometry[key].firstPaint && snapshot.present) {
+        window.__responsiveGeometry[key].firstPaint = snapshot;
+      }
+    }
+
+    for (const [key, candidate] of Object.entries(lcpCandidates)) {
+      const snapshot = elementSnapshot(matchingCandidates(candidate));
+      const timeline = window.__lcpCandidateTimings[key];
+      const previous = timeline.events.at(-1);
+      if (timeline.firstPresentAt === null && snapshot.present) timeline.firstPresentAt = snapshot.t;
+      if (timeline.firstVisibleAt === null && snapshot.visible) timeline.firstVisibleAt = snapshot.t;
+      if (!previous || previous.present !== snapshot.present || previous.visible !== snapshot.visible) {
+        timeline.events.push(snapshot);
+      }
+    }
+  };
+  const scheduleResponsiveSample = () => {
+    if (geometryFrame !== null) return;
+    geometryFrame = requestAnimationFrame(sampleResponsiveSurfaces);
+  };
+  const attachGeometryObserver = () => {
+    if (!document.documentElement) return false;
+    new MutationObserver(scheduleResponsiveSample).observe(document.documentElement, {
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    window.__geometryObserverReady = true;
+    scheduleResponsiveSample();
+    return true;
+  };
+  if (!attachGeometryObserver()) {
+    document.addEventListener("readystatechange", function retry() {
+      if (attachGeometryObserver()) document.removeEventListener("readystatechange", retry);
+    });
+  }
+
+  window.__markClsPhase = (phase) => {
+    window.__clsPhase = phase;
+    window.__clsPhases.push({ phase, t: Math.round(performance.now()) });
+    scheduleResponsiveSample();
+  };
+  window.__captureClsSnapshot = () => {
+    sampleResponsiveSurfaces();
+    return {
+      geometry: Object.fromEntries(
+        Object.entries(geometryTargets).map(([key, selector]) => [
+          key,
+          {
+            ...window.__responsiveGeometry[key],
+            settled: elementSnapshot(Array.from(document.querySelectorAll(selector))),
+          },
+        ]),
+      ),
+      lcpCandidates: Object.fromEntries(
+        Object.entries(lcpCandidates).map(([key, candidate]) => [
+          key,
+          {
+            ...window.__lcpCandidateTimings[key],
+            settled: elementSnapshot(matchingCandidates(candidate)),
+          },
+        ]),
+      ),
+    };
+  };
 
   let lastReserve = null;
   const recordReserve = () => {
@@ -212,6 +366,7 @@ const PAGE_INSTRUMENTATION = () => {
       // CLS excludes shifts within 500ms of user input; so does this.
       if (entry.hadRecentInput) continue;
       window.__clsEntries.push({
+        phase: window.__clsPhase,
         value: entry.value,
         startTime: entry.startTime,
         sources: (entry.sources || []).map((source) => ({
@@ -225,6 +380,68 @@ const PAGE_INSTRUMENTATION = () => {
   clsObserver.observe({ type: "layout-shift", buffered: true });
   window.__clsObserverReady = true;
 };
+
+async function waitForLoadedAssets(page) {
+  await page.waitForFunction(
+    () =>
+      document.readyState === "complete" &&
+      window.__clsObserverReady === true &&
+      window.__reserveObserverReady === true &&
+      window.__geometryObserverReady === true,
+    undefined,
+    { timeout: 30_000 },
+  );
+  await page.evaluate(async () => {
+    await document.fonts?.ready;
+    await Promise.all(
+      Array.from(document.images)
+        .filter((image) => !image.complete)
+        .map(
+          (image) =>
+            new Promise((resolve) => {
+              image.addEventListener("load", resolve, { once: true });
+              image.addEventListener("error", resolve, { once: true });
+            }),
+        ),
+    );
+  });
+}
+
+async function markPhase(page, phase) {
+  await page.evaluate((nextPhase) => window.__markClsPhase?.(nextPhase), phase);
+}
+
+async function waitForVisibleNotice(page, text, state) {
+  await page
+    .locator("#main-content button:visible, #main-content details:visible")
+    .filter({ hasText: text })
+    .first()
+    .waitFor({ state, timeout: 10_000 });
+}
+
+async function exerciseDegradedTransitions({ page, context }) {
+  if (exerciseOffline) {
+    await markPhase(page, "offline");
+    await context.setOffline(true);
+    await waitForVisibleNotice(page, "Offline", "visible");
+    await page.waitForTimeout(transitionSettleMs);
+
+    await markPhase(page, "reconnecting");
+    await context.setOffline(false);
+    await waitForVisibleNotice(page, "Offline", "hidden");
+    await page.waitForTimeout(transitionSettleMs);
+  }
+
+  if (exerciseApiUnavailable) {
+    await page.route("**/api/local-project-id**", async (route) => {
+      await route.fulfill({ status: 503, json: { error: "Deterministic CLS attribution outage." } });
+    });
+    await markPhase(page, "api-unavailable");
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await waitForVisibleNotice(page, "Service unavailable", "visible");
+    await page.waitForTimeout(transitionSettleMs);
+  }
+}
 
 function stopOwnedProcessTree(child) {
   if (!child?.pid || child.exitCode !== null) return;
@@ -274,57 +491,76 @@ try {
   browser = await chromium.launch(executablePath ? { executablePath } : {});
 
   const results = {};
-  for (const route of routes) {
-    // Lighthouse's mobile emulation, so these numbers sit beside its reports.
-    const context = await browser.newContext({
-      viewport: { width: 412, height: 823 },
-      deviceScaleFactor: 1.75,
-      isMobile: true,
-      hasTouch: true,
-    });
-    const page = await context.newPage();
-    await page.addInitScript(PAGE_INSTRUMENTATION);
-    const cdp = await context.newCDPSession(page);
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  for (const profile of profiles) {
+    for (const route of routes) {
+      const context = await browser.newContext({
+        viewport: { width: profile.width, height: profile.height },
+        deviceScaleFactor: profile.dpr,
+        isMobile: profile.isMobile,
+        hasTouch: profile.hasTouch,
+      });
+      const page = await context.newPage();
+      await page.addInitScript(PAGE_INSTRUMENTATION);
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
 
-    await page.goto(`${baseUrl}${route}`, { waitUntil: "load", timeout: 90_000 });
-    // CLS keeps accruing well past `load`; sample after things settle.
-    await page.waitForTimeout(settleMs);
-    const entries = await page.evaluate(() => window.__clsEntries || []);
-    const timeline = await page.evaluate(() => window.__reserveTimeline || []);
-    const instrumentation = await page.evaluate(() => ({
-      clsObserverReady: window.__clsObserverReady === true,
-      reserveObserverReady: window.__reserveObserverReady === true,
-    }));
-    await context.close();
+      await page.goto(`${baseUrl}${route}`, { waitUntil: "load", timeout: 90_000 });
+      await waitForLoadedAssets(page);
+      await markPhase(page, "healthy");
+      // CLS keeps accruing well past `load`; sample after things settle.
+      await page.waitForTimeout(settleMs);
+      await exerciseDegradedTransitions({ page, context });
+      const entries = await page.evaluate(() => window.__clsEntries || []);
+      const timeline = await page.evaluate(() => window.__reserveTimeline || []);
+      const phases = await page.evaluate(() => window.__clsPhases || []);
+      const surfaces = await page.evaluate(() => window.__captureClsSnapshot());
+      const instrumentation = await page.evaluate(() => ({
+        clsObserverReady: window.__clsObserverReady === true,
+        reserveObserverReady: window.__reserveObserverReady === true,
+        geometryObserverReady: window.__geometryObserverReady === true,
+      }));
+      await context.close();
 
-    const total = entries.reduce((sum, entry) => sum + entry.value, 0);
-    const bySource = new Map();
-    for (const entry of entries) {
-      // The whole entry value is charged to each of its sources: one shift is
-      // one relayout and every source moved in it. Read as "involved in shifts
-      // worth X", not as a partition of CLS.
-      for (const source of entry.sources) {
-        const key = source.selector || "(unknown)";
-        const current = bySource.get(key) || { value: 0, count: 0, sample: source };
-        current.value += entry.value;
-        current.count += 1;
-        bySource.set(key, current);
+      const total = entries.reduce((sum, entry) => sum + entry.value, 0);
+      const bySource = new Map();
+      for (const entry of entries) {
+        // The whole entry value is charged to each of its sources: one shift is
+        // one relayout and every source moved in it. Read as "involved in shifts
+        // worth X", not as a partition of CLS.
+        for (const source of entry.sources) {
+          const key = source.selector || "(unknown)";
+          const current = bySource.get(key) || { value: 0, count: 0, sample: source };
+          current.value += entry.value;
+          current.count += 1;
+          bySource.set(key, current);
+        }
       }
-    }
 
-    results[route] = {
-      total,
-      entryCount: entries.length,
-      sources: [...bySource.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 8),
-      entries,
-      reserveTimeline: timeline,
-      instrumentation,
-    };
+      const cellKey = browserProfileCellKey(profile.name, route);
+      results[cellKey] = {
+        route,
+        profile: { ...profile },
+        exercises: {
+          offlineReconnect: exerciseOffline,
+          apiUnavailable: exerciseApiUnavailable,
+        },
+        total,
+        entryCount: entries.length,
+        sources: [...bySource.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 8),
+        entries,
+        reserveTimeline: timeline,
+        phases,
+        geometry: surfaces.geometry,
+        lcpCandidates: surfaces.lcpCandidates,
+        instrumentation,
+      };
 
-    console.log(`[cls] ${route.padEnd(20)} CLS=${total.toFixed(3)}  shifts=${entries.length}`);
-    for (const step of timeline) {
-      console.log(`        reserve t=${step.t}ms ${step.value} (stack=${step.stackHeight})`);
+      console.log(
+        `[cls] ${profile.name.padEnd(20)} ${route.padEnd(20)} CLS=${total.toFixed(3)} shifts=${entries.length}`,
+      );
+      for (const step of timeline) {
+        console.log(`        reserve t=${step.t}ms ${step.value} (stack=${step.stackHeight})`);
+      }
     }
   }
 
@@ -335,7 +571,12 @@ try {
   console.log(`[cls] wrote ${path.relative(projectRoot, outFile)}`);
 
   const routesMissingInstrumentation = Object.entries(results)
-    .filter(([, result]) => !result.instrumentation.clsObserverReady || !result.instrumentation.reserveObserverReady)
+    .filter(
+      ([, result]) =>
+        !result.instrumentation.clsObserverReady ||
+        !result.instrumentation.reserveObserverReady ||
+        !result.instrumentation.geometryObserverReady,
+    )
     .map(([route]) => route);
   if (routesMissingInstrumentation.length > 0) {
     console.error(
