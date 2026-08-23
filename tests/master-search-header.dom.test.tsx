@@ -167,7 +167,7 @@ describe("MasterSearchHeader DOM", () => {
     expect(screen.queryByRole("button", { name: /Dictate question/ })).not.toBeInTheDocument();
   });
 
-  it("hides Ask and Dictate on the empty home hero composer", async () => {
+  it("still renders Ask and Dictate when the home hero is given Clinical Ask actions", async () => {
     installMatchMediaStub(true);
     const slot = document.createElement("div");
     slot.id = modeHomeDesktopComposerSlotId;
@@ -196,8 +196,8 @@ describe("MasterSearchHeader DOM", () => {
       await waitFor(() => {
         expect(screen.getByTestId("global-search-input")).toBeInTheDocument();
       });
-      expect(screen.queryByRole("button", { name: "Ask Services" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /Dictate question/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Ask Services" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Dictate question/ })).toBeInTheDocument();
     } finally {
       slot.remove();
     }

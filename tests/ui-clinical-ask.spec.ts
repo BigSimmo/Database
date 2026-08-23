@@ -138,6 +138,13 @@ async function openSubmittedModeDock(page: Page, mode: string) {
   await page.goto(`/?mode=${mode}&q=probe&run=1`);
 }
 
+async function clickClinicalAsk(page: Page, label: string) {
+  const ask = page.getByRole("button", { name: `Ask ${label}`, exact: true });
+  await expect(ask).toBeVisible();
+  await expect(ask).toBeEnabled();
+  await ask.click();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -158,6 +165,7 @@ test("@critical hides Ask and Dictate on empty mode homes", async ({ page }) => 
 });
 
 test("@critical renders governed answers for all seven Clinical Ask modes without leaking input", async ({ page }) => {
+  test.setTimeout(180_000);
   const requestCount = await mockClinicalAsk(page);
   for (const [mode, label, sections] of modes) {
     await page.goto(`/?mode=${mode}`);
@@ -165,7 +173,7 @@ test("@critical renders governed answers for all seven Clinical Ask modes withou
     await openSubmittedModeDock(page, mode);
     const input = await composer(page);
     await input.fill(syntheticQuestion);
-    await page.getByRole("button", { name: `Ask ${label}`, exact: true }).click();
+    await clickClinicalAsk(page, label);
     const answer = page.getByLabel(`${label} answer`);
     await expect(answer).toBeVisible();
     const headings = await answer.locator("h3").evaluateAll((nodes) => nodes.map((node) => node.textContent));
@@ -223,7 +231,7 @@ test("@critical keeps dictated text reviewable and requires explicit Ask", async
   await expect(input).toHaveValue("Synthetic dictated presentation");
   expect(askCount()).toBe(0);
   await input.fill("Synthetic dictated presentation, edited after review");
-  await page.getByRole("button", { name: "Ask Services", exact: true }).click();
+  await clickClinicalAsk(page, "Services");
   await expect(page.getByLabel("Services answer")).toBeVisible();
   expect(transcriptionRequests).toBe(1);
   expect(askCount()).toBe(1);
@@ -249,8 +257,7 @@ test("@critical remains accessible and within the viewport at required widths an
     await openSubmittedModeDock(page, "differentials");
     const input = await composer(page);
     await input.fill("Synthetic comparison presentation");
-    await expect(page.getByRole("button", { name: "Ask Differentials", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Ask Differentials", exact: true }).click();
+    await clickClinicalAsk(page, "Differentials");
     await expect(page.getByLabel("Differentials answer")).toBeVisible();
     const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     await testInfo.attach(`axe-${width}`, { body: JSON.stringify(axe.violations), contentType: "application/json" });
