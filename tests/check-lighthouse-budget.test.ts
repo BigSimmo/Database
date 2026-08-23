@@ -515,8 +515,9 @@ describe("committed lighthouse-budget.json", () => {
   it("bounds each Lighthouse process independently of its navigation timeout", () => {
     const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
 
-    expect(runner).toContain("const buildTimeoutMs = lighthouseBuildTimeoutMs({");
-    expect(runner).toContain("ci: process.env.CI !== undefined");
+    expect(runner).toMatch(
+      /const buildTimeoutMs = lighthouseBuildTimeoutMs\(\{\s*platform: process\.platform,\s*ci: process\.env\.CI !== undefined,\s*\}\);/,
+    );
     expect(runner).toContain("timeout: buildTimeoutMs");
     expect(runner).toContain("waitForServer(baseUrl, server, LIGHTHOUSE_SERVER_READY_TIMEOUT_MS)");
     expect(runner).toContain("if (requestTimeout === 0) break");
