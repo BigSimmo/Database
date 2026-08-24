@@ -394,7 +394,7 @@ export function DictionaryCataloguePage() {
             status="ready"
             resultNoun={noun}
             hideEmptyQuery
-            emptyQueryLabel="Dictionary catalogue"
+            emptyQueryLabel="Dictionary catalogue filters"
             utilityControls={
               <>
                 {searching ? clearQueryControl : null}
@@ -469,16 +469,22 @@ export function DictionaryCataloguePage() {
                   catalogue the reader is not looking at. */}
               <h2 className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">
                 {searching
-                  ? "No matching dictionary entries"
+                  ? params.letter === "all"
+                    ? "No matching dictionary entries"
+                    : `No matching dictionary entries under ${params.letter}`
                   : params.letter === "all"
                     ? `No ${catalogueNoun(params.scope, 0)} match these filters`
                     : `No ${catalogueNoun(params.scope, 0)} under ${params.letter}`}
               </h2>
               <p className="mx-auto mt-1 max-w-md text-sm text-[color:var(--text-muted)]">
                 {searching
-                  ? activeCount
-                    ? "Keep the search term and remove a filter, or try a broader term."
-                    : "Try a broader term, check the spelling, or clear the search to browse the catalogue."
+                  ? params.letter === "all"
+                    ? activeCount
+                      ? "Keep the search term and remove a filter, or try a broader term."
+                      : "Try a broader term, check the spelling, or clear the search to browse the catalogue."
+                    : activeCount
+                      ? "Keep the search term, show all letters, or remove a filter."
+                      : "Show all letters, try a broader term, or clear the search to browse the catalogue."
                   : params.letter === "all"
                     ? "Remove a filter, or switch between terms and abbreviations."
                     : "Choose another letter, or widen the filters."}
@@ -492,7 +498,8 @@ export function DictionaryCataloguePage() {
                   >
                     Clear the search
                   </button>
-                ) : params.letter === "all" ? null : (
+                ) : null}
+                {params.letter === "all" ? null : (
                   <button
                     type="button"
                     onClick={() => setOne("letter", "all", "all")}
