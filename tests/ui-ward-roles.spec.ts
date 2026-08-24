@@ -94,6 +94,34 @@ test.describe("Ward screen", () => {
     await expect(card).toContainText("Bed hold 15m left");
     await expect(card).not.toContainText("Bed hold 1h 00m left");
   });
+
+  /**
+   * Deferred item 1. `tests/ui-ward-management.spec.ts`'s "retains its operating structure in
+   * dark, forced-colours, and print modes" already proves this for the coordinator command view;
+   * the four role screens had none of it. This copies that established `emulateMedia` sequence
+   * exactly — dark, then forced-colours, then print — and asserts the same class of thing it
+   * does: that the screen's *operating structure* survives each mode. It deliberately makes no
+   * assertion about colour, contrast or appearance, because nothing here measures those.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await gotoWard(page, "bty-adult-secure");
+    await expect(page.getByTestId("ward-unit-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-unit-beds")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Bed capacity" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-unit-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-unit-beds")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Bed capacity" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-unit-beds"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-unit-governance"]:visible')).toBeVisible();
+  });
 });
 
 test.describe("Transport officer screen", () => {
@@ -144,6 +172,32 @@ test.describe("Transport officer screen", () => {
     // All eight seed jobs not yet arrived are on screen — never filtered to an inferred "mine".
     await expect(page.locator('[data-testid^="ward-officer-job-"]')).toHaveCount(8);
   });
+
+  /**
+   * Deferred item 1, same pattern as the ward screen's copy of it above. The officer screen is
+   * the one role screen tested at phone width, so it is emulated at phone width here too — the
+   * structure that has to survive is the job list and its governance banner, not a desktop
+   * layout the officer never sees.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/ward-management/transport/officer", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ward-officer-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-joblist")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-job-WF-005")).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-officer-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-joblist")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-job-WF-005")).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-officer-joblist"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-officer-governance"]:visible')).toBeVisible();
+  });
 });
 
 test.describe("Live tracker", () => {
@@ -193,6 +247,31 @@ test.describe("Live tracker", () => {
 
     await expect(page.locator('[data-testid^="ward-tracker-row-"]')).toHaveCount(8);
     await expect(page.getByTestId("ward-tracker-governance")).toContainText(/33 of 41/);
+  });
+
+  /**
+   * Deferred item 1, same pattern as the two screens above. The tracker's operating structure is
+   * its row list and the governance banner that states the excluded movements; both must still
+   * be there in each mode. The leg badges deliberately are not asserted on here — their visual
+   * distinction is a separate, separately tested concern (deferred item 3), and this test makes
+   * no claim about how anything looks.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/ward-management/transport", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ward-tracker-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-tracker-list")).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-tracker-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-tracker-list")).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-tracker-list"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-tracker-governance"]:visible')).toBeVisible();
   });
 });
 
@@ -346,6 +425,31 @@ test.describe("Emergency department screen", () => {
 
     await expect(page.getByTestId("ward-ed-police-WF-009")).toBeVisible();
     await expect(page.locator('[data-testid^="ward-ed-police-"]')).toHaveCount(1);
+  });
+
+  /**
+   * Deferred item 1, completing the four role screens. The ED screen's operating structure is its
+   * two working sections — raising a referral, and the department's own patient list — plus the
+   * governance banner; each must still be present in dark, forced-colours and print.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ward-ed-governance")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Raise a referral" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "This department's patients" })).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-ed-governance")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Raise a referral" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "This department's patients" })).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-ed-governance"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-ed-patient-WF-005"]:visible')).toBeVisible();
   });
 });
 
