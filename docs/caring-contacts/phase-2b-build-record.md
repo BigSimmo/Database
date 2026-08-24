@@ -946,3 +946,47 @@ weaken the rule rather than fix them. Opt-in marker, joined deliberately.
 
 Task 5: fix round 2/5 dispatched — Ruling 94, the mutation ledger, N-1, N-2, N-3, and the dark-mode
 assertion.
+
+### Task 5 fix round 2 re-review — all six ADDRESSED, nothing new
+
+Ruling 94's fix verified at all three sites, and the reviewer checked the replacement claim is
+actually true today rather than taking it on faith — it grepped for imports of the workspace from
+outside its own route segment and found none. It also grepped all three files plus `error.tsx` for a
+reintroduced number and found none. One file says "a handful", which is deliberately vague rather than
+a tally that can go stale; read as consistent with the ruling rather than a loophole.
+
+**The ledger closed by dropping the total rather than forcing a reconciliation**, which the reviewer
+read — correctly — as the same move Ruling 94 makes: every attempt is now a row, including the skipped
+anchor-mismatch and the two that did NOT go red, and no aggregate is claimed. A reader who wants a
+number adds it up themselves. That is the right way round: the itemisation is the evidence, the total
+was only ever a summary of it.
+
+**One of my instructions was overstated and the reviewer said so.** I asked for N-3's two mutations
+"from opposite directions". Both — subtract-only-absorbed, and subtract-nothing — produce a count that
+is too HIGH, so they are not opposite; they are two plausible wrong implementations of the same
+definition. The practice is sound mutation method and the fix is right; my geometry was wrong. Recorded
+because a controller's framing gets copied into later briefs if nobody corrects it.
+
+The reviewer also traced the store invariant the N-2 fix relies on — that absorbed contacts always land
+terminal-`suppressed` — back to `createPlan` in the in-memory store rather than accepting it as an
+assumed invariant. That is the standard this programme keeps asking for and rarely has to ask twice.
+
+**Task 5: COMPLETE (commits `efb84c556`..`6df257b35`, review clean after 2 fix rounds, 4 minors
+deferred).** Playwright `38 passed`, up from 32 — the six new tests are the Critical finding's remedy.
+
+**Ruling [95] — Task 5b's names-only read is its own repository method with its own capability check,
+and that check reuses the existing `viewPatientRecord` rather than minting a new capability.**
+— Why: the owner approved "a narrow read that returns just the name, permission-checked separately".
+The substance he was buying is **data narrowing** — a caseload that no longer pulls mobile number,
+identifiers and cultural identity for every row to show one field — and a separate projection delivers
+that completely. A new capability would only buy something if some role should see names but not
+records, and no such role exists: `viewPatientRecord` is granted at five sites covering the human
+roles that can list plans at all. Minting `viewPatientName` would invent a permission tier nobody has
+asked for, and every role's grant would have to be decided to satisfy the exhaustiveness guard.
+— Cost if wrong: if a see-names-but-not-records role ever appears, the capability splits at that
+point. The split is mechanical precisely because the read is already its own method — which is the
+part that matters and is being built now.
+
+**Stated plainly because it is a narrowing of my own words to the owner:** I said "permission-checked
+separately", and separately means its own method and its own check, not a new capability. If he meant
+a new permission tier, this is the sentence that will let him say so.
