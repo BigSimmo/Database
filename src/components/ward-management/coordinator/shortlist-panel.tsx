@@ -590,8 +590,8 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
           <>
             {!movement.escalation ? (
               <p className={styles.shortlistSectionNote}>
-                No eligible destination is currently available for {movement.id}. Record what was tried and who is
-                being contacted next.
+                No eligible destination is currently available for {movement.id}. Record what was tried and who is being
+                contacted next.
               </p>
             ) : null}
             <button
@@ -606,8 +606,8 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
             {escalationOpen ? (
               <form className={styles.shortlistOverrideForm} onSubmit={submitEscalation}>
                 <label className={styles.shortlistOverrideLabel} htmlFor="ward-shortlist-escalation-contact">
-                  Role or service being contacted next — a role or service only, never a person&apos;s name
-                  (synthetic data only)
+                  Role or service being contacted next — a role or service only, never a person&apos;s name (synthetic
+                  data only)
                 </label>
                 <textarea
                   id="ward-shortlist-escalation-contact"

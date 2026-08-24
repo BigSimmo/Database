@@ -1,6 +1,13 @@
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import type { LegalForm, LegalStatus, Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
+import type {
+  LegalForm,
+  LegalStatus,
+  Movement,
+  MovementStage,
+  Rejection,
+  Unit,
+} from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 

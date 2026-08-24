@@ -1203,9 +1203,10 @@ test.describe("Ward Flow coordinator screen", () => {
 
     const wf009 = requireMovement("WF-009");
     const candidates = eligibleCandidatesAmong(wf009, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
-    expect(candidates.some((c) => c.verdict.eligible), "fixture assumption: WF-009 has no eligible candidate").toBe(
-      false,
-    );
+    expect(
+      candidates.some((c) => c.verdict.eligible),
+      "fixture assumption: WF-009 has no eligible candidate",
+    ).toBe(false);
     expect(wf009.escalation, "fixture assumption: WF-009 already carries a pre-authored escalation").toBeDefined();
     expect(wf009.declines.length, "fixture assumption: WF-009 carries five declines").toBe(5);
 

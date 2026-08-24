@@ -66,9 +66,7 @@ test.describe("Ward screen", () => {
    * it. WF-003 is fixture-pinned `accepted_awaiting_bed` at `rph-adult-secure`
    * (`ward-movements.ts`), so Hold needs no prior referral/accept steps here.
    */
-  test("the demo clock control advances a held bed toward expiry, and reads as demo scaffolding", async ({
-    page,
-  }) => {
+  test("the demo clock control advances a held bed toward expiry, and reads as demo scaffolding", async ({ page }) => {
     await gotoWard(page, "rph-adult-secure");
 
     const card = page.getByTestId("ward-accepted-WF-003");
@@ -576,7 +574,11 @@ test.describe("Live capacity — a ward's own action reaches every screen that r
     const diagram = page.getByRole("region", { name: "Statewide flow" });
     await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
 
-    await page.getByRole("region", { name: "Priority queue" }).locator('[data-testid^="ward-queue-row-"]').first().click();
+    await page
+      .getByRole("region", { name: "Priority queue" })
+      .locator('[data-testid^="ward-queue-row-"]')
+      .first()
+      .click();
 
     const rphNode = diagram.getByTestId("ward-diagram-unit-rph-adult-secure");
     // The diagram's own unit node reads the unit's live capacity directly (Critical 1 also named
