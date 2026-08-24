@@ -197,11 +197,15 @@ Everything the user held back is listed as **not run, by user instruction** in
 was pushed, no pull request was opened, nothing was merged.
 
 **One thing is owed rather than done.** The optional evidence capture
-(`CARE_PLAN_CAPTURE_EVIDENCE=1`) was attempted three times and never reached its build:
-each attempt sat with no output for more than five minutes, which is the run coordinator
-holding the exclusive heavy lease for another session on this machine. The capture path is
-written and registered but has never executed, so its own assertions are untested, and the
-Patient Plan paper was therefore read from source rather than from a captured sheet.
+(`CARE_PLAN_CAPTURE_EVIDENCE=1`) was attempted three times and produced no screenshot. The
+first two never reached their build — no output at all for more than five minutes each,
+which is the run coordinator holding the exclusive heavy lease for another session on this
+machine. The third compiled in 69 seconds and then sat in `Running TypeScript ...` for over
+thirty minutes, a step that took 68 and 77 seconds in the four earlier browser runs; it was
+stopped rather than left holding the exclusive lease. None of that is a red result — it is
+"blocked, retry" three times over. But the capture path has never executed, so its own
+assertions are untested, and the Patient Plan paper was read from source rather than from a
+captured sheet.
 
 ---
 

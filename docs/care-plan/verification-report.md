@@ -327,10 +327,21 @@ which checks this task runs: `typecheck`, `lint`, the Care Plan Vitest files,
 ## Evidence capture — attempted, not completed
 
 `CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup -- -g handoff` was started
-twice and **neither attempt reached its build**. Both sat with no output at all — no build
-line, no run root created — for more than five minutes, which is the run coordinator holding
+three times and **no attempt produced a single screenshot**.
+
+Attempts one and two never reached their build at all: no build line, no run root created,
+no output of any kind for more than five minutes each. That is the run coordinator holding
 the exclusive heavy lease for another session on this machine, not a failure of the capture.
 Both were stopped so the fast checks above could take the lease instead.
+
+Attempt three acquired the lease and compiled (`✓ Compiled successfully in 69s`), then sat
+in `Running TypeScript ...` for **over thirty minutes**. The same step took 68 and 77
+seconds in the four earlier browser runs, so this is machine contention rather than
+anything about the capture. It was stopped so it would not go on holding the exclusive
+lease against every other session.
+
+None of that is a red result. It is "blocked, retry" three times over, and it is recorded
+here as owed rather than reported as done.
 
 The capture path itself is written and registered (`captures the Care Plan handoff atlas`,
 reported as `1 skipped` on every run without the environment variable). It writes only
@@ -357,7 +368,7 @@ recorded is evidence and a gap hidden is not.
 | `npm run check:production-readiness`                                                     | Not run, by user instruction                                                                                                                                                                                                                                                                  |
 | `npm run docs:update`                                                                    | Not run, by user instruction. Task 11 adds no route, and all 21 Care Plan routes are already present in `docs/site-map.md`, so no generated diff is expected — but that is an expectation, not a verified fact                                                                                |
 | whole-tree `npm run format`                                                              | Not run, by user instruction. Every file this task touched was formatted with `npx prettier --write` and re-checked clean; a repository-wide check may still find an unrelated file                                                                                                           |
-| The evidence capture                                                                     | Attempted twice, blocked both times by the exclusive heavy lease — see above. Owed, not claimed                                                                                                                                                                                               |
+| The evidence capture                                                                     | Attempted three times, blocked every time by the exclusive heavy lease or by machine contention — see above. Owed, not claimed                                                                                                                                                                |
 | `eval:*`, `check:supabase-project`, anything touching live Supabase, OpenAI or hosted CI | Not run — provider-backed and out of scope                                                                                                                                                                                                                                                    |
 | Push, pull request, merge, deploy                                                        | Not performed                                                                                                                                                                                                                                                                                 |
 
