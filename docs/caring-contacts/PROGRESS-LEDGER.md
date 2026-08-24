@@ -4,11 +4,26 @@
 a second copy of the detail: each row points at the file that holds the reasoning. Where this file and a
 detailed record disagree, **the detailed record wins** — this one is a summary and can go stale.
 
-Last updated at head `05584f9b5`, 2026-08-23. Branch `claude/suicide-contact-mockup-b5aaa0`, pushed.
+Last updated 2026-08-24.
 
-> **The branch is SHARED.** On 2026-08-22 a commit (`c3ef20c3f`) authored elsewhere — not from this
-> machine's clone — landed on it while a session was mid-task. `git fetch` before every push, and treat
-> any full-suite result taken on a moving tree as a hypothesis. See Ruling 66.
+> **PHASE 2A HAS LANDED ON `main`, AND THE FEATURE BRANCH IS RETIRED.** Verified 2026-08-24: the whole
+> of Phase 2A was squash-merged as `e4cbe8d3a` — "Claude/suicide contact mockup b5aaa0 (#2279)",
+> 2026-08-23 — and every `docs/caring-contacts/**`, `src/lib/caring-contacts/**`,
+> `src/components/caring-contacts/**`, `caring-contacts/supabase/migrations/**` and
+> `tests/ui-caring-contacts-workspace.spec.ts` path on `main` now matches the old branch tip
+> `cf03f99a4`, except where later `main` work is NEWER (the design-system token consolidation touched
+> three component files). **`main` is the source of truth. Do the closing work on a fresh worktree off
+> `origin/main`, not on `claude/suicide-contact-mockup-b5aaa0`.** No local remote-tracking ref for that
+> branch remains, which is consistent with the PR branch having been deleted after the merge — not
+> verified against GitHub, which needs approval.
+
+> **Sections below that instruct you to work on, push, or fetch the feature branch are superseded by
+> the paragraph above.** They are kept because their *reasoning* about durability and about shared-tree
+> measurement is still correct and still paid for; only the branch name is stale. In particular the
+> historical note that the branch was SHARED — commit `c3ef20c3f` landed on it on 2026-08-22 from a
+> clone not on this machine, mid-task — is why any full-suite result taken on a moving tree is a
+> hypothesis and not a result. That lesson generalises to `main`, which many sessions touch. See
+> Ruling 66.
 
 ---
 
@@ -39,6 +54,8 @@ experience and clinical sign-off are required before any real use.
 | 1   | Phase 1 + early 2A  | Built the sealed domain and database. 13 owner-behalf decisions. Phase 1 gate passed.                             | `D:\Repos\caring-contacts-handoff-2026-08-20\` |
 | 2   | Phase 2A controller | Plan written; Tasks 1-10 and 11a built and reviewed. Rulings 1-31. Died on an account limit mid-fix-round-2.      | same bundle                                    |
 | 3   | Phase 2A recovery   | Verified the abandoned commit, re-reviewed it, Rulings 32-34, survived a worktree deletion, rebuilt and re-proved | `D:\Repos\caring-contacts-handoff-2026-08-21\` |
+| 4   | Phase 2A completion | Task 11b, Tasks 12-19, the final whole-branch review, Rulings 35-66, the copy review, the condensed bar          | build record, Session 4 onward                 |
+| 5   | Phase 2A closing    | Found the phase already merged to `main`; browser gate green; mutation proofs; issues sweep; 2B planning begun  | build record, Session 5                        |
 
 ## 4. Task status — Phase 2A (19 tasks, 5 groups)
 
@@ -68,8 +85,14 @@ experience and clinical sign-off are required before any real use.
 | 19   | Browser proof at six widths + plan closing steps | Complete, 1 fix round, review clean                     |
 | —    | Final whole-branch review                        | **Done** — three parallel reviewers, distinct lenses    |
 | —    | Post-review fixes (Rulings 60-65)                | Complete — incl. a CRITICAL patient-data finding        |
-| —    | Condensed pinned safety bar (owner-requested)    | Built, 1 fix round; **2 mutation proofs still unrun**   |
-| —    | Copy review document for the owner               | **Delivered** — `copy-review.md`, 7 items need his call |
+| —    | Condensed pinned safety bar (owner-requested)    | Built, 1 fix round; browser gate green 2026-08-24       |
+| —    | Copy review document for the owner               | **Delivered** — `copy-review.md`; recommendations now   |
+|      |                                                  | tracked in `copy-decisions-recommended.md`. 13 open,    |
+|      |                                                  | 9 clinical/policy + 4 engineering (the "7" was an       |
+|      |                                                  | undercount and is corrected)                            |
+| —    | Deferred-findings `/issues` sweep                | **Done 2026-08-24** — 7 request files queued in         |
+|      |                                                  | `docs/outstanding-issues-inbox/`, awaiting reconcile    |
+| —    | Phase 2B plan                                    | **In progress** — no plan existed; being written        |
 
 ## 5. Verification evidence, as recorded
 
@@ -84,7 +107,9 @@ experience and clinical sign-off are required before any real use.
 | Current known-red (expected) | **NONE in this work.** Both 2026-08-23 failures were artefacts, proven so: the          |
 |                              | caring-contacts one passed 22/22 on re-run of the same commit (a concurrent agent       |
 |                              | held a source file mid-edit), and the other was a 120 s timeout under machine load.     |
-| Browser gate                 | **Was fully red — 32/32 — for a reason outside this work**, then unblocked. See §5b.    |
+| Browser gate                 | **GREEN 2026-08-24 on `main`: `32 passed (55.5s)`, exit 0**, no ECONNRESET in a 341-line |
+|                              | log. The 2026-08-23 residual failure at 1440px was LOAD, not a defect — see §5b.        |
+| Condensed-bar mutation proofs | Run 2026-08-24 against `main`. See §5c.                                                |
 
 ### 5b. The production lock, and why the browser gate went red
 

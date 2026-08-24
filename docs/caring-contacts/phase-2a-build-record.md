@@ -2666,3 +2666,82 @@ failure as a regression, run the other way.
 **Also still unrun, and still recorded as unrun:** the condensed bar's 1440px pin mutation and its
 dark-mode colour mutation. Both were blocked on the browser gate; the gate is now available, so the
 next session can run them.
+
+
+# Session 5 — 2026-08-24 — closing work, and the branch turned out to be merged
+
+Working copy `D:\Repos\Database\.claude\worktrees\browser-test-gate-handoff-d5c1db`, on `main` at
+`6299857df`. Dependencies came from `node scripts/setup-codex-worktree.mjs`, which found every
+`package-lock.json` on this machine byte-identical and reused `D:\Repos\Database`'s `node_modules` in
+seconds rather than the 15-58 minutes `npm ci` costs here. Worth knowing before anyone budgets an hour
+for a fresh worktree again.
+
+Ruling: [67] This session appends to THIS tracked file rather than opening a `.superpowers/sdd/`
+ledger, even though it is running the subagent-driven-development method which asks for one.
+— Why: the programme already ruled that the SDD workspace is a GENERATED MIRROR and never a source,
+after the original git-ignored workspace was destroyed on 2026-08-21 and took the only copy of a
+session ledger with it. A second ledger in git-ignored scratch would recreate exactly that loss, and
+two ledgers disagreeing is worse than one that is occasionally terse. — Cost if wrong: the SDD
+scripts' `progress.md` conventions are not used, so a future controller resuming by those conventions
+finds no ledger where the skill says to look. That is why this ruling is written here, where that
+controller is told to read first.
+
+## The finding that reframes everything below: Phase 2A ALREADY MERGED
+
+The handoff, the ledger and the continuation prompt all named branch `claude/suicide-contact-mockup-b5aaa0`
+as the source of truth and told the next session to build a worktree from it. **That is stale.** Verified
+before any work was done:
+
+- `e4cbe8d3a` on `main` is "Claude/suicide contact mockup b5aaa0 (#2279)", dated 2026-08-23 — a squash
+  merge of the whole phase. `main` has advanced 18 commits since.
+- Every caring-contacts path on `main` matches the old branch tip `cf03f99a4`. `git diff origin/main
+  claude/suicide-contact-mockup-b5aaa0` over `src/lib/caring-contacts`, `caring-contacts/` and
+  `tests/ui-caring-contacts-workspace.spec.ts` is EMPTY; `docs/caring-contacts/` differs by two lines in
+  one archive file; `src/components/caring-contacts/` differs only where **`main` is newer** — the
+  design-system consolidation replaced a shadow literal with a token, swapped a local `SectionHeading`
+  for the shared one, and added a `focusTimerRef` teardown the branch never had.
+- No local remote-tracking ref for that branch survives, which is what a deleted PR branch looks like
+  after a prune. Not verified against GitHub — that needs approval and buys nothing here.
+
+So the branch is retired and `main` is the source of truth. The whole "push after every task /
+`SKIP_STATIC_GUARD=1`" apparatus in the older records was correct for its moment and is now noise. The
+records have been corrected in place rather than deleted, because the *reasoning* about durability and
+about measuring a moving tree still holds — and holds harder on `main`, which far more sessions touch.
+
+**The general lesson, and it is the same shape as the idempotency-table one:** a handoff document
+describes where work *was*, and no part of it updates when the work moves. Four documents agreed with
+each other and all four were wrong together, because they were written in one session and copied from
+one another. **Agreement between records that share an ancestor is not corroboration.** Check the claim
+against git, not against the other records.
+
+## Closing item 1 — the browser gate is GREEN, and the residual failure was load
+
+Re-run against `main` content, via the repository runner, whole log kept to a file and not tailed:
+
+```
+Running 32 tests using 1 worker
+  ok 30 [chromium] > ui-caring-contacts-workspace.spec.ts:822:9 > caring-contacts service stop, stated on
+     every screen > pins the condensed bar under the header once the banner has gone at 1440px (898ms)
+  32 passed (55.5s)
+EXIT=0
+```
+
+341-line log, no `ECONNRESET` anywhere in it. **The exact test that failed on 2026-08-23 ran and passed.**
+The disposition recorded then — "unresolved, re-run it on a quiet machine" — therefore resolves to
+**load, not a defect**, and the condensed bar's fix round is closed on that count. Note also that the
+count is **32**, not the 33 the continuation prompt predicted; the prompt has been corrected.
+
+Two corrections to how that failure was read, both worth more than the incident:
+
+- **The machine was NOT quiet for this run** — 73 `node` processes and 23 Claude processes were live. A
+  pass under load is *stronger* evidence than a pass on a quiet machine, not weaker, because load is the
+  very hypothesis being tested. Waiting for quiet would have bought less and cost hours.
+- **`:822` was never the failing line.** Playwright reports a failure at the test's DECLARATION line, and
+  822 is the `test(...)` line. The `apiRequestContext.post: read ECONNRESET` came from
+  `arrangeServiceStop`'s setup POST at line **672**, before a single pin assertion executed. The previous
+  session's honest worry — "it is precisely the assertion the fix round strengthened, so the one test most
+  likely to be genuinely wrong is the one that failed" — could not have been true as stated: a dropped
+  HTTP connection during arrange cannot be caused by wrong geometry in an assertion that never ran. That
+  did not make the re-run unnecessary, and running it was still right — the difference between narrowing
+  a hypothesis and confirming one. But **read which line the runner is actually naming before inferring
+  what a failure means.**
