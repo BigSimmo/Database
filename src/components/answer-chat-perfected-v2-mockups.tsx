@@ -595,8 +595,38 @@ function V2Drawer({
   onClose: () => void;
   wide: boolean;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   if (openId === null) return null;
+  // Keyed on the source: the panel's own transient state (an open menu)
+  // belongs to that source and is discarded when you move to another.
+  return (
+    <V2DrawerPanel
+      key={openId}
+      pool={pool}
+      openId={openId}
+      support={support}
+      onSelect={onSelect}
+      onClose={onClose}
+      wide={wide}
+    />
+  );
+}
+
+function V2DrawerPanel({
+  pool,
+  openId,
+  support,
+  onSelect,
+  onClose,
+  wide,
+}: {
+  pool: V2Source[];
+  openId: string;
+  support: SupportLevel;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+  wide: boolean;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const source = sourceIn(pool, openId);
   const position = pool.findIndex((item) => item.id === openId);
   const step = (delta: number) => onSelect(pool[(position + delta + pool.length) % pool.length].id);
@@ -841,17 +871,16 @@ function VerificationNotice({ kind, sourceCount }: { kind: AnswerStateKind; sour
   );
 }
 
-/** The degraded states carry a banner, and a degraded `AnswerCard` requires
- *  `onOpenSource` — a caution is never raised with nowhere to go. That route is
- *  the drawer, which is why the banner's action opens it. */
+/** `stale_evidence` and `partial_retrieval` carry a banner. `source_only` is
+ *  already stated by the verification notice — a second banner restates it
+ *  (`#227`). A degraded `AnswerCard` still requires `onOpenSource`; the rail
+ *  remains the route when no banner renders. */
 function StateBanner({ kind, onOpenSource }: { kind: AnswerStateKind; onOpenSource: () => void }) {
-  if (kind === "ready") return null;
-  const copy: Record<Exclude<AnswerStateKind, "ready">, { title: string; body: string; action: string }> = {
-    source_only: {
-      title: "Source-only",
-      body: "Assembled from your documents without the AI model, so it may be less complete. Verify dose, threshold, timing and monitoring against the passages.",
-      action: "Open source 1",
-    },
+  if (kind === "ready" || kind === "source_only") return null;
+  const copy: Record<
+    Exclude<AnswerStateKind, "ready" | "source_only">,
+    { title: string; body: string; action: string }
+  > = {
     stale_evidence: {
       title: "1 of 3 sources is past its review date",
       body: "Source 3 has not been reviewed since 2023. The metabolic claim rests on it and may not reflect current practice.",
@@ -996,7 +1025,7 @@ function AnswerScreen({
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
   const marks = kind !== "source_only";
   const openSupport =
-    SECTIONS.find((section) => openId !== null && section.sourceIds.includes(openId))?.support ?? "direct";
+    SECTIONS.find((section) => openId !== null && section.sourceIds.includes(openId))?.support ?? "unsupported";
 
   return (
     <>
