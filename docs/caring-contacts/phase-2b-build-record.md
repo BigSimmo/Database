@@ -623,3 +623,36 @@ and the fix to the confirm sequence changes what renders at commit time. **This 
 after the fix round** — a browser result names the commit it ran against or it means nothing, which is
 the rule this branch learned the expensive way when a concurrent session invented both a phantom
 failure and a phantom pass.
+
+### Task 3 fix round 1 — all four Important plus M-3, at `1306c0b7d`
+
+`Tests 2 failed | 9823 passed | 74 skipped (9899)` — the two known `gate-receipts` file-mode failures
+and no others. Typecheck and lint clean. Test count rose 9884 → 9899.
+
+**Two corrections the implementer made to MY framing, both of which I had wrong:**
+
+- **Important 2 was worse than I described, and my suggested fix would not have worked.** I proposed
+  "close before clearing". Both `clear` and `close` are synchronous while the URL change is not, so
+  reordering them changes nothing — the intermediate frame survives either way. The confirm handler
+  now clears nothing at all. **A controller's suggested remedy is a hypothesis like any other**, and
+  this one was falsified by someone who read the code more carefully than I did.
+- **Important 4 — "I deferred the signature along with the policy"** is the implementer's own summary
+  of its error, and it is a better statement of the finding than mine was.
+
+**The self-caught non-run is the most valuable thing in this round.** Its first N5 mutation gate was
+written as `grep -c "<class>" <file> && npm run test:focused …`. The mutation had stripped those
+classes, so the count was `0` — and **`grep` exits non-zero when it matches nothing**, so `&&`
+short-circuited and the test never ran. No summary line, and the command reads as "confirm the
+mutation landed, then test it". It reported the non-run and re-ran with `;` rather than quietly
+repeating it.
+
+This is a fifth member of a family this repository keeps meeting: a hook reporting on stderr, `grep`
+on a binary file, a pipeline masking an exit code, a tautological re-check, and now a guard chained
+behind a `grep -c` that legitimately matches nothing. **The tell that unites them: ask what the check
+prints when it FAILS, and confirm you have seen that output at least once.** Four of the five produce
+no output at all in the failing case, which is exactly why they read as passes.
+
+Task 3: fix round 1/5 (5 addressed, 0 open by the implementer's account; commits
+`9a36d292e`..`1306c0b7d`). Scoped re-review dispatched, told to judge the Important-3 token claim
+hard — "one rule closes all six cases" is the kind of claim most likely to be over-stated. Browser
+gate re-running at the post-fix head, because the earlier green is stale by this branch's own rule.
