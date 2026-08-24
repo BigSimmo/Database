@@ -1412,15 +1412,15 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 79 = 59 + 6 + 13 + 1: the 59 production pages that preceded both changes,
+    // 80 = 59 + 6 + 13 + 1 + 1: the 59 production pages that preceded both changes,
     // the six `<mode>/search` routes home consolidation split out of the bare paths,
     // the thirteen-route Ward Flow synthetic patient-flow prototype (mode home,
     // eight remaining workspace routes, ED/ward/officer role screens, the per-patient
-    // detail route, and the retired constellation redirect), and the Caring Contacts
-    // workspace. Redirect stubs keep legacy deep links resolving and still count as
-    // declared routes. This is a census, so a route nobody intended to add still
-    // fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(79);
+    // detail route, and the retired constellation redirect), the Caring Contacts
+    // workspace, and `/factsheets/topics`. Redirect stubs keep legacy deep links
+    // resolving and still count as declared routes. This is a census, so a route
+    // nobody intended to add still fails the contract.
+    expect(manifest.routeCoverage.discovered).toHaveLength(80);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
