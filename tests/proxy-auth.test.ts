@@ -142,7 +142,9 @@ describe("proxy auth claims forwarding & anti-spoofing", () => {
       appMetadata: { clinician: true },
     };
     const validHeader = signProxyAuthPayload(Buffer.from(JSON.stringify(validPayload)).toString("base64"));
-    expect(validHeader).toBeTruthy();
+    if (!validHeader) {
+      throw new Error("expected a signed proxy auth header when SUPABASE_SERVICE_ROLE_KEY is set");
+    }
     const requestWithProxyClaims = new Request("http://localhost/api/test", {
       headers: {
         [PROXY_AUTH_USER_HEADER]: validHeader,
