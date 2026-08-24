@@ -109,7 +109,7 @@ export function TherapyKeyFacts({ therapy }: { therapy: Therapy }) {
         testId="therapy-key-fact-sheet"
         mobilePlacement="bottom"
       >
-        {active ? <ProseBlock text={active.body} label={active.label} /> : null}
+        {active ? <ProseBlock text={active.body} label={active.label} clamp={false} /> : null}
       </Sheet>
     </>
   );
