@@ -6,11 +6,7 @@ import { ListEmptyState } from "@/components/caring-contacts/workspace/list-empt
 describe("ListEmptyState — no-data", () => {
   it("renders the heading and the explanation, and no Why/What-changes-it pair", () => {
     const { container } = render(
-      <ListEmptyState
-        kind="no-data"
-        heading="No patients yet"
-        explanation="Add the first patient to get started."
-      />,
+      <ListEmptyState kind="no-data" heading="No patients yet" explanation="Add the first patient to get started." />,
     );
     expect(screen.getByText("No patients yet")).toBeInTheDocument();
     expect(screen.getByText("Add the first patient to get started.")).toBeInTheDocument();

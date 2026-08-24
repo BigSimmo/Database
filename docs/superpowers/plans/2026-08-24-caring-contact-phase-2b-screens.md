@@ -16,20 +16,20 @@ Spec §0 defines Phase 2 as "the working screens". Phase 2A built the foundation
 Establishing precisely what exists is the whole basis of this plan, so it was measured rather than
 assumed (2026-08-24, by direct reading of the tree):
 
-| What exists                                                                          | What that means here                                                              |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| **One real route**: `/caring-contacts`, a Server Component with a placeholder body    | Thirteen further destinations are declared in `caring-contacts-routes.ts` and      |
-|                                                                                        | rendered as `UnavailableDestination` stubs. They are not links.                   |
-| **The shell** — nav rail, phone dock, header, four width states, service-state banner | The extension backbone. A screen becomes real by gaining an `href` in              |
-|                                                                                        | `PRIMARY_DESTINATIONS` / `MORE_DESTINATIONS` in `shell.tsx`.                       |
-| **24 overlays, fully defined and rendered by one data-driven renderer**               | **Zero of the 24 are wired to a real trigger.** Every one is reachable only by     |
-|                                                                                        | typing `?overlay=<id>`. Wiring them to controls is core Phase 2B work.             |
-| **11 API routes** on shared `readHandler` / `writeHandler` factories                  | Audit-on-every-read and idempotency-key-on-every-write come free. But there is no  |
-|                                                                                        | backing route for patients-list, schedule, workload, coverage, team, or            |
-|                                                                                        | reconciliation — those must be added.                                              |
-| **A sealed domain of ~27 modules and a 38-method repository**, two stores, one shared | The rules are done. A screen must never re-derive a rule a module already owns.    |
-| contract                                                                               |                                                                                    |
-| **Route-level loading and error states only**                                          | Generic and not data-driven. **No empty-state component exists anywhere.**         |
+| What exists                                                                           | What that means here                                                              |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **One real route**: `/caring-contacts`, a Server Component with a placeholder body    | Thirteen further destinations are declared in `caring-contacts-routes.ts` and     |
+|                                                                                       | rendered as `UnavailableDestination` stubs. They are not links.                   |
+| **The shell** — nav rail, phone dock, header, four width states, service-state banner | The extension backbone. A screen becomes real by gaining an `href` in             |
+|                                                                                       | `PRIMARY_DESTINATIONS` / `MORE_DESTINATIONS` in `shell.tsx`.                      |
+| **24 overlays, fully defined and rendered by one data-driven renderer**               | **Zero of the 24 are wired to a real trigger.** Every one is reachable only by    |
+|                                                                                       | typing `?overlay=<id>`. Wiring them to controls is core Phase 2B work.            |
+| **11 API routes** on shared `readHandler` / `writeHandler` factories                  | Audit-on-every-read and idempotency-key-on-every-write come free. But there is no |
+|                                                                                       | backing route for patients-list, schedule, workload, coverage, team, or           |
+|                                                                                       | reconciliation — those must be added.                                             |
+| **A sealed domain of ~27 modules and a 38-method repository**, two stores, one shared | The rules are done. A screen must never re-derive a rule a module already owns.   |
+| contract                                                                              |                                                                                   |
+| **Route-level loading and error states only**                                         | Generic and not data-driven. **No empty-state component exists anywhere.**        |
 
 So Phase 2B is not "add some pages". It is: turn one placeholder route into thirteen working screens,
 give twenty-four already-built overlays their triggers, and add the read surfaces four of those screens
@@ -94,12 +94,12 @@ is a defect in the change, not in the test.
 are out of date against later decisions. Each is an **edit to an existing design, not new design**, and
 each resolves **to the spec**:
 
-| #   | The mockup shows                                             | The spec requires                                             | Lands in         |
-| --- | ------------------------------------------------------------ | ------------------------------------------------------------- | ---------------- |
-| 1   | The old first-contact-date control                           | §2.3 — the coordinator sets the first contact date            | Group 1, Task 6  |
-| 2   | "replies are not received, stored, analysed or monitored"    | §2.1 — the automated non-monitored response copy               | Group 3, Task 16 |
-| 3   | No distinct closing message type at month 12                 | §2.2 — the pathway ends with a closing message                 | Groups 1 and 2   |
-| 4   | Ten sendable contacts                                        | Phase 1 decision 1 — **nine** sendable contacts                | Groups 1 and 2   |
+| #   | The mockup shows                                          | The spec requires                                  | Lands in         |
+| --- | --------------------------------------------------------- | -------------------------------------------------- | ---------------- |
+| 1   | The old first-contact-date control                        | §2.3 — the coordinator sets the first contact date | Group 1, Task 6  |
+| 2   | "replies are not received, stored, analysed or monitored" | §2.1 — the automated non-monitored response copy   | Group 3, Task 16 |
+| 3   | No distinct closing message type at month 12              | §2.2 — the pathway ends with a closing message     | Groups 1 and 2   |
+| 4   | Ten sendable contacts                                     | Phase 1 decision 1 — **nine** sendable contacts    | Groups 1 and 2   |
 
 Corrections 3 and 4 travel together and touch both the activation review and every schedule display.
 
@@ -236,14 +236,14 @@ Approved 2026-08-24; see `docs/caring-contacts/copy-decisions-recommended.md` fo
 reasoning. Six edits, two modules, one dispatch (Ruling 76). **Every change cites its item number and
 carries its own covering test.**
 
-| Item | Change                                                                                   | Module              |
-| ---- | ---------------------------------------------------------------------------------------- | ------------------- |
-| A1   | Refuse any governed message whose text still contains "Fictional"                        | `message-policy.ts` |
-| A2   | Narrow the storage promise in the automated reply to who is not reading                   | `message-copy.ts`   |
-| A3   | Say nobody reads it AND that something automatic comes back                               | `message-copy.ts`   |
+| Item | Change                                                                                        | Module              |
+| ---- | --------------------------------------------------------------------------------------------- | ------------------- |
+| A1   | Refuse any governed message whose text still contains "Fictional"                             | `message-policy.ts` |
+| A2   | Narrow the storage promise in the automated reply to who is not reading                       | `message-copy.ts`   |
+| A3   | Say nobody reads it AND that something automatic comes back                                   | `message-copy.ts`   |
 | A4   | Refuse loudly when a final message is required but has no body — **refusal only, no wording** | `message-policy.ts` |
-| B2   | Narrow the "lead" prohibition to the commercial sense                                     | `message-policy.ts` |
-| B3   | Extend the prohibited-word scan to interface strings                                      | new static test     |
+| B2   | Narrow the "lead" prohibition to the commercial sense                                         | `message-policy.ts` |
+| B3   | Extend the prohibited-word scan to interface strings                                          | new static test     |
 
 **A9 is deliberately NOT in this task** — approved in principle, blocked on a real crisis number
 existing. See Ruling 77. Do not add Lifeline by deleting some other sentence.
@@ -385,8 +385,9 @@ plan. **The content half is not, and the difference was nearly missed.**
 
 ## Group 5 — The remainder, and closing proof (3 tasks)
 
-- **Task 19 — Guidance and Reports.** Outside the owner's four groups; deferrable to Phase 3 if time is
-  short. Reports carries the §2.5 equity reach section with small-cell suppression.
+- **Task 19 — Guidance and Reports. COMMITTED to this phase** — the owner answered on 2026-08-24 that
+  he wants them built here, reversing Ruling 75, which had deferred them. Both already have approved
+  designs. Reports carries the §2.5 equity reach section with small-cell suppression.
 - **Task 20 — Every remaining overlay trigger**, reconciled against all 24 rows of the frozen matrix.
   A row with no trigger at the end of this task is a defect or a recorded exception, never silence.
 - **Task 21 — Full responsive and accessibility proof**, 320px to 1440px, dark mode, forced colours,
@@ -396,16 +397,16 @@ plan. **The content half is not, and the difference was nearly missed.**
 
 ## Verification plan
 
-| Gate                                       | When                                                   |
-| ------------------------------------------ | ------------------------------------------------------ |
-| `npm run test:focused -- --files <paths>`  | During each task                                       |
-| `npm run test`                             | Before completing any task that adds or renames an     |
-|                                            | exported symbol under `src/lib/caring-contacts/`       |
-| `npm run typecheck`, `npm run lint`        | Each task                                              |
-| `npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium` | Each checkpoint |
-| `npm run verify:phone-chrome`              | Any task touching phone chrome                         |
-| `npm run caring-contacts:db:test`          | Any task touching the schema                           |
-| `npm run verify:pr-local`                  | End of plan only                                       |
+| Gate                                                                                | When                                               |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `npm run test:focused -- --files <paths>`                                           | During each task                                   |
+| `npm run test`                                                                      | Before completing any task that adds or renames an |
+|                                                                                     | exported symbol under `src/lib/caring-contacts/`   |
+| `npm run typecheck`, `npm run lint`                                                 | Each task                                          |
+| `npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium` | Each checkpoint                                    |
+| `npm run verify:phone-chrome`                                                       | Any task touching phone chrome                     |
+| `npm run caring-contacts:db:test`                                                   | Any task touching the schema                       |
+| `npm run verify:pr-local`                                                           | End of plan only                                   |
 
 **Known trap:** the caring-contacts browser gate builds and serves a **production** app, and the
 Caring Contacts routes fail closed in production. They open only when **both**

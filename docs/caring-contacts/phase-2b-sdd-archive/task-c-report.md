@@ -29,6 +29,7 @@ exactly; computed independently before writing any test). `EXACT_PATIENT_VISIBLE
 untouched (still 252 septets / 2 segments).
 
 Updated two **pre-existing** assertions to the new owner-approved value rather than deleting them:
+
 - `tests/caring-contacts-message-copy.test.ts` — pinned GSM-7 evidence, `septets: 218 → 210`.
 - `tests/caring-contact-mockups.dom.test.tsx` — same pinned evidence, same change.
 
@@ -50,7 +51,7 @@ warns against:
 - `GovernedMessageInput` gained `syntheticFictionalContactsAcknowledged?: boolean`.
 - `message-rules.ts` gained `fictionalContactMarker`, derived from `crisisSupportContact` via
   `CRISIS_SUPPORT_CONTACT.split(":")[0]` rather than a second hard-coded `"Fictional Support
-  Line"` string literal — satisfies "derive from the rules object" without importing
+Line"` string literal — satisfies "derive from the rules object" without importing
   `synthetic-contacts.ts` into `message-policy.ts` (that import would have broken the existing
   rule-8 test, which restricts `message-policy.ts`'s imports to `node:`, `./model`, and
   `./message-rules` only — I checked this before choosing the approach).
@@ -208,15 +209,19 @@ Every `caring-contacts` test file passed, including the full domain-isolation an
 import-boundary tests.
 
 `npm run typecheck`:
+
 ```
 [gate-receipts] recorded a pass for "typecheck:internal" (5209 input files).
 ```
+
 (`tsc --noEmit` produced no error output — a fresh, non-reused run since the content changed.)
 
 `npm run lint`:
+
 ```
 [gate-receipts] recorded a pass for "lint:internal" (5209 input files).
 ```
+
 (`eslint --max-warnings 0` produced no error output — a fresh, non-reused run.)
 
 ## Constraints checked
@@ -257,6 +262,7 @@ were fixed; the seventh (A4) was confirmed correct as originally built and left 
 reviewer's own instruction not to touch it.
 
 **Commits:**
+
 - `e3d658eef` — fix(caring-contacts): fix round 1 -- seven review findings (B2, A1, B3, comment)
 
 ### Important 1 + 2 — B2's allowlist inverted; `scoring?` typo confirmed gone
@@ -269,7 +275,7 @@ contain any of the nine enumerated words) before changing anything.
 
 **Fix:** inverted the pattern. `COMMERCIAL_LEAD_PATTERN` is now
 `/(?<!\b(?:incident|programme|clinical|team|service)\s)\bleads?\b/i` — refuses "lead"/"leads" as a
-whole word by default, exempting only when one of the five job-title qualifiers sits *immediately*
+whole word by default, exempting only when one of the five job-title qualifiers sits _immediately_
 before the word (a negative lookbehind, not a strip-and-retest). This correctly handles "the
 clinical programme lead": the qualifying pair actually adjacent to "lead" is "programme lead", so
 the lookbehind still exempts it, even though "clinical" appears earlier in the sentence and is not
@@ -288,6 +294,7 @@ nine reviewer-verified gaps plus the original three plus the `lead score` typo-r
 
 **Mutation proof (two directions, since the reviewer called this the least-covered, highest-risk
 item):**
+
 1. Reverted to the exact original allowlist pattern — confirmed in the tree with `grep`, ran the
    suite: the CRM-phrasing test went red (`expected true to be false`, i.e. "lead nurturing" etc.
    were valid again). Restored, reran green.
@@ -388,26 +395,31 @@ caller for). No change made.
 ### Full verification after fix round 1
 
 `npm run test` (full suite):
+
 ```
 Test Files  1 failed | 811 passed | 3 skipped (815)
      Tests  2 failed | 9785 passed | 74 skipped (9861)
 ```
+
 The 2 failures are the same pre-existing, environmental `tests/gate-receipts.test.ts` `chmodSync`
 failures documented above (unrelated to this task, unrelated to fix round 1 — no gate-receipts
 file was touched in this round either).
 
 `npm run typecheck`:
+
 ```
 [gate-receipts] recorded a pass for "typecheck:internal" (5213 input files).
 ```
 
 `npm run lint`:
+
 ```
 [gate-receipts] recorded a pass for "lint:internal" (5213 input files).
 ```
 
 Focused re-run of every directly touched and related caring-contacts test file together, for a
 quick decisive line before the full suite:
+
 ```
 Test Files  8 passed (8)
      Tests  151 passed (151)

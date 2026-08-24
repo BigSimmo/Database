@@ -14,7 +14,7 @@ number**. This is the **first real screen of Phase 2B** and the owner's first pr
 may see, plus the navigation and documentation that make it a real destination.
 
 **Task 4 was merged into this one (Ruling 89).** The plan originally lit up the navigation link with an
-empty placeholder page first. That page would have said *"No patients yet"* whether or not patients
+empty placeholder page first. That page would have said _"No patients yet"_ whether or not patients
 existed — a false statement on a clinical caseload screen, and precisely the defect the component you
 are about to use was built to prevent. So the link and the real screen land together, and the screen is
 never reachable in a state where it can lie.
@@ -93,8 +93,8 @@ Build hrefs from `src/lib/caring-contacts-routes.ts`, never from string literals
 - **Internal navigation** uses `<Link>` / `router.push` / server `redirect()` — never a raw
   `<a href="/…">`.
 - Every `<button>` does something. A control unavailable for a stated reason uses `aria-disabled="true"`
-  + an inert handler + `title="… — coming soon"` + an `sr-only` note. **Never** native `disabled` and
-  `aria-disabled` together.
+  - an inert handler + `title="… — coming soon"` + an `sr-only` note. **Never** native `disabled` and
+    `aria-disabled` together.
 - Design tokens only, no hardcoded hex. Tap targets `min-h-12` (48px) — **never `min-h-11`**, which
   reintroduces a known `ui-smoke` flake.
 - The service-state incident `note` must never reach a Client Component.

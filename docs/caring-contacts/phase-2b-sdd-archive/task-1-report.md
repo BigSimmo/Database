@@ -152,7 +152,7 @@ compile — a type cast on the one line that reads `props.explanation`, changed 
 `(props as ListEmptyStateNoDataProps).explanation`. Nothing else changed; the `"filtered"`
 branch's own JSX (the `Why:`/`What changes it:` block) was left completely untouched, just made
 unreachable. This is the specified mutation, not a placeholder: it forces `"filtered"` instances
-through the exact same rendering *code path* `"no-data"` uses, rather than substituting a fake
+through the exact same rendering _code path_ `"no-data"` uses, rather than substituting a fake
 string. The effect on each kind, reasoned through before running it:
 
 - A genuine `"no-data"` instance still has a real `explanation` property, so the cast is a
@@ -168,7 +168,7 @@ Verification, in order:
    exactly what the two `"filtered"`-content tests read, so this is the correct value to
    perturb.
 2. **Proved the mutation was in the tree**, not silently unapplied: `grep -n "MUTATION"
-   src/components/caring-contacts/workspace/list-empty-state.tsx` returned the edited comment
+src/components/caring-contacts/workspace/list-empty-state.tsx` returned the edited comment
    and line before running the test.
 3. **Ran the suite**: **`Tests 2 failed | 9 passed (11)`.** Both failures were in the
    `"ListEmptyState — filtered"` describe block: "renders both the reason and the remedy in the
@@ -177,8 +177,8 @@ Verification, in order:
    **Every `"no-data"` test stayed green**, confirming the mutation left `"no-data"`'s real
    output completely intact, which is the property the original mutation failed to have.
 4. **Reverted** (`git`-tracked file restored from a pre-mutation backup), confirmed `grep -n
-   "MUTATION"` returned nothing, and reran: **`Test Files 1 passed (1)`, `Tests 11 passed
-   (11)`.**
+"MUTATION"` returned nothing, and reran: **`Test Files 1 passed (1)`, `Tests 11 passed
+(11)`.**
 
 ### Important 2 — renamed `EmptyState` → `ListEmptyState`
 
@@ -232,7 +232,7 @@ entered a named group and finds the reason and the remedy without hunting elsewh
 page. `ListEmptyState`'s `"filtered"` branch has the identical three-piece shape (heading,
 "Why:", "What changes it:") and had no grouping at all before this fix.
 
-Ruling 81 forbade *rendering* `AutomatedState`, not reusing its accessible structure — the
+Ruling 81 forbade _rendering_ `AutomatedState`, not reusing its accessible structure — the
 review brief should have said so, and this fix applies the same structure without importing or
 rendering `AutomatedState` itself.
 
@@ -270,9 +270,9 @@ code.
 3. `npm run typecheck`: contended for the repo's heavy-run lease twice (another session's
    Playwright run, then a separate session `favourites-mockups-20260824`) before it ran.
    Decisive line once it acquired the lease: `[gate-receipts] recorded a pass for
-   "typecheck:internal" (5215 input files).`, exit 0.
+"typecheck:internal" (5215 input files).`, exit 0.
 4. `npm run lint`: acquired the lease on the first attempt. Decisive line: `[gate-receipts]
-   recorded a pass for "lint:internal" (5216 input files).`, exit 0.
+recorded a pass for "lint:internal" (5216 input files).`, exit 0.
 
 ### Fix round 1 (commit `191761fc6`)
 
@@ -286,14 +286,14 @@ failure needed reporting.
 2. `npm run test` (full unit suite, run in the background under `run_in_background` because it
    exceeded the tool's foreground timeout — the completion notification carried the same
    summary line read below): `Test Files 1 failed | 812 passed | 3 skipped (816)` / `Tests 2
-   failed | 9796 passed | 74 skipped (9872)`. Same one failing file, same two named
+failed | 9796 passed | 74 skipped (9872)`. Same one failing file, same two named
    `gate-receipts.test.ts` file-mode failures as the original run, no others. (Total test count
    rose by 2 versus the original build's `9870`, matching the 2 new accessible-group tests
    added this round.)
 3. `npm run typecheck`: acquired the lease on the first attempt this round. Decisive line:
    `[gate-receipts] recorded a pass for "typecheck:internal" (5217 input files).`, exit 0.
 4. `npm run lint`: acquired the lease on the first attempt. Decisive line: `[gate-receipts]
-   recorded a pass for "lint:internal" (5217 input files).`, exit 0.
+recorded a pass for "lint:internal" (5217 input files).`, exit 0.
 
 No gate reported a lock-acquisition failure in this round. The earlier
 `DATABASE_HEAVY_RUN_ADMISSION_BUSY` responses (both rounds, while other sessions on this machine
@@ -310,7 +310,7 @@ treated as a pass or a fail; none of the numbers above come from a run that hit 
   test.
 - No import from `src/components/caring-contacts/mockups/**`.
 - `automated-state.tsx`, `shell.tsx`, and all routes are untouched across both commits (`git
-  diff` confirms only `list-empty-state.tsx`, its test file, and the regenerated adoption
+diff` confirms only `list-empty-state.tsx`, its test file, and the regenerated adoption
   manifest).
 - No dependency added — only lucide-react (already a dependency) and `react`'s `ReactNode` type.
 - Not wired into any screen.

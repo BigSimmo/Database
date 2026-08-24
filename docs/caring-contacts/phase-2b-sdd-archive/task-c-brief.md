@@ -57,7 +57,7 @@ GSM-7 valid** (current is 218). Your test must assert the segment count rather t
 `calculateGsm7`; assert the text does NOT contain "has not been kept" (the removed claim) and DOES
 contain "automatic". Existing tests asserting the old string must be **updated to the new approved
 value** — that is not loosening an assertion, it is the assertion tracking an owner decision. If you
-find yourself instead *deleting* an assertion, stop and report.
+find yourself instead _deleting_ an assertion, stop and report.
 
 ---
 
@@ -156,7 +156,7 @@ frozen design scratch that 404s in production and it contains a known occurrence
 message was read or the patient is safe") which the owner ruled B4 to leave alone. Excluding it is
 correct; excluding anything else is not.
 
-Expect false positives on ordinary English and handle them by narrowing the *match*, not by adding a
+Expect false positives on ordinary English and handle them by narrowing the _match_, not by adding a
 file to an ignore list. If you cannot avoid an exclusion, it needs a comment naming why.
 
 **Covering test:** the scan finds a deliberately planted prohibited string in a fixture, and passes on

@@ -18,10 +18,10 @@ It renders a heading, a plain-words explanation, and **at most one action**.
 **It must distinguish two different emptinesses, because they need different words and a clinician
 who cannot tell them apart cannot act:**
 
-| Kind         | Means                                                    | Must tell the reader                                     |
-| ------------ | -------------------------------------------------------- | -------------------------------------------------------- |
+| Kind         | Means                                                     | Must tell the reader                                          |
+| ------------ | --------------------------------------------------------- | ------------------------------------------------------------- |
 | `"no-data"`  | Nothing exists yet — no patients, no templates, no team   | That the list is genuinely empty, and how a first one arrives |
-| `"filtered"` | Things exist, but the current filter or search hides them | **Why** they are hidden, and **what would change it**      |
+| `"filtered"` | Things exist, but the current filter or search hides them | **Why** they are hidden, and **what would change it**         |
 
 A `"filtered"` empty list that says only "Nothing to show" is the defect this task exists to prevent:
 it is indistinguishable from "there are no patients", and it invites a clinician to conclude a
@@ -50,7 +50,7 @@ established pattern here. Read it before writing anything. In particular:
 render `AutomatedState` internally. They have different triggers — `AutomatedState` is for the system
 acting on its own (paused, suppressed, escalated), while an empty list is usually the user's own
 filter or simply nothing existing yet. Its `CircleAlert` icon and its state-name `aria-label` are both
-wrong for "no patients yet". Reuse the *wording shape*, not the component.
+wrong for "no patients yet". Reuse the _wording shape_, not the component.
 
 ## The action
 

@@ -30,11 +30,7 @@ const SCAN_ROOTS = [
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = path.join(dir, entry);
-    return statSync(full).isDirectory()
-      ? walk(full)
-      : full.endsWith(".ts") || full.endsWith(".tsx")
-        ? [full]
-        : [];
+    return statSync(full).isDirectory() ? walk(full) : full.endsWith(".ts") || full.endsWith(".tsx") ? [full] : [];
   });
 }
 

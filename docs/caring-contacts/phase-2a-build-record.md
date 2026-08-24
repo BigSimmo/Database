@@ -2667,7 +2667,6 @@ failure as a regression, run the other way.
 dark-mode colour mutation. Both were blocked on the browser gate; the gate is now available, so the
 next session can run them.
 
-
 # Session 5 — 2026-08-24 — closing work, and the branch turned out to be merged
 
 Working copy `D:\Repos\Database\.claude\worktrees\browser-test-gate-handoff-d5c1db`, on `main` at
@@ -2695,7 +2694,7 @@ before any work was done:
 - `e4cbe8d3a` on `main` is "Claude/suicide contact mockup b5aaa0 (#2279)", dated 2026-08-23 — a squash
   merge of the whole phase. `main` has advanced 18 commits since.
 - Every caring-contacts path on `main` matches the old branch tip `cf03f99a4`. `git diff origin/main
-  claude/suicide-contact-mockup-b5aaa0` over `src/lib/caring-contacts`, `caring-contacts/` and
+claude/suicide-contact-mockup-b5aaa0` over `src/lib/caring-contacts`, `caring-contacts/` and
   `tests/ui-caring-contacts-workspace.spec.ts` is EMPTY; `docs/caring-contacts/` differs by two lines in
   one archive file; `src/components/caring-contacts/` differs only where **`main` is newer** — the
   design-system consolidation replaced a shadow literal with a token, swapped a local `SectionHeading`
@@ -2705,11 +2704,11 @@ before any work was done:
 
 So the branch is retired and `main` is the source of truth. The whole "push after every task /
 `SKIP_STATIC_GUARD=1`" apparatus in the older records was correct for its moment and is now noise. The
-records have been corrected in place rather than deleted, because the *reasoning* about durability and
+records have been corrected in place rather than deleted, because the _reasoning_ about durability and
 about measuring a moving tree still holds — and holds harder on `main`, which far more sessions touch.
 
 **The general lesson, and it is the same shape as the idempotency-table one:** a handoff document
-describes where work *was*, and no part of it updates when the work moves. Four documents agreed with
+describes where work _was_, and no part of it updates when the work moves. Four documents agreed with
 each other and all four were wrong together, because they were written in one session and copied from
 one another. **Agreement between records that share an ancestor is not corroboration.** Check the claim
 against git, not against the other records.
@@ -2734,7 +2733,7 @@ count is **32**, not the 33 the continuation prompt predicted; the prompt has be
 Two corrections to how that failure was read, both worth more than the incident:
 
 - **The machine was NOT quiet for this run** — 73 `node` processes and 23 Claude processes were live. A
-  pass under load is *stronger* evidence than a pass on a quiet machine, not weaker, because load is the
+  pass under load is _stronger_ evidence than a pass on a quiet machine, not weaker, because load is the
   very hypothesis being tested. Waiting for quiet would have bought less and cost hours.
 - **`:822` was never the failing line.** Playwright reports a failure at the test's DECLARATION line, and
   822 is the `test(...)` line. The `apiRequestContext.post: read ECONNRESET` came from
@@ -2745,7 +2744,6 @@ Two corrections to how that failure was read, both worth more than the incident:
   did not make the re-run unnecessary, and running it was still right — the difference between narrowing
   a hypothesis and confirming one. But **read which line the runner is actually naming before inferring
   what a failure means.**
-
 
 ## Closing item 2 — the condensed bar's mutation proofs
 
@@ -2770,8 +2768,7 @@ Three things make this a proof rather than a red light:
 
 - **It is the pin assertion itself that failed** — line 877 — not an earlier one standing in for it.
 - **The two assertions before it passed first**: the round-1 guard at 869 (`the banner is still on
-  screen ... nothing about the handover is being measured`) and `the condensed bar did not appear` at
-  874. So the pin is REACHED, which is exactly what round 1's degenerate version was not.
+screen ... nothing about the handover is being measured`) and `the condensed bar did not appear` at 874. So the pin is REACHED, which is exactly what round 1's degenerate version was not.
 - **The mutation moved a value the assertion reads**: `barBox.top` went 64 -> 0. A mutation that leaves
   every asserted value unchanged proves nothing however red the suite goes, and three proposed proofs
   on this branch already failed that test.

@@ -161,7 +161,9 @@ export type ClosingMessageBodyResolution = { ok: true; body: string } | { ok: fa
  * simulation driver, because doing so would require inventing where an authored closing body comes
  * from, which is exactly the decision this task defers.
  */
-export function resolveClosingContactMessageBody(authoredClosingBody: string | undefined): ClosingMessageBodyResolution {
+export function resolveClosingContactMessageBody(
+  authoredClosingBody: string | undefined,
+): ClosingMessageBodyResolution {
   if (!authoredClosingBody || authoredClosingBody.trim().length === 0) {
     return { ok: false, issue: { code: "closing-message-body-not-authored" } };
   }

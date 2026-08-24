@@ -19,27 +19,27 @@ Run before dispatching Task 1, per the method. The output is a table, not a verd
 
 ### Task pairs sharing a file or an interface
 
-| Tasks                        | Shared surface                      | What one produces / the other consumes                                | Finding                                                        |
-| ---------------------------- | ----------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 4 → 5, 13, 15, 18            | `shell.tsx` destination lists       | Task 4 adds the first `href`; each screen task adds its own            | **Sequential edits to one file.** No contradiction. Implementers are never dispatched in parallel, so this is a merge risk only if that rule is broken. |
-| 1 → 5, 13, 15, 18            | the empty-state component           | Task 1 produces it; four list screens consume it                       | Clean. Task 1 must land before any consumer.                   |
-| 2 → 5, 12, 17                | the list-read API pattern           | Task 2 produces the helper + contract test; three routes consume it    | Clean, and this is the whole reason Group 0 exists.            |
-| 3 → 11, 14, 16, 18, 20       | the overlay trigger                 | Task 3 produces it; five tasks wire overlays with it                   | Clean. Ruling 69 keeps wiring with the owning screen.          |
-| C → 16                       | `message-copy.ts`                   | Task C rewrites the reply wording (items A2/A3); Task 16 renders it     | **Ordering constraint.** C must land first, or Task 16 renders wording that is about to change. Recorded, not a conflict. |
-| 7–9 ↔ 13                     | the nine-contacts / closing-message | Corrections #3 and #4 touch the activation review AND every schedule    | **Genuine cross-task requirement.** Whichever lands first sets the shape; the second must not re-derive it. Both must read the same source of truth in `schedule.ts`. |
-| 5 ↔ 6                        | `getEpisode` vs `listPlans`         | Task 5 must NOT call `getEpisode`; Task 6 is the one screen that may    | Clean, and stated in the plan. Worth re-stating in both briefs. |
+| Tasks                  | Shared surface                      | What one produces / the other consumes                               | Finding                                                                                                                                                               |
+| ---------------------- | ----------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4 → 5, 13, 15, 18      | `shell.tsx` destination lists       | Task 4 adds the first `href`; each screen task adds its own          | **Sequential edits to one file.** No contradiction. Implementers are never dispatched in parallel, so this is a merge risk only if that rule is broken.               |
+| 1 → 5, 13, 15, 18      | the empty-state component           | Task 1 produces it; four list screens consume it                     | Clean. Task 1 must land before any consumer.                                                                                                                          |
+| 2 → 5, 12, 17          | the list-read API pattern           | Task 2 produces the helper + contract test; three routes consume it  | Clean, and this is the whole reason Group 0 exists.                                                                                                                   |
+| 3 → 11, 14, 16, 18, 20 | the overlay trigger                 | Task 3 produces it; five tasks wire overlays with it                 | Clean. Ruling 69 keeps wiring with the owning screen.                                                                                                                 |
+| C → 16                 | `message-copy.ts`                   | Task C rewrites the reply wording (items A2/A3); Task 16 renders it  | **Ordering constraint.** C must land first, or Task 16 renders wording that is about to change. Recorded, not a conflict.                                             |
+| 7–9 ↔ 13               | the nine-contacts / closing-message | Corrections #3 and #4 touch the activation review AND every schedule | **Genuine cross-task requirement.** Whichever lands first sets the shape; the second must not re-derive it. Both must read the same source of truth in `schedule.ts`. |
+| 5 ↔ 6                  | `getEpisode` vs `listPlans`         | Task 5 must NOT call `getEpisode`; Task 6 is the one screen that may | Clean, and stated in the plan. Worth re-stating in both briefs.                                                                                                       |
 
 ### Per-task self-consistency
 
-| Task(s) | Its own text agrees with itself?                                                             |
-| ------- | -------------------------------------------------------------------------------------------- |
-| C       | Yes — six named edits in two named modules.                                                  |
-| 1–4     | Yes.                                                                                         |
-| 5–11    | Yes, with the `getEpisode` restriction stated.                                                |
-| 12–14   | Yes.                                                                                         |
+| Task(s) | Its own text agrees with itself?                                                                                                                                                |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C       | Yes — six named edits in two named modules.                                                                                                                                     |
+| 1–4     | Yes.                                                                                                                                                                            |
+| 5–11    | Yes, with the `getEpisode` restriction stated.                                                                                                                                  |
+| 12–14   | Yes.                                                                                                                                                                            |
 | 15–16   | **NO — defect found, see Ruling 73.** The design-corrections table routes correction #2 to "Group 3, Task 11", but Task 11 is Group 1's overlay wiring; Group 3 is Tasks 15–16. |
-| 17–18   | Yes, with Ruling 72's scope limit stated.                                                     |
-| 19–21   | Yes.                                                                                         |
+| 17–18   | Yes, with Ruling 72's scope limit stated.                                                                                                                                       |
+| 19–21   | Yes.                                                                                                                                                                            |
 
 ### Anything the plan mandates that the review rubric treats as a defect
 
@@ -52,8 +52,7 @@ block.
 
 **Ruling [73] — the design-corrections table's "Group 3, Task 11" is a typo for Task 16; corrected in
 the plan.** — Why: Task 11 is Group 1's overlay wiring and cannot carry a Group 3 copy correction. The
-correction is the reply-handling wording, which belongs to the message-preview surface built in Task
-16. — Cost if wrong: had it stood, Task 11's implementer would have received a requirement it had no
+correction is the reply-handling wording, which belongs to the message-preview surface built in Task 16. — Cost if wrong: had it stood, Task 11's implementer would have received a requirement it had no
 surface for, and either implemented it in the wrong place or reported BLOCKED — a wasted dispatch
 either way. This is exactly what the pre-flight scan is for and it is the first thing the scan found.
 
@@ -74,8 +73,7 @@ nothing and protects the four groups he actually asked for. — Cost if wrong: i
 early — the equity reach section is the one part with external interest — it arrives later than he
 hoped. Reversible at any point by moving one task.
 
-**Ruling [76] — the approved copy changes are executed as ONE batched task (Task C) ahead of Group
-0.** — Why: the method says to batch small same-shape work into one dispatch rather than one subagent
+**Ruling [76] — the approved copy changes are executed as ONE batched task (Task C) ahead of Group 0.** — Why: the method says to batch small same-shape work into one dispatch rather than one subagent
 per item. All six approved edits are small, independent, and land in two adjacent modules
 (`message-copy.ts`, `message-policy.ts`). They also unblock nothing else, so they are cheap to do
 first and get the owner's approved wording into the tree before any screen renders it. — Cost if
@@ -374,9 +372,9 @@ UNCOMMITTED. On a machine that has destroyed four working directories mid-sessio
 expensive shape of an ordinary delay. Resumed with an explicit instruction ordering: **commit first,
 then retry the gate, bounded.** It committed, retried twice, acquired the lease and finished for real.
 
-The instruction is now standing for every remaining brief: *commit before waiting on any gate, and a
+The instruction is now standing for every remaining brief: _commit before waiting on any gate, and a
 lock-acquisition failure is neither a pass nor a failure — if the output carries no summary line the
-run did not happen, whatever the exit code says.* Machine health was checked rather than assumed:
+run did not happen, whatever the exit code says._ Machine health was checked rather than assumed:
 `node --version` returned in 0.083s, so this was ordinary lease contention and not the
 process-spawn starvation that has previously made everything slow.
 
@@ -388,7 +386,7 @@ This is worth recording precisely, because it cuts both ways. It **fired on a ba
 user-facing prose** — which is exactly deferred item 2 from Task C's re-review ("the raw-prose pass
 scans identifiers, imports and JSX attribute names, not only prose … a future `const conversation = …`
 would fail the test with a confusing message"). That deferred concern materialised within one task,
-so it is real and will recur. Whether it was a *false* positive is a judgement I have put to Task 1's
+so it is real and will recur. Whether it was a _false_ positive is a judgement I have put to Task 1's
 reviewer rather than settled myself: an icon named `Inbox` is not text a patient or clinician reads,
 but it is also the kind of name that leaks into a `data-testid` or an `aria-label` without anyone
 noticing. If the reviewer judges it over-reach, narrow the scan; if not, leave it and accept the
@@ -466,7 +464,7 @@ light up a destination is exactly "adding an `href` here". So Task 4's mechanica
 **The problem is its other half.** The plan has Task 4 create `patients/page.tsx` rendering the empty
 state, as Group 0's proving step — before Task 5 gives it real data. A page that renders
 `ListEmptyState` unconditionally **says "No patients yet" whether or not patients exist**. That is a
-false statement on a clinical caseload screen, and it is the *precise* defect Task 1's component was
+false statement on a clinical caseload screen, and it is the _precise_ defect Task 1's component was
 built to prevent: an empty-looking list that is not empty. Shipping it, even for one task, would mean
 the first screen of this phase overclaims in exactly the way the phase's first component exists to
 stop.
@@ -517,3 +515,33 @@ rendered once by the shell rather than per screen, so a screen's commit handler 
 somehow, and every obvious answer — module-level mutable state, a context provider, lifting the host
 per screen — has a different cost against Ruling 13's client-payload limit. That is a design decision,
 not transcription.
+
+## Owner answered the three open questions, 2026-08-24 — one ruling REVERSED
+
+Asked directly rather than left to inference, because two of them were shaping work already underway.
+
+**1. Push authorised.** The branch goes to `origin` after each task from now on. No pull request, no
+merge, nothing live. This closes the durability gap that has cost this programme three working
+directories: commits on a worktree branch already survive the worktree, but not the machine.
+**Ruling 78 is superseded** — it forbade pushing precisely because he had not been asked yet, and now
+he has.
+
+**2. Team screen: the simple staff list. Ruling 74 CONFIRMED by the owner, not merely by me.** Each
+staff member with their active plans, unclaimed work and anything overdue for escalation — the
+roster-table depth the approved design actually covers. Rosters, leave and caseload fullness are NOT
+in scope. This was the item I flagged as most likely to under-deliver against what he pictured; it is
+now his decision rather than my inference, which is the outcome flagging it was for.
+
+**3. Guidance and Reports are IN this phase. Ruling 75 is REVERSED.** I ruled them deferred to the
+end and cuttable to Phase 3, reasoning that they sit outside his stated four groups. He wants them
+built. That is his call and it is a reasonable one: both already have approved designs, so deferring
+them was optimising for a scope boundary he did not ask for. **Task 19 is therefore a committed part
+of Phase 2B, not a contingency**, and Reports carries the §2.5 equity reach section with small-cell
+suppression.
+
+**Worth recording about the reversal rather than just the reversal.** Ruling 75's reasoning was sound
+on its own terms and still produced the wrong answer, because it optimised against a constraint —
+"protect the four groups he asked for" — that he had never expressed as a constraint. The method's
+instruction to rule rather than stall is right, and this is its cost: a ruling made in the owner's
+absence is a guess with reasoning attached. **Where a ruling is cheap to un-make and the owner is
+reachable, ask.** All three of these took one question and reversed one of my decisions.

@@ -165,9 +165,9 @@ describe("rule 3b: fictional-contact-detail-present", () => {
   it("does not raise the issue for a message with no fictional contact marker, acknowledged or not", () => {
     const plain: GovernedMessageInput = { text: "Thinking of you today.", messageType: "standard" };
     expect(validateGovernedMessage(plain)).toEqual({ valid: true });
-    expect(
-      validateGovernedMessage({ ...plain, syntheticFictionalContactsAcknowledged: true }),
-    ).toEqual({ valid: true });
+    expect(validateGovernedMessage({ ...plain, syntheticFictionalContactsAcknowledged: true })).toEqual({
+      valid: true,
+    });
   });
 
   it("the two approved patient-visible messages pass once the fictional-contact acknowledgement is given", () => {
@@ -181,8 +181,7 @@ describe("rule 3b: fictional-contact-detail-present", () => {
       expect(unacknowledged.issues).toContainEqual({ code: "fictional-contact-detail-present" });
 
       expect(
-        validateGovernedMessage({ text, messageType: "standard", syntheticFictionalContactsAcknowledged: true })
-          .valid,
+        validateGovernedMessage({ text, messageType: "standard", syntheticFictionalContactsAcknowledged: true }).valid,
       ).toBe(true);
     }
   });
@@ -296,7 +295,7 @@ describe('rule 3c: "lead" refuses by default, exempting only known job titles (B
     }
   });
 
-  it("pins the override map to exactly one entry -- \"lead\" -- so a future override for another term cannot land unnoticed", () => {
+  it('pins the override map to exactly one entry -- "lead" -- so a future override for another term cannot land unnoticed', () => {
     expect(Object.keys(rules.prohibitedTermPatternOverrides)).toEqual(["lead"]);
   });
 
@@ -345,19 +344,31 @@ describe("rule 4: first-message-missing-support-information", () => {
 
   it("fails when the programme line is missing", () => {
     const text = [rules.operatingHours, rules.emergencyDirection, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first", syntheticFictionalContactsAcknowledged: true });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
   it("fails when the hours are missing", () => {
     const text = [rules.programmeLine, rules.emergencyDirection, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first", syntheticFictionalContactsAcknowledged: true });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
   it("fails when the emergency direction is missing", () => {
     const text = [rules.programmeLine, rules.operatingHours, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first", syntheticFictionalContactsAcknowledged: true });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
@@ -389,7 +400,11 @@ describe("rule 5: closing-message-missing-ending-statement / closing-message-mis
 
   it("fails with closing-message-missing-ending-statement when the final-message statement is absent", () => {
     const text = [rules.programmeLine, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "closing", syntheticFictionalContactsAcknowledged: true });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "closing",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({
       valid: false,
       issues: [{ code: "closing-message-missing-ending-statement" }],
@@ -398,7 +413,11 @@ describe("rule 5: closing-message-missing-ending-statement / closing-message-mis
 
   it("fails with closing-message-missing-support-information when the programme line is absent", () => {
     const text = [rules.closingStatement, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "closing", syntheticFictionalContactsAcknowledged: true });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "closing",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({
       valid: false,
       issues: [{ code: "closing-message-missing-support-information" }],
