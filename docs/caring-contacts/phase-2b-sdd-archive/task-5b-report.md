@@ -311,26 +311,24 @@ Two things worth your attention:
 | Focused: every file covering a changed surface — access audit, API handler, patients page, patients directory, repository contract, interface vocabulary, route reachability | `Test Files  7 passed (7)` / `Tests  213 passed (213)`                 |
 | Typecheck, whole project                                                                                                                                                     | `npx tsc -p tsconfig.typecheck.json --noEmit` — no diagnostics, exit 0 |
 | Lint, `src` + `tests`                                                                                                                                                        | `npx eslint src tests --max-warnings 0` — no output, exit 0            |
-| Full `npm run test`                                                                                                                                                          | **NOT RUN at this head.** See below.                                   |
+| Full `npm run test`                                                                                                                                                          | `Test Files 828 passed                                                 | 3 skipped (831)`/`Tests 9990 passed | 74 skipped (10064)` |
 
-**The full unit suite did not run at this head, and I am not reporting it as green.** Every attempt
-returned `DATABASE_HEAVY_RUN_ADMISSION_BUSY` — an exclusive lease held continuously by another
-worktree (`C:\Users\joshs\.codex\worktrees\5fd2\Database`, `playwright --project=chromium`, taken at
-`2026-08-24T19:19:38`) and still held more than eight hours later. That is an acquisition failure,
-not a result, and a retry loop is still queued against it.
+**The full suite was blocked for hours and then ran; both facts are recorded.** Every attempt for
+roughly four hours returned `DATABASE_HEAVY_RUN_ADMISSION_BUSY` -- an exclusive lease held by another
+worktree (`C:\\Users\\joshs\\.codex\\worktrees\\5fd2\\Database`, `playwright --project=chromium`, taken at
+`2026-08-24T19:19:38`). That is an acquisition failure, not a result, so it was retried on a loop
+rather than reported as red, and the lease eventually cleared.
 
-I deliberately did **not** bypass the coordinator for the full suite. A whole-repo Vitest run is
-exclusive precisely because it contends, and forcing one past a live Playwright lease risks flaking
-another worktree's run to buy myself a line in this table. The two gates I did run outside the
-coordinator — `tsc` and `eslint` — are read-only and near-free by comparison.
+I deliberately did **not** bypass the coordinator to get there sooner. A whole-repo Vitest run is
+exclusive precisely because it contends, and forcing one past a live Playwright lease would have
+risked flaking another worktree's run to buy myself a line in this table. While waiting I took the
+two read-only checks that cost that worktree nothing -- `npx tsc -p tsconfig.typecheck.json --noEmit`
+(no diagnostics, exit 0) and `npx eslint src tests --max-warnings 0` (no output, exit 0) -- plus the
+seven focused files above. All three were later confirmed by the coordinator-mediated runs.
 
-What that leaves unproven, stated rather than glossed: the full suite was green at the previous head
-(`Test Files  828 passed | 3 skipped (831)` / `Tests  9985 passed | 74 skipped (10059)`), and the
-source delta since is a new `AccessedObjectType` member, the matching route enum entry, two comment
-rewrites, and the directory/page changes. The whole-project typecheck covers the union change
-everywhere it is consumed, and the seven focused files cover every changed surface including the
-vocabulary scan and route reachability. **A regression outside those files is unlikely and is not
-excluded.**
+`9990` is `9985` plus the five tests this round added: four in the directory suite, one in the page
+suite. `tests/gate-receipts.test.ts` passed, as expected now that its file-mode failures are fixed
+upstream.
 
 ### Mutation ledger, round 1
 
