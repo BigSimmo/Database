@@ -84,8 +84,9 @@ export function therapyKeyFactCards(therapy: Therapy): TherapyKeyFactCard[] {
   const cautionsBody = cautionBody(therapy) || "Cautions not recorded";
   const cautionsFace = cautionBody(therapy) ? glanceLine(cautionsBody) : "Cautions not recorded";
 
-  const formatFace = therapy.sessionLength?.trim() || "Format not recorded";
-  const formatBody = therapy.timeRequired?.trim() || formatFace;
+  const formatText = therapy.sessionLength?.trim() || therapy.timeRequired?.trim() || "";
+  const formatFace = formatText ? glanceLine(formatText) : "Format not recorded";
+  const formatBody = therapy.timeRequired?.trim() || formatText || formatFace;
 
   const settingRecorded = Boolean(therapy.setting?.trim());
   const settingBody = therapy.setting?.trim() || "Setting not recorded";
