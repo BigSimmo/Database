@@ -246,6 +246,7 @@ const requiredClinicalHoldChecks = [
   "/^src\\/lib\\/form-(?:catalog|ranker)\\.ts$/",
   "/^src\\/components\\/forms\\//",
   "/^src\\/lib\\/rag\\//",
+  "/^src\\/lib\\/(?:clinical-search|retrieval-selection|released-search-order|ranking-config|answer-ranking|answer-verification)\\.ts$/",
   "clinicalDecisionHoldPathPatterns.some((pattern) => pattern.test(filePath))",
   "if (clinicalDecisionHoldFiles.length > 0) {",
   "clinical-decision path(s)",
