@@ -35,12 +35,13 @@ import { UnavailableDestination } from "./unavailable-destination";
  * `method="get"` form, and the page -- a Server Component -- reads `searchParams` and filters
  * before rendering. Nothing on this screen needs JavaScript to work, and it adds NO client
  * component the workspace did not already ship: the only one it renders is `UnavailableDestination`,
- * and the shell mounts `WorkspaceOverlays` (and `OverlayHost` beneath it) into every screen's tree
- * regardless. Five client components exist in this workspace in total, which is the fact — "the
- * workspace ships one client component" was a claim this file inherited from
- * `unavailable-destination.tsx`, where it was true when written and had since stopped being so.
- * The conclusion is unchanged and is the one that matters: adding this screen moved the client
- * payload by nothing.
+ * and the shell mounts `WorkspaceOverlays` (with `OverlayHost` beneath it) into every screen's tree
+ * regardless.
+ *
+ * Ruling 94: that is the whole claim, and it is deliberately not a count. This paragraph twice
+ * carried a tally of the workspace's client components — "one", then "five" — and both were wrong,
+ * the second within the same round it corrected the first. The property that matters is the one
+ * stated above and it is checkable per screen: THIS screen adds none.
  *
  * Why the row's detail control is not a link
  * -----------------------------------------
@@ -143,9 +144,41 @@ function suppressedContactCount(record: PlanRecord): number {
   return record.contacts.filter((stored) => stored.contact.state === "suppressed").length;
 }
 
-/** True when the schedule itself absorbed a contact, which is a different reason from the above. */
-function hasAbsorbedContact(record: PlanRecord): boolean {
-  return record.contacts.some((stored) => stored.planned.suppressed?.reason === "absorbedByFirstContact");
+/**
+ * How many of a plan's suppressed contacts the SCHEDULE absorbed, rather than a later transition.
+ *
+ * A count, not a boolean. `hasAbsorbedContact` was the first shape and it produced the defect
+ * N-2 names: the row subtracted EVERY suppressed contact from its message count while the
+ * explanation branched on whether an absorbed one existed at all, so a plan carrying one absorbed
+ * Week 1 message and one later `suppress` transition showed a count short by two beside a reason
+ * accounting for one. That is the same blur keying the count off `contact.state` had just fixed,
+ * one case further along, and it is reachable through `applyContactTransition`.
+ *
+ * The two causes are counted separately because they have DIFFERENT REMEDIES, which is the whole
+ * of why spec 4.4 wants a reason stated in place: absorption is undone by choosing another
+ * first-contact date, and a transition-suppressed contact is terminal and never sent.
+ */
+function absorbedContactCount(record: PlanRecord): number {
+  return record.contacts.filter((stored) => stored.planned.suppressed?.reason === "absorbedByFirstContact").length;
+}
+
+/** The reason and the remedy for every contact this plan will not send, covering both causes. */
+function suppressionExplanation(absorbed: number, other: number): { because: string; changedBy: string } {
+  const absorbedBecause =
+    "The Week 1 message falls on the same calendar day as this plan's first contact, and two caring contacts must never land on one day, so the schedule kept one of them.";
+  const absorbedChangedBy =
+    "Choosing a different first-contact date for this plan puts the Week 1 message back into the schedule.";
+  const otherBecause = `The system marked ${plural(other, "message", "messages")} in this plan suppressed, and this row does not hold what caused that.`;
+  const otherChangedBy = `Nothing here. A suppressed message is final and is never sent later; the plan continues with the messages that remain.`;
+
+  if (absorbed > 0 && other > 0) {
+    return {
+      because: `Two separate things happened to this plan. ${absorbedBecause} ${otherBecause}`,
+      changedBy: `${absorbedChangedBy} ${otherChangedBy}`,
+    };
+  }
+  if (absorbed > 0) return { because: absorbedBecause, changedBy: absorbedChangedBy };
+  return { because: otherBecause, changedBy: otherChangedBy };
 }
 
 const sectionId = "caring-contacts-patients-directory";
@@ -348,6 +381,11 @@ function hiddenBecause(total: number, filter: PatientsDirectoryFilter): string {
 
 function PatientRow({ record }: { record: PlanRecord }) {
   const suppressed = suppressedContactCount(record);
+  const absorbed = absorbedContactCount(record);
+  // Every suppressed contact is subtracted from the count, so every suppressed contact must be
+  // accounted for in the reason beside it. `absorbed` can never exceed `suppressed`: both stores
+  // write an absorbed contact straight into the terminal `suppressed` state.
+  const explanation = suppressionExplanation(absorbed, suppressed - absorbed);
   const scheduled = record.contacts.length - suppressed;
 
   return (
@@ -392,27 +430,15 @@ function PatientRow({ record }: { record: PlanRecord }) {
         change it. A suppressed contact is one the system decided not to send, and the row would
         otherwise show a smaller message count with no reachable reason for it.
 
-        Two reasons exist and they have different remedies, so they are not blurred into one
-        sentence. The schedule absorbing Week 1 into the first contact is reversible by the
-        coordinator; any other suppression is terminal (`suppressed` is in the contact model's
-        terminal set), and this row does not hold the record of what caused it — so it says that,
-        rather than inventing a remedy or naming a screen that does not exist yet.
+        Two causes exist, they have different remedies, and a plan can carry BOTH — so the reason
+        covers whichever are actually present rather than picking one. The schedule absorbing Week 1
+        into the first contact is reversible by the coordinator; any other suppression is terminal
+        (`suppressed` is in the contact model's terminal set) and this row does not hold what caused
+        it, so it says that rather than inventing a remedy or naming a screen that does not exist.
       */}
       {suppressed > 0 ? (
         <div className="mt-3 min-w-0">
-          {hasAbsorbedContact(record) ? (
-            <AutomatedState
-              state="Suppressed"
-              because="The Week 1 message falls on the same calendar day as this plan's first contact, and two caring contacts must never land on one day, so the schedule kept one of them."
-              changedBy="Choosing a different first-contact date for this plan puts the Week 1 message back into the schedule."
-            />
-          ) : (
-            <AutomatedState
-              state="Suppressed"
-              because={`The system marked ${plural(suppressed, "message", "messages")} in this plan suppressed, so ${suppressed === 1 ? "it will" : "they will"} not be sent. This row does not hold what caused it.`}
-              changedBy="Nothing here. A suppressed message is final and is never sent later; the plan continues with the messages that remain."
-            />
-          )}
+          <AutomatedState state="Suppressed" because={explanation.because} changedBy={explanation.changedBy} />
         </div>
       ) : null}
     </li>

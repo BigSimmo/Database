@@ -224,6 +224,48 @@ describe("Patients directory - rows", () => {
     expect(automated.textContent ?? "").toMatch(/final/i);
   });
 
+  // N-3. `scheduled` changed definition this round -- it counts `contacts.length` minus the
+  // contacts whose OWN state is suppressed, where it used to subtract only the schedule's absorbed
+  // ones. Nothing asserted the rendered number, so the change could have been silently wrong on
+  // every row. This is a clinician-facing count of how many messages a patient will receive.
+  it("states how many messages remain in the schedule, and subtracts every suppressed one", () => {
+    const plain = planRecord({ id: "plan-1", state: "active", contacts: [contact(1), contact(2)] });
+    const withSuppressed = planRecord({
+      id: "plan-2",
+      state: "active",
+      contacts: [contact(1), contact(2, { suppressed: true }), contact(3, { absorbed: true })],
+    });
+
+    render(<PatientsDirectory records={[plain, withSuppressed]} filter={ALL} mayViewPlans />);
+
+    const [first, second] = screen.getAllByRole("listitem");
+    expect(first.textContent ?? "").toContain("2 messages in the schedule");
+    // Three contacts, two of them suppressed by two different causes, so one message remains.
+    expect(second.textContent ?? "").toContain("1 message in the schedule");
+  });
+
+  // N-2. The count subtracts EVERY suppressed contact, so the reason beside it has to account for
+  // every one of them. The first shape branched on whether an absorbed contact existed at all, so
+  // this plan showed a count short by two beside a reason explaining one.
+  it("accounts for both causes when a plan carries an absorbed AND a transition-suppressed contact", () => {
+    const record = planRecord({
+      id: "plan-1",
+      state: "active",
+      contacts: [contact(1), contact(2, { absorbed: true }), contact(3, { suppressed: true })],
+    });
+
+    render(<PatientsDirectory records={[record]} filter={ALL} mayViewPlans />);
+
+    const automated = screen.getByRole("group", { name: "Suppressed" });
+    const text = automated.textContent ?? "";
+    // The absorbed cause, with its own remedy...
+    expect(text).toMatch(/Week 1/);
+    expect(text).toMatch(/first-contact date/i);
+    // ...and the other one, with its own, which is a different remedy entirely.
+    expect(text).toMatch(/does not hold what caused that/i);
+    expect(text).toMatch(/final/i);
+  });
+
   it("says nothing about suppression when the system suppressed nothing", () => {
     render(<PatientsDirectory records={[planRecord({ id: "plan-1", state: "active" })]} filter={ALL} mayViewPlans />);
     expect(screen.queryByRole("group", { name: "Suppressed" })).toBeNull();

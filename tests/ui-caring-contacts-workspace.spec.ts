@@ -111,6 +111,29 @@ function markerBorder(page: Page) {
   });
 }
 
+/**
+ * The Patients screen's own surface and ink, read from the empty-state panel.
+ *
+ * `shellColours` reads the rail, the `h1` and the synthetic marker — all shell chrome, identical
+ * on both routes, so a dark-mode test built only on it proves the SHELL re-resolves and says
+ * nothing about anything this screen draws. The empty state sits on `--surface-subtle` with its
+ * own border and muted ink, none of which the shell contributes.
+ */
+function emptyStateColours(page: Page) {
+  return page.evaluate(() => {
+    const group = document.querySelector("[role='group'][aria-label='No patients yet']");
+    if (!group) throw new Error("the empty state is missing");
+    const style = getComputedStyle(group);
+    const heading = group.querySelector("p");
+    if (!heading) throw new Error("the empty state has no heading");
+    return {
+      surface: style.backgroundColor,
+      border: style.borderTopColor,
+      ink: getComputedStyle(heading).color,
+    };
+  });
+}
+
 function shellColours(page: Page) {
   return page.evaluate(() => {
     const chrome = document.querySelector("[data-testid='caring-contacts-rail']");
@@ -302,11 +325,15 @@ test.describe("caring-contacts patients directory", () => {
   test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
     await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENTS_SCREEN);
+    await expect(page.getByRole("group", { name: "No patients yet" })).toBeVisible();
     const light = await shellColours(page);
+    const lightEmpty = await emptyStateColours(page);
 
     await page.emulateMedia({ colorScheme: "dark" });
     await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENTS_SCREEN);
+    await expect(page.getByRole("group", { name: "No patients yet" })).toBeVisible();
     const dark = await shellColours(page);
+    const darkEmpty = await emptyStateColours(page);
 
     expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
     expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
@@ -314,7 +341,17 @@ test.describe("caring-contacts patients directory", () => {
     for (const value of Object.values(dark)) {
       expect(value, "a dark colour resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
     }
-    await expect(page.getByRole("group", { name: "No patients yet" })).toBeVisible();
+
+    // Everything above is shell chrome, identical on both routes, so on its own it would prove
+    // the SHELL re-resolves and claim the category on a screen it had not inspected. These read
+    // this screen's own surface: the empty state's panel, border and ink, none of them drawn by
+    // the shell. A hardcoded colour in `list-empty-state.tsx` leaves one of them unchanged.
+    expect(darkEmpty.surface, "the empty state's surface did not change in dark").not.toBe(lightEmpty.surface);
+    expect(darkEmpty.border, "the empty state's border did not change in dark").not.toBe(lightEmpty.border);
+    expect(darkEmpty.ink, "the empty state's ink did not change in dark").not.toBe(lightEmpty.ink);
+    for (const value of Object.values(darkEmpty)) {
+      expect(value, "a dark colour on the empty state resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
   });
 
   test("states the empty caseload in words once forced colours drop every tint", async ({ page, browserName }) => {

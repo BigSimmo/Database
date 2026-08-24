@@ -213,11 +213,11 @@ renders as an unavailable control that states what it will hold (Ruling 52). `/c
 (Today) and `/caring-contacts/patients` (the caseload) are the two built so far. Screens are
 Server Components that read the store through `auditedRead` rather than over HTTP, using the same
 access identity the matching API route records; filtering is carried in the URL and read by the
-Server Component, so a new screen adds no client boundary. The workspace ships five client
-components in total — `unavailable-destination.tsx`, `overlays/workspace-overlays.tsx`,
-`overlays/overlay-host.tsx`, `overlays/overlay-trigger.tsx` and `service-stop-scroll-watcher.tsx`
-— and Ruling 13 holds by keeping that set small and shared across screens, not by it having one
-member.
+Server Component, so a new screen adds no client boundary of its own. Ruling 94: do not restate
+that as a count of client components — this paragraph has carried two such counts and both were
+wrong. What holds Ruling 13 is the module boundary, which does not decay as files are added:
+nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue
+names it by href, never by import), so the dashboard references no chunk exclusive to it.
 
 ---
 

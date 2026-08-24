@@ -219,6 +219,19 @@ describe("the /caring-contacts/patients page - fails closed", () => {
     await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(/returned no list/i);
   });
 
+  // N-1. `auditedRead` calls a read denied on null OR undefined, but `AuditedReadResult` types
+  // `released` as `T | null`, so the compiler cannot see this case and the test above could not
+  // either -- it mocked `null` specifically. A `=== null` guard let `undefined` through to die on
+  // `records.length` with a TypeError: still closed, still no false caseload, but the wrong branch.
+  it("throws the same way when the store answers undefined rather than null", async () => {
+    const { store } = inMemoryStoreWithSpy();
+    vi.spyOn(store, "listPlans").mockResolvedValue(undefined as unknown as PlanRecord[]);
+
+    const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
+
+    await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(/returned no list/i);
+  });
+
   it("throws rather than rendering a caseload beside a service state it could not read", async () => {
     const { store } = inMemoryStoreWithSpy();
     vi.spyOn(store, "getServiceState").mockRejectedValue(new Error("service state unreachable"));

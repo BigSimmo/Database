@@ -124,7 +124,14 @@ export default async function CaringContactsPatientsPage({
   // have rendered "No patients yet" from an answer that was never given, which is a false
   // statement about a caseload and exactly what Ruling 89 merged Task 4 to prevent. Unreachable
   // under the contract; stated correctly anyway, because a branch that cannot run is still read.
-  if (plansRead.released === null) {
+  //
+  // `== null`, deliberately, and it is the one place in this file a loose equality is correct:
+  // `auditedRead` treats null OR UNDEFINED as denied, while `AuditedReadResult` types `released`
+  // as `T | null`, so the compiler cannot see the undefined case at all. A store returning
+  // `undefined` would have slipped past a `=== null` guard and died on `records.length` further
+  // down — still failing closed, so still no false caseload, but with a `TypeError` instead of
+  // this sentence, and the branch this guard exists for would not have been the one that fired.
+  if (plansRead.released == null) {
     throw new Error("caring-contacts plans read returned no list.");
   }
   const records = plansRead.released;
