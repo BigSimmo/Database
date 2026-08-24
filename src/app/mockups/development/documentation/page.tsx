@@ -6,7 +6,7 @@ import {
   MONO_CLASS,
   ROW_CLASS,
   SECTION_HEADING_CLASS,
-} from "@/components/developer-area/hub/count-tile";
+} from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import {
   documentsBySection,
@@ -124,11 +124,15 @@ export default function DeveloperDocumentationPage() {
                 <h3 id={headingId} className="text-sm font-extrabold text-[color:var(--text-heading)]">
                   {section.name} · {section.documents.length}
                 </h3>
-                <ul className="grid gap-2">
-                  {section.documents.map((document) => (
-                    <DocumentRow key={document.path} path={document.path} catalogued={document.catalogued} />
-                  ))}
-                </ul>
+                {section.documents.length > 0 ? (
+                  <ul className="grid gap-2">
+                    {section.documents.map((document) => (
+                      <DocumentRow key={document.path} path={document.path} catalogued={document.catalogued} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={META_CLASS}>No documents are recorded under this section.</p>
+                )}
               </section>
             );
           })}

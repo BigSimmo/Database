@@ -1,9 +1,15 @@
 /**
  * Shared building blocks for every developer-hub panel page: a labelled count
- * tile, and the two class strings ("section heading", "meta caption") every
- * panel section is built from. Extracted after `ledger/page.tsx` (Task 8) and
- * `routes/page.tsx` (Task 9) copied this shape verbatim; three more pages
- * were about to copy it again.
+ * tile, a shared card-container class, and the two class strings ("section
+ * heading", "meta caption") every panel section is built from. Extracted
+ * after `ledger/page.tsx` (Task 8) and `routes/page.tsx` (Task 9) copied this
+ * shape verbatim; three more pages were about to copy it again.
+ *
+ * Named for what it now holds, not for the tile that started it — by the time
+ * `CARD_CLASS` and `ROW_CLASS` joined `CountTile` here, "count-tile.tsx" was
+ * describing a quarter of the module. Renamed to `panel-primitives.tsx` in
+ * the same change that added `CARD_CLASS`, so the file moves once rather than
+ * once per addition.
  *
  * No `"use client"`, and nothing imported here carries one either: every
  * consumer of this module is a Server Component, and a client boundary here
@@ -25,7 +31,13 @@ export const META_CLASS = "text-xs text-[color:var(--text-muted)]";
 export const MONO_CLASS = "font-mono text-xs text-[color:var(--text-heading)]";
 export const ROW_CLASS = "flex flex-wrap items-baseline gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2";
 
-const TILE_CLASS = "grid gap-1 rounded-xl border border-[color:var(--border)] p-4";
+/**
+ * The rounded-card container for one record: a ledger "pending" item, a
+ * review-state row, a quarantined-test entry, and `CountTile` below. All four
+ * were byte-identical copies of this exact string before extraction; kept
+ * byte-identical here so adopting it changes zero rendered pixels.
+ */
+export const CARD_CLASS = "grid gap-1 rounded-xl border border-[color:var(--border)] p-4";
 const TILE_NUMBER_CLASS = "text-2xl font-extrabold text-[color:var(--text-heading)]";
 const TILE_LABEL_CLASS = "text-xs text-[color:var(--text-muted)]";
 
@@ -44,7 +56,7 @@ const TILE_LABEL_CLASS = "text-xs text-[color:var(--text-muted)]";
  */
 export function CountTile({ testId, value, label }: { testId: string; value: number; label: string }) {
   return (
-    <div data-testid={testId} className={TILE_CLASS}>
+    <div data-testid={testId} className={CARD_CLASS}>
       <span data-testid={`${testId}-value`} className={TILE_NUMBER_CLASS}>
         {value}
       </span>

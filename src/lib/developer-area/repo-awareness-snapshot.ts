@@ -49,6 +49,14 @@ export function resolveRepoFreshness(snapshot: RepoAwarenessSnapshot, now: Date)
  * a full day left — so the comparison is against the end of that day. An
  * unparseable date reports "not expired" rather than flashing a red badge on
  * data nobody can verify.
+ *
+ * "End of that day" is UTC, not the reader's local day: in Perth (UTC+8) an
+ * entry expiring today keeps showing "lapses <date>" until 08:00 the next
+ * local morning, because `T23:59:59.999Z` is still hours away in Perth time
+ * when the UTC day rolls over. That is the safe direction — it can only make
+ * an entry read as still-quarantined for longer than the calendar date
+ * suggests, never expire it early — so this is left as is, not "fixed" to a
+ * local-time comparison.
  */
 export function isQuarantineExpired(entry: QuarantinedTest, now: Date): boolean {
   const endOfExpiryDay = new Date(`${entry.expires}T23:59:59.999Z`);

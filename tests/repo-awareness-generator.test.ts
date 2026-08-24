@@ -413,4 +413,17 @@ describe("generate", () => {
     expect(first).toBe(second);
     expect(first).not.toMatch(/generated_at/);
   });
+
+  it("declares exactly the snapshot's known top-level keys, whatever a new time-derived field would be named", () => {
+    // The `generated_at` grep above is name-specific: a field named
+    // `built_at` or `captured_at` — or a second-resolution timestamp that
+    // happens to match on both `generate()` calls above — would sail through
+    // it undetected. Pinning the exact top-level key set catches any new
+    // field regardless of what it is called, so it cannot rot the way a
+    // literal-string grep can.
+    const snapshot = generate();
+    expect(Object.keys(snapshot).sort()).toEqual(
+      ["version", "captured_revision", "routes", "documentation", "test_health", "review_state"].sort(),
+    );
+  });
 });

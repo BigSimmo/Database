@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CountTile, META_CLASS, SECTION_HEADING_CLASS } from "@/components/developer-area/hub/count-tile";
+import { CountTile, META_CLASS, SECTION_HEADING_CLASS } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { QuarantineList } from "@/components/developer-area/hub/quarantine-list";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
@@ -23,7 +23,14 @@ export default function DeveloperTestHealthPage() {
       freshness={freshness}
       freshnessLabel="Repository"
     >
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/*
+       * `grid-cols-1`, not the `grid-cols-2 sm:grid-cols-4` the four-tile pages
+       * use: this page has exactly one count, and the four-tile grid was
+       * copied from them verbatim, leaving one quarter-width tile beside three
+       * quarters of empty grid track. `sm:max-w-xs` keeps the single tile from
+       * stretching to the full content width instead.
+       */}
+      <div className="grid grid-cols-1 gap-3 sm:max-w-xs">
         <CountTile
           testId="developer-test-health-count-quarantined"
           value={counts.quarantined}

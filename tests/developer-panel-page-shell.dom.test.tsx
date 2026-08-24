@@ -65,4 +65,19 @@ describe("PanelPageShell", () => {
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/Repository content as of/);
     expect(screen.getByText("body")).toBeInTheDocument();
   });
+
+  it("requires freshnessLabel on every caller, so a new page cannot silently inherit FreshnessStamp's Ledger default", () => {
+    // Structural guard, checked at compile time. `FreshnessStamp` defaults its
+    // own `label` to "Ledger" for Phase 1's direct call site, and that default
+    // is exactly what must not leak through the shell: a page that forgot to
+    // pass its own `freshnessLabel` would silently render "Ledger content as
+    // of …" over data that is not the ledger. If `freshnessLabel` ever regains
+    // a `?`, `FreshnessLabelIsOptional` flips to `true` and the assignment
+    // below fails `npm run typecheck` — this test does not need to run to
+    // catch the regression, only to exist.
+    type ShellProps = Parameters<typeof PanelPageShell>[0];
+    type FreshnessLabelIsOptional = undefined extends ShellProps["freshnessLabel"] ? true : false;
+    const isOptional: FreshnessLabelIsOptional = false;
+    expect(isOptional).toBe(false);
+  });
 });

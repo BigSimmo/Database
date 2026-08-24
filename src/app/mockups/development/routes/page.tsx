@@ -7,7 +7,7 @@ import {
   MONO_CLASS,
   ROW_CLASS,
   SECTION_HEADING_CLASS,
-} from "@/components/developer-area/hub/count-tile";
+} from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
 
@@ -22,6 +22,19 @@ const LINK_CLASS =
 /**
  * A route containing a `[segment]` is a pattern, not an address. It is rendered
  * as text with the reason stated, rather than as a link that would always 404.
+ *
+ * This looks inconsistent with the "Design-scratch pages" section just below,
+ * which links every one of its rows even though `src/proxy.ts` (`:225-231`)
+ * blocks `/mockups/**` outside two allowed prefixes in production — every one
+ * of those links also 404s there. The two cases still differ in the one way
+ * that matters: a mockup link resolves wherever this hub is actually read —
+ * in local development, before a change ever reaches production — so it is a
+ * genuinely working link for its real audience, only unreachable in an
+ * environment nobody is using it from. A `[segment]` link never resolves
+ * anywhere, dev included, because no request ever supplies the missing
+ * segment; there is no environment in which clicking it would do anything but
+ * 404. Do not "fix" this by also refusing to link mockups — that would remove
+ * the one working link class this page has.
  */
 function RoutePath({ path }: { path: string }) {
   if (path.includes("[")) {
@@ -139,7 +152,8 @@ export default function DeveloperRoutesPage() {
           </h2>
           <p className={META_CLASS}>
             These pages carry an area this page does not recognise. They are shown as they are rather than dropped,
-            so the pages listed here still add up to the {counts.pages} pages counted above.
+            so together with the {counts.product_pages} product and {counts.mockup_pages} design-scratch pages
+            counted above, nothing from this snapshot goes unlisted.
           </p>
           <ul data-testid="developer-routes-pages-other" className="grid gap-2">
             {otherPages.map((page) => (
@@ -189,7 +203,7 @@ export default function DeveloperRoutesPage() {
           </ul>
         ) : (
           <p data-testid="developer-routes-api" className={META_CLASS}>
-            None.
+            None. No route in the app serves as an API endpoint.
           </p>
         )}
       </section>

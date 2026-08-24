@@ -1,4 +1,4 @@
-import { META_CLASS, MONO_CLASS, ROW_CLASS } from "@/components/developer-area/hub/count-tile";
+import { CARD_CLASS, META_CLASS, MONO_CLASS, ROW_CLASS } from "@/components/developer-area/hub/panel-primitives";
 import { isQuarantineExpired } from "@/lib/developer-area/repo-awareness-snapshot";
 import type { QuarantinedTest } from "@/lib/developer-area/repo-awareness-types";
 
@@ -41,7 +41,7 @@ export function QuarantineList({ entries, now }: { entries: readonly Quarantined
           <li
             key={entry.id}
             data-testid={`developer-test-health-entry-${entry.id}`}
-            className="grid gap-1 rounded-xl border border-[color:var(--border)] p-4"
+            className={CARD_CLASS}
           >
             <div className={ROW_CLASS}>
               <span className={MONO_CLASS}>{entry.id}</span>

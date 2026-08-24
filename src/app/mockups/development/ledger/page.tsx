@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { CountTile, META_CLASS, SECTION_HEADING_CLASS } from "@/components/developer-area/hub/count-tile";
+import {
+  CARD_CLASS,
+  CountTile,
+  META_CLASS,
+  SECTION_HEADING_CLASS,
+} from "@/components/developer-area/hub/panel-primitives";
 import { LEDGER_DETAIL_CLASS, LEDGER_DISCLOSURE_CLASS, LedgerItem } from "@/components/developer-area/hub/ledger-item";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import {
@@ -53,7 +58,7 @@ export default function DeveloperLedgerPage() {
   const unrecognised: LedgerOpenItem[] = snapshot.open.filter((item) => !recognised.has(item));
 
   return (
-    <PanelPageShell testId="developer-ledger" title="Task ledger" freshness={freshness}>
+    <PanelPageShell testId="developer-ledger" title="Task ledger" freshness={freshness} freshnessLabel="Ledger">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <CountTile testId="developer-ledger-count-open" value={snapshot.counts.open} label="open items" />
         <CountTile testId="developer-ledger-count-p1" value={snapshot.counts.p1} label="blocking, priority P1" />
@@ -203,7 +208,7 @@ export default function DeveloperLedgerPage() {
               <li
                 key={request.request_id}
                 data-testid={`developer-ledger-pending-${request.request_id}`}
-                className="grid gap-1 rounded-xl border border-[color:var(--border)] p-4"
+                className={CARD_CLASS}
               >
                 <div className="flex flex-wrap items-baseline gap-2">
                   <span className="rounded-lg border border-[color:var(--border)] px-2 py-0.5 text-xs text-[color:var(--text-muted)]">

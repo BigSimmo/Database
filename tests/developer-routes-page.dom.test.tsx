@@ -13,29 +13,53 @@ import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-s
  */
 const areaOverride = vi.hoisted(() => ({ value: null as string | null }));
 
+/**
+ * Forces the redirects/API arrays empty on top of the real snapshot, whose 16
+ * redirects and 42 API routes mean the existing count-driven assertions never
+ * take the "None." branch. `false` means "do not override" for each field
+ * independently, so a test exercises exactly one empty section at a time.
+ */
+const emptyOverride = vi.hoisted(() => ({ redirects: false, api: false }));
+
 vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/developer-area/repo-awareness-snapshot")>();
   return {
     ...actual,
     loadRepoAwarenessSnapshot: () => {
-      const snapshot = actual.loadRepoAwarenessSnapshot();
-      if (areaOverride.value === null) return snapshot;
-      const area = areaOverride.value;
-      return {
-        ...snapshot,
-        routes: {
-          ...snapshot.routes,
-          pages: snapshot.routes.pages.map((page, index) =>
-            index === 0 ? { ...page, area: area as typeof page.area } : page,
-          ),
-        },
-      };
+      let snapshot = actual.loadRepoAwarenessSnapshot();
+      if (areaOverride.value !== null) {
+        const area = areaOverride.value;
+        snapshot = {
+          ...snapshot,
+          routes: {
+            ...snapshot.routes,
+            pages: snapshot.routes.pages.map((page, index) =>
+              index === 0 ? { ...page, area: area as typeof page.area } : page,
+            ),
+          },
+        };
+      }
+      if (emptyOverride.redirects) {
+        snapshot = {
+          ...snapshot,
+          routes: { ...snapshot.routes, redirects: [], counts: { ...snapshot.routes.counts, redirects: 0 } },
+        };
+      }
+      if (emptyOverride.api) {
+        snapshot = {
+          ...snapshot,
+          routes: { ...snapshot.routes, api: [], counts: { ...snapshot.routes.counts, api: 0 } },
+        };
+      }
+      return snapshot;
     },
   };
 });
 
 afterEach(() => {
   areaOverride.value = null;
+  emptyOverride.redirects = false;
+  emptyOverride.api = false;
 });
 
 const snapshot = loadRepoAwarenessSnapshot();
@@ -129,9 +153,39 @@ describe("developer routes page", () => {
       ),
     ).toBeNull();
     // The caption sits beside the `<ul>`, not inside it, so this reads the
-    // section as a whole rather than the list element `other` above.
+    // section as a whole rather than the list element `other` above. This
+    // pins a *true* claim: `counts.pages` is never shown as its own tile, so
+    // the caption cites the product and mockup tiles that are actually shown
+    // above it, and the arithmetic (product + mockup + other = counts.pages)
+    // is exact because `otherPages` is exactly the complement of the
+    // product/mockup union within `pages` — the same invariant the earlier
+    // "not double-counted" assertions in this test already establish.
     expect(other.parentElement).toHaveTextContent(
-      new RegExp(`add up to the ${overridden.routes.counts.pages} pages counted above`),
+      new RegExp(
+        `together with the ${overridden.routes.counts.product_pages} product and ` +
+          `${overridden.routes.counts.mockup_pages} design-scratch pages counted above`,
+      ),
     );
+  });
+
+  it("says in words when there are no redirects at all — the branch the live snapshot's 16 redirects never take", () => {
+    // `tests/developer-routes-page.dom.test.tsx`'s existing count-driven
+    // assertion always finds `snapshot.routes.counts.redirects > 0` against
+    // the real committed snapshot, so it always takes the list branch and has
+    // never actually rendered these words. This fixture forces the zero
+    // branch so the copy itself is proven, not just the list branch's length.
+    emptyOverride.redirects = true;
+    render(<DeveloperRoutesPage />);
+    const region = screen.getByTestId("developer-routes-redirects");
+    expect(region.tagName).toBe("P");
+    expect(region).toHaveTextContent("None. No route in the app redirects to another.");
+  });
+
+  it("says in words when there are no API routes at all — the branch the live snapshot's 42 API routes never take", () => {
+    emptyOverride.api = true;
+    render(<DeveloperRoutesPage />);
+    const region = screen.getByTestId("developer-routes-api");
+    expect(region.tagName).toBe("P");
+    expect(region).toHaveTextContent("None. No route in the app serves as an API endpoint.");
   });
 });

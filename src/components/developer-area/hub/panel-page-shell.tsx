@@ -19,7 +19,14 @@ export function PanelPageShell({
   testId: string;
   title: string;
   freshness: Freshness;
-  freshnessLabel?: string;
+  /**
+   * Required, not defaulted. `FreshnessStamp` still defaults its own `label` to
+   * "Ledger" for its direct callers, but that default is exactly the trap this
+   * shell must not forward: a page that forgot to pass its own label would
+   * silently render "Ledger content as of …" over data that is not the ledger.
+   * Every current call site already has an unambiguous label to state.
+   */
+  freshnessLabel: string;
   children: ReactNode;
 }) {
   return (

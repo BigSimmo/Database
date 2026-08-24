@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 
 import {
+  CARD_CLASS,
   CountTile,
   META_CLASS,
   MONO_CLASS,
   ROW_CLASS,
   SECTION_HEADING_CLASS,
-} from "@/components/developer-area/hub/count-tile";
+} from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
 
@@ -94,7 +95,7 @@ export default function DeveloperReviewStatePage() {
               // record today, but nothing structurally guarantees it, so the index
               // carries uniqueness and the fields carry readability.
               key={`${record.date}-${record.ref}-${record.head}-${record.scope}-${index}`}
-              className="grid gap-1 rounded-xl border border-[color:var(--border)] p-4"
+              className={CARD_CLASS}
             >
               <div className={ROW_CLASS}>
                 <span className={META_CLASS}>{record.date}</span>

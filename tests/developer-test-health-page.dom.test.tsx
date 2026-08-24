@@ -60,6 +60,11 @@ describe("QuarantineList", () => {
     expect(row).toHaveTextContent(ENTRY.owner);
     expect(row).toHaveTextContent(ENTRY.reproduction);
     expect(row).toHaveTextContent(ENTRY.tracking);
+    // `first_seen` and `last_seen` were previously unasserted here — a
+    // regression dropping only those two interpolations from the row would
+    // have passed every check above.
+    expect(row).toHaveTextContent(ENTRY.first_seen);
+    expect(row).toHaveTextContent(ENTRY.last_seen);
   });
 
   it("marks an entry expired only after its expiry day has passed", () => {

@@ -412,12 +412,20 @@ of Phase 1's task ledger; the remaining registry entries (clinical, system, and 
   owns the hub's in-page section table and mounts `InPageNavHeader`) and
   `src/components/developer-area/hub/` — `freshness-stamp.tsx`, `environment-strip.tsx`,
   `panel-card.tsx` (a Client Component because it renders an inert click handler for
-  not-yet-built panels), `ledger-item.tsx`, `panel-page-shell.tsx` (back link, title, and
-  freshness stamp shared by every developer sub-page), `count-tile.tsx` (the shared summary-count
-  tile the four repo-awareness pages and the ledger page render their headline numbers with).
+  not-yet-built panels), `ledger-item.tsx`, `panel-page-shell.tsx` (back link, title, and a
+  required `freshnessLabel` so a page can never silently inherit the stamp's "Ledger" default),
+  `panel-primitives.tsx` (renamed from `count-tile.tsx` once it outgrew tile-only scope — the
+  shared `CountTile`, the `CARD_CLASS`/`ROW_CLASS`/`MONO_CLASS`/`SECTION_HEADING_CLASS`/
+  `META_CLASS` building blocks the five developer sub-pages render their headline numbers and
+  record cards with), `quarantine-list.tsx` (the quarantined-test list, kept outside
+  `test-health/page.tsx` because a page module may only export the framework's reserved names).
 - **Tests:** `tests/developer-area-access.test.ts`, `tests/developer-hub-panels.test.ts`,
   `tests/developer-ledger-snapshot.test.ts`, `tests/developer-hub-components.dom.test.tsx`,
-  `tests/developer-hub-page.dom.test.tsx`, `tests/developer-ledger-page.dom.test.tsx`.
+  `tests/developer-hub-page.dom.test.tsx`, `tests/developer-ledger-page.dom.test.tsx`,
+  `tests/repo-awareness-generator.test.ts`, `tests/repo-awareness-gate.test.ts`,
+  `tests/repo-awareness-snapshot.test.ts`, `tests/developer-panel-page-shell.dom.test.tsx`,
+  `tests/developer-routes-page.dom.test.tsx`, `tests/developer-documentation-page.dom.test.tsx`,
+  `tests/developer-test-health-page.dom.test.tsx`, `tests/developer-review-state-page.dom.test.tsx`.
 
 ### Global search composer placement rules
 
