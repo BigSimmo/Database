@@ -1093,6 +1093,18 @@ export function GovernanceSurface() {
         <p className={styles.contactBoundary}>
           {`${COUNTS_DECIDE_NOTHING} Nothing in this prototype proposes, defaults to, or compares against a number, because proposing one would be the governance decision it exists to leave open.`}
         </p>
+        {/*
+          Said here rather than left to be found. Somebody reading this page is
+          asking whether the tool labels people, and one screen will order a list
+          by how often somebody has attended. Discovering that afterwards would
+          make everything else on this page read as though it had been managed.
+        */}
+        <p data-testid="care-plan-governance-sort-disclosure" className={styles.contactBoundary}>
+          One screen will order a list by how often people have attended: the Identification Review worklist, where
+          finding people who attend often is the stated and governed purpose of the screen. It is offered nowhere else
+          in this application, and the sentence above is on that screen too. Ordering a worklist is not a ranking of
+          people, and it decides nothing.
+        </p>
       </SectionFrame>
 
       <SectionFrame

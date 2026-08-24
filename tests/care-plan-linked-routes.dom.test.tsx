@@ -3910,6 +3910,13 @@ describe("Care Plan combined History", () => {
    * The single easiest place in this product to overclaim. A contact action is
    * a request to open an application on this device; nothing about it is
    * evidence that anybody was reached.
+   *
+   * The claim is asserted against the entry's own heading node rather than the
+   * whole entry's `textContent`. Concatenated `textContent` runs one element's
+   * last word into the next element's first — `…was printedThe browser…` — which
+   * destroys the trailing word boundary and let an earlier form of this guard
+   * survive a heading that said the plan had been printed. The heading is the
+   * sentence that makes the claim, so that is what has to be read.
    */
   it("labels a contact action as a request to open an application, never as a message anyone received", async () => {
     const user = userEvent.setup();
@@ -3924,11 +3931,13 @@ describe("Care Plan combined History", () => {
     expect(entry).toBeDefined();
     expect(entry).toHaveTextContent(/An external email application was asked to open/);
     expect(entry).toHaveTextContent(/transmitted nothing and holds no evidence of delivery, readership, or reply/i);
-    // Spelled out rather than read back off the constant the entry renders
-    // from: an assertion generated from the copy can never disagree with it.
-    expect(entry?.textContent ?? "").not.toMatch(
-      /\b(sent|delivered|received|read by|replied|answered|acknowledged|contacted the team|spoke)\b/i,
-    );
+
+    // Spelled out literally rather than read back off the constant the entry
+    // renders from: an assertion generated from the copy can never disagree
+    // with it.
+    const heading = within(entry as HTMLElement).getByRole("heading", { level: 3 }).textContent ?? "";
+    expect(heading).toMatch(/asked to open/i);
+    expect(heading).not.toMatch(/sent|delivered|received|reply|replied|answered|acknowledged|spoke|reached/i);
   });
 
   it("labels a print action as the print view opening, never as a page that printed", async () => {
@@ -3942,7 +3951,10 @@ describe("Care Plan combined History", () => {
       .find((node) => /print view/i.test(node.textContent ?? ""));
     expect(entry).toBeDefined();
     expect(entry).toHaveTextContent(/is not evidence that anything reached a printer/i);
-    expect(entry?.textContent ?? "").not.toMatch(/\b(printed successfully|was printed|reached the printer|copy given)\b/i);
+
+    const heading = within(entry as HTMLElement).getByRole("heading", { level: 3 }).textContent ?? "";
+    expect(heading).toMatch(/print view was opened/i);
+    expect(heading).not.toMatch(/printed|reached the printer|copy given|sent to/i);
   });
 
   // The specification requires the closed decision, its reason, its author, and
@@ -3996,6 +4008,57 @@ describe("Care Plan combined History", () => {
     renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"), "scenario=identity-uncertain");
     expect(screen.getByTestId("care-plan-identity-uncertain")).toBeInTheDocument();
     expect(screen.queryByTestId("care-plan-history-list")).toBeNull();
+  });
+});
+
+describe("Care Plan Governance", () => {
+  it("states the four approved Identification Policy facts and offers no control that could become a number", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const panel = screen.getByTestId("care-plan-governance-policy");
+    expect(within(panel).getByText("Pending local governance")).toBeInTheDocument();
+    expect(within(panel).getByText("No approved threshold count")).toBeInTheDocument();
+    expect(within(panel).getByText("No approved threshold lookback")).toBeInTheDocument();
+    expect(within(panel).getByText("Manual referral enabled")).toBeInTheDocument();
+
+    // No candidate number, default, slider, comparison line, or configuration
+    // control — anywhere on the page, not only inside this panel.
+    const surface = screen.getByRole("region", { name: "Prototype governance" });
+    expect(within(surface).queryAllByRole("spinbutton")).toEqual([]);
+    expect(within(surface).queryAllByRole("slider")).toEqual([]);
+    expect(within(surface).queryAllByRole("textbox")).toEqual([]);
+    expect(within(surface).queryAllByRole("combobox")).toEqual([]);
+    expect(surface.textContent ?? "").not.toMatch(
+      /threshold of \d|at least \d|\d\+? or more presentations|more than \d presentation/i,
+    );
+  });
+
+  /**
+   * The reader of this page is asking whether the tool labels people. One screen
+   * will order a list by how often somebody has attended, and being told that
+   * here — rather than finding it later — is what keeps the rest of the page
+   * credible.
+   */
+  it("discloses the one screen that orders a list by attendance rather than leaving it to be found", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const disclosure = screen.getByTestId("care-plan-governance-sort-disclosure");
+    expect(disclosure).toHaveTextContent(/Identification Review worklist/);
+    expect(disclosure).toHaveTextContent(/offered nowhere else/i);
+    expect(disclosure).toHaveTextContent(/not a ranking of people/i);
+  });
+
+  it("says the role display is interaction modelling and protects nothing", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const roles = screen.getByTestId("care-plan-governance-roles");
+    expect(roles).toHaveTextContent(/not authentication, authorisation, role-based access control/i);
+    expect(roles).toHaveTextContent(/no data anywhere in this prototype is protected by it/i);
+  });
+
+  it("states what an Audit Event cannot say, in the words a reader would otherwise assume", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.governance);
+    const audit = screen.getByTestId("care-plan-governance-audit");
+    expect(audit).toHaveTextContent(/never evidence that a message was composed, sent, delivered, read/i);
+    expect(audit).toHaveTextContent(/never evidence of a connection, a conversation, or an outcome/i);
+    expect(audit).toHaveTextContent(/never sees a printer, a sheet of paper, or a reader/i);
   });
 });
 

@@ -938,6 +938,37 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     later, not no net. **This is a one-round suspension, not a new standard: Task 10 and Task 11
     each get their full task review and fix loop.**
 
+### Task 10
+
+55. **The brief's worked example is unrunnable against the fixtures, and the fixtures win — for
+    the fourth time.** The example refers `Jordan Test` for Identification Review, but
+    `SYN-IDENT-REVIEW-001` already holds an **open** referral for `SYN-PATIENT-003`, and the
+    reviewed reducer refuses a second open referral for the same person. **Verified in the
+    fixtures rather than taken on the implementer's word.** Rulings 21, 30 and 37 recorded the
+    same class of defect for Tasks 2, 4 and 6; unlike those, this one is not a stale version
+    number but a state collision, so it fails at runtime rather than in an assertion.
+
+    The implementer's resolution stands: keep every literal string from the example, and split it
+    into a **success** path on `Alex Fiction` — whose only referral is `closed` with
+    `revisit_later`, so a fresh one is legitimately permitted — and a **refusal** path on the
+    brief's exact route and scenario pair, which now proves the duplicate guard instead of
+    tripping over it. Neither the fixture nor the reducer was bent to fit the example, which was
+    the one outcome to avoid. _Cost if wrong:_ none identified — the example's intent (a manual
+    referral creates no plan and applies no eligibility) is proven, and the collision it exposed
+    is now covered by a test that did not exist.
+
+56. **Governance discloses that one screen sorts by attendance, and the implementer was right to
+    add it.** The brief does not ask for it. But sort-by-presentation-count exists only inside the
+    Identification Review workflow, and the specification requires that wherever the ranking is
+    offered, the statement that counts do not determine eligibility sits on the same screen — a
+    rule written to stop the ranking being quietly normalised. Governance is the page whose reader
+    is asking exactly one question: _does this tool label people?_ A reader who learns elsewhere
+    that a screen ranks people by attendance, having read a governance page that did not mention
+    it, is entitled to read the rest of that page as managed. Disclosure on the page that exists
+    to be honest costs nothing and is the whole point of it. _Cost if wrong:_ one paragraph of
+    copy a later review can cut — against the risk of the product's honesty page being the one
+    place it was not honest.
+
 ---
 
 ## Deferred minors — for the whole-branch review to triage
