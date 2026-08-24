@@ -29,6 +29,10 @@ const globalSearchShellSource = readFileSync(
   "utf8",
 );
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+const modeHomeCanvasSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/mode-home-canvas.ts"),
+  "utf8",
+);
 const dashboardChromeCoordinatorSource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts"),
   "utf8",
@@ -121,9 +125,23 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).not.toContain("clamp(34rem, 50vw, 48rem)");
   });
 
-  it("keeps a mobile height floor for centered mode homes", () => {
-    expect(clinicalDashboardSource).toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
-    expect(clinicalDashboardSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
+  it("centres idle phone homes in leftover main space instead of a nested 100dvh floor", () => {
+    // The canvas is nested inside padded #main-content. A 100dvh-12.5rem floor
+    // double-counted overlay chrome and manufactured a scrollbar. Grow without
+    // shrink fills leftover pane space; `flex-1` (`1 1 0%`) would still collapse
+    // around a taller sibling in the standalone PWA scrollport.
+    expect(modeHomeCanvasSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
+    expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-col");
+    expect(modeHomeCanvasSource).toContain("max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col");
+    expect(modeHomeCanvasSource).toContain('centeredModeHome && "max-sm:items-center max-sm:justify-center"');
+    expect(modeHomeCanvasSource).not.toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
+    expect(modeHomeCanvasSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
+  });
+
+  it("keeps the appended phone scroll runway from shrinking in a flex main", () => {
+    const helper = readFileSync(resolve(process.cwd(), "tests/helpers/phone-scroll.ts"), "utf8");
+    expect(helper).toContain('filler.style.minHeight = "1600px"');
+    expect(helper).toContain('filler.style.flexShrink = "0"');
   });
 
   it("never hand-authors -webkit-backdrop-filter declarations", () => {
