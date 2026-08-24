@@ -433,21 +433,6 @@ function SourceDrawer({
   onClose: () => void;
   wide: boolean;
 }) {
-  // Tracks the element that had focus before the drawer opened, so closing it
-  // (Escape, backdrop click, or the close button) returns focus there instead
-  // of dropping it to <body>. Runs once per open/close transition, not per
-  // page change within an open drawer.
-  const previouslyFocused = useRef<HTMLElement | null>(null);
-  const isOpen = openId !== null;
-  useEffect(() => {
-    if (isOpen) {
-      previouslyFocused.current = document.activeElement as HTMLElement | null;
-    } else {
-      previouslyFocused.current?.focus();
-      previouslyFocused.current = null;
-    }
-  }, [isOpen]);
-
   if (openId === null) return null;
   // Keyed on the source: the panel's own transient state (an open menu)
   // belongs to that source and is discarded when you move to another.
@@ -963,6 +948,20 @@ function AnswerScreen({
   initialOpenId?: string | null;
 }) {
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
+  // Capture the trigger during its activation event. Waiting for the drawer's
+  // effect would capture the newly-focused drawer control instead.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const openSource = (id: string) => {
+    if (openId === null && document.activeElement instanceof HTMLElement) {
+      returnFocusRef.current = document.activeElement;
+    }
+    setOpenId((current) => (current === id ? null : id));
+  };
+  const closeSource = () => {
+    setOpenId(null);
+    returnFocusRef.current?.focus();
+    returnFocusRef.current = null;
+  };
   return (
     <>
       <TopBar />
@@ -973,13 +972,13 @@ function AnswerScreen({
           <AnswerMessage
             variant={variant}
             activeSourceId={openId}
-            onOpen={(id) => setOpenId((current) => (current === id ? null : id))}
+            onOpen={openSource}
             wide={wide}
           />
         </div>
       </div>
       <Composer />
-      <SourceDrawer openId={openId} onSelect={setOpenId} onClose={() => setOpenId(null)} wide={wide} />
+      <SourceDrawer openId={openId} onSelect={setOpenId} onClose={closeSource} wide={wide} />
     </>
   );
 }
