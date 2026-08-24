@@ -33,7 +33,7 @@ export default function DeveloperReviewStatePage() {
     >
       <div className="grid grid-cols-2 gap-3">
         <CountTile testId="developer-review-state-count-records" value={counts.records} label="review records" />
-        <CountTile testId="developer-review-state-count-refs" value={counts.refs} label="distinct branches reviewed" />
+        <CountTile testId="developer-review-state-count-refs" value={counts.refs} label="distinct recorded refs" />
       </div>
 
       {/*
@@ -50,10 +50,10 @@ export default function DeveloperReviewStatePage() {
        * from an absence.
        */}
       <p data-testid="developer-review-state-scope" className={META_CLASS}>
-        This is the repository&rsquo;s own review history: which branch was reviewed, at which exact commit, and what
+        This is the repository&rsquo;s own review history: which recorded ref was reviewed, at which exact commit, and what
         the reviewer concluded. It does not show which pull requests are open, whether their checks are green, or
         whether a review is outstanding — none of that exists on disk, and reading it would need credentials this page
-        deliberately does not have. A branch absent from this list has not been reviewed at any head; it does not mean
+        deliberately does not have. A ref absent from this list has not been reviewed at any head; it does not mean
         there is no pull request.
       </p>
 
@@ -62,7 +62,7 @@ export default function DeveloperReviewStatePage() {
           Records · {counts.records}
         </h2>
         <p className={META_CLASS}>
-          Newest first. Each record is immutable; a later review of the same branch adds a row rather than replacing
+          Newest first. Each record is immutable; a later review of the same recorded ref adds a row rather than replacing
           one. Showing all {counts.records} — nothing here is capped, paginated, or filtered, so a count and its list
           can never disagree.
         </p>
@@ -78,6 +78,11 @@ export default function DeveloperReviewStatePage() {
          * for this page, the same conclusion Task 11 reached for the quarantined
          * test list.
          */}
+        {records.length === 0 ? (
+          <p data-testid="developer-review-state-empty" className={META_CLASS}>
+            No immutable review records are committed.
+          </p>
+        ) : (
         <ol data-testid="developer-review-state-records" className="grid gap-3">
           {records.map((record, index) => (
             <li
@@ -103,6 +108,7 @@ export default function DeveloperReviewStatePage() {
             </li>
           ))}
         </ol>
+        )}
       </section>
     </PanelPageShell>
   );
