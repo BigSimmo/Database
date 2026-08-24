@@ -173,8 +173,8 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
           </p>
           <p className="mt-0.5 text-3xs font-medium text-[color:var(--text-muted)]">
             {searching
-              ? "A–Z stands down. Compact toggle and Topics stay. Filter joins the band."
-              : "Compact Terms / Abbr., Topics, and A–Z share the trailing corner."}
+              ? "Topics stays on the title. Compact toggle stays underneath. A–Z stands down. Filter joins the band."
+              : "Topics sits with the title. Compact Terms / Abbr. and A–Z sit underneath on the right."}
           </p>
         </div>
         <span className="shrink-0 text-3xs font-bold text-[color:var(--text-soft)]">390 px</span>
@@ -182,20 +182,28 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
       <div className="relative overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]">
         <PhoneChrome>
           <div className="relative h-[30rem] overflow-y-auto pb-16">
-            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3 pb-2 pt-4">
-              <h3 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]">Clinical terms</h3>
-              <div className="ml-auto flex shrink-0 items-center gap-1">
-                <ScopeToggle scope={scope} termCount={termCount} onChange={setScope} />
+            <div className="px-3 pb-2 pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="min-w-0 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
+                  Clinical terms
+                </h3>
                 <button
                   type="button"
                   onClick={() => setSheet("topics")}
                   aria-haspopup="dialog"
                   aria-label={`Topics — ${topicLabel}`}
-                  className={cn(chip, focusRing, topicActive && "border-[color:var(--clinical-accent)]")}
+                  className={cn(
+                    "inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)]",
+                    focusRing,
+                    topicActive && "border-[color:var(--clinical-accent)]",
+                  )}
                 >
                   {topic === "all" ? "Topics" : topicLabel}
                   <ChevronDown className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
                 </button>
+              </div>
+              <div className="mt-1.5 flex items-center justify-end gap-1">
+                <ScopeToggle scope={scope} termCount={termCount} onChange={setScope} />
                 {searching ? null : (
                   <button
                     type="button"
@@ -436,12 +444,13 @@ export function DictionaryTrailingToolbarMockupsPage() {
             Dictionary · trailing toolbar
           </p>
           <h1 className="mt-2 max-w-4xl text-balance text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-            Compact Abbreviations, Topics, and A–Z on the right.
+            Compact Abbreviations and A–Z underneath on the right.
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Same trailing-corner idea, with the compact Terms / Abbr. toggle kept on the page and Topics pulled out
-            beside it. A–Z is browse-only. Filter stays the original control and only appears in the results band once a
-            query runs. Tap the composer to feel the handoff.
+            Topics sits on the title row, same trailing-corner pattern as Filter in the earlier study. The compact Terms
+            / Abbreviations toggle and A–Z sit underneath on the right — not on the title. A–Z is browse-only. Filter
+            stays the original control and only appears in the results band once a query runs. Tap the composer to feel
+            the handoff.
           </p>
         </div>
       </header>
