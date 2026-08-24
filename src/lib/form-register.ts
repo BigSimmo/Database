@@ -116,7 +116,7 @@ export const officialForms: OfficialForm[] = [
     category: "Restraint",
   },
   { code: "10F", title: "Variation of bodily restraint order", category: "Restraint" },
-  { code: "10G", title: "Revocation of expiry of bodily restraint order", category: "Restraint" },
+  { code: "10G", title: "Revocation or expiry of bodily restraint order", category: "Restraint" },
   { code: "10H", title: "Review of bodily restraint order by a psychiatrist", category: "Restraint" },
   { code: "10I", title: "Record of post-bodily restraint examination", category: "Restraint" },
   { code: "11A", title: "Record of oral authorisation of seclusion", category: "Seclusion" },
