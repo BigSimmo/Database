@@ -12,8 +12,9 @@ import {
   rowToDifferentialRecord,
   rowToPresentationWorkflow,
   type DifferentialRecordKind,
+  type DifferentialRecordRow,
 } from "@/lib/differential-records";
-import { fetchOwnerDifferentialRowsWithSeed, loadDifferentialSnapshot } from "@/lib/differential-seed";
+import { loadDifferentialSnapshot } from "@/lib/differential-seed";
 import {
   differentialRecords,
   rankDifferentialRecords,
@@ -25,13 +26,12 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
-
-const DIFFERENTIAL_MAX_RECORDS = 500;
 
 const differentialListQuerySchema = z.object({
   kind: z.enum(["presentation", "diagnosis"]).optional().default("diagnosis"),
@@ -88,6 +88,7 @@ export async function GET(request: Request) {
     if (isDemoMode() || isLocalNoAuthMode()) {
       return differentialResponse(
         {
+          publicAccess: true,
           ...publicDifferentialPayload(kind, q, limit),
           demoMode: true,
         },
@@ -111,37 +112,63 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Differential requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
+    const snapshot = loadDifferentialSnapshot();
+    const seedGovernance = deriveGovernanceFromSnapshot(snapshot);
+    if (kind === "presentation") {
+      const canonical = await readCanonicalSiteContentRecords({
+        supabase,
+        kind: "presentation",
+        slug: null,
+        seeds: snapshot.presentations.map((workflow) => ({
+          workflow,
+          governance: {
+            sourceStatus: seedGovernance.source_status,
+            validationStatus: seedGovernance.validation_status,
+          },
+        })),
+        mapRecord: (raw) => {
+          const row = raw as unknown as DifferentialRecordRow;
+          return { workflow: rowToPresentationWorkflow(row), governance: rowGovernance(row) };
+        },
+      });
+      const presentations = canonical.records.map((entry) => entry.workflow);
+      const ranked = q ? rankPresentationWorkflows(presentations, q, limit) : null;
       return differentialResponse(
         {
-          ...publicDifferentialPayload(kind, q, limit),
           publicAccess: true,
+          presentations: ranked ? ranked.map((match) => match.workflow) : presentations,
+          matches: ranked ? presentationMatchesPayload(ranked) : undefined,
+          total: presentations.length,
+          governance: Object.fromEntries(canonical.records.map((entry) => [entry.workflow.id, entry.governance])),
         },
-        { request, fixture: true },
+        { request, fixture: canonical.source === "seed_uninitialized" },
       );
     }
-
-    const rows = await fetchOwnerDifferentialRowsWithSeed(supabase, access.ownerId, kind, DIFFERENTIAL_MAX_RECORDS);
-
-    if (kind === "presentation") {
-      const presentations = rows.map(rowToPresentationWorkflow);
-      const ranked = q ? rankPresentationWorkflows(presentations, q, limit) : null;
-      return differentialResponse({
-        presentations: ranked ? ranked.map((match) => match.workflow) : presentations,
-        matches: ranked ? presentationMatchesPayload(ranked) : undefined,
-        total: rows.length,
-        governance: Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)])),
-      });
-    }
-
-    const records = rows.map(rowToDifferentialRecord);
-    const ranked = q ? rankDifferentialRecords(records, q, limit) : null;
-    return differentialResponse({
-      records: ranked ? ranked.map((match) => match.record) : records,
-      matches: ranked ? recordMatchesPayload(ranked) : undefined,
-      total: rows.length,
-      governance: Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)])),
+    const canonical = await readCanonicalSiteContentRecords({
+      supabase,
+      kind: "differential",
+      slug: null,
+      seeds: differentialRecords.map((record) => ({
+        record,
+        governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },
+      })),
+      mapRecord: (raw) => {
+        const row = raw as unknown as DifferentialRecordRow;
+        return { record: rowToDifferentialRecord(row), governance: rowGovernance(row) };
+      },
     });
+    const records = canonical.records.map((entry) => entry.record);
+    const ranked = q ? rankDifferentialRecords(records, q, limit) : null;
+    return differentialResponse(
+      {
+        publicAccess: true,
+        records: ranked ? ranked.map((match) => match.record) : records,
+        matches: ranked ? recordMatchesPayload(ranked) : undefined,
+        total: records.length,
+        governance: Object.fromEntries(canonical.records.map((entry) => [entry.record.slug, entry.governance])),
+      },
+      { request, fixture: canonical.source === "seed_uninitialized" },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

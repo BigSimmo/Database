@@ -1,0 +1,13 @@
+{
+  "version": "site-content-dynamic-input-v1",
+  "initialAdoption": false,
+  "targetChangeEpoch": "0",
+  "generationId": "deterministic-dry-run",
+  "embedding": {
+    "model": "text-embedding-3-small",
+    "dimensions": 1536,
+    "fingerprint": "openai-text-embedding-3-small-1536-v1"
+  },
+  "records": [],
+  "existingReleaseRecords": []
+}

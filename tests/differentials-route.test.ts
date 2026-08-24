@@ -96,7 +96,11 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
           : { data: { user: null }, error: { message: "Invalid token" } },
       ),
     },
-    rpc: vi.fn(async () => ok([{ limited: false, limit_value: 120, remaining: 119, retry_after_seconds: 60 }])),
+    rpc: vi.fn(async (name: string) =>
+      name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
+        ? ok([{ limited: false, limit_value: 120, remaining: 119, retry_after_seconds: 60 }])
+        : ok([{ initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } }]),
+    ),
   };
 }
 
@@ -141,7 +145,7 @@ afterEach(() => {
 });
 
 describe("differentials API routes", () => {
-  it("builds owner diagnosis detail context from the owner's current catalog rows", async () => {
+  it("does not expose an authenticated owner's unpublished diagnosis row", async () => {
     const diagnosis = {
       slug: "owner-diagnosis",
       title: "Owner diagnosis",
@@ -196,13 +200,10 @@ describe("differentials API routes", () => {
       };
     };
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(404);
     expectPrivateCache(response);
-    expect(payload.detailContext?.knownRelatedSlugs).toEqual([]);
-    expect(payload.detailContext?.relatedMapDetails).toEqual({});
-    expect(payload.detailContext?.termLinks).toEqual({});
-    expect(payload.detailContext?.overlapLinks).toEqual({});
-    expect(payload.detailContext?.comparePresentation).toBeNull();
+    expect(payload.detailContext).toBeUndefined();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("serves delirium from snapshot in demo mode", async () => {
@@ -329,10 +330,8 @@ describe("differentials API routes", () => {
     expect(response.status).toBe(200);
     expect(payload.total ?? 0).toBeGreaterThan(0);
     expect(payload.records?.length).toBeGreaterThan(0);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[differentials] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -362,9 +361,7 @@ describe("differentials API routes", () => {
     const response = await GET(authenticatedRequest(path), { params: Promise.resolve({ slug }) });
 
     expect(response.status).toBe(404);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[differentials] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 });

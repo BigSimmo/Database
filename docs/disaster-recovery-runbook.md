@@ -67,6 +67,10 @@ vs schema.sql (buckets, two triggers, a handful of indexes — item 10 in
 
 ## Retrieval verification on the restored copy (rehearsed 2026-07-07)
 
+### Site-content releases
+
+Public registry site content is restored as immutable `site_content_releases` and release-scoped records plus append-only P05 receipts. A release activation is permitted only after current `site_release` recovery-readiness evidence and its exact content-addressed activation receipt have been validated. Keep the previous release and its records retained: rollback may switch only to that exact release named by the activation receipt and must persist the exact P05 rollback receipt. It must not reconstruct or re-embed from mutable owner drafts. See [site-content-sync-runbook.md](site-content-sync-runbook.md) for the queue, activation, rollback, and hosted acceptance procedure.
+
 1. `search_schema_health()` → `ok: true, missing: []` on the restored copy.
 2. `schema_drift_snapshot()` → full inventory captured; this became
    `supabase/drift-manifest.json`.

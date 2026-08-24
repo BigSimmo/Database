@@ -108,6 +108,7 @@ Smaller top-level directories that are easy to miss:
 | Medications   | `/api/medications`, `/api/medications/[slug]`                                                                          | `medications/`                                                  |
 | Ingestion     | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                        | `ingestion/`                                                    |
 | Registry      | `/api/registry/records`, `/api/registry/records/[slug]`                                                                | `registry/records/`                                             |
+| Site content  | `/api/site-content/publications` (administrator POST only)                                                             | `site-content/publications/`                                    |
 | Images        | `/api/images/[id]/signed-url`                                                                                          | `images/[id]/signed-url/route.ts`                               |
 | Ops           | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                       | `health/`, `setup-status/`, `local-project-id/`                 |
 | Eval / jobs   | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
@@ -150,12 +151,12 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Source governance and metadata
 
-| Module                                                                                                                 | Role                                             |
-| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`                                               | Source provenance and governance                 |
-| `site-content/` (`site-content-contracts.ts`, `site-content-registry.ts`)                                              | Site corpus contracts and producer registry      |
-| `documents/` (`is-public-document.ts`), `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts` | Labels, organization, and public boundary checks |
-| `table-review.ts`, `accessible-table-normalization.ts`                                                                 | Table facts                                      |
+| Module                                                                                                                           | Role                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `source-metadata.ts`, `source-governance.ts`, `source-text-sanitizer.ts`                                                         | Source provenance and governance                                                                                             |
+| `site-content/` (`site-content-contracts.ts`, `site-content-registry.ts`, `site-content-publication.ts`, `site-content-sync.ts`) | Site corpus contracts, ownerless publication reader/commands, deterministic release planner and changed-only worker contract |
+| `documents/` (`is-public-document.ts`), `document-label-governance.ts`, `document-tags.ts`, `document-organization.ts`           | Labels, organization, and public boundary checks                                                                             |
+| `table-review.ts`, `accessible-table-normalization.ts`                                                                           | Table facts                                                                                                                  |
 
 ### Supabase, auth, env
 
@@ -202,7 +203,7 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `medication_records`, `differential_records`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`, `source_review_events`, `user_favourites`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
 
 **Storage buckets:** `clinical-documents`, `clinical-images` (private)
 

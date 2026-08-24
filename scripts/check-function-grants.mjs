@@ -36,7 +36,10 @@ const SCHEMA_PATH = process.argv[2] ?? "supabase/schema.sql";
 // SECURITY DEFINER functions intentionally left without a dedicated revoke.
 // Add an entry ONLY with a concrete reason (prefer fixing over allowlisting).
 const ALLOWLIST = new Map([
-  // ["function_name", "why this is safe / follow-up ticket"],
+  [
+    "read_site_content_public_records",
+    "Ownerless, audit-column-free canonical public projection; exact anon/auth parity is the product contract.",
+  ],
 ]);
 
 function fail(message) {
@@ -149,8 +152,7 @@ function main() {
 
   console.log(
     `check:function-grants: OK — all ${definerCount} SECURITY DEFINER public function(s) are revoked from PUBLIC ` +
-      `(blanket revoke at schema.sql:${Math.max(...blanketIdxs) + 1} or an explicit per-function revoke) and none are ` +
-      `re-opened by a grant to PUBLIC/anon.`,
+      `or explicitly allowlisted (${ALLOWLIST.size}); none are accidentally re-opened to PUBLIC/anon.`,
   );
 }
 

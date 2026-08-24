@@ -9,12 +9,13 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
-import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
+import { defaultMedicationRecords } from "@/lib/medication-seed";
 import {
   medicationSourceStatus,
   medicationValidationStatus,
   rowGovernance,
   rowToMedicationRecord,
+  type MedicationRecordRow,
 } from "@/lib/medication-records";
 import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
 import {
@@ -24,13 +25,12 @@ import {
   type MedicationSearchMatch,
 } from "@/lib/medications";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
-
-const MEDICATION_MAX_RECORDS = 500;
 
 const medicationListQuerySchema = z.object({
   q: z
@@ -182,29 +182,41 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Medication requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      return medicationResponse(
-        {
-          ...publicMedicationPayload(q, limit, fields),
-          publicAccess: true,
+    const seedRecords = defaultMedicationRecords();
+    const canonical = await readCanonicalSiteContentRecords({
+      supabase,
+      kind: "medication",
+      slug: null,
+      seeds: seedRecords.map((record) => ({
+        record,
+        governance: {
+          sourceStatus: medicationSourceStatus("current"),
+          validationStatus: medicationValidationStatus("locally_reviewed"),
         },
-        { request, fixture: true },
-      );
-    }
-
-    const rows = await fetchOwnerMedicationRowsWithSeed(supabase, access.ownerId, MEDICATION_MAX_RECORDS);
-    const fullRecords = rows.map(rowToMedicationRecord);
+      })),
+      mapRecord: (raw) => {
+        const row = raw as unknown as MedicationRecordRow;
+        return { record: rowToMedicationRecord(row), governance: rowGovernance(row) };
+      },
+    });
+    const fullRecords = canonical.records.map((entry) => entry.record);
     const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;
-    const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
+    const governanceBySlug = Object.fromEntries(
+      canonical.records.map((entry) => [entry.record.slug, entry.governance]),
+    );
     const ranked = q ? rankCatalogMatches(fullRecords, q, limit, fields === "index") : undefined;
 
-    return medicationResponse({
-      records,
-      matches: ranked?.matches,
-      interpretation: ranked?.interpretation,
-      total: rows.length,
-      governance: governanceBySlug,
-    });
+    return medicationResponse(
+      {
+        publicAccess: true,
+        records,
+        matches: ranked?.matches,
+        interpretation: ranked?.interpretation,
+        total: fullRecords.length,
+        governance: governanceBySlug,
+      },
+      { request, fixture: canonical.source === "seed_uninitialized" },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

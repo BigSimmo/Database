@@ -1223,6 +1223,77 @@ describe("Supabase schema Data API grants", () => {
   });
 });
 
+describe("site-content publication and release control plane", () => {
+  const migration = readFileSync(
+    new URL("../supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql", import.meta.url),
+    "utf8",
+  ).replace(/\s+/g, " ");
+
+  it("keeps legacy owner rows as drafts and creates an ownerless public head", () => {
+    expect(migration).toContain("create table public.site_content_publications");
+    expect(migration).toContain("create table public.site_content_public_records");
+    expect(migration).not.toContain("alter table public.clinical_registry_records alter column owner_id drop not null");
+    expect(migration).not.toContain("alter table public.medication_records alter column owner_id drop not null");
+    expect(migration).not.toContain("alter table public.differential_records alter column owner_id drop not null");
+    expect(migration).not.toMatch(
+      /create trigger .* on public\.(clinical_registry_records|medication_records|differential_records)/i,
+    );
+    expect(migration).toContain("unique (kind, slug)");
+  });
+
+  it("normalizes every legacy kind into the P03 canonical record shape without audit identifiers", () => {
+    expect(migration).toContain("create or replace function public.site_content_canonical_text(p_value text)");
+    expect(migration).toContain(
+      "if p_kind = 'medication' then v_title := public.site_content_canonical_text(v_row->>'name')",
+    );
+    expect(migration).toContain("'{\"body\":' || to_jsonb(v_body)::text || ',\"title\":'");
+    expect(migration).toContain('\'{"access":"public","body":\'');
+    expect(migration).toContain("render_payload := v_row - array['id', 'owner_id', 'created_at', 'updated_at']");
+    expect(migration).toContain(
+      "revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role",
+    );
+  });
+
+  it("atomically advances the epoch, pending head, and ordered outbox", () => {
+    const start = migration.indexOf("create or replace function public.publish_site_content_record(");
+    const body = migration.slice(start, migration.indexOf("$$;", start));
+    expect(body).toContain("pg_catalog.pg_advisory_xact_lock(93206431)");
+    expect(body).toContain("from public.site_content_sync_state where singleton for update");
+    expect(body).toContain("insert into public.site_content_publications");
+    expect(body).toContain("insert into public.site_content_public_records");
+    expect(body).toContain("insert into public.site_content_sync_events");
+    expect(body).toContain("set pending_event_sequence = v_event_sequence");
+    expect(body).toContain("set change_epoch = v_state.change_epoch + 1");
+  });
+
+  it("fences every post-claim mutation and bounds retry quarantine", () => {
+    expect(migration).toContain("lease_generation = e.lease_generation + 1");
+    expect(migration).toContain("for update skip locked limit p_limit");
+    for (const marker of [
+      "heartbeat_site_content_sync_event",
+      "stage_site_content_sync_event",
+      "fail_site_content_sync_event",
+    ]) {
+      const start = migration.indexOf(`create or replace function public.${marker}(`);
+      const body = migration.slice(start, migration.indexOf("$$;", start));
+      expect(body).toMatch(/(?:e|v_event)\.worker_id/);
+      expect(body).toMatch(/(?:e|v_event)\.lease_token/);
+      expect(body).toMatch(/(?:e|v_event)\.lease_generation/);
+      expect(body).toContain("pg_catalog.clock_timestamp()");
+    }
+    expect(migration).toContain("state = case when e.attempt_count >= 5 then 'quarantined' else 'retry_pending' end");
+  });
+
+  it("activates and rolls back retained immutable release records with exact receipts", () => {
+    expect(migration).toContain("create table public.site_content_release_receipts");
+    expect(migration).toContain("before update or delete on public.site_content_release_receipts");
+    expect(migration).toContain("p_activation_receipt#>>'{resource,previousSiteReleaseId}'");
+    expect(migration).toContain("p_rollback_receipt->>'activationReceiptId'");
+    expect(migration).toContain("v_active.previous_release_id is distinct from p_target_release_id");
+    expect(migration).not.toMatch(/delete from public\.site_content_release/);
+  });
+});
+
 describe("RC9 — lexical text path must not fabricate a cosine similarity", () => {
   // Regression guard for RC9. The text-only fallback (match_document_chunks_text) has no vector
   // cosine; an earlier version fabricated a synthetic `similarity` (0.56 + text_rank*0.39) that was

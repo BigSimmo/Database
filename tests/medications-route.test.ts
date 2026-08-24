@@ -126,7 +126,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
           ],
           error: null,
         }
-      : ok([]),
+      : ok([{ initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } }]),
   );
   return {
     calls,
@@ -326,7 +326,7 @@ describe("medications API", () => {
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
-  it("scopes medication queries to the authenticated owner", async () => {
+  it("serves the canonical uninitialized population without reading authenticated owner drafts", async () => {
     const client = createSupabaseMock((call) => (call.table === "medication_records" ? ok([medicationRow()]) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/medications/route");
@@ -341,8 +341,7 @@ describe("medications API", () => {
     expectPrivateCache(response);
     expect(payload.records[0]?.slug).toBe("acamprosate");
     expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
-    expect(client.calls.some((call) => call.table === "medication_records")).toBe(true);
-    expect(client.calls.some((call) => call.filters.some((filter) => filter.column === "owner_id"))).toBe(true);
+    expect(client.calls).toEqual([]);
   });
 
   it("serves curated public detail for unauthenticated slug requests", async () => {
@@ -408,10 +407,8 @@ describe("medications API", () => {
     expect(response.status).toBe(200);
     expect(payload.record.slug).toBe("acamprosate");
     expect(payload.record.name).toBe("Acamprosate");
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[medications] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown medication slug during a corpus embedding outage", async () => {
@@ -435,9 +432,7 @@ describe("medications API", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[medications] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 });

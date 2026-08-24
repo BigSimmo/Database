@@ -6,6 +6,13 @@ export type Json = any;
 
 export type Vector = number[] | string;
 
+type GeneratedTable<Row, RequiredInsert extends keyof Row = never> = {
+  Row: Row;
+  Insert: Pick<Row, RequiredInsert> & Partial<Omit<Row, RequiredInsert>>;
+  Update: Partial<Row>;
+  Relationships: [];
+};
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -2563,6 +2570,47 @@ export type Database = {
         };
         Relationships: [];
       };
+      site_content_publications: GeneratedTable<{
+        id: string; logical_id: string; kind: string; slug: string; source_table: string; source_row_id: string;
+        source_owner_id: string; source_version: string; published_by: string; reconciliation_plan_digest: string | null;
+        record: Json; render_payload: Json; retired: boolean; created_at: string;
+      }, "logical_id" | "kind" | "slug" | "source_table" | "source_row_id" | "source_owner_id" | "source_version" | "published_by" | "record" | "render_payload">;
+      site_content_reconciliation_plans: GeneratedTable<{
+        plan_digest: string; trusted_snapshot_digest: string; dispositions: Json; expected_record_count: number;
+        reviewed_by: string; reviewed_at: string;
+      }, "plan_digest" | "trusted_snapshot_digest" | "dispositions" | "expected_record_count" | "reviewed_by">;
+      site_content_public_records: GeneratedTable<{
+        logical_id: string; kind: string; slug: string; current_publication_id: string; retired: boolean;
+        pending_event_sequence: number | null; updated_at: string;
+      }, "logical_id" | "kind" | "slug" | "current_publication_id">;
+      site_content_sync_state: GeneratedTable<{
+        singleton: boolean; change_epoch: number; active_release_id: string | null; active_release_digest: string | null;
+        initialized: boolean; updated_at: string;
+      }>;
+      site_content_sync_events: GeneratedTable<{
+        event_sequence: number; logical_id: string; target_publication_id: string; target_change_epoch: number; state: string;
+        attempt_count: number; next_attempt_at: string; worker_id: string | null; lease_token: string | null;
+        lease_generation: number; lease_expires_at: string | null; last_error_code: string | null; created_at: string; updated_at: string;
+      }, "logical_id" | "target_publication_id" | "target_change_epoch">;
+      site_content_sync_event_plans: GeneratedTable<{
+        event_sequence: number; plan_digest: string; target_change_epoch: number; plan: Json; created_at: string;
+      }, "event_sequence" | "plan_digest" | "target_change_epoch" | "plan">;
+      site_content_releases: GeneratedTable<{
+        id: string; state: string; target_change_epoch: number; previous_release_id: string | null; registry_version: string;
+        static_manifest_digest: string; dynamic_state_digest: string; release_digest: string; generation_id: string;
+        expected_record_count: number; expected_tombstone_count: number; must_pass_checks: boolean; created_at: string;
+        activated_at: string | null;
+      }, "id" | "state" | "target_change_epoch" | "registry_version" | "static_manifest_digest" | "dynamic_state_digest" | "release_digest" | "generation_id" | "expected_record_count" | "expected_tombstone_count">;
+      site_content_release_records: GeneratedTable<{
+        release_id: string; logical_id: string; target_publication_id: string | null; logical_document_id: string;
+        logical_chunk_id: string; normalized_text: string; content_hash: string; publication_fingerprint: string;
+        governance_fingerprint: string; lineage_fingerprint: string; public_metadata_fingerprint: string;
+        embedding_model: string; embedding_dimensions: number; embedding_fingerprint: string; embedding: Vector | null;
+        tombstone: boolean; public_visible: boolean; created_at: string;
+      }, "release_id" | "logical_id" | "logical_document_id" | "logical_chunk_id" | "normalized_text" | "content_hash" | "publication_fingerprint" | "governance_fingerprint" | "lineage_fingerprint" | "public_metadata_fingerprint" | "embedding_model" | "embedding_dimensions" | "embedding_fingerprint">;
+      site_content_release_receipts: GeneratedTable<{
+        receipt_id: string; release_id: string; receipt_kind: string; recovery_readiness_digest: string; receipt: Json; created_at: string;
+      }, "receipt_id" | "release_id" | "receipt_kind" | "recovery_readiness_digest" | "receipt">;
     };
     Views: {
       document_strict_gate_status: {
@@ -3364,6 +3412,51 @@ export type Database = {
           p_manifest_digest: string;
         };
         Returns: Json;
+      };
+      record_site_content_reconciliation_plan: {
+        Args: { p_plan_digest: string; p_trusted_snapshot_digest: string; p_dispositions: Json; p_expected_record_count: number; p_reviewed_by: string };
+        Returns: boolean;
+      };
+      publish_site_content_record: {
+        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_published_by: string };
+        Returns: { logical_id: string; publication_id: string; event_sequence: number; change_epoch: number }[];
+      };
+      retire_site_content_record: Database["public"]["Functions"]["publish_site_content_record"];
+      read_site_content_public_records: {
+        Args: { p_kind: string; p_slug?: string | null };
+        Returns: { initialized: boolean; record: Json | null; render_payload: Json | null; snapshot: Json }[];
+      };
+      claim_site_content_sync_events: {
+        Args: { p_worker_id: string; p_limit: number; p_lease_seconds: number };
+        Returns: Database["public"]["Tables"]["site_content_sync_events"]["Row"][];
+      };
+      heartbeat_site_content_sync_event: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number; p_lease_seconds: number };
+        Returns: boolean;
+      };
+      record_site_content_sync_event_plan: {
+        Args: { p_event_sequence: number; p_expected_change_epoch: number; p_plan_digest: string; p_plan: Json };
+        Returns: boolean;
+      };
+      read_site_content_sync_event_plan: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number };
+        Returns: Json;
+      };
+      stage_site_content_sync_event: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number; p_stage: Json };
+        Returns: boolean;
+      };
+      fail_site_content_sync_event: {
+        Args: { p_event_sequence: number; p_worker_id: string; p_lease_token: string; p_lease_generation: number; p_error_code: string };
+        Returns: boolean;
+      };
+      activate_site_content_release: {
+        Args: { p_release_id: string; p_expected_release_digest: string; p_expected_change_epoch: number; p_recovery_digest: string; p_activation_receipt: Json };
+        Returns: boolean;
+      };
+      rollback_site_content_release: {
+        Args: { p_expected_active_release_id: string; p_target_release_id: string; p_recovery_digest: string; p_rollback_receipt: Json };
+        Returns: boolean;
       };
       purge_expired_rag_queries: {
         Args: { p_retention_days?: number };

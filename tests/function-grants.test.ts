@@ -101,6 +101,62 @@ describe("check:function-grants", () => {
     }
   });
 
+  it("keeps site-content tables inaccessible and exposes only named fixed-path RPCs", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql",
+      "utf8",
+    );
+    const result = run(
+      fixture("site-content-control-plane.sql", [readFileSync("supabase/schema.sql", "utf8")].join("\n")),
+    );
+    expect(result.code).toBe(0);
+    for (const table of [
+      "site_content_publications",
+      "site_content_reconciliation_plans",
+      "site_content_public_records",
+      "site_content_sync_state",
+      "site_content_sync_events",
+      "site_content_sync_event_plans",
+      "site_content_releases",
+      "site_content_release_records",
+      "site_content_release_receipts",
+    ]) {
+      expect(migration).toContain(`alter table public.${table} enable row level security;`);
+      expect(migration).toContain(`alter table public.${table} force row level security;`);
+      expect(migration).toContain(
+        `revoke all on table public.${table} from public, anon, authenticated, service_role;`,
+      );
+      expect(migration).not.toMatch(
+        new RegExp(`grant (?:all|select|insert|update|delete).*public\\.${table}.*service_role`, "i"),
+      );
+    }
+    for (const name of [
+      "publish_site_content_record",
+      "retire_site_content_record",
+      "claim_site_content_sync_events",
+      "heartbeat_site_content_sync_event",
+      "record_site_content_sync_event_plan",
+      "read_site_content_sync_event_plan",
+      "stage_site_content_sync_event",
+      "fail_site_content_sync_event",
+      "activate_site_content_release",
+      "rollback_site_content_release",
+    ]) {
+      expect(migration).toMatch(
+        new RegExp(
+          `create or replace function public\\.${name}\\([\\s\\S]*?security definer[\\s\\S]*?set search_path = ''`,
+          "i",
+        ),
+      );
+      expect(migration).toMatch(
+        new RegExp(`grant execute on function public\\.${name}\\([^;]+\\) to service_role;`, "i"),
+      );
+    }
+    expect(migration).not.toContain(
+      "grant execute on function public.guard_site_content_immutable_row() to service_role",
+    );
+  });
+
   it("fails a SECURITY DEFINER function left anon-executable after the blanket revoke", () => {
     const result = run(fixture("leaky.sql", [BLANKET, DEFINER("leaky")].join("\n")));
     expect(result.code).toBe(1);
