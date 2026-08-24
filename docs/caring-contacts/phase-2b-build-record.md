@@ -545,3 +545,56 @@ on its own terms and still produced the wrong answer, because it optimised again
 instruction to rule rather than stall is right, and this is its cost: a ruling made in the owner's
 absence is a guess with reasoning attached. **Where a ruling is cheap to un-make and the owner is
 reachable, ask.** All three of these took one question and reversed one of my decisions.
+
+### Task 3 review — spec ✅, quality NOT approved; 4 Important, 5 Minor
+
+The architecture was judged well-argued and honestly written, the six mutation proofs all genuine
+(re-derived from the real test bodies — the trigger file has 12 tests and the host 14, so the reported
+26 is only obtainable from a real run), and the incident-`note` boundary held **mechanically**: a
+module-graph walk proves it rather than asserting it. But three findings must be settled before any
+screen adopts the contract.
+
+**Ruling [90] — the no-staged-commit refusal applies ONLY to rows that mutate state. The implementer
+considered this and rejected it; I am overruling that.** — Why: eight of the 24 rows have
+`mutatesState: false`, and their controls are not confirmations, they are **exits** — `session-expiry`
+"Sign in again", `offline-banner` "Try connecting again", `recoverable-error` "Try loading again",
+`permission-unavailable` "Back to the plan", and four more. None records anything, so none can be "a
+confirm button that records nothing" and Ruling 87 does not reach them. Refusing them contradicts the
+host's own Rule 9 three lines above the change, and renders a sentence — "there is nothing here to
+carry out" — that is **false about the control it points at**, whose action is to leave.
+
+**And on two rows it is actively harmful.** `session-expiry` and `offline-banner` are
+`dismissal: "recovery-only"`: Escape and backdrop are deliberately inert, pinned by the Playwright
+spec. Their only control is now `aria-disabled`. **That is the one overlay a person must not be able
+to walk away from, and it now offers them nothing at all** — a dead end, live in production today,
+because the shell renders `WorkspaceOverlays` and any deep link reaches it.
+
+This is decidable rather than a matter of taste, which is why it is an overrule and not a preference:
+the question "does this row record a decision?" has an answer for each of the 24, and for these eight
+it is no. — Cost if wrong: if a `mutatesState: false` row later gains a recording action, the refusal
+must be re-widened to it. Cheap, and the row's own flag is what would change.
+
+**The other three Important findings, each reasoned from the code:**
+
+- **A refusal flashes on confirm.** `record` then `clear` then `close`, but `close` is
+  `history.back()` and popstate is asynchronous, so React commits an intermediate frame where the URL
+  still names the overlay and the slot is already empty — rendering the action `aria-disabled` with
+  the "opened by address" refusal. After confirming "Withdraw this patient", that is the worst
+  available sentence to flash. Every existing test uses `waitFor` on the final state, which is exactly
+  why nothing catches it.
+- **The staged slot is never cleared on Back.** The code's comment claims clearing stops a forward
+  traversal re-entering with a live commit; that is false on the workspace's PRIMARY dismissal route,
+  because `close` is only called by the Sheet and Back closes through popstate without it. So Back
+  then Forward re-enters with the original commit live, and a commit staged on one screen survives a
+  client-side navigation to answer a later same-id overlay raised for a different record — the
+  design's own ten-`Pause`-rows case, one row's commit answering another row's overlay, with nothing
+  in the overlay naming the record so the clinician cannot see the mismatch.
+- **The async deferral is not neutral.** What ships is not "no policy" but "close optimistically, drop
+  the rejection" — and because `record` returns `void`, the later task cannot add a policy without a
+  breaking signature change. Defer the policy; widen the signature now.
+
+**The lesson worth keeping from Important 1, and it generalises past this task:** a rule derived from
+a real defect (Ruling 87) was applied uniformly to a set whose members differ in exactly the property
+the rule depends on. The rule was right; its domain was assumed rather than checked. **Before applying
+a rule to a set, ask which members it is actually about** — here the frozen matrix already carried a
+`mutatesState` flag that answers it row by row.
