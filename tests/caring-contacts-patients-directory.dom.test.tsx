@@ -449,10 +449,15 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Jordan Nguyen" })).toBeInTheDocument();
-    // Still present, because two patients can share a name and because the row's detail control is
-    // named by it -- which is what distinguishes one row's control from the next to a screen reader.
+    // Still present in the row's own body, because two patients can share a name.
+    //
+    // M7 in the mutation ledger: this assertion was first written as "the row's text contains the
+    // identifier", which the DETAIL CONTROL satisfies on its own -- so deleting the identifier line
+    // entirely left the file green. It reads the line itself now.
     const row = screen.getAllByRole("listitem")[0];
-    expect(row.textContent ?? "").toContain("patient-plan-1");
+    expect(within(row).getByText(/Synthetic identifier: patient-plan-1/)).toBeInTheDocument();
+    // And the control is still named by the identifier, which is what distinguishes one row's
+    // control from the next to a screen reader.
     expect(screen.getByRole("button", { name: /patient-plan-1/i })).toBeInTheDocument();
   });
 
