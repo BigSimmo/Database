@@ -83,6 +83,7 @@ import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-heal
 import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
+import { resolveModeHomeCanvasClass } from "@/components/clinical-dashboard/mode-home-canvas";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
@@ -3541,41 +3542,13 @@ function ClinicalDashboardContent({
                 // 640–1919 first-paint top-align hook in globals.css. Do not
                 // restyle this from body:has(.pwa-notice-stack) — that caused CLS.
                 data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
-                className={cn(
-                  compactMobileModeHome
-                    ? cn(
-                        // Fill leftover <main> space (already padded for overlay
-                        // chrome). A nested 100dvh floor double-counted that pad
-                        // and sank the cluster with a scrollbar. One flex column
-                        // on phones; sm+ keeps the grid floor for tablet/desktop.
-                        "max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
-                        // Idle services/forms registry homes share the compact
-                        // path only to drop large phone padding. Flex-centre is
-                        // for centred shared homes, matching the prior gate.
-                        centeredModeHome && "max-sm:items-center max-sm:justify-center",
-                      )
-                    : // A rendered answer is content-sized and top-aligned on phones:
-                      // it must NOT inherit the viewport-height floor (that floor exists
-                      // to give the centred home block room). With the floor, a short
-                      // answer stretches the section to ~full height and you can scroll
-                      // down into a black void; content-sized keeps the answer under the
-                      // question with calm space below and no phantom scroll. Other
-                      // result kinds keep the floor; sm+/desktop is unchanged.
-                      activeModeResultKind === "answer" && answer
-                      ? "sm:min-h-[calc(100dvh-11rem)]"
-                      : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
-                  centeredModeHome || showSharedHome
-                    ? compactMobileModeHome
-                      ? "w-full sm:grid sm:place-items-center"
-                      : "grid w-full place-items-center max-sm:pt-2"
-                    : activeModeResultKind === "tools" ||
-                        activeModeResultKind === "favourites" ||
-                        activeModeResultKind === "differentials"
-                      ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                      : activeModeResultKind === "documents" || activeModeResultKind === "services"
-                        ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-                        : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
-                )}
+                className={resolveModeHomeCanvasClass({
+                  activeModeResultKind,
+                  centeredModeHome,
+                  compactMobileModeHome,
+                  hasAnswer: Boolean(answer),
+                  showSharedHome,
+                })}
               >
                 <h2 data-testid="answer-section-heading" className="sr-only">
                   {activeModeSearch.resultHeading}

@@ -29,6 +29,10 @@ const globalSearchShellSource = readFileSync(
   "utf8",
 );
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+const modeHomeCanvasSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/mode-home-canvas.ts"),
+  "utf8",
+);
 const dashboardChromeCoordinatorSource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts"),
   "utf8",
@@ -126,12 +130,12 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     // double-counted overlay chrome and manufactured a scrollbar. Grow without
     // shrink fills leftover pane space; `flex-1` (`1 1 0%`) would still collapse
     // around a taller sibling in the standalone PWA scrollport.
-    expect(clinicalDashboardSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
-    expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-col");
-    expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col");
-    expect(clinicalDashboardSource).toContain('centeredModeHome && "max-sm:items-center max-sm:justify-center"');
-    expect(clinicalDashboardSource).not.toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
-    expect(clinicalDashboardSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
+    expect(modeHomeCanvasSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
+    expect(modeHomeCanvasSource).toContain("max-sm:flex max-sm:flex-col");
+    expect(modeHomeCanvasSource).toContain("max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col");
+    expect(modeHomeCanvasSource).toContain('centeredModeHome && "max-sm:items-center max-sm:justify-center"');
+    expect(modeHomeCanvasSource).not.toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
+    expect(modeHomeCanvasSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
   });
 
   it("keeps the appended phone scroll runway from shrinking in a flex main", () => {
