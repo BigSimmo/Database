@@ -303,6 +303,35 @@ Two things worth your attention:
   the current membership, explicitly flagged as the thing that will change rather than the thing to
   check.
 
+### Gates, round 1 (`6f2a9d3ae` / `7617a273b`)
+
+| Gate                                                                                                                                                                         | Evidence                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Postgres suite, `npm run caring-contacts:db:test`                                                                                                                            | `Test Files  2 passed (2)` / `Tests  182 passed (182)`                 |
+| Focused: every file covering a changed surface — access audit, API handler, patients page, patients directory, repository contract, interface vocabulary, route reachability | `Test Files  7 passed (7)` / `Tests  213 passed (213)`                 |
+| Typecheck, whole project                                                                                                                                                     | `npx tsc -p tsconfig.typecheck.json --noEmit` — no diagnostics, exit 0 |
+| Lint, `src` + `tests`                                                                                                                                                        | `npx eslint src tests --max-warnings 0` — no output, exit 0            |
+| Full `npm run test`                                                                                                                                                          | **NOT RUN at this head.** See below.                                   |
+
+**The full unit suite did not run at this head, and I am not reporting it as green.** Every attempt
+returned `DATABASE_HEAVY_RUN_ADMISSION_BUSY` — an exclusive lease held continuously by another
+worktree (`C:\Users\joshs\.codex\worktrees\5fd2\Database`, `playwright --project=chromium`, taken at
+`2026-08-24T19:19:38`) and still held more than eight hours later. That is an acquisition failure,
+not a result, and a retry loop is still queued against it.
+
+I deliberately did **not** bypass the coordinator for the full suite. A whole-repo Vitest run is
+exclusive precisely because it contends, and forcing one past a live Playwright lease risks flaking
+another worktree's run to buy myself a line in this table. The two gates I did run outside the
+coordinator — `tsc` and `eslint` — are read-only and near-free by comparison.
+
+What that leaves unproven, stated rather than glossed: the full suite was green at the previous head
+(`Test Files  828 passed | 3 skipped (831)` / `Tests  9985 passed | 74 skipped (10059)`), and the
+source delta since is a new `AccessedObjectType` member, the matching route enum entry, two comment
+rewrites, and the directory/page changes. The whole-project typecheck covers the union change
+everywhere it is consumed, and the seven focused files cover every changed surface including the
+vocabulary scan and route reachability. **A regression outside those files is unlikely and is not
+excluded.**
+
 ### Mutation ledger, round 1
 
 Same discipline: applied with an editor, proved present with `git diff`, test run as its own
