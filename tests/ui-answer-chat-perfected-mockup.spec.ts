@@ -16,16 +16,15 @@ test.describe("Answer-chat perfected mockup drawer @mockup", () => {
     const sourceOneDrawers = page.locator('[role="dialog"][aria-label="Source 1 of 3"]');
     await expect(sourceOneDrawers).toHaveCount(1);
     const drawer = sourceOneDrawers;
-    await expect(drawer).toBeFocused();
-
     const controls = drawer.getByRole("button");
+    await expect(controls.first()).toBeFocused();
     await controls.last().press("Tab");
     await expect(controls.first()).toBeFocused();
 
     await page.keyboard.press("ArrowRight");
     const sourceTwoDrawers = page.locator('[role="dialog"][aria-label="Source 2 of 3"]');
     await expect(sourceTwoDrawers).toHaveCount(1);
-    await expect(sourceTwoDrawers).toBeFocused();
+    await expect(sourceTwoDrawers.getByRole("button", { name: "Previous source" })).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(sourceTwoDrawers).toHaveCount(0);
