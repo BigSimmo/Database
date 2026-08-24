@@ -25,13 +25,13 @@ structurally it says so.
 
 ## Viewports
 
-| Width  | Height | What it stands for                          |
-| ------ | ------ | ------------------------------------------- |
-| 320 px | 844    | The narrowest supported phone               |
-| 390 px | 844    | The common phone                            |
-| 768 px | 1000   | The rail/dock boundary                      |
-| 1024px | 1000   | Small desktop and landscape tablet          |
-| 1440px | 1000   | Desktop                                     |
+| Width  | Height | What it stands for                                   |
+| ------ | ------ | ---------------------------------------------------- |
+| 320 px | 844    | The narrowest supported phone                        |
+| 390 px | 844    | The common phone                                     |
+| 768 px | 1000   | The rail/dock boundary                               |
+| 1024px | 1000   | Small desktop and landscape tablet                   |
+| 1440px | 1000   | Desktop                                              |
 | 640 px | 512    | 1280×1024 at 200% zoom — the WCAG 1.4.10 measurement |
 
 At every width the assertion is the same and is measured, not declared:
@@ -93,14 +93,14 @@ For each named affordance it asserts:
    with opaque decoration ink and non-zero thickness, or a border with non-zero width and
    opaque ink, or both.
 
-| Class                 | Route            | Contracted affordance  |
-| --------------------- | ---------------- | ---------------------- |
-| `pinnedBoundaryLink`  | Patient overview | underline              |
-| `patientNavSecondary` | Patient overview | border (a pill control) |
-| `inlineLink`          | History          | underline              |
-| `timelineLink`        | ED Presentations | underline              |
+| Class                 | Route            | Contracted affordance    |
+| --------------------- | ---------------- | ------------------------ |
+| `pinnedBoundaryLink`  | Patient overview | underline                |
+| `patientNavSecondary` | Patient overview | border (a pill control)  |
+| `inlineLink`          | History          | underline                |
+| `timelineLink`        | ED Presentations | underline                |
 | `queueAction`         | Reviews          | underline **and** border |
-| `specimenLink`        | System states    | underline              |
+| `specimenLink`        | System states    | underline                |
 
 The class is resolved to the exact token the build emitted, matched on `_`/`-`
 boundaries, so `queueActions` (a wrapper) can never answer for `queueAction` (a control) —
@@ -133,13 +133,13 @@ navigation announce twice.
 
 ## Media preferences
 
-| Preference       | What is asserted                                                                                      |
-| ---------------- | ----------------------------------------------------------------------------------------------------- |
-| `prefers-color-scheme: dark` | `.dark` is applied, the pinned boundary still sits above the plan, and heading text differs in luminance from the page behind it by more than 60 — a half-themed page fails |
-| `forced-colors: active`      | The pinned boundary keeps a painted outline; Current and Awaiting Approval remain distinguishable by a word rather than a tint; the withdrawal line still renders |
-| `prefers-reduced-motion: reduce` | The sheet's computed animation duration is ≤ 50 ms. The state change itself still happens — reduced motion removes decoration, never a state change |
-| `prefers-reduced-motion: no-preference` | The same journey is exercised again, so a reduced-motion fallback cannot be the only path that works |
-| `print`          | See below                                                                                             |
+| Preference                              | What is asserted                                                                                                                                                            |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prefers-color-scheme: dark`            | `.dark` is applied, the pinned boundary still sits above the plan, and heading text differs in luminance from the page behind it by more than 60 — a half-themed page fails |
+| `forced-colors: active`                 | The pinned boundary keeps a painted outline; Current and Awaiting Approval remain distinguishable by a word rather than a tint; the withdrawal line still renders           |
+| `prefers-reduced-motion: reduce`        | The sheet's computed animation duration is ≤ 50 ms. The state change itself still happens — reduced motion removes decoration, never a state change                         |
+| `prefers-reduced-motion: no-preference` | The same journey is exercised again, so a reduced-motion fallback cannot be the only path that works                                                                        |
+| `print`                                 | See below                                                                                                                                                                   |
 
 ## Print
 
@@ -163,7 +163,7 @@ Three print surfaces, none of which had ever been printed before this task.
 - **The person's own document is complete.** Every one of the seven Personal Safety Plan
   headings is asserted present on the paper, and the paper is asserted **not** to contain
   `Not recorded`. A printed sheet handed to a patient reading `My reasons for living — Not
-  recorded` is the worst defect this project has produced, and it broke no rule and failed
+recorded` is the worst defect this project has produced, and it broke no rule and failed
   no gate at the time.
 - **The patient copy carries nothing clinical.** The printed Patient Plan is asserted not
   to contain internal record vocabulary.

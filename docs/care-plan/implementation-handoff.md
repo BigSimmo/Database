@@ -76,13 +76,13 @@ name, a contact detail or any record content.
 
 Five synthetic patients, all fictional:
 
-| Identifier        | Name          | What it demonstrates                                                 |
-| ----------------- | ------------- | -------------------------------------------------------------------- |
-| `SYN-PATIENT-001` | Rowan Sample  | Current Plan version 2, Current Personal Safety Plan, seven episodes |
-| `SYN-PATIENT-002` | Mira Example  | Current version 1 with version 2 Awaiting Approval                   |
-| `SYN-PATIENT-003` | Jordan Test   | No plan in use, with objective presentation activity                 |
-| `SYN-PATIENT-004` | Evelyn Demo   | Withdrawn plan                                                       |
-| `SYN-PATIENT-005` | Alex Fiction  | Closed Identification Review, so a fresh referral is permitted       |
+| Identifier        | Name         | What it demonstrates                                                 |
+| ----------------- | ------------ | -------------------------------------------------------------------- |
+| `SYN-PATIENT-001` | Rowan Sample | Current Plan version 2, Current Personal Safety Plan, seven episodes |
+| `SYN-PATIENT-002` | Mira Example | Current version 1 with version 2 Awaiting Approval                   |
+| `SYN-PATIENT-003` | Jordan Test  | No plan in use, with objective presentation activity                 |
+| `SYN-PATIENT-004` | Evelyn Demo  | Withdrawn plan                                                       |
+| `SYN-PATIENT-005` | Alex Fiction | Closed Identification Review, so a fresh referral is permitted       |
 
 Four synthetic clinicians cover the role boundary: an emergency physician (the default),
 an ED mental-health liaison clinician, a named senior clinician, and a care-planning

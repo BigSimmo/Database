@@ -18,12 +18,12 @@ Two rules were applied throughout, both learned expensively on this project:
 
 ## Environment
 
-| Item | Value |
-| ---- | ----- |
-| Worktree | `D:\Worktrees\Database\care-plan-impl` |
-| Branch | `claude/care-plan-stage-b-9-11` |
-| Base commit at start | `157c48f33` |
-| Dev server | `npm run ensure` → `http://localhost:3488`, identity confirmed via `/api/local-project-id` (`clinical-kb:4573c0c0381a`) |
+| Item                 | Value                                                                                                                                                                                                                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worktree             | `D:\Worktrees\Database\care-plan-impl`                                                                                                                                                                                                       |
+| Branch               | `claude/care-plan-stage-b-9-11`                                                                                                                                                                                                              |
+| Base commit at start | `157c48f33`                                                                                                                                                                                                                                  |
+| Dev server           | `npm run ensure` → `http://localhost:3488`, identity confirmed via `/api/local-project-id` (`clinical-kb:4573c0c0381a`)                                                                                                                      |
 | Browser suite server | `scripts/run-playwright.mjs` builds and starts its **own isolated production server**, which resolved to `http://localhost:3489` and verified the same project identity. The suite therefore measures a production build, not the dev server |
 
 ## Browser suite — the new evidence
@@ -34,12 +34,12 @@ npm run test:e2e:care-plan-mockup
 
 which is exactly `node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-care-plan-mockup.spec.ts`.
 
-| Run | Result line | What it was |
-| --- | ----------- | ----------- |
-| 1 | `9 failed` / `20 passed (19.7m)`, `EXIT=1` | First rendering of this application, ever |
-| 2 | `4 failed` / `1 skipped` / `25 passed (6.5m)`, `EXIT=1` | After repairing what run 1 exposed |
-| 3 | `1 skipped` / `29 passed (1.2m)` | After repairing the last four |
-| 4 | `1 skipped` / **`29 passed (1.6m)`**, `EXIT=0` | Confirmation after every probe mutation below was reverted, and after the guard correction the probes forced |
+| Run | Result line                                             | What it was                                                                                                  |
+| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 1   | `9 failed` / `20 passed (19.7m)`, `EXIT=1`              | First rendering of this application, ever                                                                    |
+| 2   | `4 failed` / `1 skipped` / `25 passed (6.5m)`, `EXIT=1` | After repairing what run 1 exposed                                                                           |
+| 3   | `1 skipped` / `29 passed (1.2m)`                        | After repairing the last four                                                                                |
+| 4   | `1 skipped` / **`29 passed (1.6m)`**, `EXIT=0`          | Confirmation after every probe mutation below was reverted, and after the guard correction the probes forced |
 
 The skipped case is the evidence capture, which runs only under `CARE_PLAN_CAPTURE_EVIDENCE=1`.
 
@@ -64,7 +64,7 @@ recording because each is a class of mistake this file now documents rather than
 6. **The shared checkbox hides its native input** under a decorative box that owns the
    pointer events, so it is activated through its label.
 7. **Two assertions were written against remembered copy rather than the copy on screen** —
-   including one negative assertion that failed on the sentence *denying* the very claim it
+   including one negative assertion that failed on the sentence _denying_ the very claim it
    was guarding, which is a guard pointing the wrong way.
 
 ### What the browser proved
@@ -116,21 +116,21 @@ working mutations rather than reasoned about.
 Each probe is a real mutation to `care-plan.module.css`, built and run through the wrapper,
 then reverted. `npm run test:e2e:care-plan-mockup -- -g "link affordance"`.
 
-| # | Mutation | Result line | Message |
-| - | -------- | ----------- | ------- |
-| 1 | `text-decoration: underline` → `none` on the shared `pinnedBoundaryLink`/`timelineLink`/`inlineLink` rule | `1 failed`, `EXIT=1` | `` `pinnedBoundaryLink` carries no underline, so it is distinguished from body text by colour alone `` |
-| 2 | `.specimenLink` colour → `rgb(0 0 0 / 0.0%)` | `1 failed`, `EXIT=1` | `` `specimenLink` paints its text in ink that is effectively invisible (rgba(0, 0, 0, 0)) `` |
-| 3 | `.pinnedBoundaryLink`/`.timelineLink`/`.inlineLink` colour → `inherit` | `1 failed`, `EXIT=1` | `` `pinnedBoundaryLink` is exactly the colour of the text around it (rgb(27, 37, 51)), so colour distinguishes it from nothing `` |
-| 4 | `.patientNavItem` border → `1px solid rgb(0 0 0 / 0%)` | `1 failed`, `EXIT=1` | `` `patientNavSecondary` draws no visible border on any side `` |
+| #   | Mutation                                                                                                  | Result line          | Message                                                                                                                           |
+| --- | --------------------------------------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `text-decoration: underline` → `none` on the shared `pinnedBoundaryLink`/`timelineLink`/`inlineLink` rule | `1 failed`, `EXIT=1` | `` `pinnedBoundaryLink` carries no underline, so it is distinguished from body text by colour alone ``                            |
+| 2   | `.specimenLink` colour → `rgb(0 0 0 / 0.0%)`                                                              | `1 failed`, `EXIT=1` | `` `specimenLink` paints its text in ink that is effectively invisible (rgba(0, 0, 0, 0)) ``                                      |
+| 3   | `.pinnedBoundaryLink`/`.timelineLink`/`.inlineLink` colour → `inherit`                                    | `1 failed`, `EXIT=1` | `` `pinnedBoundaryLink` is exactly the colour of the text around it (rgb(27, 37, 51)), so colour distinguishes it from nothing `` |
+| 4   | `.patientNavItem` border → `1px solid rgb(0 0 0 / 0%)`                                                    | `1 failed`, `EXIT=1` | `` `patientNavSecondary` draws no visible border on any side ``                                                                   |
 
 Two of those are spellings the frozen static guard could not see. Probe 2 is `rgb(0 0 0 /
-0.0%)` — a decimal *and* a percent together, the ninth spelling, found in Task 10's closing
+0.0%)` — a decimal _and_ a percent together, the ninth spelling, found in Task 10's closing
 re-review. Probe 3 is `color: inherit`, which the ledger parks explicitly as
 "`color: inherit` counting as a colour". The computed style resolved both to a final value
 without ever reading a spelling, which is the whole argument for the replacement.
 
 **One probe corrected the guard rather than confirming it, and that is the more useful
-outcome.** The first shape of `expectLooksLikeALink` required *every* named affordance to
+outcome.** The first shape of `expectLooksLikeALink` required _every_ named affordance to
 differ in colour from the prose around it. Probe 3 was originally aimed at
 `patientNavSecondary` and it went red — for a change that takes nothing away from a reader,
 because a bordered pill with a 48 px box is perfectly visible whatever colour its text is.
@@ -161,23 +161,23 @@ refusing a lease while Playwright held the exclusive one, not a result.
 Two intermediate results are worth keeping, because each was a RED that proved a test could
 fail before it was made to pass:
 
-| Stage | Result line | What it proved |
-| ----- | ----------- | -------------- |
-| `tests/playwright-project-isolation.test.ts` before the Playwright project was registered | `Test Files 1 failed (1)` / `Tests 1 failed \| 5 passed (6)`, `tests/ui-care-plan-mockup.spec.ts is missing` | The registration assertion fails for the right reason |
-| The five navigation regression tests before the fix | `Tests 5 failed \| 264 skipped (269)`, all five `Unable to find …` | The wiring defects were real, and the tests observe them |
-| The same file after the fix | `Test Files 1 passed (1)` / `Tests 269 passed (269)` | 264 → 269, with nothing previously passing broken |
+| Stage                                                                                     | Result line                                                                                                  | What it proved                                           |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `tests/playwright-project-isolation.test.ts` before the Playwright project was registered | `Test Files 1 failed (1)` / `Tests 1 failed \| 5 passed (6)`, `tests/ui-care-plan-mockup.spec.ts is missing` | The registration assertion fails for the right reason    |
+| The five navigation regression tests before the fix                                       | `Tests 5 failed \| 264 skipped (269)`, all five `Unable to find …`                                           | The wiring defects were real, and the tests observe them |
+| The same file after the fix                                                               | `Test Files 1 passed (1)` / `Tests 269 passed (269)`                                                         | 264 → 269, with nothing previously passing broken        |
 
 ## Privacy and source scans
 
 Run verbatim from the brief.
 
-| Scan | Result |
-| ---- | ------ |
-| `frequent flyer\|high utili[sz]er\|problem patient\|risk score\|automatic enrol\|automatically identif` | **No matches** (exit 1) |
-| `localStorage\|sessionStorage\|indexedDB\|document\.cookie\|\bfetch\s*\(` | **No matches** (exit 1) |
-| `openai\|anthropic\|completion\|llm\|gpt\|prompt` | 8 matches, all classified as unrelated: seven are the `left_before_completion` disposition enum and its label, one is the section heading `What should prompt a review`. No provider reference exists |
-| `should not be admitted\|do not admit\|admission is not indicated` | 3 matches, all inside `BANNED_ADMISSION_CONSTRUCTIONS` in `domain.ts` — the guard list itself. No fixture, interface string or example contains one |
-| `\b(sent\|delivered\|read\|replied\|contact completed)\b` | Many matches, every one classified by hand. All are either explicit negations (`Nothing was sent, and no message exists.`, `never that anything was sent, delivered, read, answered, or completed`), the ordinary verb *to read* (`Read this plan and the triage note first`), or `read-only`. **No overclaim** |
+| Scan                                                                                                    | Result                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `frequent flyer\|high utili[sz]er\|problem patient\|risk score\|automatic enrol\|automatically identif` | **No matches** (exit 1)                                                                                                                                                                                                                                                                                         |
+| `localStorage\|sessionStorage\|indexedDB\|document\.cookie\|\bfetch\s*\(`                               | **No matches** (exit 1)                                                                                                                                                                                                                                                                                         |
+| `openai\|anthropic\|completion\|llm\|gpt\|prompt`                                                       | 8 matches, all classified as unrelated: seven are the `left_before_completion` disposition enum and its label, one is the section heading `What should prompt a review`. No provider reference exists                                                                                                           |
+| `should not be admitted\|do not admit\|admission is not indicated`                                      | 3 matches, all inside `BANNED_ADMISSION_CONSTRUCTIONS` in `domain.ts` — the guard list itself. No fixture, interface string or example contains one                                                                                                                                                             |
+| `\b(sent\|delivered\|read\|replied\|contact completed)\b`                                               | Many matches, every one classified by hand. All are either explicit negations (`Nothing was sent, and no message exists.`, `never that anything was sent, delivered, read, answered, or completed`), the ordinary verb _to read_ (`Read this plan and the triage note first`), or `read-only`. **No overclaim** |
 
 ## The mailto privacy assertion
 
@@ -193,8 +193,16 @@ The collection is asserted non-empty first, so the sweep cannot pass by matching
 
 Every automated check this project has is a check on structure. The one class of harm none
 of them can see is a page that is technically correct and cruel to read, so each
-patient-facing surface was read straight through as its recipient — on screen from the
-running application, and on paper from the printed subtree.
+patient-facing surface was read straight through as its recipient.
+
+**How each was read, so the basis is not overstated.** The Personal Safety Plan paper and
+every on-screen surface were read as **rendered text pulled out of the running
+application**. The Patient Plan paper has no fixture — a copy only exists once somebody
+makes one — and the evidence capture that would have written it out as text never got a
+lease, so it was read from its **print component and section lead-ins in source**, together
+with what the browser asserts about the rendered result (all eight headings, gaps omitted,
+no `Not recorded`, nothing clinical). That is weaker evidence than reading the sheet, and
+it is the first thing to redo when the capture runs.
 
 ### The Personal Safety Plan, on paper
 
@@ -287,25 +295,56 @@ section.` followed by the link naming the section. `Then read the full section` 
 before the reader knows which section, and the sentence would read better with them
 swapped. Cosmetic, and recorded rather than changed.
 
+## The fast checks
+
+The user's recorded decision D2, as revised the same day (`sdd-ledger.md`), names exactly
+which checks this task runs: `typecheck`, `lint`, the Care Plan Vitest files,
+`prettier --check` on changed files only, and Task 11's own Chromium journeys.
+
+| Check                                          | Result                                                                                                                                                                                                                                        |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GATE_RECEIPTS=refresh npm run typecheck`      | Exit 0, zero diagnostics. A **fresh** run — `[gate-receipts] recorded a pass for "typecheck:internal" (4683 input files)`, which is a new record rather than a replayed one. Took four attempts; the first three were lease refusals          |
+| `GATE_RECEIPTS=refresh npm run lint`           | Exit 0, no output, `--max-warnings 0`. Also fresh: `[gate-receipts] recorded a pass for "lint:internal" (4683 input files)`. **This closes the debt the ledger recorded**: lint had not been run on this branch since the `origin/main` merge |
+| `npx prettier --check` on all 16 changed files | Initially **7 markdown files failed**; formatted with `--write` and re-checked: `All matched files use Prettier code style!`                                                                                                                  |
+| Care Plan Vitest files                         | `Test Files 7 passed (7)` / `Tests 517 passed (517)` (above)                                                                                                                                                                                  |
+| Chromium journeys                              | `29 passed (1.6m)`, 1 skipped (above)                                                                                                                                                                                                         |
+
+## Evidence capture — attempted, not completed
+
+`CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup -- -g handoff` was started
+twice and **neither attempt reached its build**. Both sat with no output at all — no build
+line, no run root created — for more than five minutes, which is the run coordinator holding
+the exclusive heavy lease for another session on this machine, not a failure of the capture.
+Both were stopped so the fast checks above could take the lease instead.
+
+The capture path itself is written and registered (`captures the Care Plan handoff atlas`,
+reported as `1 skipped` on every run without the environment variable). It writes only
+ignored files under `.local/care-plan/atlas`: 26 screenshots at 320, 390 and 1440 px plus
+dark and forced-colour specimens, a `manifest.json` stamped with the source commit, and —
+added deliberately — `paper-management-plan.txt`, `paper-safety-plan.txt` and
+`paper-patient-plan.txt`, the three printed papers as text.
+
+**This is an unverified path.** It has never executed, so its assertions on image counts and
+file names are untested. Recorded as owed rather than claimed.
+
 ## Checks NOT run, by user instruction
 
 The user directed that this task stay local and focused on building, and that the release
 gates below are theirs to run. Each is listed as unrun rather than omitted, because a gap
 recorded is evidence and a gap hidden is not.
 
-| Not run | Why |
-| ------- | --- |
-| `npm run verify:pr-local` | Not run, by user instruction |
-| `npm run verify:cheap` | Not run, by user instruction |
-| `npm run verify:release` | Not run, by user instruction — and provider-backed |
-| `npm run build` | Not run directly, by user instruction. Note that `scripts/run-playwright.mjs` performs its **own** isolated production `next build` on every browser run, and all three runs built successfully; that is not the same as the repository build gate and does not include `check:bundle-budget` |
-| `npm run check:production-readiness` | Not run, by user instruction |
-| `npm run docs:update` | Not run, by user instruction. Task 11 adds no route, and all 21 Care Plan routes are already present in `docs/site-map.md`, so no generated diff is expected — but that is an expectation, not a verified fact |
-| whole-tree `npm run format` | Not run, by user instruction. Every file this task touched was formatted individually with `npx prettier --write`; a repository-wide check may still find an unrelated file |
-| `npm run lint` | Not run. It has not been run on this branch since the `origin/main` merge, and must not be reported as green |
-| `npm run typecheck` (repository gate) | Not run as the gate. `npx tsc --noEmit` was run once and reported **zero diagnostics** for `tests/ui-care-plan-mockup.spec.ts` |
-| `eval:*`, `check:supabase-project`, anything touching live Supabase, OpenAI or hosted CI | Not run — provider-backed and out of scope |
-| Push, pull request, merge, deploy | Not performed |
+| Not run                                                                                  | Why                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run verify:pr-local`                                                                | Not run, by user instruction                                                                                                                                                                                                                                                                  |
+| `npm run verify:cheap`                                                                   | Not run, by user instruction                                                                                                                                                                                                                                                                  |
+| `npm run verify:release`                                                                 | Not run, by user instruction — and provider-backed                                                                                                                                                                                                                                            |
+| `npm run build`                                                                          | Not run directly, by user instruction. Note that `scripts/run-playwright.mjs` performs its **own** isolated production `next build` on every browser run, and all three runs built successfully; that is not the same as the repository build gate and does not include `check:bundle-budget` |
+| `npm run check:production-readiness`                                                     | Not run, by user instruction                                                                                                                                                                                                                                                                  |
+| `npm run docs:update`                                                                    | Not run, by user instruction. Task 11 adds no route, and all 21 Care Plan routes are already present in `docs/site-map.md`, so no generated diff is expected — but that is an expectation, not a verified fact                                                                                |
+| whole-tree `npm run format`                                                              | Not run, by user instruction. Every file this task touched was formatted with `npx prettier --write` and re-checked clean; a repository-wide check may still find an unrelated file                                                                                                           |
+| The evidence capture                                                                     | Attempted twice, blocked both times by the exclusive heavy lease — see above. Owed, not claimed                                                                                                                                                                                               |
+| `eval:*`, `check:supabase-project`, anything touching live Supabase, OpenAI or hosted CI | Not run — provider-backed and out of scope                                                                                                                                                                                                                                                    |
+| Push, pull request, merge, deploy                                                        | Not performed                                                                                                                                                                                                                                                                                 |
 
 ## Acceptance criteria
 
@@ -313,40 +352,40 @@ Every criterion in the approved specification, with the direct evidence for it. 
 evidence is structural only — no rendered proof exists — the row says so, because a green
 suite is not the same as a satisfied requirement.
 
-| Criterion | Evidence | Verified how |
-| --------- | -------- | ------------ |
-| Find a synthetic patient and the Current Plan within 10 seconds | Browser: `a clinician can search a name and reach the Current Plan` — search, open the record, one section link, plan on screen | Browser + DOM |
-| First-minute guidance, status, version, approver, review state and CMHT contact understandable within 30 seconds | `care-plan-current-plan-metadata` asserted visible on the same journey; the card is the five sections plus the metadata list | Browser + DOM. **Comprehension time itself is not measured and cannot be by a machine** |
-| Record a concise ED Presentation within two minutes | Browser: seven required answers filled and saved in one form, no optional field blocking | Browser |
-| Current Personal Safety Plan reachable and printable within three actions | Home → section link → `Print this plan`; browser journey walks it | Browser |
-| A replacement draft never obscures or replaces the Current Plan | Browser: `a version awaiting approval never displaces the Current Plan` measures both painted boxes, so a CSS reorder cannot pass | Browser (new — jsdom proved document order only) |
-| Approving creates exactly one Current version and supersedes the prior one | `assertSingleCurrentVersion` reducer invariant; browser approves version 2 and reads version 1 as superseded | Reducer + browser |
-| An overdue Current Plan remains readable and unmistakably overdue | `overdue-plan` specimen renders its warning above fully readable content | Reducer + DOM + browser |
-| The summary card is exactly the five first-minute sections in order | Generated from `FIRST_MINUTE_CONTENT_KEYS` rather than transcribed | DOM |
-| `What would make this presentation different` visible on the card at every viewport, in dark mode, forced colours and print, never collapsed/truncated/clipped | Browser: geometry at 320/390/768/1024/1440, dark, forced colours, print; height, clipping, `display`, `visibility` and line-clamp all asserted | **Browser — new** |
-| Approved version defaults review 12 months ahead, author can change it, amber at 28 days | `REVIEW_INTERVAL_MONTHS = 12`, `REVIEW_DUE_SOON_DAYS = 28`, `deriveReviewState` boundary tests | Reducer + DOM |
-| Presentation saves with the seven required answers; optional detail never blocks and reads `Not recorded` | Form validation tests; browser saves with only the required answers | Reducer + DOM + browser |
-| Identification Review closes with a decision and reason, leaves the queue, stays in history, creates no plan | Reducer refusal/closure tests; browser opens the referral sheet and reads `creates no plan` | Reducer + DOM + browser |
-| Pinned safety boundary above all plan content at 320, 390, desktop, dark, forced colours, print | As above | **Browser — new** |
-| No prohibitive admission construction anywhere | `BANNED_ADMISSION_CONSTRUCTIONS` unit test, form validation, and the fixture scan in this report (3 matches, all the guard list itself) | Unit + scan |
-| A version approved at `declined`/`patient_unavailable` carries the involvement marker everywhere and raises a Review Trigger | Reducer assertion; the approval dialog states the consequence before the decision | Reducer + DOM |
-| A withdrawn plan never renders identically to a person who never had one | Browser: Evelyn Demo's `care-plan-withdrawn-notice` asserted visible with its date, under forced colours | Browser + DOM |
-| Sort-by-count exists only in the Identification Review workflow | No sort control in the directory (DOM); the Governance page discloses the one that exists (Ruling 56) | DOM |
-| The Management Plan summary prints, and both print views consume the shared `PrintOutput` | All three print surfaces import `PrintOutput`/`PrintSection`; browser prints the clinician summary and the Safety Plan | **Browser — new** |
-| Patient Plan produces gaps not guesses, never auto-converts the agreed approach, cannot be approved with a gap | Browser: section 4 gap asserted, approval `aria-disabled` with the unfilled sections named, then approved once filled | **Browser — new** + reducer |
-| A Patient Plan from a superseded version is marked as needing updating, stays readable, never regenerated or hidden | Browser: approve a newer Management Plan Version, then read `needs updating` beside a fully readable version 1 | **Browser — new** + derived-selector test |
-| No language model, network call or provider is reachable anywhere | Scans 2 and 3 in this report: no `fetch`, no storage, no provider reference | Scan + source inspection |
-| The shell states in plain words that nothing is saved and reloading starts over | `Nothing is saved. Reloading this page starts over.` asserted on every route the browser visits | Browser + DOM |
-| Presentation corrections are visible amendments, not silent overwrites | Append-only reducer assertion on `originalValue`; the detail view shows both | Reducer + DOM |
-| Plan-use feedback can create a Review Trigger but cannot change a plan | Reducer before/after plan equality; the resolution sheet states `It changes no plan and approves nothing` | Reducer + browser |
-| Counts never become an automatic label or eligibility decision | The eligibility sentence sits beside every count; policy is `pending_governance` with no threshold | DOM + fixtures |
-| No numeric identification threshold in code, fixtures, tests or copy | Null-typed policy fields; governance copy states no rule exists | Types + fixtures + DOM |
-| CMHT email links carry no patient identifier or clinical content and never imply communication | The extended cross-product assertion in `care-plan-domain.test.ts`; browser reads the rendered `mailto:` and the no-evidence sentence | Unit + **browser — new** |
-| The Personal Safety Plan stays independent of the Management Plan | Browser: a new safety-plan version is made current with no Management Plan approval involved | Browser + reducer |
-| Every record and screen visibly synthetic; refresh restores deterministic state | Marker asserted on every route; the whole suite depends on refresh resetting, and does so | **Browser — new** |
-| Primary journeys work at desktop, 390 and 320, and remain operable by keyboard | Reflow at five widths; 40-step tab walk with a focus-ring check; sheet focus containment | **Browser — new** |
-| Current, Draft, Review, Withdrawn, unavailable and error states distinguishable without colour | Forced-colours run asserts the words, not the tints | **Browser — new** |
-| The print view is readable in monochrome and contains only the intended patient-facing content | Up to forty sampled elements resolve to black on white; the Safety Plan paper carries all seven headings and no `Not recorded` | **Browser — new** |
+| Criterion                                                                                                                                                      | Evidence                                                                                                                                       | Verified how                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Find a synthetic patient and the Current Plan within 10 seconds                                                                                                | Browser: `a clinician can search a name and reach the Current Plan` — search, open the record, one section link, plan on screen                | Browser + DOM                                                                           |
+| First-minute guidance, status, version, approver, review state and CMHT contact understandable within 30 seconds                                               | `care-plan-current-plan-metadata` asserted visible on the same journey; the card is the five sections plus the metadata list                   | Browser + DOM. **Comprehension time itself is not measured and cannot be by a machine** |
+| Record a concise ED Presentation within two minutes                                                                                                            | Browser: seven required answers filled and saved in one form, no optional field blocking                                                       | Browser                                                                                 |
+| Current Personal Safety Plan reachable and printable within three actions                                                                                      | Home → section link → `Print this plan`; browser journey walks it                                                                              | Browser                                                                                 |
+| A replacement draft never obscures or replaces the Current Plan                                                                                                | Browser: `a version awaiting approval never displaces the Current Plan` measures both painted boxes, so a CSS reorder cannot pass              | Browser (new — jsdom proved document order only)                                        |
+| Approving creates exactly one Current version and supersedes the prior one                                                                                     | `assertSingleCurrentVersion` reducer invariant; browser approves version 2 and reads version 1 as superseded                                   | Reducer + browser                                                                       |
+| An overdue Current Plan remains readable and unmistakably overdue                                                                                              | `overdue-plan` specimen renders its warning above fully readable content                                                                       | Reducer + DOM + browser                                                                 |
+| The summary card is exactly the five first-minute sections in order                                                                                            | Generated from `FIRST_MINUTE_CONTENT_KEYS` rather than transcribed                                                                             | DOM                                                                                     |
+| `What would make this presentation different` visible on the card at every viewport, in dark mode, forced colours and print, never collapsed/truncated/clipped | Browser: geometry at 320/390/768/1024/1440, dark, forced colours, print; height, clipping, `display`, `visibility` and line-clamp all asserted | **Browser — new**                                                                       |
+| Approved version defaults review 12 months ahead, author can change it, amber at 28 days                                                                       | `REVIEW_INTERVAL_MONTHS = 12`, `REVIEW_DUE_SOON_DAYS = 28`, `deriveReviewState` boundary tests                                                 | Reducer + DOM                                                                           |
+| Presentation saves with the seven required answers; optional detail never blocks and reads `Not recorded`                                                      | Form validation tests; browser saves with only the required answers                                                                            | Reducer + DOM + browser                                                                 |
+| Identification Review closes with a decision and reason, leaves the queue, stays in history, creates no plan                                                   | Reducer refusal/closure tests; browser opens the referral sheet and reads `creates no plan`                                                    | Reducer + DOM + browser                                                                 |
+| Pinned safety boundary above all plan content at 320, 390, desktop, dark, forced colours, print                                                                | As above                                                                                                                                       | **Browser — new**                                                                       |
+| No prohibitive admission construction anywhere                                                                                                                 | `BANNED_ADMISSION_CONSTRUCTIONS` unit test, form validation, and the fixture scan in this report (3 matches, all the guard list itself)        | Unit + scan                                                                             |
+| A version approved at `declined`/`patient_unavailable` carries the involvement marker everywhere and raises a Review Trigger                                   | Reducer assertion; the approval dialog states the consequence before the decision                                                              | Reducer + DOM                                                                           |
+| A withdrawn plan never renders identically to a person who never had one                                                                                       | Browser: Evelyn Demo's `care-plan-withdrawn-notice` asserted visible with its date, under forced colours                                       | Browser + DOM                                                                           |
+| Sort-by-count exists only in the Identification Review workflow                                                                                                | No sort control in the directory (DOM); the Governance page discloses the one that exists (Ruling 56)                                          | DOM                                                                                     |
+| The Management Plan summary prints, and both print views consume the shared `PrintOutput`                                                                      | All three print surfaces import `PrintOutput`/`PrintSection`; browser prints the clinician summary and the Safety Plan                         | **Browser — new**                                                                       |
+| Patient Plan produces gaps not guesses, never auto-converts the agreed approach, cannot be approved with a gap                                                 | Browser: section 4 gap asserted, approval `aria-disabled` with the unfilled sections named, then approved once filled                          | **Browser — new** + reducer                                                             |
+| A Patient Plan from a superseded version is marked as needing updating, stays readable, never regenerated or hidden                                            | Browser: approve a newer Management Plan Version, then read `needs updating` beside a fully readable version 1                                 | **Browser — new** + derived-selector test                                               |
+| No language model, network call or provider is reachable anywhere                                                                                              | Scans 2 and 3 in this report: no `fetch`, no storage, no provider reference                                                                    | Scan + source inspection                                                                |
+| The shell states in plain words that nothing is saved and reloading starts over                                                                                | `Nothing is saved. Reloading this page starts over.` asserted on every route the browser visits                                                | Browser + DOM                                                                           |
+| Presentation corrections are visible amendments, not silent overwrites                                                                                         | Append-only reducer assertion on `originalValue`; the detail view shows both                                                                   | Reducer + DOM                                                                           |
+| Plan-use feedback can create a Review Trigger but cannot change a plan                                                                                         | Reducer before/after plan equality; the resolution sheet states `It changes no plan and approves nothing`                                      | Reducer + browser                                                                       |
+| Counts never become an automatic label or eligibility decision                                                                                                 | The eligibility sentence sits beside every count; policy is `pending_governance` with no threshold                                             | DOM + fixtures                                                                          |
+| No numeric identification threshold in code, fixtures, tests or copy                                                                                           | Null-typed policy fields; governance copy states no rule exists                                                                                | Types + fixtures + DOM                                                                  |
+| CMHT email links carry no patient identifier or clinical content and never imply communication                                                                 | The extended cross-product assertion in `care-plan-domain.test.ts`; browser reads the rendered `mailto:` and the no-evidence sentence          | Unit + **browser — new**                                                                |
+| The Personal Safety Plan stays independent of the Management Plan                                                                                              | Browser: a new safety-plan version is made current with no Management Plan approval involved                                                   | Browser + reducer                                                                       |
+| Every record and screen visibly synthetic; refresh restores deterministic state                                                                                | Marker asserted on every route; the whole suite depends on refresh resetting, and does so                                                      | **Browser — new**                                                                       |
+| Primary journeys work at desktop, 390 and 320, and remain operable by keyboard                                                                                 | Reflow at five widths; 40-step tab walk with a focus-ring check; sheet focus containment                                                       | **Browser — new**                                                                       |
+| Current, Draft, Review, Withdrawn, unavailable and error states distinguishable without colour                                                                 | Forced-colours run asserts the words, not the tints                                                                                            | **Browser — new**                                                                       |
+| The print view is readable in monochrome and contains only the intended patient-facing content                                                                 | Up to forty sampled elements resolve to black on white; the Safety Plan paper carries all seven headings and no `Not recorded`                 | **Browser — new**                                                                       |
 
 ## Carried forward
 
@@ -358,13 +397,20 @@ re-run.
 ## Known noise in the test output
 
 The output of the focused Vitest suites is **not pristine**, and this has been true since
-Stage A:
+Stage A. Exactly three notices were observed in the 517-test run above:
 
-- A React controlled/uncontrolled warning from the shared `src/components/ui/select.tsx`
-  (Ruling 50). That file is untouched by this branch and the defect is repository-wide: it
-  passes both `value` and a `defaultValue` fallback whenever a `placeholder` is supplied.
-  It belongs in `/issues`, not in a prototype pull request, and it was **not** fixed here.
-- A React `act` warning and a jsdom `Not implemented: navigation to another Document`
-  notice, both test hygiene rather than product defects.
+- `await act(() => ...)` — the React `act` warning the Stage A checkpoint recorded.
+- `Not implemented: navigation to another Document`, twice — jsdom, on a link activation.
+- `Not implemented: Window's print() method` — jsdom, on the print journeys.
 
-They are recorded rather than fixed, and they mean a genuinely new warning could be masked.
+All three are test-environment hygiene rather than product defects, and all three are
+recorded rather than fixed. They matter because a genuinely new warning could hide among
+them.
+
+**One correction to the record.** Ruling 50 says the shared `src/components/ui/select.tsx`
+emits a React controlled/uncontrolled warning "on every Care Plan run". It did **not**
+appear in this run. That does not clear the underlying defect — the file still passes both
+`value` and a `defaultValue` fallback whenever a `placeholder` is supplied, it is untouched
+by this branch, it is repository-wide, and it was not fixed here — but "on every run" is not
+what this run showed, and the difference should not be reported as if it were. The
+`Prototype role` select has no placeholder, which is the likely reason.
