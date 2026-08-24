@@ -3433,18 +3433,20 @@ function ClinicalDashboardContent({
           data-phone-chrome-transition={reserveTransitioning || chromeTransitioning ? "active" : "idle"}
           className={cn(
             "phone-scroll-surface min-h-0 flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:overflow-x-hidden sm:overflow-y-auto sm:overscroll-contain sm:[-webkit-overflow-scrolling:touch]",
-            // Answer view: the glass header is absolute over this surface, so
-            // <main> reserves its measured height 1:1 with #search so all the
-            // section floors below keep their meaning). Padding scrolls with
-            // content so it can frost beneath the bar. It stays constant when
-            // scroll-hidden: the reserve is at scroll-start, already off-screen
-            // whenever the header is hidden, so reclaiming it would only jump
-            // the content.
-            searchMode === "answer" &&
-              "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]",
-            // Non-answer modes overlay their phone chrome, so this surface owns
-            // the clearance. Constant across hide/reveal by design.
-            searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
+            // Idle phone homes stretch a column through this surface so the
+            // cluster can flex-center in leftover space. Result views stay a
+            // normal block scrollport.
+            compactMobileModeHome && "max-sm:flex max-sm:flex-col",
+            // Answer *results* keep the glass-header overlay pad at every width.
+            // Answer *home* on phones uses the measured overlay token so it
+            // cannot disagree with --phone-overlay-chrome-h after the stack
+            // is published. sm+ answer home still uses the glass pad because
+            // answer overlay is all-breakpoint.
+            searchMode === "answer" && compactMobileModeHome
+              ? "max-sm:pt-[var(--phone-overlay-chrome-h)] sm:pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] sm:[scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"
+              : searchMode === "answer"
+                ? "pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"
+                : "max-sm:pt-[var(--phone-overlay-chrome-h)]",
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
@@ -3499,14 +3501,14 @@ function ClinicalDashboardContent({
                 // container (overflow-y computes to auto), which clips the composer's
                 // command dropdown mid-panel and shows a phantom inner scrollbar.
                 "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-                compactMobileModeHome && "max-sm:px-0",
-                // Centred mode homes carry little content, so drop the large
-                // mobile bottom padding (the fixed composer already has its own
-                // reserved margin on <main>) to avoid a needless scrollbar.
-                // sm+/lg values stay identical to the result-view treatment.
+                // Idle phone homes fill the already-padded <main> and centre
+                // in that box. Extra py/space-y here double-counted overlay
+                // chrome and manufactured a scrollbar.
+                compactMobileModeHome &&
+                  "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:space-y-0 max-sm:px-0 max-sm:py-0",
                 searchMode === "answer"
                   ? compactMobileModeHome
-                    ? "pb-4"
+                    ? "sm:pb-4"
                     : // The <main> reserve already clears the fixed composer dock on
                       // phones, so the old large mobile bottom padding only floated a
                       // long answer's last line high above the dock (and padded a short
@@ -3514,10 +3516,8 @@ function ClinicalDashboardContent({
                       // keep the original generous padding.
                       "pb-4 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
-                    ? // The <main> reserve clears the compact dock on phones, so
-                      // content keeps only a small pad of its own.
-                      compactMobileModeHome
-                      ? "pb-4 sm:pb-10 lg:pb-12"
+                    ? compactMobileModeHome
+                      ? "sm:pb-10 lg:pb-12"
                       : "pb-8 sm:pb-10 lg:pb-12"
                     : "pb-8 sm:pb-10 lg:pb-12",
               )}
@@ -3539,13 +3539,11 @@ function ClinicalDashboardContent({
                 data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
                 className={cn(
                   compactMobileModeHome
-                    ? cn(
-                        // Every breakpoint keeps a viewport-height floor so
-                        // justify/place-items-center has free space to centre the
-                        // home block instead of hugging the header.
-                        "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
-                        centeredModeHome && "max-sm:justify-center",
-                      )
+                    ? // Fill leftover <main> space (already padded for overlay
+                      // chrome). A nested 100dvh floor double-counted that pad
+                      // and sank the cluster with a scrollbar. One flex column
+                      // on phones; sm+ keeps the grid floor for tablet/desktop.
+                      "max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:items-center max-sm:justify-center sm:min-h-[calc(100dvh-11rem)]"
                     : // A rendered answer is content-sized and top-aligned on phones:
                       // it must NOT inherit the viewport-height floor (that floor exists
                       // to give the centred home block room). With the floor, a short
@@ -3557,10 +3555,9 @@ function ClinicalDashboardContent({
                       ? "sm:min-h-[calc(100dvh-11rem)]"
                       : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showSharedHome
-                    ? // Phones centre the home block mid-screen, matching the
-                      // standalone-route homes; the pop-up action surface picks
-                      // its own up/down placement so it stays unclipped either way.
-                      "grid w-full place-items-center max-sm:pt-2"
+                    ? compactMobileModeHome
+                      ? "w-full sm:grid sm:place-items-center"
+                      : "grid w-full place-items-center max-sm:pt-2"
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"

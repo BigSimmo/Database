@@ -121,9 +121,15 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).not.toContain("clamp(34rem, 50vw, 48rem)");
   });
 
-  it("keeps a mobile height floor for centered mode homes", () => {
-    expect(clinicalDashboardSource).toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
-    expect(clinicalDashboardSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
+  it("centres idle phone homes in leftover main space instead of a nested 100dvh floor", () => {
+    // The canvas is nested inside padded #main-content. A 100dvh-12.5rem floor
+    // double-counted overlay chrome and manufactured a scrollbar. flex-1 is
+    // valid here because #main-content is itself max-sm:flex max-sm:flex-col
+    // on compact homes, so the child can stretch in the remaining pane.
+    expect(clinicalDashboardSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
+    expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-col");
+    expect(clinicalDashboardSource).toContain("max-sm:min-h-0 max-sm:flex-1");
+    expect(clinicalDashboardSource).toContain("max-sm:items-center max-sm:justify-center");
   });
 
   it("never hand-authors -webkit-backdrop-filter declarations", () => {
