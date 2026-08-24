@@ -53,7 +53,10 @@ untouched and no role's grant had to be decided.
 **One thing the ruling did not settle, decided here and flagged for you.**
 `PATIENT_NAME_READ_ACTIONS` requires **both** `viewPatientRecord` and `READ_ACTIONS.plan`
 (`viewReferral`). Gating on `viewPatientRecord` alone would have been a **widening**, not a
-narrowing: the **auditor** role holds `viewPatientRecord` but not `viewReferral`, so today it gets
+narrowing: three roles hold `viewPatientRecord` without `viewReferral` — **auditor**,
+**clinicalProgrammeLead** and **livedExperienceRepresentative** (corrected after fix round 1, finding
+M-8; this paragraph first named the auditor as the only one). Taking the auditor as the worked
+example: today it gets
 `[]` from `listPlans` and `null` from `getEpisode` and can obtain no patient's name by any route at
 all. A names read on the name capability alone would have handed that role every name the team holds
 — from the one change whose whole purpose is to release less. The extra requirement decides the
@@ -72,8 +75,12 @@ pins it names the auditor explicitly.
   `set_config('caring_contacts.team_id', …)` and `set local role caring_contacts_app`. Mutation M1
   below removed exactly that and the contract went red on a cross-team read — a `TEAM-SOUTH`
   coordinator saw `TEAM-NORTH`'s patient name. The query names two columns rather than reusing
-  `PLAN_COLUMNS`, so the mobile number and the identifier list are never fetched into the process at
-  all; the narrowing is in the SQL, not only in the mapping afterwards.
+  `PLAN_COLUMNS`, so **this read** never fetches the mobile number or the identifier list into the
+  process at all; the narrowing is in the SQL, not only in the mapping afterwards. It says nothing
+  about the page as a whole: `listPlans` still selects `PLAN_COLUMNS` verbatim, which does carry
+  `patient_mobile_number` and `patient_identifiers`, on every caseload render. Narrowing that list is
+  a separate change and is filed rather than attempted here. (Qualified after fix round 1, finding
+  I-1.)
 
 New behaviour lives in `tests/helpers/caring-contacts-repository-contract.ts` — the shared suite both
 stores run — not in either store's own file.
@@ -93,11 +100,21 @@ stores run — not in either store's own file.
 - **Search matches the name as well as the three identifiers**, and stays entirely server-side: still
   an ordinary `method="get"` form, still no client state, still a URL. The screen adds no client
   component. Ruling 13 is untouched.
-- The page performs a **third audited read** with its own access identity,
-  `{ search, patientDirectory, "names" }`, deliberately not folded into the plans read: this is the
-  one read on the page that releases patient identity, and a trail that recorded it as part of a plan
-  search could not later answer _who read patients' names, and when_. It fails closed exactly as the
-  other two reads do.
+- The page performs its own audited read for the names, with its own access identity,
+  `{ search, patientName, "all" }`, deliberately not folded into the plans read: this is the read on
+  the page that releases patient identity, and a trail that recorded it as part of a plan search
+  could not later answer _who read patients' names, and when_. It fails closed as every read on the
+  page does.
+
+  **Corrected after fix round 1.** This paragraph first named the identity
+  `{ search, patientDirectory, "names" }`. Round 1 replaced it with a new `AccessedObjectType`
+  member, `"patientName"`, because `patientDirectory` already carries two referral reads and the
+  trail's query surface filters on `objectType` with no `objectId` filter — so the distinction was
+  visible by eye and unaskable. The re-review found this sentence still asserting the superseded
+  identity in the present tense, 160 lines above the round-1 section that records the change; the
+  document asserted a fact and its contradiction at once, which is the same shape as finding I-2
+  reproduced in the artifact instead of the code.
+
 - `getEpisode` is still never called, and the spy pinning its absence was not weakened — a new test
   asserts the name renders **and** `getEpisode` was not called, in the same test.
 

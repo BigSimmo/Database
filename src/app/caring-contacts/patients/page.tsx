@@ -156,7 +156,7 @@ export default async function CaringContactsPatientsPage({
   // be the wrong read -- it releases the mobile number, the identifiers and the ancestry alongside
   // the name.
   //
-  // Fails closed exactly as the two reads above do, and for the same reason rather than for
+  // Fails closed as every read on this page does, and for its own reason rather than for
   // symmetry: this read is the one that touches patient identity, so an unexplained failure of it
   // is the last thing that should be rendered past. `error.tsx` says nothing was sent and nothing
   // was changed, both of which are true. An actor whose role does not cover the read is not a

@@ -1038,3 +1038,117 @@ the briefs and corrected in durable memory.
 from "your role may not see names" — it states the kind of thing the heading is and claims nothing
 more, which is conservative but may not be enough; and `patientDirectory` now names two different
 reads in the access trail, distinguishable by `objectId` but not by action name.
+
+### Task 5b fix round 1 — browser gate
+
+`npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium` against the fix
+tip: **`38 passed (1.0m)`**, exit 0, zero failures. The fix round changed a Server Component's reads
+and a role notice; the journeys are unaffected, which is what the gate says rather than what I
+assumed.
+
+## Rulings 96-99 — Task 6, the Patient overview
+
+**Ruling [96] — the first-contact-date CONTROL belongs to the activation screen, not this one; the
+DISPLAY belongs here.** — Why: the plan routes design correction #1 to Task 6, but spec section 2.3's
+own Consequences sentence says "the review-and-activation screen gains a first-contact-date control",
+which is Tasks 7-9. The spec is the binding authority and it names a different screen. Task 6 shows
+the first contact date and, when it is not the default, its recorded reason in place (section 4.4
+explained automation). — Cost if wrong: the control lands one task later than the plan said. Nothing
+is built twice, and the same fact is still surfaced here, so the cost is ordering only.
+
+**Ruling [97] — the overview is scoped to ONE plan and never chooses which.** — Why: the route is
+patient-keyed (`patientRoute(patientId)`, already the href Task 5 reserved) while `getEpisode` and
+`getPlan` are plan-keyed, and one patient can honestly hold two episodes -- `repository.ts` says so
+and `markRetentionCleared` clears detail per plan, so two plans for one patient can differ in what
+they still hold. Zero plans gets an honest empty state rather than a 404, because a 404 would
+distinguish "another team's plan" from "no plan", which `getPlan` deliberately refuses to do. More
+than one plan gets a chooser, and the chooser takes its name from `listPatientNames`, so `getEpisode`
+is reached exactly once and only for a determined plan. — Cost if wrong: one extra click in the
+multi-plan case, which is rare. The alternative -- silently picking a plan -- would render one plan's
+schedule under a heading carrying the patient's name, and that is the error that matters here.
+
+**Ruling [98] — the contact count is derived from the schedule, never written as a literal.** — Why:
+the approved mockup hard-codes `"10 contacts over 12 months"` and `aria-label="Ten-contact
+continuity"`, and both are wrong. `schedule.ts` builds ten cadence entries (Day 1, Week 1, months 1,
+2, 3, 4, 6, 8, 10, 12); Week 1 carries `suppressed: { reason: "absorbedByFirstContact" }` exactly
+when the first contact was set to discharge + 7, giving **nine** sendable contacts in that case only
+(design correction #4 is conditional, not a new fixed number); and Month 12 is `messageType:
+"closing"`, a distinct kind (design correction #3). A suppressed contact is the system acting on its
+own, so section 4.4 requires the reason stated in place. — Cost if wrong: a screen that states a
+count it did not measure, on a clinical caseload -- which is the exact defect `ListEmptyState` was
+built to prevent, reappearing one screen later in numeric form.
+
+**Ruling [99] — Task 6 wires the directory row control, because it is the destination that makes it
+available.** — Why: `patients-directory.tsx` renders each row's detail control as
+`UnavailableDestination` under Ruling 52 (an unbuilt destination is an unavailable control with a
+stated reason, never a link into a 404), and its own comment names swapping it for
+`<Link href={patientRoute(...)}>` as the whole of the later change. Without the swap the new route
+has no inbound link and the orphan-route gate fails the build. — Cost if wrong: if the swap turns out
+not to be the whole change, the reachability gate says so before merge rather than after.
+
+### Task 5b scoped re-review — all eight ADDRESSED, one new Important, two new Minors
+
+Every finding from the task review was verdicted ADDRESSED, and the reviewer checked the mechanism
+rather than the claim in each case: it confirmed `PLAN_COLUMNS` really does carry
+`patient_mobile_number` and `patient_identifiers` and that `listPlans` really does select it verbatim
+(so I-1's qualification is qualifying something true), and it traced the new `"patientName"` object
+type end to end — the store boundary's type, both stores' equality filters, the route's hand-written
+enum, and the absence of a CHECK constraint on `audit_events.object_type` — before agreeing the
+distinction is genuinely askable and no migration is owed.
+
+**On the unreachable role notice: shipped, and it is not the governance failure it resembles.** The
+distinguishing test the reviewer applied is the right one, and it is worth keeping. A governance
+artifact fails when it CLAIMS something untrue. This one claims the opposite: it documents its own
+unreachability at the branch, in the report, and in a test that supplies the prop directly. It cannot
+fire wrongly because nothing infers it from data — its only input is a capability call. And the
+alternative is worse: were such a role ever granted, a caseload of identifier-headed rows would
+render with no explanation at all, which is the silent-wrong the whole empty-state programme exists
+to prevent. A written-ahead contract, not debris.
+
+**On the four-hour lock refusal: the judgement was right and I want it copied.** The implementer was
+refused the exclusive Vitest lease for about four hours by another worktree's Chromium lease, retried
+rather than forcing, did the cheap read-only work in between, and pasted the real Vitest line when
+the run finally happened. Forcing would have bought a table row at the cost of possibly flaking
+another worktree's run. **`ADMISSION_BUSY` has its own exit code precisely so it is not read as red.**
+
+**Ruling [100] — I fixed the new Important myself rather than spending a fix round.** — Why: it was
+three sentences of documentation drift in `task-5b-report.md` and one stale positional count in a code
+comment, with no behaviour attached; a full round plus scoped re-review would cost two dispatches to
+change prose I can change correctly in one edit. — Cost if wrong: the corrections are mine and
+unreviewed, so an error in them would carry my name rather than an implementer's. Recorded here so
+that is visible.
+
+What the Important actually was, because it is the most instructive finding of the task: the report's
+"What was built" section still asserted, in the present tense, the access identity that fix round 1
+had REPLACED — 160 lines above the round-1 section that recorded the replacement correctly. **The
+document asserted a fact and its contradiction at the same time.** That is finding I-2's exact shape
+— a correction landing without the sentences that depended on it — reproduced in the governance
+artifact rather than in the code, in the very round that fixed it in the code. Two smaller instances
+of the same drift sat beside it (the unqualified "never fetched into the process at all", and the
+auditor still named as the sole role holding `viewPatientRecord` without `viewReferral` when M-8 had
+corrected it to three). All three are now corrected in place, each saying what it used to say and
+which finding moved it.
+
+**The lesson, and it is a new one.** Ruling 94 said a fact that must be restated to stay true will
+eventually be false. This adds the corollary: **the artifact describing a fix is subject to the same
+decay as the thing fixed, and it decays in the same round.** A fix round updates the code and appends
+its own section; nothing sweeps the earlier prose that the fix falsified. From here, a fix round's
+report must re-read its own "What was built" section against what the round changed — and the scoped
+re-review should verdict that as well as the code.
+
+**Task 5b: complete.** Full suite `Tests 9990 passed | 74 skipped (10064)`; Postgres contract
+`Tests 182 passed (182)`; typecheck and lint clean; browser gate `38 passed (1.0m)`.
+
+**Deferred from Task 5b to the whole-branch review, not dropped:**
+
+1. Narrow `listPlans`' column list so the mobile number and identifiers are never fetched for a list
+   read — filed in the inbox, P2.
+2. Patient names reaching the URL through the GET search form — filed, P2; needs an owner decision
+   before any deployment with real names.
+3. A contract test pinning `access-trail/route.ts`'s hand-copied `z.enum` to `AccessedObjectType`. A
+   subset still typechecks, so a future member added to the union and forgotten in the route is
+   silently unaskable — the exact defect I-3 identified, one sync point later.
+4. Two membership claims stated where the property would hold (the notice's "a coordinator sees the
+   names", and `repository.ts`'s `getEpisode` equivalence). True today; both decay.
+5. Concern 2 stands: a row still cannot distinguish "de-identified" from "your role may not see
+   names", and the notice only makes that inference sound at the page level.
