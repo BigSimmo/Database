@@ -47,7 +47,30 @@ export function ExceptionDrawer({ items, rejections, open, onToggle, onSelectMov
       <button type="button" className={styles.exceptionsToggle} aria-expanded={open} onClick={onToggle}>
         {open ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
         <span>Exceptions</span>
-        <span className={styles.exceptionsToggleCount}>{items.length}</span>
+        <span className={styles.exceptionsToggleCount} data-testid="ward-exceptions-toggle-count">
+          {items.length}
+        </span>
+        {/* Whole-branch review I4: the count above is `items.length` — the action inbox only —
+            so a refused transition (HOLD_BED on a ward with zero allocatable beds, in the
+            review's own Proof 2) was invisible on a closed drawer: nothing about the collapsed
+            trigger changed when a refusal was filed. Spec §7.4 calls the refusals surface
+            PERSISTENT, "not a toast that vanishes" — a badge that only appears once the count is
+            genuinely non-zero, and that stays wherever this drawer is rendered (never inside the
+            `open` branch below), is the smallest honest fix: it renders nothing extra until the
+            first refusal, then never goes silent again. A second, distinctly toned badge rather
+            than folding this into the count above — an action-inbox item and a refusal are
+            different facts a coordinator responds to differently, and merging their counts would
+            recreate exactly the "one number, two meanings" defect Ruling 3's own comment on
+            `exceptionsToggleCount` was written to prevent. */}
+        {rejections.length > 0 ? (
+          <span
+            className={styles.exceptionsToggleRefusalCount}
+            data-testid="ward-exceptions-toggle-refusal-count"
+            title={`${rejections.length} refused action${rejections.length === 1 ? "" : "s"}`}
+          >
+            {rejections.length} refused
+          </span>
+        ) : null}
       </button>
       {open ? (
         <section className={styles.exceptionsPanel} aria-label="Exceptions">
