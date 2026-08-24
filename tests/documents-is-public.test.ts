@@ -10,35 +10,45 @@ describe("isPublicDocument helper", () => {
     expect(isPublicDocument({})).toBe(false);
   });
 
-  it("identifies documents with owner_id === null as public", () => {
-    expect(isPublicDocument({ owner_id: null })).toBe(true);
-    expect(isPublicDocumentRow({ id: "doc-1", owner_id: null, title: "Public Guideline" })).toBe(true);
-    expect(isPublicDocument({ id: "doc-2", owner_id: "user-123", title: "Private Note" })).toBe(false);
+  it("requires a null owner and the publication marker together", () => {
+    expect(isPublicDocument({ owner_id: null, metadata: { public_corpus: true } })).toBe(true);
+    expect(isPublicDocument({ owner_id: null, public_corpus: true })).toBe(true);
+    expect(isPublicDocumentRow({ id: "doc-1", owner_id: null, metadata: { public_corpus: true } })).toBe(true);
+    expect(isPublicDocument({ id: "doc-2", owner_id: "user-123", metadata: { public_corpus: true } })).toBe(false);
   });
 
-  it("identifies explicit public metadata markers", () => {
-    expect(isPublicDocument({ public_corpus: true })).toBe(true);
-    expect(isPublicDocument({ is_public: true })).toBe(true);
-    expect(isPublicDocument({ public: true })).toBe(true);
-    expect(isPublicDocument({ visibility: "public" })).toBe(true);
-    expect(isPublicDocument({ metadata: { public_corpus: true } })).toBe(true);
-    expect(isPublicDocument({ metadata: { is_public: true } })).toBe(true);
-    expect(isPublicDocument({ metadata: { visibility: "public" } })).toBe(true);
+  it("does not treat an orphaned null owner as public", () => {
+    expect(isPublicDocument({ owner_id: null })).toBe(false);
+    expect(isPublicDocumentRow({ id: "doc-1", owner_id: null, title: "Orphaned after user delete" })).toBe(false);
   });
 
-  it("identifies registry records as public", () => {
-    expect(isPublicDocument({ source_kind: "registry_record" })).toBe(true);
-    expect(isPublicDocument({ registry_record_kind: "service" })).toBe(true);
-    expect(isPublicDocument({ metadata: { source_kind: "registry_record" } })).toBe(true);
+  it("does not grant public access from legacy metadata aliases", () => {
+    expect(isPublicDocument({ public_corpus: true })).toBe(false);
+    expect(isPublicDocument({ is_public: true })).toBe(false);
+    expect(isPublicDocument({ public: true })).toBe(false);
+    expect(isPublicDocument({ visibility: "public" })).toBe(false);
+    expect(isPublicDocument({ metadata: { public_corpus: true } })).toBe(false);
+    expect(isPublicDocument({ metadata: { is_public: true } })).toBe(false);
+    expect(isPublicDocument({ metadata: { visibility: "public" } })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, metadata: { is_public: true } })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, metadata: { public: true } })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, metadata: { visibility: "public" } })).toBe(false);
   });
 
-  it("honours explicit private flags over default null owner", () => {
-    expect(isPublicDocument({ owner_id: null, private: true })).toBe(false);
-    expect(isPublicDocument({ owner_id: null, is_private: true })).toBe(false);
-    expect(isPublicDocument({ owner_id: null, visibility: "private" })).toBe(false);
-    expect(isPublicDocument({ metadata: { private: true } })).toBe(false);
-    expect(isPublicDocument({ metadata: { is_private: true } })).toBe(false);
-    expect(isPublicDocument({ metadata: { visibility: "private" } })).toBe(false);
+  it("does not treat registry-shaped metadata as a publication", () => {
+    expect(isPublicDocument({ source_kind: "registry_record" })).toBe(false);
+    expect(isPublicDocument({ registry_record_kind: "service" })).toBe(false);
+    expect(isPublicDocument({ metadata: { source_kind: "registry_record" } })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, metadata: { source_kind: "registry_record" } })).toBe(false);
+  });
+
+  it("honours explicit private flags over a published public-corpus row", () => {
+    expect(isPublicDocument({ owner_id: null, private: true, public_corpus: true })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, is_private: true, public_corpus: true })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, visibility: "private", public_corpus: true })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, metadata: { private: true, public_corpus: true } })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, metadata: { is_private: true, public_corpus: true } })).toBe(false);
+    expect(isPublicDocument({ owner_id: null, metadata: { visibility: "private", public_corpus: true } })).toBe(false);
   });
 
   it("respects owned documents without public metadata", () => {

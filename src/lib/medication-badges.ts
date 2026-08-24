@@ -118,12 +118,17 @@ function parsePbsBadges(pbsText: string, badges: MedicationBadge[]) {
   }
 }
 
-function isReviewed(record: MedicationRecord, governance?: MedicationGovernance) {
-  if (governance?.validationStatus === "locally_reviewed" || governance?.validationStatus === "approved") {
-    return true;
-  }
-  const sourceText = firstRowValue(record, "src", "source review").toLowerCase();
-  return sourceText.includes("checked");
+/**
+ * "Reviewed" is a clinical-validation claim, so only a recorded validation status earns it.
+ *
+ * This used to fall back to the record's own Sources text containing "checked", which
+ * conflates two different facts: when a source was last looked at, and whether a clinician
+ * reviewed the entry. Every snapshot record carries a "checked <date>" row, so the fallback
+ * showed a green Reviewed badge beside dosing content for all of them. It also matched the
+ * negative forms — "not checked" and "unchecked" both contain the substring.
+ */
+function isReviewed(_record: MedicationRecord, governance?: MedicationGovernance) {
+  return governance?.validationStatus === "locally_reviewed" || governance?.validationStatus === "approved";
 }
 
 function patientBadges(patient: MedicationPatientMetadata, prefix: string, badges: MedicationBadge[]) {

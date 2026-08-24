@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "52f27b86-e6e7-4e9e-a66b-01a01962ad82",
+  "createdOn": "2026-08-24",
+  "action": "cancel",
+  "payload": {
+    "requestId": "122cc83b-a1f7-4f03-bb2d-d9eec84cb35f",
+    "reason": "Snapshot conflict reduction remains unimplemented: pending inbox records are still committed into the generated snapshot, so concurrent ledger work can conflict or fail stale-snapshot checks."
+  }
+}

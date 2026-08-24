@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "462215d6-4847-42c9-88e6-43354cc96723",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Three SECURITY DEFINER functions omit pg_temp from search_path",
+    "detail": "schema.sql:3345 set_owner_id_from_auth_uid ('public','auth'), :5228 correct_clinical_query_terms (pg_catalog, extensions) and :5901 create_uploaded_document_with_ingestion_job (public). Without pg_temp listed, Postgres searches it implicitly for relations and types, so a caller who can create temp objects can shadow a referenced table inside a definer body. All three are revoked from public/anon/authenticated and granted only to service_role, which already bypasses RLS, so this is hardening rather than an escalation path - but every other definer in the file pins '' or ends with pg_temp; these three are the outliers. FIX: append pg_temp, or fully qualify and use ''.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96SJ0DHAR98DXTNJQGVJT"
+  }
+}
