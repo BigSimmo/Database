@@ -81,30 +81,36 @@ activating a trigger writes into a module. Two things pay that back, and both ar
 2. **`commitUnavailableReasonFor` is total.** Every state of the slot maps to an answer and two of
    the three are a refusal in plain words.
 
-### The decision with the largest blast radius — flagged deliberately
+### The decision with the largest blast radius — OVERRULED in fix round 1 (Ruling 90)
 
-Point 2 has a consequence beyond what the brief asked for, and a reviewer should look at it
-directly rather than take it as incidental.
+I originally made the no-staged-commit refusal apply to **all 24 rows**, and flagged it here as the
+judgement most worth an owner's attention. The review overruled it, and was right on a decidable
+ground rather than a matter of taste. **Ruling 90:** the refusal now carries
+`scope: "recording-rows-only"` and is withheld from the 8 rows with `mutatesState: false`.
 
-**An overlay open with nothing staged for it now refuses its own action, with a stated reason.**
-That covers a typed or pasted `?overlay=<id>`, a forward traversal into an overlay whose commit was
-spent, and any slot/URL mismatch. Because no screen renders a trigger yet, **this is currently the
-behaviour of all 24 overlays in the shipped workspace** — every deep-linked overlay's confirm
-control is now `aria-disabled="true"` with `NO_STAGED_COMMIT_REASON` rendered as reachable text.
+Why my original reasoning was wrong. I rejected restricting it as "reopening the defect on the other
+eight" — but those eight rows' controls are **not confirmations, they are exits**: "Sign in again",
+"Try connecting again", "Try loading again", "Back to the plan", "Back to personalisation", "Close
+this detail", "View the plan", "Review the current version". None of them records anything, so none
+can be a confirm control that records nothing, and Ruling 87 never reached them. Refusing them also
+contradicted the host's own Rule 9 three lines from where I applied the change, and rendered a
+sentence — "nothing can be recorded here" — that is simply **false** about a control whose action is
+to leave.
 
-I judged this required rather than optional. The clause that made a record-nothing `commit`
-acceptable was _"nothing in the workspace opens an overlay yet … so no control in the interface
-currently advertises an action this does not perform."_ A deep-linked overlay's confirm button is
-such a control, and it does not stop being one because the overlay was reached by URL rather than
-by a click. Leaving it live would have meant writing a fresh justification for the exact defect
-Ruling 87 exists to prevent.
+**And on two rows it was actively harmful.** `session-expiry` and `offline-banner` are
+`dismissal: "recovery-only"`: Escape and the backdrop are deliberately inert. Refusing their single
+control left a person inside the one kind of overlay they must not be able to walk away from with
+**nothing to do at all** — and `shell.tsx` renders `WorkspaceOverlays` in production, so any deep
+link reached it.
 
-The conservative direction was also checked: refusing degrades to _stating what cannot be done_,
-never to silently doing nothing.
+A caller-stated `{ kind: "unavailable", reason }` still refuses on **every** row: there the screen
+said so deliberately, and an exit nobody has built is still an exit that would go nowhere.
 
-**If the owner disagrees, the reversal is two lines** — make `WorkspaceOverlays` pass
-`commitUnavailableReason={commit === null ? null : commitUnavailableReasonFor(commit)}` — and the
-covering test ("refuses an overlay reached by address rather than from a control") names it.
+**The lesson, which is worth more than the fix.** Ruling 87 was right, and I applied it to a set
+whose members differ in exactly the property it depends on. Its domain was **assumed rather than
+checked** — and `definitions.ts` already carried the `mutatesState` flag that answers it row by row.
+The eight rows are now covered by a parameterised test each, plus a named one for the recovery-only
+gate.
 
 ---
 
@@ -245,12 +251,16 @@ in it were read closely instead:
   control is untouched, the host's `openedFromRef` capture is untouched, and the Sheet's focus
   return is untouched. Escape still closes a dismissible overlay whether or not its action is
   refused.
-- _the 24-overlay matrix test_ — **the one place my change is visible to it**. Every deep-linked
-  overlay now renders one extra short refusal paragraph. The assertions it could touch are
-  `toBeInViewport({ ratio: 1 })` on the action and `expectFullyOnScreen`'s bottom-edge bound, both
-  against a 900px-tall viewport. Overlay content is a heading, a summary line and an action row, so
-  one added sentence has a wide margin — but I have **not** measured it, and say so plainly rather
-  than implying I did.
+- _the 24-overlay matrix test_ — **the one place my change is visible to it**, and my first
+  description of the size of that change was wrong. I wrote "one extra short refusal paragraph".
+  `NO_STAGED_COMMIT_REASON` is **126 characters**, which inside `max-w-[var(--measure)]` at 390px is
+  roughly **4-5 lines**, not a short paragraph. The margin against
+  `toBeInViewport({ ratio: 1 })` on the action and `expectFullyOnScreen`'s bottom-edge bound (900px
+  viewport) is therefore **smaller than I described**. Two things have since reduced the exposure,
+  neither of which is a measurement: Ruling 90 withdrew the refusal from the 8 non-recording rows,
+  so 16 of the 24 can render it rather than all of them; and the sentence itself was shortened while
+  being reworded for Ruling 90. I still have **not** measured it. The coordinator is running that
+  gate.
 
 ---
 
@@ -290,3 +300,102 @@ in it were read closely instead:
 6. **Nothing renders a trigger yet.** Task 3 ships the control and the contract; no screen uses
    either. The first screen to adopt it is where the ergonomics get tested, and it may find the
    `commit` prop wants to travel differently (per row, per action) than a single prop allows.
+
+---
+
+## 6. Fix round 1
+
+Four Important, one Also-fix. Three of the four turned on the same finding: **the id-match guard
+narrowed the module-state failure modes rather than closing them.** That was correct and I had
+described the guard as if it closed them.
+
+### Important 1 — Ruling 90, the blanket refusal
+
+Overruled and applied; written up in §1 above, where the original claim was. The refusal type is now
+`OverlayCommitRefusal = { reason, scope }`, and the host applies `recording-rows-only` only where
+`definition.mutatesState` is true. `mutatesState` is still read from the frozen table in the host and
+re-decided nowhere.
+
+### Important 2 — the refusal flashed in the frame the decision was confirmed in
+
+Real, and the mutation below reproduces it. `record` → `clear` → `close`: the clear notified
+subscribers synchronously while `history.back()`'s `popstate` had not yet fired, so React re-rendered
+the still-open overlay with an empty slot. After someone confirmed "Withdraw this patient", the frame
+they saw showed the action `aria-disabled` with "nothing can be recorded here".
+
+Closing before clearing would not have fixed it — both are synchronous within the handler, and the
+URL change is not. The fix is that **the confirm handler no longer clears at all**: reconciliation
+moved into one effect keyed on the history entry.
+
+The covering test uses `fireEvent`, not `userEvent`, and no `waitFor`. `fireEvent` flushes React
+inside the click while the `popstate` is still a queued task, so it reads the exact frame the flash
+appears in. Every other test in the file waits for the settled state and steps straight over it —
+which is precisely why none of them caught this.
+
+### Important 3 — the slot was never cleared on Back, and my comment claimed otherwise
+
+Also real. `close` is only ever called by the Sheet (Escape / backdrop / close button); Back closes
+through `popstate`, which never calls `onClose`. My own first trigger test walks exactly that path.
+
+Fixed with the **one-shot token** the review recommended, which closes all three holes together:
+`openWorkspaceOverlayWithCommit` mints a token, stages the commit under it, and pushes it in the
+history entry's state beside the existing marker. The host matches on the token, and one effect
+empties any slot that does not name the current entry.
+
+| Hole                                                             | Closed by                                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Back leaves the slot full                                        | The entry Back lands on carries no token → mismatch → emptied            |
+| A commit outlives its screen and answers a later same-id overlay | A later opening mints a **new** token; the older slot can never match    |
+| One list row's commit answering another row's overlay            | Same — each activation mints its own token                               |
+| A spent commit re-entered by Forward                             | Confirming unwinds to an entry without the token → emptied               |
+| The closure retained for the tab's lifetime                      | The slot is emptied on the first non-matching entry, not merely withheld |
+
+The comment now describes what the code does. The token lives in `history.state` for the same
+per-entry reason the existing marker does, and that reasoning is written down rather than inherited.
+
+### Important 4 — the signature, not the policy
+
+`record` is now `(overlayId: string) => void | Promise<void>`, and the host attaches
+`Promise.resolve(...).catch(...)` — `Promise.resolve` rather than `instanceof Promise`, because a
+Server Action's return value need only be thenable. A rejection is stored wrapped (a promise may
+reject with `undefined`) and re-raised during render, so it reaches
+`src/app/caring-contacts/error.tsx` rather than the console.
+
+The review's framing was the part I had got wrong: I deferred the **signature** along with the
+policy, and a `void` return type would have forced the later task into a breaking change to answer
+the question at all. The policy — hold the overlay open, name what was not written, offer a retry —
+still defers, and the comment on `record` says so.
+
+### Also fix — M-3, the trigger had no surface
+
+It shipped geometry and a focus ring and no colour, so a caller passing no `className` — the shape
+every usage takes — got an effectively unstyled control, and nothing covered the default rendering.
+It now carries the same border/background/text tokens the shell's secondary controls use, with a
+test asserting each is a `var(--…)` token rather than a literal.
+
+### Fix-round mutation proof
+
+Same method as §3: assert-then-replace, mutated line grepped out of the file and printed before the
+gate, reverted with `git checkout --` before the next.
+
+| #   | Mutation                                                                                            | Result                                                                                                     |
+| --- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| N1  | `overlay-commits.ts`: unstaged refusal `scope` back to `"every-row"`                                | `Tests 10 failed \| 17 passed (27)` — all 8 non-recording rows, the recovery-only gate, and the scope rule |
+| N2  | `workspace-overlays.tsx`: `clearStagedWorkspaceOverlayCommit()` restored inside the confirm handler | `Tests 1 failed \| 26 passed (27)` — "never shows the refusal in the frame the decision was confirmed in"  |
+| N3  | `workspace-overlays.tsx`: reconciliation effect made `if (false as boolean)`                        | `Tests 2 failed \| 25 passed (27)` — the Back test and the spent-commit half of the record test            |
+| N3b | `overlay-commits.ts`: token match dropped (`return slot.commit`)                                    | `Tests 1 failed \| 26 passed (27)` — "never answers an entry it was not staged for"                        |
+| N4  | `workspace-overlays.tsx`: `.catch` removed (`void commit.record(...)`)                              | `Tests 1 failed \| 26 passed (27)` — the rejection reaches no boundary                                     |
+| N5  | `overlay-trigger.tsx`: default border/background/text classes stripped                              | `Tests 1 failed \| 26 passed (27)` — the default-surface test                                              |
+
+**One run that did not happen, reported because the brief requires it.** The first N5 attempt chained
+the gate behind `grep -c "bg-\[color:var" … && node scripts/run-vitest.mjs …`. With the classes
+stripped the count was `0`, `grep` exited non-zero, and the `&&` short-circuited — so **no test ran
+at all** and the output carried no summary line. It was re-run with `;` separators. Same shape as the
+M-4 lock incident in §3: an absent summary line is the only reliable signal that a gate did not run.
+
+### Not fixed, by instruction
+
+- The `overlayId: string` render-time throw and its blast radius — deferred; a literal-union id needs
+  `definitions.ts`, which the brief forbids touching.
+- Two wording-looseness items in §3's mutation table — deferred.
+- The M-4 length estimate **was** corrected: see §4.
