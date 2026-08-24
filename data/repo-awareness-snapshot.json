@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "c93dd40b99e84e0a445bb16fc36c82d3089f5674",
-    "committed_at": "2026-08-25T05:43:27+08:00"
+    "sha": "01fe261f36dd001734cfd52a0556193edfcbac15",
+    "committed_at": "2026-08-25T06:16:41+08:00"
   },
   "routes": {
     "modes": [
@@ -111,6 +111,11 @@
       {
         "path": "/caring-contacts",
         "file": "src/app/caring-contacts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/caring-contacts/patients",
+        "file": "src/app/caring-contacts/patients/page.tsx",
         "area": "product"
       },
       {
@@ -1339,8 +1344,8 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 185,
-      "product_pages": 65,
+      "pages": 186,
+      "product_pages": 66,
       "mockup_pages": 120,
       "redirects": 17,
       "api": 56
@@ -1955,6 +1960,26 @@
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-3-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5-report.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-brief.md",
+        "section": "caring-contacts",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/phase-2b-sdd-archive/task-5b-report.md",
         "section": "caring-contacts",
         "catalogued": false
       },
@@ -3497,8 +3522,8 @@
       },
       {
         "name": "caring-contacts",
-        "documents": 62,
-        "uncatalogued": 62
+        "documents": 66,
+        "uncatalogued": 66
       },
       {
         "name": "codex",
@@ -3567,9 +3592,9 @@
       }
     ],
     "counts": {
-      "documents": 425,
+      "documents": 429,
       "catalogued": 101,
-      "uncatalogued": 324,
+      "uncatalogued": 328,
       "sections": 18
     }
   },
@@ -3582,6 +3607,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-24",
+        "ref": "2354",
+        "head": "97be623d5cd0d878130ff1eb6aa8ef9851d92d97",
+        "scope": "PR #2354 current changed scope",
+        "outcome": "P1 privacy URL leak and P2 inventory/data-boundary defects fixed; final staged re-review clean",
+        "checks": "diff check; sitemap; docs links/index; issue snapshot pass; focused DOM blocked by repository Playwright lease"
+      },
       {
         "date": "2026-08-24",
         "ref": "2360",
@@ -24448,8 +24481,8 @@
       }
     ],
     "counts": {
-      "records": 2608,
-      "refs": 1590
+      "records": 2609,
+      "refs": 1591
     }
   }
 }
