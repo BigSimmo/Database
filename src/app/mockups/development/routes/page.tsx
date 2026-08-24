@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CountTile, META_CLASS, SECTION_HEADING_CLASS } from "@/components/developer-area/hub/count-tile";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
 
@@ -9,28 +10,10 @@ export const metadata: Metadata = {
   description: "Every page route, redirect, API route and app mode, read from the committed repository snapshot.",
 };
 
-const TILE_CLASS = "grid gap-1 rounded-xl border border-[color:var(--border)] p-4";
-const TILE_NUMBER_CLASS = "text-2xl font-extrabold text-[color:var(--text-heading)]";
-const TILE_LABEL_CLASS = "text-xs text-[color:var(--text-muted)]";
-const SECTION_HEADING_CLASS = "text-lg font-extrabold text-[color:var(--text-heading)]";
-const META_CLASS = "text-xs text-[color:var(--text-muted)]";
 const MONO_CLASS = "font-mono text-xs text-[color:var(--text-heading)]";
 const ROW_CLASS = "flex flex-wrap items-baseline gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2";
 const LINK_CLASS =
   "inline-flex min-h-12 items-center font-mono text-xs text-[color:var(--text-heading)] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-/** The number carries its own test id, so an assertion can read it apart from
- *  the label's prose — which contains digits of its own. */
-function CountTile({ id, value, label }: { id: string; value: number; label: string }) {
-  return (
-    <div data-testid={`developer-routes-count-${id}`} className={TILE_CLASS}>
-      <span data-testid={`developer-routes-count-${id}-value`} className={TILE_NUMBER_CLASS}>
-        {value}
-      </span>
-      <span className={TILE_LABEL_CLASS}>{label}</span>
-    </div>
-  );
-}
 
 /**
  * A route containing a `[segment]` is a pattern, not an address. It is rendered
@@ -58,6 +41,21 @@ export default function DeveloperRoutesPage() {
   const productPages = pages.filter((page) => page.area === "product");
   const mockupPages = pages.filter((page) => page.area === "mockup");
 
+  // `page.area` is typed `RouteArea` ("product" | "mockup") only because the
+  // generator has never emitted a third value — `loadRepoAwarenessSnapshot`'s
+  // runtime cast validates the snapshot's top-level `version`, never each
+  // row's `area`, so a row with an unrecognised area is reachable, not
+  // hypothetical. Dropping it silently would be the exact `#338` failure this
+  // feature exists to prevent: a page that under-reports without a failing
+  // test to catch it. The remainder is rendered under its own heading
+  // instead, following `ledger/page.tsx`'s `unrecognised` precedent.
+  //
+  // Keyed on object identity, not on `path`: two route rows could share a
+  // `path` (a redirect target and a page, for instance), and an identity-keyed
+  // set is exact where a path-keyed one could swallow a second row.
+  const recognisedPages = new Set<(typeof pages)[number]>([...productPages, ...mockupPages]);
+  const otherPages = pages.filter((page) => !recognisedPages.has(page));
+
   return (
     <PanelPageShell
       testId="developer-routes"
@@ -66,10 +64,14 @@ export default function DeveloperRoutesPage() {
       freshnessLabel="Repository"
     >
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <CountTile id="modes" value={counts.modes} label="app modes" />
-        <CountTile id="product" value={counts.product_pages} label="product pages" />
-        <CountTile id="mockup" value={counts.mockup_pages} label="design-scratch pages" />
-        <CountTile id="api" value={counts.api} label="API routes" />
+        <CountTile testId="developer-routes-count-modes" value={counts.modes} label="app modes" />
+        <CountTile testId="developer-routes-count-product" value={counts.product_pages} label="product pages" />
+        <CountTile
+          testId="developer-routes-count-mockup"
+          value={counts.mockup_pages}
+          label="design-scratch pages"
+        />
+        <CountTile testId="developer-routes-count-api" value={counts.api} label="API routes" />
       </div>
 
       <p className={META_CLASS}>
@@ -125,6 +127,26 @@ export default function DeveloperRoutesPage() {
           ))}
         </ul>
       </section>
+
+      {otherPages.length > 0 ? (
+        <section aria-labelledby="developer-routes-other-heading" className="grid gap-3">
+          <h2 id="developer-routes-other-heading" className={SECTION_HEADING_CLASS}>
+            Other · {otherPages.length}
+          </h2>
+          <p className={META_CLASS}>
+            These pages carry an area this page does not recognise. They are shown as they are rather than dropped,
+            so the pages listed here still add up to the {counts.pages} pages counted above.
+          </p>
+          <ul data-testid="developer-routes-pages-other" className="grid gap-2">
+            {otherPages.map((page) => (
+              <li key={page.path} className={ROW_CLASS}>
+                <RoutePath path={page.path} />
+                <span className={META_CLASS}>{page.file}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section aria-labelledby="developer-routes-redirects-heading" className="grid gap-3">
         <h2 id="developer-routes-redirects-heading" className={SECTION_HEADING_CLASS}>

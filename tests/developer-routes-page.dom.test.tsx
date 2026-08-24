@@ -1,8 +1,42 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import DeveloperRoutesPage from "@/app/mockups/development/routes/page";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
+
+/**
+ * Overrides ride on top of the *real* committed snapshot, following
+ * `tests/developer-ledger-page.dom.test.tsx`'s `acuityOverride` pattern: the
+ * live snapshot's generator only ever emits `"product"` or `"mockup"` for
+ * `page.area`, so an unrecognised area value can only be exercised against a
+ * fixture, never against live data. `null` means "do not override".
+ */
+const areaOverride = vi.hoisted(() => ({ value: null as string | null }));
+
+vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/developer-area/repo-awareness-snapshot")>();
+  return {
+    ...actual,
+    loadRepoAwarenessSnapshot: () => {
+      const snapshot = actual.loadRepoAwarenessSnapshot();
+      if (areaOverride.value === null) return snapshot;
+      const area = areaOverride.value;
+      return {
+        ...snapshot,
+        routes: {
+          ...snapshot.routes,
+          pages: snapshot.routes.pages.map((page, index) =>
+            index === 0 ? { ...page, area: area as typeof page.area } : page,
+          ),
+        },
+      };
+    },
+  };
+});
+
+afterEach(() => {
+  areaOverride.value = null;
+});
 
 const snapshot = loadRepoAwarenessSnapshot();
 
@@ -67,5 +101,37 @@ describe("developer routes page", () => {
       if (count === 0) expect(region).toHaveTextContent(/None/i);
       else expect(within(region).getAllByRole("listitem")).toHaveLength(count);
     }
+  });
+
+  it("renders a page whose area it does not recognise instead of dropping it, under its own heading", () => {
+    // The live snapshot's generator never emits a third `area`, so this state
+    // is reached only through the fixture override above (F9-1).
+    areaOverride.value = "internal";
+    const overridden = loadRepoAwarenessSnapshot();
+    const target = overridden.routes.pages[0];
+    render(<DeveloperRoutesPage />);
+
+    const other = screen.getByTestId("developer-routes-pages-other");
+    expect(within(other).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(other).getByTestId(`developer-routes-page-${target.path}`)).toBeInTheDocument();
+
+    // Not double-counted: the row must not also still appear in whichever of
+    // product/mockup it used to belong to, and the "Other" list must still add
+    // up to the total pages count stated in its own caption.
+    expect(
+      within(screen.getByTestId("developer-routes-pages-product")).queryByTestId(
+        `developer-routes-page-${target.path}`,
+      ),
+    ).toBeNull();
+    expect(
+      within(screen.getByTestId("developer-routes-pages-mockup")).queryByTestId(
+        `developer-routes-page-${target.path}`,
+      ),
+    ).toBeNull();
+    // The caption sits beside the `<ul>`, not inside it, so this reads the
+    // section as a whole rather than the list element `other` above.
+    expect(other.parentElement).toHaveTextContent(
+      new RegExp(`add up to the ${overridden.routes.counts.pages} pages counted above`),
+    );
   });
 });
