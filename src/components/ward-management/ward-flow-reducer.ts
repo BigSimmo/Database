@@ -1,4 +1,5 @@
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
+import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
@@ -124,18 +125,20 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         return reject(state, event, `no emergency department found for id ${event.edId}`);
       }
       const sequence = state.referralSequence + 1;
-      // Whole-branch review I5: a raised referral must carry the legal form its own status
-      // implies, or its card reads "Referred for psychiatric examination" beside "No legal form
-      // recorded for this movement" — the same fact disagreeing — and `RECORD_EXAMINATION`
-      // (which refuses unless `legalForm?.code === "1A"`) could never fire on a patient the ED
-      // raised itself. A brand-new referral has never been examined, so only the two
-      // awaiting-examination statuses take a fresh 1A here: an "Involuntary inpatient" has
-      // already been examined and carries a 3B in every fixture record, and a "Voluntary"
-      // referral carries no form at all. The 1A carries no `dueAt` — see `LegalForm`'s own doc
-      // comment in `ward-model.ts`.
-      const awaitingExamination =
-        event.draft.legalStatus === "Referred for psychiatric examination" ||
-        event.draft.legalStatus === "Detained awaiting examination";
+      // The clinician chooses the form on the intake form; nothing here derives one from
+      // `legalStatus` any more (product owner, 2026-08-24: "avoid any hard rules now please …
+      // I can choose what option in the patient selection"). `null` means the clinician chose
+      // no form, which is a real answer and not a missing one.
+      //
+      // A code the picker cannot offer is REFUSED rather than quietly dropped: silently
+      // attaching no form would discard a choice the clinician did make, and inventing a form
+      // for an unknown code is the fabrication this model exists to prevent.
+      const chosenCode = event.draft.legalFormCode;
+      const chosenForm =
+        chosenCode === null ? undefined : SELECTABLE_LEGAL_FORMS.find((form) => form.code === chosenCode);
+      if (chosenCode !== null && chosenForm === undefined) {
+        return reject(state, event, `no selectable legal form found for code ${chosenCode}`);
+      }
       const created: Movement = {
         id: nextReferralId(sequence),
         originEdId: event.edId,
@@ -146,13 +149,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         sex: event.draft.sex,
         specialling: event.draft.specialling,
         legalStatus: event.draft.legalStatus,
-        legalForm: awaitingExamination
-          ? {
-              code: "1A",
-              label: "Referral for examination",
-              kind: "examination",
-            }
-          : undefined,
+        // Spread-copied, never aliased: `SELECTABLE_LEGAL_FORMS`'s entries are the picker's
+        // own source and must not become mutable state hanging off a movement.
+        legalForm: chosenForm === undefined ? undefined : { ...chosenForm },
         statusChanges: [],
         stage: "placement_requested",
         owner: department.name,
@@ -160,7 +159,13 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         declines: [],
         blocker: "Awaiting coordinator referral",
         withdrawnReferrals: [],
-        ...(awaitingExamination ? { formedAt: event.now } : {}),
+        // `formedAt` is deliberately left unset. It used to be stamped in this same branch, on
+        // the strength of the status-derived Form 1A that has now been deleted; with that
+        // derivation gone there is no rule left to hang it on, and inventing a replacement one
+        // would be exactly the kind of hidden rule this change removes. When a patient was
+        // formed in the community is a fact only a clinician holds, so until there is a field
+        // for it, a runtime-raised referral has no `formedAt` and its legal clock coincides
+        // with its department clock. The fixture keeps its own authored values.
       };
       return {
         ...state,
@@ -172,42 +177,40 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     case "RECORD_EXAMINATION": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
-      if (movement.legalForm?.code !== "1A") {
-        return reject(
-          state,
-          event,
-          `cannot record an examination while the movement's form is ${movement.legalForm?.code ?? "none"}, not 1A`,
-        );
+      // Defence in depth, added 2026-08-24. Every other movement-scoped handler already refuses a
+      // closed movement; this one did not, so an examination could be recorded against a patient
+      // who had already ARRIVED and its `did_not_proceed` closure would overwrite the arrival —
+      // reproduced by walking WF-001 to `arrived` and dispatching a `revoked` examination, which
+      // was accepted with zero rejections. Pre-existing (it was previously reachable only for a
+      // Form 1A) and widened by this change to every code and to no form at all. Not reachable
+      // from the ED screen today, which lists only open movements, so this closes the reducer
+      // path rather than a live defect.
+      if (movement.closure) {
+        return reject(state, event, `cannot record an examination for a closed movement (${movement.closure.reason})`);
       }
+      // No form gate. An examination may be recorded for ANY patient, whatever form they carry
+      // and whether or not they carry one (product owner, 2026-08-24) — the software no longer
+      // decides which form a patient is on, so it has no business deciding who may be examined.
+      // The guard below is different in kind and stays: recording two examinations against one
+      // movement is a data-integrity fault, not a form rule.
       if (movement.examination) {
         return reject(state, event, `movement ${movement.id} was already examined`);
       }
 
       if (event.outcome === "inpatient_order") {
+        // The examination is recorded and NOTHING else changes. The 1A-to-3B replacement that
+        // used to happen here is deleted: a form now changes only when a clinician changes it.
         const updated: Movement = {
           ...movement,
           examination: { at: event.now, outcome: event.outcome },
-          // 1A (awaiting examination) becomes 3B (examined, awaiting a bed) — the statutory
-          // form follows the examination, it is never authored independently of it. The 3B
-          // carries no `dueAt`: this model holds no deadline for it. Stated that way
-          // deliberately — what the record holds is verifiable, whereas what the Mental Health
-          // Act does or does not require is a legal claim this prototype is not entitled to make
-          // in either direction. The question was settled for the 3B by the clinician (Task 6A:
-          // "It is just counting how long they have been in ED determining priority. So counting
-          // up"), so the patient's wait from here is the ED clock (elapsed, counting up from
-          // `openedAt`), never a legal countdown.
-          legalForm: {
-            code: "3B",
-            label: "Inpatient treatment order",
-            kind: "detention",
-          },
         };
         return replaceMovement(state, movement.id, updated);
       }
 
-      // community_order or revoked: the patient does not proceed to an inpatient bed. The
-      // record closes and the detention form is cleared rather than left dangling on a
-      // movement that is no longer going anywhere. A closure also has to unwind whatever
+      // community_order or revoked: the patient does not proceed to an inpatient bed, so the
+      // record closes. The form is deliberately LEFT AS IT IS — clearing it here was one of the
+      // three hidden rules deleted on 2026-08-24. Everything else this closure does is
+      // unaffected and load-bearing: it has to unwind whatever
       // downstream placement state the movement was carrying — an in-flight transport job and
       // a bed already held at the accepted unit — rather than leaving both dangling: every
       // downstream handler below now also rejects once `movement.closure` is set (the same
@@ -230,7 +233,6 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updated: Movement = {
         ...movement,
         examination: { at: event.now, outcome: event.outcome },
-        legalForm: undefined,
         transport:
           movement.transport && movement.transport.cancelledAt === undefined
             ? { ...movement.transport, cancelledAt: event.now }
@@ -479,6 +481,23 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     }
 
     case "CONFIRM_CAPACITY": {
+      // The role check above only proves *a* ward raised this. It does not say *which* ward, so
+      // before this a ward user on unit A could restate unit B's allocatable count.
+      //
+      // What this check does: it compares the unit the caller said it was acting as against the
+      // unit being written to, and refuses the event when they differ. What it does not do: prove
+      // the claim. `actingUnitId` is whatever the call site put on the event — the ward screen
+      // reads it from its own `/ward-management/ward/[unitId]` route, but nothing here verifies
+      // that, and this prototype carries no authenticated actor identity to verify it against.
+      // This is a recorded assertion by the caller, not an authorisation decision, and must not
+      // be described or extended as one.
+      if (event.actingUnitId !== event.unitId) {
+        return reject(
+          state,
+          event,
+          `CONFIRM_CAPACITY was raised acting as unit ${event.actingUnitId} but targets unit ${event.unitId}`,
+        );
+      }
       const unit = findUnit(state, event.unitId);
       if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
       const updatedUnit: Unit = {

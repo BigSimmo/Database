@@ -143,7 +143,21 @@ export function WardScreen({ unitId }: WardScreenProps) {
     event.preventDefault();
     const parsed = Number(capacityValue);
     if (!Number.isFinite(parsed) || parsed < 0) return;
-    dispatch({ type: "CONFIRM_CAPACITY", role: "ward", now, unitId: wardUnitId, value: Math.floor(parsed) });
+    // `actingUnitId` is this screen's own route parameter — the unit this screen is displaying and
+    // acting as. It states which ward the caller says it is; it does not prove it, and the
+    // reducer's comment on the matching check says the same. On this screen the two ids are equal
+    // by construction (`unit` was resolved by matching the route id), so this guard is not what
+    // stops *this* caller misusing the event — it is what stops any other call site writing to a
+    // unit it did not claim to be acting as, and what puts that claim on the event where the
+    // reducer can compare it.
+    dispatch({
+      type: "CONFIRM_CAPACITY",
+      role: "ward",
+      now,
+      unitId: wardUnitId,
+      actingUnitId: unitId,
+      value: Math.floor(parsed),
+    });
   }
 
   return (

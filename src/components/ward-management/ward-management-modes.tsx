@@ -44,6 +44,7 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
 import { formatInstant } from "@/components/ward-management/ward-clock";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
@@ -583,9 +584,7 @@ function TransportView() {
                         : "Requested"}
                   </span>
                   <small>
-                    {patient.legalForm
-                      ? `${patient.legalForm.label} (${patient.legalForm.code})`
-                      : "No legal form required"}
+                    {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
                   </small>
                 </div>
                 <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
