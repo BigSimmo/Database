@@ -87,6 +87,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
   const isCalculatorsSearchPageMockup = pathname === "/mockups/calculators-search-page";
+  // Draws its own phone chrome, hero, Show all chip, and composer inside every
+  // frame. Shared header + composer would read as a second live home over the study.
+  const isCalculatorsShowAllMockup = pathname === "/mockups/calculators-show-all";
   // Draws its own top bar, composer and results band inside every device frame, because two of
   // the three directions restructure that band. Shared chrome above them would read as a second,
   // real header and a second real composer over the study.
@@ -127,6 +130,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDocumentNavigationContractMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
+        !isCalculatorsShowAllMockup &&
         !isPhoneInPageNavigationMockup &&
         !isSearchBandDirectionsMockup &&
         !isServicesFilterRefinedMockup &&
@@ -153,6 +157,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
         !isToolsSearchDirectionsMockup &&
+        !isCalculatorsShowAllMockup &&
         !isSearchHeadingMockup &&
         !isSearchRefineAdaptiveMockup &&
         !isSearchBandDirectionsMockup &&
