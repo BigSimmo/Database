@@ -1263,3 +1263,29 @@ grep.
    stores. **Owner decision.**
 4. The patient's mobile number is released by `getEpisode` here and deliberately not displayed.
    **Owner decision**, one line either way.
+
+## Owner decisions, 2026-08-25 — both deferred Task 6 questions answered
+
+Put to the owner in plain terms with a recommendation and a cost on each. Both answered the same day.
+
+**1. Store the reason a first contact date was moved — APPROVED.** This closes the gap behind Ruling 96. The system currently refuses a non-default first contact date without a reason and then discards
+the string: no `StoredPlan` field, no `caring_contacts.plans` column, in either store. The owner's
+reasoning matched the recommendation — a reason you demand and then throw away is worse than not
+asking, and it leaves nobody able to review why dates were changed. Becomes **Task 6b**: a field, a
+column, a migration, both stores, the shared contract, and the screen's display. Migration goes in
+`caring-contacts/supabase/migrations/`, **never** `supabase/migrations/` — the Clinical KB project is
+not this workspace's database.
+
+**2. Display the patient's mobile number on the patient overview — APPROVED, and this OVERRULES my
+recommendation.** I recommended leaving it hidden: nothing on the screen needs it, and every place a
+number appears is another place it can be read over a shoulder. The owner decided to show it. Folded
+into the Task 6 fix round already in flight, with requirements attached so it does not become a second
+decision — identity strip rather than a buried row, taken from the `Episode` already read (no new
+read, no widened read, and no licence travelling to any other screen), cleared-value handling matching
+the cleared-name path, labelled as synthetic, and **not** a `tel:` link.
+
+**Recorded because the direction matters.** This is the owner overriding a privacy-conservative
+default, deliberately and on the record, not a default drifting open because nobody looked. The
+implementer flagged it rather than deciding silently, which is what made the question reachable at
+all — the decision existed to be made because someone declined to make it quietly. If it is ever
+revisited, revisit it as a decision, not as an oversight.

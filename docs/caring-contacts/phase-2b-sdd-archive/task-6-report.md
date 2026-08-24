@@ -386,3 +386,172 @@ rendered heading of the empty state.
    `access-trail/route.ts`'s hand-copied `z.enum` did not have to change and could not drift. Worth
    noting that the deferred contract test pinning that enum to the union (Task 5b deferral 3) is
    still outstanding and would have made this a non-question.
+
+---
+
+# Review round 1
+
+One Critical, one Important, three Minors. All addressed.
+
+| SHA          | What                                                                    |
+| ------------ | ----------------------------------------------------------------------- |
+| `6a51a29c6`  | C1 and its M5 extension — the predicate moved into the sealed domain    |
+| `4f6b72285`  | I2, M6, M7                                                              |
+| _(this one)_ | This report section                                                     |
+
+## C1 — the schedule summary told the reader a cancelled plan would still be sent
+
+**Confirmed, and worse than the count alone.** I reproduced it before fixing it: `withdrawPlan`
+runs `cancelAllNonTerminalContacts` (`in-memory-repository.ts:590`), and
+`recordHospitalStatusEvent`'s `cancelUnsent` outcome does the same for a recorded death, so both
+produce a plan of ten `cancelled` contacts — none of them `suppressed`. The old predicate counted
+every one of them as sendable and printed "10 entries, and every one of them will be sent." above
+ten rows reading "Caring contact · Cancelled".
+
+**The reviewer's reading of my Concern 3 is correct and I accept it.** I saw the rule, reasoned
+about it, and broke it anyway: I replaced a domain number that is wrong on a path nothing reaches
+yet with a component predicate that is wrong on a path ordinary writes reach today. Being right
+about the domain bug did not license inventing a second truth in the screen — and the second truth
+landed somewhere worse than the first.
+
+### The fix, as ruled
+
+**The predicate now lives in the sealed domain**, in three layers, none of which redefines
+`EpisodeCounts.contactsScheduled`:
+
+1. **`src/lib/caring-contacts/model.ts`** gains `ContactSendability` and `contactSendability(state)`
+   — an **exhaustive switch** over `ContactState` with a `never` default, placed beside
+   `applyContactTransition`, the state machine that produces those states. A list of non-sendable
+   states is a list someone has to remember to extend; this does not compile at all when a member is
+   added to `ContactState` and left unclassified, so a new state cannot default into "will be sent".
+2. **The same file ties the new knowledge to the knowledge it already held**, at load time and
+   thrown rather than asserted in a test — the pattern `schedule.ts` already uses for its send
+   window. Every state in `DISPATCHED_CONTACT_STATES` must classify as `alreadySent`, and no state
+   in `TERMINAL_CONTACT_STATES` may classify as `stillToSend`. So the three descriptions of this one
+   state machine cannot drift apart, and a build that got it wrong does not start.
+3. **`src/lib/caring-contacts/repository.ts`** gains `StoredContactSummary` and
+   `summariseStoredContacts(contacts)`, separating **already sent**, **still to send** and **will
+   not be sent**. It lives on the contract because `StoredContact` is declared there and both stores
+   hold one; a second copy of the arithmetic anywhere would be a second answer to "how much of this
+   plan is left". `total` is stated rather than left to the caller to add up, so a caller cannot
+   reconstruct it from two buckets and be wrong when a third exists.
+
+`EpisodeCounts.contactsScheduled` is untouched, per the ruling.
+
+**The phrasing.** "Every one of them will be sent" is a claim about the future, and the sentence is
+now derived from all three buckets rather than from the absence of one:
+
+- nothing left to send → `10 entries, and none of them will be sent.`
+- nothing sent yet → `10 entries, and every one of them is still to be sent.`
+- everything sent → `10 entries, and every one of them has been sent.`
+- mixed → `3 entries: 1 already sent, 1 still to send, and 1 that will not be sent.`
+- no entries at all → `This plan holds no schedule entries.`
+
+### M5, which travelled with it
+
+`ScheduleEntry` now renders `AutomatedState` for **every** state the domain classifies as
+`willNotBeSent`, not suppression alone. A cancelled message on a plan that has **ended** is
+explained by the ending, which `PlanRecord.outcome` does carry:
+
+> This plan ended (withdrawn), and the system cancelled every message that had not already gone out.
+
+A cancelled message on a plan still running says it does not hold the cause rather than inventing
+one, and a missed message says the send window closed without the message going out. Every branch's
+remedy is honest: absorption is the one reversible case here and the only one offered a remedy.
+
+I accept the extension beyond Ruling 98's letter. A row reading "Caring contact · Cancelled" with
+nothing beside it is the bare status chip §4.4 exists to prevent, whatever produced the state.
+
+### Coverage
+
+Five new tests. The two the review asked for are built **through the real store**: one plan
+withdrawn, one stopped by a recorded death via `recordHospitalStatusEvent`. Neither is a hand-built
+fixture, so neither can be true of a plan the domain would never produce. Three more cover branches
+those two cannot reach — a cancelled contact on a **still-running** plan (which must not claim the
+plan ended), a missed contact, and a three-bucket plan, the only shape that proves the sentence is
+built from the summary rather than from the absence of one state.
+
+The withdrawn-plan test also pins the old sentence negatively, so the exact regression cannot come
+back silently.
+
+## I2 — the coverage claim in the spec comment was false
+
+**Accepted without qualification.** I checked the code this time instead of extending the sentence,
+and the reviewer is right on every particular:
+
+- `caring-contacts workspace accessibility modes` calls `page.goto(WORKSPACE_ROUTE, …)` directly —
+  Today only, for every mode it covers.
+- `caring-contacts service stop, stated on every screen` calls
+  `openWorkspace(page, width, STOP_HANDOVER_VIEWPORT_HEIGHT)` with no fourth argument and takes the
+  `TODAY_SCREEN` default. Despite its name, it proves Today only.
+- `PATIENTS_SCREEN` and `PATIENT_OVERVIEW_SCREEN` appear only inside their own blocks.
+- Nothing iterates `WORKSPACE_SCREENS`.
+
+That I wrote the true version in my report and the false version in the comment is the worse half of
+this finding, not a mitigation: the comment is what the next implementer reads.
+
+**Corrected the comment, not the disclosure.** It now lists which suite names which screen, states
+plainly that being in the array carries no proof by itself, and says what the array *is*
+load-bearing for — the offline screens gate. It also records that parameterising the blocks is filed
+as its own work, and why the service-stop block needs deliberate handling.
+
+**I did not parameterise the suites**, per the instruction.
+
+## M6 — the negative assertion is pinned again
+
+The patient half is restored as a stronger pin than the one it replaced: every link whose href
+starts with `/caring-contacts/patients/` must equal `patientRoute("patient-plan-1")` exactly. A
+wrong patient id, a hand-built path, or a stray extra link into the family all fail. The plan half
+is unchanged.
+
+## M7 — comment made to match code, and why that direction
+
+**I made the comment match the code.** `?plan=` is consulted only when the patient has more than one
+plan; with exactly one, that plan renders whatever the URL says. Reasons, in order of weight:
+
+1. Ruling 97 states "exactly one plan → render it" without qualification. The parameter exists to
+   choose among several, and there is nothing to choose from.
+2. The alternative turns a mistyped or stale link into a **one-item chooser** on a clinical screen,
+   and gives the URL the power to withhold a plan the actor may see. That is a worse behaviour, not
+   a stricter one.
+3. Nothing leaks either way: the foreign plan is neither read nor named nor acknowledged, and the
+   plan actually rendered has its id on the screen.
+
+The module note now has a section stating this explicitly, the line itself carries a pointer to it,
+and — because a documented rule that nothing enforces is the shape this programme keeps recording —
+a test pins it: the sole plan renders, `getEpisode` is called only for it, the foreign id appears
+nowhere in the DOM, and no chooser is shown.
+
+The validation itself is unchanged and never skipped: no `?plan=` value reaches a read without first
+matching a plan in `plansForPatient`.
+
+## Mutation ledger — round 1
+
+Every attempt, including the one that produced no summary line. Presence in the tree was confirmed
+with `git diff --stat` as a separate step before any test was run; never chained with `&&`.
+
+| #     | Mutation                                                                       | Covering test          | Verdict                                                             |
+| ----- | ------------------------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------- |
+| R1-M1 | overview: revert to the suppressed-only predicate the review rejected          | patient-overview.dom   | **RED** `3 failed \| 20 passed (23)`                                 |
+| R1-M2 | model: classify `cancelled` as still to send                                   | patient-overview.dom   | **NO SUMMARY LINE — and that is the catch, not a miss** (see below) |
+| R1-M3 | model: classify `missed` as still to send                                      | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                 |
+| R1-M4 | repository: count a still-to-send contact as already sent                      | patient-overview.dom   | **RED** `4 failed \| 19 passed (23)`                                 |
+| R1-M5 | overview: explain only suppression, leaving a cancelled row bare (the M5 half) | patient-overview.dom   | **RED** `3 failed \| 20 passed (23)`                                 |
+| R1-M6 | overview: claim a still-running plan ended when a message is cancelled         | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                 |
+| R1-M7 | overview: restore the future-tense sentence for a plan with nothing to send    | patient-overview.dom   | **RED** `2 failed \| 21 passed (23)`                                 |
+| R1-M8 | directory: link the row at a wrong-but-well-formed patient route (M6's pin)    | patients-directory.dom | **RED** `1 failed \| 31 passed (32)`                                 |
+| R1-M9 | page: let `?plan=` fall through to the chooser with one plan (M7's pin)        | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                 |
+
+**R1-M2 needs its own sentence, because "no summary line" normally means a gate did not run and here
+it means something better.** I reproduced it in isolation rather than assuming. Classifying
+`cancelled` as `stillToSend` contradicts `TERMINAL_CONTACT_STATES`, so `model.ts`'s load-time
+consistency loop throws while the module is being imported:
+
+> `Error: caring-contacts model: terminal contact state cancelled is classified as still to send`
+
+The suite reports `Tests no tests` because nothing could be imported. That is the assertion working
+as designed — the mutation cannot reach a test, because a build carrying it does not start — and it
+is a stronger outcome than a red test. It is recorded as what it is rather than as a RED, because
+"no summary line" and "the gate proved something" must never be allowed to look alike in a ledger.
+R1-M3 is the control: `missed` is not in `TERMINAL_CONTACT_STATES`, so that mutation loads cleanly
+and is caught by an ordinary red test rather than by the guard.
