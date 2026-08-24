@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { CalculatorsSearchPage } from "@/components/calculators";
-import { appModeSelectionHref } from "@/lib/app-modes";
-import { unsubmittedModeSearchTargetForSearchParams } from "@/lib/consolidated-mode-home-redirect";
 
 export const metadata: Metadata = {
   title: "Search clinical calculators | Clinical KB",
@@ -26,21 +24,21 @@ function toURLSearchParams(params: Awaited<CalculatorsSearchParams>) {
 }
 
 /**
- * Submitted calculator searches.
+ * Calculator catalogue and submitted searches.
  *
  * Split out of the bare `/calculators` path when that became a redirect onto the
  * shared home: results need a route of their own, or `appModeHomeHref` would send
  * a submitted query back through the redirect and loop.
  *
- * The legacy `?query=` canonicalisation moves with the results rather than staying
- * behind on the redirect stub, so an old deep link still lands on `?q=` here
- * instead of being normalised against a path that no longer renders anything.
+ * An empty query is now the browsable catalogue (the Tools `/tools` analogue),
+ * so Show all on the shared Calculators home can land here. The legacy `?query=`
+ * canonicalisation stays on this route so an old deep link still lands on `?q=`.
  */
 export default async function CalculatorsSearchRoute({ searchParams }: { searchParams: CalculatorsSearchParams }) {
   const resolvedSearchParams = await searchParams;
   const primaryQuery = readFirstSearchParam(resolvedSearchParams.q)?.trim();
   const legacyQuery = readFirstSearchParam(resolvedSearchParams.query)?.trim();
-  const query = primaryQuery || legacyQuery;
+  const query = primaryQuery || legacyQuery || "";
 
   if (resolvedSearchParams.query !== undefined) {
     const canonicalSearchParams = toURLSearchParams(resolvedSearchParams);
@@ -49,13 +47,6 @@ export default async function CalculatorsSearchRoute({ searchParams }: { searchP
     canonicalSearchParams.delete("query");
     const suffix = canonicalSearchParams.toString();
     redirect(suffix ? `/calculators/search?${suffix}` : "/calculators/search");
-  }
-
-  if (!query) {
-    redirect(
-      unsubmittedModeSearchTargetForSearchParams("/calculators/search", resolvedSearchParams) ??
-        appModeSelectionHref("calculators"),
-    );
   }
 
   return <CalculatorsSearchPage initialQuery={query} />;
