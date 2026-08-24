@@ -9,7 +9,7 @@ import { cn, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { therapyBtn } from "../controls";
+import { InteractiveRow } from "@/components/ui/interactive-row";
 import type { Therapy } from "../data/types";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
@@ -60,16 +60,7 @@ export function PathwaysScreen() {
             {b.pathways.map((p) => {
               const active = p.slug === pathway.slug;
               return (
-                <button
-                  key={p.slug}
-                  type="button"
-                  className={cn(
-                    therapyBtn,
-                    "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]",
-                  )}
-                  onClick={() => b.selectPathway(p.slug)}
-                  aria-current={active ? "true" : undefined}
-                >
+                <InteractiveRow key={p.slug} variant="card" active={active} onClick={() => b.selectPathway(p.slug)}>
                   <span className="inline-flex h-[38px] w-[38px] flex-none items-center justify-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                     <Waypoints aria-hidden="true" size={20} strokeWidth={1.6} />
                   </span>
@@ -87,7 +78,7 @@ export function PathwaysScreen() {
                       </span>
                     </span>
                   </span>
-                </button>
+                </InteractiveRow>
               );
             })}
           </div>
