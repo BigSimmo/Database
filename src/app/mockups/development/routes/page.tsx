@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { CountTile, META_CLASS, SECTION_HEADING_CLASS } from "@/components/developer-area/hub/count-tile";
+import {
+  CountTile,
+  META_CLASS,
+  MONO_CLASS,
+  ROW_CLASS,
+  SECTION_HEADING_CLASS,
+} from "@/components/developer-area/hub/count-tile";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
 
@@ -10,8 +16,6 @@ export const metadata: Metadata = {
   description: "Every page route, redirect, API route and app mode, read from the committed repository snapshot.",
 };
 
-const MONO_CLASS = "font-mono text-xs text-[color:var(--text-heading)]";
-const ROW_CLASS = "flex flex-wrap items-baseline gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2";
 const LINK_CLASS =
   "inline-flex min-h-12 items-center font-mono text-xs text-[color:var(--text-heading)] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 

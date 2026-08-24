@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 
-import { CountTile, META_CLASS, SECTION_HEADING_CLASS } from "@/components/developer-area/hub/count-tile";
+import {
+  CountTile,
+  META_CLASS,
+  MONO_CLASS,
+  ROW_CLASS,
+  SECTION_HEADING_CLASS,
+} from "@/components/developer-area/hub/count-tile";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import {
   documentsBySection,
@@ -12,9 +18,6 @@ export const metadata: Metadata = {
   title: "Documentation · Developer · Clinical KB",
   description: "Every committed document, its area of the repository, and whether the docs index lists it.",
 };
-
-const MONO_CLASS = "font-mono text-xs text-[color:var(--text-heading)]";
-const ROW_CLASS = "flex flex-wrap items-baseline gap-2 rounded-lg border border-[color:var(--border)] px-3 py-2";
 
 function DocumentRow({ path, catalogued }: { path: string; catalogued: boolean }) {
   return (

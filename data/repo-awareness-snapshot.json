@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "a014c6f33c01942787d5903c743589d2d543b3ab",
-    "committed_at": "2026-08-24T16:46:53+08:00"
+    "sha": "bffa179390d58780de7dd0b8a392a465607cdc6e",
+    "committed_at": "2026-08-24T17:13:45+08:00"
   },
   "routes": {
     "modes": [
@@ -401,6 +401,11 @@
       {
         "path": "/mockups/development/routes",
         "file": "src/app/mockups/development/routes/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/test-health",
+        "file": "src/app/mockups/development/test-health/page.tsx",
         "area": "mockup"
       },
       {
@@ -1168,9 +1173,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 163,
+      "pages": 164,
       "product_pages": 62,
-      "mockup_pages": 101,
+      "mockup_pages": 102,
       "redirects": 16,
       "api": 42
     }
