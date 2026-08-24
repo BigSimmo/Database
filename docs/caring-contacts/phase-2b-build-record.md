@@ -146,3 +146,49 @@ Captured as P3. The implementer reported it rather than fixing it, which is what
 Task C: task review dispatched (opus), with four named questions — B2's narrowing of what is now
 permitted, whether A1's derived marker tracks the owner's intent, whether an unwired A4 refusal
 achieves the approved outcome, and whether B3's scan can actually fail.
+
+### Task C review — spec ✅, quality approved with findings
+
+Reviewed on opus with four named questions. **Spec ✅**: all six items, exact values verbatim, nothing
+extra. **No assertion deleted or loosened** — the only removed test lines are the two `septets: 218 →
+210` pins, and six existing tests that gained the acknowledgement flag kept their `toEqual`
+expectations intact. Domain isolation holds. Mutation proofs judged genuine on internal evidence
+rather than trust: the A2/A3 proof reports septets moving 210 → 221 and the injected `" definitely"`
+is exactly 11 septets; the B3 proof quotes Vitest's exact `expected 0 to be greater than 0`.
+
+Three Important, four Minor. **The two findings worth carrying forward as lessons:**
+
+- **An allowlist cannot close an open-ended set.** B2 narrowed the "lead" prohibition by enumerating
+  nine commercial modifiers and six companions. Every phrasing not thought of is now permitted —
+  `lead magnet`, `lead nurturing`, `qualify this lead`, `convert the lead` all pass and all previously
+  failed. The correct shape is the inverse: refuse `\bleads?\b` by default and exempt the job-title
+  collocations, because THAT set really is closed in this domain (`incident lead`, `programme lead`,
+  `clinical lead`, `team lead`, `service lead`). **Enumerate the safe set, never the dangerous one.**
+- **A guard on a chokepoint fires; a guard beside one does not.** A1 and A4 look like the same kind of
+  delivery and are not. A1's check lives inside `validateGovernedMessage`, which any future sender
+  must pass through, so it fires automatically the day a sender exists. A4's
+  `resolveClosingContactMessageBody` is a standalone function nothing obliges anyone to call, so a
+  future author can resolve a closing body any other way and never meet it. Same "unwired" label,
+  opposite futures.
+
+**Ruling [82] — the A1 marker finding is PROMOTED from Minor to Important and enters the fix round.**
+— Why: as built the marker is `crisisSupportContact.split(":")[0]` = the literal "Fictional Support
+Line", so a message carrying the reserved NUMBER with no label raises nothing — and that is precisely
+the shape that would reach a sender. A1's whole purpose is stopping a fictional crisis number reaching
+a real patient; the number is the artefact that matters and the label is the harmless one. Two
+realistic reformattings of the crisis contact also silently disable it without reddening a test.
+— Cost if wrong: one extra item in a fix round that was happening anyway. The reviewer graded it Minor
+on scope grounds and was not wrong to; I am weighting it by what it is guarding.
+
+**Ruling [83] — A4 is NOT recorded as closed, and the owner is told so.** — Why: the approved outcome
+was "refuse loudly rather than send nothing". Nothing refuses today, and nothing can be made to
+refuse without a future author choosing to call a function they are not obliged to call. Recording it
+closed would convert an open safety gap into a solved one in the only document anyone will read later.
+— Cost if wrong: the item stays open in the ledger slightly longer than a generous reading needs.
+
+Minors 5, 6 and 7 were bundled into the same fix round rather than deferred — each is a one-line
+assertion or a comment reconciliation, and a round was happening anyway, so bundling extends nothing.
+Recorded because the method's default is that Minors do not enter the loop.
+
+Task C: fix round 1/5 dispatched — resumed the original implementer with 7 findings (3 Important, 1
+promoted, 3 bundled Minors).
