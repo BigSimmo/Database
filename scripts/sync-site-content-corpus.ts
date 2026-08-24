@@ -135,6 +135,7 @@ type DynamicInput = {
   embedding: { model: string; dimensions: number; fingerprint: string };
   records: SiteContentSyncSourceRecord[];
   existingReleaseRecords: ExistingSiteContentReleaseRecord[];
+  retirementTargets?: Array<{ logicalId: string; targetPublicationId: string }>;
 };
 
 function assertDynamicInput(value: unknown): asserts value is DynamicInput {
@@ -149,11 +150,14 @@ function assertDynamicInput(value: unknown): asserts value is DynamicInput {
     "targetChangeEpoch",
     "version",
   ].sort();
+  if ("retirementTargets" in input) expected.push("retirementTargets");
+  expected.sort();
   if (
     JSON.stringify(Object.keys(input).sort()) !== JSON.stringify(expected) ||
     input.version !== "site-content-dynamic-input-v1" ||
     !Array.isArray(input.records) ||
-    !Array.isArray(input.existingReleaseRecords)
+    !Array.isArray(input.existingReleaseRecords) ||
+    ("retirementTargets" in input && !Array.isArray(input.retirementTargets))
   ) {
     throw new Error("Dynamic input has an invalid version or exact population shape.");
   }
@@ -164,9 +168,11 @@ type ReconciliationInput = {
   planDigest: string;
   trustedSnapshotDigest: string;
   expectedRecordCount: number;
+  expectedGroupCount: number;
   batchSize: number;
   batchCount: number;
   counts: { adopt: number; retire: number; identicalDuplicate: number; total: number };
+  trustedSnapshots: Array<Record<string, unknown>>;
   dispositions: Array<Record<string, unknown>>;
 };
 
@@ -180,8 +186,10 @@ function assertReconciliationInput(value: unknown): asserts value is Reconciliat
     "counts",
     "dispositions",
     "expectedRecordCount",
+    "expectedGroupCount",
     "planDigest",
     "trustedSnapshotDigest",
+    "trustedSnapshots",
     "version",
   ].sort();
   if (
@@ -192,17 +200,19 @@ function assertReconciliationInput(value: unknown): asserts value is Reconciliat
     typeof plan.trustedSnapshotDigest !== "string" ||
     !SHA256.test(plan.trustedSnapshotDigest) ||
     !Number.isInteger(plan.expectedRecordCount) ||
+    !Number.isInteger(plan.expectedGroupCount) ||
     !Number.isInteger(plan.batchSize) ||
     !Number.isInteger(plan.batchCount) ||
     !Array.isArray(plan.dispositions) ||
+    !Array.isArray(plan.trustedSnapshots) ||
     !plan.counts ||
     typeof plan.counts !== "object"
   ) {
     throw new Error("Reviewed reconciliation plan is invalid.");
   }
   const dispositions = plan.dispositions as Array<Record<string, unknown>>;
+  const trustedSnapshots = plan.trustedSnapshots as Array<Record<string, unknown>>;
   const batchSize = Number(plan.batchSize);
-  const logicalIds = dispositions.map((item) => item.logicalId);
   const sourceIds = dispositions.map((item) => `${String(item.sourceKind)}:${String(item.sourceRowId)}`);
   const allowed = new Set(["adopt", "retire", "identical_duplicate"]);
   const dispositionKeys = [
@@ -218,11 +228,38 @@ function assertReconciliationInput(value: unknown): asserts value is Reconciliat
     "trustedRoute",
   ].sort();
   const counts = plan.counts as Record<string, unknown>;
+  const trustedKeys = [
+    "contentHash",
+    "governanceHash",
+    "logicalId",
+    "publicationVersion",
+    "publicRecordId",
+    "route",
+  ].sort();
+  const snapshotsByLogicalId = new Map(trustedSnapshots.map((snapshot) => [String(snapshot.logicalId), snapshot]));
   if (
     dispositions.length !== plan.expectedRecordCount ||
-    new Set(logicalIds).size !== dispositions.length ||
     new Set(sourceIds).size !== dispositions.length ||
-    logicalIds.some((logicalId, index) => index > 0 && String(logicalIds[index - 1]) >= String(logicalId)) ||
+    dispositions.some((item, index) => {
+      if (index === 0) return false;
+      const previous = dispositions[index - 1]!;
+      const left = `${String(previous.logicalId)}\u0000${String(previous.sourceKind)}\u0000${String(previous.sourceRowId)}`;
+      const right = `${String(item.logicalId)}\u0000${String(item.sourceKind)}\u0000${String(item.sourceRowId)}`;
+      return left >= right;
+    }) ||
+    trustedSnapshots.length !== plan.expectedGroupCount ||
+    snapshotsByLogicalId.size !== trustedSnapshots.length ||
+    trustedSnapshots.some(
+      (snapshot, index) =>
+        JSON.stringify(Object.keys(snapshot).sort()) !== JSON.stringify(trustedKeys) ||
+        typeof snapshot.logicalId !== "string" ||
+        typeof snapshot.publicRecordId !== "string" ||
+        typeof snapshot.route !== "string" ||
+        !SHA256.test(String(snapshot.contentHash)) ||
+        !SHA256.test(String(snapshot.publicationVersion)) ||
+        !SHA256.test(String(snapshot.governanceHash)) ||
+        (index > 0 && String(trustedSnapshots[index - 1]!.logicalId) >= String(snapshot.logicalId)),
+    ) ||
     batchSize < 1 ||
     batchSize > 500 ||
     plan.batchCount !== Math.ceil(plan.expectedRecordCount / batchSize) ||
@@ -247,14 +284,32 @@ function assertReconciliationInput(value: unknown): asserts value is Reconciliat
         !SHA256.test(String(item.publicationVersion)) ||
         !SHA256.test(String(item.trustedGovernanceHash)) ||
         typeof item.trustedPublicRecordId !== "string" ||
-        typeof item.trustedRoute !== "string",
+        typeof item.trustedRoute !== "string" ||
+        !snapshotsByLogicalId.has(String(item.logicalId)),
     )
   ) {
     throw new Error("Reviewed reconciliation plan is not an exact unique population.");
   }
+  for (const snapshot of trustedSnapshots) {
+    const logicalId = String(snapshot.logicalId);
+    const group = dispositions.filter((item) => item.logicalId === logicalId);
+    const matchesTrusted = (item: Record<string, unknown>) =>
+      item.contentHash === snapshot.contentHash &&
+      item.publicationVersion === snapshot.publicationVersion &&
+      item.trustedGovernanceHash === snapshot.governanceHash &&
+      item.trustedPublicRecordId === snapshot.publicRecordId &&
+      item.trustedRoute === snapshot.route;
+    if (
+      group.filter((item) => item.disposition === "adopt").length !== 1 ||
+      !group.filter((item) => item.disposition !== "retire").every(matchesTrusted) ||
+      group.filter((item) => item.disposition === "retire").some(matchesTrusted)
+    ) {
+      throw new Error("Reviewed reconciliation dispositions do not match the trusted snapshot group.");
+    }
+  }
   if (
     plan.trustedSnapshotDigest !==
-    siteContentValueHash({ version: "site-content-trusted-snapshot-v1", records: dispositions })
+    siteContentValueHash({ version: "site-content-trusted-snapshot-v1", records: trustedSnapshots })
   ) {
     throw new Error("Reviewed reconciliation trusted snapshot digest does not match its exact population.");
   }
@@ -314,6 +369,7 @@ async function main() {
     targetChangeEpoch: dynamic.targetChangeEpoch,
     generationId: dynamic.generationId,
     embedding: dynamic.embedding,
+    retirementTargets: dynamic.retirementTargets,
     reconciliationPlanDigest: reconciliation?.planDigest ?? null,
   });
   const summary = {

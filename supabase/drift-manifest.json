@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-24T03:03:22.837Z",
+  "generated_at": "2026-08-24T04:15:04.805Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "afe008d1ff82f84e303fb8856b064041978880b8465c9f723b97a3259d4e7c63",
-  "replay_seconds": 16,
+  "schema_sha256": "933b913c1e62ef2b39e78027e81ec831931ee6cc57c64c0d76d83b3bc3165fa6",
+  "replay_seconds": 17,
   "snapshot": {
     "views": [
       {
@@ -4557,6 +4557,14 @@
             "generated": ""
           },
           {
+            "name": "expected_group_count",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
             "name": "expected_record_count",
             "type": "integer",
             "default": null,
@@ -4591,6 +4599,14 @@
           {
             "name": "trusted_snapshot_digest",
             "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "trusted_snapshots",
+            "type": "jsonb",
             "default": null,
             "identity": "",
             "not_null": true,
@@ -7757,7 +7773,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "6e93c56cf45ef6db8e1491097c318aa8",
+        "def_hash": "8599c70f4d4c973d1447977eb7186bb9",
         "signature": "public.activate_site_content_release(uuid,text,bigint,text,jsonb)"
       },
       {
@@ -8336,8 +8352,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "4ec1035a057587cab7f376021ab4c812",
-        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,uuid,jsonb,jsonb)"
+        "def_hash": "5f85c5f2c406f5f943606c905c8eb8c2",
+        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,uuid)"
       },
       {
         "acl": [
@@ -8378,7 +8394,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "d859f55fd448c86a92c59ed6407cb175",
+        "def_hash": "2e3696e5e25c4baa8783da151c2c5a86",
         "signature": "public.read_site_content_public_records(text,text)"
       },
       {
@@ -8394,7 +8410,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a85c9e95c3854e429f3912a9ef8f4235",
+        "def_hash": "68dc59c2928a1bccc78e85e29617514f",
         "signature": "public.record_site_content_reconciliation_plan(jsonb,uuid)"
       },
       {
@@ -8402,7 +8418,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b75c4ddef22cc3ad1370d1d9dfe4c4c5",
+        "def_hash": "c92f375a6f5ff78e1ea52e72ec562522",
         "signature": "public.record_site_content_sync_event_plan(bigint,bigint,text,jsonb)"
       },
       {
@@ -8482,8 +8498,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "56bd4c073415519612e9fe5a8e8b804f",
-        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,uuid,jsonb,jsonb)"
+        "def_hash": "66d8949d93c7ec20cb3349b5fc714a6b",
+        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,uuid)"
       },
       {
         "acl": [
@@ -8514,7 +8530,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "9582fa4f6ba426d6f922b04daac5f09f",
+        "def_hash": "a14594294fe549eb677d9b47f6b1335d",
         "signature": "public.rollback_site_content_release(uuid,uuid,text,jsonb)"
       },
       {
@@ -8599,8 +8615,22 @@
         "acl": [
           "postgres=X/postgres"
         ],
+        "def_hash": "18bdaeff73448ca66ec10496b07933a3",
+        "signature": "public.site_content_compact_text(text,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
         "def_hash": "3a489ad6324b7de0fb808a755bfa3f73",
         "signature": "public.site_content_dynamic_state_digest(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "79666e37ea1273eb540b0463dc799c6c",
+        "signature": "public.site_content_json_array_fields(jsonb,text[])"
       },
       {
         "acl": [
@@ -8613,6 +8643,20 @@
         "acl": [
           "postgres=X/postgres"
         ],
+        "def_hash": "b038eaf7fef67bf52bbcf2c135900070",
+        "signature": "public.site_content_json_text(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "efa93cc8d2bbb93fb79072571a366958",
+        "signature": "public.site_content_normalize_search_text(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
         "def_hash": "225469a377f0699b4b93caf57f10e5aa",
         "signature": "public.site_content_provider_free_checks_pass(uuid)"
       },
@@ -8620,8 +8664,22 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "6c7925593741d83cc99913a8fd3d7ab6",
-        "signature": "public.site_content_public_json_allowlist(jsonb)"
+        "def_hash": "ebc4dd7a328b16c23485e21b14b562d1",
+        "signature": "public.site_content_public_json_projection(text,jsonb,text[])"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "df5a620560f50f074aa0c97baf1e4ead",
+        "signature": "public.site_content_reconciliation_sources_match(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "b6cb4eb4a28b19fbfb17dba01c69d62f",
+        "signature": "public.site_content_record_governance_hash(jsonb)"
       },
       {
         "acl": [
@@ -8641,15 +8699,15 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "108412c90b2cce4c53da3119fd325945",
-        "signature": "public.site_content_source_projection(text,uuid,jsonb,jsonb)"
+        "def_hash": "451a9ad3819b8845731f2c685c193d40",
+        "signature": "public.site_content_source_projection(text,uuid)"
       },
       {
         "acl": [
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "88c3abd63013af9f78898614657a8def",
+        "def_hash": "19596e11223053a7869e2523b1e390c5",
         "signature": "public.stage_site_content_sync_event(bigint,uuid,uuid,bigint,jsonb)"
       },
       {
@@ -9564,6 +9622,11 @@
         "table": "site_content_reconciliation_plans"
       },
       {
+        "def": "CHECK (((expected_group_count > 0) AND (expected_group_count <= 5000)))",
+        "name": "site_content_reconciliation_plans_expected_group_count_check",
+        "table": "site_content_reconciliation_plans"
+      },
+      {
         "def": "CHECK (((expected_record_count > 0) AND (expected_record_count <= 5000)))",
         "name": "site_content_reconciliation_plans_expected_record_count_check",
         "table": "site_content_reconciliation_plans"
@@ -9581,6 +9644,11 @@
       {
         "def": "CHECK ((trusted_snapshot_digest ~ '^[0-9a-f]{64}$'::text))",
         "name": "site_content_reconciliation_plans_trusted_snapshot_digest_check",
+        "table": "site_content_reconciliation_plans"
+      },
+      {
+        "def": "CHECK ((jsonb_typeof(trusted_snapshots) = 'array'::text))",
+        "name": "site_content_reconciliation_plans_trusted_snapshots_check",
         "table": "site_content_reconciliation_plans"
       },
       {
@@ -9639,7 +9707,7 @@
         "table": "site_content_release_records"
       },
       {
-        "def": "CHECK ((embedding_dimensions > 0))",
+        "def": "CHECK ((embedding_dimensions = 1536))",
         "name": "site_content_release_records_embedding_dimensions_check",
         "table": "site_content_release_records"
       },

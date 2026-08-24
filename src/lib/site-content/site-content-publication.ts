@@ -76,7 +76,6 @@ const publicKeys = new Set([
   "hepatic",
   "highestUrgencyNote",
   "housing_flags",
-  "id",
   "immediateActions",
   "immediate-action",
   "indexedAt",
@@ -174,13 +173,130 @@ const publicKeys = new Set([
   "version",
 ]);
 
-function publicValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(publicValue);
+const topLevelKeys: Record<DynamicSiteContentKind, ReadonlySet<string>> = {
+  service: new Set([
+    "slug",
+    "title",
+    "subtitle",
+    "statusChips",
+    "primaryContact",
+    "contacts",
+    "route",
+    "eligibility",
+    "cost",
+    "referral",
+    "location",
+    "summaryCards",
+    "referralInfo",
+    "bestUse",
+    "criteria",
+    "verification",
+    "tags",
+    "catchments",
+    "catalogueLabel",
+    "navigatorQuery",
+    "source",
+    "catalogPayload",
+  ]),
+  form: new Set([
+    "slug",
+    "title",
+    "subtitle",
+    "statusChips",
+    "primaryContact",
+    "contacts",
+    "route",
+    "eligibility",
+    "cost",
+    "referral",
+    "location",
+    "summaryCards",
+    "referralInfo",
+    "bestUse",
+    "criteria",
+    "verification",
+    "tags",
+    "catchments",
+    "catalogueLabel",
+    "navigatorQuery",
+    "source",
+    "catalogPayload",
+  ]),
+  medication: new Set([
+    "slug",
+    "name",
+    "class",
+    "subclass",
+    "category",
+    "accent",
+    "tag",
+    "schedule",
+    "stats",
+    "sections",
+    "quick",
+  ]),
+  differential: new Set([
+    "slug",
+    "title",
+    "status",
+    "subtitle",
+    "clinicalHinge",
+    "safetySnapshot",
+    "sections",
+    "related",
+    "currentPresentation",
+    "investigations",
+    "immediateActions",
+  ]),
+  presentation: new Set([
+    "id",
+    "title",
+    "sourceTitle",
+    "scopeLabel",
+    "titleAliases",
+    "status",
+    "subtitle",
+    "selectedCount",
+    "totalCount",
+    "safetySnapshot",
+    "criteria",
+    "candidates",
+    "reviewChecklist",
+    "highestUrgencyNote",
+    "sourceStatus",
+  ]),
+};
+
+const nestedPathKeys: Record<string, ReadonlySet<string>> = {
+  source: new Set([
+    "label",
+    "status",
+    "url",
+    "published",
+    "reviewed",
+    "notes",
+    "summary",
+    "title",
+    "version",
+    "lastUpdated",
+  ]),
+  patient: new Set(["factors", "action", "severity", "match", "note"]),
+  summaryCards: new Set(["id", "label", "title", "detail"]),
+  catalogPayload: new Set([...publicKeys, "id"]),
+  sections: new Set([...publicKeys, "id"]),
+  related: new Set(["id", "label", "likelihood", "note"]),
+  candidates: new Set([...publicKeys, "id"]),
+  criteria: new Set([...publicKeys, "id"]),
+};
+
+function publicValue(kind: DynamicSiteContentKind, value: unknown, path: readonly string[] = []): unknown {
+  if (Array.isArray(value)) return value.map((entry) => publicValue(kind, entry, path));
   if (!value || typeof value !== "object") return value;
+  const allowed = path.length === 0 ? topLevelKeys[kind] : (nestedPathKeys[path.at(-1)!] ?? publicKeys);
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
-      .filter(([key, child]) => publicKeys.has(key) && child !== undefined)
-      .map(([key, child]) => [key, publicValue(child)]),
+      .filter(([key, child]) => allowed.has(key) && !isPrivateKey(key) && child !== undefined)
+      .map(([key, child]) => [key, publicValue(kind, child, [...path, key])]),
   );
 }
 
@@ -208,7 +324,7 @@ export function canonicalDynamicSiteContentProjection(
     });
     return {
       record: registryEntryToSiteContentRecord(entry, { logicalId, sourceLineage: [] }),
-      renderPayload: publicValue(render) as Record<string, unknown>,
+      renderPayload: publicValue(kind, render) as Record<string, unknown>,
     };
   }
   if (kind === "medication") {
@@ -223,7 +339,7 @@ export function canonicalDynamicSiteContentProjection(
     });
     return {
       record: registryEntryToSiteContentRecord(entry, { logicalId, sourceLineage: [] }),
-      renderPayload: publicValue(render) as Record<string, unknown>,
+      renderPayload: publicValue(kind, render) as Record<string, unknown>,
     };
   }
   const typedRow = row as DifferentialRecordRow;
@@ -243,19 +359,29 @@ export function canonicalDynamicSiteContentProjection(
   });
   return {
     record: registryEntryToSiteContentRecord(entry, { logicalId, sourceLineage: [] }),
-    renderPayload: publicValue(render.value) as Record<string, unknown>,
+    renderPayload: publicValue(kind, render.value) as Record<string, unknown>,
   };
 }
 
 const privateKeys = new Set([
   "actor",
   "actorid",
+  "authorid",
+  "createdby",
+  "creatorid",
+  "editorid",
   "owner",
   "ownerid",
   "publishedby",
+  "publisherid",
+  "retireeid",
+  "reviewedby",
+  "reviewerid",
   "sourceownerid",
   "sourcerowid",
   "privatedocumentid",
+  "updatedby",
+  "updaterid",
 ]);
 
 function isPrivateKey(key: string) {
@@ -359,7 +485,7 @@ export async function publishSiteContentCommand(input: {
   if (sourceResult.error || !sourceResult.data || typeof sourceResult.data !== "object") {
     throw new Error(`Site-content source read failed: ${sourceResult.error?.message ?? "not found"}`);
   }
-  const canonical = canonicalDynamicSiteContentProjection(input.command.kind, sourceResult.data as never);
+  canonicalDynamicSiteContentProjection(input.command.kind, sourceResult.data as never);
   const rpcName = input.command.action === "publish" ? "publish_site_content_record" : "retire_site_content_record";
   const { data, error } = await callRpc(input.supabase, rpcName, {
     p_kind: input.command.kind,
@@ -368,8 +494,6 @@ export async function publishSiteContentCommand(input: {
     p_expected_change_epoch: input.command.expectedChangeEpoch,
     p_reconciliation_plan_digest: input.command.reconciliationPlanDigest ?? null,
     p_published_by: input.actorId,
-    p_record: canonical.record,
-    p_render_payload: canonical.renderPayload,
   });
   if (error) throw new Error(`Site-content publication command failed: ${error.message}`);
   if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== "object") {

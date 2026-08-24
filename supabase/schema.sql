@@ -9398,8 +9398,10 @@ create table public.site_content_reconciliation_plans (
   plan_digest text primary key check (plan_digest ~ '^[0-9a-f]{64}$'),
   version text not null check (version = 'site-content-reconciliation-plan-v1'),
   trusted_snapshot_digest text not null check (trusted_snapshot_digest ~ '^[0-9a-f]{64}$'),
+  trusted_snapshots jsonb not null check (jsonb_typeof(trusted_snapshots) = 'array'),
   dispositions jsonb not null check (jsonb_typeof(dispositions) = 'array'),
   expected_record_count integer not null check (expected_record_count > 0 and expected_record_count <= 5000),
+  expected_group_count integer not null check (expected_group_count > 0 and expected_group_count <= 5000),
   batch_size integer not null check (batch_size between 1 and 500),
   batch_count integer not null check (batch_count > 0 and batch_count <= 5000),
   counts jsonb not null check (jsonb_typeof(counts) = 'object'),
@@ -9544,7 +9546,7 @@ create table public.site_content_release_records (
   lineage_fingerprint text not null,
   public_metadata_fingerprint text not null,
   embedding_model text not null,
-  embedding_dimensions integer not null check (embedding_dimensions > 0),
+  embedding_dimensions integer not null check (embedding_dimensions = 1536),
   embedding_fingerprint text not null,
   embedding_value_digest text check (embedding_value_digest is null or embedding_value_digest ~ '^[0-9a-f]{64}$'),
   embedding extensions.vector(1536),
@@ -9656,6 +9658,21 @@ begin
 end;
 $$;
 
+create or replace function public.site_content_compact_text(p_value text, p_limit integer default 8000)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_text text := public.site_content_canonical_text(p_value);
+begin
+  if p_limit < 4 then raise exception using errcode = '22023', message = 'site_content_text_limit_invalid'; end if;
+  if char_length(v_text) <= p_limit then return v_text; end if;
+  return rtrim(left(v_text, p_limit - 3)) || '...';
+end;
+$$;
+
 create or replace function public.site_content_json_sha256(p_value jsonb)
 returns text
 language sql
@@ -9665,7 +9682,11 @@ as $$
   select encode(extensions.digest(convert_to(public.site_content_canonical_json(p_value), 'UTF8'), 'sha256'), 'hex');
 $$;
 
-create or replace function public.site_content_public_json_allowlist(p_value jsonb)
+create or replace function public.site_content_public_json_projection(
+  p_kind text,
+  p_value jsonb,
+  p_path text[] default array[]::text[]
+)
 returns jsonb
 language plpgsql
 immutable
@@ -9673,11 +9694,16 @@ set search_path = ''
 as $$
 declare
   v_result jsonb;
-  v_allowed constant text[] := array[
+  v_allowed text[];
+  v_private constant text[] := array[
+    'actor','actorid','authorid','createdby','creatorid','editorid','owner','ownerid','publishedby','publisherid',
+    'retireeid','reviewedby','reviewerid','sourceownerid','sourcerowid','privatedocumentid','updatedby','updaterid'
+  ];
+  v_nested constant text[] := array[
     'accent','action','acuity_flags','actSections','after','age','aliases','age_groups','archiveGeneratedAt','authorises','authority','availability','before','bedside-question','bestUse','body','candidates',
     'catalogPayload','catalogueLabel','category','catchments','class','clinicalHinge','clock','cls','comparison','confidence',
     'contacts','copies','cost','criteria','currentPresentation','destination','detail','doesNotAuthorise','documentationStem','documentTitle','eligibility',
-    'factors','fileName','flag','form','gt','hepatic','highestUrgencyNote','housing_flags','id','immediate-action','immediateActions','indexedAt','indexedClock',
+    'factors','fileName','flag','form','gt','hepatic','highestUrgencyNote','housing_flags','immediate-action','immediateActions','indexedAt','indexedClock',
     'indexedTerms','investigations','involved','items','key','kind','label','lastUpdated','legalNote','likelihood',
     'localPdfBytes','localPdfPath','localPdfSha256','locallyVerified','location','lt','maker','match','mimics-overlap','must-not-miss','name','navigatorQuery',
     'note','notes','officialPdfPasswordProtected','officialPdfUrl','officialRegisterUrl','officialTitleCheckedAt',
@@ -9691,17 +9717,125 @@ declare
 begin
   if p_value is null then return 'null'::jsonb; end if;
   if jsonb_typeof(p_value) = 'array' then
-    select coalesce(jsonb_agg(public.site_content_public_json_allowlist(entry.value) order by entry.ordinal), '[]'::jsonb)
+    select coalesce(jsonb_agg(public.site_content_public_json_projection(p_kind, entry.value, p_path)
+      order by entry.ordinal), '[]'::jsonb)
     into v_result from jsonb_array_elements(p_value) with ordinality entry(value, ordinal);
     return v_result;
   end if;
   if jsonb_typeof(p_value) = 'object' then
-    select coalesce(jsonb_object_agg(entry.key, public.site_content_public_json_allowlist(entry.value)
+    v_allowed := case
+      when p_path = array['source'] then
+        array['label','status','url','published','reviewed','notes','summary','title','version','lastUpdated']
+      when p_path[array_length(p_path, 1)] = 'source' then
+        array['label','status','url','published','reviewed','notes','summary','title','version','lastUpdated']
+      when p_path[array_length(p_path, 1)] = 'patient' then
+        array['factors','action','severity','match','note']
+      when p_path[array_length(p_path, 1)] = 'summaryCards' then
+        array['id','label','title','detail']
+      when p_path[array_length(p_path, 1)] = 'catalogPayload' then
+        v_nested || array['id']
+      when p_path[array_length(p_path, 1)] = 'sections' then
+        v_nested || array['id']
+      when p_path[array_length(p_path, 1)] = 'related' then
+        array['id','label','likelihood','note']
+      when p_path[array_length(p_path, 1)] = 'candidates' then
+        v_nested || array['id']
+      when p_path[array_length(p_path, 1)] = 'criteria' then
+        v_nested || array['id']
+      when cardinality(p_path) = 0 and p_kind in ('service','form') then
+        array['slug','title','subtitle','statusChips','primaryContact','contacts','route','eligibility','cost','referral',
+          'location','summaryCards','referralInfo','bestUse','criteria','verification','tags','catchments',
+          'catalogueLabel','navigatorQuery','source','catalogPayload']
+      when cardinality(p_path) = 0 and p_kind = 'medication' then
+        array['slug','name','class','subclass','category','accent','tag','schedule','stats','sections','quick']
+      when cardinality(p_path) = 0 and p_kind = 'differential' then
+        array['slug','title','status','subtitle','clinicalHinge','safetySnapshot','sections','related',
+          'currentPresentation','investigations','immediateActions']
+      when cardinality(p_path) = 0 and p_kind = 'presentation' then
+        array['id','title','sourceTitle','scopeLabel','titleAliases','status','subtitle','selectedCount','totalCount',
+          'safetySnapshot','criteria','candidates','reviewChecklist','highestUrgencyNote','sourceStatus']
+      else v_nested
+    end;
+    select coalesce(jsonb_object_agg(entry.key, public.site_content_public_json_projection(
+      p_kind, entry.value, p_path || entry.key)
       order by entry.key collate "C"), '{}'::jsonb)
-    into v_result from jsonb_each(p_value) entry where entry.key = any(v_allowed);
+    into v_result from jsonb_each(p_value) entry
+    where entry.key = any(v_allowed)
+      and lower(regexp_replace(entry.key, '[^a-z0-9]', '', 'g')) <> all(v_private);
     return v_result;
   end if;
   return p_value;
+end;
+$$;
+
+create or replace function public.site_content_json_text(p_value jsonb)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_result text;
+begin
+  if p_value is null or p_value = 'null'::jsonb then return ''; end if;
+  if jsonb_typeof(p_value) in ('string','number','boolean') then return trim(both '"' from p_value::text); end if;
+  if jsonb_typeof(p_value) = 'array' then
+    select coalesce(string_agg(public.site_content_json_text(value), ' ' order by ordinal), '') into v_result
+    from jsonb_array_elements(p_value) with ordinality item(value, ordinal);
+  else
+    select coalesce(string_agg(public.site_content_json_text(value), ' ' order by key collate "C"), '') into v_result
+    from jsonb_each(p_value);
+  end if;
+  return regexp_replace(trim(v_result), '\s+', ' ', 'g');
+end;
+$$;
+
+create or replace function public.site_content_normalize_search_text(p_value text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select trim(regexp_replace(regexp_replace(lower(coalesce(p_value, '')), '[^a-z0-9+./\s-]', ' ', 'g'), '\s+', ' ', 'g'));
+$$;
+
+-- Extract an ordered list of explicitly named scalar/array fields. This is
+-- deliberately not a generic JSON serializer: P03 search text has semantic
+-- field order, and object keys outside the named projection must not affect
+-- normalized text, hashes, vectors, or receipts.
+create or replace function public.site_content_json_array_fields(
+  p_value jsonb,
+  p_fields text[]
+)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_result text := '';
+  v_item jsonb;
+  v_field text;
+  v_value jsonb;
+  v_text text;
+begin
+  if jsonb_typeof(p_value) <> 'array' then return ''; end if;
+  for v_item in select value from jsonb_array_elements(p_value) loop
+    if jsonb_typeof(v_item) <> 'object' then continue; end if;
+    foreach v_field in array p_fields loop
+      v_value := v_item->v_field;
+      if v_value is null or v_value = 'null'::jsonb then continue; end if;
+      if jsonb_typeof(v_value) = 'array' then
+        v_text := public.site_content_json_text(v_value);
+      elsif jsonb_typeof(v_value) in ('string','number','boolean') then
+        v_text := v_item->>v_field;
+      else
+        v_text := '';
+      end if;
+      if btrim(coalesce(v_text, '')) <> '' then v_result := concat_ws(' ', v_result, v_text); end if;
+    end loop;
+  end loop;
+  return regexp_replace(btrim(v_result), '\\s+', ' ', 'g');
 end;
 $$;
 
@@ -9712,9 +9846,7 @@ $$;
 -- validates the canonical hashes and recursive public allowlist before insert.
 create or replace function public.site_content_source_projection(
   p_kind text,
-  p_source_row_id uuid,
-  p_record jsonb,
-  p_render_payload jsonb
+  p_source_row_id uuid
 )
 returns table (
   source_table text,
@@ -9734,6 +9866,13 @@ declare
   v_domain text;
   v_route text;
   v_source_role text;
+  v_title text;
+  v_body text;
+  v_search text;
+  v_record jsonb;
+  v_render jsonb;
+  v_sections text;
+  v_quick text;
 begin
   if p_kind in ('service', 'form') then
     select to_jsonb(r) into strict v_row from public.clinical_registry_records r
@@ -9742,11 +9881,89 @@ begin
     v_domain := case p_kind when 'service' then 'services' else 'forms' end;
     v_route := case p_kind when 'service' then '/services/' else '/forms/' end || (v_row->>'slug');
     v_source_role := case p_kind when 'service' then 'service_directory' else 'form_reference' end;
+    v_render := jsonb_strip_nulls(jsonb_build_object(
+      'slug', v_row->>'slug', 'title', v_row->>'title', 'subtitle', v_row->'subtitle',
+      'statusChips', coalesce(v_row->'status_chips', '[]'::jsonb),
+      'primaryContact', v_row->'primary_contact', 'contacts', coalesce(v_row->'contacts', '[]'::jsonb),
+      'route', v_row->'route', 'eligibility', v_row->'eligibility', 'cost', v_row->'cost',
+      'referral', v_row->'referral', 'location', v_row->'location',
+      'summaryCards', coalesce(v_row->'summary_cards', '[]'::jsonb),
+      'referralInfo', coalesce(v_row->'referral_info', '[]'::jsonb), 'bestUse', v_row->'best_use',
+      'criteria', coalesce(v_row->'criteria', '[]'::jsonb), 'verification', v_row->'verification',
+      'tags', coalesce(v_row->'tags', '[]'::jsonb), 'catchments', coalesce(v_row->'catchments', '[]'::jsonb),
+      'catalogueLabel', v_row->'catalogue_label', 'navigatorQuery', v_row->'navigator_query',
+      'source', v_row->'source', 'catalogPayload', coalesce(v_row->'catalog_payload', '{}'::jsonb)
+    ));
+    v_title := v_render->>'title';
+    v_search := public.site_content_normalize_search_text(concat_ws(' ',
+      v_render->>'title', v_render->>'slug', v_render->>'subtitle', v_render->>'route',
+      v_render->>'eligibility', v_render->>'cost', v_render->>'referral', v_render->>'location',
+      v_render->>'bestUse', v_render->>'catalogueLabel', v_render->>'navigatorQuery',
+      v_render#>>'{primaryContact,value}', v_render#>>'{primaryContact,detail}',
+      v_render#>>'{source,label}', v_render#>>'{source,status}', v_render#>>'{source,reviewed}',
+      public.site_content_json_text(v_render->'tags'), public.site_content_json_text(v_render->'catchments'),
+      public.site_content_json_array_fields(v_render->'statusChips',
+        case p_kind when 'form' then array['label'] else array['label','tone'] end),
+      public.site_content_json_array_fields(v_render->'contacts',
+        case p_kind when 'form' then array['label','value','detail'] else array['label','value','detail','kind'] end),
+      public.site_content_json_array_fields(v_render->'summaryCards', array['label','title','detail']),
+      public.site_content_json_array_fields(v_render->'referralInfo', array['label','value']),
+      public.site_content_json_array_fields(v_render->'criteria', array['label','tone']),
+      public.site_content_json_text(v_render#>'{verification,notes}'),
+      case when p_kind = 'service' then public.site_content_json_text(v_render#>'{source,notes}') end,
+      case when p_kind = 'form' then concat_ws(' ',
+        v_render#>>'{catalogPayload,form}', v_render#>>'{catalogPayload,category}',
+        v_render#>>'{catalogPayload,purpose}', v_render#>>'{catalogPayload,maker}',
+        v_render#>>'{catalogPayload,threshold}', v_render#>>'{catalogPayload,clock}',
+        v_render#>>'{catalogPayload,authorises}', v_render#>>'{catalogPayload,doesNotAuthorise}',
+        public.site_content_json_text(v_render#>'{catalogPayload,aliases}'),
+        public.site_content_json_text(v_render#>'{catalogPayload,searchTerms}'),
+        public.site_content_json_text(v_render#>'{catalogPayload,indexedTerms}'),
+        (select coalesce(string_agg(concat_ws(' ', 'section ' || (section.value->>'section'),
+          section.value->>'title', section.value->>'summary'), ' ' order by section.ordinal), '')
+          from jsonb_array_elements(coalesce(v_render#>'{catalogPayload,actSections}', '[]'::jsonb))
+            with ordinality section(value, ordinal))) end,
+      case p_kind when 'form' then 'form forms checklist assessment transfer template'
+        else 'service services source record pathway' end));
+    v_body := public.site_content_compact_text(concat_ws(E'\n',
+      case p_kind when 'form' then 'Form: ' else 'Service: ' end || v_title,
+      nullif(v_render->>'subtitle', ''),
+      case when v_render ? 'route' then 'Route: ' || (v_render->>'route') end,
+      case when v_render ? 'eligibility' then 'Eligibility: ' || (v_render->>'eligibility') end,
+      case when v_render ? 'referral' then 'Referral: ' || (v_render->>'referral') end,
+      case when v_render ? 'location' then 'Location: ' || (v_render->>'location') end,
+      case when v_render ? 'bestUse' then 'Best use: ' || (v_render->>'bestUse') end,
+      case when v_render#>>'{primaryContact,value}' is not null then 'Primary contact: ' ||
+        (v_render#>>'{primaryContact,value}') || ' ' || coalesce(v_render#>>'{primaryContact,detail}', '') end,
+      case when jsonb_array_length(coalesce(v_render->'tags','[]'::jsonb)) > 0 then
+        'Tags: ' || (select string_agg(value, ', ' order by ordinal) from jsonb_array_elements_text(v_render->'tags') with ordinality tag(value, ordinal)) end,
+      case when jsonb_array_length(coalesce(v_render->'catchments','[]'::jsonb)) > 0 then
+        'Catchments: ' || (select string_agg(value, ', ' order by ordinal) from jsonb_array_elements_text(v_render->'catchments') with ordinality tag(value, ordinal)) end,
+      v_search));
   elsif p_kind = 'medication' then
     select to_jsonb(r) into strict v_row from public.medication_records r
     where r.id = p_source_row_id for update;
     source_table := 'medication_records'; v_domain := 'medications';
     v_route := '/medications/' || (v_row->>'slug'); v_source_role := 'clinical_reference';
+    v_render := jsonb_build_object(
+      'slug', v_row->>'slug', 'name', v_row->>'name', 'class', coalesce(v_row->>'class',''),
+      'subclass', coalesce(v_row->>'subclass',''), 'category', coalesce(v_row->>'category',''),
+      'accent', coalesce(v_row->>'accent','#0f766e'), 'tag', coalesce(v_row->>'tag',''),
+      'schedule', coalesce(v_row->>'schedule',''), 'stats', coalesce(v_row->'stats','[]'::jsonb),
+      'sections', coalesce(v_row->'sections','[]'::jsonb), 'quick', coalesce(v_row->'quick','[]'::jsonb));
+    v_title := v_render->>'name';
+    select coalesce(string_agg(concat_ws(' ', section.value->>'title', section.value->>'type',
+      public.site_content_json_array_fields(section.value->'rows', array['key','val'])), ' '
+      order by section.ordinal), '') into v_sections
+    from jsonb_array_elements(v_render->'sections') with ordinality section(value, ordinal);
+    v_quick := public.site_content_json_array_fields(v_render->'quick', array['label','value']);
+    v_body := public.site_content_compact_text(concat_ws(E'\n',
+      'Medication: ' || v_title,
+      case when v_render->>'class' <> '' then 'Class: ' || (v_render->>'class') end,
+      case when v_render->>'subclass' <> '' then 'Subclass: ' || (v_render->>'subclass') end,
+      case when v_render->>'schedule' <> '' then 'Schedule: ' || (v_render->>'schedule') end,
+      case when v_render->>'tag' <> '' then 'Tag: ' || (v_render->>'tag') end,
+      nullif(v_sections, ''), nullif(v_quick, '')));
   elsif p_kind in ('differential', 'presentation') then
     select to_jsonb(r) into strict v_row from public.differential_records r
     where r.id = p_source_row_id and r.kind = case p_kind when 'presentation' then 'presentation' else 'diagnosis' end
@@ -9754,6 +9971,39 @@ begin
     source_table := 'differential_records'; v_domain := 'differentials';
     v_route := '/differentials/' || case p_kind when 'presentation' then 'presentations/' else 'diagnoses/' end || (v_row->>'slug');
     v_source_role := 'clinical_reference';
+    v_render := coalesce(v_row->'payload', '{}'::jsonb);
+    v_title := v_render->>'title';
+    if p_kind = 'differential' then
+      v_search := public.site_content_normalize_search_text(concat_ws(' ',
+        v_render->>'title', v_render->>'slug', v_render->>'subtitle', v_render->>'clinicalHinge',
+        v_render#>>'{safetySnapshot,summary}', public.site_content_json_text(v_render#>'{safetySnapshot,tags}'),
+        public.site_content_json_array_fields(v_render->'sections', array['title','summary','items']),
+        public.site_content_json_array_fields(v_render->'related', array['label','note']),
+        public.site_content_json_text(v_render->'currentPresentation'),
+        public.site_content_json_text(v_render->'investigations'),
+        public.site_content_json_text(v_render->'immediateActions')));
+    else
+      v_search := public.site_content_normalize_search_text(concat_ws(' ',
+        v_render->>'title', v_render->>'sourceTitle', v_render->>'scopeLabel',
+        public.site_content_json_text(v_render->'titleAliases'), v_render->>'id', v_render->>'subtitle',
+        public.site_content_json_text(v_render#>'{safetySnapshot,tags}'), v_render#>>'{safetySnapshot,summary}',
+        v_render->>'highestUrgencyNote', public.site_content_json_text(v_render->'reviewChecklist'),
+        (select coalesce(string_agg(replace(candidate.value->>'slug', '-', ' '), ' '
+          order by candidate.ordinal), '')
+          from jsonb_array_elements(v_render->'candidates') with ordinality candidate(value, ordinal))));
+    end if;
+    v_body := public.site_content_compact_text(concat_ws(E'\n',
+      case p_kind when 'presentation' then 'Presentation workflow: ' else 'Differential diagnosis: ' end || v_title,
+      nullif(v_render->>'subtitle',''),
+      -- Preserve the current P03 converter exactly: its `!isPresentation && ...`
+      -- expression is passed to compactText, which stringifies false.
+      case when p_kind = 'presentation' then 'false' end,
+      case when p_kind = 'differential' and v_render->>'clinicalHinge' <> '' then
+        'Clinical hinge: ' || (v_render->>'clinicalHinge') end,
+      case when jsonb_array_length(coalesce(v_render#>'{safetySnapshot,tags}','[]'::jsonb)) > 0 then
+        'Tags: ' || (select string_agg(value, ', ' order by ordinal)
+          from jsonb_array_elements_text(v_render#>'{safetySnapshot,tags}') with ordinality tag(value, ordinal)) end,
+      v_search));
   else
     raise exception using errcode = '22023', message = 'site_content_kind_invalid';
   end if;
@@ -9762,28 +10012,40 @@ begin
   slug := v_row->>'slug';
   logical_id := v_domain || ':' || case when p_kind in ('differential', 'presentation') then
     case p_kind when 'presentation' then 'presentation:' else 'diagnosis:' end else '' end || slug;
-  if jsonb_typeof(p_record) <> 'object' or jsonb_typeof(p_render_payload) <> 'object'
-    or p_render_payload is distinct from public.site_content_public_json_allowlist(p_render_payload)
-    or p_record - array['version','logicalId','producerClass','domain','route','title','body','sourceRole','access',
-      'validationStatus','sourceStatus','publicationVersion','sourceLineage','contentHash'] <> '{}'::jsonb
-    or (select count(*) from jsonb_object_keys(p_record)) <> 14
-    or p_record->>'version' <> 'site-content-record-v1'
-    or p_record->>'logicalId' <> logical_id or p_record->>'domain' <> v_domain or p_record->>'route' <> v_route
-    or p_record->>'producerClass' <> 'dynamic_registry' or p_record->>'sourceRole' <> v_source_role
-    or p_record->>'access' <> 'public' or p_record->'sourceLineage' <> '[]'::jsonb
-    or p_record->>'sourceStatus' is distinct from v_row->>'source_status'
-    or p_record->>'validationStatus' is distinct from v_row->>'validation_status'
-    or p_record->>'title' <> public.site_content_canonical_text(p_record->>'title')
-    or p_record->>'body' <> public.site_content_canonical_text(p_record->>'body')
-    or p_record->>'contentHash' <> public.site_content_json_sha256(jsonb_build_object(
-      'title', p_record->>'title', 'body', p_record->>'body'))
-    or p_record->>'publicationVersion' <> public.site_content_json_sha256(p_record - array['contentHash','publicationVersion'])
-    then raise exception using errcode = '22023', message = 'site_content_canonical_projection_invalid';
-  end if;
-  record := p_record; render_payload := p_render_payload; return next;
+  v_render := public.site_content_public_json_projection(p_kind, v_render, array[]::text[]);
+  v_record := jsonb_build_object(
+    'version', 'site-content-record-v1', 'logicalId', logical_id, 'producerClass', 'dynamic_registry',
+    'domain', v_domain, 'route', v_route, 'title', public.site_content_canonical_text(v_title),
+    'body', v_body, 'sourceRole', v_source_role, 'access', 'public',
+    'validationStatus', case when v_row->>'validation_status' in ('approved','locally_reviewed')
+      then v_row->>'validation_status' else 'unverified' end,
+    'sourceStatus', case when v_row->>'source_status' in ('current','review_due','outdated')
+      then v_row->>'source_status' else 'unknown' end,
+    'sourceLineage', '[]'::jsonb);
+  v_record := v_record || jsonb_build_object(
+    'contentHash', public.site_content_json_sha256(jsonb_build_object('title', v_record->>'title', 'body', v_record->>'body')),
+    'publicationVersion', public.site_content_json_sha256(v_record));
+  record := v_record; render_payload := v_render; return next;
 exception when no_data_found then
   raise exception using errcode = 'P0002', message = 'site_content_source_not_found';
 end;
+$$;
+
+create or replace function public.site_content_record_governance_hash(p_record jsonb)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select public.site_content_json_sha256(jsonb_build_object(
+    'version', p_record->>'version',
+    'producerClass', p_record->>'producerClass',
+    'domain', p_record->>'domain',
+    'sourceRole', p_record->>'sourceRole',
+    'access', p_record->>'access',
+    'validationStatus', p_record->>'validationStatus',
+    'sourceStatus', p_record->>'sourceStatus',
+    'sourceLineage', p_record->'sourceLineage'));
 $$;
 
 create or replace function public.guard_site_content_receipt_shape(
@@ -9867,35 +10129,60 @@ set search_path = ''
 as $$
 declare
   v_dispositions jsonb := p_plan->'dispositions';
+  v_trusted jsonb := p_plan->'trustedSnapshots';
   v_expected integer := (p_plan->>'expectedRecordCount')::integer;
+  v_groups integer := (p_plan->>'expectedGroupCount')::integer;
   v_item jsonb;
+  v_snapshot jsonb;
+  source record;
   v_live_count integer;
 begin
   if jsonb_typeof(p_plan) <> 'object'
-    or p_plan - array['version','planDigest','trustedSnapshotDigest','expectedRecordCount','batchSize','batchCount','counts','dispositions'] <> '{}'::jsonb
-    or (select count(*) from jsonb_object_keys(p_plan)) <> 8
+    or p_plan - array['version','planDigest','trustedSnapshotDigest','expectedRecordCount','expectedGroupCount',
+      'batchSize','batchCount','counts','trustedSnapshots','dispositions'] <> '{}'::jsonb
+    or (select count(*) from jsonb_object_keys(p_plan)) <> 10
     or p_plan->>'version' <> 'site-content-reconciliation-plan-v1'
     or jsonb_typeof(v_dispositions) <> 'array'
+    or jsonb_typeof(v_trusted) <> 'array'
     or v_expected < 1 or v_expected > 5000
+    or v_groups < 1 or v_groups > v_expected
     or jsonb_array_length(v_dispositions) <> v_expected
+    or jsonb_array_length(v_trusted) <> v_groups
     or (p_plan->>'batchSize')::integer not between 1 and 500
     or (p_plan->>'batchCount')::integer <> ceil(v_expected::numeric / (p_plan->>'batchSize')::integer)::integer
     or p_plan->>'planDigest' is distinct from public.site_content_json_sha256(p_plan - 'planDigest')
     or p_plan->>'trustedSnapshotDigest' is distinct from public.site_content_json_sha256(jsonb_build_object(
-      'version', 'site-content-trusted-snapshot-v1', 'records', v_dispositions))
+      'version', 'site-content-trusted-snapshot-v1', 'records', v_trusted))
     or (p_plan#>>'{counts,total}')::integer <> v_expected
     or (p_plan#>>'{counts,adopt}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
     or (p_plan#>>'{counts,retire}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'retire')
     or (p_plan#>>'{counts,identicalDuplicate}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'identical_duplicate')
-    or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
-      <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
+    or (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt') <> v_groups
+    or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_dispositions) item) <> v_groups
+    or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_dispositions) item
+      where item->>'disposition' = 'adopt') <> v_groups
     or (select count(distinct ((item->>'sourceKind') || ':' || (item->>'sourceRowId')))
       from jsonb_array_elements(v_dispositions) item) <> v_expected
-    or v_dispositions is distinct from (
-      select jsonb_agg(item order by item->>'logicalId' collate "C") from jsonb_array_elements(v_dispositions) item)
+    or v_dispositions is distinct from (select jsonb_agg(item order by item->>'logicalId' collate "C",
+      item->>'sourceKind' collate "C", item->>'sourceRowId' collate "C") from jsonb_array_elements(v_dispositions) item)
+    or v_trusted is distinct from (select jsonb_agg(item order by item->>'logicalId' collate "C")
+      from jsonb_array_elements(v_trusted) item)
+    or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_trusted) item) <> v_groups
     then
     raise exception using errcode = '22023', message = 'site_content_reconciliation_unresolved';
   end if;
+  for v_snapshot in select value from jsonb_array_elements(v_trusted) loop
+    if v_snapshot - array['logicalId','publicRecordId','route','contentHash','publicationVersion','governanceHash'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(v_snapshot)) <> 6
+      or v_snapshot->>'logicalId' !~ '^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._:-]*$'
+      or v_snapshot->>'publicRecordId' is distinct from v_snapshot->>'logicalId'
+      or v_snapshot->>'route' not like '/%'
+      or v_snapshot->>'contentHash' !~ '^[0-9a-f]{64}$'
+      or v_snapshot->>'publicationVersion' !~ '^[0-9a-f]{64}$'
+      or v_snapshot->>'governanceHash' !~ '^[0-9a-f]{64}$'
+      then raise exception using errcode = '22023', message = 'site_content_reconciliation_snapshot_invalid';
+    end if;
+  end loop;
   for v_item in select value from jsonb_array_elements(v_dispositions) loop
     if v_item - array['logicalId','disposition','sourceKind','sourceRowId','sourceVersion','contentHash',
         'publicationVersion','trustedPublicRecordId','trustedRoute','trustedGovernanceHash'] <> '{}'::jsonb
@@ -9909,6 +10196,29 @@ begin
       or v_item->>'publicationVersion' !~ '^[0-9a-f]{64}$'
       or v_item->>'trustedGovernanceHash' !~ '^[0-9a-f]{64}$'
       then raise exception using errcode = '22023', message = 'site_content_reconciliation_item_invalid';
+    end if;
+    select * into strict source from public.site_content_source_projection(
+      v_item->>'sourceKind', (v_item->>'sourceRowId')::uuid);
+    select value into strict v_snapshot from jsonb_array_elements(v_trusted)
+      where value->>'logicalId' = v_item->>'logicalId';
+    if v_item->>'sourceVersion' is distinct from source.source_version
+      or v_item->>'logicalId' is distinct from source.logical_id
+      or v_item->>'contentHash' is distinct from source.record->>'contentHash'
+      or v_item->>'publicationVersion' is distinct from source.record->>'publicationVersion'
+      or v_item->>'trustedPublicRecordId' is distinct from v_snapshot->>'publicRecordId'
+      or v_item->>'trustedRoute' is distinct from v_snapshot->>'route'
+      or v_item->>'trustedGovernanceHash' is distinct from v_snapshot->>'governanceHash'
+      or (v_item->>'disposition' in ('adopt','identical_duplicate') and (
+        source.record->>'contentHash' is distinct from v_snapshot->>'contentHash'
+        or source.record->>'publicationVersion' is distinct from v_snapshot->>'publicationVersion'
+        or source.record->>'route' is distinct from v_snapshot->>'route'
+        or public.site_content_record_governance_hash(source.record) is distinct from v_snapshot->>'governanceHash'))
+      or (v_item->>'disposition' = 'retire' and
+        source.record->>'contentHash' = v_snapshot->>'contentHash'
+        and source.record->>'publicationVersion' = v_snapshot->>'publicationVersion'
+        and source.record->>'route' = v_snapshot->>'route'
+        and public.site_content_record_governance_hash(source.record) = v_snapshot->>'governanceHash')
+      then raise exception using errcode = '22023', message = 'site_content_reconciliation_source_evidence_mismatch';
     end if;
   end loop;
   select count(*) into v_live_count from (
@@ -9934,24 +10244,70 @@ begin
     where item is null
   ) then raise exception using errcode = '22023', message = 'site_content_reconciliation_population_mismatch'; end if;
   insert into public.site_content_reconciliation_plans(
-    plan_digest, version, trusted_snapshot_digest, dispositions, expected_record_count,
-    batch_size, batch_count, counts, reviewed_by
+    plan_digest, version, trusted_snapshot_digest, trusted_snapshots, dispositions, expected_record_count,
+    expected_group_count, batch_size, batch_count, counts, reviewed_by
   ) values (
-    p_plan->>'planDigest', p_plan->>'version', p_plan->>'trustedSnapshotDigest', v_dispositions, v_expected,
-    (p_plan->>'batchSize')::integer, (p_plan->>'batchCount')::integer, p_plan->'counts', p_reviewed_by
+    p_plan->>'planDigest', p_plan->>'version', p_plan->>'trustedSnapshotDigest', v_trusted, v_dispositions,
+    v_expected, v_groups, (p_plan->>'batchSize')::integer, (p_plan->>'batchCount')::integer, p_plan->'counts', p_reviewed_by
   ) on conflict (plan_digest) do nothing;
   return exists (
     select 1 from public.site_content_reconciliation_plans rp
     where rp.plan_digest = p_plan->>'planDigest'
       and rp.version = p_plan->>'version'
       and rp.trusted_snapshot_digest = p_plan->>'trustedSnapshotDigest'
+      and rp.trusted_snapshots = v_trusted
       and rp.dispositions = v_dispositions
       and rp.expected_record_count = v_expected
+      and rp.expected_group_count = v_groups
       and rp.batch_size = (p_plan->>'batchSize')::integer
       and rp.batch_count = (p_plan->>'batchCount')::integer
       and rp.counts = p_plan->'counts'
       and rp.reviewed_by = p_reviewed_by
   );
+end;
+$$;
+
+create or replace function public.site_content_reconciliation_sources_match(p_plan_digest text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_plan public.site_content_reconciliation_plans%rowtype;
+  v_item jsonb;
+  v_snapshot jsonb;
+  source record;
+begin
+  select * into strict v_plan from public.site_content_reconciliation_plans rp
+  where rp.plan_digest = p_plan_digest;
+  for v_item in select value from jsonb_array_elements(v_plan.dispositions) loop
+    select * into strict source from public.site_content_source_projection(
+      v_item->>'sourceKind', (v_item->>'sourceRowId')::uuid);
+    select value into strict v_snapshot from jsonb_array_elements(v_plan.trusted_snapshots)
+      where value->>'logicalId' = v_item->>'logicalId';
+    if v_item->>'sourceVersion' is distinct from source.source_version
+      or v_item->>'logicalId' is distinct from source.logical_id
+      or v_item->>'contentHash' is distinct from source.record->>'contentHash'
+      or v_item->>'publicationVersion' is distinct from source.record->>'publicationVersion'
+      or v_item->>'trustedPublicRecordId' is distinct from v_snapshot->>'publicRecordId'
+      or v_item->>'trustedRoute' is distinct from v_snapshot->>'route'
+      or v_item->>'trustedGovernanceHash' is distinct from v_snapshot->>'governanceHash'
+      or (v_item->>'disposition' in ('adopt','identical_duplicate') and (
+        source.record->>'contentHash' is distinct from v_snapshot->>'contentHash'
+        or source.record->>'publicationVersion' is distinct from v_snapshot->>'publicationVersion'
+        or source.record->>'route' is distinct from v_snapshot->>'route'
+        or public.site_content_record_governance_hash(source.record) is distinct from v_snapshot->>'governanceHash'))
+      or (v_item->>'disposition' = 'retire' and
+        source.record->>'contentHash' = v_snapshot->>'contentHash'
+        and source.record->>'publicationVersion' = v_snapshot->>'publicationVersion'
+        and source.record->>'route' = v_snapshot->>'route'
+        and public.site_content_record_governance_hash(source.record) = v_snapshot->>'governanceHash')
+      then return false;
+    end if;
+  end loop;
+  return true;
+exception when no_data_found then return false;
 end;
 $$;
 
@@ -9961,9 +10317,7 @@ create or replace function public.publish_site_content_record(
   p_expected_source_version text,
   p_expected_change_epoch bigint,
   p_reconciliation_plan_digest text,
-  p_published_by uuid,
-  p_record jsonb,
-  p_render_payload jsonb
+  p_published_by uuid
 )
 returns table (outcome text, conflict_code text, logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
 language plpgsql
@@ -9983,8 +10337,7 @@ begin
     outcome := 'conflict'; conflict_code := 'stale_change_epoch'; return next; return;
   end if;
 
-  select * into strict v_source from public.site_content_source_projection(
-    p_kind, p_source_row_id, p_record, p_render_payload);
+  select * into strict v_source from public.site_content_source_projection(p_kind, p_source_row_id);
   if v_source.source_version is distinct from p_expected_source_version then
     outcome := 'conflict'; conflict_code := 'stale_source_version'; return next; return;
   end if;
@@ -10014,9 +10367,7 @@ begin
             and item->>'publicationVersion' = v_source.record->>'publicationVersion'
             and item->>'trustedPublicRecordId' = v_source.logical_id
             and item->>'trustedRoute' = v_source.record->>'route'
-            and item->>'trustedGovernanceHash' = public.site_content_json_sha256(jsonb_build_object(
-              'access', v_source.record->>'access', 'validationStatus', v_source.record->>'validationStatus',
-              'sourceStatus', v_source.record->>'sourceStatus'))
+            and item->>'trustedGovernanceHash' = public.site_content_record_governance_hash(v_source.record)
         )
     ) then
       raise exception using errcode = '55000', message = 'site_content_reconciliation_required';
@@ -10071,9 +10422,7 @@ create or replace function public.retire_site_content_record(
   p_expected_source_version text,
   p_expected_change_epoch bigint,
   p_reconciliation_plan_digest text,
-  p_published_by uuid,
-  p_record jsonb,
-  p_render_payload jsonb
+  p_published_by uuid
 )
 returns table (outcome text, conflict_code text, logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
 language plpgsql
@@ -10092,8 +10441,7 @@ begin
   if v_state.change_epoch is distinct from p_expected_change_epoch then
     outcome := 'conflict'; conflict_code := 'stale_change_epoch'; return next; return;
   end if;
-  select * into strict v_source from public.site_content_source_projection(
-    p_kind, p_source_row_id, p_record, p_render_payload);
+  select * into strict v_source from public.site_content_source_projection(p_kind, p_source_row_id);
   if v_source.source_version is distinct from p_expected_source_version then
     outcome := 'conflict'; conflict_code := 'stale_source_version'; return next; return;
   end if;
@@ -10159,12 +10507,9 @@ as $$
     where s.initialized and s.active_release_id is not null
       and not exists (
         select 1 from public.site_content_public_records h
-        left join public.site_content_sync_events e on e.event_sequence = h.pending_event_sequence
         where h.head_change_epoch > s.served_change_epoch
           and (p_slug is null or h.logical_id = r.logical_id)
-          and e.event_sequence is not null
-          and e.target_change_epoch = h.head_change_epoch
-          and e.state in ('pending', 'retry_pending', 'processing', 'ready')
+          and h.pending_event_sequence is not null
       )
   )
   select s.initialized,
@@ -10180,10 +10525,8 @@ as $$
         when not s.initialized then 'unavailable'
         when exists (
           select 1 from public.site_content_public_records h
-          join public.site_content_sync_events e on e.event_sequence = h.pending_event_sequence
           where h.head_change_epoch > s.served_change_epoch
-            and e.target_change_epoch = h.head_change_epoch
-            and e.state in ('pending', 'retry_pending', 'processing', 'ready')
+            and h.pending_event_sequence is not null
         ) then 'updating'
         when s.active_release_id is null then 'unavailable'
         else 'current'
@@ -10322,7 +10665,8 @@ begin
     or v_event.state not in ('pending', 'retry_pending')
     or not exists (
       select 1
-      from jsonb_array_elements((p_plan->'added') || (p_plan->'changed') || (p_plan->'unchanged')) item
+      from jsonb_array_elements((p_plan->'added') || (p_plan->'changed') ||
+        (p_plan->'unchanged') || (p_plan->'tombstones')) item
       where item->>'logicalId' = v_event.logical_id
         and item->>'targetPublicationId' = v_event.target_publication_id::text
     ) then return false; end if;
@@ -10540,6 +10884,7 @@ begin
     raise exception using errcode = '40001', message = 'site_content_stage_stale';
   end if;
   if jsonb_typeof(p_stage->'records') <> 'array'
+    or (p_stage#>>'{embedding,dimensions}')::integer <> 1536
     or p_stage->'counts' is distinct from v_plan.plan->'counts'
     or jsonb_array_length(p_stage->'records') is distinct from (p_stage#>>'{counts,total}')::integer
     or (select count(distinct staged->>'logicalId') from jsonb_array_elements(p_stage->'records') staged)
@@ -10619,6 +10964,10 @@ begin
       or rr.render_payload is distinct from p.render_payload
       or extensions.vector_dims(rr.embedding) <> rr.embedding_dimensions
     )
+  ) or exists (
+    select 1 from public.site_content_release_records rr
+    join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
+    where rr.release_id = v_release_id and rr.tombstone and not p.retired
   ) or not public.site_content_provider_free_checks_pass(v_release_id) then
     raise exception using errcode = '23514', message = 'site_content_stage_authoritative_check_failed';
   end if;
@@ -10717,6 +11066,7 @@ begin
       select 1 from public.site_content_public_records h
       left join public.site_content_release_records rr on rr.release_id = p_release_id and rr.logical_id = h.logical_id
       where rr.logical_id is null or rr.target_publication_id is distinct from h.current_publication_id
+        or rr.tombstone is distinct from h.retired
         or rr.governance_fingerprint = '' or rr.lineage_fingerprint = ''
     ) or exists (
       select 1 from public.site_content_release_records rr
@@ -10729,6 +11079,7 @@ begin
     or not exists (
       select 1 from public.site_content_reconciliation_plans rp
       where rp.plan_digest = v_release.reconciliation_plan_digest
+        and public.site_content_reconciliation_sources_match(rp.plan_digest)
         and (select count(*) from jsonb_array_elements(rp.dispositions) item where item->>'disposition' = 'adopt') =
           (select count(*) from public.site_content_public_records)
         and not exists (
@@ -10745,9 +11096,7 @@ begin
               and p.record->>'publicationVersion' = item->>'publicationVersion'
               and item->>'trustedPublicRecordId' = h.logical_id
               and item->>'trustedRoute' = p.record->>'route'
-              and item->>'trustedGovernanceHash' = public.site_content_json_sha256(jsonb_build_object(
-                'access', p.record->>'access', 'validationStatus', p.record->>'validationStatus',
-                'sourceStatus', p.record->>'sourceStatus'))
+              and item->>'trustedGovernanceHash' = public.site_content_record_governance_hash(p.record)
               and rr.target_publication_id = p.id
               and exists (
                 select 1 from (
@@ -10836,7 +11185,6 @@ begin
     or p_rollback_receipt->>'promotionId' is distinct from v_activation.receipt->>'promotionId'
     or p_rollback_receipt->>'projectRef' is distinct from v_activation.receipt->>'projectRef'
     or p_rollback_receipt->>'operation' is distinct from 'site_release'
-    or v_activation.recovery_readiness_digest is distinct from p_recovery_digest
     or (p_rollback_receipt->>'rolledBackAt')::timestamptz <
       (v_activation.receipt->>'activatedAt')::timestamptz
     or p_rollback_receipt#>>'{target,siteReleaseId}' is distinct from p_target_release_id::text
@@ -10895,10 +11243,15 @@ alter default privileges for role postgres in schema public revoke execute on fu
 
 revoke all on function public.guard_site_content_immutable_row() from public, anon, authenticated, service_role;
 revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_compact_text(text, integer) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_canonical_json(jsonb) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_json_sha256(jsonb) from public, anon, authenticated, service_role;
-revoke all on function public.site_content_public_json_allowlist(jsonb) from public, anon, authenticated, service_role;
-revoke all on function public.site_content_source_projection(text, uuid, jsonb, jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_public_json_projection(text, jsonb, text[]) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_json_text(jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_normalize_search_text(text) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_json_array_fields(jsonb, text[]) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_source_projection(text, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_record_governance_hash(jsonb) from public, anon, authenticated, service_role;
 revoke all on function public.guard_site_content_receipt_shape(jsonb, text, uuid, text) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_release_id(text, bigint, text) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_dynamic_state_digest(uuid) from public, anon, authenticated, service_role;
@@ -10910,10 +11263,11 @@ grant execute on function public.read_site_content_public_records(text, text) to
 
 revoke all on function public.record_site_content_reconciliation_plan(jsonb, uuid) from public, anon, authenticated;
 grant execute on function public.record_site_content_reconciliation_plan(jsonb, uuid) to service_role;
-revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) from public, anon, authenticated;
-grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) to service_role;
-revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) from public, anon, authenticated;
-grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) to service_role;
+revoke all on function public.site_content_reconciliation_sources_match(text) from public, anon, authenticated, service_role;
+revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid) from public, anon, authenticated;
+grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid) to service_role;
+revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid) from public, anon, authenticated;
+grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid) to service_role;
 revoke all on function public.claim_site_content_sync_events(uuid, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_site_content_sync_events(uuid, integer, integer) to service_role;
 revoke all on function public.heartbeat_site_content_sync_event(bigint, uuid, uuid, bigint, integer) from public, anon, authenticated;
@@ -10942,14 +11296,20 @@ alter table public.site_content_release_records owner to postgres;
 alter table public.site_content_release_receipts owner to postgres;
 alter function public.guard_site_content_immutable_row() owner to postgres;
 alter function public.site_content_canonical_text(text) owner to postgres;
+alter function public.site_content_compact_text(text, integer) owner to postgres;
 alter function public.site_content_canonical_json(jsonb) owner to postgres;
 alter function public.site_content_json_sha256(jsonb) owner to postgres;
-alter function public.site_content_public_json_allowlist(jsonb) owner to postgres;
-alter function public.site_content_source_projection(text, uuid, jsonb, jsonb) owner to postgres;
+alter function public.site_content_public_json_projection(text, jsonb, text[]) owner to postgres;
+alter function public.site_content_json_text(jsonb) owner to postgres;
+alter function public.site_content_normalize_search_text(text) owner to postgres;
+alter function public.site_content_json_array_fields(jsonb, text[]) owner to postgres;
+alter function public.site_content_source_projection(text, uuid) owner to postgres;
+alter function public.site_content_record_governance_hash(jsonb) owner to postgres;
 alter function public.guard_site_content_receipt_shape(jsonb, text, uuid, text) owner to postgres;
 alter function public.record_site_content_reconciliation_plan(jsonb, uuid) owner to postgres;
-alter function public.publish_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) owner to postgres;
-alter function public.retire_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) owner to postgres;
+alter function public.site_content_reconciliation_sources_match(text) owner to postgres;
+alter function public.publish_site_content_record(text, uuid, text, bigint, text, uuid) owner to postgres;
+alter function public.retire_site_content_record(text, uuid, text, bigint, text, uuid) owner to postgres;
 alter function public.read_site_content_public_records(text, text) owner to postgres;
 alter function public.claim_site_content_sync_events(uuid, integer, integer) owner to postgres;
 alter function public.heartbeat_site_content_sync_event(bigint, uuid, uuid, bigint, integer) owner to postgres;

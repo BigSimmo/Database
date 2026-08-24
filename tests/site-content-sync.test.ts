@@ -136,6 +136,70 @@ describe("site-content synchronization planning", () => {
     expect(plan.tombstones.map((entry) => entry.logicalId)).toEqual(["medications:removed"]);
   });
 
+  it("binds a retirement tombstone to the retirement publication event", () => {
+    const removed = sourceRecord("medications:removed", "Retired text");
+    const retirementPublicationId = "22222222-2222-4222-8222-222222222222";
+    const existing = {
+      logicalId: removed.record.logicalId,
+      targetPublicationId: removed.record.publicationVersion,
+      publicationFingerprint: removed.record.publicationVersion,
+      contentHash: removed.record.contentHash,
+      governanceFingerprint: removed.governanceFingerprint,
+      lineageFingerprint: removed.lineageFingerprint,
+      publicMetadataFingerprint: removed.publicMetadataFingerprint,
+      normalizedText: removed.record.body,
+      documentId: removed.documentId,
+      chunkId: removed.chunkId,
+      embeddingModel: "text-embedding-3-small",
+      embeddingDimensions: 1536,
+      embeddingFingerprint: "model-v1",
+      embedding: [0.1],
+      tombstone: false,
+    };
+
+    const plan = planSiteContentSync({
+      ...input([]),
+      existingReleaseRecords: [existing],
+      retirementTargets: [{ logicalId: removed.record.logicalId, targetPublicationId: retirementPublicationId }],
+    } as Parameters<typeof planSiteContentSync>[0]);
+
+    expect(plan.tombstones).toEqual([
+      expect.objectContaining({
+        logicalId: removed.record.logicalId,
+        targetPublicationId: retirementPublicationId,
+        tombstone: true,
+      }),
+    ]);
+  });
+
+  it("classifies a faithfully loaded static null publication target as unchanged", () => {
+    const base = input([]);
+    const source = base.staticRecords[0]!;
+    const existing = {
+      logicalId: source.record.logicalId,
+      targetPublicationId: null,
+      publicationFingerprint: source.record.publicationVersion,
+      contentHash: source.record.contentHash,
+      governanceFingerprint: source.governanceFingerprint,
+      lineageFingerprint: source.lineageFingerprint,
+      publicMetadataFingerprint: source.publicMetadataFingerprint,
+      normalizedText: source.record.body,
+      documentId: source.documentId,
+      chunkId: source.chunkId,
+      embeddingModel: "text-embedding-3-small",
+      embeddingDimensions: 1536,
+      embeddingFingerprint: "model-v1",
+      embedding: [0.1],
+      tombstone: false,
+    };
+    const plan = planSiteContentSync({ ...base, existingReleaseRecords: [existing] } as Parameters<
+      typeof planSiteContentSync
+    >[0]);
+
+    expect(plan.unchanged.map((record) => record.logicalId)).toEqual([source.record.logicalId]);
+    expect(plan.changed).toEqual([]);
+  });
+
   it("changes the release digest for public governance and lineage changes", () => {
     const base = sourceRecord("medications:alpha", "Alpha medication");
     const governance = { ...base, governanceFingerprint: "locally_reviewed" };
@@ -154,11 +218,21 @@ describe("site-content synchronization planning", () => {
     const first = planSiteContentSync(input([source]));
     const second = planSiteContentSync({
       ...input([source]),
-      embedding: { model: "text-embedding-4", dimensions: 3072, fingerprint: "model-v2" },
+      embedding: { model: "text-embedding-4", dimensions: 1536, fingerprint: "model-v2" },
     });
 
     expect(first.dynamicStateDigest).toBe(second.dynamicStateDigest);
     expect(first.releaseDigest).not.toBe(second.releaseDigest);
+  });
+
+  it("rejects embedding dimensions that cannot fit the physical release vector", () => {
+    const source = sourceRecord("medications:alpha", "Alpha medication");
+    expect(() =>
+      planSiteContentSync({
+        ...input([source]),
+        embedding: { model: "text-embedding-3-large", dimensions: 3072, fingerprint: "model-v2" },
+      }),
+    ).toThrow(/1536|dimension/i);
   });
 
   it("uses a distinct deterministic physical release id for byte-identical later epochs", () => {

@@ -46,6 +46,8 @@ describe("site-content synchronization worker", () => {
     expect(source).toContain("releaseId: plan.releaseId");
     expect(source).not.toContain("mustPassChecks: true");
     expect(source).toContain("p_lease_generation");
+    expect(source).toContain("dimensions: plan.embedding.dimensions");
+    expect(source).toMatch(/plan\.embedding\.dimensions\s*!==\s*1536/);
     expect(source).not.toMatch(/console\.(?:log|error)\([^\n]*(?:normalizedText|embedding|actor|owner)/);
     expect(source).not.toContain("cron.schedule");
   });

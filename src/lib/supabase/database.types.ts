@@ -2576,10 +2576,10 @@ export type Database = {
         record: Json; render_payload: Json; retired: boolean; created_at: string;
       }, "logical_id" | "kind" | "slug" | "source_table" | "source_row_id" | "source_owner_id" | "source_version" | "published_by" | "record" | "render_payload">;
       site_content_reconciliation_plans: GeneratedTable<{
-        plan_digest: string; version: string; trusted_snapshot_digest: string; dispositions: Json;
-        expected_record_count: number; batch_size: number; batch_count: number; counts: Json;
+        plan_digest: string; version: string; trusted_snapshot_digest: string; trusted_snapshots: Json; dispositions: Json;
+        expected_record_count: number; expected_group_count: number; batch_size: number; batch_count: number; counts: Json;
         reviewed_by: string; reviewed_at: string;
-      }, "plan_digest" | "version" | "trusted_snapshot_digest" | "dispositions" | "expected_record_count" | "batch_size" | "batch_count" | "counts" | "reviewed_by">;
+      }, "plan_digest" | "version" | "trusted_snapshot_digest" | "trusted_snapshots" | "dispositions" | "expected_record_count" | "expected_group_count" | "batch_size" | "batch_count" | "counts" | "reviewed_by">;
       site_content_public_records: GeneratedTable<{
         logical_id: string; kind: string; slug: string; current_publication_id: string; head_change_epoch: number;
         retired: boolean; pending_event_sequence: number | null; updated_at: string;
@@ -3423,7 +3423,7 @@ export type Database = {
         Returns: boolean;
       };
       publish_site_content_record: {
-        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_published_by: string; p_record: Json; p_render_payload: Json };
+        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_published_by: string };
         Returns: { outcome: string; conflict_code: string | null; logical_id: string | null; publication_id: string | null; event_sequence: number | null; change_epoch: number | null }[];
       };
       retire_site_content_record: Database["public"]["Functions"]["publish_site_content_record"];

@@ -1243,10 +1243,11 @@ describe("site-content publication and release control plane", () => {
 
   it("normalizes every legacy kind into the P03 canonical record shape without audit identifiers", () => {
     expect(migration).toContain("create or replace function public.site_content_canonical_text(p_value text)");
-    expect(migration).toContain("p_render_payload is distinct from public.site_content_public_json_allowlist");
-    expect(migration).toContain("p_record->>'contentHash' <> public.site_content_json_sha256");
-    expect(migration).toContain("p_record->>'publicationVersion' <> public.site_content_json_sha256");
-    expect(migration).toContain("p_record->'sourceLineage' <> '[]'::jsonb");
+    expect(migration).toContain("create or replace function public.site_content_source_projection(");
+    expect(migration).toContain("v_render := public.site_content_public_json_projection");
+    expect(migration).toContain("'contentHash', public.site_content_json_sha256");
+    expect(migration).toContain("'publicationVersion', public.site_content_json_sha256(v_record)");
+    expect(migration).toContain("'sourceLineage', '[]'::jsonb");
     expect(migration).toContain(
       "revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role",
     );
@@ -1290,7 +1291,25 @@ describe("site-content publication and release control plane", () => {
     expect(claim).toContain("lease_generation = e.lease_generation + 1");
     expect(migration).toContain("'superseded'");
     expect(migration).toContain("state in ('pending', 'retry_pending', 'processing', 'ready')");
-    expect(migration).toContain("e.target_change_epoch = h.head_change_epoch");
+    expect(migration).toContain("e.event_sequence <> v_event_sequence and e.target_change_epoch < change_epoch");
+  });
+
+  it("keeps terminal current-head work fail-closed until a represented activation", () => {
+    const readStart = migration.indexOf("create or replace function public.read_site_content_public_records(");
+    const read = migration.slice(readStart, migration.indexOf("$$;", readStart));
+    expect(read).toContain("h.pending_event_sequence is not null");
+    expect(read).not.toContain("e.state in ('pending', 'retry_pending', 'processing', 'ready')");
+    expect(read).toContain("h.head_change_epoch > s.served_change_epoch");
+  });
+
+  it("binds retirement events to tombstones through plan, stage, and activation", () => {
+    const recordPlanStart = migration.indexOf("create or replace function public.record_site_content_sync_event_plan(");
+    const recordPlan = migration.slice(recordPlanStart, migration.indexOf("$$;", recordPlanStart));
+    expect(recordPlan).toContain("p_plan->'tombstones'");
+    expect(recordPlan).toContain("item->>'targetPublicationId' = v_event.target_publication_id::text");
+    const activateStart = migration.indexOf("create or replace function public.activate_site_content_release(");
+    const activate = migration.slice(activateStart, migration.indexOf("$$;", activateStart));
+    expect(activate).toContain("rr.tombstone is distinct from h.retired");
   });
 
   it("content-addresses exact reconciliation and binds first adoption through activation", () => {
@@ -1298,7 +1317,11 @@ describe("site-content publication and release control plane", () => {
     const record = migration.slice(recordStart, migration.indexOf("$$;", recordStart));
     expect(record).toContain("site-content-reconciliation-plan-v1");
     expect(record).toContain("site_content_json_sha256");
-    expect(record).toContain("count(distinct item->>'logicalId')");
+    expect(record).toContain("trustedSnapshots");
+    expect(record).toContain("expectedGroupCount");
+    expect(record).toContain("site_content_source_projection");
+    expect(record).toContain("identical_duplicate");
+    expect(record).toContain("v_item->>'contentHash' is distinct from source.record->>'contentHash'");
     expect(record).toContain("sourceRowId");
     expect(record).toContain("sourceVersion");
     expect(record).toContain("contentHash");
@@ -1366,8 +1389,9 @@ describe("site-content publication and release control plane", () => {
   });
 
   it("uses a recursive public allowlist and P03-equivalent canonical projections", () => {
-    expect(migration).toContain("create or replace function public.site_content_public_json_allowlist(");
-    expect(migration).toContain("jsonb_object_agg(entry.key, public.site_content_public_json_allowlist(entry.value)");
+    expect(migration).toContain("create or replace function public.site_content_public_json_projection(");
+    expect(migration).toContain("p_path || entry.key");
+    expect(migration).toContain("when p_path = array['source'] then");
     expect(migration).toContain("clinicalRegistryRecordToCorpusEntry");
     expect(migration).toContain("medicationRecordToCorpusEntry");
     expect(migration).toContain("differentialRecordToCorpusEntry");
@@ -1376,7 +1400,9 @@ describe("site-content publication and release control plane", () => {
       "create or replace function public.site_content_source_projection(",
     );
     const sourceProjection = migration.slice(sourceProjectionStart, migration.indexOf("$$;", sourceProjectionStart));
-    expect(sourceProjection).not.toMatch(/p_render_payload\s*:?=\s*v_row/i);
+    expect(sourceProjection).not.toContain("p_record jsonb");
+    expect(sourceProjection).not.toContain("p_render_payload jsonb");
+    expect(sourceProjection).toContain("site_content_public_json_projection");
   });
 
   it("activates and rolls back retained immutable release records with exact receipts", () => {
@@ -1385,7 +1411,17 @@ describe("site-content publication and release control plane", () => {
     expect(migration).toContain("p_activation_receipt#>>'{resource,previousSiteReleaseId}'");
     expect(migration).toContain("p_rollback_receipt->>'activationReceiptId'");
     expect(migration).toContain("v_active.previous_release_id is distinct from p_target_release_id");
+    const rollbackStart = migration.indexOf("create or replace function public.rollback_site_content_release(");
+    const rollback = migration.slice(rollbackStart, migration.indexOf("$$;", rollbackStart));
+    expect(rollback).not.toContain("v_activation.recovery_readiness_digest is distinct from p_recovery_digest");
     expect(migration).not.toMatch(/delete from public\.site_content_release/);
+  });
+
+  it("enforces the physical 1536-dimensional embedding contract at every SQL boundary", () => {
+    expect(migration).toContain("embedding_dimensions integer not null check (embedding_dimensions = 1536)");
+    const stageStart = migration.indexOf("create or replace function public.stage_site_content_sync_event(");
+    const stage = migration.slice(stageStart, migration.indexOf("$$;", stageStart));
+    expect(stage).toContain("(p_stage#>>'{embedding,dimensions}')::integer <> 1536");
   });
 });
 

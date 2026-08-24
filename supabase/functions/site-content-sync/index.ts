@@ -69,7 +69,7 @@ function parsePlan(value: unknown): SyncPlan {
     groups.reduce((total, group) => total + group.length, 0) > MAX_PLAN_RECORDS ||
     !plan.embedding?.model ||
     !Number.isInteger(plan.embedding.dimensions) ||
-    plan.embedding.dimensions < 1
+    plan.embedding.dimensions !== 1536
   )
     throw new Error("SITE_CONTENT_PLAN_INVALID");
   return plan;
@@ -84,7 +84,11 @@ async function embedChangedRecords(plan: SyncPlan, records: PlanItem[]) {
       Authorization: `Bearer ${requiredEnvironment("OPENAI_API_KEY")}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ model: plan.embedding.model, input: required.map((record) => record.normalizedText) }),
+    body: JSON.stringify({
+      model: plan.embedding.model,
+      dimensions: plan.embedding.dimensions,
+      input: required.map((record) => record.normalizedText),
+    }),
   });
   if (!response.ok) throw new Error("SITE_CONTENT_PROVIDER_FAILED");
   const payload = (await response.json()) as { data?: Array<{ index: number; embedding: number[] }> };

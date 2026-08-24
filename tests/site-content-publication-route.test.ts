@@ -311,5 +311,13 @@ describe("canonical dynamic public projection", () => {
     const privateProjection = canonicalDynamicSiteContentProjection("medication", privateMedicationRow);
     assertNoPrivateKeys(privateProjection.renderPayload);
     expect(JSON.stringify(privateProjection)).not.toContain(privateToken);
+
+    const privateSourceRow = {
+      ...serviceRow,
+      source: { label: "Public source", id: privateToken },
+    } as unknown as RegistryRecordRow;
+    const privateSourceProjection = canonicalDynamicSiteContentProjection("service", privateSourceRow);
+    expect(privateSourceProjection.renderPayload).toMatchObject({ source: { label: "Public source" } });
+    expect(JSON.stringify(privateSourceProjection)).not.toContain(privateToken);
   });
 });

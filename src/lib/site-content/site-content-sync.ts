@@ -39,7 +39,7 @@ export type SiteContentSyncPlanItem = {
 
 export type ExistingSiteContentReleaseRecord = {
   logicalId: string;
-  targetPublicationId: string;
+  targetPublicationId: string | null;
   publicationFingerprint: string;
   contentHash: string;
   governanceFingerprint: string;
@@ -83,6 +83,7 @@ export type SiteContentSyncInput = {
   targetChangeEpoch: string;
   generationId: string;
   embedding: { model: string; dimensions: number; fingerprint: string };
+  retirementTargets?: readonly { logicalId: string; targetPublicationId: string }[];
   reconciliationPlanDigest?: string | null;
   actorId?: string;
   leaseToken?: string;
@@ -184,9 +185,9 @@ export function planSiteContentSync(input: SiteContentSyncInput): SiteContentSyn
     !input.embedding.model ||
     !input.embedding.fingerprint ||
     !Number.isInteger(input.embedding.dimensions) ||
-    input.embedding.dimensions <= 0
+    input.embedding.dimensions !== 1536
   ) {
-    throw new Error("Site-content embedding identity is invalid.");
+    throw new Error("Site-content embedding dimensions must be exactly 1536.");
   }
 
   const population = sorted([...input.staticRecords, ...input.dynamicRecords]);
@@ -198,6 +199,12 @@ export function planSiteContentSync(input: SiteContentSyncInput): SiteContentSyn
   const existingById = new Map(input.existingReleaseRecords.map((entry) => [entry.logicalId, entry]));
   if (existingById.size !== input.existingReleaseRecords.length) {
     throw new Error("Existing site-content release records contain duplicate logical ids.");
+  }
+  const retirementTargets = new Map(
+    (input.retirementTargets ?? []).map((entry) => [entry.logicalId, entry.targetPublicationId]),
+  );
+  if (retirementTargets.size !== (input.retirementTargets ?? []).length) {
+    throw new Error("Site-content retirement targets contain duplicate logical ids.");
   }
 
   const added: SiteContentSyncPlanItem[] = [];
@@ -211,7 +218,7 @@ export function planSiteContentSync(input: SiteContentSyncInput): SiteContentSyn
     }
     existingById.delete(source.record.logicalId);
     const exact =
-      existing.targetPublicationId === source.targetPublicationId &&
+      (existing.targetPublicationId ?? undefined) === source.targetPublicationId &&
       existing.contentHash === source.record.contentHash &&
       existing.publicationFingerprint === source.record.publicationVersion &&
       existing.governanceFingerprint === source.governanceFingerprint &&
@@ -247,20 +254,25 @@ export function planSiteContentSync(input: SiteContentSyncInput): SiteContentSyn
     changed.push(planItem(source, { reuseEmbedding: reusable, embedding: reusable ? existing.embedding : null }));
   }
 
-  const tombstones = sorted([...existingById.values()].filter((entry) => !entry.tombstone)).map((entry) => ({
-    logicalId: entry.logicalId,
-    normalizedText: "",
-    reuseEmbedding: false,
-    tombstone: true,
-    documentId: entry.documentId,
-    chunkId: entry.chunkId,
-    targetPublicationId: entry.targetPublicationId,
-    publicationFingerprint: entry.publicationFingerprint,
-    contentHash: entry.contentHash,
-    governanceFingerprint: entry.governanceFingerprint,
-    lineageFingerprint: entry.lineageFingerprint,
-    publicMetadataFingerprint: entry.publicMetadataFingerprint,
-  }));
+  const tombstones = sorted([...existingById.values()].filter((entry) => !entry.tombstone)).map((entry) => {
+    const targetPublicationId = retirementTargets.get(entry.logicalId) ?? entry.targetPublicationId;
+    retirementTargets.delete(entry.logicalId);
+    return {
+      logicalId: entry.logicalId,
+      normalizedText: "",
+      reuseEmbedding: false,
+      tombstone: true,
+      documentId: entry.documentId,
+      chunkId: entry.chunkId,
+      ...(targetPublicationId ? { targetPublicationId } : {}),
+      publicationFingerprint: entry.publicationFingerprint,
+      contentHash: entry.contentHash,
+      governanceFingerprint: entry.governanceFingerprint,
+      lineageFingerprint: entry.lineageFingerprint,
+      publicMetadataFingerprint: entry.publicMetadataFingerprint,
+    };
+  });
+  if (retirementTargets.size) throw new Error("Site-content retirement target does not identify a removed record.");
   const dynamicProjection = sorted(input.dynamicRecords).map(publicPopulationDigestProjection);
   const dynamicStateDigest = siteContentValueHash({
     version: "site-content-dynamic-state-v1",
