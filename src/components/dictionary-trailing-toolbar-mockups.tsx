@@ -182,11 +182,9 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
       <div className="relative overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]">
         <PhoneChrome>
           <div className="relative h-[30rem] overflow-y-auto pb-16">
-            <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-4">
-              <h3 className="min-w-0 truncate text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
-                Clinical terms
-              </h3>
-              <div className="flex shrink-0 items-center gap-1">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 px-3 pb-2 pt-4">
+              <h3 className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]">Clinical terms</h3>
+              <div className="ml-auto flex shrink-0 items-center gap-1">
                 <ScopeToggle scope={scope} termCount={termCount} onChange={setScope} />
                 <button
                   type="button"
