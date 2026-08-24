@@ -2,6 +2,17 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+import type { WorkspaceOverlayDefinition } from "./definitions";
+import {
+  clearStagedWorkspaceOverlayCommit,
+  commitForOpenOverlay,
+  commitUnavailableReasonFor,
+  noStagedWorkspaceOverlayCommit,
+  readStagedWorkspaceOverlayCommit,
+  stageWorkspaceOverlayCommit,
+  subscribeToStagedWorkspaceOverlayCommit,
+  type WorkspaceOverlayCommit,
+} from "./overlay-commits";
 import { OverlayHost } from "./overlay-host";
 
 /**
@@ -131,25 +142,81 @@ export function closeWorkspaceOverlay() {
   window.dispatchEvent(new Event(OVERLAY_URL_CHANGED_EVENT));
 }
 
+/**
+ * Opens an overlay AND states what confirming it does, in that order.
+ *
+ * This is the only way a control in the workspace opens an overlay: `commit` is
+ * required, so a control cannot raise a decision surface it has not wired
+ * (Ruling 87). `openWorkspaceOverlay` above stays available unchanged for the
+ * URL-only case its own tests cover, and is deliberately NOT the trigger's route.
+ *
+ * Staging first is the ordering `overlay-commits.ts` documents: both writes are
+ * synchronous, so the host's first render carrying the new id already carries its
+ * commit and never passes through a frame where the overlay is open with nothing
+ * staged.
+ */
+export function openWorkspaceOverlayWithCommit(id: string, commit: WorkspaceOverlayCommit) {
+  stageWorkspaceOverlayCommit(id, commit);
+  openWorkspaceOverlay(id);
+}
+
 export function WorkspaceOverlays() {
   const openOverlayId = useSyncExternalStore(subscribeToOverlayParam, readOverlayParam, noOverlayParam);
+  const slot = useSyncExternalStore(
+    subscribeToStagedWorkspaceOverlayCommit,
+    readStagedWorkspaceOverlayCommit,
+    noStagedWorkspaceOverlayCommit,
+  );
+
+  /**
+   * What the control that opened THIS overlay said confirming it does — or null,
+   * when nothing was staged for it and the decision therefore cannot be recorded.
+   */
+  const commit = commitForOpenOverlay(slot, openOverlayId);
+  const commitUnavailableReason = commitUnavailableReasonFor(commit);
 
   const close = useCallback(() => {
+    // A staged commit belongs to one open/close cycle. Clearing it here is what
+    // stops a forward traversal re-entering a dismissed overlay with a live
+    // confirm control the person never re-authorised.
+    clearStagedWorkspaceOverlayCommit();
     closeWorkspaceOverlay();
   }, []);
 
   /**
-   * Confirming an overlay closes it, and records nothing yet.
+   * Confirming an overlay records the decision the opening control stated, then
+   * closes it.
    *
-   * Stated plainly rather than left to look finished: the screens that raise
-   * these overlays, and the stores their decisions are written to, are later
-   * tasks. Nothing in the workspace opens an overlay yet either — `?overlay=<id>`
-   * is reachable only by typing it — so no control in the interface currently
-   * advertises an action this does not perform.
+   * The throw is not defensive padding. `commitUnavailableReason` is handed to the
+   * host, which refuses the action whenever it is non-null, so reaching here with
+   * no recordable commit means the refusal was not applied — and the failure that
+   * would otherwise follow is silent: a confirm control that appears to work and
+   * writes nothing, which is precisely the defect Ruling 87 exists to prevent.
+   * Loud is the conservative direction; nothing has been recorded at this point.
    */
-  const commit = useCallback(() => {
-    closeWorkspaceOverlay();
-  }, []);
+  const recordDecision = useCallback(
+    (definition: WorkspaceOverlayDefinition) => {
+      if (commit === null || commit.kind !== "record") {
+        throw new Error(
+          `The overlay "${definition.id}" was confirmed with no recordable commit staged for it. ` +
+            `A control must open an overlay through openWorkspaceOverlayWithCommit, and the host must ` +
+            `refuse the action whenever commitUnavailableReason is set (Ruling 87).`,
+        );
+      }
+      commit.record(definition.id);
+      clearStagedWorkspaceOverlayCommit();
+      closeWorkspaceOverlay();
+    },
+    [commit],
+  );
 
-  return <OverlayHost openOverlayId={openOverlayId} onClose={close} onCommit={commit} blockReason={null} />;
+  return (
+    <OverlayHost
+      openOverlayId={openOverlayId}
+      onClose={close}
+      onCommit={recordDecision}
+      blockReason={null}
+      commitUnavailableReason={commitUnavailableReason}
+    />
+  );
 }

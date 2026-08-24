@@ -62,6 +62,7 @@ function OverlayHarness({ overlayId }: { overlayId: string }) {
         onClose={() => setOpenOverlayId(null)}
         onCommit={noop}
         blockReason={null}
+        commitUnavailableReason={null}
       />
     </>
   );
@@ -76,7 +77,7 @@ describe("the overlay host", () => {
       ] as const) {
         setViewportWidth(width);
         const { unmount } = render(
-          <OverlayHost openOverlayId={definition.id} onClose={noop} onCommit={noop} blockReason={null} />,
+          <OverlayHost openOverlayId={definition.id} onClose={noop} onCommit={noop} blockReason={null} commitUnavailableReason={null} />,
         );
         const body = screen.getByTestId("workspace-overlay-content");
         expect(body, `${definition.id} at ${width}px`).toHaveAttribute("data-overlay-id", definition.id);
@@ -110,6 +111,7 @@ describe("the overlay host", () => {
           onClose={noop}
           onCommit={noop}
           blockReason="permission-unavailable"
+          commitUnavailableReason={null}
         />,
       );
       expect(
@@ -119,7 +121,7 @@ describe("the overlay host", () => {
       refused.unmount();
 
       const live = render(
-        <OverlayHost openOverlayId={definition.id} onClose={noop} onCommit={noop} blockReason={null} />,
+        <OverlayHost openOverlayId={definition.id} onClose={noop} onCommit={noop} blockReason={null} commitUnavailableReason={null} />,
       );
       if (definition.requiresFreshAuthentication) {
         await userEvent.click(screen.getByTestId("workspace-overlay-action"));
@@ -243,7 +245,7 @@ describe("the overlay host", () => {
       (definition) => definition.phoneModality === "bottom-sheet",
     );
     expect(bottomSheetRow, "the frozen table no longer has a bottom-sheet row").toBeDefined();
-    render(<OverlayHost openOverlayId={bottomSheetRow!.id} onClose={noop} onCommit={noop} blockReason={null} />);
+    render(<OverlayHost openOverlayId={bottomSheetRow!.id} onClose={noop} onCommit={noop} blockReason={null} commitUnavailableReason={null} />);
     expect(screen.getByTestId("workspace-overlay-content")).toHaveAttribute("data-overlay-modality", "bottom-sheet");
   });
 
@@ -263,7 +265,7 @@ describe("the overlay host", () => {
   it("keeps the session gate open through Escape", async () => {
     setViewportWidth(1440);
     const onClose = vi.fn();
-    render(<OverlayHost openOverlayId="session-expiry" onClose={onClose} onCommit={noop} blockReason={null} />);
+    render(<OverlayHost openOverlayId="session-expiry" onClose={onClose} onCommit={noop} blockReason={null} commitUnavailableReason={null} />);
     await userEvent.keyboard("{Escape}");
     // The `onClose` assertion is the discriminating one, and it is the only one here.
     // A second line asserting the content is still in the document was REMOVED (Minor 5,
@@ -282,7 +284,7 @@ describe("the overlay host", () => {
     // the opening focus lands on `document.body` -- on the ONE overlay a person cannot dismiss and
     // must act on, which a screen reader announces as nothing having happened at all.
     setViewportWidth(1440);
-    render(<OverlayHost openOverlayId="session-expiry" onClose={noop} onCommit={noop} blockReason={null} />);
+    render(<OverlayHost openOverlayId="session-expiry" onClose={noop} onCommit={noop} blockReason={null} commitUnavailableReason={null} />);
 
     const action = screen.getByTestId("workspace-overlay-action");
     await waitFor(() => expect(action).toHaveFocus());
@@ -291,7 +293,7 @@ describe("the overlay host", () => {
 
   it("never traps focus in the offline status banner", () => {
     setViewportWidth(1440);
-    render(<OverlayHost openOverlayId="offline-banner" onClose={noop} onCommit={noop} blockReason={null} />);
+    render(<OverlayHost openOverlayId="offline-banner" onClose={noop} onCommit={noop} blockReason={null} commitUnavailableReason={null} />);
     expect(screen.getByRole("status")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -299,7 +301,7 @@ describe("the overlay host", () => {
   it("commits a withdrawal only on the second activation", async () => {
     setViewportWidth(1440);
     const onCommit = vi.fn();
-    render(<OverlayHost openOverlayId="withdrawal" onClose={noop} onCommit={onCommit} blockReason={null} />);
+    render(<OverlayHost openOverlayId="withdrawal" onClose={noop} onCommit={onCommit} blockReason={null} commitUnavailableReason={null} />);
     await userEvent.click(screen.getByRole("button", { name: /withdraw/i }));
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.getByText(/fresh authentication checkpoint/i)).toBeInTheDocument();
@@ -311,7 +313,7 @@ describe("the overlay host", () => {
     setViewportWidth(1440);
     const onCommit = vi.fn();
     render(
-      <OverlayHost openOverlayId="pause" onClose={noop} onCommit={onCommit} blockReason="permission-unavailable" />,
+      <OverlayHost openOverlayId="pause" onClose={noop} onCommit={onCommit} blockReason="permission-unavailable" commitUnavailableReason={null} />,
     );
     const action = screen.getByRole("button", { name: /pause/i });
     expect(action).toHaveAttribute("aria-disabled", "true");
@@ -332,6 +334,7 @@ describe("the overlay host", () => {
         onClose={noop}
         onCommit={readOnlyCommit}
         blockReason="permission-unavailable"
+        commitUnavailableReason={null}
       />,
     );
     expect(screen.getByRole("button", { name: /close/i })).not.toHaveAttribute("aria-disabled");
