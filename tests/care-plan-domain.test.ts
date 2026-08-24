@@ -362,6 +362,47 @@ describe("Care Plan contact actions", () => {
     }
   });
 
+  /**
+   * The patient-field sweep above covers identity. This covers content: a
+   * contact URI must carry no sentence from any plan, any episode note, or any
+   * person's own safety-plan words either. Every patient is paired with every
+   * contact, so a signature that started taking a patient — the only way this
+   * could ever leak — is caught across the whole cross-product rather than for
+   * the one pairing somebody happened to write a case for.
+   */
+  it("carries no plan, episode, or safety-plan content in any contact URI, for any patient and contact pair", () => {
+    const sentences = [
+      ...syntheticManagementPlanVersions.flatMap((version) => Object.values(version.content).flat()),
+      ...syntheticEdPresentations.map((presentation) => presentation.note),
+      ...syntheticPersonalSafetyPlanVersions.flatMap((version) =>
+        Object.values(version.content)
+          .flat()
+          .map((entry) => (typeof entry === "string" ? entry : entry.name)),
+      ),
+    ]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      // Whole sentences would never collide by accident; the opening words are
+      // what a careless template interpolation would actually carry through.
+      .map((value) => value.split(/\s+/).slice(0, 6).join(" ").toLowerCase())
+      .filter((value) => value.length > 12);
+
+    expect(sentences.length, "no synthetic content was collected, so this would assert nothing").toBeGreaterThan(50);
+
+    for (const patient of syntheticPatients) {
+      for (const contact of syntheticCmhtContacts) {
+        // The builder takes a contact and nothing else, so the URI a patient's
+        // workspace can produce is exactly the contact-only output.
+        const built = buildCmhtMailto(contact);
+        expect(built).toBe(`mailto:${contact.sharedMailbox}?subject=Care+Plan+%E2%80%94+team+contact+request`);
+        for (const uri of [built, buildCmhtTel(contact), buildCmhtTel(contact, "after_hours")]) {
+          for (const sentence of sentences) {
+            expect(uri.toLowerCase(), `${patient.id} content reached ${uri}`).not.toContain(sentence);
+          }
+        }
+      }
+    }
+  });
+
   it("builds telephone intents from the displayed duty and after-hours numbers", () => {
     const contact = syntheticCmhtContacts[0]!;
     expect(buildCmhtTel(contact)).toBe(`tel:${contact.dutyTelephoneUri}`);

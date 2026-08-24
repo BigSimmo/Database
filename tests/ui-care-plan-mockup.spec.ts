@@ -192,7 +192,12 @@ async function expectSyntheticBoundary(page: Page) {
 async function expectPhoneDockClearance(page: Page, control: Locator) {
   const width = page.viewportSize()?.width ?? 0;
   if (width >= 768) return;
-  await control.scrollIntoViewIfNeeded();
+  // `block: "center"` rather than `scrollIntoViewIfNeeded`, which stops the
+  // moment the control is inside the viewport — including underneath the fixed
+  // dock. For a control near the end of the document, centring is the browser's
+  // maximum scroll, so this asks the question that matters: with the page
+  // scrolled as far as it goes, can a thumb still reach this?
+  await control.evaluate((element) => element.scrollIntoView({ block: "center" }));
   const [controlBox, dockBox] = await Promise.all([control.boundingBox(), phoneDock(page).boundingBox()]);
   expect(controlBox, "the control has no box to measure").not.toBeNull();
   expect(dockBox, "the phone dock has no box to measure").not.toBeNull();
@@ -768,7 +773,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
 
     await page.getByRole("link", { name: "Back to the Management Plan" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Management Plan" })).toBeVisible();
-    await page.getByRole("link", { name: /^Current Patient Plan version/ }).click();
+    await page.getByRole("link", { name: "Open the Patient Plan" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Patient Plan" })).toBeVisible();
 
     // Marked, fully readable, not regenerated, not hidden, not withdrawn.
@@ -821,7 +826,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await resolve.click();
     const sheet = page.getByRole("dialog", { name: "Record what was decided" });
     await expect(sheet).toBeVisible();
-    await expect(sheet).toContainText(/never changes a plan|A trigger never changes a plan/i);
+    await expect(sheet).toContainText(/It changes no plan and approves nothing/i);
     await page.keyboard.press("Escape");
     await expect(sheet).toBeHidden();
     await expect(resolve).toBeFocused();
@@ -838,8 +843,13 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     const record = page.getByRole("button", { name: /^Record that .* details were checked$/ }).first();
     await expect(record).toBeVisible();
     await record.click();
-    await expect(page.getByTestId("care-plan-reviews-outcome")).toBeVisible();
-    await expect(page.getByTestId("care-plan-reviews-outcome")).not.toContainText(/available|reachable|answered/i);
+    const outcome = page.getByTestId("care-plan-reviews-outcome");
+    await expect(outcome).toContainText(/recorded as checked/i);
+    // The claim it must never make. A bare `not.toContainText(/available/i)`
+    // would fail on the sentence that *denies* availability, which is the
+    // opposite of the thing being guarded.
+    await expect(outcome).toContainText(/not that the service is available/i);
+    await expect(outcome).not.toContainText(/\b(reachable|answered|delivered|got through|verified as available)\b/i);
   });
 
   test("recording an ED Presentation writes an episode and can raise a Review Trigger", async ({ page }) => {
@@ -1216,8 +1226,44 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await capture("forced-colours-management-plan", routes.managementPlan, "forced-colours");
     await page.emulateMedia({ forcedColors: "none" });
 
+    /*
+      The three printed papers, as text, exactly as they reach a reader.
+      Screenshots are visual evidence and prove nothing about wording; a
+      person's own copy is the surface where wording does the harm, and the
+      worst defect this project has produced was a heading on a patient's sheet
+      with `Not recorded` under it. Somebody has to be able to read the sheet.
+    */
+    async function capturePaper(name: string, route: string, heading: string) {
+      await gotoRoute(page, route, heading);
+      await page.emulateMedia({ media: "print" });
+      const paper = printPaper(page);
+      await expect(paper).toBeVisible();
+      writeFileSync(resolve(captureDirectory, `paper-${name}.txt`), `${(await paper.innerText()).trim()}\n`);
+      manifest.push({ file: `paper-${name}.txt`, route, note: "printed text" });
+      await page.emulateMedia({ media: "screen" });
+    }
+
+    await capturePaper("management-plan", routes.managementPlanPrint, "Print Management Plan");
+    await capturePaper("safety-plan", routes.safetyPlanPrint, "Print Personal Safety Plan");
+
+    // The patient copy has no fixture: it only exists once somebody makes one.
+    await gotoRoute(page, routes.patientPlan, "Patient Plan");
+    await page.getByRole("button", { name: "Create the patient copy" }).click();
+    await page.getByRole("link", { name: /Continue draft version|Write a new copy with this person/ }).click();
+    await fillEverySection(page);
+    await page.getByRole("button", { name: "Approve patient copy" }).click();
+    await page.getByRole("link", { name: "Print this copy" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Print Patient Plan" })).toBeVisible();
+    await page.emulateMedia({ media: "print" });
+    const patientPaper = printPaper(page);
+    await expect(patientPaper).toBeVisible();
+    writeFileSync(resolve(captureDirectory, "paper-patient-plan.txt"), `${(await patientPaper.innerText()).trim()}\n`);
+    manifest.push({ file: "paper-patient-plan.txt", route: routes.patientPlanPrint, note: "printed text" });
+    await page.emulateMedia({ media: "screen" });
+
     const images = readdirSync(captureDirectory).filter((name) => name.endsWith(".png"));
     expect(images.length).toBe(surfaces.length * 3 + 2);
+    expect(readdirSync(captureDirectory).filter((name) => name.startsWith("paper-"))).toHaveLength(3);
     writeFileSync(
       resolve(captureDirectory, "manifest.json"),
       `${JSON.stringify(
