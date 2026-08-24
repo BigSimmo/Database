@@ -118,9 +118,16 @@ export default async function CaringContactsPatientsPage({
     throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
   }
   // `listPlans` returns an array for every actor, empty where nothing is visible, so "denied" is
-  // not a reachable outcome for this read. A null release here would mean the store broke that
-  // contract -- fail closed rather than render a caseload from a missing answer.
-  const records = plansRead.released ?? [];
+  // not a reachable outcome for this read. A null release would mean the store broke that
+  // contract, and the ONLY honest response is the same one the service-state read above makes:
+  // throw. `?? []` was here first and was wrong in the one case the branch exists for -- it would
+  // have rendered "No patients yet" from an answer that was never given, which is a false
+  // statement about a caseload and exactly what Ruling 89 merged Task 4 to prevent. Unreachable
+  // under the contract; stated correctly anyway, because a branch that cannot run is still read.
+  if (plansRead.released === null) {
+    throw new Error("caring-contacts plans read returned no list.");
+  }
+  const records = plansRead.released;
 
   const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
 

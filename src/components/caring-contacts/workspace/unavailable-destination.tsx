@@ -29,8 +29,14 @@ export type UnavailableDestinationProps = {
  * reached by keyboard. The two attributes are never used together;
  * `eslint-rules/require-button-wiring.mjs` fails on the pair.
  *
- * This is the only client component the production workspace ships, which is
- * what keeps the route's client payload to a rounding error (Ruling 13).
+ * One of the five client components the production workspace ships — the others
+ * are `workspace-overlays.tsx`, `overlay-host.tsx`, `overlay-trigger.tsx` and
+ * `service-stop-scroll-watcher.tsx`. It used to say "the only" one, which was
+ * true when it was written and stopped being true as the overlay half landed;
+ * the count is stated here because three later files copied the claim rather
+ * than recounting. What keeps the route's client payload to a rounding error
+ * (Ruling 13) is that this set is small, shared, and does not grow per screen —
+ * not that it has one member.
  */
 export function UnavailableDestination({ id, label, reason, className, children }: UnavailableDestinationProps) {
   const noteId = `caring-contacts-unavailable-${id}`;

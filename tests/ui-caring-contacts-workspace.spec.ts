@@ -26,6 +26,29 @@ import { WORKSPACE_WIDTH_BREAKPOINTS, widthStateFor } from "../src/components/ca
  */
 
 const WORKSPACE_ROUTE = "/caring-contacts";
+const PATIENTS_ROUTE = `${WORKSPACE_ROUTE}/patients`;
+
+/**
+ * Every production screen this workspace serves, with the `h1` it must render.
+ *
+ * The header above states the rule this list exists to keep true: the adoption
+ * contract names this file as the sole evidence for all five proof categories of
+ * the `caring-contacts-workspace` surface, and a proof pointer at a suite that
+ * never visits a route is a red gate that has been silenced. Phase 2B Task 5
+ * added `/caring-contacts/patients` to that surface, so the accessibility-mode
+ * proofs below run against BOTH screens rather than against Today alone. A
+ * screen added to that surface without being added here is the same silenced
+ * gate wearing a newer date.
+ */
+const WORKSPACE_SCREENS = [
+  { name: "Today", route: WORKSPACE_ROUTE, heading: "Today" },
+  { name: "Patients", route: PATIENTS_ROUTE, heading: "Patients" },
+] as const;
+
+type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
+
+const TODAY_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[0];
+const PATIENTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[1];
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -37,16 +60,21 @@ const VIEWPORT_HEIGHT = 900;
  * before it existed is unchanged. The service-stop block below passes a shorter viewport for a
  * reason recorded there.
  */
-async function openWorkspace(page: Page, width: number, height: number = VIEWPORT_HEIGHT) {
+async function openWorkspace(
+  page: Page,
+  width: number,
+  height: number = VIEWPORT_HEIGHT,
+  screen: WorkspaceScreen = TODAY_SCREEN,
+) {
   await page.setViewportSize({ width, height });
-  await page.goto(WORKSPACE_ROUTE, { waitUntil: "load" });
+  await page.goto(screen.route, { waitUntil: "load" });
   // React streams the segment under `loading.tsx`'s Suspense boundary into a
   // hidden holder before moving it into place, so a production page sampled too
   // early carries a second, inert copy of the whole shell. Settle on exactly one
   // before measuring anything — and assert it, because a shell that genuinely
   // mounted twice would double every landmark on the page.
   await expect(page.getByTestId("caring-contacts-rail")).toHaveCount(1);
-  await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: screen.heading })).toBeVisible();
 }
 
 /** Horizontal overflow of the document against the viewport, in CSS pixels. */
@@ -204,6 +232,128 @@ test.describe("caring-contacts workspace shell", () => {
     await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Today" })).toBeVisible();
     expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+  });
+});
+
+/* ------------------------------------------------------------------------- *
+ * The Patients directory (Phase 2B Task 5) — the workspace's second production
+ * screen, and the reason this file could no longer prove only one route.
+ *
+ * `docs/design-system/adoption-contract.json` added
+ * `src/app/caring-contacts/patients/page.tsx` to the `caring-contacts-workspace`
+ * surface, whose five proof categories all cite this file and nothing else.
+ * Until this block existed, every one of those five was a claim about a route
+ * this suite had never loaded — a well-formed declaration certifying nothing,
+ * which is precisely the silenced gate the file header warns about. So the four
+ * accessibility-mode proofs are repeated here against the real screen rather
+ * than inherited from Today, and each asserts something that can actually fail.
+ *
+ * The demo store holds no plans (the in-memory repository seeds none), so this
+ * screen's honest state in a browser is the "no patients yet" empty state. That
+ * is not a fixture convenience: it is the empty-list contract observed end to
+ * end — an empty caseload served as a page rather than as a missing resource.
+ * ------------------------------------------------------------------------- */
+
+test.describe("caring-contacts patients directory", () => {
+  test("serves an empty caseload as a page, not a missing resource", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(PATIENTS_ROUTE, { waitUntil: "load" });
+
+    // The empty-list contract observed over HTTP rather than inferred from a
+    // render: `listPlans` returning `[]` is a permitted read that released
+    // something, so this is 200 and never the 404 a denied read would produce.
+    expect(response?.status(), "the patients route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: "Patients" })).toBeVisible();
+
+    // And the empty state states which of the three facts it is, in words.
+    const empty = page.getByRole("group", { name: "No patients yet" });
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText("referral");
+  });
+
+  test("holds the frozen layout at 320px, the narrowest reviewed width", async ({ page }) => {
+    await openWorkspace(page, 320, VIEWPORT_HEIGHT, PATIENTS_SCREEN);
+
+    expect(await documentOverflow(page), "horizontal document overflow at 320px").toBeLessThanOrEqual(2);
+    expect(await displayedWidthStates(page), "width state at 320px").toEqual([widthStateFor(320)]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+
+    // The state filter is a set of real links, and they meet the production tap
+    // floor at the width where a thumb is the only pointer. A chip narrowed to
+    // the generic 44px guidance fails here, which is the point.
+    const chip = page.getByRole("link", { name: "Active" });
+    await expect(chip).toBeVisible();
+    const box = await chip.boundingBox();
+    expect(box?.height ?? 0, "the state filter chip is under the production tap floor").toBeGreaterThanOrEqual(48);
+  });
+
+  test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENTS_SCREEN);
+    const light = await shellColours(page);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENTS_SCREEN);
+    const dark = await shellColours(page);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
+    expect(dark.marker, "synthetic marker ink did not change in dark").not.toBe(light.marker);
+    for (const value of Object.values(dark)) {
+      expect(value, "a dark colour resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+    await expect(page.getByRole("group", { name: "No patients yet" })).toBeVisible();
+  });
+
+  test("states the empty caseload in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, PATIENTS_SCREEN);
+
+    // Forced colours drop author backgrounds, so anything this screen said with
+    // a tint alone says nothing here. Both safeguards must survive in words.
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    const empty = page.getByRole("group", { name: "No patients yet" });
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText("referral");
+
+    // The empty state's own delimiter, the same assertion shape the synthetic
+    // marker uses above and for the same reason: forced colours drop the panel's
+    // author background, leaving the border as the only thing separating this
+    // statement from the page around it.
+    const border = await page.evaluate(() => {
+      const group = document.querySelector("[role='group'][aria-label='No patients yet']");
+      if (!group) throw new Error("the empty state is missing");
+      const style = getComputedStyle(group);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    });
+    expect(Number.parseFloat(border.width), "the empty state has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the empty state border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
+
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+  });
+
+  test("prints with the synthetic marker and the empty state still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENTS_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Patients" })).toBeVisible();
+    // A printed caseload that has lost the statement of WHY it is empty reads as
+    // a caseload of zero with no reason given.
+    await expect(page.getByRole("group", { name: "No patients yet" })).toBeVisible();
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+  });
+
+  test("is reachable from the workspace rail, not only by typing its URL", async ({ page }) => {
+    await openWorkspace(page, 1024);
+
+    await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Patients" }).click();
+
+    await expect(page.getByRole("heading", { level: 1, name: "Patients" })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe(PATIENTS_ROUTE);
   });
 });
 

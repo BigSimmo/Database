@@ -26,12 +26,15 @@ import type { PlanRecord, StoredContact } from "@/lib/caring-contacts/repository
 
 const TEAM = teamId("demo-team");
 
-function contact(sequence: number, options: { absorbed?: boolean } = {}): StoredContact {
+function contact(sequence: number, options: { absorbed?: boolean; suppressed?: boolean } = {}): StoredContact {
   return {
     contact: {
       id: contactId(`contact-${sequence}`),
       planId: planId("plan-1"),
-      state: "scheduled",
+      // Both stores write an absorbed contact straight into the terminal `suppressed` state so it
+      // can never be dispatched (in-memory-repository.ts, `createPlan`). The fixture matches the
+      // stores rather than the schedule, because the screen counts what the store holds.
+      state: options.absorbed || options.suppressed ? "suppressed" : "scheduled",
       version: 1,
     },
     planned: {
@@ -111,6 +114,46 @@ describe("Patients directory - the two empty states are not interchangeable", ()
     const empty = screen.getByRole("group", { name: /not visible in this role/i });
     expect(within(empty).getByText(/Why:/)).toBeInTheDocument();
     expect(within(empty).getByText(/What changes it:/)).toBeInTheDocument();
+    // The reason must not claim anything about how many plans exist: a read this role may not make
+    // and a team holding none are indistinguishable by design, and saying otherwise would leak the
+    // very thing the store withholds.
+    expect(empty.textContent ?? "").toMatch(/says nothing about how many/i);
+  });
+
+  // Ruling 93. Asserting that "What changes it:" is PRESENT is a shape check, and a shape check
+  // certifies a well-formed lie: the first version of this screen said "The role switcher changes
+  // which role you are acting in", and no role switcher exists anywhere in this workspace's
+  // interface. Spec 4.4 requires a remedy that can be REACHED, so the content is pinned here.
+  it("states a remedy that exists, and never names a control the workspace does not have", () => {
+    render(<PatientsDirectory records={[]} filter={ALL} mayViewPlans={false} />);
+    const empty = screen.getByRole("group", { name: /not visible in this role/i });
+    const text = empty.textContent ?? "";
+
+    expect(text).toMatch(/nothing on this screen changes it/i);
+    expect(text).toMatch(/no control for it anywhere in this workspace/i);
+    // The exact false claim this test was written to keep out.
+    expect(text).not.toMatch(/role switcher/i);
+  });
+
+  it("uses the not-permitted kind, so the icon does not report a search nobody ran", () => {
+    // Ruling 92: the words were honest under `"filtered"`, the TYPE and the ICON were not.
+    // `"filtered"` selects `SearchX`; this case must not.
+    const restricted = render(<PatientsDirectory records={[]} filter={ALL} mayViewPlans={false} />);
+    const restrictedIcon = restricted.container.querySelector("[role='group'] svg")?.getAttribute("class") ?? "";
+    restricted.unmount();
+
+    const filtered = render(
+      <PatientsDirectory
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={parsePatientsDirectoryFilter({ state: "paused" })}
+        mayViewPlans
+      />,
+    );
+    const filteredIcon = filtered.container.querySelector("[role='group'] svg")?.getAttribute("class") ?? "";
+
+    expect(restrictedIcon).not.toBe("");
+    expect(filteredIcon).not.toBe("");
+    expect(restrictedIcon, "the role-restricted empty state reuses the search icon").not.toBe(filteredIcon);
   });
 
   it("hides the filter controls entirely for a role that may not view plans", () => {
@@ -157,6 +200,27 @@ describe("Patients directory - rows", () => {
     expect(automated.querySelector("[title]")).toBeNull();
   });
 
+  it("explains a contact suppressed by the transition, which carries no schedule marker", () => {
+    // M-8: `planned.suppressed` marks only the schedule's own absorption. A contact moved to
+    // `suppressed` by `applyContactTransition` has no such marker, and counting the plan rather
+    // than the outcome left it with no explanation at all.
+    const record = planRecord({
+      id: "plan-1",
+      state: "active",
+      contacts: [contact(1), contact(2, { suppressed: true })],
+    });
+
+    render(<PatientsDirectory records={[record]} filter={ALL} mayViewPlans />);
+
+    const automated = screen.getByRole("group", { name: "Suppressed" });
+    expect(within(automated).getByText(/Why:/)).toBeInTheDocument();
+    expect(within(automated).getByText(/What changes it:/)).toBeInTheDocument();
+    // Not the Week 1 wording -- that reason is false for this contact.
+    expect(automated.textContent ?? "").not.toMatch(/Week 1/);
+    // And the remedy is honest about being final rather than inventing one.
+    expect(automated.textContent ?? "").toMatch(/final/i);
+  });
+
   it("says nothing about suppression when the system suppressed nothing", () => {
     render(<PatientsDirectory records={[planRecord({ id: "plan-1", state: "active" })]} filter={ALL} mayViewPlans />);
     expect(screen.queryByRole("group", { name: "Suppressed" })).toBeNull();
@@ -171,9 +235,12 @@ describe("Patients directory - rows", () => {
     expect(control).toHaveAttribute("title", expect.stringContaining("coming soon"));
     // Native `disabled` would remove the tab stop, so the stated reason could never be reached.
     expect(control).not.toHaveAttribute("disabled");
-    // And nothing on this screen links into the not-yet-built detail routes.
+    // And nothing on this screen links into the not-yet-built detail routes...
     for (const link of screen.getAllByRole("link")) {
       expect(link.getAttribute("href") ?? "").not.toMatch(/\/caring-contacts\/(patients\/[^?]|plans\/)/);
+      // ...nor reaches an internal route by a raw anchor. `data-internal-link` is the marker the
+      // shell test uses to tell a `<Link>` from an `<a href="/…">`, which render identically.
+      expect(link.getAttribute("data-internal-link"), `${link.getAttribute("href")} is not a <Link>`).toBe("true");
     }
   });
 

@@ -33,8 +33,14 @@ import { UnavailableDestination } from "./unavailable-destination";
  * would put a client boundary under the first screen every later list screen copies. So the state
  * filter is a set of `<Link>`s that change the URL, the identifier search is an ordinary
  * `method="get"` form, and the page -- a Server Component -- reads `searchParams` and filters
- * before rendering. Nothing here needs JavaScript to work, and the only client component in the
- * tree is `UnavailableDestination`, which was already the workspace's only one.
+ * before rendering. Nothing on this screen needs JavaScript to work, and it adds NO client
+ * component the workspace did not already ship: the only one it renders is `UnavailableDestination`,
+ * and the shell mounts `WorkspaceOverlays` (and `OverlayHost` beneath it) into every screen's tree
+ * regardless. Five client components exist in this workspace in total, which is the fact — "the
+ * workspace ships one client component" was a claim this file inherited from
+ * `unavailable-destination.tsx`, where it was true when written and had since stopped being so.
+ * The conclusion is unchanged and is the one that matters: adding this screen moved the client
+ * payload by nothing.
  *
  * Why the row's detail control is not a link
  * -----------------------------------------
@@ -123,9 +129,23 @@ function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-/** How many of a plan's contacts the schedule itself decided not to send. */
-function absorbedContactCount(record: PlanRecord): number {
-  return record.contacts.filter((stored) => stored.planned.suppressed?.reason === "absorbedByFirstContact").length;
+/**
+ * How many of a plan's contacts will not be sent because the system suppressed them.
+ *
+ * Keyed off the CONTACT's own state rather than off `planned.suppressed`. The two agree today,
+ * because the only suppression that exists so far is the schedule absorbing Week 1 into the first
+ * contact — but `applyContactTransition`'s `suppress` action can move any live contact to
+ * `suppressed` later, and a contact suppressed that way carries no `planned.suppressed` marker.
+ * Counting the plan rather than the outcome would have left those with no explanation at all,
+ * which is the one thing spec 4.4 does not allow a system-reached state to have.
+ */
+function suppressedContactCount(record: PlanRecord): number {
+  return record.contacts.filter((stored) => stored.contact.state === "suppressed").length;
+}
+
+/** True when the schedule itself absorbed a contact, which is a different reason from the above. */
+function hasAbsorbedContact(record: PlanRecord): boolean {
+  return record.contacts.some((stored) => stored.planned.suppressed?.reason === "absorbedByFirstContact");
 }
 
 const sectionId = "caring-contacts-patients-directory";
@@ -269,10 +289,10 @@ function DirectoryEmptyState({
   if (!mayViewPlans) {
     return (
       <ListEmptyState
-        kind="filtered"
+        kind="not-permitted"
         heading="Plans are not visible in this role"
-        because="Viewing plans is not part of the role you are acting in, so this list can only ever be empty here. It says nothing about how many plans this team holds."
-        changedBy="Acting in a role that includes viewing plans. The role switcher changes which role you are acting in; a coordinator sees this team's plans."
+        because="Viewing plans is not part of the role you are acting in. This says nothing about how many plans this team holds: a read you may not make and a team holding none look identical on purpose, so that nobody can find out a record exists by being refused it."
+        changedBy="Nothing on this screen changes it, and there is no control for it anywhere in this workspace yet. The role this demonstration acts in is set outside the interface; a coordinator sees this team's plans."
       />
     );
   }
@@ -327,8 +347,8 @@ function hiddenBecause(total: number, filter: PatientsDirectoryFilter): string {
 }
 
 function PatientRow({ record }: { record: PlanRecord }) {
-  const absorbed = absorbedContactCount(record);
-  const scheduled = record.contacts.length - absorbed;
+  const suppressed = suppressedContactCount(record);
+  const scheduled = record.contacts.length - suppressed;
 
   return (
     <li className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 forced-colors:border-[CanvasText]">
@@ -351,27 +371,48 @@ function PatientRow({ record }: { record: PlanRecord }) {
             {plural(scheduled, "message in the schedule", "messages in the schedule")}
           </p>
         </div>
+        {/*
+          `label` is a destination NOUN, not an instruction. `UnavailableDestination` builds its
+          screen-reader note as "<label> is not built yet.", so a verb phrase there produced
+          "Open patient-plan-1 is not built yet." The visible text carries the identifier so that
+          one row's control is still distinguishable from the next.
+        */}
         <UnavailableDestination
           id={`patient-row-${record.plan.id}`}
-          label={`Open ${record.patientId}`}
+          label={`The patient record for ${record.patientId}`}
           reason="Every contact in this plan, what has been sent, and the decisions still waiting."
           className={rowActionClass}
-        />
+        >
+          <span className="truncate">Patient record &mdash; {record.patientId}</span>
+        </UnavailableDestination>
       </div>
 
       {/*
         Spec 4.4: a state the system reached on its own must state, in place, why and what would
-        change it. `schedule.ts` keeps one message rather than sending two on one calendar day, so
-        a plan whose first contact lands on the Week 1 date carries nine sends, not ten. The row
-        would otherwise show a smaller number with no reachable reason for it.
+        change it. A suppressed contact is one the system decided not to send, and the row would
+        otherwise show a smaller message count with no reachable reason for it.
+
+        Two reasons exist and they have different remedies, so they are not blurred into one
+        sentence. The schedule absorbing Week 1 into the first contact is reversible by the
+        coordinator; any other suppression is terminal (`suppressed` is in the contact model's
+        terminal set), and this row does not hold the record of what caused it — so it says that,
+        rather than inventing a remedy or naming a screen that does not exist yet.
       */}
-      {absorbed > 0 ? (
+      {suppressed > 0 ? (
         <div className="mt-3 min-w-0">
-          <AutomatedState
-            state="Suppressed"
-            because="The Week 1 message falls on the same calendar day as this plan's first contact, and two caring contacts must never land on one day, so the schedule kept one of them."
-            changedBy="Choosing a different first-contact date for this plan puts the Week 1 message back into the schedule."
-          />
+          {hasAbsorbedContact(record) ? (
+            <AutomatedState
+              state="Suppressed"
+              because="The Week 1 message falls on the same calendar day as this plan's first contact, and two caring contacts must never land on one day, so the schedule kept one of them."
+              changedBy="Choosing a different first-contact date for this plan puts the Week 1 message back into the schedule."
+            />
+          ) : (
+            <AutomatedState
+              state="Suppressed"
+              because={`The system marked ${plural(suppressed, "message", "messages")} in this plan suppressed, so ${suppressed === 1 ? "it will" : "they will"} not be sent. This row does not hold what caused it.`}
+              changedBy="Nothing here. A suppressed message is final and is never sent later; the plan continues with the messages that remain."
+            />
+          )}
         </div>
       ) : null}
     </li>

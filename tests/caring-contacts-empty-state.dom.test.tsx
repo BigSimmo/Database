@@ -163,3 +163,73 @@ describe("ListEmptyState — rendering", () => {
     }
   });
 });
+
+describe("ListEmptyState — not-permitted (Ruling 92)", () => {
+  it("states a reason and a remedy, the same shape as filtered", () => {
+    const { container } = render(
+      <ListEmptyState
+        kind="not-permitted"
+        heading="Plans are not visible in this role"
+        because="Viewing plans is not part of the role you are acting in."
+        changedBy="Nothing on this screen changes it."
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Plans are not visible in this role" })).toBeInTheDocument();
+    expect(container.textContent ?? "").toContain("Why:");
+    expect(container.textContent ?? "").toContain("What changes it:");
+  });
+
+  it("never claims records exist, and never claims none do", () => {
+    // The whole reason this kind exists: an actor without the capability and a team holding
+    // nothing are answered identically by the stores, so this state may assert neither.
+    const { container } = render(
+      <ListEmptyState
+        kind="not-permitted"
+        heading="Plans are not visible in this role"
+        because="Viewing plans is not part of the role you are acting in."
+        changedBy="Nothing on this screen changes it."
+      />,
+    );
+    // `"no-data"`'s wording shape must not leak in — it would state a caseload of zero.
+    expect(container.textContent ?? "").not.toMatch(/\byet\b/);
+  });
+
+  it("does NOT reuse the search icon, which would report a search nobody ran", () => {
+    // The icon is part of what states the difference wordlessly (this component's own rule), so
+    // an icon shared with `"filtered"` is a false statement made without words.
+    const filtered = render(
+      <ListEmptyState kind="filtered" heading="No patients match" because="A filter." changedBy="Clear it." />,
+    );
+    const filteredIcon = filtered.container.querySelector("svg")?.getAttribute("class") ?? "";
+    filtered.unmount();
+
+    const restricted = render(
+      <ListEmptyState
+        kind="not-permitted"
+        heading="Plans are not visible in this role"
+        because="Not part of this role."
+        changedBy="Nothing here."
+      />,
+    );
+    const restrictedIcon = restricted.container.querySelector("svg")?.getAttribute("class") ?? "";
+
+    expect(filteredIcon).not.toBe("");
+    expect(restrictedIcon).not.toBe("");
+    expect(restrictedIcon, "not-permitted reuses filtered's icon").not.toBe(filteredIcon);
+  });
+
+  it("keeps the icon decorative and the group named, like every other kind", () => {
+    const { container } = render(
+      <ListEmptyState
+        kind="not-permitted"
+        heading="Plans are not visible in this role"
+        because="Not part of this role."
+        changedBy="Nothing here."
+      />,
+    );
+    const icons = container.querySelectorAll("svg");
+    expect(icons).toHaveLength(1);
+    expect(icons[0].getAttribute("aria-hidden")).toBe("true");
+    expect(container.firstElementChild!.className).toContain("forced-colors:border-[CanvasText]");
+  });
+});

@@ -158,7 +158,9 @@ describe("caring-contacts workspace shell", () => {
       (control) => destinationKind(control) === "unavailable",
     );
     // Two unbuilt rail destinations, one more on the phone bar, plus the More panel.
-    expect(unavailable.length).toBeGreaterThanOrEqual(3);
+    // The floor stays at 5: it was written as a floor rather than a count, the exact count is
+    // asserted above, and lowering a floor a change did not breach is loosening for its own sake.
+    expect(unavailable.length).toBeGreaterThanOrEqual(5);
     for (const control of unavailable) expectStatesItsReason(control);
   });
 
