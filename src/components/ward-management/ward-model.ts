@@ -30,14 +30,6 @@ export type DeclineReason = (typeof DECLINE_REASONS)[number];
 /** Referring to more than three units at once spams wards and erodes trust between services. */
 export const PARALLEL_REFERRAL_CAP = 3;
 
-/**
- * A Form 1A referral must carry an explicit expiry. In this synthetic model a
- * newly raised referral uses the Mental Health Act's seven-day outer limit;
- * production form capture must always use the expiry recorded on the actual
- * approved form rather than treating this demo default as clinical advice.
- */
-export const FORM_1A_REFERRAL_EXPIRY_MINUTES = 7 * 24 * 60;
-
 export type LegalStatus =
   "Voluntary" | "Referred for psychiatric examination" | "Detained awaiting examination" | "Involuntary inpatient";
 

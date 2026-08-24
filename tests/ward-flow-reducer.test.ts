@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
-import { FORM_1A_REFERRAL_EXPIRY_MINUTES } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
