@@ -208,10 +208,18 @@ describe("shared header hide/reveal wiring", () => {
     expect(shellSource).toContain("usePhoneOverlayChromeReserve()");
     expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h)]");
     // Both hosts overlay their phone chrome, so both publish and consume the
-    // reserve. The dashboard's answer mode keeps its own glass-bar reserve on
-    // <main>, so its clearance is scoped to the other modes.
+    // reserve. Answer *results* keep the glass-bar pad on <main>. Answer *home*
+    // on phones uses the same overlay token as every other overlay home so the
+    // idle cluster is not double-padded against a second 4rem+safe-area floor.
     expect(dashboardCoordinatorSource).toContain("usePhoneOverlayChromeReserve()");
-    expect(dashboardSource).toContain('searchMode !== "answer" && "max-sm:pt-[var(--phone-overlay-chrome-h)]"');
+    expect(dashboardSource).toContain('searchMode === "answer" && compactMobileModeHome');
+    expect(dashboardSource).toContain(
+      '"max-sm:pt-[var(--phone-overlay-chrome-h)] sm:pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] sm:[scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"',
+    );
+    expect(dashboardSource).toContain(
+      '"pt-[calc(4rem+max(0.5rem,env(safe-area-inset-top)))] [scroll-padding-top:calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]"',
+    );
+    expect(dashboardSource).toContain(': "max-sm:pt-[var(--phone-overlay-chrome-h)]"');
     expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
     // The property must be seeded in CSS and refined before paint. A passive
     // effect or a `,0px` fallback paints content under the out-of-flow header
