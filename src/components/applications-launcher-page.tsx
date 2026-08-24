@@ -20,6 +20,7 @@ import { cardInteractive, cardSelected, cardSelectedDanger, focusRing } from "@/
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero } from "@/components/mode-home-template";
+import { ShowAllChip } from "@/components/show-all-chip";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
@@ -834,25 +835,13 @@ export function ApplicationsLauncherWorkspace({
           headingLevel={1}
         />
 
-        <Link
+        <ShowAllChip
           href="/tools"
-          aria-label="Show all tools"
-          data-testid="tools-show-all"
-          className={cn(
-            "group inline-flex min-h-tap items-center justify-center text-[color:var(--clinical-accent)] lg:min-h-9",
-            focusRing,
-          )}
-        >
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:color-mix(in_srgb,var(--clinical-accent)_14%,var(--surface))] pl-1 pr-3 text-xs font-semibold tracking-[-0.01em] transition group-hover:bg-[color:color-mix(in_srgb,var(--clinical-accent)_20%,var(--surface))] sm:text-sm">
-            <span
-              data-testid="tools-show-all-well"
-              className="grid size-7 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
-            >
-              <Grid2X2 className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
-            </span>
-            {copy.showAllLabel}
-          </span>
-        </Link>
+          icon={Grid2X2}
+          label={copy.showAllLabel}
+          ariaLabel="Show all tools"
+          testId="tools-show-all"
+        />
 
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot
