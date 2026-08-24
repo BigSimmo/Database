@@ -29,6 +29,7 @@ describe("isInformationPage", () => {
     expect(isInformationPage("/specifiers/builder")).toBe(false);
     expect(isInformationPage("/formulation/compare")).toBe(false);
     expect(isInformationPage("/factsheets/search")).toBe(false);
+    expect(isInformationPage("/factsheets/topics")).toBe(false);
     expect(isInformationPage("/dictionary/search")).toBe(false);
     expect(isInformationPage("/dictionary/topics")).toBe(false);
     expect(isInformationPage("/documents/search")).toBe(false);

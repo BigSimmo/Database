@@ -10,7 +10,7 @@ Future patient-content work **extends the existing Factsheets reading model** (E
 
 | Piece                       | Location / behaviour                                                             |
 | --------------------------- | -------------------------------------------------------------------------------- |
-| Mode home / search / detail | `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                        |
+| Mode home / search / detail | `/factsheets`, `/factsheets/topics`, `/factsheets/search`, `/factsheets/[slug]`  |
 | Reading levels              | `easy` \| `standard` toggle on med-rich detail (`factsheet-detail-page.tsx`)     |
 | Content fields              | `whatEasy` / `whatStandard` (and related section bodies) in `factsheets-data.ts` |
 | Presentation contracts      | Existing accessibility, print/PDF, and theme tokens on the Factsheets surface    |

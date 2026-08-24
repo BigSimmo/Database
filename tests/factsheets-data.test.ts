@@ -6,6 +6,7 @@ import {
   factsheets,
   factsheetSlugs,
   featuredFactsheetSlugs,
+  factsheetsGroupedByCategory,
   filterFactsheets,
   findFactsheet,
   printBlocks,
@@ -61,6 +62,15 @@ describe("factsheet library", () => {
   it("resolves every featured slug to a real sheet", () => {
     for (const slug of featuredFactsheetSlugs) {
       expect(findFactsheet(slug)).toBeDefined();
+    }
+  });
+
+  it("groups the library into the four topic categories without dropping sheets", () => {
+    const groups = factsheetsGroupedByCategory();
+    expect(groups.map((group) => group.category)).toEqual([...factsheetCategories]);
+    expect(groups.reduce((count, group) => count + group.sheets.length, 0)).toBe(factsheets.length);
+    for (const group of groups) {
+      expect(group.sheets.every((sheet) => sheet.category === group.category)).toBe(true);
     }
   });
 

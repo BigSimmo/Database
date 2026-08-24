@@ -47,6 +47,7 @@ describe("PageSecondaryNavigation", () => {
     "/dsm/search",
     "/dsm/compare",
     "/factsheets/search",
+    "/factsheets/topics",
   ])("does not treat %s as locally owned information navigation", (pathname) => {
     expect(hasLocalInformationPageNavigation(pathname)).toBe(false);
   });
@@ -137,10 +138,17 @@ describe("PageSecondaryNavigation", () => {
       "href",
       "/factsheets/search?q=sertraline&category=Medicines&run=1",
     );
-    // Topics is the mode home — the shared lightweight one since `/factsheets`
-    // became a redirect. It reads neither param, and carries no focus=1 either:
-    // autofocusing the composer there would open the phone keyboard unbidden.
-    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/?mode=factsheets");
+    // Topics is the category browse. It reads neither param, and carries no
+    // focus=1 either: autofocusing the composer there would open the phone
+    // keyboard unbidden.
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("href", "/factsheets/topics");
+  });
+
+  it("marks Topics current on the category browse page", () => {
+    render(<PageSecondaryNavigation modeId="factsheets" pathname="/factsheets/topics" hasSubmittedSearch={false} />);
+    expect(screen.getByRole("link", { name: "Topics" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("href", "/factsheets/search");
+    expect(screen.getByRole("link", { name: "Search" })).not.toHaveAttribute("aria-current");
   });
 
   it("keeps the newly adopted factsheets bar off its record routes", () => {

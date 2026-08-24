@@ -281,8 +281,8 @@ describe("header addon slot ownership", () => {
     // in-flow strip.
     //
     // `factsheets` left this list when it gained a real second destination:
-    // `/factsheets` (browse) and `/factsheets/search` are separate components,
-    // so it was a port rather than a deletion.
+    // `/factsheets/topics` (browse) and `/factsheets/search` are separate
+    // components, so it was a port rather than a deletion.
     for (const modeId of ["documents", "answer", "prescribing", "tools"] as const) {
       expect(modeSecondaryNavigationEntries(modeId)).toEqual([]);
       expect([...MODE_NAV_ADOPTED_MODES]).not.toContain(modeId);

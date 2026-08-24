@@ -116,9 +116,10 @@ const routeDescriptions: Record<string, string> = {
   "/dsm/diagnoses/[slug]": "DSM diagnosis criteria and information.",
   "/dsm/diagnoses/[slug]/differentials": "DSM diagnosis differential considerations.",
   "/dsm/search": "DSM diagnosis search and catalogue browser.",
-  "/factsheets": "Patient information factsheets home and topic browser.",
+  "/factsheets": "Compatibility redirect to the shared Factsheets home.",
   "/factsheets/[slug]": "Plain-language patient factsheet reading and printable handout view.",
   "/factsheets/search": "Patient information factsheet search command centre.",
+  "/factsheets/topics": "Patient information factsheets organised by topic.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
@@ -505,7 +506,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("factsheets"),
       search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
       detail:
-        "`/factsheets/search` is also a query-free browse surface linked from the mode nav; `/factsheets/[slug]` records.",
+        "`/factsheets/topics` organises the library by category; `/factsheets/search` is the query-and-filter surface; `/factsheets/[slug]` records.",
     },
     {
       mode: "Dictionary",

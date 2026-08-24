@@ -649,6 +649,14 @@ export function factsheetSlugs(): string[] {
   return factsheets.map((sheet) => sheet.slug);
 }
 
+/** Category-ordered groups for the Topics browse page. */
+export function factsheetsGroupedByCategory(): Array<{ category: FactsheetCategory; sheets: Factsheet[] }> {
+  return factsheetCategories.map((category) => ({
+    category,
+    sheets: factsheets.filter((sheet) => sheet.category === category),
+  }));
+}
+
 /** Server-driven filter for the search page: optional query + optional category. */
 export function filterFactsheets(query: string, category?: string): Factsheet[] {
   const q = query.trim().toLowerCase();

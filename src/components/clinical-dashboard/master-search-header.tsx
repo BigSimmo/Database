@@ -778,8 +778,7 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "factsheets-browse") {
-      onSearchModeChange("factsheets");
-      onQueryChange("");
+      router.push("/factsheets/topics");
       return;
     }
     if (actionId === "dictionary-search") {
