@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 109,
+    "pending": 112,
     "resolved": 376
   },
   "queue": [
@@ -1104,6 +1104,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "7698edb7-af3e-4618-97f6-b70f74b803fb",
+      "action": "cancel",
+      "summary": "Cancel request fa89c68a-3769-483f-9670-900012471425: Superseded by 977ad2ec-5dcf-49ee-aa87-018ddc6fb366, the replacement #JVYQEM done request queued on this branch. Both close the same mode-home composer-reserve CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "77aec421-1595-4307-aaf1-447ec5414cbd",
       "action": "cancel",
       "summary": "Cancel request 7b276d24-acb7-423a-9730-6fc4dca309ce: Superseded after independent final review found an unmeasured 1024-1279px boundary. The replacement done request carries the production 1024/1025/1279 pre/post evidence and bounded 1279.98px correction.",
@@ -1398,6 +1404,12 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "f2cbf1f2-e5cb-4a05-a73e-e3c740fae534",
+      "action": "cancel",
+      "summary": "Cancel request 4e1ffb03-9151-4c88-a414-659a804b6a42: Superseded by f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1, the replacement #K9XD5N done request queued on this branch. Both close the same DegradedNotice CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1",
       "action": "done",
       "summary": "#K9XD5N: Resolved: Implemented stable layout container for DegradedNotice / offline notices preventing hero section layout shift (~0.16 CLS) on / during online/offline state transitions.",
@@ -1438,6 +1450,12 @@
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: a central generator guard requires exactly seven boolean checks, all true for reviewed; display-approved public reviewer attribution with placeholder, email, account-handle, phone and obvious private-identifier rejection; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata but rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows the fields governed by every check, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, has no batch/yes/answer/provider/production path, and rolls the canonical source plus every generator-owned fixed or content-addressed asset back to exact pre-review bytes if generation, checking or I/O fails. ReviewStatus is closed to reviewed or needs_review. Focused evidence: Therapy workflow tests 50/50 passed including deterministic partial-generation failure and byte-exact rollback; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; clinical-proof previously passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fe8fcfbf-8d4b-4bc0-9606-afe09ae7736c",
+      "action": "cancel",
+      "summary": "Cancel request 6d5512aa-1337-470c-98ab-4116a4143393: Superseded by fb387f38-d049-4320-9f6e-a7d2b068641e, the replacement #308 done request queued on this branch. Both close the same documents/search composer-reserve CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
     }
   ]
 }
