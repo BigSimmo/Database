@@ -4,12 +4,15 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { AUTOMATED_REPLY_RESPONSE, EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
 import { PROVISIONAL_MESSAGE_RULES } from "@/lib/caring-contacts/message-rules";
 import {
   calculateGsm7,
+  resolveClosingContactMessageBody,
   validateGovernedMessage,
   type GovernedMessageInput,
 } from "@/lib/caring-contacts/message-policy";
+import { DESIGNATED_FICTIONAL_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 const rules = PROVISIONAL_MESSAGE_RULES;
 
@@ -132,30 +135,240 @@ describe("rule 3: prohibited-term", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Rule 3b — fictional-contact-detail-present (Ruling 79 / item A1, 2026-08-24)
+//
+// "Fictional" is deliberately NOT in prohibitedTerms: both approved patient-visible messages
+// contain "Fictional Support Line" today, so that would make every existing message invalid and
+// the check would have to be disabled to ship -- a disabled check is worse than no check. Instead
+// this issue is always reported unless the caller explicitly acknowledges the number is synthetic,
+// so the day a real send path is built, someone must consciously pass a flag whose name says it is
+// synthetic, or remove the fictional numbers. See docs/caring-contacts/phase-2b-sdd-archive/
+// task-c-brief.md, "A1".
+// ---------------------------------------------------------------------------
+
+describe("rule 3b: fictional-contact-detail-present", () => {
+  it("fails with exactly that issue code when the fictional crisis contact is present and unacknowledged", () => {
+    const input: GovernedMessageInput = { text: rules.crisisSupportContact, messageType: "standard" };
+    const result = validateGovernedMessage(input);
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("passes the same message when syntheticFictionalContactsAcknowledged is true", () => {
+    const input: GovernedMessageInput = {
+      text: rules.crisisSupportContact,
+      messageType: "standard",
+      syntheticFictionalContactsAcknowledged: true,
+    };
+    expect(validateGovernedMessage(input)).toEqual({ valid: true });
+  });
+
+  it("does not raise the issue for a message with no fictional contact marker, acknowledged or not", () => {
+    const plain: GovernedMessageInput = { text: "Thinking of you today.", messageType: "standard" };
+    expect(validateGovernedMessage(plain)).toEqual({ valid: true });
+    expect(validateGovernedMessage({ ...plain, syntheticFictionalContactsAcknowledged: true })).toEqual({
+      valid: true,
+    });
+  });
+
+  it("the two approved patient-visible messages pass once the fictional-contact acknowledgement is given", () => {
+    // The prototype's real callers: both approved messages name the fictional numbers on purpose
+    // (see message-copy.ts), so both must pass validateGovernedMessage only when the caller
+    // explicitly acknowledges that -- never silently.
+    for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
+      const unacknowledged = validateGovernedMessage({ text, messageType: "standard" });
+      expect(unacknowledged.valid).toBe(false);
+      if (unacknowledged.valid) throw new Error("unreachable");
+      expect(unacknowledged.issues).toContainEqual({ code: "fictional-contact-detail-present" });
+
+      expect(
+        validateGovernedMessage({ text, messageType: "standard", syntheticFictionalContactsAcknowledged: true }).valid,
+      ).toBe(true);
+    }
+  });
+
+  // Fix round 1 (promoted finding): the original marker was `crisisSupportContact.split(":")[0]`,
+  // i.e. the LABEL "Fictional Support Line" only. A message carrying the bare reserved NUMBER with
+  // no label raised nothing -- exactly the shape that would reach a real sender. The marker is now
+  // a pattern matching "Fictional" (any case) OR any reserved fictional number from
+  // synthetic-contacts.ts, so either half alone is still caught.
+  it("still refuses a relabelled crisis contact that keeps both 'Fictional' and the number", () => {
+    const text = "Fictional Support Line (24h): +61 491 570 158";
+    const result = validateGovernedMessage({ text, messageType: "standard" });
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("still refuses a reordered crisis contact with no colon after the label", () => {
+    const text = "+61 491 570 158 (Fictional Support Line)";
+    const result = validateGovernedMessage({ text, messageType: "standard" });
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("refuses the bare reserved number with the 'Fictional' label removed entirely -- the dangerous shape", () => {
+    const text = "Call +61 491 570 158 for support.";
+    const result = validateGovernedMessage({ text, messageType: "standard" });
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("refuses a message carrying any one of the four reserved fictional numbers, labelled or not", () => {
+    for (const number of DESIGNATED_FICTIONAL_MOBILE_NUMBERS) {
+      const result = validateGovernedMessage({ text: `Reach out on ${number}.`, messageType: "standard" });
+      expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+    }
+  });
+
+  it("all of the above pass once acknowledged", () => {
+    for (const text of [
+      "Fictional Support Line (24h): +61 491 570 158",
+      "+61 491 570 158 (Fictional Support Line)",
+      "Call +61 491 570 158 for support.",
+    ]) {
+      expect(
+        validateGovernedMessage({ text, messageType: "standard", syntheticFictionalContactsAcknowledged: true }),
+      ).toEqual({ valid: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rule 3c — B2 (2026-08-24, fix round 1): "lead" refuses by default, exempting only a closed
+// set of job titles
+//
+// `lowerText.includes("lead")` also matches the ordinary English "the incident lead" and "the
+// clinical programme lead" -- job titles that appear in the service-stop wording -- which would
+// reject a message for using a word correctly.
+//
+// The FIRST version of this fix was itself defective: it allowlisted nine commercial
+// modifiers/companions ("sales lead", "lead generation", ...), and commercial vocabulary is
+// open-ended, so anything not on that list passed silently ("lead nurturing", "lead magnet",
+// "qualify this lead", ...). Fix round 1 inverts it: "lead"/"leads" is refused by default (a
+// whole-word match), and only the closed, small set of job titles this domain actually uses is
+// exempted -- "incident lead", "programme lead", "clinical lead", "team lead", "service lead".
+// That set is closed in a way commercial phrasing for "lead" never is.
+//
+// Only this one term is narrowed; every other prohibited term keeps its deliberate substring
+// behaviour (several are multi-word phrases whose substring matching is intentional). See
+// docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md, "B2", and task-c-report.md's
+// "fix round 1" section.
+// ---------------------------------------------------------------------------
+
+describe('rule 3c: "lead" refuses by default, exempting only known job titles (B2)', () => {
+  it("accepts every job title in the closed exemption set", () => {
+    for (const text of [
+      "Please contact the incident lead for an update.",
+      "This was escalated to the programme lead.",
+      "This was escalated to the clinical programme lead.",
+      "Speak to the clinical lead about this.",
+      "The team lead approved the change.",
+      "Contact the service lead for details.",
+    ]) {
+      expect(validateGovernedMessage({ text, messageType: "standard" })).toEqual({ valid: true });
+    }
+  });
+
+  it("rejects open-ended commercial/CRM phrasing that a fixed allowlist would have missed", () => {
+    // Every one of these was newly PERMITTED by the fix-round-1 review's allowlist version of
+    // this override -- none of them contain "sales", "marketing", "generation", "conversion", or
+    // any of the other nine modifiers/companions that version enumerated.
+    for (const text of [
+      "We are focused on lead nurturing this quarter.",
+      "Check out our new lead magnet.",
+      "The lead source was social media.",
+      "Update the leads database today.",
+      "Our lead gen numbers are strong.",
+      "Please qualify this lead.",
+      "Please convert the lead.",
+      "This lead is hot.",
+      "Reach out to your lead.",
+      // Still rejects the phrasings the original (allowlist) version DID catch, too.
+      "Following up on your sales lead from last week.",
+      "This campaign generated 50 new leads.",
+      "Our lead generation numbers are up this quarter.",
+      // "lead score" (no "g") -- the allowlist version's "scoring?" alternative matched
+      // "scoring" but not "score", missing this exact phrase. Confirms the typo did not survive
+      // the inversion: there is no companion-word list left to carry it.
+      "This platform assigns a lead score to every contact.",
+    ]) {
+      const result = validateGovernedMessage({ text, messageType: "standard" });
+      expect(result.valid).toBe(false);
+      if (result.valid) throw new Error("unreachable");
+      expect(result.issues).toContainEqual({ code: "prohibited-term", term: "lead" });
+    }
+  });
+
+  it('pins the override map to exactly one entry -- "lead" -- so a future override for another term cannot land unnoticed', () => {
+    expect(Object.keys(rules.prohibitedTermPatternOverrides)).toEqual(["lead"]);
+  });
+
+  it("leaves every OTHER prohibited term's substring behaviour exactly as it was", () => {
+    // One case per term (excluding "lead", covered above), because narrowing one term is
+    // precisely the change most likely to quietly widen what the rest of the list allows.
+    const exampleTextByTerm: Record<string, string> = {
+      "high risk": "This patient is at high risk today.",
+      // "safe" as a substring of "unsafe" -- proves substring matching, not word-boundary matching.
+      safe: "The unsafe practice was flagged.",
+      "engagement score": "Your engagement score has changed.",
+      campaign: "Part of a campaign this month.",
+      // "conversion" as a substring of "reconversion" -- same proof.
+      conversion: "The reconversion rate improved.",
+      "best match": "This is the best match available.",
+      inbox: "Check your inbox for updates.",
+      conversation: "Let's have a conversation about this.",
+    };
+    for (const term of rules.prohibitedTerms) {
+      if (term === "lead") continue; // deliberately narrowed above -- not part of this proof
+      const text = exampleTextByTerm[term];
+      if (text === undefined) {
+        throw new Error(`no example text seeded for prohibited term ${JSON.stringify(term)} in this test`);
+      }
+      const result = validateGovernedMessage({ text, messageType: "standard" });
+      expect(result.valid).toBe(false);
+      if (result.valid) throw new Error("unreachable");
+      expect(result.issues).toContainEqual({ code: "prohibited-term", term });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Rule 4 — a first message must carry full support information
 // ---------------------------------------------------------------------------
 
 describe("rule 4: first-message-missing-support-information", () => {
   it("passes a first message that contains the programme line, hours, emergency direction, and a crisis contact", () => {
-    const input: GovernedMessageInput = { text: compliantFirstMessage, messageType: "first" };
+    const input: GovernedMessageInput = {
+      text: compliantFirstMessage,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    };
     expect(validateGovernedMessage(input)).toEqual({ valid: true });
   });
 
   it("fails when the programme line is missing", () => {
     const text = [rules.operatingHours, rules.emergencyDirection, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first" });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
   it("fails when the hours are missing", () => {
     const text = [rules.programmeLine, rules.emergencyDirection, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first" });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
   it("fails when the emergency direction is missing", () => {
     const text = [rules.programmeLine, rules.operatingHours, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first" });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
@@ -177,13 +390,21 @@ describe("rule 4: first-message-missing-support-information", () => {
 
 describe("rule 5: closing-message-missing-ending-statement / closing-message-missing-support-information", () => {
   it("passes a closing message with the ending statement, programme line, and crisis contact", () => {
-    const input: GovernedMessageInput = { text: compliantClosingMessage, messageType: "closing" };
+    const input: GovernedMessageInput = {
+      text: compliantClosingMessage,
+      messageType: "closing",
+      syntheticFictionalContactsAcknowledged: true,
+    };
     expect(validateGovernedMessage(input)).toEqual({ valid: true });
   });
 
   it("fails with closing-message-missing-ending-statement when the final-message statement is absent", () => {
     const text = [rules.programmeLine, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "closing" });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "closing",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({
       valid: false,
       issues: [{ code: "closing-message-missing-ending-statement" }],
@@ -192,7 +413,11 @@ describe("rule 5: closing-message-missing-ending-statement / closing-message-mis
 
   it("fails with closing-message-missing-support-information when the programme line is absent", () => {
     const text = [rules.closingStatement, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "closing" });
+    const result = validateGovernedMessage({
+      text,
+      messageType: "closing",
+      syntheticFictionalContactsAcknowledged: true,
+    });
     expect(result).toEqual({
       valid: false,
       issues: [{ code: "closing-message-missing-support-information" }],
@@ -221,17 +446,87 @@ describe("rule 5: closing-message-missing-ending-statement / closing-message-mis
 });
 
 // ---------------------------------------------------------------------------
+// Rule 5b — resolveClosingContactMessageBody (item A4, 2026-08-24)
+//
+// No closing message has ever been written -- that wording is a clinical decision deferred to a
+// lived-experience representative, not an implementation gap. This is the refusal ONLY: no
+// closing-message wording is drafted here or anywhere in this task. See
+// docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md, "A4".
+// ---------------------------------------------------------------------------
+
+describe("rule 5b: resolveClosingContactMessageBody / closing-message-body-not-authored", () => {
+  it("refuses with its own identifiable reason when no authored body exists", () => {
+    expect(resolveClosingContactMessageBody(undefined)).toEqual({
+      ok: false,
+      issue: { code: "closing-message-body-not-authored" },
+    });
+  });
+
+  it("refuses the same way for an empty or whitespace-only authored body -- never an empty string, never silent", () => {
+    expect(resolveClosingContactMessageBody("")).toEqual({
+      ok: false,
+      issue: { code: "closing-message-body-not-authored" },
+    });
+    expect(resolveClosingContactMessageBody("   ")).toEqual({
+      ok: false,
+      issue: { code: "closing-message-body-not-authored" },
+    });
+  });
+
+  it("does not refuse a closing contact that does have an authored body", () => {
+    const result = resolveClosingContactMessageBody(compliantClosingMessage);
+    expect(result).toEqual({ ok: true, body: compliantClosingMessage });
+  });
+
+  it("never falls back to the ordinary (non-closing) message text", () => {
+    // A body-not-authored refusal must never resolve to some other message's text -- it has no
+    // `body` field on the failure branch at all.
+    const result = resolveClosingContactMessageBody(undefined);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result).not.toHaveProperty("body");
+  });
+
+  it("is a different failure from closing-message-missing-ending-statement (missing body vs. wrong body)", () => {
+    // A body that EXISTS but is wrong (lacks the required ending statement) is caught later, by
+    // validateGovernedMessage, with a different code -- proving the two failures are distinguishable.
+    const noBody = resolveClosingContactMessageBody(undefined);
+    expect(noBody).toEqual({ ok: false, issue: { code: "closing-message-body-not-authored" } });
+
+    const wrongBody = "Some closing text with no ending statement.";
+    const resolved = resolveClosingContactMessageBody(wrongBody);
+    expect(resolved).toEqual({ ok: true, body: wrongBody });
+    const validated = validateGovernedMessage({ text: wrongBody, messageType: "closing" });
+    expect(validated).toEqual({
+      valid: false,
+      issues: [
+        { code: "closing-message-missing-ending-statement" },
+        { code: "closing-message-missing-support-information" },
+      ],
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Rule 6 — a patient mobile number must never appear in the message
 // ---------------------------------------------------------------------------
 
 describe("rule 6: contains-patient-mobile", () => {
   it("fails when the message contains the patient's mobile number", () => {
+    // +61 491 570 006 is deliberately one of synthetic-contacts.ts's four reserved fictional
+    // numbers (miraPatientMobile) -- since fix round 1, that means it ALSO trips
+    // fictional-contact-detail-present (A1), because the marker pattern covers "every reserved
+    // number", not just the crisis/staffed-line ones. Both codes are correct here; this proves
+    // the two rules coexist rather than one silently masking the other.
     const input: GovernedMessageInput = {
       text: "Call us back on +61 491 570 006 any time.",
       messageType: "standard",
       patientMobileNumber: "+61 491 570 006",
     };
-    expect(validateGovernedMessage(input)).toEqual({ valid: false, issues: [{ code: "contains-patient-mobile" }] });
+    expect(validateGovernedMessage(input)).toEqual({
+      valid: false,
+      issues: [{ code: "fictional-contact-detail-present" }, { code: "contains-patient-mobile" }],
+    });
   });
 
   it("passes when the patient's mobile number is known but absent from the text", () => {
