@@ -13,14 +13,11 @@ import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
+import { deriveGovernanceColumns, type RegistryRecordKind } from "@/lib/registry-records";
 import {
-  deriveGovernanceColumns,
-  rowGovernance,
-  type RegistryRecordKind,
-  type RegistryRecordRow,
-} from "@/lib/registry-records";
-import { mergeRegistryRecordWithDefault } from "@/lib/registry-seed";
-import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -197,10 +194,10 @@ export async function GET(request: Request) {
           governance: { sourceStatus: derived.source_status, validationStatus: derived.validation_status },
         };
       }),
-      mapRecord: (raw) => {
-        const row = raw as unknown as RegistryRecordRow;
-        return { record: mergeRegistryRecordWithDefault(kind, row), governance: rowGovernance(row) };
-      },
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as ServiceRecord,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+      }),
     });
     const records = canonical.records.map((entry) => entry.record);
     const governanceBySlug = Object.fromEntries(

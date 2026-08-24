@@ -117,7 +117,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { limited?: boolean } = {}) {
+function createSupabaseMock(
+  resolve: QueryResolver = () => ok([]),
+  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
@@ -138,7 +141,11 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
           ],
           error: null,
         }
-      : ok([{ initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } }]),
+      : ok(
+          options.canonicalRows ?? [
+            { initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } },
+          ],
+        ),
   );
   return {
     calls,
@@ -196,6 +203,45 @@ afterEach(() => {
 });
 
 describe("registry records API", () => {
+  it("serves initialized service and form final render bytes with canonical governance", async () => {
+    for (const kind of ["service", "form"] as const) {
+      const renderPayload = {
+        slug: `released-${kind}`,
+        title: `Released ${kind}`,
+        subtitle: `Canonical ${kind}`,
+        statusChips: [{ label: "Released", tone: "success" }],
+        summaryCards: [{ id: "baseline-card", label: "Baseline", title: "Forced current baseline" }],
+        catalogPayload: { actSections: [{ section: "1", title: "Current Act section" }] },
+        tags: [kind],
+        catchments: ["Western Australia"],
+      };
+      const client = createSupabaseMock(undefined, {
+        canonicalRows: [
+          {
+            initialized: true,
+            record: { sourceStatus: "review_due", validationStatus: "approved" },
+            render_payload: renderPayload,
+            snapshot: { state: "current" },
+          },
+        ],
+      });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/registry/records/route");
+      const response = await GET(request(`/api/registry/records?kind=${kind}`));
+      const payload = (await response.json()) as {
+        records: unknown[];
+        governance: Record<string, unknown>;
+      };
+      expect(payload.records).toEqual([renderPayload]);
+      expect(payload.governance[`released-${kind}`]).toEqual({
+        sourceStatus: "review_due",
+        validationStatus: "approved",
+        lastReviewedAt: null,
+        reviewDueAt: null,
+      });
+    }
+  });
+
   it("serves a counts-only summary projection for mode homes", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });

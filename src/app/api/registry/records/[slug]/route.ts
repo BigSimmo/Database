@@ -11,15 +11,12 @@ import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
+import { deriveGovernanceColumns, normalizeRegistrySlug } from "@/lib/registry-records";
 import {
-  deriveGovernanceColumns,
-  normalizeRegistrySlug,
-  rowGovernance,
-  type RegistryRecordRow,
-} from "@/lib/registry-records";
-import { mergeRegistryRecordWithDefault } from "@/lib/registry-seed";
-import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
-import { getServiceRecord } from "@/lib/services";
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
+import { getServiceRecord, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery } from "@/lib/validation/query";
@@ -95,14 +92,11 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       kind,
       slug: normalizedSlug,
       seeds: seed ? [seed] : [],
-      mapRecord: (raw) => {
-        const row = raw as unknown as RegistryRecordRow;
-        return {
-          record: mergeRegistryRecordWithDefault(kind, row),
-          governance: rowGovernance(row),
-          linkedDocuments: [],
-        };
-      },
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as ServiceRecord,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+        linkedDocuments: [],
+      }),
     });
     const payload = canonical.records[0];
     if (!payload) return notFoundResponse(normalizedSlug);

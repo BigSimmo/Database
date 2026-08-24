@@ -6,14 +6,8 @@ import {
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
-import {
-  deriveGovernanceFromSnapshot,
-  rowGovernance,
-  rowToDifferentialRecord,
-  rowToPresentationWorkflow,
-  type DifferentialRecordKind,
-  type DifferentialRecordRow,
-} from "@/lib/differential-records";
+import { deriveGovernanceFromSnapshot, type DifferentialRecordKind } from "@/lib/differential-records";
+import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import { loadDifferentialSnapshot } from "@/lib/differential-seed";
 import {
   differentialRecords,
@@ -26,7 +20,10 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
-import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
+import {
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
@@ -126,10 +123,10 @@ export async function GET(request: Request) {
             validationStatus: seedGovernance.validation_status,
           },
         })),
-        mapRecord: (raw) => {
-          const row = raw as unknown as DifferentialRecordRow;
-          return { workflow: rowToPresentationWorkflow(row), governance: rowGovernance(row) };
-        },
+        mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+          workflow: finalRenderPayload as unknown as DifferentialPresentationWorkflow,
+          governance: canonicalSiteContentGovernance(canonicalRecord),
+        }),
       });
       const presentations = canonical.records.map((entry) => entry.workflow);
       const ranked = q ? rankPresentationWorkflows(presentations, q, limit) : null;
@@ -152,10 +149,10 @@ export async function GET(request: Request) {
         record,
         governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },
       })),
-      mapRecord: (raw) => {
-        const row = raw as unknown as DifferentialRecordRow;
-        return { record: rowToDifferentialRecord(row), governance: rowGovernance(row) };
-      },
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as DifferentialRecord,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+      }),
     });
     const records = canonical.records.map((entry) => entry.record);
     const ranked = q ? rankDifferentialRecords(records, q, limit) : null;

@@ -2,6 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { australianSourceCatalogue } from "@/lib/australian-source-catalogue";
+import { formRecords } from "@/lib/forms";
+import { serviceRecords } from "@/lib/services";
 
 const schema = readFileSync(new URL("../supabase/schema.sql", import.meta.url), "utf8").replace(/\s+/g, " ");
 const documentIndexUnitsMigration = readFileSync(
@@ -1224,10 +1226,11 @@ describe("Supabase schema Data API grants", () => {
 });
 
 describe("site-content publication and release control plane", () => {
-  const migration = readFileSync(
+  const migrationRaw = readFileSync(
     new URL("../supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql", import.meta.url),
     "utf8",
-  ).replace(/\s+/g, " ");
+  );
+  const migration = migrationRaw.replace(/\s+/g, " ");
 
   it("keeps legacy owner rows as drafts and creates an ownerless public head", () => {
     expect(migration).toContain("create table public.site_content_publications");
@@ -1251,6 +1254,24 @@ describe("site-content publication and release control plane", () => {
     expect(migration).toContain(
       "revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role",
     );
+  });
+
+  it("pins the exact current P03 registry baseline for SQL null and forced-field merging", () => {
+    const match = migrationRaw.match(
+      /\$site_content_registry_baselines\$([\s\S]*?)\$site_content_registry_baselines\$/,
+    );
+    expect(match).not.toBeNull();
+    if (!match) return;
+    const sqlBaselines = JSON.parse(match[1]!) as Record<string, unknown>;
+    const expected = Object.fromEntries([
+      ...serviceRecords.map((record) => [`service:${record.slug}`, record] as const),
+      ...formRecords.map((record) => [`form:${record.slug}`, record] as const),
+    ]);
+    expect(sqlBaselines).toEqual(expected);
+    expect(migration).toContain("create or replace function public.site_content_registry_source_render(");
+    expect(migration).toContain("p_kind <> 'form' and p_row->'summary_cards' is distinct from 'null'::jsonb");
+    expect(migration).toContain("v_baseline#>'{catalogPayload,actSections}'");
+    expect(migration).toContain("create or replace function public.site_content_compact_text(p_parts text[]");
   });
 
   it("atomically advances the epoch, pending head, and ordered outbox", () => {

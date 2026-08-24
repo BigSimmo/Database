@@ -429,7 +429,10 @@ export async function readCanonicalSiteContentRecords<T>(input: {
   kind: string;
   slug: string | null;
   seeds: readonly T[];
-  mapRecord?: (record: Record<string, unknown>) => T;
+  mapRecord?: (representation: {
+    canonicalRecord: Record<string, unknown>;
+    finalRenderPayload: Record<string, unknown>;
+  }) => T;
 }): Promise<{ records: T[]; source: "canonical_public" | "seed_uninitialized"; snapshot: unknown | null }> {
   const { data, error } = await callRpc(input.supabase as RpcClient, "read_site_content_public_records", {
     p_kind: input.kind,
@@ -452,12 +455,39 @@ export async function readCanonicalSiteContentRecords<T>(input: {
     return { records: seeds, source: "seed_uninitialized", snapshot };
   }
   const records = rows.flatMap((row) => {
-    const record = row.render_payload ?? row.record;
-    if (!record || typeof record !== "object" || Array.isArray(record)) return [];
-    const mapped = input.mapRecord ? input.mapRecord(record as Record<string, unknown>) : (record as T);
+    const canonicalRecord = row.record;
+    const finalRenderPayload = input.mapRecord ? row.render_payload : (row.render_payload ?? canonicalRecord);
+    if (!finalRenderPayload || typeof finalRenderPayload !== "object" || Array.isArray(finalRenderPayload)) return [];
+    if (
+      input.mapRecord &&
+      (!canonicalRecord || typeof canonicalRecord !== "object" || Array.isArray(canonicalRecord))
+    ) {
+      return [];
+    }
+    const mapped = input.mapRecord
+      ? input.mapRecord({
+          canonicalRecord: canonicalRecord as Record<string, unknown>,
+          finalRenderPayload: finalRenderPayload as Record<string, unknown>,
+        })
+      : (finalRenderPayload as T);
     return [publicProjection(mapped) as T];
   });
   return { records, source: "canonical_public", snapshot };
+}
+
+export function canonicalSiteContentGovernance(canonicalRecord: Record<string, unknown>) {
+  const sourceStatus = canonicalRecord.sourceStatus;
+  const validationStatus = canonicalRecord.validationStatus;
+  return {
+    sourceStatus:
+      sourceStatus === "current" || sourceStatus === "review_due" || sourceStatus === "outdated"
+        ? sourceStatus
+        : "unknown",
+    validationStatus:
+      validationStatus === "approved" || validationStatus === "locally_reviewed" ? validationStatus : "unverified",
+    lastReviewedAt: null,
+    reviewDueAt: null,
+  } as const;
 }
 
 export type SiteContentPublicationCommand = {

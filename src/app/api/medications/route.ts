@@ -10,13 +10,7 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { defaultMedicationRecords } from "@/lib/medication-seed";
-import {
-  medicationSourceStatus,
-  medicationValidationStatus,
-  rowGovernance,
-  rowToMedicationRecord,
-  type MedicationRecordRow,
-} from "@/lib/medication-records";
+import { medicationSourceStatus, medicationValidationStatus } from "@/lib/medication-records";
 import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
 import {
   medicationBrandNames,
@@ -25,7 +19,10 @@ import {
   type MedicationSearchMatch,
 } from "@/lib/medications";
 import { publicAccessContext } from "@/lib/public-api-access";
-import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
+import {
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
@@ -194,10 +191,10 @@ export async function GET(request: Request) {
           validationStatus: medicationValidationStatus("locally_reviewed"),
         },
       })),
-      mapRecord: (raw) => {
-        const row = raw as unknown as MedicationRecordRow;
-        return { record: rowToMedicationRecord(row), governance: rowGovernance(row) };
-      },
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as MedicationRecord,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+      }),
     });
     const fullRecords = canonical.records.map((entry) => entry.record);
     const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;

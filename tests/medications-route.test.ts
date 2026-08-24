@@ -105,7 +105,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { limited?: boolean } = {}) {
+function createSupabaseMock(
+  resolve: QueryResolver = () => ok([]),
+  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
@@ -126,7 +129,11 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
           ],
           error: null,
         }
-      : ok([{ initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } }]),
+      : ok(
+          options.canonicalRows ?? [
+            { initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } },
+          ],
+        ),
   );
   return {
     calls,
@@ -186,6 +193,41 @@ afterEach(() => {
 });
 
 describe("medications API", () => {
+  it("serves initialized medication render bytes without raw-row conversion loss", async () => {
+    const renderPayload = {
+      slug: "released-medication",
+      name: "Released medication",
+      class: "Canonical class",
+      subclass: "Canonical subclass",
+      category: "Canonical category",
+      accent: "#123456",
+      tag: "Released",
+      schedule: "S4",
+      stats: [{ label: "Dose", value: "Exact" }],
+      sections: [{ title: "Use", type: "table", rows: [{ key: "Indication", val: "Exact bytes" }] }],
+      quick: [{ label: "Check", value: "Canonical" }],
+    };
+    const client = createSupabaseMock(undefined, {
+      canonicalRows: [
+        {
+          initialized: true,
+          record: { sourceStatus: "current", validationStatus: "locally_reviewed" },
+          render_payload: renderPayload,
+          snapshot: { state: "current" },
+        },
+      ],
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/route");
+    const response = await GET(request("/api/medications"));
+    const payload = (await response.json()) as { records: unknown[]; governance: Record<string, unknown> };
+    expect(payload.records).toEqual([renderPayload]);
+    expect(payload.governance[renderPayload.slug]).toMatchObject({
+      sourceStatus: "current",
+      validationStatus: "locally_reviewed",
+    });
+  });
+
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });

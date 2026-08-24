@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-24T04:15:04.805Z",
+  "generated_at": "2026-08-24T04:48:48.365Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "933b913c1e62ef2b39e78027e81ec831931ee6cc57c64c0d76d83b3bc3165fa6",
-  "replay_seconds": 17,
+  "schema_sha256": "279204517b6aaf6adc2316d783074a2172933b440c452d2f4784a0b2e19cc4c3",
+  "replay_seconds": 19,
   "snapshot": {
     "views": [
       {
@@ -8615,8 +8615,8 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "18bdaeff73448ca66ec10496b07933a3",
-        "signature": "public.site_content_compact_text(text,integer)"
+        "def_hash": "68693de63a73a5fde6cfcb5cab6ab4d6",
+        "signature": "public.site_content_compact_text(text[],integer)"
       },
       {
         "acl": [
@@ -8685,6 +8685,20 @@
         "acl": [
           "postgres=X/postgres"
         ],
+        "def_hash": "655c850c55052d5614d04ebd8ae7e575",
+        "signature": "public.site_content_registry_baseline(text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "6a58177cad8e4d87bbb61bbcc31a2b25",
+        "signature": "public.site_content_registry_source_render(text,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
         "def_hash": "891198594ae0c041445356b0366de7a0",
         "signature": "public.site_content_release_digest(uuid)"
       },
@@ -8699,7 +8713,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "451a9ad3819b8845731f2c685c193d40",
+        "def_hash": "8d5b9768712f7e156a7f4c77f2e8a73f",
         "signature": "public.site_content_source_projection(text,uuid)"
       },
       {

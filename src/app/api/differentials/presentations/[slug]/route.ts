@@ -5,21 +5,18 @@ import {
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
-import {
-  deriveGovernanceFromSnapshot,
-  normalizeDifferentialSlug,
-  rowGovernance,
-  rowToDifferentialRecord,
-  rowToPresentationWorkflow,
-  type DifferentialRecordRow,
-} from "@/lib/differential-records";
+import { deriveGovernanceFromSnapshot, normalizeDifferentialSlug } from "@/lib/differential-records";
+import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import { loadDifferentialSnapshot } from "@/lib/differential-seed";
 import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
-import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
+import {
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -101,10 +98,10 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
             },
           ]
         : [],
-      mapRecord: (raw) => {
-        const row = raw as unknown as DifferentialRecordRow;
-        return { workflow: rowToPresentationWorkflow(row), governance: rowGovernance(row) };
-      },
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        workflow: finalRenderPayload as unknown as DifferentialPresentationWorkflow,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+      }),
     });
     const payload = presentation.records[0];
     if (!payload) return notFoundResponse(normalizedSlug);
@@ -113,7 +110,9 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       kind: "differential",
       slug: null,
       seeds: snapshot.diagnoses.map((record) => ({ record })),
-      mapRecord: (raw) => ({ record: rowToDifferentialRecord(raw as unknown as DifferentialRecordRow) }),
+      mapRecord: ({ finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as DifferentialRecord,
+      }),
     });
     const diagnosisBySlug = new Map(diagnosisPopulation.records.map(({ record }) => [record.slug, record]));
     const { workflow } = payload;

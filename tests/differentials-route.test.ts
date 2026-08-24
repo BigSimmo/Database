@@ -79,7 +79,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
+function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { canonicalRows?: unknown[] } = {}) {
   const calls: QueryCall[] = [];
   const from = vi.fn((table: string) => {
     const call: QueryCall = { table, filters: [], inFilters: [], maybeSingle: false };
@@ -99,7 +99,11 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([])) {
     rpc: vi.fn(async (name: string) =>
       name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
         ? ok([{ limited: false, limit_value: 120, remaining: 119, retry_after_seconds: 60 }])
-        : ok([{ initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } }]),
+        : ok(
+            options.canonicalRows ?? [
+              { initialized: false, record: null, render_payload: null, snapshot: { state: "unavailable" } },
+            ],
+          ),
     ),
   };
 }
@@ -110,6 +114,7 @@ function mockRuntime(
 ) {
   vi.resetModules();
   vi.doMock("@/lib/env", () => ({
+    env: {},
     isDemoMode: () => Boolean(options.demoMode),
     isLocalNoAuthMode: () => Boolean(options.demoMode),
   }));
@@ -145,6 +150,64 @@ afterEach(() => {
 });
 
 describe("differentials API routes", () => {
+  it("serves initialized diagnosis and presentation payloads without expecting a raw payload wrapper", async () => {
+    const cases = [
+      {
+        kind: "diagnosis",
+        key: "records",
+        renderPayload: {
+          slug: "released-diagnosis",
+          title: "Released diagnosis",
+          status: "must-not-miss",
+          subtitle: "Canonical subtitle",
+          clinicalHinge: "Exact hinge",
+          safetySnapshot: { summary: "Exact safety", tags: ["urgent"] },
+          sections: [{ title: "Features", tone: "overlap", items: ["Exact item"] }],
+          related: [],
+        },
+      },
+      {
+        kind: "presentation",
+        key: "presentations",
+        renderPayload: {
+          id: "released-presentation",
+          title: "Released presentation",
+          sourceTitle: "Canonical source",
+          scopeLabel: "Exact scope",
+          titleAliases: ["Alias"],
+          status: "current",
+          subtitle: "Canonical subtitle",
+          selectedCount: 1,
+          totalCount: 1,
+          safetySnapshot: { summary: "Exact safety", tags: ["urgent"] },
+          criteria: [],
+          candidates: [],
+          reviewChecklist: [],
+          highestUrgencyNote: "Exact urgency",
+          sourceStatus: "current",
+        },
+      },
+    ] as const;
+    for (const item of cases) {
+      const client = createSupabaseMock(undefined, {
+        canonicalRows: [
+          {
+            initialized: true,
+            record: { sourceStatus: "current", validationStatus: "approved" },
+            render_payload: item.renderPayload,
+            snapshot: { state: "current" },
+          },
+        ],
+      });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/differentials/route");
+      const response = await GET(request(`/api/differentials?kind=${item.kind}`));
+      const payload = (await response.json()) as Record<string, unknown>;
+      expect({ status: response.status, payload }).toMatchObject({ status: 200, payload: { publicAccess: true } });
+      expect(payload[item.key]).toEqual([item.renderPayload]);
+    }
+  });
+
   it("does not expose an authenticated owner's unpublished diagnosis row", async () => {
     const diagnosis = {
       slug: "owner-diagnosis",

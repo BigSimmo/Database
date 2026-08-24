@@ -9,15 +9,13 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { getMedicationRecord } from "@/lib/medication-snapshot";
-import {
-  deriveGovernanceFromSections,
-  normalizeMedicationSlug,
-  rowGovernance,
-  rowToMedicationRecord,
-  type MedicationRecordRow,
-} from "@/lib/medication-records";
+import { deriveGovernanceFromSections, normalizeMedicationSlug } from "@/lib/medication-records";
 import { publicAccessContext } from "@/lib/public-api-access";
-import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
+import {
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
+import type { MedicationRecord } from "@/lib/medications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -89,10 +87,10 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       kind: "medication",
       slug: normalizedSlug,
       seeds: seed ? [seed] : [],
-      mapRecord: (raw) => {
-        const row = raw as unknown as MedicationRecordRow;
-        return { record: rowToMedicationRecord(row), governance: rowGovernance(row) };
-      },
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as MedicationRecord,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+      }),
     });
     const payload = canonical.records[0];
     if (!payload) return notFoundResponse(normalizedSlug);

@@ -24,6 +24,8 @@ describe("canonical site-content publication reads", () => {
     for (const route of routes) {
       const source = readFileSync(route, "utf8");
       expect(source).toContain("readCanonicalSiteContentRecords");
+      expect(source).toContain("finalRenderPayload");
+      expect(source).not.toMatch(/rowTo(?:DifferentialRecord|PresentationWorkflow|MedicationRecord)|RegistryRecordRow/);
       expect(source).not.toMatch(
         /\.from\(["'](?:clinical_registry_records|medication_records|differential_records)["']\)/,
       );
@@ -46,6 +48,59 @@ describe("canonical site-content publication reads", () => {
     expect(bodies[1]).toEqual(bodies[2]);
     expect(JSON.stringify(bodies[0])).not.toMatch(/owner|publishedBy|must-not-leak/i);
     expect(bodies[0].records).toEqual([{ slug: "canonical", title: "Canonical" }]);
+  });
+
+  it("keeps immutable canonical records separate from final render payloads at the mapper boundary", async () => {
+    const record = {
+      logicalId: "differentials:diagnosis:delirium",
+      sourceStatus: "current",
+      validationStatus: "approved",
+    };
+    const renderPayload = {
+      slug: "delirium",
+      title: "Delirium",
+      clinicalHinge: "Acute and fluctuating attention",
+      sections: [{ title: "Features", items: ["Inattention"] }],
+    };
+    const result = await readCanonicalSiteContentRecords({
+      supabase: {
+        rpc: vi.fn(async () => ({
+          data: [{ initialized: true, record, render_payload: renderPayload, snapshot: { state: "current" } }],
+          error: null,
+        })),
+      },
+      kind: "differential",
+      slug: "delirium",
+      seeds: [],
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload,
+        governance: {
+          sourceStatus: canonicalRecord.sourceStatus,
+          validationStatus: canonicalRecord.validationStatus,
+        },
+      }),
+    });
+
+    expect(result.records).toEqual([
+      {
+        record: renderPayload,
+        governance: { sourceStatus: "current", validationStatus: "approved" },
+      },
+    ]);
+
+    const missingFinalRender = await readCanonicalSiteContentRecords({
+      supabase: {
+        rpc: vi.fn(async () => ({
+          data: [{ initialized: true, record, snapshot: { state: "current" } }],
+          error: null,
+        })),
+      },
+      kind: "differential",
+      slug: "delirium",
+      seeds: [],
+      mapRecord: ({ finalRenderPayload }) => finalRenderPayload,
+    });
+    expect(missingFinalRender.records).toEqual([]);
   });
 
   it("uses seeds only before initialization and fails closed for pending initialized records", async () => {

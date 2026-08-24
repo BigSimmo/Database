@@ -325,6 +325,8 @@ function assertProviderAuthorization(value: unknown, projectRef: string, planDig
     throw new Error("Provider authorization is invalid.");
   const receipt = value as Record<string, unknown>;
   const exactKeys = ["authorizedAt", "expiresAt", "operation", "planDigest", "projectRef", "version"].sort();
+  const authorizedAt = typeof receipt.authorizedAt === "string" ? Date.parse(receipt.authorizedAt) : Number.NaN;
+  const expiresAt = typeof receipt.expiresAt === "string" ? Date.parse(receipt.expiresAt) : Number.NaN;
   if (
     JSON.stringify(Object.keys(receipt).sort()) !== JSON.stringify(exactKeys) ||
     receipt.version !== "provider-authorization-v1" ||
@@ -333,8 +335,11 @@ function assertProviderAuthorization(value: unknown, projectRef: string, planDig
     receipt.planDigest !== planDigest ||
     typeof receipt.authorizedAt !== "string" ||
     typeof receipt.expiresAt !== "string" ||
-    Date.parse(receipt.authorizedAt) > Date.now() ||
-    Date.parse(receipt.expiresAt) <= Date.now()
+    !Number.isFinite(authorizedAt) ||
+    !Number.isFinite(expiresAt) ||
+    authorizedAt > Date.now() ||
+    expiresAt <= Date.now() ||
+    authorizedAt >= expiresAt
   ) {
     throw new Error("Provider authorization is invalid, expired, or mismatched.");
   }

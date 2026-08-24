@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import ts from "typescript";
 
 import { createSiteContentRecord, buildStaticSiteContentManifest } from "@/lib/site-content/site-content-manifest";
 import { planSiteContentSync, type SiteContentSyncSourceRecord } from "@/lib/site-content/site-content-sync";
@@ -281,5 +282,35 @@ describe("site-content synchronization planning", () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
+  });
+
+  it("rejects unparseable provider-authorization timestamps before environment-bearing imports", () => {
+    const source = readFileSync("scripts/sync-site-content-corpus.ts", "utf8");
+    const body = source.match(/function assertProviderAuthorization[\s\S]*?\n}\n\nasync function main/)?.[0];
+    expect(body).toBeDefined();
+    const javascript = ts.transpileModule(body!.replace(/\nasync function main$/, ""), {
+      compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 },
+    }).outputText;
+    const assertProviderAuthorization = new Function(`${javascript}\nreturn assertProviderAuthorization;`)() as (
+      value: unknown,
+      projectRef: string,
+      planDigest: string,
+    ) => void;
+    const planDigest = "a".repeat(64);
+
+    expect(() =>
+      assertProviderAuthorization(
+        {
+          version: "provider-authorization-v1",
+          operation: "site_content_sync_handoff",
+          projectRef: "project-ref",
+          planDigest,
+          authorizedAt: "not-a-date",
+          expiresAt: "also-not-a-date",
+        },
+        "project-ref",
+        planDigest,
+      ),
+    ).toThrow(/provider authorization/i);
   });
 });
