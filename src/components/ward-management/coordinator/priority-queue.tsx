@@ -81,8 +81,12 @@ export function PriorityQueue({ movements, now, selectedId, onSelect, filterEdId
           // breached" — the factor list is scoped to Task 7's expandable shortlist, not this
           // row, but a breached statutory deadline is the one thing this row must never let a
           // coordinator miss, so it always renders here regardless of what Task 7 later shows.
-          // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none) is never breached —
-          // `undefined` must never reach `clockState`'s arithmetic.
+          // A form with no `dueAt` is never breached — `undefined` must never reach
+          // `clockState`'s arithmetic. As of the 2026-08-23 product-owner correction, neither a
+          // Form 1A nor a Form 3B carries one any longer (Task 6A first established this for 3B;
+          // see `LegalForm`'s doc comment in ward-model.ts) — only the transport/transfer forms
+          // (4A/4C) still do, and none of those are due in the past on today's fixture, so
+          // `legalBreached` below is false today.
           const legalDueAt = movement.legalForm?.dueAt;
           const legalBreached = legalDueAt !== undefined && clockState(legalDueAt, now) === "breached";
           const legalFactor = factors.find((factor) => factor.label === "Statutory timing");

@@ -387,6 +387,7 @@ describe("shared header hide/reveal wiring", () => {
     // stays scoped to `sm+` because below that the portal hands the subtree to
     // the universal collapse row, which owns the motion.
     expect(inPageNavHeaderSource).toContain("relative z-30 border-b");
+    expect(inPageNavHeaderSource).toContain("inpage-nav-header");
     expect(inPageNavHeaderSource).toContain("sm:sticky sm:top-0");
     expect(inPageNavHeaderSource).not.toContain("max-sm:static sm:sticky sm:top-0");
     // One collapse owner: the shared header must never grow a scroll listener of

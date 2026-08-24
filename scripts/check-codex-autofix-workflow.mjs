@@ -11,6 +11,7 @@ const failures = [];
 const githubScriptPin = "3a2844b7e9c422d3c10d287c895573f7108da1b3";
 const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
 const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
+const clinicalHoldRule = "Clinical-decision surfaces are never routed to automatic repair";
 const scopedResolvePrompt = `\${scopedResolveCommand} using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. The only repository destination is \${headRepository}, and the only branch destination is the pull request head branch \${pr.head.ref} at starting commit \${pr.head.sha}; never publish fixes to a detached or synthetic work branch and never create a stacked pull request. Use the authenticated GitHub connector to commit each approved fix to \${headRepository}:\${pr.head.ref}, then verify that the pull request head contains the published commit before reporting success. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. For a fixed thread, reply with \${resolvedDispositionMarker} as the first line and <!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> --> as the second line. For a no-code disposition, use \${resolvedDispositionMarker} followed by \${noChangeMarker}. These result markers authorize the workflow to close that exact thread only after it verifies a fixed commit is the pull request head; a local-only commit is not a fix. If publication or verification fails, do not use either result marker, do not claim success, and leave the thread open with the blocker. If human input or new authorization is required, do the same. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`;
 
 const forbiddenPatterns = [
@@ -230,6 +231,40 @@ for (const requiredCheck of requiredRiskRoutingChecks) {
   if (!workflow.includes(requiredCheck)) {
     failures.push(`Codex auto-resolve workflow is missing smart risk routing: ${requiredCheck}`);
   }
+}
+
+// Routing decides whether an automatic pass MAY run; the clinical hold decides
+// where it may never run at all. It is deliberately unconditional: no label, risk
+// score, or test/generated exclusion may release it, because a review finding can
+// be sound as an observation and still be wrong as an action when what a clinician
+// sees is an owner decision the workflow cannot read.
+const requiredClinicalHoldChecks = [
+  "const clinicalDecisionHoldPathPatterns = [",
+  "/^data\\/(?!outstanding-issues-snapshot\\.json$)/",
+  "/^src\\/data\\//",
+  "/^src\\/lib\\/mha-act-sections\\.ts$/",
+  "/^src\\/lib\\/form-(?:catalog|ranker)\\.ts$/",
+  "/^src\\/components\\/forms\\//",
+  "/^src\\/lib\\/rag\\//",
+  "/^src\\/lib\\/(?:clinical-search|retrieval-selection|released-search-order|ranking-config|answer-ranking|answer-verification)\\.ts$/",
+  "clinicalDecisionHoldPathPatterns.some((pattern) => pattern.test(filePath))",
+  "if (clinicalDecisionHoldFiles.length > 0) {",
+  "clinical-decision path(s)",
+];
+
+for (const requiredCheck of requiredClinicalHoldChecks) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex auto-resolve workflow is missing the clinical-decision hold: ${requiredCheck}`);
+  }
+}
+
+// The hold must precede routing, or an opt-in label would reach the request first.
+if (workflow.indexOf("if (clinicalDecisionHoldFiles.length > 0) {") > workflow.indexOf("const routeReasons = [];")) {
+  failures.push("The clinical-decision hold must be evaluated before automatic-repair routing.");
+}
+
+if (!agentInstructions.includes(clinicalHoldRule)) {
+  failures.push(`${agentInstructionsPath} must document the clinical-decision hold: ${clinicalHoldRule}`);
 }
 
 const requiredHeadRoutingChecks = [

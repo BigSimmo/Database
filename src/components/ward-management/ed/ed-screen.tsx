@@ -20,7 +20,7 @@ import {
   type Security,
   type Sex,
 } from "@/components/ward-management/ward-model";
-import { edById, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { edById, siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./ed.module.css";
@@ -371,7 +371,10 @@ export function EdScreen({ edId }: EdScreenProps) {
                 const examBlocked = examinationBlockedReason(movement);
                 const handoverBlocked = handoverBlockedReason(movement);
                 const examOpen = examinationOpenFor === movement.id;
-                const acceptedUnit = movement.acceptedUnitId ? unitById(movement.acceptedUnitId) : undefined;
+                // Whole-branch review Critical 1: resolved from the live `units`, not `unitById`.
+                const acceptedUnit = movement.acceptedUnitId
+                  ? units.find((unit) => unit.id === movement.acceptedUnitId)
+                  : undefined;
 
                 return (
                   <li

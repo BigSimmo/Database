@@ -39,11 +39,17 @@ export function operationalScore(movement: Movement, now: Instant): { score: num
     });
   }
 
-  // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none — the Mental Health Act
-  // imposes no post-examination deadline, clinician-confirmed) awards no "Statutory timing"
-  // points at all. Such a patient's priority rides on "Time waiting" above instead, which is
-  // exactly the clinician's own rule; this deliberately adds no compensating bonus for being
-  // detained, which would be an unsupported clinical claim of the same kind this task removes.
+  // DORMANT FOR 1A/3B ONLY as of the 2026-08-23 product-owner correction: neither code carries
+  // a `dueAt` any longer (see `LegalForm`'s own doc comment in ward-model.ts), so this block can
+  // no longer award "Statutory timing" points on their account, and a patient referred for (or
+  // awaiting) examination has their priority ride on "Time waiting" above alone — exactly the
+  // clinician's own rule, with no compensating bonus for carrying a legal form, which would be
+  // an unsupported clinical claim of the same kind this correction removes. This block is NOT
+  // fully dormant, though: the transport/transfer forms (4A/4C) are out of scope for this
+  // correction, still carry a real `dueAt`, and still legitimately score here today (e.g.
+  // WF-006, WF-014 in the fixture, each "due in ≤90 min" at `NOW_ANCHOR`). The 1A/3B branch is
+  // kept live, not deleted, on the same precedent Task 6A set for a Form 3B: a real examination
+  // timeframe may be supplied later and should return as a derivation, not a rewritten function.
   const legalForm = movement.legalForm;
   if (legalForm?.dueAt !== undefined) {
     const dueAt = legalForm.dueAt;
