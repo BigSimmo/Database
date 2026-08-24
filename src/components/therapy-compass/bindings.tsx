@@ -55,7 +55,7 @@ export type TcBindings = {
   goPathways: () => void;
   goDetail: () => void;
   goReview: () => void;
-  workspaceHref: (href: string) => string;
+  workspaceHref: (href: string, patch?: Partial<TherapyWorkspaceState>) => string;
   isHome: boolean;
   isOther: boolean;
   otherLabel: string;
@@ -415,7 +415,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goPathways: () => go("pathways"),
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
-      workspaceHref: (href) => therapyHrefWithSearchParams(href, workspaceParams()),
+      workspaceHref: (href, patch) => therapyHrefWithSearchParams(href, workspaceParams(patch)),
       isHome: screen === "home",
       isOther: !THERAPY_KNOWN_SCREENS.includes(screen as (typeof THERAPY_KNOWN_SCREENS)[number]),
       otherLabel: screen.charAt(0).toUpperCase() + screen.slice(1),

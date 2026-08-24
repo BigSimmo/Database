@@ -95,6 +95,7 @@ export function CompareIdsChrome({
         slots={slots}
         activeIndex={picker.open ? picker.activeSlot : null}
         onSelectSlot={picker.openSlot}
+        onClearSlot={(index) => commit(ids.map((id, slotIndex) => (slotIndex === index ? null : id)))}
         onSwap={maxCount === 2 ? swap : undefined}
         swapLabel={swapLabel}
         changeLabel={changeLabel}

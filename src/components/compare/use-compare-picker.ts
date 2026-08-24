@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { usePhoneMedia } from "@/components/compare/use-phone-media";
 
@@ -9,6 +9,10 @@ export function useComparePicker(openWhenIncomplete: boolean, initialSlot = 0) {
   const [open, setOpen] = useState(openWhenIncomplete);
   const [activeSlot, setActiveSlot] = useState(initialSlot);
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!openWhenIncomplete) setOpen(false);
+  }, [openWhenIncomplete]);
 
   function openSlot(index: number) {
     setActiveSlot(index);

@@ -76,14 +76,17 @@ function comparisonRows(diagnoses: DsmDiagnosis[]): ComparisonRow[] {
 
 export function DsmComparisonPage({
   diagnoses,
+  selectedIds,
   catalog,
   starters,
 }: {
   diagnoses: DsmDiagnosis[];
+  selectedIds?: readonly (string | null)[];
   catalog: readonly CompareCatalogItem[];
   starters: readonly CompareStarterChip[];
 }) {
   const rows = comparisonRows(diagnoses);
+  const chromeIds = selectedIds ?? diagnoses.map((diagnosis) => diagnosis.slug);
 
   return (
     <div data-testid="dsm-comparison-page" className="min-h-full bg-[color:var(--background)] pb-8">
@@ -94,11 +97,7 @@ export function DsmComparisonPage({
       />
 
       <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
-        <DsmCompareChrome
-          selectedIds={diagnoses.map((diagnosis) => diagnosis.slug)}
-          items={catalog}
-          starters={starters}
-        />
+        <DsmCompareChrome selectedIds={chromeIds} items={catalog} starters={starters} />
 
         {diagnoses.length > 0 ? (
           <section className="grid gap-2.5 md:grid-cols-3" aria-label="Selected diagnoses">

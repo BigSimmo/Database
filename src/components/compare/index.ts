@@ -10,6 +10,7 @@ export {
   firstEmptySlot,
   idsCompareHref,
   padCompareIds,
+  parseCompareIds,
   pairCompareHref,
   slotLetters,
 } from "@/components/compare/filter-catalog";

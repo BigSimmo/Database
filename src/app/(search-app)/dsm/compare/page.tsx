@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 
-import { idsCompareHref, type CompareCatalogItem, type CompareStarterChip } from "@/components/compare";
+import {
+  idsCompareHref,
+  parseCompareIds,
+  type CompareCatalogItem,
+  type CompareStarterChip,
+} from "@/components/compare";
 import { DsmComparisonPage } from "@/components/dsm/dsm-comparison-page";
 import { defaultDsmComparisonSlugs, getDsmDiagnosis, listDsmDiagnosisSummaries, type DsmDiagnosis } from "@/lib/dsm";
 
@@ -13,22 +18,17 @@ type DsmComparisonRouteProps = {
   searchParams?: Promise<{ ids?: string | string[] }>;
 };
 
-function selectedDiagnoses(value?: string | string[]) {
-  const requested =
-    (Array.isArray(value) ? value[0] : value)
-      ?.split(",")
-      .map((item) => item.trim())
-      .filter(Boolean) ?? [];
-  const seen = new Set<string>();
+function selectedComparison(value?: string | string[]) {
+  const selectedIds = parseCompareIds(Array.isArray(value) ? value[0] : value, 3);
   const diagnoses: DsmDiagnosis[] = [];
-  for (const slug of requested) {
-    if (seen.has(slug) || diagnoses.length >= 3) continue;
+  const resolvedIds = selectedIds.map((slug) => {
+    if (!slug) return null;
     const diagnosis = getDsmDiagnosis(slug);
-    if (!diagnosis) continue;
-    seen.add(slug);
+    if (!diagnosis) return null;
     diagnoses.push(diagnosis);
-  }
-  return diagnoses;
+    return diagnosis.slug;
+  });
+  return { diagnoses, selectedIds: resolvedIds };
 }
 
 function catalogItems(): CompareCatalogItem[] {
@@ -52,7 +52,13 @@ function starterChips(): CompareStarterChip[] {
 
 export default async function DsmComparisonRoute({ searchParams }: DsmComparisonRouteProps) {
   const params = searchParams ? await searchParams : {};
+  const { diagnoses, selectedIds } = selectedComparison(params.ids);
   return (
-    <DsmComparisonPage diagnoses={selectedDiagnoses(params.ids)} catalog={catalogItems()} starters={starterChips()} />
+    <DsmComparisonPage
+      diagnoses={diagnoses}
+      selectedIds={selectedIds}
+      catalog={catalogItems()}
+      starters={starterChips()}
+    />
   );
 }

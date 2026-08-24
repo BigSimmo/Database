@@ -21,7 +21,7 @@ import { CompareIdsChrome, type CompareCatalogItem, type CompareStarterChip } fr
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Tabs } from "@/components/ui/tabs";
-import { THERAPY_MAX_COMPARE } from "@/lib/therapy-compass-navigation";
+import { THERAPY_MAX_COMPARE, therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
 import { needsReviewCount, parseSteps, shortestDelivery, summarise } from "../data/select";
@@ -93,7 +93,7 @@ export function CompareScreen() {
     {
       id: "cbt-act",
       label: "CBT vs ACT",
-      href: `/therapy-compass/compare?ids=${CBT_SLUG},${ACT_SLUG}`,
+      href: b.workspaceHref(therapyScreenHref("compare"), { compareSlugs: [CBT_SLUG, ACT_SLUG] }),
     },
   ];
 

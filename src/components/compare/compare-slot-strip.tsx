@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, X } from "lucide-react";
 
 import type { CompareSlot } from "@/components/compare/types";
 import { cn } from "@/components/ui-primitives";
@@ -10,6 +10,7 @@ export function CompareSlotStrip({
   slots,
   activeIndex,
   onSelectSlot,
+  onClearSlot,
   onSwap,
   swapHref,
   swapLabel = "Swap compared items",
@@ -19,6 +20,7 @@ export function CompareSlotStrip({
   slots: readonly CompareSlot[];
   activeIndex?: number | null;
   onSelectSlot: (index: number) => void;
+  onClearSlot?: (index: number) => void;
   onSwap?: () => void;
   swapHref?: string;
   swapLabel?: string;
@@ -38,39 +40,52 @@ export function CompareSlotStrip({
       >
         {slots.map((slot, index) => (
           <div key={`${slot.label}-${index}`} className={pair ? "contents" : undefined}>
-            <button
-              type="button"
-              onClick={() => onSelectSlot(index)}
-              aria-pressed={activeIndex === index}
-              className={cn(
-                "grid min-h-[5.5rem] min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface)] p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                activeIndex === index ? "border-[color:var(--clinical-accent)]" : "border-[color:var(--border)]",
-                index === 0
-                  ? "border-l-[3px] border-l-[color:var(--clinical-accent)]"
-                  : index === 1
-                    ? "border-l-[3px] border-l-[color:var(--info)]"
-                    : "border-l-[3px] border-l-[color:var(--border-strong)]",
-              )}
-            >
-              <span
+            <div className="relative min-w-0">
+              <button
+                type="button"
+                onClick={() => onSelectSlot(index)}
+                aria-pressed={activeIndex === index}
                 className={cn(
-                  "grid h-8 w-8 place-items-center rounded-md text-sm font-extrabold text-[color:var(--command-contrast)]",
+                  "grid min-h-[5.5rem] min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface)] p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  onClearSlot && slot.id ? "pr-12" : null,
+                  activeIndex === index ? "border-[color:var(--clinical-accent)]" : "border-[color:var(--border)]",
                   index === 0
-                    ? "bg-[color:var(--clinical-accent)]"
+                    ? "border-l-[3px] border-l-[color:var(--clinical-accent)]"
                     : index === 1
-                      ? "bg-[color:var(--info)]"
-                      : "bg-[color:var(--text-muted)]",
+                      ? "border-l-[3px] border-l-[color:var(--info)]"
+                      : "border-l-[3px] border-l-[color:var(--border-strong)]",
                 )}
               >
-                {slot.label}
-              </span>
-              <span className="min-w-0">
-                <strong className="block truncate text-base text-[color:var(--text-heading)]">{slot.title}</strong>
-                {slot.subtitle ? (
-                  <span className="mt-1 block text-xs leading-4 text-[color:var(--text-muted)]">{slot.subtitle}</span>
-                ) : null}
-              </span>
-            </button>
+                <span
+                  className={cn(
+                    "grid h-8 w-8 place-items-center rounded-md text-sm font-extrabold text-[color:var(--command-contrast)]",
+                    index === 0
+                      ? "bg-[color:var(--clinical-accent)]"
+                      : index === 1
+                        ? "bg-[color:var(--info)]"
+                        : "bg-[color:var(--text-muted)]",
+                  )}
+                >
+                  {slot.label}
+                </span>
+                <span className="min-w-0">
+                  <strong className="block truncate text-base text-[color:var(--text-heading)]">{slot.title}</strong>
+                  {slot.subtitle ? (
+                    <span className="mt-1 block text-xs leading-4 text-[color:var(--text-muted)]">{slot.subtitle}</span>
+                  ) : null}
+                </span>
+              </button>
+              {onClearSlot && slot.id ? (
+                <button
+                  type="button"
+                  aria-label={`Remove ${slot.title}`}
+                  onClick={() => onClearSlot(index)}
+                  className="absolute right-1 top-1 grid h-tap w-tap place-items-center rounded-md text-[color:var(--text-muted)] hover:text-[color:var(--danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              ) : null}
+            </div>
             {pair && index === 0 ? (
               <div className="grid place-items-center">
                 {bothFilled && swapHref ? (

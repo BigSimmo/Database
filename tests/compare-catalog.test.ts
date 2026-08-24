@@ -6,6 +6,7 @@ import {
   firstEmptySlot,
   idsCompareHref,
   padCompareIds,
+  parseCompareIds,
   pairCompareHref,
 } from "@/components/compare";
 
@@ -34,9 +35,16 @@ describe("compare catalog helpers", () => {
 
   it("builds pair and ids hrefs without duplicate ids", () => {
     expect(pairCompareHref("/dictionary/compare", "mse", "mmse")).toBe("/dictionary/compare?a=mse&b=mmse");
-    expect(idsCompareHref("/dsm/compare", ["mdd", "mdd", "bp2"])).toBe("/dsm/compare?ids=mdd,bp2");
+    expect(idsCompareHref("/dsm/compare", ["mdd", "mdd", "bp2"])).toBe("/dsm/compare?ids=mdd,,bp2");
+    expect(idsCompareHref("/dsm/compare", [null, null, "mdd"])).toBe("/dsm/compare?ids=,,mdd");
     expect(idsCompareHref("/differentials/compare", ["delirium"], { q: "pain" })).toBe(
       "/differentials/compare?q=pain&ids=delirium",
     );
+  });
+
+  it("parses compact and hole-preserving compare ids", () => {
+    expect(parseCompareIds("mdd,bp2", 3)).toEqual(["mdd", "bp2", null]);
+    expect(parseCompareIds(",,mdd", 3)).toEqual([null, null, "mdd"]);
+    expect(parseCompareIds("mdd,,bp2", 3)).toEqual(["mdd", null, "bp2"]);
   });
 });

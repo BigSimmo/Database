@@ -40,6 +40,25 @@ export function pairCompareHref(basePath: string, a?: string | null, b?: string 
   return query ? `${basePath}?${query}` : basePath;
 }
 
+export function parseCompareIds(value: string | null | undefined, maxCount: number): Array<string | null> {
+  const seen = new Set<string>();
+  const parsed = (value ?? "").split(",").map((part) => {
+    const trimmed = part.trim();
+    if (!trimmed) return null;
+    let decoded = trimmed;
+    try {
+      decoded = decodeURIComponent(trimmed);
+    } catch {
+      decoded = trimmed;
+    }
+    const id = decoded.trim();
+    if (!id || seen.has(id)) return null;
+    seen.add(id);
+    return id;
+  });
+  return padCompareIds(parsed, maxCount);
+}
+
 export function idsCompareHref(
   basePath: string,
   ids: readonly (string | null | undefined)[],
@@ -50,8 +69,15 @@ export function idsCompareHref(
         Object.fromEntries(Object.entries(extra).filter((entry): entry is [string, string] => Boolean(entry[1]))),
       ).toString()
     : "";
-  const unique = [...new Set(ids.map((id) => id?.trim()).filter((id): id is string => Boolean(id)))];
-  const idsQuery = unique.length > 0 ? `ids=${unique.map(encodeURIComponent).join(",")}` : "";
+  const seen = new Set<string>();
+  const encoded = ids.map((id) => {
+    const trimmed = id?.trim() ?? "";
+    if (!trimmed || seen.has(trimmed)) return "";
+    seen.add(trimmed);
+    return encodeURIComponent(trimmed);
+  });
+  while (encoded.length > 0 && encoded[encoded.length - 1] === "") encoded.pop();
+  const idsQuery = encoded.some(Boolean) ? `ids=${encoded.join(",")}` : "";
   const query = [extraQuery, idsQuery].filter(Boolean).join("&");
   return query ? `${basePath}?${query}` : basePath;
 }
