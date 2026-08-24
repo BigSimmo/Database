@@ -108,6 +108,22 @@ describe("therapyKeyFactCards", () => {
     expect(byId.cautions.hasDetail).toBe(true);
   });
 
+  it("uses timeRequired as the Format face when session length is absent", () => {
+    const cards = therapyKeyFactCards(
+      therapyStub({
+        timeRequired: "4–8 sessions with between-session practice.",
+        setting: "Outpatient",
+        patientPopulation: "Adults.",
+      }),
+    );
+    const format = cards.find((card) => card.id === "format");
+    expect(format).toMatchObject({
+      face: "4–8 sessions with between-session practice.",
+      body: "4–8 sessions with between-session practice.",
+      hasDetail: false,
+    });
+  });
+
   it("does not promise detail when the face is the whole field", () => {
     const cards = therapyKeyFactCards(
       therapyStub({
