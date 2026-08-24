@@ -478,8 +478,7 @@ function DrawerPanel({
   };
 
   // User-opened (and paged) drawers move focus into the dialog. Comparison
-  // specimens that start open stay out of the tab sequence until the reader
-  // chooses to enter them.
+  // specimens that start open do not claim page focus until the reader enters them.
   const dialogRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
