@@ -278,7 +278,11 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           data-print-hide
           data-inpage-sticky-header=""
           className={cn(
-            "relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
+            // `inpage-nav-header` owns the phone gutter (`--header-edge-pad` +
+            // safe-area). The collapse addon is a sibling of `.edge-glass-header`,
+            // so this bar cannot inherit that inset — a literal `px-3` sat 4px
+            // closer to the bezel than the hamburger / chat+ chrome above it.
+            "inpage-nav-header relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
             className,
           )}
         >

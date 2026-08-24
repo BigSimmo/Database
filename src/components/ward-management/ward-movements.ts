@@ -5,8 +5,11 @@ import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward
 /**
  * Hand-authored movements covering the states volume alone cannot guarantee: three declines
  * with nowhere eligible left, a status change mid-referral, a movement that never completed,
- * two legal-form breaches, every stage in the pathway at least once, and the older-adult and
- * specialling pressure that is normal — not exceptional — on a busy metro night.
+ * every stage in the pathway at least once, and the older-adult and specialling pressure that
+ * is normal — not exceptional — on a busy metro night. (Earlier revisions of this fixture
+ * authored two Form 1A "legal-form breaches" here; the 2026-08-23 product-owner correction
+ * removed every `dueAt` from every Form 1A, so no legal-form breach exists in this fixture any
+ * longer — see `LegalForm`'s doc comment in `ward-model.ts`.)
  */
 const seededMovements: Movement[] = [
   {
@@ -19,7 +22,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR - 15 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
@@ -110,7 +113,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR - 40 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "handover_ready",
     owner: "ED mental health team",
@@ -295,7 +298,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 260 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [
       { at: NOW_ANCHOR - 40, from: "Voluntary", to: "Detained awaiting examination", by: "Duty psychiatrist" },
     ],
@@ -342,11 +345,25 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: true,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 200 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
-    referredUnitIds: ["gry-adult-secure"],
+    // Was ["gry-adult-secure"] — fix for review C2. `RAISE_REFERRAL` is the only reducer branch
+    // that produces "placement_requested" and it always writes `referredUnitIds: []`;
+    // `REFER_TO_UNITS` is the only branch that ever populates `referredUnitIds`, and it always
+    // does so in the same update that advances the stage to "destination_review". So a movement
+    // that is still "placement_requested" — matching this record's own `blocker`, "Awaiting
+    // specialling roster confirmation", which describes internal ED logistics before a referral
+    // is raised, not a unit already sitting on one — can never honestly carry a live referral.
+    // Coordinator screen showed "Parallel referral: Graylands Adult Secure" for a referral
+    // Graylands' own ward screen could never see (its incoming list is keyed on
+    // `stage === "destination_review"`), so nobody could ever accept or decline it. Clearing the
+    // field to match the stage the fixture actually gives this record — rather than advancing
+    // the stage to "destination_review" — is the smaller, more honest correction: nothing else on
+    // this record (no coordinator note, no later referral history) supports a referral having
+    // actually been raised.
+    referredUnitIds: [],
     declines: [],
     blocker: "Awaiting specialling roster confirmation",
     withdrawnReferrals: [],
@@ -436,7 +453,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 220 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "bed_held",
     owner: "Flow coordinator",
@@ -494,13 +511,19 @@ const seededMovements: Movement[] = [
     referredUnitIds: [],
     declines: [],
     blocker: "Awaiting family collateral before destination decision",
-    withdrawnReferrals: [
-      {
-        unitId: "scgh-older-adult",
-        at: NOW_ANCHOR - 10,
-        reason: "Referral withdrawn — the unit filled the bed from an earlier request",
-      },
-    ],
+    // Was a one-entry withdrawnReferrals array naming scgh-older-adult — fix for review I6.
+    // `ACCEPT_IN_PRINCIPLE` is the only reducer branch that ever writes `withdrawnReferrals`,
+    // and it always does so in the same update that sets `acceptedUnitId` (withdrawing every
+    // other unit this movement had a live referral at, because one unit just accepted). This
+    // record has no `acceptedUnitId`, an empty `referredUnitIds`, and an empty `declines` — no
+    // referral to SCGH Older Adult was ever raised for WF-018, so there is nothing for that unit
+    // to have withdrawn. The ward's own screen rendered "Withdrawn from SCGH Older Adult /
+    // Referral withdrawn — the unit filled the bed from an earlier request" for a referral that
+    // never existed. Clearing the field to `[]` is the honest correction — the alternative,
+    // inventing a real referral-then-acceptance-elsewhere history to justify the withdrawal,
+    // would fabricate exactly the kind of state this prototype must never invent, and nothing
+    // else in this record (blocker text, stage, other fields) supports that history.
+    withdrawnReferrals: [],
   },
 ];
 
@@ -617,13 +640,15 @@ function routineMovements(count: number, startIndex: number): Movement[] {
       sex,
       specialling: index % 11 === 0,
       legalStatus: index % 3 === 0 ? "Referred for psychiatric examination" : "Voluntary",
+      // 2026-08-23: no Form 1A in this model carries a dueAt (see LegalForm's own doc comment
+      // in ward-model.ts) — the product owner's instruction was to drop the legal countdown
+      // entirely, not to derive a corrected one, so this generator authors none.
       legalForm:
         index % 3 === 0
           ? {
               code: "1A",
               label: "Referral for examination",
               kind: "examination" as const,
-              dueAt: NOW_ANCHOR + (((index * 53) % 400) - 60),
             }
           : undefined,
       statusChanges: [],
