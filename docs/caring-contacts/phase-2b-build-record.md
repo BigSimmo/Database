@@ -398,3 +398,58 @@ Task 1: task review dispatched (sonnet), with four open questions — the missin
 wrapper that the sibling `AutomatedState` has, whether typing `action` as `ReactNode` weakens the
 button-wiring guarantee, whether the discriminated union delivers its promise at the type level, and
 whether the mutation proof is genuine.
+
+### Task 1 review — spec ✅, quality NOT approved as-is; two Important findings
+
+**The mutation narrative was wrong, and the reviewer found it by re-running both mutations rather
+than reading the report.** The report described mutating the `"filtered"` branch and claimed
+`Tests 2 failed | 7 passed`. Applying exactly that edit produces `Tests 1 failed | 8 passed` — with
+the guard hardcoded `true` the else-branch is dead code, so touching it cannot affect the `"no-data"`
+case. Putting the placeholder in the branch that ALWAYS executes reproduces the reported numbers
+exactly, including the two failure messages quoted.
+
+So the evidence is genuine and reproducible; the account of **which branch was mutated** is not, and
+the mutation actually run is coarser than the brief asked for — it broke both kinds' content equally
+rather than making `"filtered"` render as `"no-data"`. The distinction is still proven. But a report
+that misdescribes its own proof is a report whose other proofs cannot be taken on trust, which is why
+this is Important rather than a note. **Self-reported mutation results need independent
+re-derivation, and this is the second time on this programme that re-deriving one changed the
+answer.**
+
+**Ruling [88] — the component is renamed `ListEmptyState`, and the naming collision was MY defect,
+not the implementer's.** — Why: `src/components/ui-primitives.tsx` already exports an `EmptyState`,
+a registered design-system primitive; `EmptyState` appears across 43 files. My brief mandated the
+colliding name. The consequence is not cosmetic: `scripts/generate-design-system-adoption.mjs`
+matches test files to components with a bare `new RegExp("\b" + name + "\b")` over raw file text,
+with **no import-path awareness** — verified at line 1562. So the regenerated
+`docs/design-system/adoption-manifest.json` now credits `tests/caring-contacts-empty-state.dom.test.tsx`
+as proof coverage for a shared primitive that test never imports. **That is false evidence about test
+coverage in a governance artifact**, which is precisely the class of defect this programme keeps
+finding, and it cannot be fixed at the call site because the matcher never looks at imports.
+`ListEmptyState` is unused anywhere in `src/` or `tests/`. — Cost if wrong: a rename across one
+component, one test file and the regenerated manifest. Cheaper than a manifest that overstates
+coverage for a component used in 13 places.
+
+**The accessibility gap is real and is fixed in the same round.** `AutomatedState` wraps its three
+pieces in `role="group"` + `aria-label` so a screen reader reaching the state reaches the reason and
+remedy without hunting. `ListEmptyState`'s `"filtered"` branch has the identical three-piece shape —
+name, why, what-changes-it — and no role, no grouping, no heading element. Ruling 81 forbade
+rendering `AutomatedState`; it never forbade reusing its accessible structure, and I should have said
+so explicitly in the brief.
+
+**Two of the reviewer's answers settle open questions and are recorded as settled:**
+
+- **`action: ReactNode` is the right trade, not a weakening.** An `onClick`-shaped prop cannot cross a
+  Server-to-Client boundary at all, so it would force this component to become a Client Component —
+  exactly what Ruling 13 forbids. Enforcement lives in `eslint-rules/require-button-wiring.mjs`, a
+  repo-wide AST scan that fires wherever a `<button>` is authored, which is the call site. Delegating
+  there is the established `ServiceStateBanner`/`UnavailableDestination` precedent.
+- **The `Inbox` → `FolderOpen` swap was the scan working correctly, and the scan will NOT be
+  narrowed.** An identifier is not user-facing text, but it is one accidental `aria-label` away from
+  becoming so, and a scan restricted to string literals would miss exactly that near-miss. In a
+  suicide-prevention product with explicit vocabulary rulings already in force, flagging identifiers
+  is the correct conservative posture and the fix cost one icon name. This closes Task C's deferred
+  item 2 as **decided, not deferred**.
+
+Task 1: fix round 1/5 dispatched — 3 items (mutation narrative corrected and re-run as specified, the
+`ListEmptyState` rename, the `role="group"` structure).
