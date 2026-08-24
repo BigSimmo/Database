@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ba655ad0-9934-4885-a959-5efd375a9bf1",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Caring Contacts: Ruling 60's 640-767px overlay-modality band is pinned on one side only",
+    "detail": "The frozen contract is authoritative below 640 and at 768 and above; the shared Sheet's own breakpoint is 640, and the overlay code hard-codes that 640 as a literal read from nothing. The regression pin catches a move in one breakpoint, not the other, so the band could widen and the test stay green. Reconciling the two breakpoints is a design decision.",
+    "source": "docs/caring-contacts/phase-2a-build-record.md Ruling 60",
+    "issueUlid": "01M0SA6TNM1CYR4V44KPSNXXGA"
+  }
+}

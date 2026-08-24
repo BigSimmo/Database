@@ -119,6 +119,35 @@
   letter-spacing: 0.03em;
 }
 
+/**
+ * The one distinction this screen draws, and why.
+ *
+ * All five legs used to share `.legBadge`, so the only thing separating them was the badge text.
+ * On the one screen whose whole job is showing where a patient is right now, the transition that
+ * changes what a coordinator does is the patient being physically in the vehicle: before
+ * "Collected" the vehicle is being arranged or is on its way to the department, after it the
+ * patient is in transit and the destination ward is the thing waiting. So "Collected" — and only
+ * "Collected" — carries its own weight, using the shared warning tokens.
+ *
+ * Deliberately NOT one colour per leg: Requested, Accepted and En route all mean "the patient is
+ * still in the department", and colouring them apart would imply a difference the coordinator
+ * does not act on. "Arrived" gets no arrival treatment either, because an arrived movement leaves
+ * this screen entirely (`isOpen` excludes stage `arrived`), so a visual state for it would be one
+ * the tracker cannot actually produce.
+ */
+.legBadgeInVehicle {
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  padding: var(--tr-space-4) var(--tr-space-8);
+  color: var(--warning-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .legBadgeCancelled {
   flex-shrink: 0;
   border: 0.0625rem solid var(--danger-border);

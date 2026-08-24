@@ -16,6 +16,14 @@ export type ReferralDraft = {
   specialling: boolean;
   legalStatus: LegalStatus;
   urgency: 1 | 2 | 3;
+  /**
+   * The legal form the clinician selected, as a code from `SELECTABLE_LEGAL_FORMS`, or `null`
+   * for no form at all. Explicitly nullable rather than optional or an empty string so that
+   * "this patient is on no form" is a first-class choice the clinician made, indistinguishable
+   * from neither a field the caller forgot to fill in nor a blank that could be read as a
+   * default. Nothing derives this from `legalStatus` any more (product owner, 2026-08-24).
+   */
+  legalFormCode: string | null;
 };
 
 /**
@@ -48,7 +56,26 @@ export type WardFlowEvent =
   | { type: "TRANSPORT_EN_ROUTE"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "PATIENT_COLLECTED"; role: WardFlowRole; now: Instant; movementId: string }
   | { type: "PATIENT_ARRIVED"; role: WardFlowRole; now: Instant; movementId: string }
-  | { type: "CONFIRM_CAPACITY"; role: WardFlowRole; now: Instant; unitId: string; value: number }
+  | {
+      type: "CONFIRM_CAPACITY";
+      role: WardFlowRole;
+      now: Instant;
+      /** The unit whose allocatable count is being restated. */
+      unitId: string;
+      /**
+       * The unit the caller stated it was acting as. The ward screen is routed as
+       * `/ward-management/ward/[unitId]`, so a caller always has one to state; the reducer
+       * refuses the event when this and `unitId` differ.
+       *
+       * This is a claim the caller makes about itself, recorded and compared. It is **not** an
+       * authenticated identity and this model has none: nothing here verifies that the caller
+       * really is that unit, and anything able to dispatch an event can state whichever acting
+       * unit it likes. Required rather than optional so a caller cannot omit it and skip the
+       * comparison silently.
+       */
+      actingUnitId: string;
+      value: number;
+    }
   | {
       type: "RECORD_ESCALATION";
       role: WardFlowRole;

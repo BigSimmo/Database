@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { elapsedLabel } from "../src/components/ward-management/ward-derivations";
+import { legalFormName } from "../src/components/ward-management/ward-legal-forms";
 import { MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { movementById, wardMovements } from "../src/components/ward-management/ward-movements";
 import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
@@ -108,7 +109,14 @@ describe("Ward Flow synthetic prototype", () => {
     const referredMovement = movementById("WF-001");
     expect(referredMovement?.legalStatus).toBe("Referred for psychiatric examination");
     expect(referredMovement?.legalForm?.code).toBe("1A");
-    expect(referredMovement?.legalForm?.label).toBe("Referral for examination");
+    // MEANING CHANGED 2026-08-24, deliberately. This used to assert the prototype's own stored
+    // label, "Referral for examination". Ward Flow no longer holds titles: the movement stores
+    // the code, and `legalFormName` resolves the Chief Psychiatrist register's official title —
+    // which for a 1A is "Referral for examination by a psychiatrist", four words longer. The
+    // assertion is now about what a reader actually sees, not about a field that no longer
+    // exists, and it would fail if the register stopped listing 1A rather than passing on a
+    // locally-held fallback.
+    expect(legalFormName(referredMovement!.legalForm!)).toBe("Form 1A (Referral for examination by a psychiatrist)");
   });
 
   it("labels how long a movement has been waiting, not how overdue it is", () => {
