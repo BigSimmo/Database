@@ -61,6 +61,22 @@ describe("TherapyKeyFacts", () => {
     expect(formatSheet).toHaveTextContent(/between-session behavioural practice/);
   });
 
+  it("shows the full Cautions field immediately in its detail sheet", async () => {
+    const user = userEvent.setup();
+    const caution = "Use a coordinated safety plan and review alternatives before proceeding.";
+    renderFacts({
+      ...bySlug("cognitive-behavioural-therapy-for-insomnia"),
+      contraindicationsOrCautions: Array.from({ length: 8 }, () => caution).join(" "),
+      limitations: null,
+    });
+
+    const facts = screen.getByLabelText("Key facts");
+    await user.click(within(facts).getByRole("button", { name: /Cautions:.*Open detail/i }));
+    const cautionsSheet = await screen.findByTestId("therapy-key-fact-sheet");
+    expect(cautionsSheet).toHaveTextContent(caution);
+    expect(within(cautionsSheet).queryByRole("button", { name: /Show more of Cautions/i })).not.toBeInTheDocument();
+  });
+
   it("leaves a card inert when the face is the whole field", () => {
     renderFacts({
       ...bySlug("cognitive-behavioural-therapy-for-insomnia"),
