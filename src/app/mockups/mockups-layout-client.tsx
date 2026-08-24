@@ -61,6 +61,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // sits directly between them, so shared chrome would read as a second real
   // header and a second real search bar over the study.
   const isAnswerChatRedesignMockup = pathname === "/mockups/answer-chat-redesign";
+  const isAnswerChatPerfectedMockup = pathname === "/mockups/answer-chat-perfected";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -133,6 +134,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
+        !isAnswerChatPerfectedMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -159,6 +161,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
+        !isAnswerChatPerfectedMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
