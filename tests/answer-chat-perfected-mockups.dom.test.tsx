@@ -6,7 +6,8 @@ import { AnswerChatPerfectedMockupsPage } from "@/components/answer-chat-perfect
 function openAnswerSource() {
   const frame = screen.getByText("Phone · tap any number").closest("figure");
   if (frame === null) throw new Error("The interactive phone answer frame was not rendered.");
-  const opener = within(frame).getByRole("button", { name: /Source 1, Physical health protocol/i });
+  // Source 1 is cited three times across the mock answer, so multiple marks share this accessible name.
+  const [opener] = within(frame).getAllByRole("button", { name: /Source 1, Physical health protocol/i });
   fireEvent.click(opener);
   return { frame, opener };
 }

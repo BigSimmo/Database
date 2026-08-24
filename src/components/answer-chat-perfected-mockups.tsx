@@ -270,7 +270,13 @@ function RefMark({
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={(event) => {
+        // Safari doesn't focus a button on click by default, and the drawer's
+        // return-focus logic reads document.activeElement — focus explicitly
+        // so the mark that was clicked is always what gets focus back.
+        event.currentTarget.focus();
+        onOpen();
+      }}
       aria-label={label}
       aria-pressed={active}
       title={`${source.short} · p.${source.page}`}
