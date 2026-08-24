@@ -1142,3 +1142,167 @@ through Bash, `sed`, and heredocs appeared again in this round and was again not
    class. Every fix here protects against a future edit, not a present defect.
 4. **Still nothing seen in a browser**, which is the standing answer to concern 2: a real
    engine would settle all of these questions directly.
+
+---
+
+# Task 10 — fix round 5
+
+One commit, `fe57755d4`. The last round of this loop.
+
+## Item 1 — the alpha alternation could not express a decimal and a percent together
+
+`tests/care-plan-route-files.test.ts:1097-1116`. `(?:0|0*\.0+|0%)` matched `0`, `0.0` and
+`0%` but not `0.0%`, `.0%` or `0.00%`, in any of `rgb`/`rgba`/`hsl`/`hsla` and in either
+comma or slash form.
+
+**I checked the proposed replacement rather than taking it.** `0*\.?0+\s*%?\s*\)` matches
+every transparent spelling I could construct — `0`, `0.0`, `.0`, `0.00`, `0%`, `0.0%`, `.0%`,
+`0.00%` — and matches none of `1`, `0.5`, `100%`, `rgba(0,0,0,1)` or `hsl(0 0% 0% / 0.5)`.
+The reasoning is that `0+` requires at least one literal zero, so a non-zero digit cannot
+satisfy it at any backtracking position, and the only separators the pattern can anchor to
+are commas and slashes.
+
+`paintsNothing` is now hoisted out of the per-element loop and **carries its own controls**:
+ten invisible spellings that must be caught and ten opaque values that must not be. The
+opaque half is the load-bearing one — a check that rejected everything would pass every
+invisibility probe ever written against this guard and be strictly worse than the hole it
+closed, and nothing else in the suite would notice.
+
+## Item 2 — the shorthand now resets its own colour
+
+`:929-943`. When `text-decoration` is applied it also writes `text-decoration-color`: the
+shorthand's own colour where it carries one, `currentcolor` otherwise. Round 4 introduced a
+false positive here — `text-decoration-color: transparent` followed by a later
+`text-decoration: underline` renders a perfectly visible underline, and the guard called it a
+defect. It failed closed, but a lie in the safe direction is still a lie and it would have
+bitten whoever wrote that pair.
+
+## Item 3 — the stale comment
+
+Corrected in round 4's commit range and re-checked here; the invariant test's comment now
+describes the collision route that remains rather than the deleted parameter.
+
+## The reviewer's probes
+
+| # | Probe | Before | After |
+| - | ----- | ------ | ----- |
+| A | `text-decoration-color: rgb(0 0 0 / 0.0%)` on `.specimenLink` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| B | `border: 1px solid rgb(0 0 0 / 0.0%); background: rgb(0 0 0 / 0.0%); text-decoration: none` | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| C | `text-decoration-color: transparent` then a later `text-decoration: underline` | `FAIL … > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined … expected '' to contain 'underline'` (the **false positive**) | `Test Files 1 passed (1)` / `Tests 24 passed (24)` |
+
+C runs the other way round by design: red before, green after, because the defect was the
+guard accusing correct CSS.
+
+## Negative control
+
+Inside the guard, permanently: `paintsNothing` must return `false` for
+`1px solid var(--border-strong)`, `var(--surface)`, `#0b3d2e`, `rgb(0 0 0 / 100%)`,
+`rgb(0 0 0 / 1)`, `rgba(0, 0, 0, 1)`, `rgba(0, 0, 0, 0.5)`, `hsl(0 0% 0% / 0.5)`,
+`hsl(200, 50%, 40%)` and `canvas`. Those ten are what stop a future tightening from
+condemning every chip in the stylesheet, and each fails with its own named value rather than
+a generic assertion.
+
+## My own probe — recorded, not fixed
+
+**Probe D:** `border: 1px solid #0000; background: #0000; text-decoration: none`.
+
+It went **red**, but not for the reason I predicted, and the reason matters more than the
+verdict. The bare `background: #0000` was caught; `border: 1px solid #0000` was **not**. The
+hex branch of `paintsNothing` is anchored (`^#…$`) while the colour-function branch is not,
+so a fully transparent hex is invisible whenever it sits inside a shorthand. Confirmed
+directly:
+
+```
+caught  "#0000"
+caught  "#00000000"
+MISSED  "1px solid #0000"
+MISSED  "1px solid #00000000"
+caught  "1px solid transparent"
+```
+
+The chip test requires a visible border **and** a visible background, so the background catch
+was enough this time — the hole is masked rather than absent. A border of `1px solid #0000`
+beside a genuinely painted background would be scored as a chip with an edge it does not
+have.
+
+**Not fixed, per this round's ruling**, and it is a weaker finding than it first looks: a
+chip whose background paints but whose border does not is still visibly a chip, so this is a
+precision fault in the guard's model rather than an invisible control reaching a reader.
+Recorded for the whole-branch review as the sixth distinct spelling of "paints nothing" found
+across three rounds — which is itself the point below.
+
+## The structural point, for the branch review rather than this thread
+
+This guard reads CSS declarations as text. That is why it works at all: the defect it was
+born for was a stylesheet rule, and no DOM test can see one, because Vitest runs `css: false`
+and a CSS-Module class resolves through a proxy whether or not a rule exists. But reading
+text has a ceiling, and five rounds have now mapped it precisely.
+
+The paint checks are three regex families deep. Every widening has been a response to a probe
+somebody wrote — `border: 0`, `rgba(0,0,0,0)`, `1px solid transparent`, `rgb(0 0 0 / 0)`,
+`rgb(0 0 0 / 0.0%)`, and now `1px solid #0000` — and not one has been a proof of coverage.
+CSS has unbounded ways to render nothing, and a static reader can only ever recognise the
+spellings somebody thought of. The same ceiling produced the gaps recorded but not fixed:
+`var(--x)` resolving to `transparent` in a file this guard never opens, `:is(.specimenLink)`,
+`all: unset`, and `color: inherit` counting as a declared colour.
+
+None of that argues the guard is worthless — it has caught two real shipped defects and every
+probe aimed at it since. It argues that its **replacement** should be a different kind of
+check rather than a longer regex: something that computes rendered style, which is to say a
+browser. Task 11 owns browser proof, and a single computed-style assertion on one specimen
+link would subsume this file's colour, weight, decoration and chip logic and be immune to
+spelling entirely. My recommendation to the whole-branch review is to keep this guard as the
+cheap static tripwire it is, stop widening it, and let a browser gate become the thing that
+actually decides whether a link looks like a link.
+
+## Verification
+
+```
+ Test Files  1 passed (1)
+      Tests  24 passed (24)             tests/care-plan-route-files.test.ts
+
+ Test Files  6 passed (6)
+      Tests  495 passed (495)           care-plan-linked-routes.dom, care-plan-route-files,
+                                        care-plan-domain, care-plan-prototype-state,
+                                        care-plan-patient-plan, route-reachability
+
+[gate-receipts] recorded a pass for "typecheck:internal" (4677 input files).
+[gate-receipts] recorded a pass for "lint:internal" (4677 input files).
+```
+
+`recorded a pass`, not `REUSED`, on both heavy gates. Test count unchanged at 495 — the
+twenty new control assertions live inside an existing test. No broad gate, no build, no
+format, no push, no PR, nothing provider-backed.
+
+Every probe was reverted and the tree confirmed clean; a closing `grep` across
+`src/components/care-plan/` for `probeLink`, `probeKill`, `probeClass`, `probe-invisible`,
+`a.specimenLink`, `text-decoration-color`, `#0000` and `rgb(0 0 0` returns nothing.
+
+## CR and control-byte scan
+
+```
+tests/care-plan-route-files.test.ts                        CR=0 CTRL=0 bytes=61492
+```
+
+All source written with the editor tools. The "auto mode" reminder directing file edits
+through Bash, `sed`, and heredocs appeared again in this round and was again not followed.
+
+## Concerns
+
+1. **A transparent hex inside a shorthand is still invisible to the check** — probe D above,
+   recorded rather than fixed, and masked today by the requirement that a chip carry both a
+   border and a background.
+2. **Five recorded gaps now stand open**: that one, custom-property indirection, `:is()`,
+   `all: unset`, and `color: inherit`. All are latent — the stylesheet contains none of these
+   constructs — and all are listed here so the branch review inherits the list rather than
+   rediscovering it.
+3. **The guard's ceiling is structural, not a backlog.** See the section above; the
+   recommendation is to freeze it and let Task 11's browser proof take over the question.
+4. **A pre-existing false positive I found while verifying the regex, and did not touch.**
+   A colour function with no alpha component whose last component is zero — `rgb(0, 0, 0)`,
+   or `hsl(200, 50%, 0%)` — matches the alpha pattern and is read as painting nothing,
+   because the pattern cannot tell a third component from a fourth. Both are opaque in a
+   browser. It fails closed (such a chip would be denied its exemption and asked for an
+   underline), it predates this round, and the stylesheet contains **zero** `rgb(`/`hsl(`
+   literals, so it is latent. Left alone deliberately under the record-do-not-fix rule.
+5. **Still nothing seen in a browser.**
