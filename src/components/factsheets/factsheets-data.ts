@@ -660,13 +660,6 @@ export function factsheetsGroupedByCategory(): Array<{ category: FactsheetCatego
 /** First N rows shown before the section's "Show all" control. */
 export const TOPIC_SECTION_PREVIEW_LIMIT = 8;
 
-/**
- * How many topic chips sit in the sticky index before the overflow sheet.
- * Eight or fewer stay inline; nine or more keep seven chips and move the rest
- * into More — the eighth slot is the overflow control, not a ninth topic.
- */
-export const TOPIC_CHIP_OVERFLOW_AFTER = 8;
-
 /** Stable section / hash id for a topic heading. */
 export function topicSectionId(category: string): string {
   return `factsheet-topic-${category.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
@@ -679,8 +672,8 @@ export function factsheetTopicQueryValue(category: FactsheetCategory): string {
 
 /**
  * Resolve `?topic=` to a known category. Accepts the display name, the section
- * id, or the short slug. Unknown values return undefined so the page shows all
- * topics instead of a blank filter.
+ * id, or the short slug. Unknown values return undefined so every topic stays
+ * closed instead of opening a blank filter.
  */
 export function resolveFactsheetTopicParam(value?: string | null): FactsheetCategory | undefined {
   const raw = value?.trim();
@@ -689,16 +682,6 @@ export function resolveFactsheetTopicParam(value?: string | null): FactsheetCate
   if (exact) return exact;
   const slug = raw.replace(/^factsheet-topic-/i, "").toLowerCase();
   return factsheetCategories.find((entry) => factsheetTopicQueryValue(entry) === slug);
-}
-
-/** Split a topic index into the chips that stay visible and those that overflow. */
-export function topicChipOverflow<T>(
-  items: readonly T[],
-  limit = TOPIC_CHIP_OVERFLOW_AFTER,
-): { visible: T[]; overflow: T[] } {
-  if (items.length <= limit) return { visible: [...items], overflow: [] };
-  const keep = Math.max(0, limit - 1);
-  return { visible: items.slice(0, keep), overflow: items.slice(keep) };
 }
 
 /** Rows a topic section should paint before the reader asks to expand it. */

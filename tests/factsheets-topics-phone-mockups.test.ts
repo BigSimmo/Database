@@ -8,16 +8,18 @@ const source = readFileSync(
 const layout = readFileSync(new URL("../src/app/mockups/mockups-layout-client.tsx", import.meta.url), "utf8");
 
 describe("factsheets topics phone mockups", () => {
-  it("studies chips, accordion, and a hundred-item stress case on a 390 px frame", () => {
-    expect(source).toContain('id: "chips"');
-    expect(source).toContain('id: "accordion"');
+  it("studies a stacked topic directory, an all-open compare, and a hundred-item stress case", () => {
+    expect(source).toContain('id: "directory"');
+    expect(source).toContain('id: "expanded"');
     expect(source).toContain('id: "dense"');
     expect(source).toContain("recommended: true");
     expect(source).toContain("390 × 844");
     expect(source).toContain('label: "Search"');
     expect(source).toContain('label: "Topics"');
     expect(source).toContain("Show all");
-    expect(source).toContain("topicChipOverflow");
+    expect(source).not.toContain("topicChipOverflow");
+    expect(source).not.toContain("overflow-x-auto");
+    expect(source).not.toContain('id: "chips"');
     expect(source).toContain('data-testid="factsheets-topics-phone-mockups"');
     expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });

@@ -9,54 +9,68 @@ import {
   factsheetCategories,
   factsheetTopicQueryValue,
   factsheets,
-  factsheetSlugs,
   topicSectionId,
 } from "@/components/factsheets/factsheets-data";
-import { OverlayRoot } from "@/components/ui/overlay-root";
 
 describe("FactsheetsTopicsPage", () => {
-  it("groups every sheet under the four topic headings and has no page-level search", () => {
+  it("lists the four topics as a directory with no page-level search or chip rail", () => {
     render(<FactsheetsTopicsPage />);
 
     const page = screen.getByTestId("factsheets-topics-page");
     expect(within(page).getByRole("heading", { level: 1, name: "Topics" })).toBeInTheDocument();
     expect(page.querySelector("input")).toBeNull();
+    expect(screen.queryByTestId("factsheets-topics-chips")).not.toBeInTheDocument();
+    expect(page.querySelector('[class*="overflow-x-auto"]')).toBeNull();
 
-    const chips = screen.getByTestId("factsheets-topics-chips");
-    expect(within(chips).getByRole("link", { name: /All topics/ })).toHaveAttribute("aria-current", "page");
-    expect(within(chips).getByRole("link", { name: /All topics/ })).toHaveAttribute("href", "/factsheets/topics");
+    const directory = screen.getByTestId("factsheets-topics-directory");
+    expect(page).toHaveTextContent("4 topics");
+    expect(page).toHaveTextContent(`${factsheets.length} sheets`);
 
     for (const category of factsheetCategories) {
-      expect(screen.getByRole("heading", { level: 2, name: category })).toBeInTheDocument();
-      expect(page.querySelector(`#${topicSectionId(category)}`)).not.toBeNull();
-      const chip = within(chips).getByRole("link", { name: new RegExp(category) });
-      expect(chip).toHaveAttribute("href", `/factsheets/topics?topic=${factsheetTopicQueryValue(category)}`);
+      expect(within(directory).getByRole("heading", { level: 2, name: new RegExp(category) })).toBeInTheDocument();
+      const trigger = screen.getByTestId(`factsheets-topics-topic-${factsheetTopicQueryValue(category)}`);
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
     }
 
-    expect(factsheetSlugs()).toHaveLength(factsheets.length);
-    for (const sheet of factsheets) {
-      const link = page.querySelector(`a[href="/factsheets/${sheet.slug}"]`);
-      expect(link, sheet.slug).not.toBeNull();
-      expect(link).toHaveTextContent(sheet.title);
-    }
+    expect(screen.queryByTestId("factsheets-result")).not.toBeInTheDocument();
   });
 
-  it("isolates one category when ?topic= is resolved", () => {
+  it("opens one topic at a time from the directory", async () => {
+    const user = userEvent.setup();
+    render(<FactsheetsTopicsPage />);
+
+    await user.click(screen.getByTestId("factsheets-topics-topic-medications"));
+
+    const medications = factsheets.filter((sheet) => sheet.category === "Medications");
+    const conditions = factsheets.filter((sheet) => sheet.category === "Conditions");
+    const section = screen.getByTestId(topicSectionId("Medications"));
+    expect(screen.getByTestId("factsheets-topics-topic-medications")).toHaveAttribute("aria-expanded", "true");
+    expect(within(section).getAllByTestId("factsheets-result")).toHaveLength(medications.length);
+    for (const sheet of medications) {
+      expect(section.querySelector(`a[href="/factsheets/${sheet.slug}"]`)).not.toBeNull();
+    }
+    expect(screen.queryByTestId(topicSectionId("Conditions"))).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("factsheets-topics-topic-conditions"));
+    expect(screen.queryByTestId(topicSectionId("Medications"))).not.toBeInTheDocument();
+    expect(within(screen.getByTestId(topicSectionId("Conditions"))).getAllByTestId("factsheets-result")).toHaveLength(
+      conditions.length,
+    );
+  });
+
+  it("opens the requested topic when ?topic= is resolved, without hiding the directory", () => {
     render(<FactsheetsTopicsPage selectedTopic="Medications" />);
 
-    const page = screen.getByTestId("factsheets-topics-page");
-    expect(within(page).getByRole("heading", { level: 1, name: "Topics" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Medications" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { level: 2, name: "Conditions" })).not.toBeInTheDocument();
-    expect(
-      within(screen.getByTestId("factsheets-topics-chips")).getByRole("link", { name: /Medications/ }),
-    ).toHaveAttribute("aria-current", "page");
-    expect(page).toHaveTextContent("in Medications");
+    expect(screen.getByTestId("factsheets-topics-topic-medications")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("factsheets-topics-topic-conditions")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId(topicSectionId("Medications"))).toBeInTheDocument();
+    expect(screen.queryByTestId(topicSectionId("Conditions"))).not.toBeInTheDocument();
+    expect(screen.getByTestId("factsheets-topics-directory")).toBeInTheDocument();
   });
 
   it("collapses long topic lists behind a Show all control", async () => {
     const user = userEvent.setup();
-    render(<FactsheetsTopicsPage previewLimit={1} />);
+    render(<FactsheetsTopicsPage selectedTopic="Medications" previewLimit={1} />);
 
     const medications = factsheets.filter((sheet) => sheet.category === "Medications");
     expect(medications.length).toBeGreaterThan(1);
@@ -72,23 +86,5 @@ describe("FactsheetsTopicsPage", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(within(section).getAllByTestId("factsheets-result")).toHaveLength(medications.length);
     expect(toggle).toHaveTextContent("Show fewer in Medications");
-  });
-
-  it("opens an overflow sheet when the topic index exceeds the chip budget", async () => {
-    const user = userEvent.setup();
-    render(
-      <>
-        <OverlayRoot />
-        <FactsheetsTopicsPage chipOverflowAfter={2} />
-      </>,
-    );
-
-    expect(screen.getByTestId("factsheets-topics-more")).toBeInTheDocument();
-    await user.click(screen.getByTestId("factsheets-topics-more"));
-    const sheet = screen.getByTestId("factsheets-topics-more-sheet");
-    expect(within(sheet).getByRole("link", { name: /Therapies/ })).toHaveAttribute(
-      "href",
-      "/factsheets/topics?topic=therapies",
-    );
   });
 });
