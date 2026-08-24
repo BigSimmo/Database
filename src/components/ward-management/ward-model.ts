@@ -57,8 +57,21 @@ export type LegalStatus =
  */
 export type LegalForm = {
   code: string;
-  label: string;
-  kind: "examination" | "detention" | "transport" | "transfer";
+  /**
+   * **There is deliberately no `label` field.** Ward Flow does not hold form titles; the Chief
+   * Psychiatrist's register does, and `legalFormName` in `ward-legal-forms.ts` resolves one from
+   * `code` at render time. Removed on 2026-08-24, when the product owner approved adopting the
+   * official titles — a stored label is how this model came to render "Inpatient treatment
+   * order" (the title of a Form **6A**) on every Form 3B. A code the register does not list has
+   * no title and is rendered as the bare code. Do not reintroduce this field.
+   *
+   * What kind of instrument the form is. Optional: this model holds no classification for a
+   * Form 3D, and guessing one would be a claim about the Mental Health Act this prototype is
+   * not entitled to make. No ward surface reads this field — it is carried, not displayed, and
+   * it is deliberately NOT taken from the register's `category`, which the product owner did
+   * not approve adopting.
+   */
+  kind?: "examination" | "detention" | "transport" | "transfer";
   dueAt?: Instant;
 };
 

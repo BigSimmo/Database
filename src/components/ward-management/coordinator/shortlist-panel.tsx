@@ -15,6 +15,7 @@ import {
 } from "@/components/ward-management/ward-derivations";
 import { eligibility, type GateResult } from "@/components/ward-management/ward-eligibility";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
+import { legalFormName } from "@/components/ward-management/ward-legal-forms";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
 import { operationalScore } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
@@ -81,7 +82,9 @@ function capacityLine(unit: Unit) {
  */
 function legalFormLine(movement: Movement, now: Instant) {
   if (!movement.legalForm) return "No legal form recorded for this movement";
-  const named = `Form ${movement.legalForm.code} (${movement.legalForm.label})`;
+  // `legalFormName` renders a code this model holds no label for — Form 3D — as the bare code
+  // rather than expanding it into a guess. Same wording as before for every labelled form.
+  const named = legalFormName(movement.legalForm);
   if (movement.legalForm.dueAt === undefined) {
     return `${named} — no deadline recorded; ${elapsedLabel(movement, now)} in the emergency department`;
   }

@@ -146,14 +146,36 @@ describe("invariants across every reachable state", () => {
     expect(target.withdrawnReferrals.some((entry) => entry.unitId === DECLINED_UNIT_ID)).toBe(false);
   });
 
-  it("never lets the statutory form disagree with the examination", () => {
-    // 1A is awaiting exam; 3B is awaiting a bed after one. An event that records an examination
-    // must not leave a patient claiming to still be awaiting it.
-    for (const state of walk()) {
-      for (const movement of state.movements) {
-        const code = movement.legalForm?.code;
-        if (code === "1A") expect(movement.examination).toBeUndefined();
-        if (code === "3B") expect(movement.examination?.outcome).toBe("inpatient_order");
+  /**
+   * DELIBERATELY WEAKENED on 2026-08-24, alongside its twin in tests/ward-model-phase3.test.ts.
+   * This used to assert the 1A/3B invariant across every state in the walk. That invariant WAS
+   * the deleted rule: no reducer branch derives, replaces or clears a form any more, so a
+   * movement on a 1A may now carry an examination and a movement on a 3B may not.
+   *
+   * The honest replacement is that no event in this walk CHANGES the form a movement carries.
+   *
+   * STATED LIMIT, measured rather than assumed: the walk above dispatches ten event types and
+   * `RECORD_EXAMINATION` is not one of them, so re-adding the 1A-to-3B swap does NOT turn this
+   * test red — verified directly by making that mutation. The name is scoped to "this walk" for
+   * that reason. `tests/ward-legal-figure-guard.test.ts` drives every event type in the union
+   * against a movement carrying each code and is what covers the examination branch;
+   * `tests/ward-flow-reducer.test.ts` pins that branch case by case.
+   */
+  it("never lets any event in this walk change the legal form a movement carries", () => {
+    const states = walk();
+    const first = states[0];
+
+    const formOf = (state: (typeof states)[number], id: string) =>
+      state.movements.find((movement) => movement.id === id)?.legalForm;
+
+    // Non-vacuity: the walk really inspects movements that carry a form, so an empty or
+    // form-free fixture cannot make this pass quietly.
+    const carriers = first.movements.filter((movement) => movement.legalForm !== undefined).map((m) => m.id);
+    expect(carriers.length, "no movement in the walk carries a legal form").toBeGreaterThan(0);
+
+    for (const state of states) {
+      for (const id of carriers) {
+        expect(formOf(state, id), `${id}'s legal form was changed by an event in the walk`).toEqual(formOf(first, id));
       }
     }
   });
