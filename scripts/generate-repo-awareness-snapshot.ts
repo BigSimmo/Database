@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import {
   REPO_AWARENESS_SNAPSHOT_VERSION,
   type DocumentationSection,
+  type RepoAwarenessSnapshot,
   type ReviewStateSection,
   type RouteArea,
   type RoutesSection,
@@ -320,16 +322,31 @@ function splitRecordCells(line: string): string[] {
   return cells;
 }
 
+/**
+ * Tracked files only. Walking the filesystem would list a developer's untracked
+ * draft records, and the staleness gate would then fail on a clean tree for
+ * everyone but that developer — the same failure `listDocumentPaths` exists to
+ * prevent.
+ */
 export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; line: string }[] {
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".record.md"))
+  // An absolute `dir` is a throwaway fixture (the generator always uses the
+  // repo-relative default). Isolate `git ls-files` to that directory so the
+  // fixture can be its own tiny repository.
+  const cwd = path.isAbsolute(dir) ? dir : undefined;
+  const output = execFileSync("git", ["ls-files", "-z", "--", cwd ? "." : dir], {
+    encoding: "utf8",
+    cwd,
+  });
+  return output
+    .split("\0")
+    .filter((entry) => entry.endsWith(".record.md"))
     .sort()
-    .map((name) => {
-      const file = `${dir}/${name}`;
+    .map((entry) => {
+      const file = cwd ? path.join(dir, entry) : entry;
       const line = readFileSync(file, "utf8")
         .split("\n")
-        .map((entry) => entry.trim())
-        .find((entry) => RECORD_ROW.test(entry));
+        .map((row) => row.trim())
+        .find((row) => RECORD_ROW.test(row));
       if (!line) throw new Error(`${file}: no review record row found.`);
       return { file, line };
     });
@@ -370,4 +387,106 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
     records,
     counts: { records: records.length, refs: new Set(records.map((record) => record.ref)).size },
   };
+}
+
+/**
+ * The commit that last touched anything this snapshot describes — not `HEAD`.
+ *
+ * `HEAD` would advance on every unrelated commit, so the page would claim the
+ * data was fresher than it is. Dating the snapshot by its own inputs can only
+ * ever understate freshness, which is the safe direction and the same choice
+ * Phase 1 made for `ledger_revision`.
+ *
+ * This list may only ever contain files that genuinely shape emitted data —
+ * never widened to a transitive-closure chase or a broad directory "to be
+ * safe." The two directions are not symmetric:
+ *
+ *  - Adding a TRUE input is always safe. It can only move the resolved commit
+ *    forward, toward the commit that actually last changed something here —
+ *    which is always an improvement in accuracy, never a risk.
+ *  - Adding something that is NOT an input is unsafe. An unrelated commit
+ *    would then advance the date, and the page would claim the data is
+ *    FRESHER than it actually is — the one direction this scheme exists to
+ *    rule out.
+ *  - Omitting a true input is merely imprecise, and imprecise in the safe
+ *    direction: the date understates freshness rather than overstating it.
+ *    That is why growing this list is a correctness improvement, not a bug
+ *    fix — nothing here was ever unsafe, just less accurate than it could be.
+ *
+ * `scripts/generate-site-map.ts` and `src/lib/consolidated-mode-home-redirect.ts`
+ * were added after confirming each one flows into an emitted field:
+ * `documentedRedirectTargets` (generate-site-map.ts) is consumed while
+ * building `routes.redirects[].target`, and `consolidatedModeHomeModeIds`
+ * (consolidated-mode-home-redirect.ts) is branched on by `appModeHomeHref()`
+ * while building every mode's `home` field below. `src/lib/document-flow-routes.ts`
+ * (`documentsSearchHref`) and `src/lib/search-navigation-context.ts`
+ * (`appendSearchNavigationContext`) were deliberately left out: `appModeHomeHref`
+ * is always called here with no second argument, so `options` is always `{}` —
+ * the `documentsSearchHref` branch requires a truthy `query`, which is never
+ * present, so it never runs; and `appendSearchNavigationContext` hits its
+ * `!filters` early return on every call here, so it always returns its input
+ * `URLSearchParams` unchanged. Neither file's content can currently reach an
+ * emitted field through this call site.
+ *
+ * Docs are a `*.md` glob rather than the `docs/` directory: inbox JSON and
+ * other non-emitted files under that tree must not advance the stamp.
+ */
+const REVISION_INPUTS = [
+  "src/app",
+  "src/lib/app-modes.ts",
+  "src/lib/consolidated-mode-home-redirect.ts",
+  ":(glob)docs/**/*.md",
+  "tests/flake-ledger.json",
+  "scripts/generate-site-map.ts",
+];
+
+/**
+ * Git is a hard requirement of this generator, and that is deliberate rather
+ * than an oversight. `npm run docs:update` is the only thing that runs it, and
+ * `docs/site-map.md` sets the precedent: generated, committed, verified by a
+ * `check:` gate, never regenerated during a build. Because it never runs inside
+ * the Docker image, there is no git-less environment to degrade for — which is
+ * strictly better than Phase 1's position, where a `prebuild` hook forced a
+ * preserve-the-committed-value fallback to exist at all.
+ */
+export function readCapturedRevision({ cwd }: { cwd?: string } = {}): { sha: string; committed_at: string } {
+  let output: string;
+  try {
+    output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", ...REVISION_INPUTS], {
+      encoding: "utf8",
+      cwd,
+    }).trim();
+  } catch (error) {
+    throw new Error(
+      `Could not read the repository revision from git: ${(error as Error).message}. ` +
+        "This generator runs only from `npm run docs:update`, where git is always available.",
+    );
+  }
+  if (!output) throw new Error("git reported no commit touching this snapshot's inputs.");
+  const [sha, committed_at] = output.split("\t");
+  if (!sha || !committed_at) {
+    throw new Error(`git log produced an unparsable revision line: "${output}" (expected "<sha>\\t<committed_at>").`);
+  }
+  return { sha, committed_at };
+}
+
+export function generate(): RepoAwarenessSnapshot {
+  return {
+    version: SNAPSHOT_VERSION,
+    captured_revision: readCapturedRevision(),
+    routes: buildRoutesSection(),
+    documentation: buildDocumentationSection(listDocumentPaths(), readFileSync(README_PATH, "utf8")),
+    test_health: buildTestHealthSection(readFlakeLedger()),
+    review_state: buildReviewStateSection(readReviewRecordRows()),
+  };
+}
+
+// Windows-safe main-module check, matching the convention used elsewhere in
+// scripts/: a manual `file://${argv[1]}` string reconstruction never matches
+// `import.meta.url` on Windows, because a relative argv[1] stays relative and an
+// absolute one is missing the drive-letter leading slash — the guard would
+// silently never fire and the file would never be written.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate(), null, 2)}\n`, "utf8");
+  console.log(`[repo-awareness] wrote ${OUTPUT_PATH}`);
 }
