@@ -254,14 +254,15 @@ export async function requireAuthenticatedUser(
   }
   let { user } = authentication;
   if (requirement.administrator) {
-    // When administrator access is explicitly required, revalidate against fresh server-side
-    // user state so revoked roles take effect immediately without waiting for token refresh or expiry.
+    // Administrator routes never trust proxy-forwarded claims. A missing live
+    // Auth user fails closed (401) instead of keeping a signed header.
     const token = extractSessionAccessToken(request);
     const freshUser =
       (token ? await getUserFromAccessToken(supabase, token) : null) ?? (await getUserFromRequestCookies(request));
-    if (freshUser) {
-      user = freshUser;
+    if (!freshUser) {
+      throw new AuthenticationError();
     }
+    user = freshUser;
   }
   if (requirement.administrator && !isAdministratorAppMetadata(user.appMetadata)) {
     throw new PublicApiError("Administrator access required.", 403, { code: "administrator_required" });

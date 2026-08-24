@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import {
   PROXY_AUTH_USER_HEADER,
@@ -58,8 +58,26 @@ vi.mock("@/lib/env", async (importOriginal) => {
 });
 
 describe("proxy auth claims forwarding & anti-spoofing", () => {
+  const previousServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const previousInternalKey = process.env.INTERNAL_SERVICE_KEY;
+
   beforeEach(() => {
     getClaims.mockClear();
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "unit-test-service-role-key";
+    delete process.env.INTERNAL_SERVICE_KEY;
+  });
+
+  afterEach(() => {
+    if (previousServiceRoleKey === undefined) {
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    } else {
+      process.env.SUPABASE_SERVICE_ROLE_KEY = previousServiceRoleKey;
+    }
+    if (previousInternalKey === undefined) {
+      delete process.env.INTERNAL_SERVICE_KEY;
+    } else {
+      process.env.INTERNAL_SERVICE_KEY = previousInternalKey;
+    }
   });
 
   it("keeps rotated session cookie flags when forwarding verified claims", async () => {
@@ -124,6 +142,7 @@ describe("proxy auth claims forwarding & anti-spoofing", () => {
       appMetadata: { clinician: true },
     };
     const validHeader = signProxyAuthPayload(Buffer.from(JSON.stringify(validPayload)).toString("base64"));
+    expect(validHeader).toBeTruthy();
     const requestWithProxyClaims = new Request("http://localhost/api/test", {
       headers: {
         [PROXY_AUTH_USER_HEADER]: validHeader,
@@ -146,5 +165,35 @@ describe("proxy auth claims forwarding & anti-spoofing", () => {
     });
     // Verified: No Supabase getUser RPC was made
     expect(mockAdmin.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("refuses to sign or verify proxy claims without a server-only secret", async () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.INTERNAL_SERVICE_KEY;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    const { signProxyAuthPayload, verifyProxyAuthHeader } = await import("../src/lib/supabase/proxy-auth-crypto");
+    const payload = Buffer.from(JSON.stringify({ id: "user", appMetadata: {} })).toString("base64");
+    expect(signProxyAuthPayload(payload)).toBeNull();
+    expect(verifyProxyAuthHeader(`${payload}.forged`)).toBeNull();
+  });
+
+  it("does not treat the public publishable key as a signing secret", async () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.INTERNAL_SERVICE_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_browser_visible";
+    const { createHmac } = await import("node:crypto");
+    const { signProxyAuthPayload, verifyProxyAuthHeader } = await import("../src/lib/supabase/proxy-auth-crypto");
+    const payload = Buffer.from(JSON.stringify({ id: "user", appMetadata: { site_role: "administrator" } })).toString(
+      "base64",
+    );
+    const publicSignature = createHmac("sha256", "sb_publishable_browser_visible").update(payload).digest("base64url");
+    expect(signProxyAuthPayload(payload)).toBeNull();
+    expect(verifyProxyAuthHeader(`${payload}.${publicSignature}`)).toBeNull();
+  });
+
+  it("keeps /api routes inside the proxy matcher even when the last segment looks like an image", async () => {
+    const { config } = await import("../src/proxy");
+    expect(config.matcher).toContain("/api/:path*");
+    expect(config.matcher.some((pattern) => pattern.includes("api(?:/|$)") || pattern === "/api/:path*")).toBe(true);
   });
 });
