@@ -14,10 +14,30 @@ function eligibleCounts(scenario: "standard" | "scarce") {
 }
 
 describe("ward scenarios", () => {
-  it("the standard night leaves every open movement several eligible wards", () => {
+  /**
+   * The assertion this test originally carried — "every open movement has at least five eligible
+   * wards" — was false, and the way it was false is worth recording. It came from counting the
+   * LENGTH of `eligibleCandidatesAmong(...)`, which sorts eligible-first and truncates to its
+   * `limit`; it does not filter to eligible. That length is therefore the number of same-cohort
+   * units, never the number of eligible ones, and reading it as eligibility produced a confident
+   * wrong answer that survived into a design document.
+   *
+   * Measured directly on 2026-08-25 at NOW_ANCHOR, counting `eligibility(...).eligible` across all
+   * 22 units: 41 open movements, 337 eligible movement/unit pairs, distribution
+   * {0:2, 4:11, 5:6, 6:3, 11:1, 12:9, 14:9} — and **two movements, WF-009 and WF-308, already have
+   * nowhere eligible on the standard night.** Both are the fixture as authored, not something the
+   * scarce scenario introduced.
+   */
+  it("the standard night leaves most open movements real choice, but already strands two", () => {
     const counts = eligibleCounts("standard");
     expect(counts.length).toBeGreaterThan(30);
-    expect(Math.min(...counts)).toBeGreaterThanOrEqual(5);
+    // Non-vacuity floor: the standard night must stay a night with genuine choice on it, so this
+    // goes red if the fixture or the gates ever degrade it toward the scarce night.
+    expect(counts.reduce((sum, count) => sum + count, 0)).toBeGreaterThan(300);
+    // ...but it is NOT a night on which everyone has somewhere to go, and the escalation board
+    // exists partly because of these two. Pinned exactly, so a regression that strands more
+    // patients fails here rather than passing quietly.
+    expect(counts.filter((count) => count === 0)).toHaveLength(2);
   });
 
   it("the scarce night exhausts the network for at least one open movement", () => {
