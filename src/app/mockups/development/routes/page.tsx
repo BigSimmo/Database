@@ -82,8 +82,8 @@ export default function DeveloperRoutesPage() {
     >
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <CountTile testId="developer-routes-count-modes" value={counts.modes} label="app modes" />
-        <CountTile testId="developer-routes-count-product" value={counts.product_pages} label="product pages" />
-        <CountTile testId="developer-routes-count-mockup" value={counts.mockup_pages} label="design-scratch pages" />
+        <CountTile testId="developer-routes-count-product" value={productPages.length} label="product pages" />
+        <CountTile testId="developer-routes-count-mockup" value={mockupPages.length} label="design-scratch pages" />
         <CountTile testId="developer-routes-count-api" value={counts.api} label="API routes" />
       </div>
 
@@ -111,7 +111,7 @@ export default function DeveloperRoutesPage() {
 
       <section aria-labelledby="developer-routes-product-heading" className="grid gap-3">
         <h2 id="developer-routes-product-heading" className={SECTION_HEADING_CLASS}>
-          Product pages · {counts.product_pages}
+          Product pages · {productPages.length}
         </h2>
         <ul data-testid="developer-routes-pages-product" className="grid gap-2">
           {productPages.map((page) => (
@@ -125,7 +125,7 @@ export default function DeveloperRoutesPage() {
 
       <section aria-labelledby="developer-routes-mockup-heading" className="grid gap-3">
         <h2 id="developer-routes-mockup-heading" className={SECTION_HEADING_CLASS}>
-          Design-scratch pages · {counts.mockup_pages}
+          Design-scratch pages · {mockupPages.length}
         </h2>
         <p className={META_CLASS}>
           These do not exist in production. They are exempt from the button-wiring and reachability checks, and from
@@ -148,8 +148,8 @@ export default function DeveloperRoutesPage() {
           </h2>
           <p className={META_CLASS}>
             These pages carry an area this page does not recognise. They are shown as they are rather than dropped, so
-            together with the {counts.product_pages} product and {counts.mockup_pages} design-scratch pages counted
-            above, nothing from this snapshot goes unlisted.
+            together with the {productPages.length} product and {mockupPages.length} design-scratch pages counted above,
+            nothing from this snapshot goes unlisted.
           </p>
           <ul data-testid="developer-routes-pages-other" className="grid gap-2">
             {otherPages.map((page) => (

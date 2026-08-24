@@ -149,6 +149,9 @@ describe("developer documentation page", () => {
     // Still counted: the sections still add up to the full document total even
     // though one document sits under a heading the summary never listed.
     expect(within(region).getAllByRole("listitem")).toHaveLength(overridden.documentation.counts.documents);
+    expect(screen.getByTestId("developer-documentation-count-sections-value")).toHaveTextContent(
+      String(overridden.documentation.counts.sections + 1),
+    );
     // Rendered under its own heading, named as it stands.
     expect(screen.getByRole("heading", { name: new RegExp("an-unrecognised-section") })).toBeInTheDocument();
   });

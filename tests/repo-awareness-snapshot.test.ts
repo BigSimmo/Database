@@ -29,7 +29,7 @@ describe("loadRepoAwarenessSnapshot", () => {
     expect(snapshot.version).toBe(REPO_AWARENESS_SNAPSHOT_VERSION);
     expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
     expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
-    expect(snapshot.review_state.counts.records).toBeGreaterThan(400);
+    expect(snapshot.review_state.counts.records).toBeGreaterThan(2_500);
   });
 
   it("keeps each section's count equal to the length of its own list", () => {

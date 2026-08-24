@@ -281,7 +281,10 @@ export function readFlakeLedger(ledgerPath = FLAKE_LEDGER_PATH): FlakeLedgerFile
   return ledger;
 }
 
+export const REVIEW_LEDGER_PATH = "docs/branch-review-ledger.md";
+export const REVIEW_ARCHIVE_PATHSPEC = ":(glob)docs/archive/branch-review-ledger-*.md";
 export const REVIEW_RECORDS_DIR = "docs/branch-review-records";
+export const REVIEW_RECORDS_PATHSPEC = ":(glob)docs/branch-review-records/*.record.md";
 
 const RECORD_ROW = /^\|\s*\d{4}-\d{2}-\d{2}\s*\|/;
 
@@ -323,32 +326,34 @@ function splitRecordCells(line: string): string[] {
 }
 
 /**
- * Tracked files only. Walking the filesystem would list a developer's untracked
- * draft records, and the staleness gate would then fail on a clean tree for
- * everyone but that developer — the same failure `listDocumentPaths` exists to
- * prevent.
+ * Read the same complete, tracked review corpus as `ledger:lookup`: the frozen
+ * live table, rotated archives, and immutable records. Walking the filesystem
+ * would list a developer's untracked draft records, and the staleness gate
+ * would then fail on a clean tree for everyone but that developer — the same
+ * failure `listDocumentPaths` exists to prevent.
  */
 export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; line: string }[] {
   // An absolute `dir` is a throwaway fixture (the generator always uses the
   // repo-relative default). Isolate `git ls-files` to that directory so the
   // fixture can be its own tiny repository.
   const cwd = path.isAbsolute(dir) ? dir : undefined;
-  const output = execFileSync("git", ["ls-files", "-z", "--", cwd ? "." : dir], {
+  const pathspecs = cwd ? ["."] : [REVIEW_LEDGER_PATH, REVIEW_ARCHIVE_PATHSPEC, REVIEW_RECORDS_PATHSPEC];
+  const output = execFileSync("git", ["ls-files", "-z", "--", ...pathspecs], {
     encoding: "utf8",
     cwd,
   });
   return output
     .split("\0")
-    .filter((entry) => entry.endsWith(".record.md"))
+    .filter(Boolean)
     .sort()
-    .map((entry) => {
+    .flatMap((entry) => {
       const file = cwd ? path.join(dir, entry) : entry;
-      const line = readFileSync(file, "utf8")
+      const lines = readFileSync(file, "utf8")
         .split("\n")
         .map((row) => row.trim())
-        .find((row) => RECORD_ROW.test(row));
-      if (!line) throw new Error(`${file}: no review record row found.`);
-      return { file, line };
+        .filter((row) => RECORD_ROW.test(row));
+      if (lines.length === 0) throw new Error(`${file}: no review record row found.`);
+      return lines.map((line) => ({ file, line }));
     });
 }
 
@@ -370,9 +375,10 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
     // scopes, and nothing structurally prevents two records sharing all four.
     //
     // Determinism therefore rests on two further facts, not on the comparator:
-    // `readReviewRecordRows` sorts filenames, so its output order is the same on
-    // every platform, and `Array.prototype.sort` is specified stable, so ties
-    // keep that order. If either ever stops holding — records merged from a
+    // `readReviewRecordRows` sorts filenames and preserves row order within
+    // each file, so its output order is the same on every platform, and
+    // `Array.prototype.sort` is specified stable, so ties keep that order. If
+    // either ever stops holding — records merged from a
     // second source, or an unsorted glob — this comparator will start flapping
     // the staleness gate for exactly those records, and no test will say why.
     .sort(

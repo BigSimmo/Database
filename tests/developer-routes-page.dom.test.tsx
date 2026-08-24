@@ -142,6 +142,8 @@ describe("developer routes page", () => {
     areaOverride.value = "internal";
     const overridden = loadRepoAwarenessSnapshot();
     const target = overridden.routes.pages[0];
+    const productCount = overridden.routes.pages.filter((page) => page.area === "product").length;
+    const mockupCount = overridden.routes.pages.filter((page) => page.area === "mockup").length;
     render(<DeveloperRoutesPage />);
 
     const other = screen.getByTestId("developer-routes-pages-other");
@@ -159,6 +161,10 @@ describe("developer routes page", () => {
     expect(
       within(screen.getByTestId("developer-routes-pages-mockup")).queryByTestId(`developer-routes-page-${target.path}`),
     ).toBeNull();
+    expect(screen.getByTestId("developer-routes-count-product-value")).toHaveTextContent(String(productCount));
+    expect(screen.getByTestId("developer-routes-count-mockup-value")).toHaveTextContent(String(mockupCount));
+    expect(screen.getByRole("heading", { name: `Product pages · ${productCount}` })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: `Design-scratch pages · ${mockupCount}` })).toBeInTheDocument();
     // The caption sits beside the `<ul>`, not inside it, so this reads the
     // section as a whole rather than the list element `other` above. This
     // pins a *true* claim: `counts.pages` is never shown as its own tile, so
@@ -169,8 +175,7 @@ describe("developer routes page", () => {
     // "not double-counted" assertions in this test already establish.
     expect(other.parentElement).toHaveTextContent(
       new RegExp(
-        `together with the ${overridden.routes.counts.product_pages} product and ` +
-          `${overridden.routes.counts.mockup_pages} design-scratch pages counted above`,
+        `together with the ${productCount} product and ` + `${mockupCount} design-scratch pages counted above`,
       ),
     );
   });

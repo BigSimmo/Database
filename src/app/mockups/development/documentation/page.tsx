@@ -70,7 +70,7 @@ export default function DeveloperDocumentationPage() {
         />
         <CountTile
           testId="developer-documentation-count-sections"
-          value={counts.sections}
+          value={sections.length}
           label="areas of the docs tree"
         />
       </div>

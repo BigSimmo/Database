@@ -371,8 +371,13 @@ describe("the real review record corpus", () => {
     // not have caught the escaped pipes that actually appear in the corpus.
     const { readReviewRecordRows, buildReviewStateSection: build } =
       await import("../scripts/generate-repo-awareness-snapshot");
-    const section = build(readReviewRecordRows());
-    expect(section.counts.records).toBeGreaterThan(400);
+    const rows = readReviewRecordRows();
+    const section = build(rows);
+    expect(rows.some((row) => row.file === "docs/branch-review-ledger.md")).toBe(true);
+    expect(rows.some((row) => row.file.startsWith("docs/archive/branch-review-ledger-"))).toBe(true);
+    expect(rows.some((row) => row.file.startsWith("docs/branch-review-records/"))).toBe(true);
+    expect(section.counts.records).toBeGreaterThan(2_500);
+    expect(section.records.some((record) => record.ref === "claude/latency-findings-impl-s8g01v")).toBe(true);
     for (const record of section.records) {
       expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(record.ref.length).toBeGreaterThan(0);
@@ -390,7 +395,7 @@ describe("generate", () => {
     expect(snapshot.version).toBe(SNAPSHOT_VERSION);
     expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
     expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
-    expect(snapshot.review_state.counts.records).toBeGreaterThan(400);
+    expect(snapshot.review_state.counts.records).toBeGreaterThan(2_500);
     expect(snapshot.test_health.counts.quarantined).toBeGreaterThanOrEqual(0);
   });
 
