@@ -440,6 +440,31 @@ export function ManagementPlanSurface({
     dispatch({ type: "record-contact-intent", patientId: patient.id, cmhtId: contact.id, channel });
   }
 
+  /**
+   * The Patient Plan's one inbound link, written once and used by every branch
+   * of this surface that can render it.
+   *
+   * Until Task 11 walked the running application, the sentence this row carries
+   * was the only mention of the person's own copy anywhere outside the Patient
+   * Plan's own three pages, and it was not a link — so a whole feature of the
+   * specification could be reached only by typing its address. The first fix put
+   * the link in the Current-version branch alone, which restored the same defect
+   * for anybody whose plan had been withdrawn. One helper, called from both, is
+   * what stops a third branch quietly losing it again.
+   */
+  function patientPlanRow(summary: string) {
+    return (
+      <DefinitionRow term="Patient Plan">
+        <>
+          {summary}{" "}
+          <Link href={carePlanRoute.patientPlan(patient.id)} className={styles.inlineLink}>
+            Open the Patient Plan
+          </Link>
+        </>
+      </DefinitionRow>
+    );
+  }
+
   return (
     <section aria-label={`${patient.fullName} Management Plan`} className={styles.workspace}>
       <div data-testid="care-plan-plan-identity" className={styles.identityBand}>
@@ -506,24 +531,11 @@ export function ManagementPlanSurface({
                   ? "Not yet shown to this person."
                   : `Shown on ${formatPerthDate(currentManagementVersion.sharedWithPatientAt)}.`}
               </DefinitionRow>
-              {/*
-                The Patient Plan's one inbound link, and the reason it is here:
-                until Task 11 walked the running application, this sentence was
-                the only mention of the person's own copy anywhere outside the
-                Patient Plan's own three pages, and it was not a link — so a
-                whole feature of the specification could be reached only by
-                typing its address.
-              */}
-              <DefinitionRow term="Patient Plan">
-                <>
-                  {currentPatientPlanVersion === null
-                    ? "No current Patient Plan has been written from this version."
-                    : `Current Patient Plan version ${currentPatientPlanVersion.version}.`}{" "}
-                  <Link href={carePlanRoute.patientPlan(patient.id)} className={styles.inlineLink}>
-                    Open the Patient Plan
-                  </Link>
-                </>
-              </DefinitionRow>
+              {patientPlanRow(
+                currentPatientPlanVersion === null
+                  ? "No current Patient Plan has been written from this version."
+                  : `Current Patient Plan version ${currentPatientPlanVersion.version}.`,
+              )}
             </dl>
           </SectionFrame>
         </>
@@ -538,6 +550,20 @@ export function ManagementPlanSurface({
             <p className={styles.sectionDescription}>
               {`${patient.preferredName} previously had an agreed plan. No older version has been restored in its place, and there is no Current Plan to follow.`}
             </p>
+            {/*
+              The person's own copy stays reachable after a withdrawal, and this
+              is the branch it matters most in: they may be holding a printed
+              copy of the plan that has just been withdrawn, and what this
+              application says they were given has to stay reachable rather than
+              disappearing along with the plan it was written from.
+            */}
+            <dl className={styles.definitionGrid}>
+              {patientPlanRow(
+                currentPatientPlanVersion === null
+                  ? `${patient.preferredName} has no current Patient Plan.`
+                  : `${patient.preferredName} still has Patient Plan version ${currentPatientPlanVersion.version}, written from the plan that has been withdrawn.`,
+              )}
+            </dl>
           </SectionFrame>
           <SupersededContent version={withdrawnManagementVersion} />
         </>

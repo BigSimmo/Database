@@ -3204,6 +3204,25 @@ describe("Care Plan patient-scoped navigation", () => {
       carePlanRoute.patientPlan("SYN-PATIENT-001"),
     );
   });
+
+  /**
+   * The branch the first fix missed, and the one the link matters most in.
+   *
+   * A withdrawn plan is exactly the case the specification keeps a Patient Plan
+   * readable for: the person may be holding a printed copy of a plan that has
+   * since been withdrawn, and what the application says they were given has to
+   * stay reachable. Putting the link only in the `currentManagementVersion !==
+   * null` arm made the person's own copy unreachable again the moment their
+   * plan was withdrawn — the same defect as before, one branch along.
+   */
+  it("links the Patient Plan from a withdrawn Management Plan too", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-004"));
+    expect(screen.getByTestId("care-plan-withdrawn-notice")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the Patient Plan" })).toHaveAttribute(
+      "href",
+      carePlanRoute.patientPlan("SYN-PATIENT-004"),
+    );
+  });
 });
 
 describe("Care Plan error boundary", () => {
