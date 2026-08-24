@@ -4,19 +4,29 @@ import { describe, expect, it } from "vitest";
 import { AnswerChatPerfectedMockupsPage } from "@/components/answer-chat-perfected-mockups";
 
 function openAnswerSource() {
-  const marks = screen.getAllByRole("button", { name: /Source 1, Physical health protocol/i });
-  // The first four marks belong to the standalone specimen. This mark is in the
-  // phone answer frame, which owns the drawer under test.
-  const opener = marks[4];
+  const frame = screen.getByText("Phone · tap any number").closest("figure");
+  if (frame === null) throw new Error("The interactive phone answer frame was not rendered.");
+  const opener = within(frame).getByRole("button", { name: /Source 1, Physical health protocol/i });
   fireEvent.click(opener);
-  return opener;
+  return { frame, opener };
 }
 
 describe("answer-chat perfected mockup drawer", () => {
+  it("does not steal page focus for a comparison drawer shown at load", () => {
+    const sentinel = document.createElement("button");
+    document.body.append(sentinel);
+    sentinel.focus();
+
+    render(<AnswerChatPerfectedMockupsPage />);
+
+    expect(sentinel).toHaveFocus();
+    sentinel.remove();
+  });
+
   it("moves focus into the drawer, traps it, and restores the opening mark", async () => {
     render(<AnswerChatPerfectedMockupsPage />);
-    const opener = openAnswerSource();
-    const drawer = screen.getAllByRole("dialog", { name: /Source 1 of 3/i })[0];
+    const { frame, opener } = openAnswerSource();
+    const drawer = within(frame).getByRole("dialog", { name: /Source 1 of 3/i });
 
     expect(drawer).toContainElement(document.activeElement as HTMLElement);
 
