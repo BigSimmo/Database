@@ -6,7 +6,7 @@ import { ArrowRight, Search } from "lucide-react";
 
 import { filterCompareCatalog, padCompareIds, slotLetters } from "@/components/compare/filter-catalog";
 import type { CompareCatalogItem, CompareStarterChip } from "@/components/compare/types";
-import { cn } from "@/components/ui-primitives";
+import { cn, searchShell, searchShellInput } from "@/components/ui-primitives";
 
 export function CompareCatalogPicker({
   items,
@@ -129,10 +129,7 @@ export function CompareCatalogPicker({
           })}
         </div>
       ) : null}
-      <label
-        htmlFor={inputId}
-        className="flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3"
-      >
+      <label htmlFor={inputId} className={searchShell}>
         <Search className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
         <span className="sr-only">{searchPlaceholder}</span>
         <input
@@ -142,7 +139,7 @@ export function CompareCatalogPicker({
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder={searchPlaceholder}
-          className="min-w-0 flex-1 bg-transparent text-base outline-none sm:text-sm"
+          className={cn(searchShellInput, "text-base sm:text-sm")}
         />
       </label>
       {!query.trim() && starters?.length ? (
