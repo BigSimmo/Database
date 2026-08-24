@@ -217,18 +217,42 @@ async function expectNoHorizontalOverflow(page: Page) {
  */
 const planMetadata = (page: Page) => page.getByTestId("care-plan-current-plan-metadata");
 
+/**
+ * The block's Management-Plan-owned facts only: version and status, owner,
+ * approver, approval date, next review date, team.
+ *
+ * The block's last row is a **cross-reference** to the Personal Safety Plan, and
+ * that row is supposed to move when a new safety-plan version is made current —
+ * the two documents are independent, but the clinician's card names the current
+ * one. A whole-block comparison therefore reads a correct linkage update as the
+ * clinical plan having moved, which is what the first version of the safety-plan
+ * journey did. The split is asserted rather than assumed, so a rename of that
+ * row fails loudly instead of quietly widening what counts as "unchanged".
+ */
 async function readPlanMetadata(page: Page): Promise<string> {
   const text = (await planMetadata(page).innerText()).trim();
   expect(text, "the Current Plan metadata block rendered nothing to compare against").toContain("Current version");
-  return text;
+  const boundary = text.search(/^personal safety plan$/im);
+  expect(
+    boundary,
+    "the Current Plan metadata block no longer carries a Personal Safety Plan row, so this helper is splitting on nothing",
+  ).toBeGreaterThan(0);
+  return text.slice(0, boundary).trim();
 }
 
 async function expectPlanMetadataUnchanged(page: Page, before: string) {
   await expect
-    .poll(async () => (await planMetadata(page).innerText()).trim(), {
-      message: "the Current Plan moved when nothing in this journey should have moved it",
-      timeout: 10_000,
-    })
+    .poll(
+      async () => {
+        const text = (await planMetadata(page).innerText()).trim();
+        const boundary = text.search(/^personal safety plan$/im);
+        return boundary > 0 ? text.slice(0, boundary).trim() : text;
+      },
+      {
+        message: "the Current Plan moved when nothing in this journey should have moved it",
+        timeout: 10_000,
+      },
+    )
     .toBe(before);
 }
 
@@ -793,7 +817,13 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await expect(returnSheet).toBeVisible();
     await page.getByLabel("What needs to change").fill("Add the after-hours arrangement the team agreed on Tuesday.");
     await returnSheet.getByRole("button", { name: "Return for changes" }).click();
-    await expect(page.getByTestId("care-plan-review-outcome")).toContainText(/returned/i);
+
+    // Returning navigates to the draft, so the outcome is reported on the form
+    // surface rather than on the review one. The first version of this assertion
+    // waited on `care-plan-review-outcome`, which by then no longer existed —
+    // the notice had not gone missing, the reader had been moved.
+    await expect(page.getByRole("heading", { level: 1, name: "Draft Management Plan Version" })).toBeVisible();
+    await expect(page.getByTestId("care-plan-form-outcome")).toContainText(/returned/i);
 
     // The Current Plan is untouched by any of it. Reached by clicking, because
     // a reload would reset the prototype and make this assertion vacuous.
@@ -956,6 +986,12 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
       .click();
     await expect(page.getByRole("heading", { level: 1, name: "Management Plan" })).toBeVisible();
     await expectPlanMetadataUnchanged(page, planBefore);
+
+    // The other half of the same fact: the clinical plan did not move, and the
+    // card's cross-reference to the person's own plan *did*. Independence is not
+    // the same as invisibility — the clinician's card names whichever safety
+    // plan is current, and it now names the one written above.
+    await expect(planMetadata(page)).toContainText("Personal Safety Plan — Current version 2");
   });
 
   test("a Review Trigger is resolved without the plan changing by itself", async ({ page }) => {
