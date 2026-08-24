@@ -485,3 +485,35 @@ the immediate next task anyway and nothing else in Group 0 waits on it.
 what its arrival makes true. There the answer was "confirm buttons that do nothing"; here it is "a
 caseload screen that says empty when it is not". Both were invisible while the thing stayed
 unreachable.
+
+### Task 1 scoped re-review — ALL THREE ADDRESSED, no new breakage
+
+The re-reviewer traced the corrected mutation through all 11 tests from the code rather than accepting
+the reported count, and landed on the same `Tests 2 failed | 9 passed (11)` for a reason worth keeping:
+the action slot sits **outside** the mutated ternary, which is why exactly two tests fail rather than
+three. That is the kind of detail that separates a re-derivation from a re-reading.
+
+The rename was verified end to end: no bare `EmptyState` word survives in the test file, the file move
+is a real rename rather than delete-plus-add, and the manifest diff is exactly one deleted line inside
+the `ui-primitives.tsx` entry with nothing else disturbed. The four surviving `EmptyState` mentions in
+the component's own comments are safe because the generator's `testFiles` list is built from a
+`tests/`-only walk — checked in the generator source, not assumed.
+
+`role="group"` is present, hook-free, and applied to **both** kinds rather than only `"filtered"`. The
+re-reviewer judged that defensible rather than a defect: a named group on the two-piece `"no-data"`
+case is slightly more verbose but never misleading, and it buys one consistent pattern across all four
+list screens. Left as a two-line reversal if a later reviewer prefers the brief's letter.
+
+**Deferred minors:** the transient mutation would not have survived `tsc --noEmit` (the untouched
+`"filtered"` branch reads an unnarrowed union once the guard is hardcoded) — cosmetic, never
+committed, and it does not affect a vitest-based proof because esbuild strips types without checking.
+And the both-kinds-vs-filtered-only judgement above.
+
+**Task 1: COMPLETE (commits `c0f84112f`..`caef3c7c3`, review clean, 2 minors deferred).**
+
+Task 3: dispatched on **opus** rather than the default implementer tier. The model split reserves the
+stronger setting for architecture, and this task carries a genuine one: `WorkspaceOverlays` is
+rendered once by the shell rather than per screen, so a screen's commit handler has to reach it
+somehow, and every obvious answer — module-level mutable state, a context provider, lifting the host
+per screen — has a different cost against Ruling 13's client-payload limit. That is a design decision,
+not transcription.
