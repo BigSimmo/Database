@@ -223,16 +223,16 @@ anything touching OpenAI, Supabase, GitHub Actions or the live database.
 
 ## 10. Where everything is
 
-| Need                                         | File                                                         |
-| -------------------------------------------- | ------------------------------------------------------------ |
-| **State and how to resume**                  | this file                                                    |
-| Execution record, every ruling in full       | `docs/ward-flow-phase-3-ledger.md`                           |
-| **All 74 rulings, owner-facing, with costs** | `docs/ward-flow-phase-3-rulings.md`                          |
-| The whole-branch review                      | `docs/ward-flow-phase-3-workspace/whole-branch-review.md`    |
-| Briefs, reports, addenda                     | `docs/ward-flow-phase-3-workspace/`                          |
-| Binding authority                            | `docs/superpowers/specs/2026-08-19-…-role-screens-design.md` |
-| The 12-task plan                             | `docs/superpowers/plans/2026-08-19-…-role-screens.md`        |
-| Cross-phase map, Phases 1–3                  | `docs/ward-flow-complete-ledger.md`                          |
+| Need                                         | File                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------- |
+| **State and how to resume**                  | this file                                                                    |
+| Execution record, every ruling in full       | `docs/ward-flow-phase-3-ledger.md`                                           |
+| **All 74 rulings, owner-facing, with costs** | `docs/ward-flow-phase-3-rulings.md`                                          |
+| The whole-branch review                      | `docs/ward-flow-phase-3-workspace/whole-branch-review.md`                    |
+| Briefs, reports, addenda                     | `docs/ward-flow-phase-3-workspace/`                                          |
+| Binding authority                            | `docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md` |
+| The 12-task plan                             | `docs/superpowers/plans/2026-08-19-ward-flow-phase-3-role-screens.md`        |
+| Cross-phase map, Phases 1–3                  | `docs/ward-flow-complete-ledger.md`                                          |
 
 The live workspace at `.superpowers/sdd/2026-08-19-ward-flow-phase-3-role-screens/` is **gitignored**
 and does not survive a clone. `docs/ward-flow-phase-3-workspace/` is the committed copy — refresh it
