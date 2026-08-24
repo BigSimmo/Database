@@ -1564,7 +1564,8 @@
         "tests/ui-formulation.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
-        "tests/ui-ward-coordinator.spec.ts"
+        "tests/ui-ward-coordinator.spec.ts",
+        "tests/ui-ward-roles.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1605,7 +1606,7 @@
         "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-compare-page.tsx",
+        "src/components/compare/compare-picker-shell.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
@@ -1635,7 +1636,7 @@
         "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-compare-page.tsx",
+        "src/components/compare/compare-picker-shell.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",

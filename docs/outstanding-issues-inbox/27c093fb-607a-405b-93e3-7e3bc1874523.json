@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "27c093fb-607a-405b-93e3-7e3bc1874523",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
+    "reason": "Resolved: Desktop session gate layout verified with centered dialog geometry (512x382 layout at 1440px viewport under desktop session-gate modality) instead of full-bleed letterbox."
+  }
+}
