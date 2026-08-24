@@ -42,4 +42,3 @@ it("records plan-use feedback and creates a Review Suggested item without changi
 - [ ] Run `npm run test -- tests/care-plan-domain.test.ts tests/care-plan-prototype-state.test.ts tests/care-plan-linked-routes.dom.test.tsx`. Expected GREEN.
 - [ ] Run `npm run typecheck`, format Task 7 files, rerun the checks, and inspect that no form field duplicates a full ED note, diagnosis list, medication chart, or risk assessment.
 - [ ] Commit Task 7 with `feat(care-plan): track ED presentation continuity`. Do not push.
-

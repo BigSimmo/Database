@@ -41,4 +41,3 @@ it("renders a print-only patient copy without ED Presentation or audit content",
 - [ ] Run `npm run test -- tests/care-plan-domain.test.ts tests/care-plan-prototype-state.test.ts tests/care-plan-linked-routes.dom.test.tsx`. Expected GREEN.
 - [ ] Run `npm run typecheck`, format Task 8 files, rerun the checks, and inspect print DOM and CSS for hidden interactive controls and monochrome state clarity.
 - [ ] Commit Task 8 with `feat(care-plan): add printable personal safety plans`. Do not push.
-

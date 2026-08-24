@@ -30,23 +30,23 @@ provided it keeps the contract — a gap rather than a guess.
 
 **Why free rewriting is not attempted.** Naive substitution over clinical prose produces
 confident nonsense. This works only because a Management Plan is already eleven fields with
-known meanings, so the transformation never has to work out what a sentence is *for*. Each
+known meanings, so the transformation never has to work out what a sentence is _for_. Each
 field maps to a known patient-voice heading; a curated dictionary replaces clinical
 vocabulary; and the shift to second person is a bounded substitution of the person's own
 name and pronouns, with verb agreement read from a table rather than inferred.
 
 ### Field mapping (all eleven accounted for)
 
-| Heading | Source fields |
-| --- | --- |
-| Why we wrote this together | `whyThisPlanExists` |
-| What matters to you | `whatThePersonWants` |
-| What helps you | `whatHelps` |
-| What makes things harder | `whatMakesItWorse` |
-| What we agreed will happen when you come to the emergency department | `agreedEdApproach` (never converted) |
-| If something new is happening | `whatWouldMakeThisDifferent`, `reviewTriggers` |
-| Who's involved in your care | `whoElseIsInvolved` |
-| Things that might help | `practicalNeeds` |
+| Heading                                                              | Source fields                                  |
+| -------------------------------------------------------------------- | ---------------------------------------------- |
+| Why we wrote this together                                           | `whyThisPlanExists`                            |
+| What matters to you                                                  | `whatThePersonWants`                           |
+| What helps you                                                       | `whatHelps`                                    |
+| What makes things harder                                             | `whatMakesItWorse`                             |
+| What we agreed will happen when you come to the emergency department | `agreedEdApproach` (never converted)           |
+| If something new is happening                                        | `whatWouldMakeThisDifferent`, `reviewTriggers` |
+| Who's involved in your care                                          | `whoElseIsInvolved`                            |
+| Things that might help                                               | `practicalNeeds`                               |
 
 Deliberately omitted, and named in `PATIENT_PLAN_OMITTED_CONTENT_KEYS` so the absence reads
 as a decision rather than an oversight:
@@ -65,8 +65,8 @@ A test proves every content field is either mapped or omitted, and that no field
 2. **Clinician instruction** — the sentence opens with an imperative verb.
 3. **Unconvertible clinical term** — a curated list, including judgement-laden words
    (`declined`, `refused`, `failed`, `resistant`) and physical red flags.
-4. **Naming context** — the sentence is about what the person is *called*.
-5. **Clinical negation** — a negation beside a clinical term *or* beside the person
+4. **Naming context** — the sentence is about what the person is _called_.
+5. **Clinical negation** — a negation beside a clinical term _or_ beside the person
    themselves.
 6. **Ambiguous pronoun** — the sentence names somebody else too, or the person's possessive
    and object pronouns are the same word (`she/her`).
@@ -136,7 +136,7 @@ combined. I generated each fixture patient's copy and read it as the patient.
 > "Keep the first conversation short and say what will happen next."
 
 Printed on Alex's own copy. The first sentence tells them, on their own plan, that they
-refused — and then instructs *them* to announce it. The second and third are directions to
+refused — and then instructs _them_ to announce it. The second and third are directions to
 staff, addressed to the patient. Nothing about the words was wrong; the reader was.
 
 The source is `howToApproach`, which is written in the imperative to clinicians. **Changed:
@@ -156,7 +156,7 @@ lines in `whatMakesItWorse` ("Read this plan and the triage note first…").
 
 Source: "To be called **Evie**…". The name substitution destroyed the sentence, under a
 heading claiming it was what mattered to her. **Changed: added the naming-context rule** — a
-sentence about what the person is *called* gaps rather than having the name replaced.
+sentence about what the person is _called_ gaps rather than having the name replaced.
 
 ### Second read — a grammar defect in surviving output
 
@@ -171,7 +171,7 @@ and object pronouns are the same string, a sentence containing it is refused** r
 mangled. (`they/them` and `he/him` are unaffected — their forms are distinct.)
 
 **4. A false positive, fixed the other way.** Mira's "Why we wrote this together" was
-gapping with the *naming* reason on "Mira is **known** to the Coastal Plains team" — which is
+gapping with the _naming_ reason on "Mira is **known** to the Coastal Plains team" — which is
 not about her name. **Changed: narrowed the rule to the phrase "known as"**, so a true reason
 is given. (The section still gaps, on clinical terms — but for the right reason, and a gap
 reason a clinician reads has to be true.)
@@ -196,8 +196,8 @@ change anything for, and state instead:
 - "You asking for the plan to be changed." is a sentence fragment (its source is a noun
   phrase in `reviewTriggers`). It is clumsy, not unkind, and it tells the person something
   genuinely useful — that they can ask. A clinician editing the draft would smooth it.
-- The printed sheet's own furniture reads well: *"This is your copy of the plan you and your
-  team wrote together. Keep it somewhere you can find it quickly…"*, name and record number
+- The printed sheet's own furniture reads well: _"This is your copy of the plan you and your
+  team wrote together. Keep it somewhere you can find it quickly…"_, name and record number
   only, no date of birth, pronouns, home service, or plan metadata.
 
 ### The sparse, withdrawn, and uninvolved patients
@@ -219,44 +219,44 @@ Every rejection test got a positive control. **Three survived and are now covere
 three are the most valuable findings in this task. (Identifiers are not contiguous — M13 was
 folded into M12 and M28 was dropped as untestable without changing a stored field.)
 
-| # | Mutation | Decisive failure line |
-| --- | --- | --- |
-| M1 | `NEVER_CONVERTED_SECTION_KEYS = []` | `FAIL … > refuses the agreed approach even when its content is entirely plain` / `AssertionError: expected false to be true // Object.is equality` — **note: the brief's own test did *not* catch this**; Rowan's real agreed text gaps on unknown terms anyway. Only the plain-content control kills it. |
-| M2 | Agreed gap reason drops the clinician sentence | `AssertionError: expected 'What happens when this person comes t…' to match /written by a clinician/i` |
-| M3 | Imperative rule disabled | `AssertionError: “Repeating the whole history to each new staff member. Read this plan and the referral first, then confirm what has changed.” is an instruction written for staff: expected true to be false // Object.is equality` |
-| M4 | Naming-context rule disabled | `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'namingContext' }` |
-| M5 | Other-person pronoun rule disabled | `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'ambiguousPronoun' }` |
-| **M6** | **`she/her` ambiguity refusal disabled** | **SURVIVED — `Tests 52 passed (52)`.** After adding coverage: `AssertionError: “Loud overhead paging and bright lights at night, which make it hard for her to follow what is being asked.” still talks about this person in the third person: expected true to be false // Object.is equality` |
-| M7 | Clinical negation rule disabled | `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'clinicalNegation' }` |
-| M8 | Guess agreement by dropping trailing `s` | `AssertionError: expected { gapReasonKey: 'unknownTerm' } to deeply equal { gapReasonKey: 'personAsSubject' }` |
-| **M9** | **Whole vocabulary check disabled** | **SURVIVED — `Tests 52 passed (52)`.** After adding coverage: `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'unknownTerm' }` (twice) |
-| M10/M11 | Keep partial sections; never gap on empty | `AssertionError: expected false to be true` on both `gaps a heading whose Management Plan field holds nothing` and `never carries part of a section: one refused line empties the whole heading` |
-| M12 | Clinical-term back door in `isEverydayWord` | `AssertionError: mental-state is treated as an everyday word: expected true to be false // Object.is equality` |
-| M14 | `howToApproach` mapped back in | `AssertionError: howToApproach is both mapped and omitted: expected true to be false // Object.is equality` |
-| M15 | `physicalHealthAndMedication` mapped in | `AssertionError: physicalHealthAndMedication is both mapped and omitted: expected true to be false // Object.is equality` |
-| M16 | Transformation mutates its input | `AssertionError: expected '{"version":{"id":"SYN-MGMT-VERSION-00…' to be '{"version":{"id":"SYN-MGMT-VERSION-00…' // Object.is equality` |
-| **M17** | **Another patient's resources leak onto the copy** | **SURVIVED — `Tests 54 passed (54)`.** After adding coverage: `AssertionError: expected 50 to be less than 50` |
-| M18 | Approval no longer gap-blocked | `AssertionError: expected 'success' to be 'error' // Object.is equality` |
-| M19 | Approval requires a senior clinician | `AssertionError: expected 'draft' to be 'current' // Object.is equality` (plus five more) |
-| M20 | `plan_coordinator` given the capability | `AssertionError: expected true to be false // Object.is equality` in three tests, including `tests/care-plan-domain.test.ts` |
-| M21 | Approval no longer supersedes | `AssertionError: expected 'current' to be 'superseded' // Object.is equality` |
-| M22 | Create allowed with no Current Plan | `AssertionError: expected undefined to be 'error' // Object.is equality` |
-| M23 | Print intent allowed with no approved copy | `FAIL … > refuses a print intent when there is no approved copy, and prints nothing` |
-| M24 | Print intent not connectivity-exempt | `AssertionError: expected 'blocked' to be 'info' // Object.is equality` |
-| M25 | Stale copy silently withdrawn | `AssertionError: expected [ { …(10) } ] to deeply equal [ { …(10) } ]` on `never regenerates, hides, or withdraws a copy the person may be holding` |
-| M26 | Staleness trigger not deduplicated | `AssertionError: expected [ …(2) ] to have a length of 1 but got 2` |
-| M27 | `isPatientPlanVersionStale` always false | `AssertionError: expected false to be true // Object.is equality` |
-| M29 | `fetch` to an OpenAI endpoint added to the transform | `AssertionError: … patient-plan-transform.ts contains network fetch: expected true to be false` **and** `… contains a language-model provider: expected true to be false` |
-| M30 | Watermark put under `data-print-hide` | `AssertionError: expected <div data-print-hide="true">…(1)</div> to be null` |
-| M31 | Print rule clips the patient copy | `AssertionError: .appRoot .patientPlanSection, .appRoot .patientPlanResource declares a max-height other than none (max-height: 4rem), which would hide safety-critical plan content: expected true to be false` |
-| M32 | Approve control offered while gaps remain | `FAIL … > makes approval unavailable with a stated reason while any section is blank` |
-| M33 | `patientPlanEdit` builder points at the wrong address | `AssertionError: expected '/mockups/care-plan/patients/SYN-PATIE…' to be '/mockups/care-plan/patients/SYN-PATIE…'` |
+| #       | Mutation                                              | Decisive failure line                                                                                                                                                                                                                                                                                     |
+| ------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1      | `NEVER_CONVERTED_SECTION_KEYS = []`                   | `FAIL … > refuses the agreed approach even when its content is entirely plain` / `AssertionError: expected false to be true // Object.is equality` — **note: the brief's own test did _not_ catch this**; Rowan's real agreed text gaps on unknown terms anyway. Only the plain-content control kills it. |
+| M2      | Agreed gap reason drops the clinician sentence        | `AssertionError: expected 'What happens when this person comes t…' to match /written by a clinician/i`                                                                                                                                                                                                    |
+| M3      | Imperative rule disabled                              | `AssertionError: “Repeating the whole history to each new staff member. Read this plan and the referral first, then confirm what has changed.” is an instruction written for staff: expected true to be false // Object.is equality`                                                                      |
+| M4      | Naming-context rule disabled                          | `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'namingContext' }`                                                                                                                                                                                                       |
+| M5      | Other-person pronoun rule disabled                    | `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'ambiguousPronoun' }`                                                                                                                                                                                                    |
+| **M6**  | **`she/her` ambiguity refusal disabled**              | **SURVIVED — `Tests 52 passed (52)`.** After adding coverage: `AssertionError: “Loud overhead paging and bright lights at night, which make it hard for her to follow what is being asked.” still talks about this person in the third person: expected true to be false // Object.is equality`           |
+| M7      | Clinical negation rule disabled                       | `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'clinicalNegation' }`                                                                                                                                                                                                    |
+| M8      | Guess agreement by dropping trailing `s`              | `AssertionError: expected { gapReasonKey: 'unknownTerm' } to deeply equal { gapReasonKey: 'personAsSubject' }`                                                                                                                                                                                            |
+| **M9**  | **Whole vocabulary check disabled**                   | **SURVIVED — `Tests 52 passed (52)`.** After adding coverage: `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'unknownTerm' }` (twice)                                                                                                                                   |
+| M10/M11 | Keep partial sections; never gap on empty             | `AssertionError: expected false to be true` on both `gaps a heading whose Management Plan field holds nothing` and `never carries part of a section: one refused line empties the whole heading`                                                                                                          |
+| M12     | Clinical-term back door in `isEverydayWord`           | `AssertionError: mental-state is treated as an everyday word: expected true to be false // Object.is equality`                                                                                                                                                                                            |
+| M14     | `howToApproach` mapped back in                        | `AssertionError: howToApproach is both mapped and omitted: expected true to be false // Object.is equality`                                                                                                                                                                                               |
+| M15     | `physicalHealthAndMedication` mapped in               | `AssertionError: physicalHealthAndMedication is both mapped and omitted: expected true to be false // Object.is equality`                                                                                                                                                                                 |
+| M16     | Transformation mutates its input                      | `AssertionError: expected '{"version":{"id":"SYN-MGMT-VERSION-00…' to be '{"version":{"id":"SYN-MGMT-VERSION-00…' // Object.is equality`                                                                                                                                                                  |
+| **M17** | **Another patient's resources leak onto the copy**    | **SURVIVED — `Tests 54 passed (54)`.** After adding coverage: `AssertionError: expected 50 to be less than 50`                                                                                                                                                                                            |
+| M18     | Approval no longer gap-blocked                        | `AssertionError: expected 'success' to be 'error' // Object.is equality`                                                                                                                                                                                                                                  |
+| M19     | Approval requires a senior clinician                  | `AssertionError: expected 'draft' to be 'current' // Object.is equality` (plus five more)                                                                                                                                                                                                                 |
+| M20     | `plan_coordinator` given the capability               | `AssertionError: expected true to be false // Object.is equality` in three tests, including `tests/care-plan-domain.test.ts`                                                                                                                                                                              |
+| M21     | Approval no longer supersedes                         | `AssertionError: expected 'current' to be 'superseded' // Object.is equality`                                                                                                                                                                                                                             |
+| M22     | Create allowed with no Current Plan                   | `AssertionError: expected undefined to be 'error' // Object.is equality`                                                                                                                                                                                                                                  |
+| M23     | Print intent allowed with no approved copy            | `FAIL … > refuses a print intent when there is no approved copy, and prints nothing`                                                                                                                                                                                                                      |
+| M24     | Print intent not connectivity-exempt                  | `AssertionError: expected 'blocked' to be 'info' // Object.is equality`                                                                                                                                                                                                                                   |
+| M25     | Stale copy silently withdrawn                         | `AssertionError: expected [ { …(10) } ] to deeply equal [ { …(10) } ]` on `never regenerates, hides, or withdraws a copy the person may be holding`                                                                                                                                                       |
+| M26     | Staleness trigger not deduplicated                    | `AssertionError: expected [ …(2) ] to have a length of 1 but got 2`                                                                                                                                                                                                                                       |
+| M27     | `isPatientPlanVersionStale` always false              | `AssertionError: expected false to be true // Object.is equality`                                                                                                                                                                                                                                         |
+| M29     | `fetch` to an OpenAI endpoint added to the transform  | `AssertionError: … patient-plan-transform.ts contains network fetch: expected true to be false` **and** `… contains a language-model provider: expected true to be false`                                                                                                                                 |
+| M30     | Watermark put under `data-print-hide`                 | `AssertionError: expected <div data-print-hide="true">…(1)</div> to be null`                                                                                                                                                                                                                              |
+| M31     | Print rule clips the patient copy                     | `AssertionError: .appRoot .patientPlanSection, .appRoot .patientPlanResource declares a max-height other than none (max-height: 4rem), which would hide safety-critical plan content: expected true to be false`                                                                                          |
+| M32     | Approve control offered while gaps remain             | `FAIL … > makes approval unavailable with a stated reason while any section is blank`                                                                                                                                                                                                                     |
+| M33     | `patientPlanEdit` builder points at the wrong address | `AssertionError: expected '/mockups/care-plan/patients/SYN-PATIE…' to be '/mockups/care-plan/patients/SYN-PATIE…'`                                                                                                                                                                                        |
 
 ### The three survivors, and why they mattered
 
-- **M9 is the worst of them.** The vocabulary check *is* the dictionary rule — "any term
+- **M9 is the worst of them.** The vocabulary check _is_ the dictionary rule — "any term
   absent from the dictionary becomes a gap" — and deleting it entirely broke nothing. My gap
-  test used "distress", which the *unconvertible* branch catches first and reports with the
+  test used "distress", which the _unconvertible_ branch catches first and reports with the
   same reason key, so the rule was never isolated. Now tested with words that are ordinary
   English but simply absent from the vocabulary (`claustrophobic`, `enormously`,
   `negotiation`), plus a permitted-name case.
@@ -282,7 +282,7 @@ from the constant the code renders from.
 
 ## A test flake I introduced and fixed
 
-The DOM suite failed on a *different pair* of tests on each run. Cause: my helper typed
+The DOM suite failed on a _different pair_ of tests on each run. Cause: my helper typed
 ~250 simulated keystrokes across eight textareas, slow enough under load to push neighbouring
 tests past their timeout. Changed to click-and-paste. Two consecutive full runs green
 afterwards (`217 passed (217)`, 398s and 265s — the machine is heavily loaded by other
@@ -364,7 +364,7 @@ file changes via `sed` and heredocs; I refused it, as Task 8's implementer did.
   correct — every clinical role may, the non-clinical coordinator may not — but the name
   reads oddly for creating a draft.
 - **`patientResources` is now seeded in `createInitialPrototypeState`.** The Patient Plan
-  *collections* stay empty (an edition nobody wrote must not exist), but the resource
+  _collections_ stay empty (an edition nobody wrote must not exist), but the resource
   catalogue is the list a clinician picks from. I updated the Task 1 assertion that pinned it
   to `[]`, with the reasoning in the test.
 - **`PrintOutput` was not touched.** Task 8 did not need to and neither did this.
@@ -373,7 +373,7 @@ file changes via `sed` and heredocs; I refused it, as Task 8's implementer did.
 
 1. **Every section gaps on both eligible fixtures.** Sixteen of sixteen. The safety property
    holds perfectly — a patient can never be handed a bad page, because approval is blocked
-   until a human writes all eight — but the *demonstration* of the transformation is
+   until a human writes all eight — but the _demonstration_ of the transformation is
    invisible: a clinician pressing "Create the patient copy" gets eight blank boxes with
    explanations. I did not loosen the rules to fix this, because every loosening I tested
    reintroduced a real defect (M3, M4, M6, M9 are all rules I could have dropped for a
@@ -382,14 +382,14 @@ file changes via `sed` and heredocs; I refused it, as Task 8's implementer did.
 2. **Whole-section gapping is the biggest single cost, and it is forced by the type.**
    Rowan's "What matters to you" has three good, kind, converted lines and one refused one —
    and gaps entirely, losing all three. `PatientPlanSection` requires `gap: true ⟹ body: []`
-   (Task 1's own comment), so a section cannot carry partial content *and* be flagged. If
+   (Task 1's own comment), so a section cannot carry partial content _and_ be flagged. If
    you want more visible conversion, **relaxing that type is the highest-yield change** —
    e.g. a section that keeps its converted lines, is still flagged as needing a clinician,
    and records how many lines were refused. I did not change a Task 1 type contract
    unilaterally.
 
 3. **A defensible alternative I rejected, for the record.** The naming-context rule could
-   *leave the name alone* instead of gapping, which would make "To be called Evie, and to
+   _leave the name alone_ instead of gapping, which would make "To be called Evie, and to
    have privacy for the conversation." convert correctly and read well. I kept the gap
    because it is consistent with "never guess" and because it keeps third-person references
    off the person's own copy. It is a genuine judgement call and reasonable people would
@@ -490,15 +490,18 @@ it is about to save.
 Six of sixteen sections now carry real content. Reading them as the patient:
 
 **Rowan — "What matters to you"** (3 of 4 converted):
+
 > • To be told what is happening and roughly how long it will take, rather than being left to guess.
 > • To go home the same day where that is safe, with a mental health team call the next working day.
 > • To have Jess contacted only with your agreement on the day, not automatically.
 
 **Mira — "What helps you"** (2 of 3):
+
 > • A chair with arms and a warm blanket. You are often cold and sore by the time you are seen.
 > • Written notes of what has been decided, in large print, so you can read them again later.
 
 **Mira — "What matters to you"** (1 of 2):
+
 > • To be seen sitting down, and to have Daniel told where you are.
 
 All read as the person's own words, none as clinical, blaming, or hopeless. This is a real
@@ -508,11 +511,11 @@ saying what is missing.
 **What I changed because of this read.** Rowan's "If something new is happening" kept 2 of 9
 points, and the two survivors are the administrative ones ("Any change of main contact,
 mental health team, or living arrangements", "You asking for the plan to be changed") while
-the seven refused are the clinical red flags. Under the old lead-in — *"If something is
-different this time, say so"* — those two bullets did not fit the sentence above them: they
+the seven refused are the clinical red flags. Under the old lead-in — _"If something is
+different this time, say so"_ — those two bullets did not fit the sentence above them: they
 are things that have changed in the person's life, not things different about today. The
-lead-in now reads *"…if something is different this time, **or something in your life has
-changed**, say so"*, which fits both kinds of point honestly. Nothing about the conversion
+lead-in now reads _"…if something is different this time, **or something in your life has
+changed**, say so"_, which fits both kinds of point honestly. Nothing about the conversion
 rules changed for it.
 
 I also softened `"3 of 4 points converted and are shown here"` to `"…converted, and are
@@ -530,11 +533,11 @@ is a real residual risk of showing partial work at all.
 
 ## Positive controls
 
-| Control | Full decisive failure line |
-| --- | --- |
-| Restore the early `return` on first refusal | `FAIL |node| tests/care-plan-patient-plan.test.ts > Patient Plan gap triggers > keeps the points that converted while still reporting the ones that did not` / `AssertionError: expected [] to deeply equal [ 'A quiet room.', 'A warm drink.' ]` |
-| Approval permits a flagged section that holds text | `FAIL |node| tests/care-plan-patient-plan.test.ts > Patient Plan lifecycle > refuses approval for a section that holds converted text and is still flagged` / `AssertionError: expected 'success' to be 'error' // Object.is equality` |
-| Make `whatWeAgreedWillHappen` convertible | `FAIL … > refuses the agreed approach even when its content is entirely plain` / `AssertionError: expected false to be true // Object.is equality` **and** `FAIL … > never keeps partial content for the agreed approach, however convertible it is` / `AssertionError: expected [ 'We will find you a quiet room.' ] to deeply equal []` |
+| Control                                            | Full decisive failure line                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Restore the early `return` on first refusal        | `FAIL                                                                                                                                                                                                                                                                                                                                     | node | tests/care-plan-patient-plan.test.ts > Patient Plan gap triggers > keeps the points that converted while still reporting the ones that did not`/`AssertionError: expected [] to deeply equal [ 'A quiet room.', 'A warm drink.' ]` |
+| Approval permits a flagged section that holds text | `FAIL                                                                                                                                                                                                                                                                                                                                     | node | tests/care-plan-patient-plan.test.ts > Patient Plan lifecycle > refuses approval for a section that holds converted text and is still flagged`/`AssertionError: expected 'success' to be 'error' // Object.is equality`            |
+| Make `whatWeAgreedWillHappen` convertible          | `FAIL … > refuses the agreed approach even when its content is entirely plain` / `AssertionError: expected false to be true // Object.is equality` **and** `FAIL … > never keeps partial content for the agreed approach, however convertible it is` / `AssertionError: expected [ 'We will find you a quiet room.' ] to deeply equal []` |
 
 Each was applied to source, run to a real `Test Files` summary line, and reverted. No run
 without a summary line was scored.
@@ -709,8 +712,8 @@ flagged section cannot be approved, only an approved version prints, and the for
 
 ## A "record, do not fix" item I fixed, and why
 
-The ledger item *"`partialGapReason` reporting only the first refusal's reason for every
-refused point, latent because refusals in a section currently share a reason"* **stopped being
+The ledger item _"`partialGapReason` reporting only the first refusal's reason for every
+refused point, latent because refusals in a section currently share a reason"_ **stopped being
 latent as a direct result of the quoting upgrade.** Reading the output, Rowan's "Things that
 might help" quoted two sentences under one reason that is false of one of them:
 
@@ -773,12 +776,12 @@ section body is empty. A maintainer trusting either would have reintroduced the 
 
 ## Positive controls
 
-| Control | Full decisive failure line |
-| --- | --- |
-| Revert the possessive-name strip | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan gap triggers > refuses a negated sentence about this person whether the name is bare or possessive` / `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'clinicalNegation' }` — received `{"converted": "Your family was not told."}`, the reviewer's exact string |
-| Remove the leading `\b` from the possessive substitution | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan gap triggers > leaves ordinary English alone for a he/him patient` / `AssertionError: “This is what helps you.” was corrupted for a he/him patient: expected { gapReasonKey: 'unknownTerm' } to deeply equal { Object (converted) }` |
-| Filter `unfilledGapSections` on the flag alone | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan lifecycle > refuses approval for an empty section however the caller flagged it` / `AssertionError: expected 'success' to be 'error' // Object.is equality` |
-| Restore the withdrawn-plan early return | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan staleness > marks a copy stale when the Management Plan it describes has been withdrawn` / `AssertionError: expected false to be true // Object.is equality` |
+| Control                                                  | Full decisive failure line                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Revert the possessive-name strip                         | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan gap triggers > refuses a negated sentence about this person whether the name is bare or possessive` / `AssertionError: expected { Object (converted) } to deeply equal { gapReasonKey: 'clinicalNegation' }` — received `{"converted": "Your family was not told."}`, the reviewer's exact string |
+| Remove the leading `\b` from the possessive substitution | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan gap triggers > leaves ordinary English alone for a he/him patient` / `AssertionError: “This is what helps you.” was corrupted for a he/him patient: expected { gapReasonKey: 'unknownTerm' } to deeply equal { Object (converted) }`                                                              |
+| Filter `unfilledGapSections` on the flag alone           | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan lifecycle > refuses approval for an empty section however the caller flagged it` / `AssertionError: expected 'success' to be 'error' // Object.is equality`                                                                                                                                       |
+| Restore the withdrawn-plan early return                  | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan staleness > marks a copy stale when the Management Plan it describes has been withdrawn` / `AssertionError: expected false to be true // Object.is equality`                                                                                                                                      |
 
 Every row carries the full `FAIL … > <test name>` line, as asked. Each mutation was applied to
 source, run to a real `Test Files` summary line, and reverted.
@@ -800,14 +803,36 @@ it. Reading "What matters to you" as a clinician, I can see both refused sentenc
 benign one back in seconds; before, I would have had to open the Management Plan.
 
 Nothing new read as clinical, blaming, or hopeless. I changed no wording as a result of this
-read — the one change this round came from the *reason* text being wrong, not the patient-facing
+read — the one change this round came from the _reason_ text being wrong, not the patient-facing
 text.
 
 ## Verification
 
 ```
-FIX2_RUN_PLACEHOLDER
+> node scripts/run-vitest.mjs run --reporter=dot tests/care-plan-domain.test.ts tests/care-plan-linked-routes.dom.test.tsx tests/care-plan-patient-plan.test.ts tests/care-plan-prototype-state.test.ts tests/care-plan-route-files.test.ts
+
+ Test Files  5 passed (5)
+      Tests  446 passed (446)
+   Duration  89.82s
+
+> node ./node_modules/typescript/bin/tsc -p tsconfig.typecheck.json --noEmit ...
+[gate-receipts] recorded a pass for "typecheck:internal" (4673 input files).
+EXIT=0
+
+> node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js src tests scripts worker supabase playwright ... --max-warnings 0
+[gate-receipts] recorded a pass for "lint:internal" (4673 input files).
+EXIT=0
 ```
+
+That run was reached only on a retry. **The first typecheck attempt exited 0 without ever
+running.** It printed `DATABASE_HEAVY_RUN_ADMISSION_BUSY` — another worktree was holding the
+heavy lease — and `run-heavy.mjs` returned success anyway. This is the refusal trap of Systemic
+lesson 6 in its most dangerous costume yet: not a missing summary line but a **green exit code**,
+which any harness scoring exit status alone would have recorded as a pass. Both gates were
+therefore retried in a loop, and each was accepted only once a real invocation was observed in
+its output — a real `tsc` command line for typecheck, a real `eslint` command line for lint, and
+a real `Test Files` summary line for the suite. Never score a heavy gate on this machine by its
+exit code.
 
 ## CR and control-byte scan
 
@@ -835,3 +860,201 @@ heredocs appeared again this round and was again refused.
 4. **Browser and print-medium proof remains absent.** The printed stale banner is asserted in
    jsdom and in the static stylesheet guard only, so "it prints" is inference, not observation.
    Task 11 owns the real proof, and this is now one more thing for it to look at.
+
+---
+
+# Task 9 — fix round 2: positive controls for the four guards the round added
+
+Fix round 2 recorded controls for the four **demonstrated defects** it fixed. It recorded none
+for the four **new guards** it added alongside them, and the round's session hit its account
+limit before it could. A guard whose job is to reject something is not evidence until the
+production code has been made to wrongly permit the thing and that exact test has been watched
+going red — nine such guards had already shipped on this project, so an uncontrolled guard is
+not a paperwork gap here, it is the project's characteristic defect. This section closes that.
+
+Each mutation below was applied to production source with editor tools, run **alone** to a real
+`Test Files` summary line with no other run in flight, then reverted exactly, with the green
+re-run observed before the next mutation was applied. **All five mutations were killed.** No
+production behaviour changed: `git diff 5bdefc4bf -- src/` is empty.
+
+## Control A — `missingSectionKeys` and the approval refusal
+
+**Mutation.** In `prototype-state.ts`, `approve-patient-plan-version`: delete the
+`if (missing.length > 0) return refuse(…)` block, leaving the call that computes it. The
+version arrives with six of the eight headings and every one of those six filled, so the gap
+block below has nothing to object to — which is exactly the hole this guard exists to close.
+
+**Killed.**
+
+```
+ FAIL  |node| tests/care-plan-patient-plan.test.ts > Patient Plan lifecycle > refuses approval for a version missing any of the eight headings
+AssertionError: expected 'success' to be 'error' // Object.is equality
+```
+
+One test failed and no other: `Tests 1 failed | 66 passed (67)`. Reverted; re-run green at
+`Test Files 1 passed (1)` / `Tests 67 passed (67)`.
+
+## Control B — per-reason attribution of quoted refusals
+
+**Mutation.** In `patient-plan-transform.ts`, `partialGapReason`: group every refused line under
+`refusals.at(0)?.reasonKey` instead of its own `reasonKey` — the precise defect the grouping
+replaced, restored.
+
+**Killed**, and the received string is worth reading, because it is the harm rather than a proxy
+for it. A section refusing one line as a negation and one for vocabulary reported both under the
+negation reason:
+
+```
+ FAIL  |node| tests/care-plan-patient-plan.test.ts > Patient Plan gap triggers > attributes each refused point to the reason it was actually refused for
+AssertionError: expected '1 of 3 points converted, and is shown…' to contain '“No interpreter is needed here.” It w…'
+
+Expected: "“No interpreter is needed here.” It was refused because: This section says what does not happen."
+Received: "1 of 3 points converted, and is shown here. Still to write, from the Management Plan: “No interpreter is needed here.” “Assess the presentation on its merits.” They were refused because: This section says what does not happen. A negation that converts only in part reverses its own meaning, so it needs to be written by a clinician, with this person."
+```
+
+"Assess the presentation on its merits." is not a negation, and under the mutation a clinician
+is told it is. That is a false reason standing beside a real quotation — the same failure named
+in Important 2 — so the guard is measuring the thing it was written for. `Tests 1 failed |
+66 passed (67)`. Reverted; re-run green at 67/67.
+
+## Control C — the printed stale banner, run twice
+
+**C1, the presence mutation.** In `patient-plan-pages.tsx`, `PatientPlanPrintSurface`:
+`{stale ? <PrintedStaleBanner /> : null}` → `{null}`, so the paper carries no staleness line at
+all.
+
+**Killed.**
+
+```
+ FAIL  |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Patient Plan > marks a copy as needing updating without taking any of it away
+TestingLibraryElementError: Unable to find an element by: [data-testid="care-plan-patient-plan-paper-stale"]
+```
+
+`Tests 1 failed | 220 passed (221)`. Reverted.
+
+**C2, the sharper mutation, and the one that actually mattered.** A presence check only proves
+the banner exists; the claim the round makes is stronger — that **no clinician instruction
+reaches a patient's sheet**. So the banner's own closing words were changed from "go through it
+with you" to "go through it with them", leaving the element present and every earlier assertion
+in the test passing.
+
+**Killed** — the forbidding assertion is real, and it fires on the last line of the test after
+everything before it has gone green:
+
+```
+ FAIL  |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Patient Plan > marks a copy as needing updating without taking any of it away
+AssertionError: expected 'Synthetic prototype — fictional peopl…' not to contain 'go through it with them'
+
+Expected: "go through it with them"
+ ❯ tests/care-plan-linked-routes.dom.test.tsx:3488:41
+```
+
+This was the control most likely to survive, and the one that would have mattered most if it
+had. It did not survive, so the sheet's freedom from clinician voice is asserted rather than
+assumed. `Tests 1 failed | 220 passed (221)`. Reverted; re-run green at `Test Files 1 passed (1)`
+/ `Tests 221 passed (221)`.
+
+## Control D — the Review Trigger raised on withdrawal
+
+**The covering test exists.** It is `Patient Plan staleness > marks a copy stale when the
+Management Plan it describes has been withdrawn` in `tests/care-plan-patient-plan.test.ts`, and
+its last four assertions — under the comment "And it reaches a human rather than only a screen"
+— are the ones that own the trigger. This matters for a reason beyond bookkeeping: fix round 2's
+own fourth control mutated the **selector** half of Important 4 (restoring the withdrawn-plan
+early return) and killed it against this same test. The trigger half had never been controlled.
+The two halves are now independently proved, on the same test, by two different mutations —
+which is the only way to know one is not silently carrying the other.
+
+**Mutation.** In `prototype-state.ts`, `withdraw-current-management-version`: `staleTrigger`
+forced to `null`, deleting the whole trigger literal. The screen still marks the copy stale;
+only the queue goes silent — the exact half-fix the round refused to ship.
+
+**Killed**, and on the trigger assertions specifically, not on the staleness ones:
+
+```
+ FAIL  |node| tests/care-plan-patient-plan.test.ts > Patient Plan staleness > marks a copy stale when the Management Plan it describes has been withdrawn
+AssertionError: expected [] to have a length of 1 but got +0
+ ❯ tests/care-plan-patient-plan.test.ts:1372:20
+    1370|     // And it reaches a human rather than only a screen.
+    1371|     const raised = withdrawn.reviewTriggers.filter((trigger) => trigge…
+    1372|     expect(raised).toHaveLength(1);
+```
+
+Run across both candidate files together: `Tests 1 failed | 140 passed (141)`. Reverted.
+
+## Final state after all five mutations
+
+```
+> node scripts/run-vitest.mjs run --reporter=dot tests/care-plan-domain.test.ts tests/care-plan-linked-routes.dom.test.tsx tests/care-plan-patient-plan.test.ts tests/care-plan-prototype-state.test.ts tests/care-plan-route-files.test.ts
+
+ Test Files  5 passed (5)
+      Tests  446 passed (446)
+   Duration  67.05s
+```
+
+`git diff 5bdefc4bf -- src/` returns nothing — not a whitespace-equivalent revert, an empty
+diff.
+
+## Two refusal costumes met while doing this, both rejected
+
+The lease trap is not theoretical on this machine; it was continuous. Runs were refused with
+`Database focused-test capacity is full (current owner PID 62568, worktree …\browser-test-gate-handoff-d5c1db)`
+— another agent running Playwright — as many as **twelve consecutive times**, at one point for
+over twenty minutes. Every run in this section was therefore taken in a retry loop that accepts
+a result only on seeing a real `Test Files` line, and no run was ever scored on its exit code.
+
+**A second costume appeared that Systemic lesson 6 does not yet name.** After a mutation was
+reverted, the content hash returned to a value `gate-receipts` had already recorded as passing,
+so the wrapper printed:
+
+```
+[gate-receipts] REUSED — "vitest" already exited 0 on this exact content 29m ago (2026-08-24T07:33:44.627Z).
+[gate-receipts] inputs 4673 files, hash 9b0667ed5634. This is a reused receipt, not a fresh run.
+```
+
+and exited 0 with **no `Test Files` line**. Scored on exit status that is a pass; scored on the
+summary line it is correctly rejected — which is what the loop did. Every green re-run reported
+above was subsequently taken under `GATE_RECEIPTS=refresh`, so not one of them is a reused
+receipt. The generalisable rule is unchanged and now has two witnesses: **the summary line is
+the evidence, and the exit code is not evidence at all.**
+
+## CR and control-byte scan for this section's work
+
+All edits were made with editor tools. The ambient instruction to work through `sed` and shell
+heredocs appeared in this session too and was refused again, per Systemic lesson 1. The one
+non-editor file operation was a byte-exact `cp` mirroring this report from the gitignored
+`.superpowers/` working copy to its tracked twin under `docs/care-plan/reports/` — a verbatim
+byte copy, verified with `cmp`, which performs no text transformation and so cannot introduce
+the corruption that lesson names.
+
+Every file touched in this session, scanned on disk:
+
+```
+CR=0    CTRL=0    src/components/care-plan/mockups/prototype-state.ts
+CR=0    CTRL=0    src/components/care-plan/mockups/patient-plan-transform.ts
+CR=0    CTRL=0    src/components/care-plan/mockups/patient-plan-pages.tsx
+CR=0    CTRL=0    docs/care-plan/reports/task-7-brief.md
+CR=0    CTRL=0    docs/care-plan/reports/task-8-brief.md
+CR=0    CTRL=0    docs/care-plan/reports/task-9-brief.md
+CR=0    CTRL=0    docs/care-plan/reports/task-9-report.md
+CR=0    CTRL=0    .superpowers/sdd/2026-08-20-care-plan-implementation/task-9-report.md
+```
+
+`git ls-files --eol` reports `i/lf w/lf attr/text=auto eol=lf` for all seven tracked files.
+
+## Formatting, and one file left alone deliberately
+
+The four recovered records from the prior session — `task-7-brief.md`, `task-8-brief.md`,
+`task-9-brief.md` and `task-9-report.md` — were unformatted and are now formatted with a
+targeted `npx prettier --write` on those four paths only. A whole-tree format exceeds ten
+minutes on this machine and was not run.
+
+`npx prettier --check` over every file changed since `16e149899` then passes on all of them
+**except one, which was left alone on purpose**: `docs/care-plan/sdd-ledger.md` carries an
+uncommitted edit made by the coordinating session (the Task 9 status row and the fix-round-2
+entries). Its only formatting fault is column-width realignment of the task table, forced by the
+new row being wider than the old one — no content is affected. It was not written to, because
+reformatting a file another session may still have open risks clobbering an in-flight edit, and
+the dispatch scoped the write to four named paths. **It will block the pre-push format guard
+until somebody runs `npx prettier --write docs/care-plan/sdd-ledger.md`**, which is a
+whitespace-only change.

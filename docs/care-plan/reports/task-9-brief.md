@@ -51,4 +51,3 @@ it("is a pure function of the version and never reaches outside itself", () => {
 - [ ] Run `npm run test -- tests/care-plan-patient-plan.test.ts tests/care-plan-prototype-state.test.ts tests/care-plan-route-files.test.ts tests/care-plan-linked-routes.dom.test.tsx`. Expected GREEN.
 - [ ] Run `npm run typecheck`, format Task 9 files, rerun the checks, and read the generated patient copy end to end as a patient would. If any converted sentence reads as clinical, blaming, or hopeless, the dictionary or the gap rules are wrong — fix those, not the fixture.
 - [ ] Commit Task 9 with `feat(care-plan): add patient-facing plan and resources`. Do not push.
-
