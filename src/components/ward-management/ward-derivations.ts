@@ -27,7 +27,7 @@ import {
   type Unit,
 } from "@/components/ward-management/ward-model";
 import { bedReleases } from "@/components/ward-management/ward-movements";
-import { allEmergencyDepartments, allUnits, siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments, siteByCode } from "@/components/ward-management/ward-sites";
 import { REFERRABLE_MOVEMENT_STAGES } from "@/components/ward-management/ward-flow-reducer";
 
 /** UI-only role concept; not part of the domain model. */
@@ -122,11 +122,16 @@ export function referralBlockedReason(movement: Movement): string | undefined {
  * The unit a movement is *actually* recorded against — accepted, or else the first live
  * referral. Never falls back to a different unit, and never returns a merely-suggested
  * candidate: callers that want a suggestion when this is `undefined` must ask for one
- * explicitly (see `eligibleCandidates`) and label it as a suggestion, not a destination.
+ * explicitly (see `eligibleCandidatesAmong`) and label it as a suggestion, not a destination.
+ *
+ * Whole-branch review Critical 1: takes the caller's own `units` rather than resolving via
+ * `unitById` (the frozen `ward-sites.ts` fixture). Every live surface must pass the provider's
+ * live `units` here — a ward that has just dropped its own allocatable beds to zero, or received
+ * a patient, must be reflected the instant this is called next, not only at first paint.
  */
-export function destinationUnit(movement: Movement): Unit | undefined {
+export function destinationUnit(movement: Movement, units: Unit[]): Unit | undefined {
   const id = movement.acceptedUnitId ?? movement.referredUnitIds[0];
-  return id ? unitById(id) : undefined;
+  return id ? units.find((unit) => unit.id === id) : undefined;
 }
 
 export function unitSiteCode(unit: Unit) {
@@ -241,8 +246,8 @@ export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNo
 }
 
 /**
- * The units whose cohort matches this movement's, ranked eligible-first using the real
- * eligibility gates, then truncated to `limit`.
+ * The units among `units` whose cohort matches this movement's, ranked eligible-first using the
+ * real eligibility gates, then truncated to `limit`.
  *
  * This is NOT a proximity ranking, and must never be described as one. `Unit` carries no
  * distance, geo, locality or catchment field, and `Movement` carries no catchment either
@@ -250,15 +255,26 @@ export function restrictionNotice(movement: Movement, unit: Unit): RestrictionNo
  * "nearest" anything. Whole-branch review Critical 1 found exactly that claim on screen:
  * WF-018, sitting in SCGH's own emergency department, was offered "RPH Older Adult" first and
  * its own SCGH ward second under a heading reading "Nearest candidates". The tie order below is
- * simply `allUnits()` array order.
+ * simply `units`' own array order.
  *
  * Task 5: within that same top-`limit` set, a candidate matching the movement's own security
  * requirement is ranked ahead of a restricted one — see the two-pass reasoning in the body below.
  *
  * This is a shortlist of candidates, never a destination — a unit appearing here has not been
  * referred or accepted; see `destinationUnit` for the movement's actual recorded destination.
+ *
+ * Whole-branch review Critical 1: this is the function root-caused by the review as reading the
+ * frozen fixture on every live surface (a ward's own confirmed capacity could drop to zero and
+ * the coordinator's shortlist would still read "Eligible now" for it). It now takes `units` as a
+ * parameter instead of reading `allUnits()` itself — every live caller must pass the provider's
+ * live `units`, never the frozen fixture. `units` is REQUIRED and deliberately has no default —
+ * a defaulted `units = allUnits()` would let every existing call site keep compiling while
+ * silently reading frozen capacity again, which is precisely how the original defect survived.
+ * The frozen wrapper this comment used to point at was deleted in R70; nothing reads the fixture
+ * at render time any more, and `tests/ward-flow-single-source.test.ts` enforces that with a
+ * TypeScript-parser walk rather than a text scan.
  */
-export function eligibleCandidates(movement: Movement, now: Instant, limit = 3, units: readonly Unit[] = allUnits()) {
+export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: Instant, limit = 3) {
   // Eligible-first cut FIRST, restrictiveness reorder SECOND, deliberately in two passes rather
   // than one combined sort. A single combined sort could pull in a unit that was previously
   // outside the top `limit` (a candidate ranked 4th purely because it is restrictive would climb
@@ -277,7 +293,7 @@ export function eligibleCandidates(movement: Movement, now: Instant, limit = 3, 
   // coordinator is steered toward first. Eligibility stays the primary key here too, so this
   // pass can never demote an eligible candidate below an ineligible one. `Array.prototype.sort`
   // is stable, so any remaining tie falls back to the eligible-first cut's own order, which is
-  // itself `allUnits()` array order.
+  // itself `units`' own array order.
   return [...eligibleFirst].sort((a, b) => {
     const eligibleDiff = Number(b.verdict.eligible) - Number(a.verdict.eligible);
     if (eligibleDiff !== 0) return eligibleDiff;

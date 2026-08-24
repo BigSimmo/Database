@@ -3,13 +3,13 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import {
   buildActionInbox,
   candidateReason,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   isOpen,
 } from "@/components/ward-management/ward-derivations";
 import type { Movement } from "@/components/ward-management/ward-model";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import { movementById, wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 async function gotoCoordinator(page: Page) {
   await page.goto("/ward-management", { waitUntil: "domcontentloaded" });
@@ -39,7 +39,7 @@ function requireMovement(movementId: string | undefined | null): Movement {
 
 /**
  * Pins the diagram's routed set to the SELECTED MOVEMENT'S OWN shortlist identity — not merely
- * its size. `eligibleCandidates` is computed independently here, against the same real fixture
+ * its size. `eligibleCandidatesAmong` is computed independently here, against the same real fixture
  * the app renders against, so a hard-coded routed set of the wrong units (or the brief's own
  * tautological `toHaveCount(await routed.count())`, which compares a value to itself and passes
  * at any count including zero) both fail this. Called for two different movements with two
@@ -53,7 +53,7 @@ function requireMovement(movementId: string | undefined | null): Movement {
  */
 async function assertRoutedMatchesShortlist(diagram: Locator, movementId: string) {
   const movement = requireMovement(movementId);
-  const shortlist = eligibleCandidates(movement, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+  const shortlist = eligibleCandidatesAmong(movement, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
   const expectedUnitIds = shortlist.map((candidate) => candidate.unit.id).sort();
 
   const routed = diagram.locator('[data-routed="true"]');
@@ -418,9 +418,9 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
 
     const movement = requireMovement("WF-009");
-    const shortlist = eligibleCandidates(movement, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    const shortlist = eligibleCandidatesAmong(movement, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
     // This test's whole premise is a shortlist with ZERO eligible candidates — WF-009 has been
-    // declined by five units, and its three cohort-matching candidates (since `eligibleCandidates`
+    // declined by five units, and its three cohort-matching candidates (since `eligibleCandidatesAmong`
     // sorts eligible-first but never filters) are all ineligible: two already declined it, one fails
     // the security gate. If the fixture ever changes so this stops being true, the assertions
     // below must fail loudly here rather than vacuously pass on an empty or partially-eligible
@@ -524,7 +524,7 @@ test.describe("Ward Flow coordinator screen", () => {
     const wf004 = requireMovement("WF-004");
     const acceptedUnitId = wf004.acceptedUnitId;
     expect(acceptedUnitId, "fixture assumption: WF-004 has an accepted destination").toBeTruthy();
-    const candidateIds = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP).map(
+    const candidateIds = eligibleCandidatesAmong(wf004, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP).map(
       (candidate) => candidate.unit.id,
     );
     expect(
@@ -584,7 +584,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // gate — the exact pairing the review found.
     const wf001 = requireMovement("WF-001");
     expect(wf001.security, "fixture assumption: WF-001 is an open-status movement").toBe("Open");
-    const candidates = eligibleCandidates(wf001, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    const candidates = eligibleCandidatesAmong(wf001, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
     const locked = candidates.filter((candidate) => candidate.unit.security === "Secure");
     const open = candidates.filter((candidate) => candidate.unit.security === "Open");
     expect(locked.length, "fixture assumption: WF-001 has at least one locked-ward candidate").toBeGreaterThan(0);
@@ -640,7 +640,7 @@ test.describe("Ward Flow coordinator screen", () => {
    * 4 of them also carry `security: "Secure"` — WF-301, WF-308, WF-322, WF-329. WF-301's cohort
    * is Adult, so all three of its shortlisted candidates are the Secure adult wards
    * (`rph-adult-secure`, `fsh-adult-secure`, `rgh-adult-secure`), every one eligible — verified
-   * with `eligibleCandidates` below rather than assumed, so this test fails loudly instead of
+   * with `eligibleCandidatesAmong` below rather than assumed, so this test fails loudly instead of
    * silently no-op'ing if the fixture ever changes underneath it.
    */
   test("gives a voluntary patient on a locked ward its own, more prominent notice on the diagram", async ({ page }) => {
@@ -654,7 +654,7 @@ test.describe("Ward Flow coordinator screen", () => {
 
     const wf301 = requireMovement("WF-301");
     expect(wf301.legalStatus, "fixture assumption: WF-301 is a Voluntary movement").toBe("Voluntary");
-    const candidates = eligibleCandidates(wf301, NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    const candidates = eligibleCandidatesAmong(wf301, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
     const locked = candidates.filter((candidate) => candidate.unit.security === "Secure");
     expect(locked.length, "fixture assumption: WF-301 has at least one Secure shortlisted candidate").toBeGreaterThan(
       0,
@@ -803,7 +803,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // accident of ineligibility — it can only be the missing human selection. Pinned against the
     // real fixture so this test fails loudly rather than passing vacuously if that changes.
     const wf017 = requireMovement("WF-017");
-    const wf017Default = eligibleCandidates(wf017, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    const wf017Default = eligibleCandidatesAmong(wf017, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
     expect(wf017Default, "fixture assumption: WF-017 has at least one candidate").toBeTruthy();
     expect(
       wf017Default.verdict.eligible,
@@ -855,7 +855,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // one patient off a single tap.
     const wf004 = requireMovement("WF-004");
     expect(wf004.acceptedUnitId, "fixture assumption: WF-004 has an accepted destination").toBeTruthy();
-    const wf004Default = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    const wf004Default = eligibleCandidatesAmong(wf004, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
     expect(
       wf004Default.unit.id,
       "fixture assumption: WF-004's default candidate is NOT its accepted destination",
@@ -1059,7 +1059,7 @@ test.describe("Ward Flow coordinator screen", () => {
 
     const wf004 = requireMovement("WF-004");
     expect(wf004.stage, "fixture assumption: WF-004 sits in a non-referable stage").toBe("bed_held");
-    const wf004Default = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    const wf004Default = eligibleCandidatesAmong(wf004, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
     expect(
       wf004Default,
       "fixture assumption: WF-004 still has a candidate on offer despite being non-referable",
@@ -1095,11 +1095,17 @@ test.describe("Ward Flow coordinator screen", () => {
     await gotoCoordinator(page);
 
     const wf004 = requireMovement("WF-004");
-    const wf004Default = eligibleCandidates(wf004, NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
+    const wf004Default = eligibleCandidatesAmong(wf004, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP)[0];
     expect(wf004Default, "fixture assumption: WF-004 has a candidate to override into").toBeTruthy();
 
     const queue = page.getByRole("region", { name: "Priority queue" });
     const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+
+    // Whole-branch review I4: before any refusal, the closed drawer's trigger carries no
+    // refusal badge at all — not a zero, absent entirely (see exception-drawer.tsx's
+    // `rejections.length > 0` guard).
+    const refusalBadge = page.getByTestId("ward-exceptions-toggle-refusal-count");
+    await expect(refusalBadge).toHaveCount(0);
 
     await queue.locator('[data-testid="ward-queue-row-WF-004"]').click();
     await shortlist.locator(`[data-testid="ward-shortlist-candidate-${wf004Default.unit.id}"]`).click();
@@ -1112,6 +1118,11 @@ test.describe("Ward Flow coordinator screen", () => {
 
     // The override never claims success — it was refused, and nothing here may say otherwise.
     await expect(shortlist).not.toContainText("Overridden by a human coordinator");
+
+    // Whole-branch review I4: the refusal is now visible on the COLLAPSED trigger, before the
+    // drawer is ever opened — the exact gap the review's own Proof 2 found (a refused HOLD_BED
+    // was invisible until the drawer was explicitly clicked open, and the badge never moved).
+    await expect(refusalBadge).toHaveText("1 refused");
 
     // The refusal is visible, with its own real content — not merely the word "refus" surviving
     // from an empty-state placeholder.
@@ -1175,5 +1186,67 @@ test.describe("Ward Flow coordinator screen", () => {
     // the fixture holds is still really rendered, not truncated to make room for anything else.
     const rows = await queue.locator('[data-testid^="ward-queue-row-"]').count();
     expect(rows).toBeGreaterThan(4);
+  });
+
+  /**
+   * Whole-branch review I2 (spec §11): "when every candidate is ineligible, the coordinator can
+   * record that it happened — what was tried, why each failed, and who is being contacted."
+   * WF-009 is pinned as the fixture case (verified below against the real `eligibleCandidatesAmong`,
+   * never assumed): five declines have exhausted every cohort-matching candidate.
+   *
+   * WF-009's fixture (`ward-movements.ts`) already carries a pre-authored `escalation` — the
+   * model has held this field since the fixture was written, but nothing could ever write a NEW
+   * one (I2's actual finding: `grep -rn "RECORD_ESCALATION" src/` returned only the events file
+   * and the reducer). So the real proof here is not "absent, then present" — it is that
+   * submitting a fresh escalation genuinely dispatches and OVERWRITES the pre-authored one with
+   * live data, the same live-write proof `overrideSucceeded` elsewhere in this file gives for
+   * REFER_TO_UNITS.
+   */
+  test("records an escalation when no eligible destination exists, and it persists on the movement", async ({
+    page,
+  }) => {
+    await gotoCoordinator(page);
+
+    const wf009 = requireMovement("WF-009");
+    const candidates = eligibleCandidatesAmong(wf009, allUnits(), NOW_ANCHOR, PARALLEL_REFERRAL_CAP);
+    expect(
+      candidates.some((c) => c.verdict.eligible),
+      "fixture assumption: WF-009 has no eligible candidate",
+    ).toBe(false);
+    expect(wf009.escalation, "fixture assumption: WF-009 already carries a pre-authored escalation").toBeDefined();
+    expect(wf009.declines.length, "fixture assumption: WF-009 carries five declines").toBe(5);
+
+    const queue = page.getByRole("region", { name: "Priority queue" });
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+
+    // The pre-authored fixture record renders correctly before anything is dispatched.
+    const record = shortlist.getByTestId("ward-shortlist-escalation-record");
+    await expect(record).toContainText(wf009.escalation!.contact);
+    const toggle = shortlist.getByTestId("ward-shortlist-escalation-toggle");
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveText("Update escalation");
+
+    await toggle.click();
+    await shortlist
+      .getByTestId("ward-shortlist-escalation-contact")
+      .fill("State-wide bed coordination line — on-call psychiatry registrar");
+    await shortlist.getByTestId("ward-shortlist-escalation-submit").click();
+
+    // A real dispatch, not a local echo of the typed text: the record now reads the NEW contact,
+    // and `triedUnitIds` is `movement.declines` (never the panel's capped `shortlist`), so the
+    // count matches the real five declines exactly.
+    await expect(record).toContainText("State-wide bed coordination line");
+    await expect(record).not.toContainText(wf009.escalation!.contact);
+    await expect(record).toContainText(`tried ${wf009.declines.length} unit`);
+
+    // Persists across a selection change and back — this is a fact stamped on the movement
+    // (`movement.escalation`), not local component state that a re-render could lose.
+    await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
+    await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
+    await expect(shortlist.getByTestId("ward-shortlist-escalation-record")).toContainText(
+      "State-wide bed coordination line",
+    );
+    await expect(shortlist.getByTestId("ward-shortlist-escalation-toggle")).toHaveText("Update escalation");
   });
 });
