@@ -78,6 +78,13 @@ type HistoryEntry = {
   detail: string;
   /** Who this is attributed to, or `null` when the record names nobody. */
   actorId: SyntheticId | null;
+  /**
+   * What to say instead when `actorId` is `null`. The default says no clinician
+   * is recorded, which is the right sentence for an event that genuinely had no
+   * actor — and the wrong one for a record that simply does not carry the name
+   * of somebody who was certainly there.
+   */
+  unattributed?: string;
 };
 
 /**
@@ -229,6 +236,33 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
 
   const cmht = state.cmhtContacts.find(({ id }) => id === patient.cmhtId) ?? null;
   if (cmht !== null) {
+    /**
+     * `verify-cmht-contact` writes a `cmht_contact_verified` event that **does**
+     * carry the clinician who checked the details, but neither route into this
+     * chronology reaches it: the event has `patientId: null`, and it is not one
+     * of the five intent kinds. Attributing the line to nobody therefore denied
+     * evidence the session was holding — the same overclaiming defect this
+     * prototype guards against, inverted.
+     *
+     * So it is resolved directly, by the team and by the moment on display,
+     * rather than by widening the intent filter. Matching on the timestamp is
+     * exact rather than approximate because the reducer derives the contact's
+     * `verifiedAt` and the event's `occurredAt` from the same pre-mutation
+     * state — and it is what makes a second check attribute to whoever made
+     * the second check.
+     *
+     * A fixture-seeded team carries a checked date with no such event, and then
+     * the record genuinely does not name anybody. That is not the same claim as
+     * no clinician having been involved, so it does not borrow that sentence.
+     */
+    const verifiedBy =
+      state.auditEvents.find(
+        (event) =>
+          event.type === "cmht_contact_verified" &&
+          event.objectId === cmht.id &&
+          event.occurredAt === cmht.verifiedAt,
+      )?.actorId ?? null;
+
     entries.push({
       id: `${cmht.id}-verification`,
       group: "contactVerification",
@@ -236,7 +270,8 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
       heading: `${cmht.name} contact details — ${contactVerificationSummary(cmht)}`,
       detail:
         "Somebody looked at the displayed mailbox, duty number, and operating hours on that date. That is not a guarantee that the service is available.",
-      actorId: null,
+      actorId: verifiedBy,
+      unattributed: "The record does not name who checked these details",
     });
   }
 
@@ -375,7 +410,7 @@ export function HistorySurface({ patientId, scenario }: { patientId: string | nu
                 </h3>
                 <p className={styles.historyDetail}>{entry.detail}</p>
                 <p className={styles.historyAttribution}>
-                  {`${state.users.find(({ id }) => id === entry.actorId)?.displayName ?? "No clinician is recorded"} — ${formatPerthDateTime(entry.occurredAt)}`}
+                  {`${state.users.find(({ id }) => id === entry.actorId)?.displayName ?? entry.unattributed ?? "No clinician is recorded"} — ${formatPerthDateTime(entry.occurredAt)}`}
                 </p>
               </li>
             ))}

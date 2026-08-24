@@ -3957,6 +3957,57 @@ describe("Care Plan combined History", () => {
     expect(heading).not.toMatch(/printed|reached the printer|copy given|sent to/i);
   });
 
+  /**
+   * Overclaiming is the famous direction; this is the same defect inverted. The
+   * contact-verification line was rebuilt from `CmhtContact.verifiedAt` with no
+   * actor, so it said no clinician was recorded — while the session was holding
+   * a `cmht_contact_verified` audit event that named the one who checked. A
+   * reader months later would conclude nobody owned that check.
+   *
+   * The attribution is read from its own paragraph node rather than the whole
+   * entry's `textContent`, for the reason recorded on the intent guards above.
+   */
+  it("names the clinician who checked a team's contact details, rather than denying one exists", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Contact Verification");
+    await user.click(screen.getByRole("button", { name: "Record that Wandoo District CMHT details were checked" }));
+
+    // SYN-PATIENT-003 is the person in the Wandoo District catchment.
+    goTo(carePlanRoute.history("SYN-PATIENT-003"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Wandoo District CMHT contact details/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Morgan Sample/);
+    // Spelled out literally rather than read back off the constant the entry
+    // renders from.
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  /**
+   * The other half of the same rule. A fixture-seeded team carries a checked
+   * date and no event, and the honest sentence is that the record does not name
+   * anybody — not that no clinician was involved, which is a claim about the
+   * world rather than about the record.
+   */
+  it("says a team's check is unattributed, rather than saying no clinician was involved", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /contact details/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who checked these details/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
   // The specification requires the closed decision, its reason, its author, and
   // its time to stay visible in the person's history.
   it("keeps a closed Identification Review decision, reason, author, and time in the person's History", () => {
