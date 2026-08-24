@@ -53,12 +53,22 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
   caringContactsStore: async () => mocks.store.current,
 }));
 
+import { PatientOverview } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
 import { fixedClock } from "@/lib/caring-contacts/clock";
-import { idempotencyKey, pathwayVersionId, patientId, planId, referralId, type PlanId } from "@/lib/caring-contacts/ids";
+import {
+  contactId,
+  idempotencyKey,
+  pathwayVersionId,
+  patientId,
+  planId,
+  referralId,
+  type PlanId,
+} from "@/lib/caring-contacts/ids";
+import type { ContactState } from "@/lib/caring-contacts/model";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
-import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
+import type { CaringContactRepository, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
 
@@ -399,5 +409,69 @@ describe("the patient overview - what it may show about the person", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: PATIENT })).toBeInTheDocument();
     expect(screen.getByRole("note", { name: "No name is held for this patient" })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Sendability is keyed off `contact.state`, never off `planned.suppressed`.
+ *
+ * The two agree for every plan the STORE can currently produce, because the schedule absorbing
+ * Week 1 into the first contact is the only suppression any repository write performs -- which is
+ * exactly why the tests above cannot tell the derivations apart, and why swapping one for the
+ * other left them all green. `applyContactTransition`'s `suppress` action moves any live contact
+ * to `suppressed` and leaves `planned.suppressed` undefined; no store method calls it yet, and the
+ * screen must already be right for the day one does. This is the same defect Task 5's finding N-2
+ * named on the caseload row, one screen further along.
+ *
+ * The component is rendered directly here rather than through the page, because the fixture is one
+ * the store cannot build. That is the whole point of it.
+ */
+describe("the patient overview - a contact suppressed by a later transition still counts", () => {
+  const TEAM = demoActorForRole("coordinator").teamId;
+
+  function entry(sequence: number, state: ContactState, options: { absorbed?: boolean } = {}): StoredContact {
+    return {
+      contact: { id: contactId(`plan-x--contact-${sequence}`), planId: planId("plan-x"), state, version: 1 },
+      planned: {
+        sequence,
+        cadenceLabel: sequence === 1 ? "Day 1" : `Month ${sequence}`,
+        calendarDay: `2026-0${sequence}-01`,
+        sendAt: new Date(`2026-0${sequence}-01T02:00:00.000Z`),
+        messageType: sequence === 1 ? "first" : "standard",
+        ...(options.absorbed === true ? { suppressed: { reason: "absorbedByFirstContact" as const } } : {}),
+      },
+    };
+  }
+
+  const record: PlanRecord = {
+    plan: { id: planId("plan-x"), teamId: TEAM, state: "active", version: 1 },
+    patientId: patientId(PATIENT),
+    referralId: referralId("referral-x"),
+    pathwayVersionId: pathwayVersionId("pathway-1"),
+    dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
+    completedAt: null,
+    outcome: "inProgress",
+    // The middle entry is suppressed with NO `planned.suppressed` marker -- a later transition,
+    // not the schedule's absorption.
+    contacts: [entry(1, "scheduled"), entry(2, "suppressed"), entry(3, "scheduled")],
+  };
+
+  it("subtracts it from the count, and explains it as the cause this screen does not hold", () => {
+    render(
+      <PatientOverview
+        patientId={PATIENT}
+        view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }}
+      />,
+    );
+
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "3 entries: 2 that will be sent, and 1 that will not.",
+    );
+    const suppressed = screen.getByRole("group", { name: "Suppressed" });
+    // Not the absorption wording: nothing here says this message collided with the first contact,
+    // because nothing on this screen knows that it did.
+    expect(suppressed).toHaveTextContent(/does not hold what caused that/i);
+    expect(suppressed).not.toHaveTextContent(/same calendar day/i);
+    expect(suppressed).toHaveTextContent(/never sent later/i);
   });
 });

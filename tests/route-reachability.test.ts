@@ -698,9 +698,20 @@ describe("route reachability", () => {
     );
 
     const routesModule = "src/lib/caring-contacts-routes.ts";
+    // Comments are stripped before the scan, and this is load-bearing rather than tidy: the
+    // patients directory's own module note contains the sentence "the control is
+    // `<Link href={patientRoute(...)}>`", which satisfied the regex below on PROSE. This check
+    // passed with the real link mutated away -- a check that could not fail. Documenting a link
+    // is not linking. Block comments and whole-line `//` comments only, so a protocol-relative
+    // URL inside a string cannot truncate the line it sits on.
     const sources = sourceFiles
       .filter((file) => file.rel !== routesModule)
-      .map((file) => ({ rel: file.rel, text: readFileSync(path.join(repoRoot, file.rel), "utf8") }));
+      .map((file) => ({
+        rel: file.rel,
+        text: readFileSync(path.join(repoRoot, file.rel), "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^[ \t]*\/\/[^\n]*$/gm, ""),
+      }));
     const routesModuleSource = readFileSync(path.join(repoRoot, routesModule), "utf8");
 
     for (const route of families) {
