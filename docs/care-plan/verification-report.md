@@ -38,7 +38,10 @@ which is exactly `node scripts/run-playwright.mjs --project=chromium-mockups tes
 | --- | ----------- | ----------- |
 | 1 | `9 failed` / `20 passed (19.7m)`, `EXIT=1` | First rendering of this application, ever |
 | 2 | `4 failed` / `1 skipped` / `25 passed (6.5m)`, `EXIT=1` | After repairing what run 1 exposed |
-| 3 | **`RUN3_SUMMARY`** | After repairing the last four |
+| 3 | `1 skipped` / `29 passed (1.2m)` | After repairing the last four |
+| 4 | `1 skipped` / **`29 passed (1.6m)`**, `EXIT=0` | Confirmation after every probe mutation below was reverted, and after the guard correction the probes forced |
+
+The skipped case is the evidence capture, which runs only under `CARE_PLAN_CAPTURE_EVIDENCE=1`.
 
 Run 1's nine failures were **all in the new suite, not in the product**, and each is worth
 recording because each is a class of mistake this file now documents rather than repeats:
@@ -110,11 +113,59 @@ Ruling 57 froze the static guard and named Task 11 as the owner of the replaceme
 nobody has attacked is a guard nobody has tested, so the replacement was attacked with
 working mutations rather than reasoned about.
 
-PROBE_TABLE
+Each probe is a real mutation to `care-plan.module.css`, built and run through the wrapper,
+then reverted. `npm run test:e2e:care-plan-mockup -- -g "link affordance"`.
+
+| # | Mutation | Result line | Message |
+| - | -------- | ----------- | ------- |
+| 1 | `text-decoration: underline` → `none` on the shared `pinnedBoundaryLink`/`timelineLink`/`inlineLink` rule | `1 failed`, `EXIT=1` | `` `pinnedBoundaryLink` carries no underline, so it is distinguished from body text by colour alone `` |
+| 2 | `.specimenLink` colour → `rgb(0 0 0 / 0.0%)` | `1 failed`, `EXIT=1` | `` `specimenLink` paints its text in ink that is effectively invisible (rgba(0, 0, 0, 0)) `` |
+| 3 | `.pinnedBoundaryLink`/`.timelineLink`/`.inlineLink` colour → `inherit` | `1 failed`, `EXIT=1` | `` `pinnedBoundaryLink` is exactly the colour of the text around it (rgb(27, 37, 51)), so colour distinguishes it from nothing `` |
+| 4 | `.patientNavItem` border → `1px solid rgb(0 0 0 / 0%)` | `1 failed`, `EXIT=1` | `` `patientNavSecondary` draws no visible border on any side `` |
+
+Two of those are spellings the frozen static guard could not see. Probe 2 is `rgb(0 0 0 /
+0.0%)` — a decimal *and* a percent together, the ninth spelling, found in Task 10's closing
+re-review. Probe 3 is `color: inherit`, which the ledger parks explicitly as
+"`color: inherit` counting as a colour". The computed style resolved both to a final value
+without ever reading a spelling, which is the whole argument for the replacement.
+
+**One probe corrected the guard rather than confirming it, and that is the more useful
+outcome.** The first shape of `expectLooksLikeALink` required *every* named affordance to
+differ in colour from the prose around it. Probe 3 was originally aimed at
+`patientNavSecondary` and it went red — for a change that takes nothing away from a reader,
+because a bordered pill with a 48 px box is perfectly visible whatever colour its text is.
+A guard that reddens for a harmless change is how a guard gets relaxed later for a harmful
+one, so the colour requirement is now contracted per class: the four accent text links must
+differ in colour and carry an underline, the two pill controls must carry a border painted
+in ink that differs from the surface behind them, and all six must paint at all. Probe 3 was
+then re-aimed at `inlineLink`'s own rule, where the requirement is real, and killed it.
 
 ## Focused unit and DOM suites
 
-FOCUSED_SUITE_RESULTS
+```
+GATE_RECEIPTS=refresh npm run test -- tests/care-plan-domain.test.ts \
+  tests/care-plan-prototype-state.test.ts tests/care-plan-patient-plan.test.ts \
+  tests/care-plan-route-files.test.ts tests/care-plan-linked-routes.dom.test.tsx \
+  tests/proxy.test.ts tests/playwright-project-isolation.test.ts
+```
+
+```
+ Test Files  7 passed (7)
+      Tests  517 passed (517)
+```
+
+Zero failed files, zero failed tests. The run was retried in a loop until it produced that
+summary line; earlier attempts returned no summary at all, which is the run coordinator
+refusing a lease while Playwright held the exclusive one, not a result.
+
+Two intermediate results are worth keeping, because each was a RED that proved a test could
+fail before it was made to pass:
+
+| Stage | Result line | What it proved |
+| ----- | ----------- | -------------- |
+| `tests/playwright-project-isolation.test.ts` before the Playwright project was registered | `Test Files 1 failed (1)` / `Tests 1 failed \| 5 passed (6)`, `tests/ui-care-plan-mockup.spec.ts is missing` | The registration assertion fails for the right reason |
+| The five navigation regression tests before the fix | `Tests 5 failed \| 264 skipped (269)`, all five `Unable to find …` | The wiring defects were real, and the tests observe them |
+| The same file after the fix | `Test Files 1 passed (1)` / `Tests 269 passed (269)` | 264 → 269, with nothing previously passing broken |
 
 ## Privacy and source scans
 
@@ -140,7 +191,101 @@ The collection is asserted non-empty first, so the sweep cannot pass by matching
 
 ## Reading the patient-facing surfaces as their recipient
 
-RECIPIENT_READ
+Every automated check this project has is a check on structure. The one class of harm none
+of them can see is a page that is technically correct and cruel to read, so each
+patient-facing surface was read straight through as its recipient — on screen from the
+running application, and on paper from the printed subtree.
+
+### The Personal Safety Plan, on paper
+
+It reads well, and it reads as Rowan's. It opens `My Personal Safety Plan`, with the
+person's preferred name, record number, version and last-confirmed date, and then:
+
+> This is your plan, in your own words. Keep it somewhere you can find it quickly. If it
+> stops fitting, or something changes, tell someone on your team so you can write it again
+> together.
+
+The seven sections are in the first person and hold the person's own sentences, not a
+clinician's summary of them. Nothing is empty. The support people are named with how they
+know Rowan and their number. `If you need help now` is last, which is where a reader looks
+when everything above has not worked, and every crisis line carries its own hours and its
+own caveat rather than one footnote at the bottom.
+
+**One finding, and it is the last thing the reader sees.** The sheet ends:
+
+> Confidential clinical document. Handle it, keep it, and dispose of it according to local
+> health service policy.
+
+That is the shared `PrintOutput` primitive's confidential footer, switched on by both
+patient-facing prints. On a clinician's handover copy it is exactly right. On a person's own
+safety plan it re-frames their own document as an institutional artefact they must dispose
+of according to somebody else's policy — directly after the page has told them to keep it
+somewhere they can find it quickly. It is not wrong; it is cold, and it is the wrong voice
+for the one page in this product written entirely in the person's own.
+
+It is also a quiet specification deviation. The specification enumerates what the clinician
+print carries and names `a confidential-document footer` among them; the Personal Safety
+Plan print and the Patient Plan print each have their own enumerated list and **neither
+names it**.
+
+**Recommendation:** drop `confidential` from the two patient-facing prints and keep it on
+the clinician print. Not changed here: it is a product-copy decision on a shared primitive
+whose wording is deliberately owned centrally, and this task should not make that call
+alone. It is a one-line change once decided.
+
+Two smaller notes, neither a defect: all four public crisis lines print on every sheet,
+including the Peel and regional numbers on a metropolitan patient's copy, which is
+defensible but is four entries where two would do; and each carries its full source URL,
+which is verifiable and also the least readable thing on an otherwise plain-language page.
+
+### The Patient Plan, on paper
+
+Headed `My plan`, with only a preferred name, record number, version and `Agreed on` date —
+no date of birth, no address, no home service, no episode, no version history, no owner, no
+approver, no review date. That restraint is right: this is the sheet that leaves the
+building.
+
+> This is your copy of the plan you and your team wrote together. Keep it somewhere you can
+> find it quickly, and bring it with you if you can. If something in it stops fitting, tell
+> someone on your team so you can write it again together.
+
+Each section has a lead-in written to the person rather than about them —
+`These are the things you have said matter to you`, `These are the things that have made a
+visit harder, so we can try to avoid them`. **Unfilled sections are omitted from the paper
+entirely** rather than printed as a heading with nothing under it. That is the direct answer
+to this project's worst defect, and the browser now asserts the sheet contains no
+`Not recorded` at all.
+
+The same confidential-footer finding applies, and applies harder here: this is explicitly
+the person's copy.
+
+### The clinician plan, on paper, at 3am
+
+The pinned safety boundary is the second thing on the page, immediately under the
+identifiers and above everything else, and it prints. Then, before any plan content:
+
+> **This is a printed copy and may already be out of date.** Before you rely on it, check
+> the electronic record for a newer version, for anything withdrawn, and for what has
+> happened since.
+
+The five first-minute sections follow in order, then the team block with its operating
+hours and the sentence that checked details are not a guarantee of availability. Nothing
+that only makes sense on a screen reaches the paper: no navigation, no actions, no audit
+history, no draft. For a clinician reading it at a bedside this is the right sheet, and the
+one thing it never does is imply that the paper is current.
+
+### On screen, on a phone, at 3am
+
+The Current Plan card is the five sections in order with the boundary pinned above them,
+and the boundary is measured above the plan at 320 px as well as on a desktop. `Overdue`
+does not hide the plan; it warns above it and leaves it fully readable — which is the right
+direction, because a plan that is late for review is still the plan the team agreed.
+
+The one thing that reads awkwardly is the pinned line's own wording order:
+`**Do not rely on this plan if today is different — assess afresh.** Then read the full
+section.` followed by the link naming the section. `Then read the full section` arrives
+before the reader knows which section, and the sentence would read better with them
+swapped. Cosmetic, and recorded rather than changed.
 
 ## Checks NOT run, by user instruction
 
@@ -164,7 +309,44 @@ recorded is evidence and a gap hidden is not.
 
 ## Acceptance criteria
 
-ACCEPTANCE_TABLE
+Every criterion in the approved specification, with the direct evidence for it. Where the
+evidence is structural only — no rendered proof exists — the row says so, because a green
+suite is not the same as a satisfied requirement.
+
+| Criterion | Evidence | Verified how |
+| --------- | -------- | ------------ |
+| Find a synthetic patient and the Current Plan within 10 seconds | Browser: `a clinician can search a name and reach the Current Plan` — search, open the record, one section link, plan on screen | Browser + DOM |
+| First-minute guidance, status, version, approver, review state and CMHT contact understandable within 30 seconds | `care-plan-current-plan-metadata` asserted visible on the same journey; the card is the five sections plus the metadata list | Browser + DOM. **Comprehension time itself is not measured and cannot be by a machine** |
+| Record a concise ED Presentation within two minutes | Browser: seven required answers filled and saved in one form, no optional field blocking | Browser |
+| Current Personal Safety Plan reachable and printable within three actions | Home → section link → `Print this plan`; browser journey walks it | Browser |
+| A replacement draft never obscures or replaces the Current Plan | Browser: `a version awaiting approval never displaces the Current Plan` measures both painted boxes, so a CSS reorder cannot pass | Browser (new — jsdom proved document order only) |
+| Approving creates exactly one Current version and supersedes the prior one | `assertSingleCurrentVersion` reducer invariant; browser approves version 2 and reads version 1 as superseded | Reducer + browser |
+| An overdue Current Plan remains readable and unmistakably overdue | `overdue-plan` specimen renders its warning above fully readable content | Reducer + DOM + browser |
+| The summary card is exactly the five first-minute sections in order | Generated from `FIRST_MINUTE_CONTENT_KEYS` rather than transcribed | DOM |
+| `What would make this presentation different` visible on the card at every viewport, in dark mode, forced colours and print, never collapsed/truncated/clipped | Browser: geometry at 320/390/768/1024/1440, dark, forced colours, print; height, clipping, `display`, `visibility` and line-clamp all asserted | **Browser — new** |
+| Approved version defaults review 12 months ahead, author can change it, amber at 28 days | `REVIEW_INTERVAL_MONTHS = 12`, `REVIEW_DUE_SOON_DAYS = 28`, `deriveReviewState` boundary tests | Reducer + DOM |
+| Presentation saves with the seven required answers; optional detail never blocks and reads `Not recorded` | Form validation tests; browser saves with only the required answers | Reducer + DOM + browser |
+| Identification Review closes with a decision and reason, leaves the queue, stays in history, creates no plan | Reducer refusal/closure tests; browser opens the referral sheet and reads `creates no plan` | Reducer + DOM + browser |
+| Pinned safety boundary above all plan content at 320, 390, desktop, dark, forced colours, print | As above | **Browser — new** |
+| No prohibitive admission construction anywhere | `BANNED_ADMISSION_CONSTRUCTIONS` unit test, form validation, and the fixture scan in this report (3 matches, all the guard list itself) | Unit + scan |
+| A version approved at `declined`/`patient_unavailable` carries the involvement marker everywhere and raises a Review Trigger | Reducer assertion; the approval dialog states the consequence before the decision | Reducer + DOM |
+| A withdrawn plan never renders identically to a person who never had one | Browser: Evelyn Demo's `care-plan-withdrawn-notice` asserted visible with its date, under forced colours | Browser + DOM |
+| Sort-by-count exists only in the Identification Review workflow | No sort control in the directory (DOM); the Governance page discloses the one that exists (Ruling 56) | DOM |
+| The Management Plan summary prints, and both print views consume the shared `PrintOutput` | All three print surfaces import `PrintOutput`/`PrintSection`; browser prints the clinician summary and the Safety Plan | **Browser — new** |
+| Patient Plan produces gaps not guesses, never auto-converts the agreed approach, cannot be approved with a gap | Browser: section 4 gap asserted, approval `aria-disabled` with the unfilled sections named, then approved once filled | **Browser — new** + reducer |
+| A Patient Plan from a superseded version is marked as needing updating, stays readable, never regenerated or hidden | Browser: approve a newer Management Plan Version, then read `needs updating` beside a fully readable version 1 | **Browser — new** + derived-selector test |
+| No language model, network call or provider is reachable anywhere | Scans 2 and 3 in this report: no `fetch`, no storage, no provider reference | Scan + source inspection |
+| The shell states in plain words that nothing is saved and reloading starts over | `Nothing is saved. Reloading this page starts over.` asserted on every route the browser visits | Browser + DOM |
+| Presentation corrections are visible amendments, not silent overwrites | Append-only reducer assertion on `originalValue`; the detail view shows both | Reducer + DOM |
+| Plan-use feedback can create a Review Trigger but cannot change a plan | Reducer before/after plan equality; the resolution sheet states `It changes no plan and approves nothing` | Reducer + browser |
+| Counts never become an automatic label or eligibility decision | The eligibility sentence sits beside every count; policy is `pending_governance` with no threshold | DOM + fixtures |
+| No numeric identification threshold in code, fixtures, tests or copy | Null-typed policy fields; governance copy states no rule exists | Types + fixtures + DOM |
+| CMHT email links carry no patient identifier or clinical content and never imply communication | The extended cross-product assertion in `care-plan-domain.test.ts`; browser reads the rendered `mailto:` and the no-evidence sentence | Unit + **browser — new** |
+| The Personal Safety Plan stays independent of the Management Plan | Browser: a new safety-plan version is made current with no Management Plan approval involved | Browser + reducer |
+| Every record and screen visibly synthetic; refresh restores deterministic state | Marker asserted on every route; the whole suite depends on refresh resetting, and does so | **Browser — new** |
+| Primary journeys work at desktop, 390 and 320, and remain operable by keyboard | Reflow at five widths; 40-step tab walk with a focus-ring check; sheet focus containment | **Browser — new** |
+| Current, Draft, Review, Withdrawn, unavailable and error states distinguishable without colour | Forced-colours run asserts the words, not the tints | **Browser — new** |
+| The print view is readable in monochrome and contains only the intended patient-facing content | Up to forty sampled elements resolve to black on white; the Safety Plan paper carries all seven headings and no `Not recorded` | **Browser — new** |
 
 ## Carried forward
 

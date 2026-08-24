@@ -110,7 +110,7 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | 8. Personal Safety Plan, print                 | **complete, review clean**        | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                               |
 | 9. Patient Plan, transform, print              | **complete, review clean**        | `73d004095..7f19e1a1b` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed      |
 | 10. Reviews, Team, Governance, History, states | **complete, 9 parked at the cap** | `996cbc407..d7861e815` | 495/495 + 24/24 route-files, typecheck + lint clean, 24 mutations all killed, 5 fix rounds, 4 re-reviews        |
-| 11                                             | not started                       | —                      | —                                                                                                               |
+| 11. Browser journeys, docs, handoff            | **complete, unreviewed**          | `157c48f33..HEAD`      | Browser `29 passed (1.6m)`; focused Vitest `517 passed (517)` across 7 files; 4 probes against the new link gate, all killed; 3 wiring defects found in the browser and fixed |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
 lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
@@ -468,6 +468,65 @@ never reaching the combined chronology; and the safety-plan confirmation's **tim
 is the moment the version was made current rather than the moment the person's part was
 recorded. That last one is the only residual that is genuinely the user's call rather than an
 engineering one.
+
+### Task 11 — the first time any of this rendered
+
+Ten tasks and roughly 495 committed tests had never once painted a pixel: Vitest runs
+`css: false` in jsdom, and the stylesheet was checked by parsing it as text. Task 11 is the
+first Chromium evidence, and it runs against a **production build** — `run-playwright.mjs`
+builds and starts its own isolated server — not against `next dev`.
+
+**Three wiring defects, and none of them was a rendering problem.** They were found by
+walking the running application and reading what a clinician can actually click.
+
+1. **The Patient Plan was unreachable.** Nothing outside its own three pages linked to it.
+   Task 9 built a whole specification feature — the deterministic patient-voice transform,
+   its gaps, its approval, its print — and the only way to open it was to type the address.
+   The Management Plan's review-and-sharing section already named the person's copy in
+   prose; that sentence now carries the link.
+2. **The Personal Safety Plan reading surface dropped the patient section navigation**, so
+   a clinician who followed the nav's own `Personal Safety Plan` entry arrived somewhere
+   with no way back but the browser's Back button. The fingerprint was sitting in the type
+   system since Task 3: `PatientSectionKey` has a `safetyPlan` member and **nothing ever
+   passed it**, because the route that would have was the one not rendering the nav.
+3. **The Patient Plan reading surface had the same shape**, and now renders the nav with
+   `activeSection={null}` — the documented value for a surface that is not one of the five.
+
+Five DOM regression tests were written first and all five failed for exactly those reasons.
+The DOM suite went 264 → 269 passing.
+
+**Ruling 57's replacement exists and has been attacked.** `expectLooksLikeALink` reads
+computed style in a real browser, so `transparent`, `rgb(0 0 0 / 0.0%)`, a `var()` fallback,
+`all: unset` and `color: inherit` have all collapsed into one resolved value before it looks.
+Four probes were run as real stylesheet mutations, built and executed through the wrapper;
+all four killed the guard, and two of them — `rgb(0 0 0 / 0.0%)` and `color: inherit` — are
+spellings the frozen static tripwire could not see, the second of them a parked residual.
+
+**The most useful probe was the one that corrected the guard rather than confirming it.**
+The first shape required every named affordance to differ in colour from the prose around
+it, and a probe showed that reddening for a bordered pill recoloured to match its four
+siblings — a change that takes nothing from a reader, because a pill's affordance is its
+border and its 48 px box. A guard that reddens for a harmless change is how a guard gets
+relaxed later for a harmful one, so the colour requirement is now contracted per class.
+
+**What run 1 exposed was the test suite, not the product.** Nine of twenty-nine failed, and
+every failure was mine. Two are worth carrying forward. The class-resolution helper assumed
+the `next dev` CSS-module shape and found nothing in the production build the gate actually
+measures — a guard that could not fail, discovered by running it. And role switches landed
+before hydration: the native `<select>` changed, React never saw the event, and the next
+reconcile silently restored the previous clinician, which reads in a report exactly like
+"the role switcher is broken". Every control here is server-rendered, so `gotoRoute` now
+waits for a React root before touching anything.
+
+**One copy finding, reported rather than changed** — see `verification-report.md`. Both
+patient-facing prints carry the shared `PrintOutput` confidential footer: `Confidential
+clinical document. Handle it, keep it, and dispose of it according to local health service
+policy.` On a clinician's handover copy that is right. On a person's own safety plan it is
+the last thing they read, directly after the page told them to keep it somewhere they can
+find it quickly, and it re-frames their own document as an institutional artefact. The
+specification enumerates that footer for the clinician print and names it in **neither**
+patient-facing list. It is a one-line change on a shared primitive whose wording is
+deliberately owned centrally, so it is the user's call.
 
 ---
 
@@ -1052,6 +1111,49 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     not thrashing. _Cost if wrong:_ two rounds run by an implementer with a blind spot a fresh one
     would have seen — mitigated by four independent re-reviews, every one of which attacked the
     work with probes rather than reading it.
+
+### Task 11
+
+59. **Three wiring defects were fixed rather than only reported, because a route nothing links to
+    is not a rendering opinion.** Task 11's brief says it adds cross-layer acceptance evidence,
+    not new clinical product behaviour, and that is why the bar for touching production code was
+    set high. These three clear it: the Patient Plan had no inbound link from anywhere outside its
+    own three pages, so an entire specification feature could be reached only by typing its
+    address, and two reading surfaces dropped the patient section navigation, leaving the browser's
+    Back button as the only way out of a patient's record. None of the three adds behaviour: the
+    Management Plan already named the person's copy in prose and now links it; `PatientNavigation`
+    already existed and its `safetyPlan` key had been unreachable since Task 3. Five DOM regression
+    tests were written first and all five failed for exactly those reasons. _Cost if wrong:_ one
+    extra link and one extra navigation block on three surfaces, both removable in a line — against
+    shipping a handoff whose reviewer would find a feature nobody can open.
+
+60. **The confidential-document footer on the two patient-facing prints is reported, not changed.**
+    It is the shared `PrintOutput` primitive's wording, deliberately owned centrally so that two
+    printed documents from this repository cannot make different promises about how paper is
+    handled. On a person's own safety plan it reads coldly and it is the last line they see. The
+    specification enumerates it for the clinician print and names it in neither patient-facing
+    list, so removing it is defensible — but it is a product-copy decision on a shared primitive,
+    and this project has twice lost a line from a printed page by editing print output in passing.
+    _Cost if wrong:_ a cold sentence stays on two synthetic sheets until the user rules — against
+    an implementer quietly changing the wording of every printed clinical document in the
+    repository on its own authority.
+
+61. **The link-affordance gate's colour requirement was narrowed after a probe, not after an
+    argument.** The first shape required all six named affordances to differ in colour from the
+    prose around them. A probe showed it going red for a bordered pill recoloured to match its four
+    siblings — a change that costs a reader nothing, because a pill is distinguished by its border
+    and its 48 px box rather than by its ink. The contract is now per class: accent text links must
+    differ in colour and draw a real underline; pill controls must draw a border in ink that
+    differs from the surface behind them; all six must paint at all. _Cost if wrong:_ a text link
+    recoloured to body text inside a pill-shaped control would pass — against a guard that cries
+    wolf on benign changes, which is how a guard gets relaxed later for a harmful one.
+
+62. **The evidence capture writes the three printed papers as text, not only as screenshots.**
+    Screenshots are visual evidence and prove nothing about wording, and the worst defect this
+    project has produced was a heading on a patient's own sheet with `Not recorded` under it —
+    invisible to 365 passing tests and to any screenshot nobody read. The capture now writes
+    `paper-*.txt` for each print surface so a person can read what a patient would be handed.
+    _Cost if wrong:_ three more ignored files in `.local/`.
 
 ### User decisions, 25 August 2026
 

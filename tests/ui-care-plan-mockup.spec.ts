@@ -262,6 +262,17 @@ type Affordance = {
   underline: boolean;
   /** A visible border, drawn in ink that is not transparent. */
   border: boolean;
+  /**
+   * Ink that differs from the prose around it.
+   *
+   * Contracted for the accent-coloured text links and deliberately **not** for
+   * the bordered pill controls. Requiring it everywhere was the first shape of
+   * this gate, and a probe showed it would go red for a pill recoloured to match
+   * its four siblings — a change that takes nothing away from a reader, because
+   * a pill's affordance is its border and its 48 px box. A guard that reddens
+   * for a harmless change is how a guard gets relaxed later for a harmful one.
+   */
+  distinctColour: boolean;
 };
 
 /**
@@ -338,11 +349,13 @@ async function expectLooksLikeALink(page: Page, name: string, affordance: Afford
     ).toBe(false);
   }
 
-  // It is not the same as the prose it sits in.
-  expect(
-    sameColour(colour!, surrounding!),
-    `\`${name}\` is exactly the colour of the text around it (${measured.colour}), so colour distinguishes it from nothing`,
-  ).toBe(false);
+  // For a text link, it is not the same colour as the prose it sits in.
+  if (affordance.distinctColour) {
+    expect(
+      sameColour(colour!, surrounding!),
+      `\`${name}\` is exactly the colour of the text around it (${measured.colour}), so colour distinguishes it from nothing`,
+    ).toBe(false);
+  }
 
   if (affordance.underline) {
     expect(
@@ -364,7 +377,10 @@ async function expectLooksLikeALink(page: Page, name: string, affordance: Afford
   if (affordance.border) {
     const painted = measured.borders.filter((border) => {
       const ink = parseColour(border.colour);
-      return border.width > 0 && border.style !== "none" && ink !== null && ink.a >= 0.5;
+      if (border.width <= 0 || border.style === "none" || ink === null || ink.a < 0.5) return false;
+      // A border the colour of the surface behind it is a border nobody sees,
+      // which is the same defect as a transparent one wearing a different name.
+      return background === null || !sameColour({ ...ink, a: 1 }, { ...background, a: 1 });
     });
     expect(
       painted.length,
@@ -495,21 +511,24 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
 
   /**
    * Ruling 57's replacement. Each entry names the affordance that class is
-   * meant to carry: the four text links must draw a real underline, and the two
-   * pill controls must draw a real border. Every one must also paint in ink that
-   * differs from the prose it sits in.
+   * contracted to carry: the four accent text links draw a real underline in
+   * ink that differs from the prose around them, and the two pill controls draw
+   * a real border in ink that differs from the surface behind them. Every one of
+   * the six must paint at all.
    */
   test("every named link affordance still looks like a control in a real browser", async ({ page }) => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: 1440, height: 1000 });
 
+    const link = { underline: true, border: false, distinctColour: true } as const;
+    const pill = { underline: false, border: true, distinctColour: false } as const;
     const affordances: readonly (readonly [string, string, string, Affordance])[] = [
-      [routes.patient, "Patient overview", "pinnedBoundaryLink", { underline: true, border: false }],
-      [routes.patient, "Patient overview", "patientNavSecondary", { underline: false, border: true }],
-      [routes.history, "History", "inlineLink", { underline: true, border: false }],
-      [routes.presentations, "ED Presentations", "timelineLink", { underline: true, border: false }],
-      [routes.reviews, "Reviews", "queueAction", { underline: true, border: true }],
-      [routes.systemStates, "System states", "specimenLink", { underline: true, border: false }],
+      [routes.patient, "Patient overview", "pinnedBoundaryLink", link],
+      [routes.patient, "Patient overview", "patientNavSecondary", pill],
+      [routes.history, "History", "inlineLink", link],
+      [routes.presentations, "ED Presentations", "timelineLink", link],
+      [routes.reviews, "Reviews", "queueAction", { ...link, border: true }],
+      [routes.systemStates, "System states", "specimenLink", link],
     ];
 
     for (const [route, heading, name, affordance] of affordances) {
