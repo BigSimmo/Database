@@ -13,6 +13,7 @@ import {
   modeActionItemsFor,
   type ModeActionModeOption,
 } from "@/components/clinical-dashboard/mode-action-popup";
+import { factsheetsTopicsHref } from "@/lib/app-modes";
 
 const modeOptions: ModeActionModeOption[] = [
   { id: "documents", label: "Documents", icon: Search },
@@ -218,5 +219,20 @@ describe("ModeActionPopup state transitions", () => {
     expect(clinicianItems.map((item) => item.id)).toEqual(
       adminItems.filter((item) => item.id !== "documents-admin").map((item) => item.id),
     );
+  });
+
+  it("sends factsheets Browse all sheets to the Topics page, not Search", () => {
+    const items = modeActionItemsFor("factsheets");
+    expect(items.map((item) => [item.id, item.label])).toEqual([
+      ["factsheets-search", "Search factsheets"],
+      ["factsheets-browse", "Browse all sheets"],
+    ]);
+
+    const source = readFileSync(
+      path.join(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    expect(factsheetsTopicsHref).toBe("/factsheets/topics");
+    expect(source).toMatch(/if \(actionId === "factsheets-browse"\) \{\s*router\.push\(factsheetsTopicsHref\);/);
   });
 });

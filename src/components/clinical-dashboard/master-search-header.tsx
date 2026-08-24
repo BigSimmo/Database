@@ -66,6 +66,7 @@ import {
   appModeDefinitions,
   appModeSelectionHref,
   appModeSearchConfig,
+  factsheetsTopicsHref,
   isSearchableAppMode,
   visibleAppModeDefinitionsForSession,
   type AppModeId,
@@ -771,8 +772,7 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "factsheets-browse") {
-      onSearchModeChange("factsheets");
-      onQueryChange("");
+      router.push(factsheetsTopicsHref);
       return;
     }
     if (actionId === "dictionary-search") {
