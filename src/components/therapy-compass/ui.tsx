@@ -90,7 +90,7 @@ export function StatusBadge({ status }: { status: string }) {
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
   const Icon = meta.tone === "success" ? ShieldCheck : TriangleAlert;
   return (
-    <Chip size="standard" appearance={{ kind: "status", tone }} icon={Icon} className="font-semibold">
+    <Chip size="standard" appearance={{ kind: "status", tone }} icon={Icon}>
       {meta.label}
     </Chip>
   );

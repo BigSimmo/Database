@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 107,
+    "pending": 105,
     "resolved": 376
   },
   "queue": [
@@ -912,12 +912,6 @@
       "created_at": "2026-08-23"
     },
     {
-      "request_id": "35258175-63a3-4846-abb3-5d3b04dc2329",
-      "action": "done",
-      "summary": "#BSBE9B: Docling lab fixtures.v2 table-hardness corpus validated and verified across eval/docling/fixtures/manifest.v2.json, eval/docling/report/lab-contract.mjs, and tests/docling-lab-contract.test.ts. Fixture corpus contains unruled, merged_cell, and rotated_header table fixtures across table_heavy strata with table-scoped exactness assertions (source: 'table', tableId) covering all required assertion kinds (number, number_unit, comparator) with zero data leakage. Verified with npx vitest run tests/docling-lab-contract.test.ts (23/23 passed) and npm run check:docling-lab (36 fixtures, 10 hostile, 6 canaries).",
-      "created_at": "2026-08-23"
-    },
-    {
       "request_id": "36b358f7-0fa8-46ab-9b72-585c7d2ceca9",
       "action": "done",
       "summary": "#2TAQDC: Resolved with both recommended safeguards. docs/search-chrome-behaviour.md now documents the Next streaming/hydration interval in which #main-content may be absent and limits body:has(#main-content...) geometry consumers to elements that cannot mount during that interval. tests/pwa-lifecycle.dom.test.tsx inventories the exact existing hero-scoped PWA selectors and rejects any unallowlisted consumer; its injected .future-overlay control proves the invariant fails for a new selector. The matcher was corrected after focused proof exposed opening-brace normalization, then the combined focused run passed 3 files and 26 tests on 2026-08-23.",
@@ -1419,12 +1413,6 @@
       "request_id": "fda95495-3d07-41e3-a9b9-0c9c1d999087",
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: a central generator guard requires exactly seven boolean checks, all true for reviewed; display-approved public reviewer attribution with placeholder, email, account-handle, phone and obvious private-identifier rejection; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata but rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows the fields governed by every check, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, has no batch/yes/answer/provider/production path, and rolls the canonical source plus every generator-owned fixed or content-addressed asset back to exact pre-review bytes if generation, checking or I/O fails. ReviewStatus is closed to reviewed or needs_review. Focused evidence: Therapy workflow tests 50/50 passed including deterministic partial-generation failure and byte-exact rollback; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; clinical-proof previously passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
-      "created_at": "2026-08-23"
-    },
-    {
-      "request_id": "fea5ff9e-9e8a-4fcf-9568-a88251933597",
-      "action": "done",
-      "summary": "#5DYBQQ: Isolated and eliminated timing race conditions in tests/ui-forms-section-nav.spec.ts ('expands information previews into one continuous answer'). Fortified test with explicit selector settlement assertions: verified aria-expanded='false' on trigger before click, clicked trigger, verified aria-expanded='true', dynamically resolved panel ID from aria-controls, verified trigger text evacuation (toHaveCount(0)), verified panel text visibility, and verified seamless borderless panel styling. Companion unit suite tests/forms-information-disclosure.dom.test.tsx passed 10/10.",
       "created_at": "2026-08-23"
     }
   ]
