@@ -1289,3 +1289,42 @@ default, deliberately and on the record, not a default drifting open because nob
 implementer flagged it rather than deciding silently, which is what made the question reachable at
 all — the decision existed to be made because someone declined to make it quietly. If it is ever
 revisited, revisit it as a decision, not as an oversight.
+
+## Rulings 105-108 — Task 6b, storing the first-contact reason
+
+**Ruling [105] — the reason never reaches `PlanRecord`, and retention clearance must clear it.** —
+Why: `PlanRecord` is what `listPlans` returns and what the caseload renders for every patient in the
+team, so a free-text clinical note keyed to a patient must not be fetched for a list screen — that was
+Task 5b's whole argument. And the clearance point is the one most likely to be missed and the one that
+matters clinically: the reason is prose a clinician wrote, and a real one says things like "patient
+asked to wait until she is home from her sister's". `CLEARED_PATIENT_DETAIL` blanks four fields and
+would not touch a fifth added elsewhere, so a de-identified record would keep identifying prose.
+Pinned in the shared contract suite, with the clearance deliberately broken to prove the test goes
+red. — Cost if wrong: if the field's shape turns out to need to sit inside `patientDetail` after all,
+that is a smaller change than the alternative; but a clearance that silently misses it would leave
+identifying free text in a record the system reports as de-identified, which is the failure this
+ruling exists to prevent.
+
+**Ruling [106] — cap the reason's length, refuse rather than truncate.** — Why: it is unbounded free
+text going into a database column, and a clinical reason cut off mid-sentence can invert its meaning.
+The refusal gets its own identifiable reason, matching the shape `first-contact-reason-required`
+already has. — Cost if wrong: a cap set too low irritates; it is one constant to change. A silent
+truncation is not recoverable, because nothing records that it happened.
+
+**Ruling [107] — the write path exists; do not build a second one.** — Why: the plans POST schema
+already accepts `firstContactDate` and `firstContactReason` and `schedule.ts` already validates the
+pair (Ruling [86]). The change is to stop the reason being dropped between validation and the store.
+— Cost if wrong: if schema and store disagree, that is a finding to report, not a third path to
+invent. Ruling 86's own lesson was that this programme has twice nearly built a second implementation
+of something that already worked.
+
+**Ruling [108] — the screen states what is held, and an old plan's missing reason is its own fact.** —
+Why: with storage there are three cases, not two — default date (no reason required), moved date with
+a stored reason (show it in place, spec section 4.4), and moved date with none stored because the plan
+predates the column. That third case is real and will persist. **Do not migrate a placeholder string
+into old rows to make the screen simpler.** — Cost if wrong: an extra sentence on a rare state. A
+fabricated reason on a clinical record is not comparable.
+
+**Task 6b brief written** at `docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md`. Not
+dispatched yet — Task 6's fix round is still in re-review and this worktree runs one implementer at a
+time.
