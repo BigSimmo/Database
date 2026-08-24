@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f8e01396-e719-4f50-a082-957653d12e86",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Physical iPhone PWA acceptance owed for the filter-sheet footer clipping fix",
+    "detail": "Josh reported, from the installed iPhone PWA, that 'Browse all sources' at the bottom of the Filter documents sheet looked cut off. Fixed on branch claude/browse-sources-filter-pages-h51y6h, commit 81178b8, by two independent repairs in the shared components (so all 22 ResultFilterSheet call sites inherit them). (1) SHAPE: the secondary action carried rounded-lg + border-t with no side or bottom border, and a radius over a top-only border renders two tapering arcs at the corners and nothing else — a cut-off card, drawn deliberately. It is now a bounded row (leading BookOpen, label, count, trailing chevron) moved ABOVE the summary-and-commit row behind a full-bleed rule, so the commit action stays last and nothing renders past it. (2) INSET: Sheet put pb-safe on the panel, which is the last child after the footer, so the footer's background and border stopped short of the panel edge and left a band of bare surface beneath. The inset now belongs to the footer that paints that edge, as max-sm:pb-[max(0.75rem,var(--safe-area-bottom))]; footerless sheets keep the panel pad. The panel also gained a min(...,100%) cap so a stale dvh cannot let it exceed the fixed inset-0 backdrop. WHAT IS NOT PROVEN: both repairs were confirmed only against a SIMULATED --safe-area-bottom in headless Chromium at a phone viewport (measured: apply button ends 35px above the viewport bottom with a 34px inset, vs 12px before). No real-device evidence exists, and none can come from a container — #71NT23 records that this repo has no mobile-WebKit and no display-mode:standalone Playwright project, so phone coverage is a narrow viewport on a desktop engine. ACCEPTANCE: on the physical iPhone, in the installed PWA, open the Filter documents sheet on a documents search and confirm the footer's bottom edge — the Update search button must sit clear of the home indicator and the Browse all sources row must render as a whole bounded control, not a sliced one. If it still clips, capture a screenshot and reopen; the residual cause would be real iOS PWA behaviour rather than either mechanism fixed here. This row is what closed row #130 asked for when it said 'reopen a new row if phone-chrome behaviour is reported wrong on a real device'. Relates to #71NT23, #S4K1GA, #130.",
+    "source": "User-reported phone screenshots, session 2026-08-24; commit 81178b8 on claude/browse-sources-filter-pages-h51y6h; verify:ui 545 passed, unit 9739 passed",
+    "issueUlid": "01M0S0C8MWSVM6KDJ51E849VQ0"
+  }
+}
