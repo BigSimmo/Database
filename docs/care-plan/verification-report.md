@@ -308,6 +308,21 @@ which checks this task runs: `typecheck`, `lint`, the Care Plan Vitest files,
 | `npx prettier --check` on all 16 changed files | Initially **7 markdown files failed**; formatted with `--write` and re-checked: `All matched files use Prettier code style!`                                                                                                                  |
 | Care Plan Vitest files                         | `Test Files 7 passed (7)` / `Tests 517 passed (517)` (above)                                                                                                                                                                                  |
 | Chromium journeys                              | `29 passed (1.6m)`, 1 skipped (above)                                                                                                                                                                                                         |
+| `git diff --check` over the whole task range   | Clean. Working tree clean at the Task 11 commit                                                                                                                                                                                               |
+
+## Two gaps in the brief's own checklist, stated rather than glossed
+
+- **`npm run workflow:clinical-proof … --write-evidence` was not run.** The brief lists it;
+  the user's later revision of D2 narrowed this task to the fast checks named above and it
+  is not among them. The evidence it would have assembled — privacy, clinical-language,
+  source, failure-mode and prototype-boundary — is present in this report from the scans and
+  journeys directly, but it was not produced by that workflow and should not be described as
+  if it were.
+- **The browser journeys do not cover drafting and submitting a new Management Plan
+  Version.** They cover comparing, returning for changes, and approving, which is where the
+  senior-approval boundary lives. Drafting and submission are covered by reducer and DOM
+  tests only, so the authoring form has DOM proof and no rendered proof. Worth adding; not
+  added here.
 
 ## Evidence capture — attempted, not completed
 
