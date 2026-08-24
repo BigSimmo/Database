@@ -54,11 +54,6 @@ const modes = [
       "incompatibilities",
     ],
   ],
-  [
-    "therapy-compass",
-    "Therapy",
-    ["potential_options", "rationale", "population_setting_fit", "cautions", "practical_requirements", "alternatives"],
-  ],
 ] as const;
 
 const syntheticQuestion = "Synthetic presentation with low mood and reduced sleep";
@@ -172,7 +167,23 @@ test("@critical keeps Ask on Services and Forms catalog result docks", async ({ 
   }
 });
 
-test("@critical renders governed answers for all seven Clinical Ask modes without leaking input", async ({ page }) => {
+test("@critical hides Ask and Dictate on Therapy home and results", async ({ page }) => {
+  await page.goto("/?mode=therapy-compass");
+  await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ask Therapy", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dictate question for Therapy" })).toHaveCount(0);
+  const input = await composer(page);
+  await input.fill(syntheticQuestion);
+  await expect(page.getByRole("button", { name: "Ask Therapy", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dictate question for Therapy" })).toHaveCount(0);
+
+  await page.goto("/therapy-compass/search?q=insomnia&run=1");
+  await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ask Therapy", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dictate question for Therapy" })).toHaveCount(0);
+});
+
+test("@critical renders governed answers for Clinical Ask composer modes without leaking input", async ({ page }) => {
   test.setTimeout(180_000);
   const requestCount = await mockClinicalAsk(page);
   for (const [mode, label, sections] of modes) {
@@ -197,7 +208,7 @@ test("@critical renders governed answers for all seven Clinical Ask modes withou
     );
     await page.getByRole("button", { name: "Clear case" }).click();
   }
-  expect(requestCount()).toBe(7);
+  expect(requestCount()).toBe(modes.length);
 });
 
 test("@critical keeps dictated text reviewable and requires explicit Ask", async ({ page }) => {
