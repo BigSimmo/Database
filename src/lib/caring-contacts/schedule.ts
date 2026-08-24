@@ -41,8 +41,7 @@ export type PlannedContact = {
  * -- so neither can persist a string this function refused or a string it never looked at.
  */
 export type ScheduleResult =
-  | { ok: true; contacts: PlannedContact[]; firstContactReason: string | null }
-  | { ok: false; reason: string };
+  { ok: true; contacts: PlannedContact[]; firstContactReason: string | null } | { ok: false; reason: string };
 
 /** Approved AWST wall-clock send hours. */
 const SEND_HOUR_BY_PREFERENCE: Record<SendingPreference, number> = {

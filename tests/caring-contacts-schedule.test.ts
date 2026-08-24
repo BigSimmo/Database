@@ -153,7 +153,10 @@ describe("buildApprovedSchedule", () => {
       firstContactDate: "2026-03-13",
       firstContactReason: "  Patient asked to wait until she is home from her sister's.\n",
     });
-    expect(result).toMatchObject({ ok: true, firstContactReason: "Patient asked to wait until she is home from her sister's." });
+    expect(result).toMatchObject({
+      ok: true,
+      firstContactReason: "Patient asked to wait until she is home from her sister's.",
+    });
   });
 
   it("publishes NO reason when the first contact is on the usual day, whatever was supplied", () => {

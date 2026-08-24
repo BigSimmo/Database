@@ -675,8 +675,8 @@ function FirstContactReason({ moved, episode }: { moved: string; episode: Episod
           <span className="font-medium text-[color:var(--text)]">Why: </span>
           {moved} A coordinator has to give a reason before a plan can be created with a moved first contact, and one
           was given for this plan. A retention clearance has since removed it, along with the name, the mobile number,
-          the identifiers and the cultural identity — the reason is a clinician&rsquo;s free text about this patient,
-          so it is removed with the rest of them.
+          the identifiers and the cultural identity — the reason is a clinician&rsquo;s free text about this patient, so
+          it is removed with the rest of them.
         </p>
         <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
           <span className="font-medium text-[color:var(--text)]">What changes it: </span>
