@@ -28,6 +28,7 @@ import { BrandMark } from "@/components/clinical-dashboard/brand";
 
 import shellStyles from "./ward-management.module.css";
 import modeStyles from "./ward-management-modes.module.css";
+import { WardDemoControls } from "./ward-demo-controls";
 import { WardRoleSwitcher } from "./ward-role-switcher";
 
 export type WardMode =
@@ -169,6 +170,16 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         <RailLink href="/tools" label="Settings">
           <Settings aria-hidden="true" />
         </RailLink>
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        {/* Whole-branch review I3: the demo jump-forward clock (spec §2 decision 5, §5) and
+            scenario reset, mounted once here so every `/ward-management/*` route gets them
+            without per-screen wiring — the clock is shared provider state, not a per-screen
+            concern. Placed last, after a rule and visually separated from every real navigation
+            link above, and given its own warning-toned trigger (`ward-demo-controls.module.css`)
+            rather than the rail's usual link styling — this is deliberately NOT another
+            destination in the list, it never navigates anywhere, and it must never be mistaken
+            for one. See `ward-demo-controls.tsx`'s own doc comment for the full reasoning. */}
+        <WardDemoControls />
         <span className={shellStyles.avatar} aria-label="Guest workspace">
           G
         </span>
