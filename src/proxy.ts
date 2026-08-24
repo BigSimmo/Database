@@ -11,10 +11,13 @@ import {
   DEVELOPER_GATED_PATH_PREFIXES,
 } from "@/lib/developer-area/headers";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
+import { signProxyAuthPayload } from "@/lib/supabase/proxy-auth-crypto";
 
 function isDeveloperGatedPath(pathname: string) {
   return DEVELOPER_GATED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
+
+export const PROXY_AUTH_USER_HEADER = "x-proxy-auth-user";
 
 // Next 16 renamed the `middleware` file convention to `proxy` (see
 // node_modules/next/dist/docs/.../file-conventions/proxy.md). Proxy defaults to
@@ -113,7 +116,7 @@ export async function proxy(request: NextRequest) {
   // <script>, and the CSP header from which Next extracts the nonce for its
   // scripts. Rebuilt from the *current* request each call so session-cookie
   // mutations below still propagate to the render.
-  const requestHeadersWithNonce = () => {
+  const requestHeadersWithNonce = (authenticatedUserHeader?: string | null) => {
     const headers = new Headers(request.headers);
     headers.set("x-nonce", nonce);
     headers.set("content-security-policy", csp);
@@ -124,9 +127,13 @@ export async function proxy(request: NextRequest) {
     // prototype, and the Care Plan prototype).
     headers.delete(DEVELOPER_AREA_HEADER);
     headers.delete(DEVELOPER_AREA_PATH_HEADER);
+    headers.delete(PROXY_AUTH_USER_HEADER);
     if (isDeveloperGatedPath(pathname)) {
       headers.set(DEVELOPER_AREA_HEADER, "1");
       headers.set(DEVELOPER_AREA_PATH_HEADER, `${pathname}${request.nextUrl.search}`);
+    }
+    if (authenticatedUserHeader) {
+      headers.set(PROXY_AUTH_USER_HEADER, authenticatedUserHeader);
     }
     return headers;
   };
@@ -203,6 +210,7 @@ export async function proxy(request: NextRequest) {
     return withCsp(NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
   }
 
+  let userHeaderValue: string | null = null;
   let response = NextResponse.next({ request: { headers: requestHeadersWithNonce() } });
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -211,7 +219,7 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet, responseHeaders) {
         for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-        response = NextResponse.next({ request: { headers: requestHeadersWithNonce() } });
+        response = NextResponse.next({ request: { headers: requestHeadersWithNonce(userHeaderValue) } });
         for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
         for (const [name, value] of Object.entries(responseHeaders)) response.headers.set(name, value);
       },
@@ -221,7 +229,31 @@ export async function proxy(request: NextRequest) {
   // Refresh the session. Per @supabase/ssr guidance, do not run other logic
   // between createServerClient and getClaims — a stale token here would sign the
   // user out on the next request.
-  await supabase.auth.getClaims();
+  const claimsResult = await supabase.auth.getClaims();
+  const claims = claimsResult?.data?.claims;
+  if (claims && typeof claims === "object" && typeof claims.sub === "string" && claims.sub) {
+    const userPayload = {
+      id: claims.sub,
+      appMetadata:
+        claims.app_metadata && typeof claims.app_metadata === "object"
+          ? (claims.app_metadata as Record<string, unknown>)
+          : {},
+    };
+    const rawPayload = Buffer.from(JSON.stringify(userPayload), "utf8").toString("base64");
+    userHeaderValue = signProxyAuthPayload(rawPayload);
+    const previousCookies = response.cookies.getAll();
+    const previousHeaders = new Headers(response.headers);
+    response = NextResponse.next({ request: { headers: requestHeadersWithNonce(userHeaderValue) } });
+    for (const [k, v] of previousHeaders.entries()) {
+      // `Headers.entries()` does not reliably preserve Set-Cookie attributes.
+      // Re-apply cookies through the cookie store after this copy instead.
+      if (k.toLowerCase() === "set-cookie") continue;
+      response.headers.set(k, v);
+    }
+    for (const cookie of previousCookies) {
+      response.cookies.set(cookie);
+    }
+  }
   return withCsp(response);
 }
 
@@ -249,8 +281,10 @@ export function shouldBlockProductionMockups(
 }
 
 export const config = {
-  // Run on everything except static assets and image files. API routes stay in
-  // the matcher so cookie-authenticated requests can return rotated cookies and
-  // every response carries the CSP header.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  // API routes always run through the proxy, even when the last path segment
+  // looks like a static image. Extension skips apply only to non-API assets.
+  matcher: [
+    "/api/:path*",
+    "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };

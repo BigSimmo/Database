@@ -38,9 +38,9 @@ describe("ward model constants", () => {
   });
 
   it("pins the ED access target as a departmental performance measure, not a legal clock", () => {
-    // Task 6A: the Mental Health Act imposes no post-examination deadline — the clinician
-    // confirmed the post-examination clock is elapsed ED wait, counting up, not a legal
-    // countdown. This constant is the real, separately named figure from spec §7 (originally the
+    // Task 6A: the clinician settled that the post-examination clock is elapsed ED wait,
+    // counting up, not a countdown, so no post-examination deadline is recorded against a legal
+    // form. This constant is the real, separately named figure from spec §7 (originally the
     // four-hour access target departments are judged on; the product owner superseded that
     // figure to 24 hours on 2026-08-22 — see the constant's own doc comment); Task 11's ED
     // screen renders it against `openedAt`. Pinned here so a later task cannot silently redefine
@@ -100,8 +100,6 @@ describe("ward sites", () => {
   });
 });
 
-const NOW_ANCHOR = 10 * 60 + 42;
-
 describe("ward movements", () => {
   it("runs at realistic pressure, not comfortable pressure", () => {
     expect(wardMovements.length).toBeGreaterThanOrEqual(40);
@@ -141,19 +139,30 @@ describe("ward movements", () => {
     }
   });
 
-  it("gives every non-voluntary movement a legal form with a deadline", () => {
+  // Renamed 2026-08-23: this used to assert "with a deadline" in its title, but neither a Form
+  // 1A nor a Form 3B carries a `dueAt` any longer (see `LegalForm`'s own doc comment in
+  // ward-model.ts) — the body below never checked `dueAt` at all, only that the form itself is
+  // present, so the assertion is unchanged and still real.
+  it("gives every non-voluntary movement a legal form", () => {
     for (const movement of wardMovements) {
       if (!requiresAuthorisedDestination(movement.legalStatus)) continue;
       expect(movement.legalForm, `${movement.id} has no legal form`).toBeDefined();
     }
   });
 
+  // A fifth expectation here used to require a legal form with a `dueAt` in the past — removed
+  // 2026-08-23, along with `NOW_ANCHOR`'s only use in this file, because no `LegalForm` in this
+  // model carries a `dueAt` any longer (see `LegalForm`'s own doc comment in ward-model.ts):
+  // that state is no longer one this fixture is meant to express.
   it("includes the states the old fixture could not express", () => {
     expect(wardMovements.some((movement) => movement.stage === "accepted_awaiting_bed")).toBe(true);
     expect(wardMovements.some((movement) => movement.declines.length >= 3)).toBe(true);
     expect(wardMovements.some((movement) => movement.statusChanges.length > 0)).toBe(true);
     expect(wardMovements.some((movement) => movement.closure?.outcome === "did_not_proceed")).toBe(true);
-    expect(wardMovements.some((movement) => (movement.legalForm?.dueAt ?? Infinity) < NOW_ANCHOR)).toBe(true);
+    // A fifth expectation here used to require a legal form with a `dueAt` in the past — removed
+    // 2026-08-23, along with `NOW_ANCHOR`'s only use in this file, because no `LegalForm` in this
+    // model carries a `dueAt` any longer (see `LegalForm`'s own doc comment in ward-model.ts):
+    // that state is no longer one this fixture is meant to express.
   });
 
   it("never records a decline against a unit that is also a live referral", () => {

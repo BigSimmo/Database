@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TcProvider, useTcBindings } from "@/components/therapy-compass/bindings";
+import { therapyScreenHref } from "@/lib/therapy-compass-navigation";
 
 const navState = vi.hoisted(() => ({
   pathname: "/therapy-compass/search",
@@ -51,5 +52,44 @@ describe("Therapy comparison URL identity", () => {
     expect(destination.searchParams.get("q")).toBe("CBT");
     expect(destination.searchParams.get("run")).toBe("1");
     expect(destination.searchParams.get("ids")).toBe("cognitive-behavioural-therapy-cbt");
+  });
+
+  it("keeps workspace params on a compare starter href", () => {
+    navState.pathname = "/therapy-compass/compare";
+    navState.search = "q=CBT&run=1&density=dense&comparison=all";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+
+    function StarterProbe() {
+      const bindings = useTcBindings();
+      return (
+        <a
+          href={bindings.workspaceHref(therapyScreenHref("compare"), {
+            compareSlugs: ["cognitive-behavioural-therapy-cbt", "acceptance-and-commitment-therapy-act"],
+          })}
+        >
+          CBT vs ACT
+        </a>
+      );
+    }
+
+    render(
+      <TcProvider>
+        <StarterProbe />
+      </TcProvider>,
+    );
+
+    const href = screen.getByRole("link", { name: "CBT vs ACT" }).getAttribute("href");
+    const destination = new URL(String(href), "http://localhost");
+    expect(destination.pathname).toBe("/therapy-compass/compare");
+    expect(destination.searchParams.get("ids")).toBe(
+      "cognitive-behavioural-therapy-cbt,acceptance-and-commitment-therapy-act",
+    );
+    expect(destination.searchParams.get("q")).toBe("CBT");
+    expect(destination.searchParams.get("run")).toBe("1");
+    expect(destination.searchParams.get("density")).toBe("dense");
+    expect(destination.searchParams.get("comparison")).toBe("all");
   });
 });

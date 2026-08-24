@@ -29,8 +29,23 @@ describe("medication badge mappers", () => {
     expect(labels).toContain("PBS streamlined");
     expect(labels).toContain("PBS");
     expect(labels).toContain("TGA");
-    expect(labels).toContain("Reviewed");
     expect(badges.some((badge) => badge.label === "8357W")).toBe(true);
+
+    // Snapshot governance is derived from the record's own Sources rows, which record when a
+    // source was last checked but nothing about clinical review. A derived record therefore
+    // shows no "Reviewed" badge: that badge is a validation claim, and `deriveTrust` treats
+    // `locally_reviewed` as clearing the authority gate for high-risk clinical claims.
+    // Promotion comes from the source-review flow, which records an actual reviewer.
+    expect(governance.validation_status).toBe("unverified");
+    expect(labels).not.toContain("Reviewed");
+  });
+
+  it("shows the reviewed badge only once a validation status has actually been recorded", () => {
+    const badges = medicationIdentityBadges(acamprosate, {
+      sourceStatus: "current",
+      validationStatus: "locally_reviewed",
+    });
+    expect(badges.map((badge) => badge.label)).toContain("Reviewed");
   });
 
   it("maps contra absolute row badges from patient metadata", () => {

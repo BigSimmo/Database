@@ -1,10 +1,15 @@
 /** @vitest-environment jsdom */
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { ClinicalAskComposerActions } from "@/components/clinical-dashboard/clinical-ask-composer-actions";
+import {
+  desktopComposerSlotReadyAttr,
+  desktopComposerSlotReadyValue,
+  modeHomeDesktopComposerSlotId,
+} from "@/lib/mode-home-composer";
 import { installMatchMediaStub } from "./setup/jsdom.setup";
 
 const router = vi.hoisted(() => ({
@@ -179,6 +184,42 @@ describe("MasterSearchHeader DOM", () => {
     render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="prescribing" />);
     expect(screen.queryByRole("button", { name: /^Ask / })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Dictate question/ })).not.toBeInTheDocument();
+  });
+
+  it("still renders Ask and Dictate when the home hero is given Clinical Ask actions", async () => {
+    installMatchMediaStub(true);
+    const slot = document.createElement("div");
+    slot.id = modeHomeDesktopComposerSlotId;
+    slot.setAttribute(desktopComposerSlotReadyAttr, desktopComposerSlotReadyValue);
+    document.body.append(slot);
+
+    try {
+      render(
+        <MasterSearchHeader
+          {...defaultHeaderProps()}
+          searchMode="services"
+          desktopHomeComposerSlotId={modeHomeDesktopComposerSlotId}
+          clinicalAskActions={
+            <ClinicalAskComposerActions
+              mode="services"
+              draft="synthetic question"
+              active={false}
+              offline={false}
+              onDraftChange={vi.fn()}
+              onAsk={vi.fn()}
+            />
+          }
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("global-search-input")).toBeInTheDocument();
+      });
+      expect(screen.getByRole("button", { name: "Ask Services" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Dictate question/ })).toBeInTheDocument();
+    } finally {
+      slot.remove();
+    }
   });
 
   it("announces transient asking and recording states with disabled controls", () => {

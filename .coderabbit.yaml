@@ -16,3 +16,10 @@ reviews:
   # failure when CodeRabbit cannot review a PR (e.g. credits exhausted).
   # This is the default, but we set it explicitly to document the intent.
   fail_commit_status: false
+  # Lever 1 (#KZJD4Q): exclude documentation-only and bookkeeping paths from
+  # automated reviews to conserve included hourly review credits.
+  path_filters:
+    - "!docs/**"
+    - "!mockups/**"
+    - "!**/*.md"
+    - "!**/*.mdx"

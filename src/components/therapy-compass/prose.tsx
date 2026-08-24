@@ -3,8 +3,7 @@
 import { useId, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
-
-import { therapyBtn } from "./controls";
+import { interactiveRowBase } from "@/components/ui/interactive-row";
 
 /**
  * A source marker the catalogue writes inline at the end of a sentence, e.g.
@@ -185,17 +184,20 @@ export function ProseBlock({
   label,
   className,
   tone = "muted",
+  clamp = true,
 }: {
   text: string;
   /** Names the block in the toggle's accessible name, e.g. "Use when". */
   label: string;
   className?: string;
   tone?: "muted" | "warning";
+  /** Detail sheets already give the field a dedicated reading surface. */
+  clamp?: boolean;
 }) {
   const id = useId();
   const [expanded, setExpanded] = useState(false);
   const paragraphs = splitParagraphs(text);
-  const clampable = text.length > CLAMP_THRESHOLD;
+  const clampable = clamp && text.length > CLAMP_THRESHOLD;
 
   if (!paragraphs.length) return null;
 
@@ -256,8 +258,8 @@ export function ProseBlock({
           // driving the page by voice.
           aria-label={expanded ? `Show less of ${label}` : `Show more of ${label}`}
           className={cn(
-            therapyBtn,
-            "-mx-1 mt-1 inline-flex min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline",
+            interactiveRowBase,
+            "-mx-1 mt-1 inline-flex w-auto min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline",
           )}
         >
           {expanded ? "Show less" : "Show more"}
