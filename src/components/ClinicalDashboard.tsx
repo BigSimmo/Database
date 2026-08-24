@@ -52,13 +52,9 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import {
   type ClinicalDashboardProps,
-  clinicalAskComposerChromeEnabled,
   useClinicalAskDashboardChrome,
 } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
-import {
-  ClinicalAskComposerActions,
-  ClinicalAskWorkspace,
-} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -562,7 +558,7 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession, clinicalAskOnline, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+  const { clinicalAskSession } = useClinicalAskDashboardChrome({
     accountId: auth.session?.user.id,
     searchMode,
     query,
@@ -3093,10 +3089,6 @@ function ClinicalDashboardContent({
   // Prescribing submitted searches render here (there is no standalone results
   // route), so this is where the Patient details pill docks for that mode.
   const patientDetailsAddonActive = searchMode === "prescribing" && modeSearchSubmitted && Boolean(query.trim());
-  // Therapy never mounts Ask / Dictate, so it must not take the taller reserve.
-  const showClinicalAskDockChrome =
-    clinicalAskComposerChromeEnabled(clinicalAskMode) &&
-    (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim()));
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -3108,7 +3100,6 @@ function ClinicalDashboardContent({
           differentialsCompareAddonActive,
           patientDetailsAddonActive,
           heroOwnsPhoneComposer,
-          clinicalAskActionsVisible: showClinicalAskDockChrome,
         }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
@@ -3341,19 +3332,6 @@ function ClinicalDashboardContent({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
-          clinicalAskActive={clinicalAskSession.submitted}
-          clinicalAskActions={
-            showClinicalAskDockChrome && clinicalAskMode ? (
-              <ClinicalAskComposerActions
-                mode={clinicalAskMode}
-                draft={query}
-                active={clinicalAskSession.submitted}
-                offline={!clinicalAskOnline}
-                onDraftChange={setQuery}
-                onAsk={runModeClinicalAsk}
-              />
-            ) : undefined
-          }
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
