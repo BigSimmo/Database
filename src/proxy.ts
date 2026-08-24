@@ -11,6 +11,7 @@ import {
   DEVELOPER_GATED_PATH_PREFIXES,
 } from "@/lib/developer-area/headers";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
+import { signProxyAuthPayload } from "@/lib/supabase/proxy-auth-crypto";
 
 function isDeveloperGatedPath(pathname: string) {
   return DEVELOPER_GATED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -238,7 +239,8 @@ export async function proxy(request: NextRequest) {
           ? (claims.app_metadata as Record<string, unknown>)
           : {},
     };
-    userHeaderValue = Buffer.from(JSON.stringify(userPayload), "utf8").toString("base64");
+    const rawPayload = Buffer.from(JSON.stringify(userPayload), "utf8").toString("base64");
+    userHeaderValue = signProxyAuthPayload(rawPayload);
     const previousCookies = response.cookies.getAll();
     const previousHeaders = new Headers(response.headers);
     response = NextResponse.next({ request: { headers: requestHeadersWithNonce(userHeaderValue) } });

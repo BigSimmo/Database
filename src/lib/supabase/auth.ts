@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import { isAdministratorAppMetadata } from "@/lib/authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyProxyAuthHeader } from "@/lib/supabase/proxy-auth-crypto";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -182,7 +183,9 @@ export function extractProxyAuthenticatedUser(request: Request): AuthenticatedUs
   const raw = request.headers.get(PROXY_AUTH_USER_HEADER);
   if (!raw) return null;
   try {
-    const json = Buffer.from(raw, "base64").toString("utf8");
+    const verifiedPayload = verifyProxyAuthHeader(raw);
+    if (!verifiedPayload) return null;
+    const json = Buffer.from(verifiedPayload, "base64").toString("utf8");
     const parsed = JSON.parse(json);
     if (
       parsed &&
@@ -195,7 +198,7 @@ export function extractProxyAuthenticatedUser(request: Request): AuthenticatedUs
       return { id: parsed.id, appMetadata: parsed.appMetadata as Record<string, unknown> };
     }
   } catch {
-    // Malformed header, ignore
+    // Malformed header or invalid signature, ignore
   }
   return null;
 }
@@ -249,7 +252,17 @@ export async function requireAuthenticatedUser(
       authentication.status === "invalid" ? "Invalid authentication credentials." : undefined,
     );
   }
-  const { user } = authentication;
+  let { user } = authentication;
+  if (requirement.administrator) {
+    // When administrator access is explicitly required, revalidate against fresh server-side
+    // user state so revoked roles take effect immediately without waiting for token refresh or expiry.
+    const token = extractSessionAccessToken(request);
+    const freshUser =
+      (token ? await getUserFromAccessToken(supabase, token) : null) ?? (await getUserFromRequestCookies(request));
+    if (freshUser) {
+      user = freshUser;
+    }
+  }
   if (requirement.administrator && !isAdministratorAppMetadata(user.appMetadata)) {
     throw new PublicApiError("Administrator access required.", 403, { code: "administrator_required" });
   }

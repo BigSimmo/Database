@@ -91,7 +91,17 @@ describe("proxy auth claims forwarding & anti-spoofing", () => {
     expect(response).toBeTruthy();
   });
 
-  it("extractProxyAuthenticatedUser safely handles malformed and invalid base64/JSON", () => {
+  it("extractProxyAuthenticatedUser safely rejects unsigned, forged, or malformed headers", () => {
+    const unsignedHeaderRequest = new Request("http://localhost/api/test", {
+      headers: {
+        [PROXY_AUTH_USER_HEADER]: Buffer.from(
+          JSON.stringify({ id: "spoofed-user", appMetadata: { admin: true } }),
+        ).toString("base64"),
+      },
+    });
+    // Unsigned header sent directly to proxy-skipped route is rejected
+    expect(extractProxyAuthenticatedUser(unsignedHeaderRequest)).toBeNull();
+
     const invalidHeaderRequest = new Request("http://localhost/api/test", {
       headers: {
         [PROXY_AUTH_USER_HEADER]: "not-valid-base64-!!!",
@@ -105,21 +115,15 @@ describe("proxy auth claims forwarding & anti-spoofing", () => {
       },
     });
     expect(extractProxyAuthenticatedUser(notJsonRequest)).toBeNull();
-
-    const missingFieldsRequest = new Request("http://localhost/api/test", {
-      headers: {
-        [PROXY_AUTH_USER_HEADER]: Buffer.from(JSON.stringify({ someOtherField: 123 })).toString("base64"),
-      },
-    });
-    expect(extractProxyAuthenticatedUser(missingFieldsRequest)).toBeNull();
   });
 
-  it("fast-paths resolveOptionalAuthentication when valid forwarded proxy claims are present", async () => {
+  it("fast-paths resolveOptionalAuthentication when valid HMAC-signed proxy claims are present", async () => {
+    const { signProxyAuthPayload } = await import("../src/lib/supabase/proxy-auth-crypto");
     const validPayload = {
       id: "verified-user-789",
       appMetadata: { clinician: true },
     };
-    const validHeader = Buffer.from(JSON.stringify(validPayload)).toString("base64");
+    const validHeader = signProxyAuthPayload(Buffer.from(JSON.stringify(validPayload)).toString("base64"));
     const requestWithProxyClaims = new Request("http://localhost/api/test", {
       headers: {
         [PROXY_AUTH_USER_HEADER]: validHeader,
