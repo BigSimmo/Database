@@ -131,7 +131,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     // shrink fills leftover pane space; `flex-1` (`1 1 0%`) would still collapse
     // around a taller sibling in the standalone PWA scrollport.
     expect(modeHomeCanvasSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
-    expect(modeHomeCanvasSource).toContain("max-sm:flex max-sm:flex-col");
+    expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-col");
     expect(modeHomeCanvasSource).toContain("max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col");
     expect(modeHomeCanvasSource).toContain('centeredModeHome && "max-sm:items-center max-sm:justify-center"');
     expect(modeHomeCanvasSource).not.toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
