@@ -399,3 +399,46 @@ M-4 lock incident in §3: an absent summary line is the only reliable signal tha
   `definitions.ts`, which the brief forbids touching.
 - Two wording-looseness items in §3's mutation table — deferred.
 - The M-4 length estimate **was** corrected: see §4.
+
+### Fix-round gates
+
+Re-run in full after the fixes, on a clean tree with every mutation reverted.
+
+**Full unit suite** — `npm run test`:
+
+```
+ Test Files  1 failed | 813 passed | 3 skipped (817)
+      Tests  2 failed | 9823 passed | 74 skipped (9899)
+   Duration  388.75s
+```
+
+The two failures are the same known environmental pair, both in
+`tests/gate-receipts.test.ts > gate receipts — file modes (Codex review, PR #2216)`, both at
+`chmodSync` — `AssertionError: expected 2 to be 3`. **No others.** The total rose from 9884 to 9899:
+the fix round added 15 tests, of which 8 are the parameterised non-recording rows.
+
+**Typecheck** — `npm run typecheck`, no errors emitted:
+
+```
+[gate-receipts] recorded a pass for "typecheck:internal" (5222 input files).
+```
+
+**Lint** — `npm run lint`, `--max-warnings 0`, no errors emitted:
+
+```
+[gate-receipts] recorded a pass for "lint:internal" (5222 input files).
+```
+
+**Format** — `prettier --write` on every changed file before each commit.
+
+`verify:ui` still not run, per §4; the coordinator is running that gate.
+
+### One generated file changed that I did not write
+
+`docs/design-system/adoption-manifest.json` gained one line: the pre-commit hook's
+`design-system:adoption:update` added `tests/caring-contacts-overlay-trigger.dom.test.tsx` to the
+`Sheet` component's `testFiles`. The generator matches component names as word-boundary regexes
+against test sources, and the fix round's comments name `Sheet` (Back never calls the Sheet's
+`onClose`). The attribution is defensible on its own terms — these tests render the real `Sheet`
+through the host — but it was produced by prose, not by intent. Staged as generated rather than
+suppressed by rewording, which would be gaming the generator.
