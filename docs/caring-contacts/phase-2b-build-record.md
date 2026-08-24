@@ -1328,3 +1328,58 @@ fabricated reason on a clinical record is not comparable.
 **Task 6b brief written** at `docs/caring-contacts/phase-2b-sdd-archive/task-6b-brief.md`. Not
 dispatched yet — Task 6's fix round is still in re-review and this worktree runs one implementer at a
 time.
+
+### Task 6 scoped re-review — all five ADDRESSED, no new Critical or Important
+
+Browser gate on the fix tip: **`43 passed (1.1m)`**, exit 0, zero failures. **Task 6: complete.**
+Full suite `Tests 10019 passed | 74 skipped (10093)`; typecheck and lint clean.
+
+The reviewer verified each mechanism rather than each claim: it counted the `ContactState` union at
+eleven members and confirmed the new switch covers all eleven with a `never` default; it read the
+load-time assertions and confirmed they can actually fire; it confirmed `EpisodeCounts` is untouched
+by checking `episode.ts` is absent from the diffstat; and it rendered all four schedule sentences.
+
+**Three things it found that the implementer's own report did not say, all worth keeping.**
+
+**1. The C1 guard is complete by two mechanisms, not one.** `missed`, `scheduled` and `processing`
+are in neither `TERMINAL_CONTACT_STATES` nor `DISPATCHED_CONTACT_STATES`, so misclassifying `missed`
+would **not** trip the load-time assertion. That hole is covered by a DOM test instead, and mutation
+R1-M3 is exactly that mutation going red. The coverage is real; the single-mechanism story the
+assertions imply is not. A guard that covers part of a union reads as though it covers the union.
+
+**2. One new fixture pins a branch no store write can reach.** "A cancelled contact on a
+still-running plan" is unreachable: every `{type:"cancel"}` travels with a plan transition to
+`cancelled` or `withdrawn`, and `applyDeathCorrection` deliberately leaves the plan cancelled. The
+branch is right to have and the fallback text is truthful, but the report's framing that these tests
+are store-built over-claims by one case. Recorded because it is the same shape as Task 5b's
+unreachable role notice — and gets the same answer, for the same reason: it documents nothing false
+and it cannot fire wrongly.
+
+**3. The mutation ledger's honesty is structurally checkable, and nobody said so.** An unmatched
+anchor produces a **green** line, never a red one. Every attempt except two reported RED with a
+specific failure count, and a red result is itself proof the mutation was in the tree. So the two
+non-red outcomes are the only two that needed accounting for, and both were accounted for. **That
+argument turns "did the implementer report its misses honestly?" from a matter of trust into
+arithmetic**, and it should be made every time rather than rediscovered.
+
+**On R1-M2 — "the module won't load" is legitimate evidence, and refusing to score it RED was the
+right instinct.** Classifying `cancelled` as still-to-send trips the load-time assertion, so the
+module cannot import. That is strictly stronger than a red test for that state — a build carrying the
+error cannot start. But it proves a different proposition than the mutation's heading claimed, and
+the ledger said so rather than laundering it. R1-M3 is a valid control.
+
+**On the lock refusals — scoping correct, one evidence gap to close next time.** It terminated only
+its own orphaned run and retried rather than forcing past another worktree's Playwright lease.
+Killing the other worktree's process would have been the violation and it did not. **The gap: it
+established the orphan was its own from a live PID with a live child, but never checked the process's
+working directory against this worktree.** Given this repository's history of cross-worktree
+destruction, ownership should be proved, not inferred. Carried into future briefs.
+
+**Deferred from Task 6, added to the list already carried:**
+
+5. The "cancelled on a still-running plan" branch is unreachable through any store write — keep it,
+   but say in a comment that it is defensive so a future reader does not go hunting for the path.
+   **Folded into Task 6b**, which touches that file.
+6. A one-entry plan would render "1 entry, and none of them will be sent." — "them" against a
+   singular. Every schedule is ten entries so it is unreachable, and a guard for an unreachable
+   grammatical case is not worth the line today. Recorded, not fixed.
