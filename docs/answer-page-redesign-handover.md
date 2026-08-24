@@ -6,6 +6,9 @@
 `/mockups/answer-chat-redesign` (the three-way comparison it was chosen from).
 **Owner decision on record:** direction A — numbered marks in the prose, one source
 drawer that opens from the bottom.
+**Second pass:** `/mockups/answer-chat-perfected-v2` — the answer states the first pass
+did not draw, plus four corrections listed in §12. Both routes are live; v1 is the
+record of what was approved, v2 is what to build from. **Read §12 before §4.**
 
 This document is for whoever builds it. It is written to be executable without the
 design conversation: what to build, in what order, against which data, and what will
@@ -43,8 +46,17 @@ which 20/30 (v18) and 21/30 (v19) answers were `source_only`.
 question set, and ledger `#231` is the open row about that fallback behaviour. But it
 is enough to conclude the thing that matters here:
 
-> Numbered marks are an enhancement that appears on model-synthesis answers.
+> Numbered marks are an enhancement that appears wherever an answer carries sections.
 > The rail and the drawer must work on every answer, including source-only ones.
+
+**Corrected 2026-08-24 — do not gate marks on the quality tier.** The six fallback sites
+above do set `answerSections: []`, but they are not the only route to `source_only`.
+`applyProviderLabels` (`src/lib/rag/rag-extractive-answer.ts`) tags **any** model-less
+`routingMode: "extractive"` answer `source_only`, and `buildExtractiveAnswer` passes
+`answerSections: naturalAnswer.answerSections ?? []` straight through — so a deterministic
+extractive answer can be `source_only` **and** carry sections with support levels. Gate marks
+on the sections and their `supportLevel`, never on `answerQualityTier`. One rule, no special
+case, and it fails closed: no sections, no marks.
 
 That is why the rail and drawer ship first, and the marks second.
 
@@ -63,6 +75,46 @@ The live answer surface opens four separate panels from one answer:
 
 `AnswerSupportSummaryCard` is the row of buttons that opens three of those four. It
 goes when they do.
+
+---
+
+## 2b. The answer states this has to cover
+
+`AnswerState` (`src/lib/answer-state-types.ts`) has five kinds. The v1 mockup draws one.
+Every one of these reaches this surface, and two of them change what the surface must
+contain rather than just what it says:
+
+| State               | What changes                                                                                                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`             | The drawn case. Marks where sections earn them, rail, drawer.                                                                                                                                                                                   |
+| `source_only`       | Often no `answerSections`, so no marks and the rail is the only route to a source (20/30 in the read cited in §1) — but **not always**: the extractive route is tagged `source_only` and can carry sections. Gate on sections, not on the tier. |
+| `stale_evidence`    | Adds a banner. Overdue documents are named on the rail card and in the drawer, never in the mark (§4).                                                                                                                                          |
+| `partial_retrieval` | Adds a banner, and sections resting on unretrieved documents are absent — drop the section, never the citation.                                                                                                                                 |
+| `ungrounded`        | Renders as `source_only` plus a stronger notice.                                                                                                                                                                                                |
+
+Two consequences the design has to answer, both drawn in v2 panel one:
+
+- **The rail can never be the control that gets shrunk when space is tight.** On a
+  `source_only` answer it carries the entire reference system on its own.
+- **A degraded `AnswerCard` requires `onOpenSource`** (`answer-result-surface.tsx`) — a
+  caution is never raised with nowhere to go. That route is the drawer, so the banner's
+  action opens it.
+
+**Ordering: the evidence arrives before the prose, but arrives unnumbered.** A `VerifiedEvidencePreviewUnit`
+(sequence 0) lands after retrieval, ranking, owner-scope and governance, carrying the
+trimmed sources, and the client already consumes it (`search-utils.ts`,
+`onEvidencePreview`). The rail can therefore be on screen before there is an answer at all.
+Then whole verified sections land — `VerifiedAnswerSectionUnit`, each with its own
+`citations` and `supportLevel`. See §12.3.
+
+**But do not number the preview.** `buildEvidencePreviewUnit` emits the top slice of the
+retrieval results in retrieval order; `buildAnswerRenderModel` independently rebuilds
+`primarySources` from citations, quote cards, section citation ids and core source links,
+then dedupes and caps by trust. Different sets, different order — so a number assigned at
+preview time can point at a different document once the answer lands, which is exactly the
+attribution failure this design exists to prevent. Render preview cards unnumbered and assign
+numbers when the answer arrives, or define and test an explicit identity/order reconciliation
+contract first. Minimal regression case: preview `[A, B]`, final citations `[B]`.
 
 ---
 
@@ -104,9 +156,11 @@ how to draw it but **what a "claim" is**, and there is one answer that is safe t
 
 - **Ship: a mark per rendered section only after direct support is established.** Sections carry exact
   chunk ids, but those ids record what the model associated with the section; they do not prove that
-  every routine claim is directly supported. Gate direct marks on `supportedClaims` or
-  `evidenceAssessments`; partial or unsupported sections must suppress the mark or be explicitly
-  qualified as related sources.
+  every routine claim is directly supported. Gate direct marks on **`AnswerSection.supportLevel`**
+  (`src/lib/types.ts` — `direct | partial | nearby | unsupported`, already resolved per section and
+  carried on the streamed `VerifiedAnswerSectionUnit`), falling back to `supportedClaims` /
+  `evidenceAssessments`. The four levels need **four treatments, not two** — see §12.2. Partial or
+  unsupported sections must suppress the plain mark, never silently print one.
 - **Do not ship: sentence-level marks derived by matching answer prose to retrieved
   chunks after the fact.** A mark that points at a page not actually supporting the
   claim is worse than no mark, and this failure mode is already an open ledger row —
@@ -143,10 +197,34 @@ the earlier margin-plus-padding read as a word space. Hover and focus paint
   property of the document, and two hues inside running prose make the eye stop
   twice. Status lives on the rail card and in the drawer. _(This is the one design
   decision the owner may still reverse — see §10.)_
-- **Touch target.** An absolutely positioned transparent child at `inset -14px -6px`.
-  It must not change the line box. Production tap targets in this repo are `min-h-12`
-  (48px); do not "correct" that to `min-h-11` — see `AGENTS.md`, it reintroduces a
+- **Touch target — the v1 figures are wrong; use these.** An absolutely positioned
+  transparent child that must not change the line box, at `inset -7px -10px -8px -10px`
+  and **split across a cluster** (outer edges reach 10px, interior edges 2px).
+  `inset -14px -6px`, as v1 has it, overlaps the marks on the line above and below —
+  prose at this size sets on a ~25px line and 14+14+~10 is 38 — and inside a cluster the
+  ±6px extensions overlap across the comma, so a tap between two numbers can open the
+  wrong source. The v1 caption claiming "an invisible 44-pixel target" overstates what
+  that inset produces.
+  **An inline mark cannot reach this repo's 48px production standard** (`min-h-tap`)
+  without stealing the line above it. That is a real limit, and it is the argument for
+  the rail: every source is reachable a second time from a card at full tap size, and on
+  a `source_only` answer the rail is the _only_ route. Size the **rail** at `min-h-12`,
+  not the `min-h-11` v1 carries — mockups are exempt from that gate and production is
+  not. Never "correct" production to `min-h-11`: see `AGENTS.md`, it reintroduces a
   known `ui-smoke` flake.
+- **Forced colors.** The active ring must be an `outline`, not a `box-shadow` — box
+  shadows are not painted in forced-colors, so v1's ring vanishes and an open mark is
+  indistinguishable from a closed one. The claim wash is a `background`, which is
+  remapped, so pair it with a non-colour cue (a 2px left rule on the claim) or the
+  mechanism that holds the reader's place disappears exactly for the users who need it
+  most. Verified in Chromium `forcedColors: "active"` on `/mockups/answer-chat-perfected-v2`,
+  not assumed; `tests/ui-accessibility.spec.ts` already emulates the mode.
+- **The prose splitter will not survive real answers.** v1's `Claim` binds the last word
+  to the cluster with `block.text.lastIndexOf(" ")`. Production prose runs through
+  `SafeBoldText` and carries `**bold**`, so the final word can sit inside a span a string
+  split cannot reach. Bind the cluster to a trailing anchor emitted by the renderer, and
+  cap the cluster (`1,2,+2`) so a claim on four documents cannot produce an unbreakable
+  run wider than a phone column.
 - **Never strand.** The final word of a claim and the whole mark cluster are wrapped
   in one `whitespace-nowrap` span, so a number cannot fall alone onto the next line.
 - **Clusters.** Multiple sources render `1,2` with a `--text-soft` comma at
@@ -173,7 +251,28 @@ chip, and one primary action (`Open page 14`). Natural height, capped at 78%; on
 desktop a centred panel at `max-width: 560px` rather than a full-width sheet.
 
 - Secondary actions (copy passage, scope search to document, ask about passage) live
-  behind the overflow menu.
+  behind the overflow menu, **plus one more: "This page doesn't support the claim."**
+  `evidence-panels.tsx` already ships the taxonomy (`wrong_source`, `missing_source`,
+  `numeric_error`, …) and `RagAnswer` carries `interactionId` / `feedbackToken`. Once a
+  number points at a specific page, the moment a clinician opens it and finds it does not
+  say that is the highest-value moment in the product to catch a bad citation, and v1 has
+  no feedback control anywhere.
+- **Support comes back, as one clause of words** — not the pill v1 struck as "never
+  actionable". If support decides whether a claim may carry a number (§3), it is the most
+  actionable field on the surface, and the reader is owed the reason at the moment they
+  open the page it points at. One line: "This page states the claim directly." /
+  "This page supports part of the claim…" / "Related — this page does not state the claim."
+- **The pager does not scale past four.** `answer-render-policy.ts` caps primary sources
+  at 6 for high trust; six 36px buttons plus prev, next, overflow and close need ~396px
+  inside a ~362px phone drawer. Keep the numeric pager while `N <= 4` — random access by
+  number beats stepping — and above that show `‹ N of M ›`, with the rail behind still
+  giving random access.
+- **Build it on `src/components/ui/sheet.tsx`, do not hand-roll it.** `Sheet` already
+  portals into `OverlayRoot`, traps focus, returns it with late resolution, handles Escape
+  and backdrop-pointer-down discipline, and is a bottom sheet on phone and a centred
+  dialog from `sm:` up — which is this drawer's spec exactly. v1's version sets
+  `aria-modal="true"` without inerting the background and scopes its Escape handler to
+  _focus inside the dialog_, so Escape does nothing if focus lands elsewhere.
 - Left/right arrows and Escape are wired. The pager is the same control by mouse.
 - **The claim that owns the open source is washed in `--clinical-accent-soft`** while
   the drawer is open. This is not decoration: the drawer covers the lower third of a
@@ -216,8 +315,8 @@ ordinary Tailwind utilities and design tokens. Never hardcode hex
 - `tests/ui-stress.spec.ts`, `tests/ui-tools.spec.ts` — same test ids.
 - `tests/source-preview-popover.dom.test.tsx` — 16 cases pinning the popover's
   positioning, portalling and focus behaviour. If the drawer replaces the popover,
-  these become tests of the drawer; port them rather than dropping them, especially
-  the focus-move and viewport-pinning cases.
+  these become tests of the drawer; port them **onto `Sheet`** rather than dropping them,
+  especially the focus-move and viewport-pinning cases.
 - `tests/answer-preferences.dom.test.tsx` — pins the `compactCitations` preference
   behaviour on the capsule label, including that the missing-source warning is
   **never** hidden in compact mode. Decide explicitly what `compactCitations` means
@@ -236,7 +335,27 @@ ordinary Tailwind utilities and design tokens. Never hardcode hex
 6. The mark's accessible name is distinct from the pager's ("Source 2, …" vs
    "Show source 2, …") so the two controls do not announce identically.
 7. A routine partial or unsupported section renders no direct claim mark; only
-   `supportedClaims` / `evidenceAssessments` may establish direct attribution.
+   `supportLevel` / `supportedClaims` / `evidenceAssessments` may establish direct
+   attribution.
+8. Each of the four `supportLevel` values renders its own treatment: `direct` a plain
+   number, `partial` a marked number, `nearby` a worded control that opens the drawer,
+   `unsupported` worded and **not** a control.
+9. Two marks in a cluster have non-overlapping hit rectangles, and a mark's rectangle does
+   not overlap the marks on the adjacent lines.
+10. The pager renders as a counter above four sources and does not overflow a 390px
+    viewport at six.
+11. Under `forcedColors: "active"` the open mark is still distinguishable from a closed
+    one, and the claim owning the open source is still identifiable.
+12. `stale_evidence` and `partial_retrieval` render their banner and its `onOpenSource`
+    route, and that route opens the drawer. `source_only` renders the compact disclosure
+    instead, and does not restate the verification notice.
+13. A `source_only` answer that **does** carry sections still renders its marks — the gate is
+    the sections, not `answerQualityTier`.
+14. Opening the drawer from the rail or the pager shows no claim-support sentence; opening it
+    from a mark shows that mark's section support, including when one source is cited by two
+    sections at different support levels.
+15. Preview-stage source cards render unnumbered, and numbers appear only once the answer
+    lands.
 
 ---
 
@@ -298,12 +417,19 @@ requirement — it costs a branch in the render path that has to be removed late
 
 ## 10. Open decisions for the owner
 
+_Recommendations for all three are drawn in `/mockups/answer-chat-perfected-v2`; decide
+against the frames rather than against the prose._
+
 1. **Status in the mark.** The design deliberately keeps every mark one colour and
    puts document staleness on the rail card and in the drawer. If a claim resting on
    an out-of-date document should say so at the point of the claim, that is a one-line
    change in the mark component — but decide before PR 2, not after.
 2. **What happens to `compactCitations`.** The preference currently shrinks the
    sources capsule. The capsule is going. Either retarget it at the rail or retire it.
+   _Recommendation (drawn in v2): retarget._ Compact collapses the rail to one
+   `Sources · 3` chip that expands. The invariant `tests/answer-preferences.dom.test.tsx`
+   pins — the missing-source warning is never hidden in compact mode — then still means
+   something, because the verification notice and any worded mark sit outside the rail.
 3. **Clinical notes.** The design folds the clinical-notes sheet away. Confirm nothing
    in it is relied on before it goes; it is the one removed surface with content not
    obviously duplicated elsewhere.
@@ -316,3 +442,69 @@ requirement — it costs a branch in the render path that has to be removed late
 - Ledger `#VXB8XA` — the attribution-accuracy row that rules out post-hoc
   sentence matching.
 - Ledger `#231` — the `source_only` fallback rate that decides how often marks appear.
+
+---
+
+## 12. Errata against the first pass
+
+Found by reading the code, after this document was written. Each is a place where
+following §4 literally produces something that will be sent back at review, or that does
+not work. All four are drawn corrected at `/mockups/answer-chat-perfected-v2`.
+
+### 12.1 The verification line is on the wrong side of the answer
+
+v1 places its own `VerifyLine` — "AI-generated · check each number against its page" —
+_below_ the prose. `answer-result-surface.tsx` records the opposite decision with its
+reasons and issue numbers (#207, #227, #228): system-owned verification wording sits
+**above** the prose in document order, on screen and print alike, and its attribution is
+read from `answerQualityTier` precisely so it can never announce "AI-generated" above a
+notice saying no model wrote this answer. Either the line replaces the `AnswerCard`
+notice — a design-system change with its own review — or it goes. Do not ship it as drawn.
+
+### 12.2 `supportLevel` needs four treatments, not two
+
+v1 has a number and a worded "no source", with nothing between, while its drawer strikes
+support as "never actionable". §3 requires marks to be gated on support, which makes it
+the field that decides whether a number appears at all. Drawn in v2:
+
+| Level         | Treatment                                                                         |
+| ------------- | --------------------------------------------------------------------------------- |
+| `direct`      | Plain number.                                                                     |
+| `partial`     | Number plus one trailing glyph; the drawer says which part in words.              |
+| `nearby`      | Worded "related" — still a control, because the reader should see what it says.   |
+| `unsupported` | Worded "no source" — a statement, not a control: there is nowhere for it to lead. |
+
+A dotted underline and a 1px bottom border were both tried for `partial` and **neither is
+drawn** under a `0.7em` glyph with `line-height: 0` — checked in the browser. Use a glyph.
+
+### 12.3 The streaming frame draws a state this product refuses to be in
+
+v1 panel five shows a typewriter caret mid-sentence. `src/lib/answer-stream-contract.ts`
+excludes `token` and `revising` events by name — "accepting those events would re-expose
+unvalidated clinical prose" — and `docs/verified-answer-incremental-delivery-design.md`
+rejects raw model-token delivery, provisional prose and in-place revision outright. That
+frame cannot legitimately occur, so do not build a caret for it.
+
+What does occur is better, and it is the sequence v2 panel three draws: evidence preview
+lands and the rail paints, then verified sections land whole. It is also buildable now —
+the preview half already ships.
+
+### 12.4 Two corrections found in review of this document (2026-08-24)
+
+Both were raised against PR #2356 and both were verified in the code before being accepted.
+
+- **`source_only` does not imply section-less.** See the corrected block in §1. The invariant
+  as first written would have suppressed marks on extractive answers carrying perfectly good
+  section-level citation ids.
+- **The evidence preview must not be numbered.** See the ordering block in §2b. Numbering it
+  and promising the number is stable would reintroduce, in the streaming path, the exact
+  wrong-page attribution the design forbids everywhere else.
+
+### 12.5 The table aside is an unacknowledged removal
+
+`data-testid="table-specific-answer-layout"` gives tables their own column on `lg:` today
+(`answer-result-surface.tsx`). Folding tables into a chip inside the drawer removes that
+column. That is a real change to a shipped layout: state it in the PR body and decide it,
+rather than discovering it at review.
+
+---
