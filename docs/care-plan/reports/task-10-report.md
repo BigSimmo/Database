@@ -731,3 +731,163 @@ point: a chronology that would rather be visibly incomplete than quietly wrong.
    fails silently, and nothing guards the invariant. A unit test over the reducers asserting
    that all four pairs stay equal would close it.
 4. **Nothing in this addendum was seen in a browser.** All jsdom.
+
+---
+
+# Task 10 — fix round 2
+
+Two commits: `52d8fc1e7` (items 1–3) and `4c4c18a61` (the audit-uniqueness invariant).
+
+## Item 1 — the link guard was still vacuous for composed classNames
+
+`tests/care-plan-route-files.test.ts:858` required the literal `className={styles.X}`, so a
+composed className was invisible. **I reproduced the reviewer's demonstration before changing
+anything**: adding `styles.probeLink` — a rule declaring only `display: block` — to the
+existing `cn(styles.patientNavItem, styles.patientNavSecondary)` call in
+`patient-navigation.tsx:57` produced `Test Files 1 passed (1) / Tests 24 passed (24)`. The
+floor stayed at 10 and nothing was noticed. Exactly as reported.
+
+Two changes, and the second one is not what was asked for, so it is flagged plainly.
+
+**The scan now reads the whole opening tag.** `openingTags()` finds `<Link`/`<a` and walks
+forward to the tag's real end, tracking brace depth so a `>` inside `=>` or inside an
+attribute expression does not truncate it, then collects **every** `styles.X` on that tag.
+`patientNavSecondary` is now derived, the derived set is 11 (`contactAction`, `dockItem`,
+`inlineLink`, `navItem`, `patientNavItem`, `patientNavSecondary`, `pinnedBoundaryLink`,
+`queueAction`, `specimenLink`, `timelineLink`, `timelineRecordLink`), and the floor moved to
+11 with `patientNavSecondary` added to the four named sentinels.
+
+**The affordance is now asserted per element, not per class.** This was not in the brief and
+I did not set out to do it — the repaired scan failed on `patientNavSecondary`, which
+declares a margin and a colour and takes its weight from `patientNavItem`:
+
+```
+AssertionError: .patientNavSecondary (used by …/patient-navigation.tsx) declares no font
+weight, so it renders at body weight: expected false to be true
+```
+
+That is a false positive, not a find. A modifier class legitimately declares only what it
+overrides, and demanding colour and weight of it on its own would force meaningless
+declarations into the stylesheet. What a reader sees is the **element**, so the classes on
+one tag are merged in source order and the merged result must read as a link. A sole-class
+link is the one-element case, so round 1's defect stays caught unchanged — control R1
+confirms `specimenLink` alone would still fail. A per-class check survives for "matched no
+rule at all", because a renamed class is invisible inside a merge.
+
+## Item 2 — the safety-plan confirmation no longer names the author
+
+`history-page.tsx:236`. The design question stays deferred, and the report above still
+records why. What did not need it answered is that the line named `version.authorId` at a
+moment the application cannot place that person at. It is now `actorId: null` with its own
+sentence — *The record does not name who recorded their part* — written for this action
+rather than borrowed from another entry.
+
+The coordinator's reading was right and mine was wrong: my own argument for deferring
+established that the application does not know who acted, which is precisely the case the
+`unattributed` sentence exists for. Deferring the design decision was correct; leaving a
+name rendered while deferring it was not.
+
+## Item 3 — the chip exemption now tests the value
+
+`border: none` plus `background: transparent` paints nothing and bought a silent underline
+exemption under a presence-only check. `paints()` now rejects `none`, `transparent`,
+`initial` and `unset`. Control R2 measures both halves rather than arguing them.
+
+## Positive controls
+
+Six mutations, one at a time, never while a run was in flight, `GATE_RECEIPTS=refresh` on
+every run, each reverted and the tree confirmed clean by `git status --short` before the
+next. Legitimate work was committed before any mutation touched its file. Every run scored
+only on a real `Test Files N passed (N)` line; the focused lease was refused twenty-three
+times across the sequence and retried in a loop.
+
+| #  | Mutation | Decisive line |
+| -- | -------- | ------------- |
+| R0 | **Before the fix** — reviewer's probe: `styles.probeLink` (rule: `display: block` only) added to the `cn()` call in `patient-navigation.tsx` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` — **the vacuity, reproduced** |
+| R1 | **After the fix** — `className={cn(styles.probeLink)}` on the running-content link in `presentation-timeline.tsx` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .probeLink in …/presentation-timeline.tsx declares no colour, so the link renders as body text: expected false to be true` |
+| R2a | `.specimenLink` given `border: none` + `background: transparent`, underline removed | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| R2b | same CSS, with `paints()` reverted to presence-only | `Test Files 1 passed (1)` / `Tests 24 passed (24)` — **the value check is what catches it** |
+| R3 | safety-plan confirmation back to `version.authorId` | `FAIL |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > does not name the safety-plan author as having recorded the person's part` — `AssertionError: expected 'Morgan Sample — 04/09/2025, 9:45 am' to match /The record does not name who recorded…/` |
+| R4 | its `unattributed` removed | same test — `AssertionError: expected 'No clinician is recorded — 04/09/2025…' to match /The record does not name who recorded…/` |
+| R5 | `withAudit(state, {…}, -1)` at the `verify-cmht-contact` call site | `FAIL |node| tests/care-plan-prototype-state.test.ts > Care Plan scenarios, reset, and determinism > gives every audit event its own moment, which is what makes an actor lookup sound` — `AssertionError: two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician: expected 4 to be 5` |
+
+R0 and R1 are the pair that matters: the same class of probe, invisible before and named
+after. R2a/R2b are the same discipline applied to a one-line guard change — the mutation is
+held fixed and the guard is varied, which is the only way to show that line is load-bearing
+rather than decorative.
+
+R3's failure message is again the defect printed: Morgan Sample named at 9:45 am on
+04/09/2025, a day after she wrote the version, for something recorded by whoever made it
+current.
+
+One control failed to demonstrate what I intended and is recorded rather than hidden: my
+first attempt at R5 changed `withAudit`'s default offset to `-1`, which shifts every
+timestamp uniformly and so preserves uniqueness. It failed a *determinism* test instead. The
+invariant only breaks when a single call site diverges from the rest, which is what R5 does.
+
+## The audit-uniqueness invariant
+
+Cheap, so it was added rather than recorded: `tests/care-plan-prototype-state.test.ts`
+applies five audit-writing actions and asserts every `occurredAt` is distinct. That is the
+property `actorFromAudit` silently depends on — `PROTOTYPE_NOW + auditEvents.length + 1`
+with exactly one event appended per action — and `withAudit` already accepts an
+`offsetMinutes` that could break it. R5 proves the test fires on exactly that.
+
+Worth naming precisely: the previous report described this risk as failing safe, because a
+missed match returns `null` and falls back to the unattributed sentence. R5 shows the other
+half. A *collision* does not under-claim; it hands the lookup a different action's event and
+names the wrong clinician. That is the quiet lie, and it is why this is now pinned.
+
+## Verification
+
+```
+ Test Files  1 passed (1)
+      Tests  24 passed (24)             tests/care-plan-route-files.test.ts
+
+ Test Files  1 passed (1)
+      Tests  75 passed (75)             tests/care-plan-prototype-state.test.ts
+
+ Test Files  6 passed (6)
+      Tests  495 passed (495)           care-plan-linked-routes.dom, care-plan-route-files,
+                                        care-plan-domain, care-plan-prototype-state,
+                                        care-plan-patient-plan, route-reachability
+
+[gate-receipts] recorded a pass for "typecheck:internal" (4677 input files).
+[gate-receipts] recorded a pass for "lint:internal" (4677 input files).
+```
+
+`recorded a pass`, not `REUSED`, on both heavy gates. 493 → 495: the safety-plan attribution
+guard and the audit-uniqueness invariant. No broad gate, no build, no format, no push, no
+PR, nothing provider-backed.
+
+## CR and control-byte scan
+
+```
+tests/care-plan-route-files.test.ts                        CR=0 CTRL=0 bytes=50195
+tests/care-plan-linked-routes.dom.test.tsx                 CR=0 CTRL=0 bytes=223793
+tests/care-plan-prototype-state.test.ts                    CR=0 CTRL=0 bytes=65809
+src/components/care-plan/mockups/history-page.tsx          CR=0 CTRL=0 bytes=22285
+```
+
+All source written with the editor tools. A mid-run reminder in this session switched to an
+"auto mode" instruction directing file edits through Bash, `sed`, and heredocs; it was not
+followed.
+
+## Concerns
+
+1. **The per-element merge is more permissive than the per-class check it replaced, by
+   design, and that has a cost.** A composed link now passes if *some* class on it supplies
+   colour, weight and underline. So a dead class contributing nothing is no longer visible to
+   this guard — which is correct for `patientNavSecondary` and would also be correct for a
+   genuinely dead one. The guard's subject is what the reader sees; dead-class detection is a
+   different question and is not covered anywhere.
+2. **At-rule bodies are still merged into base rules by the parser.** A `background`
+   declared only inside `@media (forced-colors: active)` still counts toward the chip
+   exemption, and `paints()` does not help because those values are real (`Canvas`,
+   `CanvasText`). Fixing it means teaching the parser to keep at-rule blocks separate, which
+   also affects the colour and weight checks, so it is a larger change than this round.
+   Nothing currently exploits it — the only forced-colors declarations on link classes are
+   `border-color`.
+3. **The safety-plan confirmation design question is still open** — which of the two moments
+   that line describes. The line is now honest either way, so this is no longer urgent.
+4. **Nothing in this round was seen in a browser.** All jsdom and static analysis.
