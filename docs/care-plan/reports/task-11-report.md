@@ -347,25 +347,58 @@ derives eleven. Recorded for the whole-branch review.
 | `npx tsc -p tsconfig.typecheck.json --noEmit`                   | Exit 0, zero diagnostics                                                                                                             |
 | `npx eslint <7 changed source and test files> --max-warnings 0` | Exit 0, no output                                                                                                                    |
 | `npx prettier --check` on every changed file                    | `All matched files use Prettier code style!`                                                                                         |
+| Browser suite, first run that acquired a lease                  | `3 failed` / `1 skipped` / `27 passed (2.0m)` — all three failures faults in the new assertions, none in the product                 |
 
-### Three pieces of evidence are outstanding, and blocked rather than skipped
+### The three browser failures, and why none of them was a defect
 
-At the time of writing, the repository's **exclusive heavy lease has been held continuously
-for more than two hours** by a concurrent session in a different worktree
-(`D:\Repos\Database\.claude\worktrees\browser-test-gate-handoff-d5c1db`, `vitest run
---reporter=dot`, `holderPid 53200`, confirmed alive). Every Playwright attempt fails at
-acquisition with `EPERM: operation not permitted, mkdir …\gate.lock` and **exits 1 with no
-test output at all** — a third refusal costume alongside the documented exit 0 and exit 75,
-and one worth recording. A retry loop is still running.
+The first fix-round run to survive lease contention failed three cases, and every one was
+mine.
+
+- **Two journeys captured the Current Plan metadata with `innerText` and compared it with
+  `toHaveText`.** Those read different things: `innerText` is CSS-aware and newline-separated,
+  so a `text-transform: uppercase` label comes back as `PLAN OWNER` on its own line, while
+  `toHaveText` compares whitespace-normalised `textContent` and sees `Plan owner` inline. Both
+  strings described the same, entirely unchanged plan and could not match. Both sides now go
+  through one helper that uses `innerText` at each end, with `expect.poll` keeping the retry a
+  plain equality would have thrown away.
+- **The per-width readability floor was a pixel number I guessed from the shell's padding and
+  got wrong by two levels of nesting**: the card measures 238 px inside a 320 px viewport, not
+  the 272 I predicted. Lowering the constant until it passed would have made it measure
+  nothing, so it now asserts the card holds at least 60 % of the content column it is actually
+  given — scale-free, true at every width, and still red for a plan squeezed into a sliver.
+
+That is the third time in this task that a first browser run has found a fault in the tests
+rather than the product, which is worth stating plainly: the value of this suite so far has
+been as much in what it exposed about its own assertions as in what it proved about the
+application.
+
+### Evidence still outstanding, and blocked rather than skipped
+
+Lease contention on this machine dominated this round. A concurrent session in a different
+worktree (`D:\Repos\Database\.claude\worktrees\browser-test-gate-handoff-d5c1db`, `vitest run
+--reporter=dot`) held the repository's exclusive heavy lease for more than two hours, released
+it long enough for exactly one browser run to get through, and took it again.
+
+**Two refusal shapes are worth recording**, because neither is a result and both are easy to
+score by accident:
+
+- `EPERM: operation not permitted, mkdir …\gate.lock`, **exit 1 with no test output at all** —
+  a third costume beside the documented exit 0 and exit 75.
+- `Playwright did not run: Another Database heavyweight command is active` — the coordinator's
+  own refusal, also with no summary line.
+
+Every run in this round was therefore taken through a retry loop that scores only a real
+`N passed` / `N failed` summary line and treats everything else as "retry".
 
 Still owed, and **not** claimed as done:
 
-1. **The browser suite re-run to green after the fix-round changes.** The last complete run
-   before them was `29 passed (1.6m)`. Two partial runs during this round were killed by my own
-   `TaskStop` and produced a phantom `worker process exited unexpectedly (code=3221225794)`,
-   which is not a result and is not scored here. The one real failure they did surface — the
-   Safety Plan journey using the patient section navigation on a **print** route, which
-   correctly carries none — is fixed.
+1. **The browser suite re-run to green after the three assertion repairs above.** The repairs
+   are made, typechecked, linted and committed; the run proving them green has not landed. The
+   last fully green run was `29 passed (1.6m)`, before this round's changes. Two partial runs
+   were killed by my own `TaskStop` and produced a phantom
+   `worker process exited unexpectedly (code=3221225794)` — not a result, not scored. The one
+   real failure they surfaced, the Safety Plan journey using the patient section navigation on
+   a **print** route, which correctly carries none, is fixed.
 2. **The Important 1 control.** Editing a primary tap target from `min-h-12` to `min-h-11` and
    watching `TAP_TARGET_FLOOR` redden. The threshold change is made; the mutation proving it
    catches the banned edit has not been run.
