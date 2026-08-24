@@ -98,18 +98,19 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 
 ## Progress
 
-| Task                               | State                      | Commits                | Evidence                                                                                                        |
-| ---------------------------------- | -------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 1. Domain, fixtures, selectors     | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                                                  |
-| 2. Reducer, provider, lifecycle    | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                                           |
-| 3. Routes, gate, shell             | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                                           |
-| 4. Snapshot, search, contacts      | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                           |
-| 5. Plan reading, boundary, print   | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                          |
-| 6. Authoring, approval, withdrawal | **complete, review clean** | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
-| 7. ED presentations, amendments    | **complete, review clean** | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                               |
-| 8. Personal Safety Plan, print     | **complete, review clean** | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                               |
-| 9. Patient Plan, transform, print  | **complete, review clean** | `73d004095..7f19e1a1b` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed      |
-| 10–11                              | not started                | —                      | —                                                                                                               |
+| Task                                           | State                             | Commits                | Evidence                                                                                                        |
+| ---------------------------------------------- | --------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1. Domain, fixtures, selectors                 | **complete, review clean**        | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                                                  |
+| 2. Reducer, provider, lifecycle                | **complete, review clean**        | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                                           |
+| 3. Routes, gate, shell                         | **complete, review clean**        | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                                           |
+| 4. Snapshot, search, contacts                  | **complete, review clean**        | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                           |
+| 5. Plan reading, boundary, print               | **complete, review clean**        | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                          |
+| 6. Authoring, approval, withdrawal             | **complete, review clean**        | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
+| 7. ED presentations, amendments                | **complete, review clean**        | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                               |
+| 8. Personal Safety Plan, print                 | **complete, review clean**        | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                               |
+| 9. Patient Plan, transform, print              | **complete, review clean**        | `73d004095..7f19e1a1b` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed      |
+| 10. Reviews, Team, Governance, History, states | **complete, 9 parked at the cap** | `996cbc407..d7861e815` | 495/495 + 24/24 route-files, typecheck + lint clean, 24 mutations all killed, 5 fix rounds, 4 re-reviews        |
+| 11                                             | not started                       | —                      | —                                                                                                               |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
 lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
@@ -405,6 +406,68 @@ regex applied across all four labels and all four explanations.
   reads oddly after a withdrawal that leaves no replacement plan. Same root as the printed-banner
   Important, on the surface that was not in the fix round's scope.
 - `missingSectionKeys` rejects absent headings but not duplicate or unknown keys.
+
+### Task 10 — complete. Five fix rounds, four re-reviews, nine findings parked at the cap.
+
+- Dispatched opus. Returned `DONE_WITH_CONCERNS` at `f5af2a960` after being resumed twice — once
+  with a mutation still applied to the working tree, which the controller caught from
+  `git status` before it could be committed. Task review (opus) returned **Spec ❌** with two
+  Important and three Minor.
+- Final: `Test Files 6 passed (6)` / `Tests 495 passed (495)`, route-files `24 passed (24)`,
+  typecheck and lint fresh under `GATE_RECEIPTS=refresh` — not reused receipts. 24 mutations
+  across the build, all killed. Every one of the five surfaces is real; the Task 3
+  `RoutePurposeSurface` placeholder, its `purpose` field and its stylesheet rules are gone.
+
+**The most consequential finding was an attribution defect nobody was looking for.** Fix round 1
+was dispatched to close a History entry that said "No clinician is recorded" for a contact check
+the application _could_ attribute. The implementer audited all sixteen attributions rather than
+the one named, and found `Submitted for approval` rendering **the wrong name**:
+`submit-management-draft` is gated on role and never on authorship, so a clinician submitting a
+colleague's draft was recorded as the author having submitted it. The re-reviewer reproduced it
+independently. On a record whose entire purpose is who did what, a confident wrong name is worse
+than a missing one, and it is the same class as this project's famous overclaim defect —
+inverted. Three entries fixed, nine confirmed sound, one found and deliberately left (below).
+
+**The link-affordance guard consumed four of the five fix rounds, and the story is the lesson.**
+Vitest runs `css: false`, so no DOM test can see a stylesheet defect; this static guard is the
+only thing between a stylesheet edit and an invisible control. It was **repaired four times and
+beaten four times**, each time by a working probe rather than by argument:
+
+| Round | What the guard could not see                                                                    | Found by                             |
+| ----- | ----------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 1     | A hard-coded list of four class names — the two links Task 10 added were invisible to it        | task review (this is why F1 shipped) |
+| 2     | Composed classNames: `className={cn(...)}` unreadable, so one real link went underived          | re-review, with a probe              |
+| 3     | Merged in class-list order, not stylesheet order, so a modifier that overrides scored backwards | re-review, four probes               |
+| 4     | `border: transparent`, Color-4 slash alpha — the allowlist written to close exactly this leak   | re-review, two probes                |
+| 5     | `rgb(0 0 0 / 0.0%)` — a decimal _and_ a percent together                                        | closing re-review                    |
+
+The implementer's own adversarial passes found four more (a `tag.class` selector, a `var()`
+fallback, `text-decoration-color`, a transparent hex in a shorthand) — two fixed, two recorded.
+**Nine distinct spellings of "paints nothing" across five rounds, every one caught by attacking
+the guard rather than reading it.** That is the method to keep: when a guard is load-bearing,
+probe it; a guard nobody has attacked is a guard nobody has tested.
+
+**Ruling 57 — the guard is frozen here, not widened again.** Both the implementer and two
+reviewers reached the same conclusion independently: a guard that reads declarations as _text_
+can only ever recognise the spellings someone thought of, and every widening across five rounds
+answered a demonstrated probe rather than proving coverage. It stays as a cheap tripwire with a
+permanent negative control (ten opaque spellings that must pass, ten invisible ones that must
+fail). **Task 11 owns the replacement**: one computed-style assertion in a real browser, immune
+to spelling, is what should decide whether a link looks like a link. _Cost if wrong:_ a tenth
+spelling reaches `main` behind a tripwire that no longer grows — against five more rounds of
+regex that would still not prove coverage.
+
+**Parked at the cap, all with rulings** — none blocks Task 11, and the whole-branch review
+inherits the list: transparency through one level of `var()` indirection (needs cross-file token
+resolution — `care-plan.module.css` declares zero custom properties, they all live in
+`globals.css`, which this guard never reads); `:is(.x)` and `all: unset`; a transparent hex
+inside a `border` shorthand; `rgb(0, 0, 0)` misread as transparent (fails closed, zero
+occurrences); `:hover`/`[aria-current]` rules unchecked anywhere; `color: inherit` counting as a
+colour; `operations-pages.tsx` at 1,181 lines with four clean seams; Review Trigger resolutions
+never reaching the combined chronology; and the safety-plan confirmation's **timestamp**, which
+is the moment the version was made current rather than the moment the person's part was
+recorded. That last one is the only residual that is genuinely the user's call rather than an
+engineering one.
 
 ---
 
@@ -968,6 +1031,27 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     to be honest costs nothing and is the whole point of it. _Cost if wrong:_ one paragraph of
     copy a later review can cut — against the risk of the product's honesty page being the one
     place it was not honest.
+
+57. **The link-affordance guard is frozen as a tripwire rather than widened a sixth time.** Full
+    reasoning in the Task 10 progress entry above. In short: it reads declarations as text, so it
+    can only recognise the spellings somebody thought of, and nine distinct spellings of "paints
+    nothing" were found across five rounds — each by a probe rather than by review. It keeps its
+    permanent negative control and stops growing. **Task 11 owns the replacement**: a computed-style
+    assertion in a real browser is immune to spelling, and is what should decide whether a link
+    looks like a link. _Cost if wrong:_ a tenth spelling reaches `main` behind a tripwire that no
+    longer grows — set against five further rounds of regex that would still prove no coverage.
+
+58. **The fix loop stayed with the same implementer through rounds 4 and 5 rather than escalating
+    to a fresh one on a more capable model.** The SDD rule escalates at round 4 because a loop
+    surviving three resumes usually means the implementer cannot see its own problem. That
+    diagnosis did not fit here: this implementer found four holes in its own repairs by attacking
+    them, correctly applied the fix-what-is-bounded / record-what-is-open-ended split without
+    being told twice, corrected its own earlier "fail-safe" reasoning when a probe showed a
+    collision would name the _wrong_ clinician rather than none, and volunteered the structural
+    argument for freezing the guard. The loop was converging under progressively harder attack,
+    not thrashing. _Cost if wrong:_ two rounds run by an implementer with a blind spot a fresh one
+    would have seen — mitigated by four independent re-reviews, every one of which attacked the
+    work with probes rather than reading it.
 
 ---
 
