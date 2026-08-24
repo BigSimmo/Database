@@ -109,7 +109,6 @@ const SOURCES: MockSource[] = [
 ];
 
 const sourceById = (id: string) => SOURCES.find((source) => source.id === id) ?? SOURCES[0];
-const reviewDueCount = SOURCES.filter((source) => source.status === "review-due").length;
 
 type AnswerBlock = {
   id: string;
@@ -332,71 +331,66 @@ function Claim({
 
 /* ══════════════════════  the source rail  ══════════════════════ */
 
-function statusEdge(status: SourceStatus) {
-  return status === "current" ? "var(--success)" : "var(--warning)";
+function statusLabel(status: SourceStatus) {
+  return status === "current" ? "Current" : "Review due";
 }
 
-/** Every source at a glance, before anything is opened. The count and the
- *  review warning are stated once, in words, instead of once per card. */
+/**
+ * Every source at a glance, before anything is opened.
+ *
+ * The card is the one from the original direction-A study, kept as it was:
+ * a numbered badge tinted by document status, the short name, then page and
+ * status in words. A coloured edge was tried and dropped — it read as a
+ * separate object beside the card rather than part of it, and the badge was
+ * already carrying the same signal.
+ */
 function SourceRail({ activeId, onOpen }: { activeId: string | null; onOpen: (id: string) => void }) {
   return (
-    <section aria-label="Sources behind this answer">
-      <p className="mb-1.5 flex flex-wrap items-center gap-x-1.5 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-        <span>Sources</span>
-        <span aria-hidden="true">·</span>
-        <span className="tabular-nums normal-case tracking-normal">{SOURCES.length} documents</span>
-        {reviewDueCount > 0 ? (
-          <>
-            <span aria-hidden="true">·</span>
-            <span className="normal-case tracking-normal text-[color:var(--warning)]">
-              {reviewDueCount} past review date
-            </span>
-          </>
-        ) : null}
-      </p>
-      <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
-        {SOURCES.map((source) => (
+    <div
+      className="flex gap-1.5 overflow-x-auto pb-1"
+      style={{ scrollbarWidth: "none" }}
+      role="list"
+      aria-label="Sources behind this answer"
+    >
+      {SOURCES.map((source) => (
+        <div key={source.id} role="listitem" className="contents">
           <button
-            key={source.id}
             type="button"
             onClick={() => onOpen(source.id)}
             aria-pressed={activeId === source.id}
-            style={{ paddingLeft: 11, paddingRight: 10 }}
             className={cn(
-              "relative inline-flex min-h-11 shrink-0 items-center gap-2 overflow-hidden rounded-lg border bg-[color:var(--surface-raised)] py-1.5 text-left transition",
+              "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border bg-[color:var(--surface-raised)] px-2.5 text-left transition hover:shadow-[var(--e1)]",
               activeId === source.id
-                ? "border-[color:var(--clinical-accent-border)] shadow-[var(--e1)]"
+                ? "border-[color:var(--clinical-accent)] shadow-[var(--e1)]"
                 : "border-[color:var(--border)] hover:border-[color:var(--border-strong)]",
               focusRing,
             )}
           >
             <span
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 3,
-                background: statusEdge(source.status),
-              }}
-            />
-            <span className="tabular-nums text-2xs font-bold text-[color:var(--clinical-accent)]">{source.index}</span>
+              className={cn(
+                "grid h-5 min-w-5 place-items-center rounded-md border text-3xs font-bold tabular-nums",
+                source.status === "review-due"
+                  ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                  : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+              )}
+            >
+              {source.index}
+            </span>
             <span className="min-w-0">
               <span
-                style={{ maxWidth: 148 }}
+                style={{ maxWidth: 160 }}
                 className="block truncate text-2xs font-semibold leading-4 text-[color:var(--text-heading)]"
               >
                 {source.short}
               </span>
-              <span className="block font-mono text-3xs leading-4 tabular-nums text-[color:var(--text-muted)]">
-                p.{source.page}
+              <span className="block text-3xs leading-4 text-[color:var(--text-muted)]">
+                <span className="font-mono tabular-nums">p.{source.page}</span> · {statusLabel(source.status)}
               </span>
             </span>
           </button>
-        ))}
-      </div>
-    </section>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -1133,8 +1127,8 @@ const ELEVATIONS = [
     "Left and right step through the sources without closing the drawer; Escape closes it. The pager is the same control by mouse.",
   ],
   [
-    "The count is stated once",
-    "The rail's label says how many documents there are and how many are past their review date, so no card has to repeat it.",
+    "Suggestions moved off the resting screen",
+    "Three guessed follow-ups sat permanently above the composer. They belong to the act of typing, and the answer got that space back.",
   ],
   [
     "Copy brings the references",
@@ -1190,7 +1184,7 @@ export function AnswerChatPerfectedMockupsPage() {
             </DetailCard>
             <DetailCard
               title="Where status went"
-              body="The rail states the count and the review warning once, in words, and colours each card's edge."
+              body="Onto the source cards, where the badge is tinted and the status is written out beside the page."
             >
               <SourceRail activeId={null} onOpen={() => undefined} />
             </DetailCard>
