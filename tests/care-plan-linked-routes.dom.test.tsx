@@ -308,28 +308,14 @@ describe("Care Plan route shell", () => {
   // block below asserts that none of those thirteen renders a purpose surface
   // at all.
   it.each([
-    [
-      CARE_PLAN_ROUTES.history,
-      "History",
-      "Combined plan, presentation-amendment, print, and contact-action audit chronology",
-    ],
-    [
-      CARE_PLAN_ROUTES.reviews,
-      "Reviews",
-      "Awaiting Approval, Review Suggested, contact verification, and manual identification queues",
-    ],
-    [CARE_PLAN_ROUTES.team, "Team", "Synthetic CMHT and plan-owner directory"],
-    [
-      CARE_PLAN_ROUTES.governance,
-      "Governance",
-      "Prototype boundary, roles, lifecycle rules, and unresolved identification policy",
-    ],
-    [CARE_PLAN_ROUTES.systemStates, "System states", "Deterministic degraded-state specimens and scenario controls"],
-  ])("maps %s to the %s route purpose surface", (pathname, heading, purpose) => {
+    [CARE_PLAN_ROUTES.history, "History"],
+    [CARE_PLAN_ROUTES.reviews, "Reviews"],
+    [CARE_PLAN_ROUTES.team, "Team"],
+    [CARE_PLAN_ROUTES.governance, "Governance"],
+    [CARE_PLAN_ROUTES.systemStates, "System states"],
+  ])("maps %s to the %s route heading", (pathname, heading) => {
     renderRoute(pathname);
     expect(screen.getByRole("heading", { level: 1, name: heading })).toBeInTheDocument();
-    const surface = screen.getByTestId("care-plan-route-purpose");
-    expect(within(surface).getByText(purpose)).toBeInTheDocument();
   });
 
   it("hands the submitted search to Patients without putting record content in the URL", async () => {
@@ -380,31 +366,24 @@ describe("Care Plan route shell", () => {
     expect(document.querySelector("[aria-disabled='true']")).toBeNull();
   });
 
-  it("replaces the route-purpose surface on every route that now has real content", () => {
-    for (const route of [
-      CARE_PLAN_ROUTES.home,
-      CARE_PLAN_ROUTES.patients,
-      CARE_PLAN_ROUTES.patient,
-      CARE_PLAN_ROUTES.managementPlan,
-      CARE_PLAN_ROUTES.managementPlanEdit,
-      CARE_PLAN_ROUTES.managementPlanReview,
-      CARE_PLAN_ROUTES.managementPlanPrint,
-      CARE_PLAN_ROUTES.presentations,
-      CARE_PLAN_ROUTES.newPresentation,
-      CARE_PLAN_ROUTES.presentation,
-      CARE_PLAN_ROUTES.safetyPlan,
-      CARE_PLAN_ROUTES.safetyPlanEdit,
-      CARE_PLAN_ROUTES.safetyPlanPrint,
-      CARE_PLAN_ROUTES.patientPlan,
-      CARE_PLAN_ROUTES.patientPlanEdit,
-      CARE_PLAN_ROUTES.patientPlanPrint,
-    ]) {
+  /**
+   * The completion test for the whole route family. Every route in
+   * `CARE_PLAN_ROUTES` now renders its own content, so nothing anywhere falls
+   * through to the Task 3 specimen that said what a route would eventually hold
+   * — and that surface no longer exists to fall through to.
+   */
+  it("gives every route real content rather than a statement of what it will hold", () => {
+    for (const route of Object.values(CARE_PLAN_ROUTES)) {
       const { unmount } = render(
         <CarePlanPrototypeProvider>
           <CarePlanRouteSurface pathname={route} query="" navigate={vi.fn()} />
         </CarePlanPrototypeProvider>,
       );
       expect(screen.queryByTestId("care-plan-route-purpose"), `${route} still shows a purpose surface`).toBeNull();
+      expect(
+        document.body.textContent ?? "",
+        `${route} still says its content is built later`,
+      ).not.toMatch(/built in a later stage of the prototype/i);
       unmount();
     }
   });
@@ -3900,5 +3879,237 @@ describe("Care Plan Identification Review workflow", () => {
     expect(reason).toHaveTextContent(/An Identification Review for Jordan is already open/);
     expect(action.getAttribute("aria-describedby")).toBe(reason.id);
     expect(screen.getByText("No Current Plan")).toBeInTheDocument();
+  });
+});
+
+describe("Care Plan combined History", () => {
+  function historyHeadings(): string[] {
+    return within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .map((entry) => within(entry).getByRole("heading", { level: 3 }).textContent ?? "");
+  }
+
+  it("joins plan, safety-plan, presentation, and correction events into one chronology, newest first", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const list = screen.getByTestId("care-plan-history-list");
+    const times = within(list)
+      .getAllByRole("listitem")
+      .map((entry) => Date.parse(entry.getAttribute("data-occurred-at") ?? ""));
+    expect(times.length).toBeGreaterThan(5);
+    expect(times.every((value) => Number.isFinite(value))).toBe(true);
+    expect(times).toEqual([...times].sort((left, right) => right - left));
+
+    const headings = historyHeadings().join(" | ");
+    expect(headings).toMatch(/Management Plan version 2 approved and made the Current Plan/);
+    expect(headings).toMatch(/Personal Safety Plan version 1 written/);
+    expect(headings).toMatch(/ED Presentation recorded/);
+    expect(headings).toMatch(/ED Presentation corrected/);
+  });
+
+  /**
+   * The single easiest place in this product to overclaim. A contact action is
+   * a request to open an application on this device; nothing about it is
+   * evidence that anybody was reached.
+   */
+  it("labels a contact action as a request to open an application, never as a message anyone received", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.patient("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("link", { name: "Email North River CMHT" }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-001"));
+    const list = screen.getByTestId("care-plan-history-list");
+    const entry = within(list)
+      .getAllByRole("listitem")
+      .find((node) => /email application/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+    expect(entry).toHaveTextContent(/An external email application was asked to open/);
+    expect(entry).toHaveTextContent(/transmitted nothing and holds no evidence of delivery, readership, or reply/i);
+    // Spelled out rather than read back off the constant the entry renders
+    // from: an assertion generated from the copy can never disagree with it.
+    expect(entry?.textContent ?? "").not.toMatch(
+      /\b(sent|delivered|received|read by|replied|answered|acknowledged|contacted the team|spoke)\b/i,
+    );
+  });
+
+  it("labels a print action as the print view opening, never as a page that printed", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.managementPlanPrint("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /^Print/ }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /print view/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+    expect(entry).toHaveTextContent(/is not evidence that anything reached a printer/i);
+    expect(entry?.textContent ?? "").not.toMatch(/\b(printed successfully|was printed|reached the printer|copy given)\b/i);
+  });
+
+  // The specification requires the closed decision, its reason, its author, and
+  // its time to stay visible in the person's history.
+  it("keeps a closed Identification Review decision, reason, author, and time in the person's History", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-005"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Identification Review closed/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+    expect(entry).toHaveTextContent("Identification Review closed — Revisit later");
+    expect(entry).toHaveTextContent(/Alex should be asked first/);
+    expect(entry).toHaveTextContent(/Riley Demo/);
+    expect(entry).toHaveTextContent(/\d{2}\/\d{2}\/\d{4}/);
+  });
+
+  it("narrows the chronology by kind without hiding that the rest is still on the record", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const before = historyHeadings().length;
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Show" }), "safetyPlan");
+    const after = historyHeadings();
+    expect(after.length).toBeGreaterThan(0);
+    expect(after.length).toBeLessThan(before);
+    expect(after.every((heading) => /Personal Safety Plan/.test(heading))).toBe(true);
+    expect(screen.getByTestId("care-plan-history-filter-note")).toHaveTextContent(
+      /Nothing has been removed from the record/i,
+    );
+  });
+
+  /**
+   * Rowan has no patient copy, so filtering to that kind is a real empty state
+   * rather than a contrived one. It has to say that nothing of this kind was
+   * recorded rather than that nothing happened.
+   */
+  it("says plainly when nothing of the chosen kind was recorded, rather than showing an empty page", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Show" }), "patientPlan");
+
+    const empty = screen.getByTestId("care-plan-history-empty");
+    expect(empty).toHaveTextContent(/No Patient Plan action has been recorded/i);
+    expect(screen.queryByTestId("care-plan-history-list")).toBeNull();
+    expect(screen.getByTestId("care-plan-history-filter-note")).toHaveTextContent(
+      /Nothing has been removed from the record/i,
+    );
+  });
+
+  it("shows no chronology at all when the record is not confirmed as the right person", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"), "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-identity-uncertain")).toBeInTheDocument();
+    expect(screen.queryByTestId("care-plan-history-list")).toBeNull();
+  });
+});
+
+describe("Care Plan System states", () => {
+  const EVERY_SCENARIO = [
+    "normal",
+    "empty",
+    "no-current-plan",
+    "overdue-plan",
+    "withdrawn-plan",
+    "unverified-contact",
+    "identity-uncertain",
+    "version-conflict",
+    "offline",
+    "permission-unavailable",
+    "launch-failure",
+    "print-failure",
+  ] as const;
+
+  it("offers every specimen as an address, and clears the query for the ordinary world", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    const list = screen.getByTestId("care-plan-specimen-list");
+    const hrefs = within(list)
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+
+    expect(hrefs).toEqual([
+      CARE_PLAN_ROUTES.systemStates,
+      ...EVERY_SCENARIO.filter((scenario) => scenario !== "normal").map((scenario) =>
+        carePlanRoute.scenario(scenario),
+      ),
+    ]);
+  });
+
+  /**
+   * The control navigates; the shell's existing guarded effect is what puts the
+   * named scenario into the reducer. A control that dispatched as well would
+   * apply the scenario twice, and `apply-scenario` rebuilds the fixtures — so
+   * the second application would throw away whatever the first one left.
+   *
+   * An anchor cannot dispatch, so this is the structural form of that rule: a
+   * specimen entry is a link to an address and never a control that changes the
+   * world in place.
+   */
+  it("changes specimen by navigating rather than by acting on the state in place", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    const list = screen.getByTestId("care-plan-specimen-list");
+    expect(within(list).getAllByRole("link")).toHaveLength(EVERY_SCENARIO.length);
+    expect(within(list).queryAllByRole("button")).toEqual([]);
+    expect(within(list).queryAllByRole("combobox")).toEqual([]);
+    expect(within(list).queryAllByRole("checkbox")).toEqual([]);
+  });
+
+  it("says what happened, what it means, and what is available for the specimen on display", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=withdrawn-plan");
+    const active = screen.getByTestId("care-plan-specimen-active");
+    expect(active).toHaveTextContent("Plan withdrawn");
+    expect(within(active).getByText("What happened")).toBeInTheDocument();
+    expect(within(active).getByText("What it means")).toBeInTheDocument();
+    expect(within(active).getByText("What you can do")).toBeInTheDocument();
+    expect(active).toHaveTextContent(/no earlier version was restored/i);
+  });
+
+  /**
+   * The other direction: the address names the specimen, and the guarded effect
+   * in the shell puts it into the reducer. The sentence asserted below is the
+   * mutation funnel's own, and it is reachable only when `connectivity.online`
+   * is false — which nothing but `apply-scenario` sets.
+   */
+  it("degrades the prototype itself from the address, not only its rendering", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=offline");
+    const blocked = screen.getByTestId("care-plan-specimen-blocked");
+    expect(blocked).toHaveTextContent(
+      "This device is offline, so nothing was changed. What is shown is the last synthetic state held in memory.",
+    );
+    // Printing is exempt from the connectivity block, because the browser print
+    // dialogue opens either way and the record must not underclaim what it did.
+    expect(screen.getByTestId("care-plan-specimen-print-available")).toHaveTextContent(
+      /Opening a print view is still available/i,
+    );
+  });
+
+  it("names the permission refusal rather than the offline one when permission is what is unavailable", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=permission-unavailable");
+    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(
+      "Permission for this action could not be confirmed, so nothing was changed.",
+    );
+  });
+
+  it("names the identity and conflict refusals, which stop a change for different reasons", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=identity-uncertain");
+    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(
+      /has not been confirmed as the right person/,
+    );
+
+    cleanup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=version-conflict");
+    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(
+      /A newer version of this record exists/,
+    );
+  });
+
+  it("refuses nothing in the ordinary world", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    expect(screen.queryByTestId("care-plan-specimen-blocked")).toBeNull();
+    expect(screen.getByTestId("care-plan-specimen-available")).toHaveTextContent(
+      /Nothing is degraded in this specimen/i,
+    );
+  });
+
+  it("states plainly that nothing is saved and that a specimen rebuilds the whole world", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.systemStates);
+    const surface = screen.getByRole("region", { name: "Degraded-state specimens" });
+    expect(surface).toHaveTextContent(/rebuilds the synthetic world from the fixtures/i);
+    expect(surface).toHaveTextContent(/anything written in this session is discarded/i);
   });
 });
