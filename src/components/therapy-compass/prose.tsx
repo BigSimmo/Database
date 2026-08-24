@@ -184,17 +184,20 @@ export function ProseBlock({
   label,
   className,
   tone = "muted",
+  clamp = true,
 }: {
   text: string;
   /** Names the block in the toggle's accessible name, e.g. "Use when". */
   label: string;
   className?: string;
   tone?: "muted" | "warning";
+  /** Detail sheets already give the field a dedicated reading surface. */
+  clamp?: boolean;
 }) {
   const id = useId();
   const [expanded, setExpanded] = useState(false);
   const paragraphs = splitParagraphs(text);
-  const clampable = text.length > CLAMP_THRESHOLD;
+  const clampable = clamp && text.length > CLAMP_THRESHOLD;
 
   if (!paragraphs.length) return null;
 
