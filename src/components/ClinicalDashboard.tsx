@@ -173,7 +173,7 @@ import {
   StagedAnswerResultSurface,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
-import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
+import { clearLegacyRecentQueries, loadRecentQueries, saveRecentQueries } from "@/lib/recent-query-storage";
 import { readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
@@ -811,18 +811,7 @@ function ClinicalDashboardContent({
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      try {
-        const stored = JSON.parse(
-          window.sessionStorage.getItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`) ?? "[]",
-        );
-        setRecentQueries(
-          Array.isArray(stored)
-            ? stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5)
-            : [],
-        );
-      } catch {
-        setRecentQueries([]);
-      }
+      setRecentQueries(loadRecentQueries(answerThreadOwnerId));
     });
     return () => {
       cancelled = true;
@@ -833,25 +822,17 @@ function ClinicalDashboardContent({
     (value: string) => {
       const trimmedValue = value.trim();
       if (!trimmedValue) return;
-      // "Save recent searches" off means nothing is recorded at all — not
-      // recorded and hidden. Read one-shot rather than subscribing: this
-      // component does not otherwise consume preferences, and a subscription
-      // here would re-render the whole dashboard on every unrelated preference
-      // change. Bail before touching state so no new question appears in the
-      // in-memory list either.
+      // "Save recent searches" off means nothing is recorded at all, so bail
+      // before touching state too. Read one-shot rather than subscribing: a
+      // subscription would re-render this whole dashboard on every unrelated
+      // preference change.
       if (!readAppPreferences().saveRecentSearches) return;
       setRecentQueries((current) => {
         const next = [
           trimmedValue,
           ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase()),
         ].slice(0, 5);
-        try {
-          if (answerThreadOwnerId) {
-            window.sessionStorage.setItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`, JSON.stringify(next));
-          }
-        } catch {
-          // Recent questions are a convenience only; ignore storage failures.
-        }
+        saveRecentQueries(answerThreadOwnerId, next);
         return next;
       });
     },

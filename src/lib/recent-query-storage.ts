@@ -13,6 +13,22 @@ export function loadRecentQueries(ownerId: string | null): string[] {
   }
 }
 
+// The owner-scoped write. Kept beside `loadRecentQueries` so the key shape,
+// the owner guard, and the "convenience only, never throw" contract live in one
+// place rather than being re-derived at the call site.
+//
+// Deliberately knows nothing about the "Save recent searches" preference: the
+// preference snapshot lives in the client hook layer, and pulling it down here
+// would point this lib module back at a component hook. Callers gate the call.
+export function saveRecentQueries(ownerId: string | null, queries: string[]) {
+  if (typeof window === "undefined" || !ownerId) return;
+  try {
+    window.sessionStorage.setItem(`${recentQueryStorageKey}:${ownerId}`, JSON.stringify(queries));
+  } catch {
+    // Recent questions are a convenience only; ignore storage failures.
+  }
+}
+
 // Total recent queries retained across every owner-scoped session key. Used by
 // the settings privacy controls to show how much is stored and to disable the
 // "Clear" affordance when there is nothing to remove.
