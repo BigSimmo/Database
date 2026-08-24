@@ -54,10 +54,7 @@ import {
   type ClinicalDashboardProps,
   useClinicalAskDashboardChrome,
 } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
-import {
-  ClinicalAskComposerActions,
-  ClinicalAskWorkspace,
-} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -561,7 +558,7 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession, clinicalAskOnline, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+  const { clinicalAskSession } = useClinicalAskDashboardChrome({
     accountId: auth.session?.user.id,
     searchMode,
     query,
@@ -3103,8 +3100,6 @@ function ClinicalDashboardContent({
           differentialsCompareAddonActive,
           patientDetailsAddonActive,
           heroOwnsPhoneComposer,
-          clinicalAskActionsVisible:
-            Boolean(clinicalAskMode) && (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim())),
         }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
@@ -3337,19 +3332,6 @@ function ClinicalDashboardContent({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
-          clinicalAskActive={clinicalAskSession.submitted}
-          clinicalAskActions={
-            clinicalAskMode && (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim())) ? (
-              <ClinicalAskComposerActions
-                mode={clinicalAskMode}
-                draft={query}
-                active={clinicalAskSession.submitted}
-                offline={!clinicalAskOnline}
-                onDraftChange={setQuery}
-                onAsk={runModeClinicalAsk}
-              />
-            ) : undefined
-          }
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);

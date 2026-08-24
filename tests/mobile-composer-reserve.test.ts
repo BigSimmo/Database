@@ -10,8 +10,6 @@ import {
   mobileComposerHiddenReserve,
   mobileComposerHiddenReserveRem,
   mobileComposerIdleReserve,
-  mobileComposerClinicalAskReserve,
-  mobileComposerDifferentialsCompareClinicalAskReserve,
   mobileComposerVisibleReserve,
   resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
@@ -23,24 +21,6 @@ function source(relativePath: string): string {
 }
 
 describe("mobile composer reserve contract", () => {
-  it("gives Clinical Ask and combined Differentials chrome precedence", () => {
-    expect(
-      resolveDashboardVisibleMobileComposerReserve({
-        searchMode: "services",
-        hasAnswerFollowUps: false,
-        differentialsCompareAddonActive: false,
-        clinicalAskActionsVisible: true,
-      }),
-    ).toBe(mobileComposerClinicalAskReserve);
-    expect(
-      resolveDashboardVisibleMobileComposerReserve({
-        searchMode: "differentials",
-        hasAnswerFollowUps: false,
-        differentialsCompareAddonActive: true,
-        clinicalAskActionsVisible: true,
-      }),
-    ).toBe(mobileComposerDifferentialsCompareClinicalAskReserve);
-  });
   it("collapses to zero hidden pad without Safari toolbar safe-area", () => {
     expect(mobileComposerHiddenReserve).toBe("0rem");
     expect(mobileComposerHiddenReserveRem).toBe(0);

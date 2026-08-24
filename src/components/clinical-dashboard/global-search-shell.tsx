@@ -65,10 +65,7 @@ import {
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
-import {
-  ClinicalAskComposerActions,
-  ClinicalAskWorkspace,
-} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
 import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
@@ -479,13 +476,6 @@ function GlobalStandaloneSearchShellBody({
   // the sidebar's cross-guide search usable by returning to Answer first.
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
-  // Idle empty homes already have the search composer; Ask / Dictate appear
-  // once the draft has text or a search has been submitted.
-  const showClinicalAskDockChrome =
-    Boolean(clinicalAskMode) &&
-    !isToolDetailWithFooterSearch(pathname) &&
-    !isStandaloneModeHome &&
-    !(pathname === "/" && !hasSubmittedModeSearch && !query.trim());
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
@@ -510,7 +500,6 @@ function GlobalStandaloneSearchShellBody({
       heroOwnsPhoneComposer,
       searchMode,
       differentialsCompareAddonActive,
-      clinicalAskActionsVisible: showClinicalAskDockChrome,
     }),
   );
 
@@ -812,11 +801,7 @@ function GlobalStandaloneSearchShellBody({
     return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
   }, [mainElement, chromeVisible]);
 
-  const renderSearchShellChrome = ({
-    clinicalAskSession,
-    clinicalAskOnline,
-    runModeClinicalAsk,
-  }: ClinicalAskShellBindings) => {
+  const renderSearchShellChrome = ({ clinicalAskSession }: ClinicalAskShellBindings) => {
     const startNewChat = () => startNewAnswerChat(clinicalAskSession.clear);
     const stageClinicalAskDraft = (draft: string) => {
       setQuery(draft);
@@ -913,21 +898,6 @@ function GlobalStandaloneSearchShellBody({
                 openAccountSetup("favourites");
               }}
               onAsk={submitSearch}
-              clinicalAskMode={clinicalAskMode ?? undefined}
-              onClinicalAsk={runModeClinicalAsk}
-              clinicalAskActive={clinicalAskSession.submitted}
-              clinicalAskActions={
-                showClinicalAskDockChrome && clinicalAskMode ? (
-                  <ClinicalAskComposerActions
-                    mode={clinicalAskMode}
-                    draft={query}
-                    active={clinicalAskSession.submitted}
-                    offline={!clinicalAskOnline}
-                    onDraftChange={setQuery}
-                    onAsk={runModeClinicalAsk}
-                  />
-                ) : undefined
-              }
               onClearQuery={() => {
                 setQuery("");
                 if (isStandaloneModeHome || searchMode === "calculators") {
