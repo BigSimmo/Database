@@ -337,3 +337,48 @@ then `Tests 269 passed (269)` → `Tests 270 passed (270)`.
 
 The affordance table is a hand-maintained list of six classes while the frozen static tripwire
 derives eleven. Recorded for the whole-branch review.
+
+## Fix-round verification
+
+| Check                                                           | Result                                                                                                                               |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `tests/care-plan-linked-routes.dom.test.tsx`, Important 4 RED   | `Tests 1 failed \| 269 skipped (270)` — `Unable to find an accessible element with the role "link" and name "Open the Patient Plan"` |
+| The same file, GREEN after the fix                              | `Test Files 1 passed (1)` / `Tests 270 passed (270)` (269 → 270, nothing previously passing broken)                                  |
+| `npx tsc -p tsconfig.typecheck.json --noEmit`                   | Exit 0, zero diagnostics                                                                                                             |
+| `npx eslint <7 changed source and test files> --max-warnings 0` | Exit 0, no output                                                                                                                    |
+| `npx prettier --check` on every changed file                    | `All matched files use Prettier code style!`                                                                                         |
+
+### Three pieces of evidence are outstanding, and blocked rather than skipped
+
+At the time of writing, the repository's **exclusive heavy lease has been held continuously
+for more than two hours** by a concurrent session in a different worktree
+(`D:\Repos\Database\.claude\worktrees\browser-test-gate-handoff-d5c1db`, `vitest run
+--reporter=dot`, `holderPid 53200`, confirmed alive). Every Playwright attempt fails at
+acquisition with `EPERM: operation not permitted, mkdir …\gate.lock` and **exits 1 with no
+test output at all** — a third refusal costume alongside the documented exit 0 and exit 75,
+and one worth recording. A retry loop is still running.
+
+Still owed, and **not** claimed as done:
+
+1. **The browser suite re-run to green after the fix-round changes.** The last complete run
+   before them was `29 passed (1.6m)`. Two partial runs during this round were killed by my own
+   `TaskStop` and produced a phantom `worker process exited unexpectedly (code=3221225794)`,
+   which is not a result and is not scored here. The one real failure they did surface — the
+   Safety Plan journey using the patient section navigation on a **print** route, which
+   correctly carries none — is fixed.
+2. **The Important 1 control.** Editing a primary tap target from `min-h-12` to `min-h-11` and
+   watching `TAP_TARGET_FLOOR` redden. The threshold change is made; the mutation proving it
+   catches the banned edit has not been run.
+3. **The Important 2 control.** Giving an ancestor an unparseable `color-mix()` background and
+   watching `expectLooksLikeALink` redden on `has an unreadable computed background`. The
+   fail-closed assertions are in place; the mutation proving they fire has not been run.
+
+Both controls are one-line stylesheet mutations, and both were designed before the lease
+blocked them. They are the first thing to run when the lease clears. Reporting them as pending
+rather than passing is the point: this fix round exists because a test claimed work it had not
+done, and it would be a poor answer to close it with a control claimed but not executed.
+
+Also still not run, and unchanged from the first round: `npm run typecheck` and `npm run lint`
+**through the coordinator wrapper** — the underlying compiler and linter were run directly
+instead, which is the same check without the lease — the full focused Vitest set of seven
+files, and the evidence capture.
