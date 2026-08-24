@@ -192,3 +192,36 @@ Recorded because the method's default is that Minors do not enter the loop.
 
 Task C: fix round 1/5 dispatched — resumed the original implementer with 7 findings (3 Important, 1
 promoted, 3 bundled Minors).
+
+### Task C fix round 1 — returned DONE at `a865d6aa9`, and the B2 inversion verified independently
+
+Full suite `Tests 2 failed | 9785 passed | 74 skipped (9861)` — the same two pre-existing
+`gate-receipts` file-mode failures, untouched by this round. Typecheck and lint clean.
+
+**I tested the inverted "lead" pattern myself rather than accepting the report**, because it is the
+change most able to fail quietly in the permissive direction. The new pattern is a negative lookbehind
+— `/(?<!\b(?:incident|programme|clinical|team|service)\s)\bleads?\b/i` — refusing the word by default
+and exempting only the closed job-title set. Executed against 18 cases:
+
+- **All ten previously-leaking commercial phrasings are now refused**: `lead magnet`, `lead nurturing`,
+  `qualify this lead`, `convert the lead`, `your lead`, `leads database`, `lead gen`, `lead score`,
+  `sales lead`, `lead generation`. Note `lead score` — the case Important 2's `scoring?` typo let
+  through — is among them, so the typo is genuinely moot rather than merely relocated.
+- **All eight job-title and ordinary-English cases still pass**: `the incident lead`,
+  `the clinical programme lead`, `team lead`, `service lead`, `clinical lead`, plus `leadership`,
+  `misleading` and `we are leading the way`, which the word-boundary handles.
+
+The A1 marker became `/Fictional|<each reserved number>/i` built from
+`DESIGNATED_FICTIONAL_MOBILE_NUMBERS`, so the label, the bare number, a relabelling and a reordering
+are each independently sufficient to fire it. `message-rules.ts` gained its first import
+(`./synthetic-contacts`) — inside the sealed domain, and `synthetic-contacts.ts` imports nothing, so
+there is no cycle and no isolation breach. Both checked directly.
+
+**The lesson the inversion confirms, stated as a rule for the rest of this plan: when a check must
+distinguish a safe set from a dangerous one, enumerate whichever set is CLOSED.** Here the job titles
+this domain uses are five; commercial vocabulary for "lead" is unbounded. The first attempt enumerated
+the unbounded side and was permissive in exactly the places nobody thought of. The same test applies
+to every allowlist, ignore list and exemption this plan will add.
+
+Task C: fix round 1/5 (7 addressed, 0 open by the implementer's account; commits `9a4cf055c`..`a865d6aa9`).
+Scoped re-review dispatched.
