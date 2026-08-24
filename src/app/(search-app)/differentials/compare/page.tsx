@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { idsCompareHref, type CompareCatalogItem, type CompareStarterChip } from "@/components/compare";
 import { DifferentialCompareQueuePage } from "@/components/differentials/differential-compare-queue-page";
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
 import {
   differentialCompareQueueItems,
+  differentialRecords,
   resolveDifferentialCompareHandoff,
   resolveDifferentialCompareLaunchHref,
 } from "@/lib/differentials";
@@ -41,12 +43,34 @@ export default async function DifferentialCompareRoute({ searchParams }: Differe
     .filter(Boolean);
   const workspace = firstSearchParam(resolvedSearchParams.workspace)?.trim() === "1";
 
+  const catalog: CompareCatalogItem[] = differentialRecords.map((record) => ({
+    id: record.slug,
+    title: record.title,
+    snippet: record.clinicalHinge,
+    tag: record.status,
+  }));
+  const extra = query ? { q: query } : undefined;
+  const starters: CompareStarterChip[] = [
+    {
+      id: "delirium-dementia",
+      label: "Delirium vs dementia",
+      href: idsCompareHref("/differentials/compare", ["delirium", "dementia-neurocognitive-disorder"], extra),
+    },
+    {
+      id: "intoxication-withdrawal",
+      label: "Intoxication vs withdrawal",
+      href: idsCompareHref("/differentials/compare", ["substance-intoxication", "substance-withdrawal"], extra),
+    },
+  ];
+
   if (!workspace) {
     return (
       <DifferentialCompareQueuePage
         query={query}
         items={differentialCompareQueueItems(selectedIds)}
         openComparisonHref={resolveDifferentialCompareLaunchHref(selectedIds, query)}
+        catalog={catalog}
+        starters={starters}
       />
     );
   }

@@ -134,6 +134,13 @@ async function composer(page: Page) {
   return page.getByTestId("global-search-input").filter({ visible: true }).first();
 }
 
+async function clickClinicalAsk(page: Page, label: string) {
+  const ask = page.getByRole("button", { name: `Ask ${label}`, exact: true });
+  await expect(ask).toBeVisible();
+  await expect(ask).toBeEnabled();
+  await ask.click();
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -146,13 +153,34 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test("@critical hides Ask and Dictate on empty mode homes", async ({ page }) => {
+  await page.goto("/?mode=differentials");
+  await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ask Differentials", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dictate question for Differentials" })).toHaveCount(0);
+});
+
+test("@critical keeps Ask on Services and Forms catalog result docks", async ({ page }) => {
+  for (const [mode, label] of [
+    ["services", "Services"],
+    ["forms", "Forms"],
+  ] as const) {
+    await page.goto(`/${mode}/search?q=probe&run=1`);
+    await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: `Ask ${label}`, exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Dictate question for ${label}` })).toBeVisible();
+  }
+});
+
 test("@critical renders governed answers for all seven Clinical Ask modes without leaking input", async ({ page }) => {
+  test.setTimeout(180_000);
   const requestCount = await mockClinicalAsk(page);
   for (const [mode, label, sections] of modes) {
     await page.goto(`/?mode=${mode}`);
+    await expect(page.getByRole("button", { name: `Ask ${label}`, exact: true })).toHaveCount(0);
     const input = await composer(page);
     await input.fill(syntheticQuestion);
-    await page.getByRole("button", { name: `Ask ${label}`, exact: true }).click();
+    await clickClinicalAsk(page, label);
     const answer = page.getByLabel(`${label} answer`);
     await expect(answer).toBeVisible();
     const headings = await answer.locator("h3").evaluateAll((nodes) => nodes.map((node) => node.textContent));
@@ -202,13 +230,16 @@ test("@critical keeps dictated text reviewable and requires explicit Ask", async
   });
   const askCount = await mockClinicalAsk(page);
   await page.goto("/?mode=services");
+  await expect(page.getByRole("button", { name: "Dictate question for Services" })).toHaveCount(0);
+  const starter = await composer(page);
+  await starter.fill("synthetic dictate probe");
   await page.getByRole("button", { name: "Dictate question for Services" }).click();
   await page.getByRole("button", { name: "Stop recording" }).click();
   const input = await composer(page);
   await expect(input).toHaveValue("Synthetic dictated presentation");
   expect(askCount()).toBe(0);
   await input.fill("Synthetic dictated presentation, edited after review");
-  await page.getByRole("button", { name: "Ask Services", exact: true }).click();
+  await clickClinicalAsk(page, "Services");
   await expect(page.getByLabel("Services answer")).toBeVisible();
   expect(transcriptionRequests).toBe(1);
   expect(askCount()).toBe(1);
@@ -226,12 +257,12 @@ test("@critical remains accessible and within the viewport at required widths an
       forcedColors: width === 320 ? "active" : "none",
     });
     await page.goto("/?mode=differentials");
-    const input = await composer(page);
-    await input.fill("Synthetic comparison presentation");
-    await expect(page.getByRole("button", { name: "Ask Differentials", exact: true })).toBeVisible();
+    const homeInput = await composer(page);
+    await expect(page.getByRole("button", { name: "Ask Differentials", exact: true })).toHaveCount(0);
+    await homeInput.fill("Synthetic comparison presentation");
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     expect(overflow).toBeLessThanOrEqual(2);
-    await page.getByRole("button", { name: "Ask Differentials", exact: true }).click();
+    await clickClinicalAsk(page, "Differentials");
     await expect(page.getByLabel("Differentials answer")).toBeVisible();
     const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
     await testInfo.attach(`axe-${width}`, { body: JSON.stringify(axe.violations), contentType: "application/json" });
