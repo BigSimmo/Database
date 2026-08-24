@@ -62,7 +62,7 @@ function OverlayHarness({ overlayId }: { overlayId: string }) {
         onClose={() => setOpenOverlayId(null)}
         onCommit={noop}
         blockReason={null}
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />
     </>
   );
@@ -82,7 +82,7 @@ describe("the overlay host", () => {
             onClose={noop}
             onCommit={noop}
             blockReason={null}
-            commitUnavailableReason={null}
+            commitRefusal={null}
           />,
         );
         const body = screen.getByTestId("workspace-overlay-content");
@@ -117,7 +117,7 @@ describe("the overlay host", () => {
           onClose={noop}
           onCommit={noop}
           blockReason="permission-unavailable"
-          commitUnavailableReason={null}
+          commitRefusal={null}
         />,
       );
       expect(
@@ -132,7 +132,7 @@ describe("the overlay host", () => {
           onClose={noop}
           onCommit={noop}
           blockReason={null}
-          commitUnavailableReason={null}
+          commitRefusal={null}
         />,
       );
       if (definition.requiresFreshAuthentication) {
@@ -263,7 +263,7 @@ describe("the overlay host", () => {
         onClose={noop}
         onCommit={noop}
         blockReason={null}
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />,
     );
     expect(screen.getByTestId("workspace-overlay-content")).toHaveAttribute("data-overlay-modality", "bottom-sheet");
@@ -291,7 +291,7 @@ describe("the overlay host", () => {
         onClose={onClose}
         onCommit={noop}
         blockReason={null}
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />,
     );
     await userEvent.keyboard("{Escape}");
@@ -318,7 +318,7 @@ describe("the overlay host", () => {
         onClose={noop}
         onCommit={noop}
         blockReason={null}
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />,
     );
 
@@ -335,7 +335,7 @@ describe("the overlay host", () => {
         onClose={noop}
         onCommit={noop}
         blockReason={null}
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />,
     );
     expect(screen.getByRole("status")).toBeInTheDocument();
@@ -351,7 +351,7 @@ describe("the overlay host", () => {
         onClose={noop}
         onCommit={onCommit}
         blockReason={null}
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />,
     );
     await userEvent.click(screen.getByRole("button", { name: /withdraw/i }));
@@ -370,7 +370,7 @@ describe("the overlay host", () => {
         onClose={noop}
         onCommit={onCommit}
         blockReason="permission-unavailable"
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />,
     );
     const action = screen.getByRole("button", { name: /pause/i });
@@ -392,7 +392,7 @@ describe("the overlay host", () => {
         onClose={noop}
         onCommit={readOnlyCommit}
         blockReason="permission-unavailable"
-        commitUnavailableReason={null}
+        commitRefusal={null}
       />,
     );
     expect(screen.getByRole("button", { name: /close/i })).not.toHaveAttribute("aria-disabled");

@@ -90,7 +90,16 @@ export function WorkspaceOverlayTrigger({ overlayId, commit, children, className
         // = 48px). Never a copy of the number, and never the 44px step: production
         // tap targets are 48px here, and reducing them to satisfy generic WCAG
         // 2.5.5 guidance reintroduces a known `ui-smoke` sub-pixel flake.
-        "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none forced-colors:border",
+        //
+        // A DEFAULT SURFACE, not only geometry (fix round 1, M-3). The first
+        // version shipped no colour or background at all, so a caller that passed
+        // no `className` — the shape every usage example takes — got an
+        // effectively unstyled control. These are the same tokens the shell's own
+        // secondary controls use, so a trigger looks like it belongs before anyone
+        // styles it, and `forced-colors:border` keeps it visible where the tokens
+        // are replaced. `className` is appended, so a caller can add to this; a
+        // caller wanting a different surface should say so with its own utilities.
+        "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] transition-colors hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none forced-colors:border",
         className,
       )}
     >

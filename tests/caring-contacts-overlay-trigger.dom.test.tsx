@@ -1,12 +1,14 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Component, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WORKSPACE_OVERLAY_DEFINITIONS } from "@/components/caring-contacts/workspace/overlays/definitions";
 import {
   clearStagedWorkspaceOverlayCommit,
-  commitForOpenOverlay,
-  commitUnavailableReasonFor,
+  commitForHistoryEntry,
+  commitRefusalFor,
+  nextWorkspaceOverlayCommitToken,
   NO_STAGED_COMMIT_REASON,
   readStagedWorkspaceOverlayCommit,
   stageWorkspaceOverlayCommit,
@@ -24,11 +26,17 @@ import { CARING_CONTACTS_PROHIBITED_LANGUAGE } from "./helpers/caring-contacts-p
  * ship with it.
  *
  * Ruling 87 is the whole reason this file is not simply "a button opens a panel".
- * The 24 overlays are decision surfaces, every one of them renders a confirm
+ * The 24 overlays are decision surfaces, every one of them renders a decision
  * control, and until this trigger existed none of them was reachable from any
  * control — which is the only reason a confirm that recorded nothing was
- * tolerable. So the assertions below come in two halves: the trigger opens what it
- * names, and NOTHING it opens offers a confirm control the system will not honour.
+ * tolerable.
+ *
+ * Ruling 90 is the reason the assertions come in three groups rather than two.
+ * Ruling 87's domain is the sixteen rows that RECORD something; the other eight
+ * carry exits, and a refusal reading "nothing can be recorded here" is false about
+ * a control whose whole action is to leave. So: the trigger opens what it names;
+ * a recording row never offers a decision control the system will not honour; and
+ * a non-recording row keeps its exit.
  */
 
 /** jsdom reports a fixed 1024px viewport; the host needs a width to choose a modality at all. */
@@ -110,15 +118,26 @@ describe("the overlay trigger", () => {
     expect(withoutCommit).toBeTruthy();
   });
 
-  it("carries the workspace's 48px tap floor", () => {
+  it("carries the workspace's 48px tap floor and a surface of its own", () => {
     render(
       <WorkspaceOverlayTrigger overlayId="pause" commit={{ kind: "unavailable", reason: "Not built yet." }}>
         Pause this plan
       </WorkspaceOverlayTrigger>,
     );
+    const trigger = screen.getByRole("button", { name: "Pause this plan" });
+
     // `min-h-tap` is `--spacing-tap` (3rem). Never `min-h-11`: 44px reintroduces a
     // known `ui-smoke` sub-pixel flake.
-    expect(screen.getByRole("button", { name: "Pause this plan" }).className).toContain("min-h-tap");
+    expect(trigger.className).toContain("min-h-tap");
+
+    // Fix round 1, M-3: with no `className` — the shape every usage takes before a
+    // screen styles it — the control must still have a surface rather than being
+    // effectively invisible. Tokens only, no hex.
+    expect(trigger.className, "the default rendering has no background").toMatch(/bg-\[color:var\(--[a-z-]+\)\]/);
+    expect(trigger.className, "the default rendering has no text colour").toMatch(/text-\[color:var\(--[a-z-]+\)\]/);
+    expect(trigger.className, "the default rendering has no border colour").toMatch(
+      /border-\[color:var\(--[a-z-]+\)\]/,
+    );
   });
 });
 
@@ -144,8 +163,45 @@ describe("the commit contract", () => {
     expect(record).toHaveBeenCalledWith("pause");
 
     await waitFor(() => expect(contentFor("pause")).toBeNull());
-    // The intent is spent, so a forward traversal cannot re-enter it live.
-    expect(readStagedWorkspaceOverlayCommit()).toBeNull();
+    // The entry the commit belonged to has been unwound, so the slot no longer
+    // names the current entry and the host has emptied it.
+    await waitFor(() => expect(readStagedWorkspaceOverlayCommit()).toBeNull());
+  });
+
+  it("never shows the refusal in the frame the decision was confirmed in", async () => {
+    // Fix round 1, Important 2. Clearing the slot inside the confirm handler
+    // emptied it while the URL still named the overlay — `history.back()` fires
+    // `popstate` asynchronously — so React re-rendered the still-open overlay with
+    // nothing staged and flashed "nothing can be recorded here" at someone who had
+    // just confirmed a withdrawal.
+    //
+    // `fireEvent`, not `userEvent`, and no `waitFor`: `fireEvent` flushes React
+    // inside the click while the `popstate` is still a queued task, so this reads
+    // the exact frame the flash would appear in. Every assertion in the test above
+    // waits for the settled state and steps straight over it.
+    const record = vi.fn();
+    render(
+      <>
+        <WorkspaceOverlayTrigger overlayId="withdrawal" commit={{ kind: "record", record }}>
+          Withdraw this patient
+        </WorkspaceOverlayTrigger>
+        <WorkspaceOverlays />
+      </>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Withdraw this patient" }));
+    fireEvent.click(screen.getByTestId("workspace-overlay-action"));
+    // `withdrawal` requires fresh authentication, so the checkpoint is raised first
+    // and the second activation is the one that records.
+    fireEvent.click(screen.getByTestId("workspace-overlay-action"));
+    expect(record).toHaveBeenCalledTimes(1);
+
+    const action = screen.getByTestId("workspace-overlay-action");
+    expect(action, "the confirmed frame showed the action refused").not.toHaveAttribute("aria-disabled");
+    expect(
+      screen.queryByText(NO_STAGED_COMMIT_REASON),
+      "the confirmed frame showed the unstaged refusal",
+    ).not.toBeInTheDocument();
   });
 
   it("still runs the fresh-authentication checkpoint before recording", async () => {
@@ -198,7 +254,11 @@ describe("the commit contract", () => {
     expect(contentFor("pause"), "an inert action must not close the overlay either").not.toBeNull();
   });
 
-  it("refuses a read-only overlay's action too when its decision is unwired", async () => {
+  it("carries a caller-stated refusal onto a read-only row as well", async () => {
+    // Scope `every-row`: a screen that says the decision is unbuilt has said so
+    // about THIS row, whatever the row does — an exit nobody has built is still an
+    // exit that would go nowhere. This is the half of the refusal Ruling 90 leaves
+    // reaching every row.
     const readOnly = WORKSPACE_OVERLAY_DEFINITIONS.find((definition) => !definition.mutatesState);
     expect(readOnly, "the frozen table carries at least one read-only row").toBeDefined();
     const reason = "This preview is not wired to a screen yet.";
@@ -212,14 +272,11 @@ describe("the commit contract", () => {
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Open the preview" }));
-    // A permission refusal deliberately leaves a read-only overlay usable; an
-    // UNWIRED decision must not, because its action is just as dead as a mutating
-    // row's would be.
     expect(screen.getByTestId("workspace-overlay-action")).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText(reason)).toBeInTheDocument();
   });
 
-  it("refuses an overlay reached by address rather than from a control", async () => {
+  it("refuses a recording overlay reached by address rather than from a control", async () => {
     render(<WorkspaceOverlays />);
     act(() => openWorkspaceOverlay("pause"));
     await screen.findByTestId("workspace-overlay-content");
@@ -228,26 +285,171 @@ describe("the commit contract", () => {
     expect(action).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText(NO_STAGED_COMMIT_REASON)).toBeInTheDocument();
   });
+});
 
-  it("never offers one overlay's staged commit to another", () => {
-    const commit = { kind: "record", record: () => {} } as const;
-    stageWorkspaceOverlayCommit("pause", commit);
-    const slot = readStagedWorkspaceOverlayCommit();
+/**
+ * Ruling 90. The eight `mutatesState: false` rows carry EXITS, not confirmations,
+ * so "nothing can be recorded here" is not a statement that can be made about
+ * them — and on the two `recovery-only` rows, refusing the single control leaves a
+ * person inside an overlay they cannot dismiss with nothing to do at all.
+ */
+describe("a row that records nothing keeps its way out", () => {
+  const NON_RECORDING = WORKSPACE_OVERLAY_DEFINITIONS.filter((definition) => !definition.mutatesState);
 
-    expect(commitForOpenOverlay(slot, "pause")).toBe(commit);
-    // The identity check is the safeguard, not a formality: a slot left over from
-    // one overlay must never satisfy a different one.
-    expect(commitForOpenOverlay(slot, "withdrawal")).toBeNull();
-    expect(commitForOpenOverlay(slot, null)).toBeNull();
-    expect(commitForOpenOverlay(null, "pause")).toBeNull();
+  it("covers every non-recording row in the frozen table", () => {
+    // Guards the loop below against silently shrinking to nothing if the flag ever
+    // moves in the table.
+    expect(NON_RECORDING.length).toBe(8);
   });
 
-  it("answers every state of the slot, and refuses in two of the three", () => {
+  for (const definition of NON_RECORDING) {
+    it(`leaves "${definition.id}" usable when it is deep-linked with nothing staged`, async () => {
+      render(<WorkspaceOverlays />);
+      act(() => openWorkspaceOverlay(definition.id));
+      await screen.findByTestId("workspace-overlay-content");
+
+      const action = screen.getByTestId("workspace-overlay-action");
+      expect(action, `${definition.id}: its exit was refused`).not.toHaveAttribute("aria-disabled");
+      expect(
+        screen.queryByText(NO_STAGED_COMMIT_REASON),
+        `${definition.id}: it renders a refusal that is false about an exit`,
+      ).not.toBeInTheDocument();
+    });
+  }
+
+  it("leaves the recovery-only session gate with something to do", async () => {
+    // The sharpest case, and the one that made the first version harmful:
+    // `session-expiry` ignores Escape and the backdrop by design, so its single
+    // control is the only way out of it.
+    const gate = WORKSPACE_OVERLAY_DEFINITIONS.find((definition) => definition.id === "session-expiry");
+    expect(gate?.dismissal, "session-expiry is the recovery-only row this test is about").toBe("recovery-only");
+
+    render(<WorkspaceOverlays />);
+    act(() => openWorkspaceOverlay("session-expiry"));
+    await screen.findByTestId("workspace-overlay-content");
+
+    const action = screen.getByTestId("workspace-overlay-action");
+    expect(action).not.toHaveAttribute("aria-disabled");
+    expect(action).not.toHaveAttribute("disabled");
+  });
+});
+
+/**
+ * Fix round 1, Important 3. The slot is bound to the history ENTRY that staged it,
+ * not to the overlay id — the id match narrowed these failures without closing
+ * them.
+ */
+describe("a staged commit belongs to the entry that opened it", () => {
+  it("never answers an entry it was not staged for", () => {
+    const commit = { kind: "record", record: () => {} } as const;
+    const token = nextWorkspaceOverlayCommitToken();
+    stageWorkspaceOverlayCommit(token, commit);
+    const slot = readStagedWorkspaceOverlayCommit();
+
+    expect(commitForHistoryEntry(slot, token)).toBe(commit);
+    // A later opening mints a new token, so an older slot cannot answer it — this
+    // is the ten-`Pause`-rows case, where one row's commit must never answer an
+    // overlay raised from another.
+    expect(commitForHistoryEntry(slot, nextWorkspaceOverlayCommitToken())).toBeNull();
+    // A deep link, and the entry `history.back()` unwinds to, carry no token.
+    expect(commitForHistoryEntry(slot, null)).toBeNull();
+    expect(commitForHistoryEntry(null, token)).toBeNull();
+  });
+
+  it("mints a distinct token per opening", () => {
+    const tokens = new Set([
+      nextWorkspaceOverlayCommitToken(),
+      nextWorkspaceOverlayCommitToken(),
+      nextWorkspaceOverlayCommitToken(),
+    ]);
+    expect(tokens.size).toBe(3);
+  });
+
+  it("is emptied when the browser goes Back, which never calls the Sheet's close", async () => {
+    // The workspace's PRIMARY dismissal route, and the one the first version
+    // missed entirely: Back closes through `popstate`, so `onClose` never runs.
+    const record = vi.fn();
+    render(
+      <>
+        <WorkspaceOverlayTrigger overlayId="pause" commit={{ kind: "record", record }}>
+          Pause this plan
+        </WorkspaceOverlayTrigger>
+        <WorkspaceOverlays />
+      </>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Pause this plan" }));
+    expect(readStagedWorkspaceOverlayCommit()).not.toBeNull();
+
+    act(() => window.history.back());
+    await waitFor(() => expect(contentFor("pause")).toBeNull());
+    await waitFor(() =>
+      expect(readStagedWorkspaceOverlayCommit(), "the commit outlived the Back that dismissed it").toBeNull(),
+    );
+    expect(record).not.toHaveBeenCalled();
+  });
+});
+
+/** Fix round 1, Important 4: a rejected recording must not disappear into the promise. */
+class CommitFailureBoundary extends Component<{ children: ReactNode }, { message: string | null }> {
+  state = { message: null as string | null };
+  static getDerivedStateFromError(error: unknown) {
+    return { message: error instanceof Error ? error.message : String(error) };
+  }
+  render() {
+    return this.state.message === null ? this.props.children : <p>Nothing was sent: {this.state.message}</p>;
+  }
+}
+
+describe("an asynchronous recording", () => {
+  it("accepts a promise-returning record and closes once it is issued", async () => {
+    const record = vi.fn(() => Promise.resolve());
+    render(
+      <>
+        <WorkspaceOverlayTrigger overlayId="pause" commit={{ kind: "record", record }}>
+          Pause this plan
+        </WorkspaceOverlayTrigger>
+        <WorkspaceOverlays />
+      </>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Pause this plan" }));
+    await userEvent.click(screen.getByTestId("workspace-overlay-action"));
+    expect(record).toHaveBeenCalledWith("pause");
+    await waitFor(() => expect(contentFor("pause")).toBeNull());
+  });
+
+  it("raises a rejection where an error boundary can state that nothing was written", async () => {
+    // The minimum that is not silent. Without this the rejection is an unhandled
+    // promise, the overlay has already closed, and the clinician is looking at a
+    // screen that appears to have recorded the decision.
+    const failure = new Error("the store refused the write");
+    render(
+      <CommitFailureBoundary>
+        <WorkspaceOverlayTrigger overlayId="pause" commit={{ kind: "record", record: () => Promise.reject(failure) }}>
+          Pause this plan
+        </WorkspaceOverlayTrigger>
+        <WorkspaceOverlays />
+      </CommitFailureBoundary>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Pause this plan" }));
+    await userEvent.click(screen.getByTestId("workspace-overlay-action"));
+
+    await waitFor(() => expect(screen.getByText(/the store refused the write/)).toBeInTheDocument());
+  });
+});
+
+describe("the refusal rule", () => {
+  it("answers every state of the slot, and scopes each refusal to the rows it is true of", () => {
     // Total by construction, so the rule can be read here rather than inferred
     // from a rendered button.
-    expect(commitUnavailableReasonFor(null)).toBe(NO_STAGED_COMMIT_REASON);
-    expect(commitUnavailableReasonFor({ kind: "unavailable", reason: "Not built yet." })).toBe("Not built yet.");
-    expect(commitUnavailableReasonFor({ kind: "record", record: () => {} })).toBeNull();
+    expect(commitRefusalFor(null)).toEqual({ reason: NO_STAGED_COMMIT_REASON, scope: "recording-rows-only" });
+    expect(commitRefusalFor({ kind: "unavailable", reason: "Not built yet." })).toEqual({
+      reason: "Not built yet.",
+      scope: "every-row",
+    });
+    expect(commitRefusalFor({ kind: "record", record: () => {} })).toBeNull();
   });
 
   it("states the unstaged refusal in permitted vocabulary", () => {

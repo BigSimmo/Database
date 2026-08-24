@@ -3,9 +3,9 @@
  *
  * ## The problem this module exists to solve
  *
- * `WorkspaceOverlays` is mounted ONCE, by the shell, as a sibling of the screen's
- * own content — not per screen. So a screen's confirm behaviour has no parent it
- * shares with the host and no prop path to it. Everything below is the record of
+ * `WorkspaceOverlays` is mounted **once, by the shell**, as a **sibling** of
+ * `children` — not per screen. So a screen's confirm behaviour has no shared
+ * parent with the host and no prop path to it. Everything below is the record of
  * how that gap is bridged, and of the three alternatives that were rejected.
  *
  * A second constraint narrows it further, and it is easy to miss: the screens are
@@ -18,22 +18,37 @@
  * Action and from a Client Component by an ordinary function; its `unavailable`
  * member is plain data.
  *
- * ## The choice: a single-slot handoff, written at the moment of opening
+ * ## The choice: a one-shot handoff bound to the history entry that opened it
  *
- * An overlay opening CARRIES ITS COMMIT WITH IT. The trigger stages the commit it
- * was given, then pushes `?overlay=<id>`; the host reads the staged commit and
- * uses it only while the staged id and the URL's id are the same overlay. One
- * slot, one open/close cycle, and an identity check that cannot be satisfied by
- * accident.
+ * An overlay opening CARRIES ITS COMMIT WITH IT. The trigger mints a token,
+ * stages the commit under that token, and pushes a history entry carrying the
+ * same token alongside `?overlay=<id>`. The host offers the staged commit only
+ * while the CURRENT history entry carries the token it was staged under.
  *
- * Why a handoff rather than a registry keyed by trigger: a list screen may render
- * ten `Pause` triggers, one per row. A registry keyed by overlay id would have all
- * ten claim the same key, and every way of resolving that is worse than not
- * having the problem — throw on the second registration and a legitimate screen
- * cannot be built; last-write-wins and the "a second registration silently
- * overwrites the first" failure is back; compare handlers by identity and an
- * inline arrow re-registers on every render. Staging at the moment of activation
- * has no conflict to resolve, because exactly one control was activated.
+ * Binding to the entry rather than to the overlay id is fix round 1, Important 3,
+ * and it is not a refinement — the id match narrowed the failure modes without
+ * closing them. Three things it let through, all closed by the token:
+ *
+ *  - **Back.** Back closes an overlay through `popstate`, which never calls the
+ *    Sheet's `onClose`, so an id-keyed slot was never emptied on the workspace's
+ *    PRIMARY dismissal route. The entry Back lands on carries no token, so the
+ *    slot no longer matches and is emptied by the host's own reconciliation.
+ *  - **A commit outliving its screen.** An id-keyed commit staged on one screen
+ *    survived a client-side navigation and answered any later overlay of the same
+ *    id — including, on a list screen, one row's commit answering an overlay
+ *    raised from a different row, with nothing on screen naming the record. A
+ *    later opening mints a NEW token, so the older slot can never answer it.
+ *  - **A spent commit.** Confirming unwinds to an entry without the token, so the
+ *    slot is emptied and a forward traversal finds nothing staged.
+ *
+ * Why a handoff at all, rather than a registry keyed by trigger: a list screen may
+ * render ten `Pause` triggers, one per row. A registry keyed by overlay id would
+ * have all ten claim the same key, and every way of resolving that is worse than
+ * not having the problem — throw on the second registration and a legitimate
+ * screen cannot be built; last-write-wins and the silent-overwrite failure is
+ * back; compare handlers by identity and an inline arrow re-registers on every
+ * render. Staging at the moment of activation has no conflict to resolve, because
+ * exactly one control was activated.
  *
  * ## What was rejected, and why
  *
@@ -63,16 +78,12 @@
  * shows that activating a trigger writes here. Two things pay that back, and both
  * are load-bearing rather than decorative:
  *
- *  1. The identity check. A commit staged for one overlay is never offered to a
- *     different one, so a stale slot cannot be mistaken for a wired control.
- *  2. {@link commitUnavailableReasonFor} is TOTAL. Every state of the slot maps to
- *     an answer, and two of the three answers are a refusal in plain words. An
- *     overlay reached with nothing staged — someone typed `?overlay=<id>`, or
- *     traversed forward into a spent one — refuses its own action with a stated
- *     reason instead of offering a confirm control that would record nothing.
- *     That last case is the whole point of Ruling 87: a confirm button which does
- *     nothing is the defect, and it does not stop being one because the overlay
- *     was reached by URL rather than by a control.
+ *  1. The token match, and the reconciliation that follows it. A slot that does
+ *     not belong to the current history entry is not merely withheld, it is
+ *     emptied — so a stale commit does not sit in module scope for the tab's
+ *     lifetime waiting for a coincidence.
+ *  2. {@link commitRefusalFor} is TOTAL. Every state of the slot maps to an
+ *     answer, and two of the three answers refuse in plain words.
  */
 
 /**
@@ -90,16 +101,24 @@ export type WorkspaceOverlayCommit =
        * after the fresh-authentication checkpoint where the frozen table asks for
        * one, because the host runs that before it calls its commit at all.
        *
-       * Typed as returning `void` so a Server Action, which returns a promise, is
-       * assignable (TypeScript treats a `void` return position as "any return
-       * value, ignored"). The host deliberately does not await it: what a FAILED
-       * recording should do to the interface — leave the overlay open, say what
-       * was not written, offer a retry — is a decision that needs a real store and
-       * a real screen to answer, and neither exists yet. Inventing that policy
-       * here would be wording and behaviour nobody reviewed against a live
-       * surface. The task that introduces the first store owns it.
+       * The return type ADMITS a promise deliberately (fix round 1, Important 4).
+       * A Server Action is asynchronous, so the realistic implementation of this
+       * member returns one; typing the position as bare `void` would have accepted
+       * it by TypeScript's void-return rule while leaving the host structurally
+       * unable to observe a rejection — an unhandled rejection, the overlay
+       * already closed, and the clinician told nothing. That is the silent
+       * "nothing happened" this whole task exists to remove, moved one layer down.
+       * Widening it now also means the task that answers the question below does
+       * not have to make a breaking signature change to do it.
+       *
+       * What the host does with a rejection today is the MINIMUM that is not
+       * silent: it re-throws during render, so the failure reaches
+       * `src/app/caring-contacts/error.tsx` instead of the console. What it
+       * SHOULD do — hold the overlay open, name what was not written, offer a
+       * retry — needs a real store and a real screen to answer, and neither
+       * exists yet. That policy is deferred; the signature is not.
        */
-      readonly record: (overlayId: string) => void;
+      readonly record: (overlayId: string) => void | Promise<void>;
     }
   | {
       readonly kind: "unavailable";
@@ -111,22 +130,81 @@ export type WorkspaceOverlayCommit =
       readonly reason: string;
     };
 
-/** The commit staged by the control that opened an overlay, and which overlay it belongs to. */
+/**
+ * A commit staged for one history entry, named by the token that entry carries.
+ *
+ * The token, not the overlay id: see the header. It is opaque, and meaningful only
+ * by comparison.
+ */
 export type StagedWorkspaceOverlayCommit = {
-  readonly overlayId: string;
+  readonly token: string;
   readonly commit: WorkspaceOverlayCommit;
 };
 
 /**
- * The refusal shown when an overlay is open with nothing staged for it.
+ * A refusal standing in the way of an overlay's decision, and how far it reaches.
  *
- * True in every case that reaches it: a typed or pasted `?overlay=<id>`, a forward
- * traversal into an overlay whose staged commit was spent, or a slot holding a
- * different overlay's commit. It says what to do instead rather than only what is
- * wrong.
+ * The scope is the whole of Ruling 90, and it exists because the 24 rows are not
+ * one kind of thing. See {@link NO_STAGED_COMMIT_REASON}.
+ */
+export type OverlayCommitRefusal = {
+  /** Plain words, rendered verbatim. */
+  readonly reason: string;
+  /**
+   * `every-row` — a screen stated this refusal deliberately, so it holds whatever
+   * the row does. `recording-rows-only` — the refusal is about nothing being
+   * recordable, which is not a claim that can be made about a row that records
+   * nothing.
+   */
+  readonly scope: "every-row" | "recording-rows-only";
+};
+
+/**
+ * The refusal shown when an overlay is open with no commit staged for its entry.
+ *
+ * True in every case that reaches it: a typed or pasted `?overlay=<id>`, an entry
+ * whose staged commit was spent, or any entry this module did not open.
+ *
+ * **Its scope is `recording-rows-only`, and that is Ruling 90.** The first version
+ * refused every row, and the review was right that this was wrong on a decidable
+ * ground rather than a matter of taste. Eight of the twenty-four carry
+ * `mutatesState: false`, and their controls are not confirmations — they are
+ * EXITS: "Sign in again", "Try connecting again", "Try loading again", "Back to
+ * the plan", "Back to personalisation", "Close this detail", "View the plan",
+ * "Review the current version". None of them records anything, so none of them can
+ * be a confirm control that records nothing, and Ruling 87 never reached them.
+ * Refusing them also contradicted the host's own Rule 9 three lines from where the
+ * refusal was applied, and rendered a sentence that was FALSE about a control
+ * whose whole action is to leave.
+ *
+ * On two rows it was actively harmful. `session-expiry` and `offline-banner` are
+ * `dismissal: "recovery-only"` — Escape and the backdrop are deliberately inert —
+ * so refusing their single control left a person inside the one kind of overlay
+ * they cannot walk away from with nothing to do at all.
+ *
+ * The general lesson, worth more than the fix: Ruling 87 was right, and it was
+ * applied to a set whose members differ in exactly the property it depends on. Its
+ * domain was assumed rather than checked, and the frozen matrix already carried
+ * the `mutatesState` flag that answers it row by row.
  */
 export const NO_STAGED_COMMIT_REASON =
-  "This was opened by address rather than from a control, so there is nothing here to carry out. Open it from the screen it belongs to.";
+  "This was opened by address rather than from a control, so nothing can be recorded here. Open it from the screen it belongs to.";
+
+/**
+ * A token is unique to one opening within one document.
+ *
+ * The counter alone would not do: history entries survive a reload while module
+ * state does not, so a restored entry carrying `1` could be answered by the first
+ * commit staged after the reload. The per-document prefix makes a token minted by
+ * a previous document match nothing.
+ */
+const COMMIT_TOKEN_DOCUMENT = Math.random().toString(36).slice(2);
+let commitTokenCounter = 0;
+
+export function nextWorkspaceOverlayCommitToken(): string {
+  commitTokenCounter += 1;
+  return `${COMMIT_TOKEN_DOCUMENT}-${commitTokenCounter}`;
+}
 
 let staged: StagedWorkspaceOverlayCommit | null = null;
 const listeners = new Set<() => void>();
@@ -136,23 +214,28 @@ function announce() {
 }
 
 /**
- * Hands the commit to the host, for the overlay about to be opened.
+ * Hands the commit to the host, under the token the opening entry will carry.
  *
- * Call this BEFORE pushing `?overlay=<id>`: both writes are synchronous and React
+ * Call this BEFORE pushing that entry: both writes are synchronous and React
  * batches the two store notifications into one render, so the host's first render
- * carrying the new id already carries its commit. Staging afterwards would render
- * once with the overlay open and nothing staged — which the refusal below would
- * correctly, and wrongly, describe.
+ * carrying the new entry already carries its commit. Staging afterwards would
+ * render once with the overlay open and nothing staged — which the refusal above
+ * would correctly, and wrongly, describe.
  */
-export function stageWorkspaceOverlayCommit(overlayId: string, commit: WorkspaceOverlayCommit) {
-  staged = { overlayId, commit };
+export function stageWorkspaceOverlayCommit(token: string, commit: WorkspaceOverlayCommit) {
+  staged = { token, commit };
   announce();
 }
 
 /**
- * Empties the slot. Called when an overlay closes and when its decision has been
- * recorded, so a staged commit belongs to exactly one open/close cycle and cannot
- * be re-entered by a forward traversal after it was spent.
+ * Empties the slot.
+ *
+ * There is exactly ONE caller in the workspace, and that is deliberate: the host
+ * reconciles the slot against the current history entry, so emptying is a
+ * consequence of a traversal rather than something each interaction has to
+ * remember. Clearing inline at the end of a confirm handler was fix round 1,
+ * Important 2 — it emptied the slot while the URL still named the overlay, so the
+ * frame a clinician saw immediately after confirming showed the action refused.
  */
 export function clearStagedWorkspaceOverlayCommit() {
   if (staged === null) return;
@@ -184,30 +267,34 @@ export function noStagedWorkspaceOverlayCommit(): StagedWorkspaceOverlayCommit |
 }
 
 /**
- * The commit that belongs to the open overlay, or `null` when the slot holds
- * nothing for it.
+ * The commit belonging to the history entry currently on screen, or `null`.
  *
- * The identity check is the safeguard, not a formality: a slot left over from a
- * different overlay must not be offered to this one.
+ * The token match is the safeguard, not a formality: a slot staged for a different
+ * entry — an earlier screen, a spent decision, a different row of the same list —
+ * must never answer this one.
  */
-export function commitForOpenOverlay(
+export function commitForHistoryEntry(
   slot: StagedWorkspaceOverlayCommit | null,
-  openOverlayId: string | null,
+  entryCommitToken: string | null,
 ): WorkspaceOverlayCommit | null {
-  if (slot === null || openOverlayId === null) return null;
-  return slot.overlayId === openOverlayId ? slot.commit : null;
+  if (slot === null || entryCommitToken === null) return null;
+  return slot.token === entryCommitToken ? slot.commit : null;
 }
 
 /**
- * The plain-words reason the open overlay's decision cannot be carried out, or
- * `null` when it can.
+ * The refusal standing in the way of the open overlay's decision, or `null`.
  *
  * TOTAL over the three states the slot can be in, and pure, so the rule can be
- * proved directly rather than inferred from a rendered button. Both non-null
- * answers refuse; only a staged `record` commit returns `null`.
+ * proved directly rather than inferred from a rendered button. Only a staged
+ * `record` commit returns `null`; the other two refuse, and differ in how far the
+ * refusal reaches.
  */
-export function commitUnavailableReasonFor(commit: WorkspaceOverlayCommit | null): string | null {
-  if (commit === null) return NO_STAGED_COMMIT_REASON;
-  if (commit.kind === "unavailable") return commit.reason;
+export function commitRefusalFor(commit: WorkspaceOverlayCommit | null): OverlayCommitRefusal | null {
+  // Nothing staged. This says "nothing can be RECORDED here", which is not a
+  // statement that can be made about a row recording nothing (Ruling 90).
+  if (commit === null) return { reason: NO_STAGED_COMMIT_REASON, scope: "recording-rows-only" };
+  // A screen said so, in its own words. It meant this row, whatever the row does —
+  // an exit a screen has not built is still an exit that would go nowhere.
+  if (commit.kind === "unavailable") return { reason: commit.reason, scope: "every-row" };
   return null;
 }
