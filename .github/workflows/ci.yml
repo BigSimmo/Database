@@ -362,6 +362,10 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run sitemap:check
 
+      - name: Repo awareness snapshot
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:repo-awareness-snapshot
+
       - name: Therapy data index drift
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:therapy-data-index
