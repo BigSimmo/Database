@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "9f09d0344aeba4e7ccbf47320204d06488aa6989",
-    "committed_at": "2026-08-24T16:52:47Z"
+    "sha": "e15a1071ec47aeab0386f00874bb31213579d43b",
+    "committed_at": "2026-08-25T03:30:47+08:00"
   },
   "routes": {
     "modes": [
@@ -281,6 +281,11 @@
       {
         "path": "/mockups/answer-chat-perfected",
         "file": "src/app/mockups/answer-chat-perfected/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/answer-chat-perfected-v2",
+        "file": "src/app/mockups/answer-chat-perfected-v2/page.tsx",
         "area": "mockup"
       },
       {
@@ -1334,9 +1339,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 184,
+      "pages": 185,
       "product_pages": 65,
-      "mockup_pages": 119,
+      "mockup_pages": 120,
       "redirects": 17,
       "api": 56
     }
@@ -3704,6 +3709,14 @@
         "scope": "Run PR sweep: main sync",
         "outcome": "before: CI already green on prior head; branch behind main only (mergeable_state: behind), confirmed clean via git merge-tree. No fix needed. Synced via mcp__github__update_pull_request_branch (authenticated human identity). No unresolved review threads. CI re-running on new head.",
         "checks": "no local gate re-run needed (prior head was fully green); no provider-backed checks run"
+      },
+      {
+        "date": "2026-08-24",
+        "ref": "PR #2346",
+        "head": "586ee8182c7bee69385f47dc215ee0ddcfd5d9da",
+        "scope": "answer page redesign handover",
+        "outcome": "Reviewed the handover and the perfected mockup against the live answer surface. Two core decisions (one-colour mark, one source per drawer) confirmed sound and kept. Seven findings; four are defects: overlapping mark tap targets can open the wrong source, box-shadow ring plus background wash both drop in forced-colors, the streaming frame draws a shape the stream contract excludes by name, and the verification line contradicts the placement answer-result-surface records (#207/#227/#228). Three gaps: only 1 of 5 AnswerState kinds drawn (source_only was ~2/3 of the cited sample), supportLevel needs four treatments not two, no citation-feedback control. Corrections landed in handover section 12 plus new section 2b; corrected design built at /mockups/answer-chat-perfected-v2 in PR #2356. No production surface changed.",
+        "checks": "lint, typecheck, test (831 files / 10011 passed), verify:pr-local, build, check:bundle-budget (mockups 522.0 KiB vs 487.6 KiB baseline, within tolerance), Chromium browser check at 390px and 1440px, Chromium forcedColors active"
       },
       {
         "date": "2026-08-23",
@@ -7723,8 +7736,8 @@
       }
     ],
     "counts": {
-      "records": 518,
-      "refs": 320
+      "records": 519,
+      "refs": 321
     }
   }
 }
