@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { appModeIcons } from "../src/lib/app-mode-icons";
 import { appModeIds } from "../src/lib/app-modes";
 import {
+  APP_MODE_ACCENT,
   APP_MODE_ICON,
   CATEGORY_ACCENTS,
   CATEGORY_ICON_KEYS,
@@ -29,6 +30,48 @@ describe("category identity registry", () => {
     for (const mode of appModeIds) {
       expect(APP_MODE_ICON[mode], `mode "${mode}" has no glyph`).toBeTruthy();
     }
+  });
+
+  it("covers every app mode with a category accent", () => {
+    for (const mode of appModeIds) {
+      expect(APP_MODE_ACCENT[mode], `mode "${mode}" has no accent`).toBeTruthy();
+      expect(CATEGORY_ACCENTS, `mode "${mode}" accent is not a category accent`).toContain(APP_MODE_ACCENT[mode]);
+    }
+  });
+
+  it("gives the also-matches screenshot cluster distinct accents", () => {
+    const cluster = ["prescribing", "services", "forms", "dsm"] as const;
+    const accents = cluster.map((mode) => APP_MODE_ACCENT[mode]);
+    expect(new Set(accents).size).toBe(cluster.length);
+  });
+
+  it("paints also-matches cards from APP_MODE_ACCENT through data-category-accent", () => {
+    const source = readFileSync(
+      new URL("../src/components/clinical-dashboard/universal-search-also-matches.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("APP_MODE_ACCENT");
+    expect(source).toContain("data-category-accent={accent}");
+    expect(source).not.toContain("cardAccentEdge");
+    expect(source).toContain("search.statusLabel");
+    expect(source).toContain("bg-[color:var(--cat-soft)]");
+    expect(source).toContain("grid-cols-1");
+    expect(source).toContain("Also matches");
+    expect(source).not.toContain("Across Clinical KB");
+  });
+
+  it("tints library chips from APP_MODE_ACCENT", () => {
+    const source = readFileSync(
+      new URL("../src/components/clinical-dashboard/cross-mode-links.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("APP_MODE_ACCENT[link.modeId]");
+    expect(source).toContain("data-category-accent={APP_MODE_ACCENT[link.modeId]}");
+    expect(source).toMatch(/<article[\s\S]*?data-category-accent=\{APP_MODE_ACCENT\[link\.modeId\]\}/);
+    expect(source).toContain("hover:text-[color:var(--cat-accent)]");
+    expect(source).toContain("hover:border-[color:var(--cat-border)]");
+    expect(source).toContain("hover:bg-[color:var(--cat-soft)]");
+    expect(source).not.toMatch(/hover:(?:text|border|bg)-\[color:var\(--clinical-accent(?:-border|-soft)?\)\]/);
   });
 
   // The defect this registry was built to stop: `guidelines` and `risk-safety`

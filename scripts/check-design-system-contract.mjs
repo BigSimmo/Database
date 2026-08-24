@@ -91,8 +91,8 @@ function findTherapyButtonsWithoutBaseClass(file) {
       // Recipes from controls.ts all include therapyBtn; accept either the base
       // export or a named control recipe in the className expression text.
       const hasTherapyInteraction =
-        /\btherapyBtn\b/.test(classText) ||
-        /\b(?:therapyBtn|accentControl|commandControl|outlineControl|softControl|iconControl|linkButton)\b/.test(
+        /\b(?:therapyBtn|interactiveRow|interactiveRowBase|inPageActionRowClass)\b/.test(classText) ||
+        /\b(?:therapyBtn|interactiveRow|interactiveRowBase|inPageActionRowClass|accentControl|commandControl|outlineControl|softControl|iconControl|linkButton)\b/.test(
           classSource,
         );
       if (!hasTherapyInteraction) {

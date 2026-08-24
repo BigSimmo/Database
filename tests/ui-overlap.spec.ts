@@ -189,6 +189,40 @@ test.describe("Header element overlap coverage", () => {
   }
 
   for (const viewport of [
+    { name: "narrow-phone", width: 360, height: 780 },
+    { name: "phone", width: 390, height: 820 },
+  ] as const) {
+    test(`in-page action group stays inside the header gutter on ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoDashboard(page);
+      await page.goto("/therapy-compass/cognitive-behavioural-therapy-cbt", { waitUntil: "domcontentloaded" });
+
+      const back = page.getByRole("link", { name: /Back to /i });
+      const actionGroup = page.getByTestId("therapy-detail-action-group");
+      await expect(actionGroup).toBeVisible({ timeout: 30_000 });
+      await expect(back).toBeVisible();
+
+      // Same contract as hamburger / new-chat: --header-edge-pad (~16px) with
+      // 2px subpixel tolerance. Headless Chromium reports safe-area insets as 0.
+      await expect(async () => {
+        const backBox = await back.boundingBox();
+        const groupBox = await actionGroup.boundingBox();
+        expect(backBox, "back control must have geometry").not.toBeNull();
+        expect(groupBox, "action group must have geometry").not.toBeNull();
+
+        const leftInset = backBox!.x;
+        const rightInset = viewport.width - (groupBox!.x + groupBox!.width);
+        expect(leftInset, "left back inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+        expect(rightInset, "right action-group inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+        expect(
+          Math.abs(leftInset - rightInset),
+          `left/right insets should match (left=${leftInset}, right=${rightInset})`,
+        ).toBeLessThanOrEqual(2);
+      }).toPass({ timeout: 15_000 });
+    });
+  }
+
+  for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {

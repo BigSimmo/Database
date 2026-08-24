@@ -28,7 +28,7 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
-import { cn } from "@/components/ui-primitives";
+import { cn, searchShell, searchShellInput } from "@/components/ui-primitives";
 import {
   allDictionaryEntries,
   dictionaryBrowseLetter,
@@ -900,14 +900,14 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
               </span>
             </p>
             <div className="mt-5 flex gap-2">
-              <label className="flex min-h-tap min-w-0 flex-1 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 sm:min-h-10">
+              <label className={cn(searchShell, "min-w-0 flex-1 sm:min-h-10")}>
                 <Search className="size-icon-sm text-[color:var(--decoration-soft)]" aria-hidden="true" />
                 <span className="sr-only">Search this topic</span>
                 <input
                   defaultValue={searchParams.get("q") ?? ""}
                   onChange={(event) => setOne("q", event.target.value)}
                   placeholder="Search this topic"
-                  className="min-w-0 flex-1 bg-transparent text-base outline-none sm:text-sm"
+                  className={cn(searchShellInput, "text-base sm:text-sm")}
                 />
               </label>
               <button

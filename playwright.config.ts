@@ -109,5 +109,23 @@ export default defineConfig({
       grepInvert: mockupTag,
       use: { ...devices["Desktop Safari"] },
     },
+    {
+      name: "mobile-webkit",
+      testMatch: productionSpecPattern,
+      grepInvert: mockupTag,
+      use: { ...devices["iPhone 14"] },
+    },
+    {
+      name: "mobile-pwa-standalone",
+      testMatch: productionSpecPattern,
+      grepInvert: mockupTag,
+      use: {
+        ...devices["iPhone 14"],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 3,
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
   ],
 });

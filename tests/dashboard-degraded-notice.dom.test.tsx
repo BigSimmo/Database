@@ -38,7 +38,8 @@ describe("DegradedNoticeFrame", () => {
     const { rerender } = render(<DegradedNoticeFrame visible={false} isOnline reserveSpace />);
 
     const reservedEmpty = screen.getByTestId("dashboard-degraded-notice-frame");
-    expect(reservedEmpty).toHaveClass("min-h-[3.875rem]");
+    expect(reservedEmpty).toHaveClass("sm:min-h-[3.875rem]", "max-sm:h-0");
+    expect(reservedEmpty).not.toHaveClass("min-h-[3.875rem]");
     expect(reservedEmpty).toHaveAttribute("data-visible", "false");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
@@ -52,7 +53,7 @@ describe("DegradedNoticeFrame", () => {
     rerender(<DegradedNoticeFrame visible isOnline reserveSpace />);
 
     const reservedFrame = screen.getByTestId("dashboard-degraded-notice-frame");
-    expect(reservedFrame).toHaveClass("min-h-[3.875rem]");
+    expect(reservedFrame).toHaveClass("sm:min-h-[3.875rem]", "max-sm:h-0");
     expect(screen.getByRole("alert")).toHaveTextContent("Service unavailable");
 
     rerender(<DegradedNoticeFrame visible={false} isOnline />);

@@ -201,6 +201,23 @@ export function getDsmDiagnosis(slug: string) {
   return diagnosisBySlug.get(slug.toLowerCase());
 }
 
+export function resolveDsmCompareIds(slugs: readonly (string | null | undefined)[]): {
+  diagnoses: DsmDiagnosis[];
+  selectedIds: Array<string | null>;
+} {
+  const diagnoses: DsmDiagnosis[] = [];
+  const seenSlugs = new Set<string>();
+  const selectedIds = slugs.map((slug) => {
+    if (!slug) return null;
+    const diagnosis = getDsmDiagnosis(slug);
+    if (!diagnosis || seenSlugs.has(diagnosis.slug)) return null;
+    seenSlugs.add(diagnosis.slug);
+    diagnoses.push(diagnosis);
+    return diagnosis.slug;
+  });
+  return { diagnoses, selectedIds };
+}
+
 export function dsmCriteria(diagnosis: DsmDiagnosis) {
   return diagnosis.criteria_display.length > 0 ? diagnosis.criteria_display : diagnosis.key_features;
 }

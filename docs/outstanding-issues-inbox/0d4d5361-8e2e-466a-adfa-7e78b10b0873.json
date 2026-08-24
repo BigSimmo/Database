@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0d4d5361-8e2e-466a-adfa-7e78b10b0873",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#XN95DM",
+    "outcome": "Resolved: Updated tests/gate-receipts.test.ts to probe filesystem executable bit capability dynamically, skipping unsupported working-tree chmod assertions on Windows Dev Drive (core.fileMode=false) while preserving index-mode test coverage.",
+    "baseRowFingerprint": "86610b175900f9b99ea79b8c432116c043532bbc722de70f9b38ee0c168a25ea"
+  }
+}
