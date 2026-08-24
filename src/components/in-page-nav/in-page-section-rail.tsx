@@ -87,7 +87,7 @@ export function InPageSectionRail({
     <nav
       aria-label={label}
       data-testid={`${testIdPrefix}-section-rail`}
-      className="border-t border-[color:var(--border)] sm:mt-2 sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]"
+      className="mt-2 border-t border-[color:var(--border)] sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]"
     >
       <div className="mode-nav" data-density-profile={density}>
         <ul className="mode-nav__bar h-12 items-stretch px-1">
