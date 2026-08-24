@@ -5,8 +5,11 @@ import { NOW_ANCHOR, allEmergencyDepartments, allUnits } from "@/components/ward
 /**
  * Hand-authored movements covering the states volume alone cannot guarantee: three declines
  * with nowhere eligible left, a status change mid-referral, a movement that never completed,
- * two legal-form breaches, every stage in the pathway at least once, and the older-adult and
- * specialling pressure that is normal — not exceptional — on a busy metro night.
+ * every stage in the pathway at least once, and the older-adult and specialling pressure that
+ * is normal — not exceptional — on a busy metro night. (Earlier revisions of this fixture
+ * authored two Form 1A "legal-form breaches" here; the 2026-08-23 product-owner correction
+ * removed every `dueAt` from every Form 1A, so no legal-form breach exists in this fixture any
+ * longer — see `LegalForm`'s doc comment in `ward-model.ts`.)
  */
 const seededMovements: Movement[] = [
   {
@@ -19,7 +22,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR - 15 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
@@ -110,7 +113,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR - 40 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "handover_ready",
     owner: "ED mental health team",
@@ -295,7 +298,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 260 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [
       { at: NOW_ANCHOR - 40, from: "Voluntary", to: "Detained awaiting examination", by: "Duty psychiatrist" },
     ],
@@ -342,7 +345,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: true,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 200 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
@@ -436,7 +439,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR + 220 },
+    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
     statusChanges: [],
     stage: "bed_held",
     owner: "Flow coordinator",
@@ -617,13 +620,15 @@ function routineMovements(count: number, startIndex: number): Movement[] {
       sex,
       specialling: index % 11 === 0,
       legalStatus: index % 3 === 0 ? "Referred for psychiatric examination" : "Voluntary",
+      // 2026-08-23: no Form 1A in this model carries a dueAt (see LegalForm's own doc comment
+      // in ward-model.ts) — the product owner's instruction was to drop the legal countdown
+      // entirely, not to derive a corrected one, so this generator authors none.
       legalForm:
         index % 3 === 0
           ? {
               code: "1A",
               label: "Referral for examination",
               kind: "examination" as const,
-              dueAt: NOW_ANCHOR + (((index * 53) % 400) - 60),
             }
           : undefined,
       statusChanges: [],

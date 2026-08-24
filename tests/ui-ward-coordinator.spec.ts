@@ -265,28 +265,28 @@ test.describe("Ward Flow coordinator screen", () => {
     const firstRowScore = await firstRow.getAttribute("data-score");
     await expect(firstRow).toContainText(`Operational ${firstRowScore}`);
 
-    // The breach line is the row a coordinator must not miss, and it must be able to vanish
-    // silently for neither direction (Task 5 review Important 3).
+    // The breach line used to be the row a coordinator must not miss (Task 5 review Important
+    // 3, then Task 6A fix round 1, then the clinician's "Bed need confirmed" factor added
+    // 2026-08-22 — see this test's history for how WF-017/WF-009/WF-303 used to be pinned here).
     //
-    // Task 6A fix round 1 corrected two errors this comment used to carry (WF-017 as "first
-    // row", and "Form 2A" instead of "1A"). The clinician's "Bed need confirmed" factor, added
-    // 2026-08-22, moves the goalposts a second time: a movement whose examination outcome is
-    // recorded as `inpatient_order` now outranks one nobody has assessed at all, inside the
-    // same tier. WF-009 and WF-017 both carry that confirmed need and both carry a Form 3B with
-    // no `dueAt` (Task 6A deleted the fabricated one, so a 3B can never be breached) — they now
-    // rank rows 1 and 2 ahead of WF-303, which carries the breached Form 1A but no confirmed
-    // need. So `firstRow`/`secondRow` can no longer be used to prove the breach line renders —
-    // by design, neither of the top two rows has one to render — and the breach-line assertion
-    // is pinned by id instead, the same pattern the "shows a failing gate" test below already
-    // uses for WF-017/WF-009 for the identical reason (a fixture fact tied to a specific
-    // movement, not to whichever row currently ranks first).
-    await expect(firstRow).not.toContainText("passed its deadline");
-    const secondRow = rows.nth(1);
-    await expect(secondRow).not.toContainText("passed its deadline");
-    // Fixture assumption: WF-303 carries a breached Form 1A and no confirmed bed need, so it
-    // must still show the breach line — it just no longer does so from row 1 or 2.
-    const breachedRow = queue.locator('[data-testid="ward-queue-row-WF-303"]');
-    await expect(breachedRow).toContainText("passed its deadline");
+    // 2026-08-23 correction: put to the product owner directly, the instruction was to drop the
+    // legal countdown from this model entirely, not to get its deadline figure right — "please
+    // can you leave the legal part and just start a clock once the patient arrives to ED. Keep
+    // it simple for now." Neither a Form 1A nor a Form 3B carries a `dueAt` any longer (WF-303,
+    // the one movement this suite used to pin as "the genuine breach", now carries none — see
+    // `LegalForm`'s own doc comment in ward-model.ts). This supersedes ruling F17's requirement
+    // that the assertion be satisfied by a genuine breach: there is no longer such a thing as a
+    // legal breach for 1A/3B to prove, so the whole-page absence below replaces the old
+    // firstRow/secondRow/breachedRow pin rather than repointing it at a different movement.
+    // (Repointing at `ED_ACCESS_TARGET_MINUTES` instead was considered and rejected: measured
+    // against this fixture at `NOW_ANCHOR`, the longest current wait is under it, so no movement
+    // genuinely exceeds that target either — asserting one did would be a second fabrication of
+    // the exact kind this correction exists to remove.) This is a whole-page check, not a
+    // 1A/3B-scoped one, because the string itself is the thing that must not appear — on today's
+    // fixture the only other legal-form kinds, the transport/transfer forms 4A/4C (out of scope
+    // for this correction, still carrying a real `dueAt`), are not currently due in the past
+    // either, so the assertion is true for the whole page, not merely for 1A/3B rows.
+    await expect(queue).not.toContainText("passed its deadline");
 
     // Selecting a movement drives the rest of the screen.
     await firstRow.click();
