@@ -5582,14 +5582,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     const dialog = await openGuide(page);
-    // Seed the inset on :root. An inline style on the dialog node is lost when
-    // React re-renders the Sheet, which made contentPaddingBottom flake at 80px
-    // (5rem + 0) instead of 114px (5rem + 34px).
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--safe-area-bottom", "34px");
-    });
     const band = dialog.locator(".guide-tour-dock");
     await expect(band).toBeVisible();
+    // Seed the inset on :root and wait until content padding includes it. An
+    // inline style on the dialog node is lost when React re-renders the Sheet,
+    // which made contentPaddingBottom flake at 80px (5rem + 0) instead of 114px
+    // (5rem + 34px). Re-seed inside the poll so a late Sheet render cannot
+    // measure the unseeded token.
+    await expect
+      .poll(
+        async () => {
+          await page.evaluate(() => {
+            document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+          });
+          return band.evaluate((element) => {
+            const contentElement = element.closest('[role="dialog"]')?.querySelector("[data-guide-content]");
+            return contentElement ? Number.parseFloat(window.getComputedStyle(contentElement).paddingBottom) : 0;
+          });
+        },
+        { message: "guide content padding must include the seeded 34px safe-area inset (5rem + 34px)" },
+      )
+      .toBeGreaterThanOrEqual(114);
 
     const painted = await band.evaluate((element) => {
       const style = window.getComputedStyle(element);

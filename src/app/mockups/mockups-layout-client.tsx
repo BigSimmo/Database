@@ -55,6 +55,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // lines on screen at once.
   const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   const isWarningLineMockup = pathname === "/mockups/warning-line";
+  // Owns the also-matches panel as the subject; shared composer chrome would
+  // sit on top of a study about results-card identity.
+  const isAlsoMatchesAccentMockup = pathname === "/mockups/also-matches-accents";
   const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
   // Every direction in this study draws its own top bar, transcript and
   // composer inside phone/desktop frames — the reference system under review
@@ -132,6 +135,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
+        !isAlsoMatchesAccentMockup &&
         !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&
@@ -159,6 +163,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
+        !isAlsoMatchesAccentMockup &&
         !isAnswerHomeProposalMockup &&
         !isAnswerChatRedesignMockup &&
         !isAnswerChatPerfectedMockup &&

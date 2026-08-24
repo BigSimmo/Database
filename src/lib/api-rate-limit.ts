@@ -3,6 +3,7 @@ import { apiErrorPayloadSchema } from "@/lib/api-error-payload";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
+export type { RateLimitSubject };
 import { SENTRY_LOG_MESSAGES, sentryLog } from "@/lib/observability/sentry-logging";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
@@ -387,13 +388,17 @@ export async function consumeSubjectApiRateLimit(args: {
   // multiplying paid generation or upload/ingestion capacity. Reuse each
   // bucket's authenticated allowance as the aggregate anonymous ceiling.
   const globalDefaults = apiRateLimitDefaults[args.bucket];
+  const globalKey = `anon:${args.bucket}:global`;
+
+  const cachedSubjectDenial = tryReadDurableRateLimitDenyCache(args.subject.subjectKey, args.bucket);
+  if (cachedSubjectDenial) return cachedSubjectDenial;
+
+  const cachedGlobalDenial = tryReadDurableRateLimitDenyCache(globalKey, args.bucket);
+  if (cachedGlobalDenial) return cachedGlobalDenial;
+
   const subjectResult = await consumeAnonymousLimit(args.subject.subjectKey, limit, windowSeconds);
   if (subjectResult.limited) return subjectResult;
-  const globalResult = await consumeAnonymousLimit(
-    `anon:${args.bucket}:global`,
-    globalDefaults.limit,
-    globalDefaults.windowSeconds,
-  );
+  const globalResult = await consumeAnonymousLimit(globalKey, globalDefaults.limit, globalDefaults.windowSeconds);
   if (globalResult.limited) return globalResult;
   return {
     ...subjectResult,

@@ -139,6 +139,20 @@ describe("InPageNavHeader", () => {
     expect(screen.getByTestId("service-detail-header")).toBeInTheDocument();
   });
 
+  it("tokenizes the phone gutter instead of a literal px-3", () => {
+    // The collapse addon is a sibling of .edge-glass-header, so this class is
+    // the only thing that can keep the action pill on --header-edge-pad.
+    renderHeader();
+    const header = screen.getByTestId("service-detail-header");
+    expect(header).toHaveClass("inpage-nav-header");
+    expect(header.className).not.toMatch(/\bpx-3\b/);
+  });
+
+  it("keeps a phone gap between the action row and the section rail", () => {
+    renderHeader({ rail: { label: "Service sections" } });
+    expect(screen.getByTestId("service-section-rail")).toHaveClass("mt-2");
+  });
+
   it("keeps the phone-icon back control at the production tap-target floor", () => {
     // The visible label is `hidden sm:inline`. Without min-w-tap the hit target
     // collapses to ~40×48 on a phone and Production UI fails expectMinTouchTarget.
