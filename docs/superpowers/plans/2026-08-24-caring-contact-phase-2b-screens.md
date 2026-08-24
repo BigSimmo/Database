@@ -261,10 +261,11 @@ plain-words explanation, and at most one action. Must satisfy §4.4: an empty li
 says so and says what would change it; an empty list caused by there being no data says something
 different. Tests: both cases, plus forced-colors and 320px.
 
-**Task 2 — The list-read API pattern.** Extract the shape every list route will use from the existing
-`readHandler` factory: team-scoped, audited on read, with a documented refusal shape. No new route yet
-— this task produces the helper and its contract test, so the three list routes that follow cannot each
-invent their own.
+**Task 2 — CUT (Ruling 84).** `readHandler` already IS the list-read pattern: eight routes use it and
+four share the `COLLECTION = "all"` objectId convention. What survives is one requirement moved into
+the first list route's brief — a contract test pinning that **an empty list is 200 with an empty
+array, never a 404**, because `auditedRead` maps a null release to `denied` / `not-found` and an empty
+array must never be mistaken for that.
 
 **Task 3 — The overlay trigger.** One component/hook that opens an overlay by id through the existing
 History-API mechanism in `workspace-overlays.tsx`, so a screen wires a control to an overlay without
@@ -285,14 +286,18 @@ gate all green. The Patients link navigates.
 
 Approved design covers every screen here; nothing needs designing from nothing.
 
-- **Task 5 — Patients directory.** List, filter, empty state. Note that a `"patientDirectory"`
-  access-object-type is already defined in the domain, but no repository read is wired to it — so this
-  task builds the read as well as the screen. Reads `listPlans`, **not** `getEpisode` —
+- **Task 5 — Patients directory.** List, filter, empty state. **No new API (Ruling 85):**
+  `GET /api/caring-contacts/plans` already lists the team's plans through `readHandler`. The
+  `patientDirectory` access-object-type is NOT an unwired gap — the referrals route already uses it,
+  for patients who may not yet have a plan. Carries Task 2's surviving empty-list contract test.
+  Reads `listPlans`, **not** `getEpisode` —
   a directory does not need patient identifiers, and taking them would widen the data released to a
   list screen. If the approved design shows a name in the list, that is a difference to record and put
   to the owner, not a reason to call `getEpisode` per row.
 - **Task 6 — Patient overview.** The one screen that legitimately reads `getEpisode`. Carries design
-  correction #1 (first-contact-date control, spec §2.3).
+  correction #1 (first-contact-date control, spec §2.3) — which is a **screen** change only:
+  `schedule.ts` already takes and validates `firstContactDate`, and the plans POST schema already
+  accepts it and `firstContactReason` (Ruling 86). Do not build a second path.
 - **Tasks 7–9 — The four-stage activation** (agreement → pathway → personalisation → review), one task
   per one-to-two stages. Carries corrections #3 and #4: a distinct closing message type at month 12 and
   **nine** sendable contacts, not ten.

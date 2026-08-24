@@ -273,3 +273,52 @@ actually requires.
 
 Task C: fix round 1/5 (7 addressed, 0 open; commits `9a4cf055c`..`a865d6aa9`).
 **Task C: COMPLETE (commits `ac87293f2`..`a865d6aa9`, review clean, 6 minors deferred).**
+
+## Reading the API layer properly shrank the plan — three rulings
+
+Written while Task 1 ran. I went to write Task 2's brief, read the code it was meant to extract a
+pattern from, and found the pattern already there. Two more of the plan's premises fell over the same
+way. **All three came from recon reports that were factually correct and whose implications I had
+carried too far** — a distinction worth naming, because the reports are not at fault and the same
+mistake is available on every remaining task.
+
+**Ruling [84] — Task 2 (the list-read API pattern) is CUT.** — Why: `readHandler` in
+`caring-contacts-server/handler.ts` already IS the pattern. It gates on the demo flag, resolves the
+actor, opens the store, wraps the read in `auditedRead`, and maps outcomes to responses — including
+the subtle ones: `access-audit-unavailable` produces 503 (a read nobody can prove happened is worse
+than a read refused), failed produces 500, denied produces `not-found`. **Eight routes already use
+it** and four already share the `COLLECTION = "all"` objectId convention for a collection read.
+Extracting a helper from call sites that already share a factory would deliver a wrapper around a
+wrapper. — Cost if wrong: the three new list routes have no shared helper of their own — but they
+still share `readHandler`, which is where the audit and refusal semantics actually live, so the thing
+worth holding together is already held.
+
+**What survives the cut, and must move into the first list route's brief:** one contract test pinning
+that an **empty list is 200 with an empty array, never a 404**. That is not obvious from the code —
+`auditedRead` maps a null-or-undefined release to `denied`, which becomes `not-found`, and an empty
+array is neither. The factory's own comment says the trail cannot distinguish "you may not see these"
+from "there are none" for a list, which is exactly why the HTTP shape must be pinned by a test rather
+than left to reading.
+
+**Ruling [85] — Task 5 does NOT build a patients read; it consumes the one that exists.** — Why:
+`GET /api/caring-contacts/plans` already lists the team's plans via `readHandler`
+(`objectType: "plan"`, `kind: "search"`). The domain recon noted a `patientDirectory` access-object
+type "whose repository read isn't confirmed wired", and I read that as a gap. It is not: that object
+type is already used by the **referrals** route, deliberately, because a referral names a patient who
+may not yet have a plan. Both reads exist and they are different reads. — Cost if wrong: if a patients
+directory eventually needs patients with no plan and no referral, a new read appears then — but
+nothing built now becomes wrong, because listing plans is what a caseload screen shows.
+
+**Ruling [86] — design correction #1 is already implemented in the domain; only the control is
+missing.** — Why: spec section 2.3 (the coordinator sets the first contact date) is recorded in
+`phase-2a-visual-differences.md` as a difference the mockup does not reflect, and the plan routes it
+to Task 6 as though it were unbuilt. In fact `schedule.ts` takes `firstContactDate` and validates it,
+and the plans POST schema already accepts `firstContactDate` and `firstContactReason`. The correction
+is therefore a **screen** change only. — Cost if wrong: none identified; if the domain's handling
+turns out incomplete, Task 6 discovers it against a real API rather than building a second path.
+
+**The lesson, and it is the one to carry into every remaining brief.** A reconnaissance report tells
+you what it looked at. Three times here I turned "X was not confirmed wired" or "X is recorded as a
+difference" into "X does not exist", and each time the thing existed. **Before a brief says "build
+this", open the file and look.** The cost of not doing so is not a wasted task — it is a SECOND
+implementation of something that already works, sitting beside the first, both maintained.
