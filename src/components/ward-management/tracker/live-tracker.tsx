@@ -7,8 +7,28 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { edById } from "@/components/ward-management/ward-sites";
 
-import { stampAgeText, trackerRowState } from "./tracker-derivations";
+import { stampAgeText, trackerRowState, type TrackerLeg } from "./tracker-derivations";
 import styles from "./live-tracker.module.css";
+
+/**
+ * Which visual treatment each leg's badge carries. A `Record` over the full `TrackerLeg` union,
+ * not a chain of ternaries, so adding a leg is a compile error here rather than a badge that
+ * silently inherits the default.
+ *
+ * Only one distinction is drawn — "Collected", the patient physically in the vehicle — and the
+ * reasoning for drawing that one and no others is in `live-tracker.module.css` next to the class
+ * itself. `Cancelled` keeps the danger treatment it already had. `Arrived` maps to the same
+ * neutral badge as the pre-collection legs: an arrived movement is closed and `isOpen` keeps it
+ * off this screen entirely, so there is no arrival state here to give a treatment to.
+ */
+const LEG_BADGE_CLASS: Record<TrackerLeg, string> = {
+  Requested: styles.legBadge,
+  Accepted: styles.legBadge,
+  "En route": styles.legBadge,
+  Collected: styles.legBadgeInVehicle,
+  Arrived: styles.legBadge,
+  Cancelled: styles.legBadgeCancelled,
+};
 
 /**
  * Task 10: the coordinator's live tracker (`/ward-management/transport`, rewritten — spec §7:
@@ -86,7 +106,7 @@ export function LiveTracker() {
                 <li key={movement.id} data-testid={`ward-tracker-row-${movement.id}`} className={styles.vehicleRow}>
                   <div className={styles.vehicleHeader}>
                     <strong>{movement.id}</strong>
-                    <span className={leg === "Cancelled" ? styles.legBadgeCancelled : styles.legBadge}>{leg}</span>
+                    <span className={LEG_BADGE_CLASS[leg]}>{leg}</span>
                   </div>
                   <dl className={styles.vehicleDetails}>
                     <div className={styles.vehicleDetailRow}>
