@@ -17,8 +17,11 @@ import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { ShowAllChip } from "@/components/show-all-chip";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 
 import {
   calculatorDomainCandidateCount,
@@ -440,6 +443,14 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
                 </span>
               }
             />
+            <div className="pt-3">
+              <ShowAllChip
+                href={consolidatedModeSearchPath("calculators")}
+                icon={appModeIcons.calculators}
+                ariaLabel="Show all calculators"
+                testId="calculators-show-all"
+              />
+            </div>
             <ResultFilterSheet
               open={filterOpen}
               onClose={() => setFilterOpen(false)}
