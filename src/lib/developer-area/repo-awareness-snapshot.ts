@@ -59,8 +59,19 @@ export function resolveRepoFreshness(snapshot: RepoAwarenessSnapshot, now: Date)
  * local-time comparison.
  */
 export function isQuarantineExpired(entry: QuarantinedTest, now: Date): boolean {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(entry.expires);
+  if (!parts) return false;
+
+  const [, year, month, day] = parts;
   const endOfExpiryDay = new Date(`${entry.expires}T23:59:59.999Z`);
-  if (Number.isNaN(endOfExpiryDay.getTime())) return false;
+  if (
+    Number.isNaN(endOfExpiryDay.getTime()) ||
+    endOfExpiryDay.getUTCFullYear() !== Number(year) ||
+    endOfExpiryDay.getUTCMonth() !== Number(month) - 1 ||
+    endOfExpiryDay.getUTCDate() !== Number(day)
+  ) {
+    return false;
+  }
   return now.getTime() > endOfExpiryDay.getTime();
 }
 
