@@ -110,20 +110,24 @@ merged into one destination, with the site-wide composer as the mode’s only se
 ## Dictionary — Filter in the bar, Terms and A–Z beside the title (2026-08-23)
 
 Runnable study at [`/mockups/dictionary-heading-controls`](../src/app/mockups/dictionary-heading-controls/page.tsx).
-This is a layout question, not a production change: can Filter live in the results bar while the compact Terms /
-Abbreviations toggle and the A–Z chip sit next to **Clinical terms**?
+This is a layout question, not a production change.
 
-Yes. The query ribbon already has a utilities slot, and the heading can take trailing controls. The open product
-question is where Filter lives when there is no query — today the ribbon is absent while browsing.
+Round 1 asked whether Filter can leave the control row while the compact Terms / Abbreviations toggle and A–Z sit
+next to **Clinical terms**. Round 2 (2026-08-24) starts from the live search state: the query band currently sits
+_above_ the toggle, so a two-word query and Filter jam on one line. The browse stack to keep is title → toggle + A–Z
+→ results; the new directions put the display bar _under_ those buttons once there is text.
 
-| Direction         | Browse chrome                                     | Trade-off                                         |
-| ----------------- | ------------------------------------------------- | ------------------------------------------------- |
-| Now               | Title + control row (toggle, A–Z, Filter)         | Filter competes with the toggle for the same line |
-| 01 Persistent bar | Title + toggle + A–Z; Filter always in a slim bar | A bar is present even with no query               |
-| 02 Ribbon only    | Title + toggle + A–Z; no bar until a search       | You cannot facet the idle catalogue               |
+| Direction             | When text is there                                               | Trade-off                                           |
+| --------------------- | ---------------------------------------------------------------- | --------------------------------------------------- |
+| Now                   | Band above the toggle                                            | Count and query share one truncated line            |
+| 01 Persistent bar     | Toggle on the heading; Filter always in a slim bar               | A bar is present even with no query                 |
+| 02 Ribbon only        | Toggle on the heading; no bar until a search                     | You cannot facet the idle catalogue                 |
+| 03 Band under buttons | Title → toggle → production band                                 | Query still truncates against Filter                |
+| 04 Query chip         | Title → toggle → count + dismissible query chip + Filter         | Chip and Filter can wrap at 320 px                  |
+| 05 Query owns a line  | Title → toggle → full query, then count / clear / Filter         | Extra row, but both words of the query stay visible |
+| 06 Query field        | Title → toggle → query field + Filter; count lives on the toggle | Field is a second composer echo                     |
 
-At 390 px the full word “Abbreviations” plus A–Z will usually wrap under the title. Shared mockup chrome is suppressed
-because each frame draws its own top bar, mode nav and composer.
+Shared mockup chrome is suppressed because each frame draws its own top bar, mode nav and composer.
 
 ## Phone Choose mode sheet YES comps
 

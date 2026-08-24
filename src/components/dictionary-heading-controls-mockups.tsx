@@ -7,26 +7,21 @@ import { focusRing, letters, ResultRow, type SampleEntry } from "@/components/di
 import { cn } from "@/components/ui-primitives";
 
 /* ------------------------------------------------------------------ *
- * Dictionary → heading companions (2026-08-23)
+ * Dictionary → heading companions, round 2 (2026-08-24)
  *
- * Question: can Filter live in the results bar, while Terms / Abbreviations
- * and A–Z sit next to the page title?
+ * Round 1 asked whether Filter can leave the control row. Round 2 starts
+ * from the live search state: the query band currently sits *above* the
+ * Terms / Abbreviations toggle, so a two-word query and Filter fight for
+ * one line while the buttons sit underneath looking orphaned.
  *
- * Yes. The query ribbon already has a utilities slot; the heading can take
- * trailing controls the same way a document-viewer title does. The open
- * product question is where Filter lives when there is no query — today the
- * ribbon is absent while browsing.
+ * Image two (browse) already has the stack to keep:
+ *   title → toggle + A–Z → results
+ * These directions put the query display bar *under* those buttons when
+ * text is there, and try four ways to stop the count and the typed words
+ * jamming into one truncated phrase.
  *
- *   Now            Title alone; toggle, A–Z and Filter share a control row.
- *   01 Persistent  Title carries toggle + A–Z. Filter always has a home in a
- *                  slim results bar. A search fills that same bar with the
- *                  match count, the query, and clear.
- *   02 Ribbon only Title carries toggle + A–Z. Filter appears only once a
- *                  query runs. You cannot facet the idle catalogue.
- *
- * Tap the composer in any frame to run “mental state examination” and clear
- * it again. A–Z stands down during a search: the alphabet is meaningless
- * against a ranked result set.
+ * Tap the composer in any frame to run “mental state examination” and
+ * clear it again. A–Z stands down during a search.
  * ------------------------------------------------------------------ */
 
 const TERM_COUNT = 96;
@@ -35,16 +30,18 @@ const QUERY = "mental state examination";
 const QUERY_TERMS = 2;
 const QUERY_ABBRS = 2;
 
-type Layout = "now" | "persistent" | "ribbon";
+type BrowseLayout = "now" | "persistent" | "ribbon";
+type SearchLayout = "under-band" | "under-chip" | "under-own-line" | "under-field";
+type Layout = BrowseLayout | SearchLayout;
 
-function usePageState() {
+function usePageState({ startSearching = false, empty = false }: { startSearching?: boolean; empty?: boolean } = {}) {
   const [scope, setScope] = useState<"terms" | "abbr">("terms");
   const [letter, setLetter] = useState("All");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(startSearching || empty ? QUERY : "");
   const [sheet, setSheet] = useState<"none" | "letter" | "filter">("none");
   const searching = query.length > 0;
-  const termCount = searching ? QUERY_TERMS : TERM_COUNT;
-  const abbrCount = searching ? QUERY_ABBRS : ABBR_COUNT;
+  const termCount = searching ? (empty ? 0 : QUERY_TERMS) : TERM_COUNT;
+  const abbrCount = searching ? (empty ? 0 : QUERY_ABBRS) : ABBR_COUNT;
   const count = scope === "abbr" ? abbrCount : termCount;
   const noun = scope === "abbr" ? (count === 1 ? "abbreviation" : "abbreviations") : count === 1 ? "term" : "terms";
   return {
@@ -57,6 +54,7 @@ function usePageState() {
     sheet,
     setSheet,
     searching,
+    empty,
     termCount,
     abbrCount,
     count,
@@ -174,13 +172,38 @@ function FilterControl({ state }: { state: PageState }) {
       type="button"
       onClick={() => state.setSheet("filter")}
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-sm font-bold text-[color:var(--text-muted)]",
+        "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-sm font-bold text-[color:var(--text-muted)]",
         focusRing,
       )}
     >
       <Funnel className="size-icon-md shrink-0" aria-hidden="true" />
       Filter
     </button>
+  );
+}
+
+function ClearQuery({ state }: { state: PageState }) {
+  return (
+    <button
+      type="button"
+      onClick={() => state.setQuery("")}
+      aria-label={`Clear the search for ${state.query}`}
+      className={cn(
+        "grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]",
+        focusRing,
+      )}
+    >
+      <X className="size-icon-md" aria-hidden="true" />
+    </button>
+  );
+}
+
+function CountPhrase({ state, muted = false }: { state: PageState; muted?: boolean }) {
+  return (
+    <p className={cn("min-w-0 truncate text-sm", muted ? "text-[color:var(--text-muted)]" : null)}>
+      <span className="nums font-extrabold text-[color:var(--text-heading)]">{state.count}</span>{" "}
+      <span className="font-medium text-[color:var(--text-muted)]">{state.noun}</span>
+    </p>
   );
 }
 
@@ -201,19 +224,7 @@ function ResultsBar({ state, always }: { state: PageState; always: boolean }) {
           </>
         ) : null}
       </p>
-      {state.searching ? (
-        <button
-          type="button"
-          onClick={() => state.setQuery("")}
-          aria-label={`Clear the search for ${state.query}`}
-          className={cn(
-            "grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]",
-            focusRing,
-          )}
-        >
-          <X className="size-icon-md" aria-hidden="true" />
-        </button>
-      ) : null}
+      {state.searching ? <ClearQuery state={state} /> : null}
       <FilterControl state={state} />
     </div>
   );
@@ -231,13 +242,137 @@ function NowControlRow({ state }: { state: PageState }) {
   );
 }
 
+/* Image two’s button row: title stays alone, toggle + A–Z sit on the next
+   line. Filter only joins this row while browsing — once there is text, it
+   moves into the display bar underneath. */
+function ButtonsThenBarRow({ state, showFilter }: { state: PageState; showFilter: boolean }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2">
+      <ScopeToggle state={state} />
+      {state.searching ? null : <LetterChip state={state} />}
+      {showFilter ? (
+        <span className="ml-auto">
+          <FilterControl state={state} />
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function QueryBandCard({ state }: { state: PageState }) {
+  return (
+    <div className="px-3 pb-2">
+      <div
+        className="search-band relative flex min-h-11 items-center gap-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)]"
+        data-testid="dictionary-heading-mockup-bar"
+      >
+        <span className="search-band-lead shrink-0" data-tone="accent" aria-hidden="true" />
+        <CountPhrase state={state} />
+        <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden="true" />
+        <p
+          className="min-w-[2rem] flex-1 truncate text-sm font-medium text-[color:var(--text-muted)]"
+          title={state.query}
+        >
+          {state.query}
+        </p>
+        <ClearQuery state={state} />
+        <FilterControl state={state} />
+      </div>
+    </div>
+  );
+}
+
+function QueryChipBar({ state }: { state: PageState }) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 border-y border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1.5"
+      data-testid="dictionary-heading-mockup-bar"
+    >
+      <CountPhrase state={state} />
+      <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] py-1 pl-2.5 pr-1">
+        <span className="min-w-0 truncate text-xs font-bold text-[color:var(--clinical-accent)]">{state.query}</span>
+        <button
+          type="button"
+          onClick={() => state.setQuery("")}
+          aria-label={`Clear the search for ${state.query}`}
+          className={cn(
+            "grid size-8 shrink-0 place-items-center rounded-full text-[color:var(--clinical-accent)]",
+            focusRing,
+          )}
+        >
+          <X className="size-icon-xs" aria-hidden="true" />
+        </button>
+      </span>
+      <span className="ml-auto">
+        <FilterControl state={state} />
+      </span>
+    </div>
+  );
+}
+
+function QueryOwnLineBar({ state }: { state: PageState }) {
+  return (
+    <div
+      className="border-y border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2"
+      data-testid="dictionary-heading-mockup-bar"
+    >
+      <p className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">{state.query}</p>
+      <div className="mt-1.5 flex items-center gap-2">
+        <CountPhrase state={state} />
+        <span className="ml-auto flex items-center gap-2">
+          <ClearQuery state={state} />
+          <FilterControl state={state} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function QueryFieldBar({ state }: { state: PageState }) {
+  return (
+    <div className="flex items-center gap-2 px-3 pb-2" data-testid="dictionary-heading-mockup-bar">
+      <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3">
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">{state.query}</p>
+        <button
+          type="button"
+          onClick={() => state.setQuery("")}
+          aria-label={`Clear the search for ${state.query}`}
+          className={cn("grid size-8 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)]", focusRing)}
+        >
+          <X className="size-icon-sm" aria-hidden="true" />
+        </button>
+      </div>
+      <FilterControl state={state} />
+    </div>
+  );
+}
+
 function PageHeading({ state, companions }: { state: PageState; companions: boolean }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4 pb-2 pt-4">
+    <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4 pt-4", companions ? "pb-2" : "pb-1")}>
       <h3 className="min-w-0 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
         Clinical terms
       </h3>
       {companions ? <HeadingCompanions state={state} /> : null}
+    </div>
+  );
+}
+
+function EmptyCatalogue({ state }: { state: PageState }) {
+  return (
+    <div className="px-4 py-10 text-center">
+      <Search className="mx-auto size-icon-xl text-[color:var(--decoration-soft)]" aria-hidden="true" />
+      <p className="mt-3 text-lg font-extrabold text-[color:var(--text-heading)]">No matching dictionary entries</p>
+      <p className="mx-auto mt-1 max-w-xs text-sm font-medium text-[color:var(--text-muted)]">
+        Try a broader term, check the spelling, or clear the search to browse the catalogue.
+      </p>
+      <button
+        type="button"
+        onClick={() => state.setQuery("")}
+        className={cn("mt-4 min-h-11 rounded-lg px-4 text-sm font-bold text-[color:var(--clinical-accent)]", focusRing)}
+      >
+        Clear the search
+      </button>
     </div>
   );
 }
@@ -303,12 +438,12 @@ function SheetLayer({ state }: { state: PageState }) {
             </button>
             <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
               {letters.map((option) => {
-                const empty = emptyLetters.has(option);
+                const vacant = emptyLetters.has(option);
                 return (
                   <button
                     key={option}
                     type="button"
-                    disabled={empty}
+                    disabled={vacant}
                     onClick={() => {
                       state.setLetter(option);
                       close();
@@ -318,7 +453,7 @@ function SheetLayer({ state }: { state: PageState }) {
                       focusRing,
                       state.letter === option
                         ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                        : empty
+                        : vacant
                           ? "border-[color:var(--border)] text-[color:var(--disabled)]"
                           : "border-[color:var(--border)] text-[color:var(--clinical-accent)]",
                     )}
@@ -331,8 +466,8 @@ function SheetLayer({ state }: { state: PageState }) {
           </>
         ) : (
           <p className="text-sm font-medium text-[color:var(--text-muted)]">
-            Topics, kinds and sources stay in this sheet. Scope and letter stay on the heading so the sheet does not
-            hide the view you are already in.
+            Topics, kinds and sources stay in this sheet. Scope and letter stay on the page so the sheet does not hide
+            the view you are already in.
           </p>
         )}
       </div>
@@ -340,19 +475,28 @@ function SheetLayer({ state }: { state: PageState }) {
   );
 }
 
+function isSearchLayout(layout: Layout): layout is SearchLayout {
+  return layout === "under-band" || layout === "under-chip" || layout === "under-own-line" || layout === "under-field";
+}
+
 function PhoneFrame({
   layout,
   label,
   note,
   width = 390,
+  startSearching = false,
+  empty = false,
 }: {
   layout: Layout;
   label: string;
   note: string;
   width?: number;
+  startSearching?: boolean;
+  empty?: boolean;
 }) {
-  const state = usePageState();
-  const companions = layout !== "now";
+  const state = usePageState({ startSearching, empty });
+  const buttonsThenBar = isSearchLayout(layout);
+  const companions = layout === "persistent" || layout === "ribbon";
   return (
     <div className="max-w-full shrink-0" style={{ width: `${width}px` }}>
       <div className="mb-2 flex items-end justify-between gap-3">
@@ -397,7 +541,7 @@ function PhoneFrame({
             </span>
           ))}
         </div>
-        <div className="relative h-[26rem] overflow-y-auto pb-16">
+        <div className="relative h-[28rem] overflow-y-auto pb-16">
           <PageHeading state={state} companions={companions} />
           {layout === "now" ? (
             <>
@@ -409,29 +553,40 @@ function PhoneFrame({
                     <span className="px-1.5 font-medium text-[color:var(--text-soft)]">·</span>
                     <span className="font-extrabold text-[color:var(--text-heading)]">{state.query}</span>
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => state.setQuery("")}
-                    aria-label={`Clear the search for ${state.query}`}
-                    className={cn(
-                      "grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]",
-                      focusRing,
-                    )}
-                  >
-                    <X className="size-icon-md" aria-hidden="true" />
-                  </button>
+                  <ClearQuery state={state} />
                 </div>
               ) : null}
               <NowControlRow state={state} />
             </>
-          ) : (
+          ) : null}
+          {layout === "persistent" || layout === "ribbon" ? (
             <ResultsBar state={state} always={layout === "persistent"} />
+          ) : null}
+          {buttonsThenBar ? (
+            <>
+              <ButtonsThenBarRow state={state} showFilter={!state.searching} />
+              {state.searching ? (
+                layout === "under-band" ? (
+                  <QueryBandCard state={state} />
+                ) : layout === "under-chip" ? (
+                  <QueryChipBar state={state} />
+                ) : layout === "under-own-line" ? (
+                  <QueryOwnLineBar state={state} />
+                ) : (
+                  <QueryFieldBar state={state} />
+                )
+              ) : null}
+            </>
+          ) : null}
+          {state.empty && state.searching ? (
+            <EmptyCatalogue state={state} />
+          ) : (
+            <div className="mt-1">
+              {(state.searching ? queryEntries : catalogueEntries).map((entry) => (
+                <ResultRow key={entry.term} entry={entry} />
+              ))}
+            </div>
           )}
-          <div className="mt-1">
-            {(state.searching ? queryEntries : catalogueEntries).map((entry) => (
-              <ResultRow key={entry.term} entry={entry} />
-            ))}
-          </div>
         </div>
         <SiteComposer state={state} />
         <SheetLayer state={state} />
@@ -449,27 +604,85 @@ export function DictionaryHeadingControlsMockupsPage() {
             Dictionary · heading companions
           </p>
           <h1 className="mt-2 max-w-4xl text-balance text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-            Filter in the bar, Terms and A–Z beside the title
+            Buttons first, query bar underneath
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Possible: Filter already has a slot on the query ribbon, and the heading can take trailing controls. The
-            compact joined toggle is short enough to sit next to{" "}
-            <span className="font-semibold text-[color:var(--text)]">Clinical terms</span> without becoming a second
-            header. Tap the search bar in any frame to run a query and clear it again.
-          </p>
-          <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            At 390 px the full word “Abbreviations” plus A–Z will usually wrap under the title. That wrap is the thing
-            to judge: the title still owns those controls, and Filter is no longer competing for that line.
+            Browse already works as title, then Terms / A–Z, then results. The live search state inverts that: the query
+            band sits above the toggle, so “mental state examination” and Filter share one jammed line. These frames
+            keep the button row where it is and put the display bar underneath once there is text. Tap any composer to
+            clear or restore the query.
           </p>
         </div>
       </header>
 
-      <section aria-labelledby="browse-title" className="mx-auto max-w-[92rem] px-4 pt-8 sm:px-6 lg:px-8">
-        <h2 id="browse-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
-          Browse, then search
+      <section aria-labelledby="search-title" className="mx-auto max-w-[92rem] px-4 pt-8 sm:px-6 lg:px-8">
+        <h2 id="search-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
+          When text is there
         </h2>
         <p className="mt-1 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
-          Three layouts at the repo phone baseline. The composer in each frame toggles the same two-word query.
+          Same stack as the browse frame: title, then the joined toggle, then the query display. Four ways to stop the
+          count and the typed words colliding.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-6">
+          <PhoneFrame
+            layout="under-band"
+            startSearching
+            label="03 Band under buttons"
+            note="Production band moved under the toggle. Query still truncates against Filter."
+          />
+          <PhoneFrame
+            layout="under-chip"
+            startSearching
+            label="04 Query chip"
+            note="The typed words become a dismissible chip. Count and Filter no longer share that string."
+          />
+          <PhoneFrame
+            layout="under-own-line"
+            startSearching
+            label="05 Query owns a line"
+            note="The two-word query wraps in full. Count, clear and Filter stay on the stable row below."
+          />
+          <PhoneFrame
+            layout="under-field"
+            startSearching
+            label="06 Query field"
+            note="A cleaned field shows only the query. Count lives in the toggle, Filter sits beside the field."
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="zero-title" className="mx-auto max-w-[92rem] px-4 pt-8 sm:px-6 lg:px-8">
+        <h2 id="zero-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
+          Zero matches
+        </h2>
+        <p className="mt-1 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
+          The jammed live state. Count is zero, so it must not sit inside the query field. Direction 06 keeps “0” on the
+          toggle and the typed words in the field.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-6">
+          <PhoneFrame
+            layout="now"
+            startSearching
+            empty
+            label="Now · live order"
+            note="Band above the toggle. Zero count and the query share one line."
+          />
+          <PhoneFrame
+            layout="under-field"
+            startSearching
+            empty
+            label="06 Query field"
+            note="Toggle reads Terms 0. The field only holds the query. Empty state sits below."
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="browse-title" className="mx-auto max-w-[92rem] px-4 pt-8 sm:px-6 lg:px-8">
+        <h2 id="browse-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
+          Browse, for comparison
+        </h2>
+        <p className="mt-1 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
+          Round 1 frames. Image two is 02: title, then toggle and A–Z, no bar until a search.
         </p>
         <div className="mt-5 flex flex-wrap gap-6">
           <PhoneFrame layout="now" label="Now" note="Title alone. Toggle, A–Z and Filter share a control row." />
@@ -488,17 +701,17 @@ export function DictionaryHeadingControlsMockupsPage() {
 
       <section aria-labelledby="narrow-title" className="mx-auto max-w-[92rem] px-4 py-8 sm:px-6 lg:px-8">
         <h2 id="narrow-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
-          320 px · the wrap
+          320 px · query under the buttons
         </h2>
         <p className="mt-1 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
-          Direction 01 at the stress width. The heading companions wrap onto a second line; Filter stays in the bar
-          rather than squeezing a count.
+          Direction 05 at the stress width. The query keeps both words; Filter stays on the count row.
         </p>
         <div className="mt-5">
           <PhoneFrame
-            layout="persistent"
-            label="01 Persistent bar"
-            note="Wrap is expected. Filter is not on this line."
+            layout="under-own-line"
+            startSearching
+            label="05 Query owns a line"
+            note="Wrap is the query, not a fight with Filter."
             width={320}
           />
         </div>
