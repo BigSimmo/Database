@@ -16,6 +16,7 @@ import {
   getOpenSafetyPlanDraft,
 } from "./domain";
 import { PROTOTYPE_NOW, publicCrisisContacts } from "./fixtures";
+import { PatientNavigation } from "./patient-navigation";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
@@ -180,12 +181,18 @@ function ConfirmationState({ version }: { version: PersonalSafetyPlanVersion }) 
   );
 }
 
+/**
+ * Used by the reading surface only. The printed copy builds its own head, so
+ * the section navigation below never reaches paper — it is `data-print-hide`
+ * either way, but a document handed to a person should not depend on that.
+ */
 function SafetyIdentityBand({ patient }: { patient: Patient }) {
   return (
     <div data-testid="care-plan-safety-identity" className={styles.identityBand}>
       <SyntheticMarker />
       <h2 className={styles.patientName}>{patient.fullName}</h2>
       <p className={styles.sectionDescription}>{`${patient.mrn} — born ${formatPerthDate(patient.dateOfBirth)}`}</p>
+      <PatientNavigation patientId={patient.id} activeSection="safetyPlan" />
     </div>
   );
 }

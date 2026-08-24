@@ -506,10 +506,23 @@ export function ManagementPlanSurface({
                   ? "Not yet shown to this person."
                   : `Shown on ${formatPerthDate(currentManagementVersion.sharedWithPatientAt)}.`}
               </DefinitionRow>
+              {/*
+                The Patient Plan's one inbound link, and the reason it is here:
+                until Task 11 walked the running application, this sentence was
+                the only mention of the person's own copy anywhere outside the
+                Patient Plan's own three pages, and it was not a link — so a
+                whole feature of the specification could be reached only by
+                typing its address.
+              */}
               <DefinitionRow term="Patient Plan">
-                {currentPatientPlanVersion === null
-                  ? "No current Patient Plan has been written from this version."
-                  : `Current Patient Plan version ${currentPatientPlanVersion.version}.`}
+                <>
+                  {currentPatientPlanVersion === null
+                    ? "No current Patient Plan has been written from this version."
+                    : `Current Patient Plan version ${currentPatientPlanVersion.version}.`}{" "}
+                  <Link href={carePlanRoute.patientPlan(patient.id)} className={styles.inlineLink}>
+                    Open the Patient Plan
+                  </Link>
+                </>
               </DefinitionRow>
             </dl>
           </SectionFrame>

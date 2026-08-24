@@ -16,6 +16,7 @@ import {
   isPatientPlanVersionStale,
 } from "./domain";
 import { PROTOTYPE_NOW } from "./fixtures";
+import { PatientNavigation } from "./patient-navigation";
 import { groupPatientResources } from "./patient-plan-fixtures";
 import { PATIENT_PLAN_SECTION_LEAD_IN } from "./patient-plan-transform";
 import { useCarePlanPrototype } from "./prototype-provider";
@@ -229,12 +230,23 @@ function PrintedStaleBanner() {
   );
 }
 
+/**
+ * Used by the reading surface only; the printed copy builds its own head.
+ *
+ * The Patient Plan is not one of the five patient sections, so nothing in the
+ * navigation is marked as the current page — `null` is the documented value for
+ * a surface that is not itself a section. It is rendered here all the same,
+ * because without it this route is a dead end: a clinician who opens the
+ * person's own copy has no way back into the record but the browser's Back
+ * button.
+ */
 function PatientPlanIdentityBand({ patient }: { patient: Patient }) {
   return (
     <div data-testid="care-plan-patient-plan-identity" className={styles.identityBand}>
       <SyntheticMarker />
       <h2 className={styles.patientName}>{patient.fullName}</h2>
       <p className={styles.sectionDescription}>{`${patient.mrn} — born ${formatPerthDate(patient.dateOfBirth)}`}</p>
+      <PatientNavigation patientId={patient.id} activeSection={null} />
     </div>
   );
 }

@@ -380,10 +380,9 @@ describe("Care Plan route shell", () => {
         </CarePlanPrototypeProvider>,
       );
       expect(screen.queryByTestId("care-plan-route-purpose"), `${route} still shows a purpose surface`).toBeNull();
-      expect(
-        document.body.textContent ?? "",
-        `${route} still says its content is built later`,
-      ).not.toMatch(/built in a later stage of the prototype/i);
+      expect(document.body.textContent ?? "", `${route} still says its content is built later`).not.toMatch(
+        /built in a later stage of the prototype/i,
+      );
       unmount();
     }
   });
@@ -3139,6 +3138,74 @@ describe("Care Plan Personal Safety Plan print", () => {
   });
 });
 
+/**
+ * Every patient-scoped reading surface can be left again, and every route in
+ * the family can be reached by clicking.
+ *
+ * Found by walking the running application in Chromium for the first time, in
+ * Task 11. Ten tasks of route tests proved that each address renders; none
+ * asked whether a reader could get to it, or get out of it. The Patient Plan —
+ * a whole specification feature — was linked from nothing outside its own three
+ * pages, and the Personal Safety Plan and Patient Plan reading surfaces dropped
+ * the patient section navigation, so a clinician who opened either had no way
+ * back into the record but the browser's Back button.
+ *
+ * The `safetyPlan` member of `PatientSectionKey` is the fingerprint: it has
+ * existed since Task 3 and nothing ever passed it, because the route that would
+ * have done so did not render the navigation at all.
+ */
+describe("Care Plan patient-scoped navigation", () => {
+  it.each([
+    ["Personal Safety Plan", carePlanRoute.safetyPlan("SYN-PATIENT-001")],
+    ["Patient Plan", carePlanRoute.patientPlan("SYN-PATIENT-001")],
+  ])("keeps the patient section navigation on the %s reading surface", (_label, pathname) => {
+    renderRoute(pathname);
+    const nav = screen.getByRole("navigation", { name: "Patient sections" });
+    for (const [label, href] of [
+      ["Overview", carePlanRoute.patient("SYN-PATIENT-001")],
+      ["Management Plan", carePlanRoute.managementPlan("SYN-PATIENT-001")],
+      ["Personal Safety Plan", carePlanRoute.safetyPlan("SYN-PATIENT-001")],
+      ["ED Presentations", carePlanRoute.presentations("SYN-PATIENT-001")],
+      ["History", carePlanRoute.history("SYN-PATIENT-001")],
+    ] as const) {
+      expect(within(nav).getByRole("link", { name: label })).toHaveAttribute("href", href);
+    }
+  });
+
+  it("marks Personal Safety Plan as the current page on its own route", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    const nav = screen.getByRole("navigation", { name: "Patient sections" });
+    expect(within(nav).getByRole("link", { name: "Personal Safety Plan" })).toHaveAttribute("aria-current", "page");
+  });
+
+  /**
+   * The Patient Plan is not one of the five sections, so nothing in the
+   * navigation may claim to be the page the reader is on.
+   */
+  it("claims no current section on the Patient Plan route", () => {
+    renderRoute(carePlanRoute.patientPlan("SYN-PATIENT-001"));
+    const nav = screen.getByRole("navigation", { name: "Patient sections" });
+    for (const link of within(nav).getAllByRole("link")) {
+      expect(link, `${link.textContent} must not claim to be the current page`).not.toHaveAttribute("aria-current");
+    }
+  });
+
+  /**
+   * The one inbound link the Patient Plan has. The Management Plan already
+   * states, in words, whether a patient copy exists and which version it is;
+   * before Task 11 that sentence was the only mention of the Patient Plan
+   * anywhere outside its own pages, and it was not a link, so the route could
+   * not be reached by clicking from anywhere in the product.
+   */
+  it("links the Patient Plan from the Management Plan's review and sharing section", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    expect(screen.getByRole("link", { name: "Open the Patient Plan" })).toHaveAttribute(
+      "href",
+      carePlanRoute.patientPlan("SYN-PATIENT-001"),
+    );
+  });
+});
+
 describe("Care Plan error boundary", () => {
   function Thrower(): never {
     throw new Error("Two versions are recorded as Current for SYN-MGMT-PLAN-001.");
@@ -4256,9 +4323,7 @@ describe("Care Plan System states", () => {
 
     expect(hrefs).toEqual([
       CARE_PLAN_ROUTES.systemStates,
-      ...EVERY_SCENARIO.filter((scenario) => scenario !== "normal").map((scenario) =>
-        carePlanRoute.scenario(scenario),
-      ),
+      ...EVERY_SCENARIO.filter((scenario) => scenario !== "normal").map((scenario) => carePlanRoute.scenario(scenario)),
     ]);
   });
 
@@ -4325,9 +4390,7 @@ describe("Care Plan System states", () => {
 
     cleanup();
     renderScenarioJourney(CARE_PLAN_ROUTES.systemStates, "scenario=version-conflict");
-    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(
-      /A newer version of this record exists/,
-    );
+    expect(screen.getByTestId("care-plan-specimen-blocked")).toHaveTextContent(/A newer version of this record exists/);
   });
 
   it("refuses nothing in the ordinary world", () => {

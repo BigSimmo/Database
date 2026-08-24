@@ -58,6 +58,39 @@ describe("Playwright production-project isolation", () => {
   });
 
   /**
+   * The Care Plan prototype's only browser proof. Ten tasks of structural
+   * checking ran under `css: false` in jsdom, so this spec is the first and
+   * only thing that can see the prototype paint: the pinned safety boundary,
+   * the three print surfaces, and whether a link looks like a link. A regex
+   * edit that dropped it would not fail — it would silently leave the whole
+   * route family with no rendered evidence at all, on a green pull request.
+   */
+  it("collects the Care Plan prototype only in the advisory mockup project", () => {
+    const source = readFileSync(resolve(process.cwd(), "playwright.config.ts"), "utf8");
+    const productionSpecPattern = configPattern(source, "productionSpecPattern");
+    const mockupSpecPattern = configPattern(source, "mockupSpecPattern");
+    const testMatch = source.match(/testMatch:\s*(\/.*\/),/);
+    expect(testMatch, "playwright.config.ts: could not read the top-level testMatch regex").not.toBeNull();
+    const testMatchPattern = new RegExp(testMatch![1].slice(1, -1));
+    const spec = "tests/ui-care-plan-mockup.spec.ts";
+
+    expect(existsSync(resolve(process.cwd(), spec)), `${spec} is missing`).toBe(true);
+    expect(testMatchPattern.test(spec), `${spec} is not collected by top-level testMatch`).toBe(true);
+    expect(mockupSpecPattern.test(spec), `${spec} is not collected by chromium-mockups`).toBe(true);
+    expect(
+      productionSpecPattern.test(spec),
+      `${spec} leaked into the required production projects, where a red prototype would block a release`,
+    ).toBe(false);
+
+    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+    expect(packageJson.scripts?.["test:e2e:care-plan-mockup"]).toBe(
+      "node scripts/run-playwright.mjs --project=chromium-mockups tests/ui-care-plan-mockup.spec.ts",
+    );
+  });
+
+  /**
    * The phone-scroll coverage is split across sibling spec files so no single
    * file can dominate one `--shard`. That split only holds if every sibling is
    * actually collected: `productionSpecPattern` and `testMatch` are two more
