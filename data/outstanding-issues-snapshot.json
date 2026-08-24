@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39+00:00"
+    "committed_at": "2026-08-22T20:52:39Z"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 138,
+    "pending": 139,
     "resolved": 376
   },
   "queue": [
@@ -1204,6 +1204,12 @@
       "action": "cancel",
       "summary": "Cancel request 608150d5-7aa4-4b98-b497-1a9f1feaf4b5: Outcome stored a local account identifier under a personal home path; replace with repository-relative worktree logs, transcript filenames, and redacted home placeholders while keeping timestamps, hashes, and Claude Code 2.1.237 provenance.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "801d50ab-adbb-48e7-90ab-f8e6ed7ca588",
+      "action": "add",
+      "summary": "Caring Contacts: nothing enforces that a new workspace screen joins the browser spec's WORKSPACE_SCREENS",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "82838fb1-7ed2-4f37-bd50-191a603ecd0f",
