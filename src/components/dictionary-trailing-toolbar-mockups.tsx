@@ -35,7 +35,7 @@ const topicOptions = [
 ] as const;
 
 type Scope = "terms" | "abbreviations";
-type Sheet = "none" | "topics" | "letter" | "filter";
+type Sheet = "none" | "letter" | "filter";
 
 const queryEntries: readonly SampleEntry[] = [
   {
@@ -149,7 +149,6 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
   const termCount = searching ? TERM_COUNT_SEARCH : TERM_COUNT_BROWSE;
   const noun = scope === "abbreviations" ? "abbreviations" : "terms";
   const count = scope === "abbreviations" ? ABBR_COUNT : termCount;
-  const topicLabel = topicOptions.find((option) => option.id === topic)?.label ?? "Topics";
   const rows = searching ? queryEntries : letter === "M" ? queryEntries : sampleEntries;
   const filterOpen = sheet === "filter";
   const topicActive = topic !== "all";
@@ -173,8 +172,8 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
           </p>
           <p className="mt-0.5 text-3xs font-medium text-[color:var(--text-muted)]">
             {searching
-              ? "Topics stays on the title. Compact toggle stays underneath. A–Z stands down. Filter joins the band."
-              : "Topics sits with the title. Compact Terms / Abbr. and A–Z sit underneath on the right."}
+              ? "The original Filter band stays. Query and clear sit in it. Compact Terms / Abbr. and A–Z sit under the band."
+              : "The original Filter band stays even without a query. Compact Terms / Abbr. and A–Z sit under the band."}
           </p>
         </div>
         <span className="shrink-0 text-3xs font-bold text-[color:var(--text-soft)]">390 px</span>
@@ -183,85 +182,68 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
         <PhoneChrome>
           <div className="relative h-[30rem] overflow-y-auto pb-16">
             <div className="px-3 pb-2 pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="min-w-0 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
-                  Clinical terms
-                </h3>
+              <h3 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
+                Clinical terms
+              </h3>
+              <section
+                aria-label={searching ? `Search results for ${query}` : "Dictionary catalogue"}
+                className="search-band relative mt-3 flex min-h-tap items-center gap-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)]"
+              >
+                <span className="search-band-lead shrink-0" data-tone="accent" aria-hidden="true" />
+                <span className="search-band-count-word shrink-0 whitespace-nowrap text-sm text-[color:var(--text-muted)]">
+                  <span className="search-band-count nums font-extrabold text-[color:var(--text-heading)]">
+                    {count}
+                  </span>{" "}
+                  {noun}
+                </span>
+                {searching ? (
+                  <>
+                    <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden="true" />
+                    <h4
+                      className="search-band-subject min-w-[2rem] flex-1 truncate text-sm font-medium text-[color:var(--text-muted)]"
+                      title={query}
+                    >
+                      {query}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={goBrowse}
+                      aria-label={`Clear the search for ${query}`}
+                      className={cn(
+                        "search-band-ghost grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]",
+                        focusRing,
+                      )}
+                    >
+                      <X className="size-icon-md" aria-hidden="true" />
+                    </button>
+                  </>
+                ) : (
+                  <span className="min-w-0 flex-1" aria-hidden="true" />
+                )}
+                <ResultFilterTrigger
+                  panelId={panelId}
+                  testId={`dictionary-trailing-filter-${startSearching ? "search" : "browse"}`}
+                  open={filterOpen}
+                  activeCount={topicActive ? 1 : 0}
+                  onToggle={() => setSheet((current) => (current === "filter" ? "none" : "filter"))}
+                  title="Filter the dictionary catalogue"
+                  labelVisibility="always"
+                />
+              </section>
+              <div className="mt-2 flex items-center justify-end gap-1">
+                <ScopeToggle scope={scope} termCount={termCount} onChange={setScope} />
                 <button
                   type="button"
-                  onClick={() => setSheet("topics")}
+                  onClick={() => setSheet("letter")}
                   aria-haspopup="dialog"
-                  aria-label={`Topics — ${topicLabel}`}
-                  className={cn(
-                    "inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)]",
-                    focusRing,
-                    topicActive && "border-[color:var(--clinical-accent)]",
-                  )}
+                  aria-label={`Letters — ${letter === "All" ? "all letters" : `letter ${letter}`}`}
+                  className={cn(chip, focusRing)}
                 >
-                  {topic === "all" ? "Topics" : topicLabel}
+                  {letter === "All" ? "A–Z" : letter}
                   <ChevronDown className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
                 </button>
               </div>
-              <div className="mt-1.5 flex items-center justify-end gap-1">
-                <ScopeToggle scope={scope} termCount={termCount} onChange={setScope} />
-                {searching ? null : (
-                  <button
-                    type="button"
-                    onClick={() => setSheet("letter")}
-                    aria-haspopup="dialog"
-                    aria-label={`Letters — ${letter === "All" ? "all letters" : `letter ${letter}`}`}
-                    className={cn(chip, focusRing)}
-                  >
-                    {letter === "All" ? "A–Z" : letter}
-                    <ChevronDown className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
-                  </button>
-                )}
-              </div>
             </div>
-
-            {searching ? (
-              <div className="px-3 pb-2">
-                <section
-                  aria-label={`Search results for ${query}`}
-                  className="search-band relative flex min-h-tap items-center gap-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-1.5 shadow-[var(--shadow-inset)]"
-                >
-                  <span className="search-band-lead shrink-0" data-tone="accent" aria-hidden="true" />
-                  <span className="search-band-count-word shrink-0 whitespace-nowrap text-sm text-[color:var(--text-muted)]">
-                    <span className="search-band-count nums font-extrabold text-[color:var(--text-heading)]">
-                      {count}
-                    </span>{" "}
-                    {noun}
-                  </span>
-                  <span className="search-band-rule mx-0.5 h-[1.125rem] w-px shrink-0" aria-hidden="true" />
-                  <h4
-                    className="search-band-subject min-w-[2rem] flex-1 truncate text-sm font-medium text-[color:var(--text-muted)]"
-                    title={query}
-                  >
-                    {query}
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={goBrowse}
-                    aria-label={`Clear the search for ${query}`}
-                    className={cn(
-                      "search-band-ghost grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)]",
-                      focusRing,
-                    )}
-                  >
-                    <X className="size-icon-md" aria-hidden="true" />
-                  </button>
-                  <ResultFilterTrigger
-                    panelId={panelId}
-                    testId={`dictionary-trailing-filter-${startSearching ? "search" : "browse"}`}
-                    open={filterOpen}
-                    activeCount={topicActive ? 1 : 0}
-                    onToggle={() => setSheet((current) => (current === "filter" ? "none" : "filter"))}
-                    title="Filter the dictionary catalogue"
-                    labelVisibility="always"
-                  />
-                </section>
-              </div>
-            ) : null}
 
             <div className="mt-1">
               {rows.map((entry) => (
@@ -309,7 +291,7 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
               className="relative max-h-[24rem] overflow-y-auto rounded-t-2xl border-t border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--e3)]"
             >
               <p id={`${panelId}-title`} className="text-sm font-extrabold text-[color:var(--text-heading)]">
-                {sheet === "letter" ? "Jump to letter" : sheet === "topics" ? "Topics" : "Filter and sort"}
+                {sheet === "letter" ? "Jump to letter" : "Filter and sort"}
               </p>
               {sheet === "letter" ? (
                 <>
@@ -360,12 +342,16 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
                     })}
                   </div>
                 </>
-              ) : sheet === "topics" ? (
+              ) : (
                 <>
                   <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">
-                    One collection at a time. Kind and source stay in Filter.
+                    Topics, sort, kind, and source live here. Terms / Abbreviations and A–Z stay on the page under this
+                    band.
                   </p>
-                  <div role="radiogroup" aria-label="Topics" className="mt-3 grid gap-1.5">
+                  <p className="mt-3 text-xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">
+                    Topics
+                  </p>
+                  <div role="radiogroup" aria-label="Topics" className="mt-1.5 grid gap-1.5">
                     {topicOptions.map((option) => {
                       const checked = topic === option.id;
                       return (
@@ -374,10 +360,7 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
                           type="button"
                           role="radio"
                           aria-checked={checked}
-                          onClick={() => {
-                            setTopic(option.id);
-                            setSheet("none");
-                          }}
+                          onClick={() => setTopic(option.id)}
                           className={cn(
                             "flex min-h-11 items-center rounded-lg border px-3 text-left text-sm font-bold",
                             focusRing,
@@ -391,12 +374,6 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
                       );
                     })}
                   </div>
-                </>
-              ) : (
-                <>
-                  <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">
-                    Terms / Abbreviations and Topics stay on the page. This sheet is sort, kind, and source.
-                  </p>
                   <p className="mt-3 text-xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">
                     Sort
                   </p>
@@ -444,13 +421,12 @@ export function DictionaryTrailingToolbarMockupsPage() {
             Dictionary · trailing toolbar
           </p>
           <h1 className="mt-2 max-w-4xl text-balance text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
-            Compact Abbreviations and A–Z underneath on the right.
+            Keep the Filter band. Put Terms, Abbreviations, and A–Z under it.
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Topics sits on the title row, same trailing-corner pattern as Filter in the earlier study. The compact Terms
-            / Abbreviations toggle and A–Z sit underneath on the right — not on the title. A–Z is browse-only. Filter
-            stays the original control and only appears in the results band once a query runs. Tap the composer to feel
-            the handoff.
+            The original Filter band stays on browse and search — count, optional query, and Filter. Compact Terms /
+            Abbreviations and A–Z sit underneath on the right. Topics live inside Filter. Tap the composer to feel the
+            handoff.
           </p>
         </div>
       </header>
@@ -460,7 +436,8 @@ export function DictionaryTrailingToolbarMockupsPage() {
           Two states
         </h2>
         <p className="mt-1 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
-          Left starts as browse. Right starts as search. Kind and source remain inside Filter.
+          Left starts as browse. Right starts as search. Filter is always in the band. Compact Terms / Abbreviations and
+          A–Z sit under it. Topics live inside Filter.
         </p>
         <div className="mt-5 flex flex-wrap gap-6">
           <PhoneFrame startSearching={false} />

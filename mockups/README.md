@@ -111,7 +111,7 @@ merged into one destination, with the site-wide composer as the mode’s only se
 
 Runnable study at [`/mockups/dictionary-trailing-toolbar`](../src/app/mockups/dictionary-trailing-toolbar/page.tsx). Two frames.
 
-Title on the left, Topics on the right of that heading — the same trailing-corner pairing as Filter in the earlier study. Compact Terms / Abbreviations and A–Z sit **underneath on the right**, not on the title row. A–Z stands down during search; the original Filter occupies the results band.
+The original Filter band stays on browse and search (count, optional query, Filter). Compact Terms / Abbreviations and A–Z sit **under that band on the right**. Topics live inside Filter, not on the title row.
 
 Shared mockup chrome is suppressed because each frame draws its own top bar, mode nav and composer.
 
