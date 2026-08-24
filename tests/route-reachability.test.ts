@@ -542,7 +542,9 @@ if (workspaceHrefKeys.length === 0) {
 for (const key of workspaceHrefKeys) {
   const href = CARING_CONTACTS_ROUTES[key as CaringContactsRouteKey];
   if (!href) {
-    throw new Error(`route-reachability: the Caring Contacts shell links CARING_CONTACTS_ROUTES.${key}, which does not exist.`);
+    throw new Error(
+      `route-reachability: the Caring Contacts shell links CARING_CONTACTS_ROUTES.${key}, which does not exist.`,
+    );
   }
   builderTargets.add(pathOnly(href));
 }

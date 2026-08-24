@@ -1,0 +1,322 @@
+# Task 5 report — the Patients directory (absorbing Task 4)
+
+**Status:** complete, on branch `claude/browser-test-gate-handoff-d5c1db`, base `bb03d00b5`.
+Not pushed. No pull request opened. The Playwright browser gate was not run.
+
+---
+
+## 1. The two judgement calls you asked to see either way
+
+### 1.1 The approved design DOES show a patient's name. I stopped and did not reach for `getEpisode`.
+
+`PatientsDirectoryPage` in the design scratch renders `row.name` as the row heading, a
+`PersonAvatar` built from `row.initials`, and a search box placeholded **"Search name or synthetic
+ID"**. Its `filteredRows` filter matches on `` `${row.name} ${row.id}` ``. So the approved design
+shows a patient's name in the list in three separate places.
+
+Per the brief, that is your question, not mine. I did **not** call `getEpisode`, and I did not
+invent a second read that would release a name. The screen is built from `PlanRecord`, which
+carries no name, mobile number, identifier list or cultural identity by construction, and a row is
+therefore headed by the **synthetic patient identifier** the store actually releases to a list
+read. The row also states in words that this is a synthetic identifier, so the column is not
+mistakable for a name that failed to load.
+
+The decision you now own is one of three:
+
+1. **Leave it as built** — a directory identifies patients by synthetic identifier only. Nothing
+   further to do; this is the conservative option and the one that ships today.
+2. **Add a name column, from the patient's own record.** This requires a read that releases
+   `patientDetail`, which today means `getEpisode` — a read guarded by
+   `generateClinicalRecordSummary`, i.e. a capability meant for producing a clinical record
+   summary, not for drawing a list. Using it per row would also mean N audited episode reads to
+   paint one screen, each recorded against a named patient in the access trail.
+3. **Add a narrower read** — a list projection that releases a display name and nothing else,
+   guarded by `viewPatientRecord` rather than `generateClinicalRecordSummary`. That is a store
+   contract change (both repositories plus the shared contract suite) and belongs in its own task.
+
+My recommendation is (1) for now and (3) if a name is genuinely needed, because (2) widens the
+release rule for a screen whose whole job is orientation. I have not implemented (3).
+
+There is a related, smaller consequence: the design's search box searches names. Mine searches the
+synthetic patient, plan and referral identifiers, because those are the only things on the screen.
+
+### 1.2 Filtering is fully server-side. No client boundary was added.
+
+Two filters, both carried in the URL and read by the Server Component:
+
+- **Plan state** — a row of `<Link>` chips (`?state=active`, and so on). A link is a navigation,
+  so this needs no JavaScript and no state.
+- **Identifier search** — an ordinary `<form method="get" action={CARING_CONTACTS_ROUTES.patients}>`
+  with a text input named `q` and a submit button. A native GET form submission is a navigation
+  too. When a state filter is active it rides along as a hidden field, so searching cannot silently
+  widen a filter the clinician set.
+
+The only client component in the rendered tree is `UnavailableDestination`, which was already the
+workspace's only one. Nothing new crosses the boundary, so Ruling 13 is unaffected.
+
+An unrecognised or repeated `?state=` value falls back to "All" rather than throwing. A mistyped
+URL must widen a caseload, never fail the render, and the "All" chip is then marked current so the
+screen and the URL cannot disagree.
+
+---
+
+## 2. What was built
+
+| File                                                              | What it is                                                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/app/caring-contacts/patients/page.tsx`                       | The route. Server Component; two audited reads; fails closed on every bad outcome.          |
+| `src/components/caring-contacts/workspace/patients-directory.tsx` | The screen body. Pure Server Component: given records and a filter, decides what to show.   |
+| `src/components/caring-contacts/workspace/shell.tsx`              | `href: CARING_CONTACTS_ROUTES.patients` added to `PRIMARY_DESTINATIONS` (Task 4, absorbed). |
+
+Plus the four things that make it a real destination rather than an orphan: `npm run sitemap:update`
+(and a real description in `scripts/generate-site-map.ts`, not the generic "Route discovered from
+app directory"), an entry in `docs/codebase-index.md`, and a reachability assertion (§4 below).
+
+### The reads
+
+Both go through `auditedRead` — the same wrapper `readHandler` is built on — with the **same access
+identity the API routes already record**, so the trail does not grow a second vocabulary:
+
+- service state — `{ administrative, serviceState, "service" }`, so the safety banner on this screen
+  is a state that was genuinely read (Ruling 56);
+- plans — `{ search, plan, "all" }` and `store.listPlans({ actor })`, matching `plans/route.ts`'s
+  `GET` exactly.
+
+No HTTP. No `getEpisode` (pinned by a test that spies on it).
+
+### The three empty lists
+
+`ListEmptyState` names two facts. This screen has three, and the third is the one that would have
+lied:
+
+1. **`"no-data"`** — the team genuinely holds no plan. Explains how a first patient arrives (a
+   coordinator accepts a referral and claims a plan).
+2. **`"filtered"`** — plans exist, the filter or search is hiding all of them. The `because` names
+   which of the two filters is set, its value, and how many plans it is hiding; the `changedBy`
+   states the remedy, and a "Show every plan" link makes the remedy reachable rather than merely
+   described.
+3. **A role that may not view plans at all.** `listPlans` answers an actor without `viewReferral`
+   with `[]` — deliberately indistinguishable from "there are none", so nobody can probe for
+   records they may not see. A screen that only counted rows would therefore tell an auditor their
+   team has no patients. That is a false statement about a caseload and precisely the defect
+   `ListEmptyState` exists to prevent, so the page asks `canPerformCaringContactAction` the same
+   question the store asked and passes the answer down as `mayViewPlans`.
+
+**This third case is a judgement call I made, and you may want to overrule it.** I rendered it with
+the `"filtered"` kind, because that kind carries the reason-and-remedy shape the case needs, and
+because `"no-data"` would state something affirmatively false. The heading is "Plans are not visible
+in this role", so it does not claim plans exist — but `list-empty-state.tsx`'s own doc comment
+defines `"filtered"` as "records exist, but the current filter or search is hiding all of them",
+and strictly speaking this is a visibility rule rather than a filter. If you would rather
+`ListEmptyState` grew a third kind (`"not-permitted"`), that is a small change to a Group 0
+component and I did not make it unasked.
+
+### Explained automation (spec §4.4)
+
+One state on this screen was reached by the system on its own: `schedule.ts` suppresses the Week 1
+message when it falls on the same calendar day as the plan's first contact, because two caring
+contacts must never land on one day. A plan then carries nine sends, not ten, and the row's contact
+count would otherwise be a smaller number with no reachable reason. Such rows render
+`AutomatedState` in place, with why and what would change it, as text — never a hover title. A test
+pins that the reason is not carried by a `title` attribute, and another pins that nothing is said
+about suppression when the system suppressed nothing.
+
+### Ruling 52 vs. the brief's row hrefs — a deliberate deviation
+
+The brief says to build row hrefs from `patientRoute()` / `planRoute()`. **Those routes have no
+pages yet** (Tasks 6-7), so a link would 404, which is exactly what Ruling 52 forbids and exactly
+what the shell's own navigation avoids. The row's detail control is therefore an
+`UnavailableDestination` — `aria-disabled="true"`, an inert handler, `title="… — coming soon"`, and
+an `sr-only` reason — with a module comment naming `patientRoute()` as the href it takes once those
+pages land. Swapping the control for a `<Link href={patientRoute(record.patientId)}>` is the whole
+of that later change. A test asserts that no link on this screen points into the not-yet-built
+detail routes.
+
+This is not reachable in the demo today anyway: the in-memory repository seeds no plans, so the
+honest state of `/caring-contacts/patients` in a fresh demo is the `"no-data"` empty state.
+
+---
+
+## 3. Constraints, checked one by one
+
+- Internal navigation is `<Link>` throughout. No raw `<a href="/…">` was added.
+- Every `<button>` does something: one submit button inside the GET form, and
+  `UnavailableDestination`'s own control, which is `aria-disabled` with an inert handler. Native
+  `disabled` and `aria-disabled` never appear together.
+- Design tokens only; no hex. Tap targets are `min-h-tap` (`--spacing-tap: 3rem` = 48 px), which is
+  this repo's spelling of `min-h-12`. No `min-h-11` anywhere.
+- The service-state incident `note` never reaches a Client Component: `serviceState` is passed
+  server-side to the shell exactly as the Today page passes it, and no client component on this
+  screen receives it.
+- No import from `src/components/caring-contacts/mockups/**`. The guard is stricter than that — see
+  §6.1 — and the module now names the design-scratch component without its path.
+- Prohibited vocabulary: clean, including bare identifiers. Two near-misses worth recording, because
+  the next screen will hit them. `\bleads?\b` matches "team lead" and "Team Lead" (the hyphen and
+  the space are word boundaries; the identifier `teamLead` is safe because "L" follows a word
+  character), so the role-restriction copy deliberately does not name roles by that label. `\bsafe\b`
+  is likewise banned outright, which rules out the obvious phrasing "nothing is sent to a real
+  number, so this is safe".
+- Next.js 16: `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md` was
+  read before writing the route. `searchParams` is a **promise** and is awaited before use; reading
+  it makes the route dynamic, which is correct here — a cached copy of a caseload would outlive the
+  caseload, and the role cookie already made the sibling route dynamic for the same reason.
+
+---
+
+## 4. The reachability assertion, and why it needed more than a new test
+
+`tests/route-reachability.test.ts` finds inbound links by scanning JSX for `<Link href="…">` with a
+**literal** destination. The workspace shell renders `<Link href={href}>` from a frozen destination
+table, so the scan sees no path at all and `/caring-contacts/patients` read as an orphan (verified:
+it failed with exactly that message before the fix).
+
+`/caring-contacts` itself is not an orphan only because the tools catalogue names it, and that will
+not cover any further workspace screen. So rather than allowlisting a route that is genuinely
+linked, I added a builder-target source for the workspace, following the Therapy Compass precedent
+already in that file: it parses `shell.tsx` for `href: CARING_CONTACTS_ROUTES.<key>` entries and
+adds each resolved route. It throws loudly if it parses nothing, and throws if the shell names a
+route key that does not exist.
+
+That is not tautological, and I proved it: removing the `href` from the shell makes
+`/caring-contacts/patients` fail as an orphan again (§5, mutation M12). What stops the builder from
+vouching for a dead entry is `tests/caring-contacts-workspace-shell.dom.test.tsx`, which
+independently derives each destination's kind from the DOM and now asserts Patients is a **link**.
+
+**This is a shared file, and every future workspace screen now inherits the guard for free.** That
+is the intended shape: Task 6 adds an `href` to the shell and reachability follows automatically.
+
+---
+
+## 5. Verification
+
+### Mutation testing — every piece was broken and the covering test went red
+
+Each mutation was applied to the working tree, its presence proved by a `grep -c` run **separated
+by `;`, never `&&`** (the brief's warning is real: M12 below counted zero occurrences and `grep`
+exited 1, which would have silently skipped the test run under `&&`), then the suite was run, then
+the tree was reverted.
+
+| #   | Mutation                                                           | Result                                                                       |
+| --- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| M1  | Page calls `notFound()` when `records.length === 0`                | **red** — 3 failed, incl. "renders the empty STATE … never calls notFound()" |
+| M2  | Filtered-empty falls through to the `"no-data"` branch             | **red** — 3 failed, incl. both filtered-empty tests                          |
+| M3  | The `!mayViewPlans` branch removed                                 | **red** — 2 failed (component + page role tests)                             |
+| M4b | Page calls `store.getEpisode(...)` for the first record            | **red** — exactly 1 failed: "never reads the episode"                        |
+| M5  | Plans access `objectId` changed from `"all"` to `"plans"`          | **red** — 2 failed (both audit-identity tests)                               |
+| M6  | Plan-state filter removed from `matchesFilter`                     | **red** — 3 failed                                                           |
+| M6b | Identifier search neutralised                                      | **red** — 2 failed                                                           |
+| M7  | Row control replaced with a `<Link>` into the unbuilt detail route | **red** — exactly 1 failed (Ruling 52 test)                                  |
+| M9  | `AutomatedState` removed from the row                              | **red** — exactly 1 failed (explained-automation test)                       |
+| M10 | Hidden `state` field dropped from the GET form                     | **red** — exactly 1 failed                                                   |
+| M11 | `aria-current` dropped from the state chips                        | **red** — exactly 1 failed                                                   |
+| M12 | `href` removed from the shell's Patients destination               | **red** — reachability reports `/caring-contacts/patients` as an orphan      |
+
+A first attempt at M4 used an identifier the page does not import, so the page threw before the
+mutated call could run and four tests failed for the wrong reason. That is recorded here rather than
+quietly re-run: it is exactly the "the mutation did not measure what it claimed" failure the brief
+warns about. M4b is the corrected version and fails exactly one test.
+
+### Gates
+
+```
+npm run test        →  Tests  2 failed | 9851 passed | 74 skipped (9927)
+                       Test Files  1 failed | 815 passed | 3 skipped (819)
+```
+
+The two failures are the known environmental pair only, both in
+`tests/gate-receipts.test.ts > gate receipts — file modes`, failing in `chmodSync` because this
+Windows drive cannot represent Unix file modes:
+
+- `changes the signature when only the WORKING-TREE mode changes`
+- `keeps both modes, so one cannot cancel the other`
+
+**Nothing else failed.** An earlier full run showed two additional failures, both mine, both fixed
+and both described in §6.
+
+```
+npm run typecheck   →  [gate-receipts] recorded a pass for "typecheck:internal" (5226 input files)
+npm run lint        →  [gate-receipts] recorded a pass for "lint:internal" (5226 input files)
+```
+
+Both are **fresh** runs ("recorded a pass"), not reused receipts. Both were re-run after the final
+formatting pass.
+
+```
+npx prettier --check <every changed file>  →  All matched files use Prettier code style!
+```
+
+No gate failed to take a lock; no gate was skipped.
+
+### The browser gate — not run, and here is what I think it does
+
+I did not run `tests/ui-caring-contacts-workspace.spec.ts`, as instructed. **I do think this change
+can affect it**, in two ways:
+
+1. **The shell's Patients destination changed kind, from an unavailable button to a link.** Any
+   assertion in that spec that counts unavailable controls, or that expects the rail/phone-dock
+   Patients entry to be a `button`, will now see an `<a>`. The equivalent Vitest DOM assertions in
+   `caring-contacts-workspace-shell.dom.test.tsx` did fail on exactly this and I updated them
+   (unavailable-control count 16 → 14; rail and phone destination kinds). If the Playwright spec
+   carries the same counts, it will need the same update, and I could not verify that by running it.
+2. **A second production route now exists in the workspace.** I added
+   `src/app/caring-contacts/patients/page.tsx` to the `caring-contacts-workspace` surface's `routes`
+   in `docs/design-system/adoption-contract.json`, which was required — the adoption generator
+   refuses an undeclared production page route and blocked the commit until I did. **That surface
+   declares its dark / forced-colours / compact-320 / print / browser proof as `passed`, with that
+   Playwright spec as the evidence, and that spec has never visited `/caring-contacts/patients`.**
+   So the contract now claims proof for a route nothing has proved. I did not weaken the claim and I
+   did not edit a spec I cannot run. **Recommended: add a `/caring-contacts/patients` visit to
+   `tests/ui-caring-contacts-workspace.spec.ts` before that claim is honest.** This is the single
+   loosest thread I am leaving.
+
+---
+
+## 6. Two guards this change tripped, and what they taught
+
+### 6.1 The production/prototype separation is stricter than "no imports"
+
+`tests/caring-contact-route-files.test.ts` fails on any production workspace file whose source
+**mentions** `caring-contacts/mockups` at all — including inside a comment. My module note cited the
+approved design by file path, which is a reasonable thing to write and still fails the guard. The
+comment now names the component (`PatientsDirectoryPage`) without its path.
+
+Worth knowing for the next screen: the guard is a substring match on the source, not an import
+analysis, so "read the mockup as a specification" cannot be documented by path in a production file.
+
+### 6.2 A `git checkout --` in a mutation harness silently reverted an uncommitted fix
+
+The fix in §6.1 was made **after** the first commit and **before** the mutation runs. My mutation
+harness reverts each file with `git checkout -- <path>` after each mutation — which threw away that
+uncommitted fix without a word, and the guard failed again on the next full run. `git status` was
+clean, which is exactly what made it invisible.
+
+The lesson is the one already in the brief's preamble, sharpened: **commit before running a harness
+that reverts files**, not merely before waiting on a gate. Both fixes are now committed.
+
+The full-suite run that produced the numbers in §5 was taken **after** both were fixed.
+
+---
+
+## 7. Concerns and open threads, in order of how much they matter
+
+1. **The design shows a patient's name; the screen does not.** §1.1. Your decision. The screen ships
+   correctly either way; if a name is wanted, my recommendation is a narrow new list projection
+   rather than `getEpisode`.
+2. **The browser proof claim now covers a route the browser spec never visits.** §5. One added visit
+   in `tests/ui-caring-contacts-workspace.spec.ts` closes it. Until then, the adoption contract is
+   slightly ahead of the evidence.
+3. **The browser spec may need the same count updates the DOM test needed.** §5, item 1. I could not
+   check without running it.
+4. **The role-restriction empty state uses the `"filtered"` kind for something that is not a
+   filter.** §2. If you would rather add a third kind to `ListEmptyState`, say so and it is a small
+   change — but it touches a Group 0 component every later screen depends on, so I did not do it
+   unasked.
+5. **Prohibited vocabulary now bites on ordinary clinical English.** "team lead" and "safe" are both
+   unusable in interface copy. That is working as designed, but the next screens (Team, especially)
+   will collide with the first of those immediately, and it is better known now than discovered at
+   the gate.
+6. **The demo shows an empty caseload, honestly.** The in-memory repository seeds no plans, so a
+   fresh demo of `/caring-contacts/patients` renders the `"no-data"` state. That is the correct
+   behaviour, not a defect, but it means nobody will _see_ a row, an `AutomatedState`, or the
+   filtered-empty state without creating plans through `POST /api/caring-contacts/plans` first. All
+   three paths are covered by tests.

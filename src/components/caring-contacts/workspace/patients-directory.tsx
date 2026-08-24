@@ -161,8 +161,8 @@ export function PatientsDirectory({ records, filter, mayViewPlans }: PatientsDir
         This team&rsquo;s plans
       </h2>
       <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
-        One row for each caring-contact plan this team holds. Every patient here is invented, and a row names a
-        patient only by their synthetic identifier &mdash; a directory has no reason to hold a name or a number.
+        One row for each caring-contact plan this team holds. Every patient here is invented, and a row names a patient
+        only by their synthetic identifier &mdash; a directory has no reason to hold a name or a number.
       </p>
 
       {mayViewPlans ? (
@@ -295,11 +295,7 @@ function DirectoryEmptyState({
         because={hiddenBecause(records.length, filter)}
         changedBy={`Clearing the filter shows all ${plural(records.length, "plan", "plans")} this team holds.`}
         action={
-          <Link
-            href={CARING_CONTACTS_ROUTES.patients}
-            data-internal-link="true"
-            className={submitClass}
-          >
+          <Link href={CARING_CONTACTS_ROUTES.patients} data-internal-link="true" className={submitClass}>
             Show every plan
           </Link>
         }
@@ -341,9 +337,7 @@ function PatientRow({ record }: { record: PlanRecord }) {
           <p className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
             Synthetic patient identifier
           </p>
-          <h3 className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
-            {record.patientId}
-          </h3>
+          <h3 className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">{record.patientId}</h3>
           <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
             <span className="font-medium text-[color:var(--text)]">Plan state: </span>
             {PLAN_STATE_LABELS[record.plan.state]}

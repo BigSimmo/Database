@@ -118,9 +118,7 @@ describe("caring-contacts workspace shell", () => {
     expect(internalHrefs.length).toBeGreaterThan(0);
     // `today` and `patients` are the Caring Contacts routes with a page. Every other
     // declared destination is an unavailable control until Plan 2B builds its page.
-    expect(new Set(internalHrefs)).toEqual(
-      new Set([CARING_CONTACTS_ROUTES.today, CARING_CONTACTS_ROUTES.patients]),
-    );
+    expect(new Set(internalHrefs)).toEqual(new Set([CARING_CONTACTS_ROUTES.today, CARING_CONTACTS_ROUTES.patients]));
   });
 
   it("keeps the More panel's destination set, in order, all of them unavailable", () => {
