@@ -431,7 +431,19 @@ the fix round added 15 tests, of which 8 are the parameterised non-recording row
 
 **Format** — `prettier --write` on every changed file before each commit.
 
-`verify:ui` still not run, per §4; the coordinator is running that gate.
+**The browser gate is green, but at a head that predates this fix round.** The coordinator ran
+`verify:ui` and recorded `32 passed (53.8s)` in `9cc7fa580` — against Task 3's head **before** fix
+round 1, and its own record says the green must be re-taken afterwards. That is right, and for two
+independent reasons: Ruling 90 changes **which** rows render the refusal paragraph at all (16 of 24,
+not all 24), and the confirm-sequence fix changes **what** renders in the frame a decision is
+confirmed in. So the 24-overlay matrix and geometry assertions ran against a different set of
+rendered overlays than the current head produces.
+
+I have **not** re-run it: it needs a dev server and the exclusive Playwright lease, and it is outside
+the gates this brief lists. The risk moved in the safe direction — fewer rows render the paragraph
+and the sentence is shorter — but that is an argument, not a measurement, and this branch's own
+standing rule is that a browser result names the commit it ran against or it means nothing. **The
+re-take is owed at `b452084b5` or later.**
 
 ### One generated file changed that I did not write
 
