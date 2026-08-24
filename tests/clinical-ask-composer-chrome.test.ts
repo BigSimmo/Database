@@ -9,12 +9,12 @@ import { clinicalAskModeIds } from "@/lib/clinical-ask/contracts";
 const source = (relativePath: string) => readFileSync(path.resolve(process.cwd(), relativePath), "utf8");
 
 describe("clinicalAskComposerChromeEnabled", () => {
-  it("refuses Therapy and keeps the other Clinical Ask modes", () => {
-    expect(clinicalAskComposerChromeEnabled("therapy-compass")).toBe(false);
+  it("keeps every supported Clinical Ask mode actionable, including Therapy", () => {
+    expect(clinicalAskComposerChromeEnabled("therapy-compass")).toBe(true);
     expect(clinicalAskComposerChromeEnabled("answer")).toBe(false);
     expect(clinicalAskComposerChromeEnabled(null)).toBe(false);
     for (const mode of clinicalAskModeIds) {
-      expect(clinicalAskComposerChromeEnabled(mode)).toBe(mode !== "therapy-compass");
+      expect(clinicalAskComposerChromeEnabled(mode)).toBe(true);
     }
   });
 
