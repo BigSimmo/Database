@@ -434,25 +434,20 @@ function SourceDrawer({
   wide: boolean;
 }) {
   // Some comparison frames intentionally open a drawer on first render. Do
-  // not steal page focus for those static specimens; later user opens and
-  // paging transitions should still enter the dialog.
-  const hasMountedRef = useRef(false);
+  // not steal page focus for those static specimens; an open transition after
+  // the initial render, including paging, should still enter the dialog.
+  const [autoFocus, setAutoFocus] = useState(false);
+  const previousOpenIdRef = useRef(openId);
   useEffect(() => {
-    hasMountedRef.current = true;
-  }, []);
+    if (previousOpenIdRef.current !== openId) setAutoFocus(true);
+    previousOpenIdRef.current = openId;
+  }, [openId]);
 
   if (openId === null) return null;
   // Keyed on the source: the panel's own transient state (an open menu)
   // belongs to that source and is discarded when you move to another.
   return (
-    <DrawerPanel
-      key={openId}
-      openId={openId}
-      onSelect={onSelect}
-      onClose={onClose}
-      wide={wide}
-      autoFocus={hasMountedRef.current}
-    />
+    <DrawerPanel key={openId} openId={openId} onSelect={onSelect} onClose={onClose} wide={wide} autoFocus={autoFocus} />
   );
 }
 
