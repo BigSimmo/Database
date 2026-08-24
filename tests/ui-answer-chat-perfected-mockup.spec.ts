@@ -8,26 +8,26 @@ test.describe("Answer-chat perfected mockup drawer @mockup", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(path, { waitUntil: "domcontentloaded" });
 
-    // The first two source-one marks belong to the standalone specimen. The
-    // next one is in the phone answer frame that owns the drawer.
-    const opener = page.getByRole("button", { name: sourceOne }).nth(2);
+    // Scope the trigger and drawer to the interactive phone frame instead of
+    // relying on document-wide source-mark ordering in the specimen above it.
+    const phoneAnswer = page.getByText("Phone · tap any number").locator("..");
+    const opener = phoneAnswer.getByRole("button", { name: sourceOne }).first();
     await opener.click();
 
-    const sourceOneDrawers = page.locator('[role="dialog"][aria-label="Source 1 of 3"]');
-    await expect(sourceOneDrawers).toHaveCount(1);
-    const drawer = sourceOneDrawers;
+    const drawer = phoneAnswer.getByRole("dialog", { name: "Source 1 of 3" });
+    await expect(drawer).toBeVisible();
     const controls = drawer.getByRole("button");
     await expect(controls.first()).toBeFocused();
     await controls.last().press("Tab");
     await expect(controls.first()).toBeFocused();
 
     await page.keyboard.press("ArrowRight");
-    const sourceTwoDrawers = page.locator('[role="dialog"][aria-label="Source 2 of 3"]');
-    await expect(sourceTwoDrawers).toHaveCount(1);
-    await expect(sourceTwoDrawers.getByRole("button", { name: "Previous source" })).toBeFocused();
+    const sourceTwoDrawer = phoneAnswer.getByRole("dialog", { name: "Source 2 of 3" });
+    await expect(sourceTwoDrawer).toBeVisible();
+    await expect(sourceTwoDrawer.getByRole("button", { name: "Previous source" })).toBeFocused();
 
     await page.keyboard.press("Escape");
-    await expect(sourceTwoDrawers).toHaveCount(0);
+    await expect(sourceTwoDrawer).toHaveCount(0);
     await expect(opener).toBeFocused();
   });
 });
