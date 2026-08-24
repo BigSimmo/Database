@@ -1385,3 +1385,23 @@ destruction, ownership should be proved, not inferred. Carried into future brief
    grammatical case is not worth the line today. Recorded, not fixed.
 
 **Task 6b dispatched**, BASE `6fc194039d3bbd3849339472540f8ae628e313f1`. Brief: `task-6b-brief.md`.
+
+### Task 6b browser gate, and the migration location checked by me
+
+`npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium` against
+`22d6073f6`: **`43 passed (1.1m)`**, exit 0, zero failures — unmoved from the Task 6 tip, which is
+what the implementer predicted and gave its reasoning for. A prediction with reasoning attached is
+worth more than a guess, and running the gate anyway costs a minute.
+
+**I verified the migration's location myself rather than waiting for the review**, because it is the
+one mistake in this task that would be expensive: `git diff --name-only` shows
+`caring-contacts/supabase/migrations/0005_caring_contacts_first_contact_reason.sql` and **nothing
+under the repository root's `supabase/`**. That root directory replays against the live Clinical KB
+project `sjrfecxgysukkwxsowpy` and merging to `main` applies it there within seconds; a
+caring-contacts migration placed there would reach a live clinical database. Clean.
+
+The migration itself refuses a backfill in writing and says why: a placeholder such as "not recorded"
+would put a fabricated sentence on a clinical record and make it indistinguishable from one a
+clinician typed. It is nullable with no default, transactional, replay-safe, and carries a
+`comment on column` recording the clearance obligation — so the obligation travels with the schema
+rather than living only in a test.
