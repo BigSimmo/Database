@@ -148,9 +148,9 @@ test("merges search and browse into one catalogue with a measured phone header",
   await expect(toggle).toBeVisible();
   await expect(toggle.getByRole("button", { name: /Abbreviations/ })).toBeVisible();
   const toggleBox = await toggle.boundingBox();
-  // Compact joined toggle: 28px, not a 48px header-sized control.
-  expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(24);
-  expect(toggleBox?.height ?? 0).toBeLessThanOrEqual(32);
+  // The joined toggle remains compact in width but keeps the shared 48px tap target.
+  expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(48);
+  expect(toggleBox?.height ?? 0).toBeLessThanOrEqual(52);
   expect(toggleBox?.width ?? 0).toBeLessThan(260);
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
   await expect(
