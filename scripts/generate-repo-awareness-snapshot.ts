@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -305,16 +305,31 @@ function splitRecordCells(line: string): string[] {
   return cells;
 }
 
+/**
+ * Tracked files only. Walking the filesystem would list a developer's untracked
+ * draft records, and the staleness gate would then fail on a clean tree for
+ * everyone but that developer — the same failure `listDocumentPaths` exists to
+ * prevent.
+ */
 export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; line: string }[] {
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".record.md"))
+  // An absolute `dir` is a throwaway fixture (the generator always uses the
+  // repo-relative default). Isolate `git ls-files` to that directory so the
+  // fixture can be its own tiny repository.
+  const cwd = path.isAbsolute(dir) ? dir : undefined;
+  const output = execFileSync("git", ["ls-files", "-z", "--", cwd ? "." : dir], {
+    encoding: "utf8",
+    cwd,
+  });
+  return output
+    .split("\0")
+    .filter((entry) => entry.endsWith(".record.md"))
     .sort()
-    .map((name) => {
-      const file = `${dir}/${name}`;
+    .map((entry) => {
+      const file = cwd ? path.join(dir, entry) : entry;
       const line = readFileSync(file, "utf8")
         .split("\n")
-        .map((entry) => entry.trim())
-        .find((entry) => RECORD_ROW.test(entry));
+        .map((row) => row.trim())
+        .find((row) => RECORD_ROW.test(row));
       if (!line) throw new Error(`${file}: no review record row found.`);
       return { file, line };
     });
@@ -395,12 +410,15 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
  * `!filters` early return on every call here, so it always returns its input
  * `URLSearchParams` unchanged. Neither file's content can currently reach an
  * emitted field through this call site.
+ *
+ * Docs are a `*.md` glob rather than the `docs/` directory: inbox JSON and
+ * other non-emitted files under that tree must not advance the stamp.
  */
 const REVISION_INPUTS = [
   "src/app",
   "src/lib/app-modes.ts",
   "src/lib/consolidated-mode-home-redirect.ts",
-  "docs",
+  ":(glob)docs/**/*.md",
   "tests/flake-ledger.json",
   "scripts/generate-site-map.ts",
 ];

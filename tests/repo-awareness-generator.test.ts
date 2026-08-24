@@ -310,7 +310,10 @@ describe("buildReviewStateSection", () => {
   it("names the file when a record carries no parsable row", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "review-records-empty-"));
     try {
+      const run = (args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+      run(["init", "-b", "main"]);
       writeFileSync(path.join(dir, "fff.record.md"), "# not a table row\n", "utf8");
+      run(["add", "fff.record.md"]);
       expect(() => readReviewRecordRows(dir)).toThrow(/fff\.record\.md: no review record row found/);
     } finally {
       rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
@@ -367,7 +370,7 @@ describe("generate", () => {
       run(["config", "user.name", "Test"]);
       run(["config", "commit.gpgsign", "false"]);
 
-      // Commit 1 touches "docs/", one of REVISION_INPUTS.
+      // Commit 1 touches a docs markdown file, one of REVISION_INPUTS.
       mkdirSync(path.join(dir, "docs"), { recursive: true });
       writeFileSync(path.join(dir, "docs", "a.md"), "a\n", "utf8");
       run(["add", "docs/a.md"]);
