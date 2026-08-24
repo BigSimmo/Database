@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f6768be1-9aeb-4374-afa1-9529718efada",
+  "createdOn": "2026-08-24",
+  "action": "cancel",
+  "payload": {
+    "requestId": "e69b9dca-057d-48b4-8c7b-793faa3fd0df",
+    "reason": "Correction: Form 12A is readable and has a fixed clock; its generic maker and threshold need a separate follow-up, while the password-protected-PDF blocker applies to the other 33 generic maker-and-threshold forms."
+  }
+}

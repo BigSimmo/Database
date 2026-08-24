@@ -387,6 +387,16 @@ describe("Codex auto-resolve workflow guard", () => {
     expect(result.output).toContain("clinical-decision hold");
   });
 
+  it("rejects removing a named ranking surface from the clinical-decision hold", () => {
+    const workflow = originalWorkflow.replace("retrieval-selection|", "");
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("clinical-decision hold");
+  });
+
   it("rejects evaluating the clinical-decision hold after routing", () => {
     const holdBlockPattern =
       /\n {12}\/\/ Held before routing[\s\S]*?\n {12}if \(clinicalDecisionHoldFiles\.length > 0\) \{\n[\s\S]*?\n {12}\}\n/;
@@ -610,7 +620,11 @@ describe("Codex auto-resolve request script", () => {
     "src/components/forms/form-priority-facts-section.tsx",
     "src/lib/rag/rag.ts",
     "src/lib/clinical-search.ts",
+    "src/lib/retrieval-selection.ts",
+    "src/lib/released-search-order.ts",
+    "src/lib/ranking-config.ts",
     "src/lib/answer-ranking.ts",
+    "src/lib/answer-verification.ts",
   ])("holds clinical-decision path %s back from automatic repair", async (filename) => {
     const result = await runRequestScript({
       files: [{ additions: 1, deletions: 0, filename }],
