@@ -14,8 +14,16 @@ export const EXACT_PATIENT_VISIBLE_MESSAGE = `Hi Rowan, Alex from Example Afterc
 
 // PROVISIONAL — not clinically approved. Required by production-build spec §2.1: the automated response
 // sent to anyone who replies. It must name where a person IS available, immediately after saying that
-// nobody reads this channel, so that reaching out is answered rather than met with silence. Content is
-// discarded after this response is sent; nothing is stored, counted per patient, or shown to staff.
+// nobody reads this channel, so that reaching out is answered rather than met with silence.
+//
+// Content is INTENDED to be discarded after this response is sent -- nothing stored, counted per
+// patient, or shown to staff -- as a requirement on whatever sender is eventually built. This is a
+// design contract, not a claim about current system behaviour: exactly as the next paragraph notes,
+// there is no telephony provider yet to make it true or false, so do not read this line as evidence
+// that anything is presently being discarded. Fixed round 1 (Minor 6, 2026-08-24): this line used to
+// read as a settled operational fact, which is precisely the kind of unverifiable storage claim A2
+// removed from the patient-visible text below -- reworded here so the module's own rationale does
+// not silently reintroduce it.
 //
 // Corrected 2026-08-24 under the owner's approved copy decisions (items A2 + A3, see
 // docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md). Two defects, fixed together because

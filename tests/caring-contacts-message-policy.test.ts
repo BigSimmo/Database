@@ -12,6 +12,7 @@ import {
   validateGovernedMessage,
   type GovernedMessageInput,
 } from "@/lib/caring-contacts/message-policy";
+import { DESIGNATED_FICTIONAL_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 const rules = PROVISIONAL_MESSAGE_RULES;
 
@@ -185,40 +186,118 @@ describe("rule 3b: fictional-contact-detail-present", () => {
       ).toBe(true);
     }
   });
+
+  // Fix round 1 (promoted finding): the original marker was `crisisSupportContact.split(":")[0]`,
+  // i.e. the LABEL "Fictional Support Line" only. A message carrying the bare reserved NUMBER with
+  // no label raised nothing -- exactly the shape that would reach a real sender. The marker is now
+  // a pattern matching "Fictional" (any case) OR any reserved fictional number from
+  // synthetic-contacts.ts, so either half alone is still caught.
+  it("still refuses a relabelled crisis contact that keeps both 'Fictional' and the number", () => {
+    const text = "Fictional Support Line (24h): +61 491 570 158";
+    const result = validateGovernedMessage({ text, messageType: "standard" });
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("still refuses a reordered crisis contact with no colon after the label", () => {
+    const text = "+61 491 570 158 (Fictional Support Line)";
+    const result = validateGovernedMessage({ text, messageType: "standard" });
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("refuses the bare reserved number with the 'Fictional' label removed entirely -- the dangerous shape", () => {
+    const text = "Call +61 491 570 158 for support.";
+    const result = validateGovernedMessage({ text, messageType: "standard" });
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("refuses a message carrying any one of the four reserved fictional numbers, labelled or not", () => {
+    for (const number of DESIGNATED_FICTIONAL_MOBILE_NUMBERS) {
+      const result = validateGovernedMessage({ text: `Reach out on ${number}.`, messageType: "standard" });
+      expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+    }
+  });
+
+  it("all of the above pass once acknowledged", () => {
+    for (const text of [
+      "Fictional Support Line (24h): +61 491 570 158",
+      "+61 491 570 158 (Fictional Support Line)",
+      "Call +61 491 570 158 for support.",
+    ]) {
+      expect(
+        validateGovernedMessage({ text, messageType: "standard", syntheticFictionalContactsAcknowledged: true }),
+      ).toEqual({ valid: true });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
-// Rule 3c — B2 (2026-08-24): "lead" is narrowed to its commercial sense only
+// Rule 3c — B2 (2026-08-24, fix round 1): "lead" refuses by default, exempting only a closed
+// set of job titles
 //
 // `lowerText.includes("lead")` also matches the ordinary English "the incident lead" and "the
 // clinical programme lead" -- job titles that appear in the service-stop wording -- which would
-// reject a message for using a word correctly. Only this one term is narrowed; every other
-// prohibited term keeps its deliberate substring behaviour (several are multi-word phrases whose
-// substring matching is intentional). See docs/caring-contacts/phase-2b-sdd-archive/
-// task-c-brief.md, "B2".
+// reject a message for using a word correctly.
+//
+// The FIRST version of this fix was itself defective: it allowlisted nine commercial
+// modifiers/companions ("sales lead", "lead generation", ...), and commercial vocabulary is
+// open-ended, so anything not on that list passed silently ("lead nurturing", "lead magnet",
+// "qualify this lead", ...). Fix round 1 inverts it: "lead"/"leads" is refused by default (a
+// whole-word match), and only the closed, small set of job titles this domain actually uses is
+// exempted -- "incident lead", "programme lead", "clinical lead", "team lead", "service lead".
+// That set is closed in a way commercial phrasing for "lead" never is.
+//
+// Only this one term is narrowed; every other prohibited term keeps its deliberate substring
+// behaviour (several are multi-word phrases whose substring matching is intentional). See
+// docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md, "B2", and task-c-report.md's
+// "fix round 1" section.
 // ---------------------------------------------------------------------------
 
-describe('rule 3c: "lead" is narrowed to its commercial sense (B2)', () => {
-  it("accepts job titles that happen to contain the word 'lead'", () => {
+describe('rule 3c: "lead" refuses by default, exempting only known job titles (B2)', () => {
+  it("accepts every job title in the closed exemption set", () => {
     for (const text of [
       "Please contact the incident lead for an update.",
+      "This was escalated to the programme lead.",
       "This was escalated to the clinical programme lead.",
+      "Speak to the clinical lead about this.",
+      "The team lead approved the change.",
+      "Contact the service lead for details.",
     ]) {
       expect(validateGovernedMessage({ text, messageType: "standard" })).toEqual({ valid: true });
     }
   });
 
-  it("still rejects the commercial sense of 'lead'", () => {
+  it("rejects open-ended commercial/CRM phrasing that a fixed allowlist would have missed", () => {
+    // Every one of these was newly PERMITTED by the fix-round-1 review's allowlist version of
+    // this override -- none of them contain "sales", "marketing", "generation", "conversion", or
+    // any of the other nine modifiers/companions that version enumerated.
     for (const text of [
+      "We are focused on lead nurturing this quarter.",
+      "Check out our new lead magnet.",
+      "The lead source was social media.",
+      "Update the leads database today.",
+      "Our lead gen numbers are strong.",
+      "Please qualify this lead.",
+      "Please convert the lead.",
+      "This lead is hot.",
+      "Reach out to your lead.",
+      // Still rejects the phrasings the original (allowlist) version DID catch, too.
       "Following up on your sales lead from last week.",
       "This campaign generated 50 new leads.",
       "Our lead generation numbers are up this quarter.",
+      // "lead score" (no "g") -- the allowlist version's "scoring?" alternative matched
+      // "scoring" but not "score", missing this exact phrase. Confirms the typo did not survive
+      // the inversion: there is no companion-word list left to carry it.
+      "This platform assigns a lead score to every contact.",
     ]) {
       const result = validateGovernedMessage({ text, messageType: "standard" });
       expect(result.valid).toBe(false);
       if (result.valid) throw new Error("unreachable");
       expect(result.issues).toContainEqual({ code: "prohibited-term", term: "lead" });
     }
+  });
+
+  it("pins the override map to exactly one entry -- \"lead\" -- so a future override for another term cannot land unnoticed", () => {
+    expect(Object.keys(rules.prohibitedTermPatternOverrides)).toEqual(["lead"]);
   });
 
   it("leaves every OTHER prohibited term's substring behaviour exactly as it was", () => {
@@ -415,12 +494,20 @@ describe("rule 5b: resolveClosingContactMessageBody / closing-message-body-not-a
 
 describe("rule 6: contains-patient-mobile", () => {
   it("fails when the message contains the patient's mobile number", () => {
+    // +61 491 570 006 is deliberately one of synthetic-contacts.ts's four reserved fictional
+    // numbers (miraPatientMobile) -- since fix round 1, that means it ALSO trips
+    // fictional-contact-detail-present (A1), because the marker pattern covers "every reserved
+    // number", not just the crisis/staffed-line ones. Both codes are correct here; this proves
+    // the two rules coexist rather than one silently masking the other.
     const input: GovernedMessageInput = {
       text: "Call us back on +61 491 570 006 any time.",
       messageType: "standard",
       patientMobileNumber: "+61 491 570 006",
     };
-    expect(validateGovernedMessage(input)).toEqual({ valid: false, issues: [{ code: "contains-patient-mobile" }] });
+    expect(validateGovernedMessage(input)).toEqual({
+      valid: false,
+      issues: [{ code: "fictional-contact-detail-present" }, { code: "contains-patient-mobile" }],
+    });
   });
 
   it("passes when the patient's mobile number is known but absent from the text", () => {

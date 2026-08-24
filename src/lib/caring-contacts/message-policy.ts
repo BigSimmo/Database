@@ -54,10 +54,10 @@ export type GovernedMessageInput = {
   patientMobileNumber?: string;
   /**
    * Explicit, greppable acknowledgement that a reserved fictional contact detail (see
-   * message-rules.ts's `fictionalContactMarker`) in `text` is known to be synthetic. Ruling 79
-   * (item A1, 2026-08-24): defaults to false/absent, which means the message is REFUSED whenever
-   * it contains that marker. There is deliberately no way to silence the check other than passing
-   * this flag at the call site.
+   * message-rules.ts's `fictionalContactMarkerPattern`) in `text` is known to be synthetic.
+   * Ruling 79 (item A1, 2026-08-24): defaults to false/absent, which means the message is
+   * REFUSED whenever it matches that pattern. There is deliberately no way to silence the check
+   * other than passing this flag at the call site.
    */
   syntheticFictionalContactsAcknowledged?: boolean;
 };
@@ -99,9 +99,10 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
     }
   }
 
-  // Ruling 79 (item A1): always reported when the marker is present, unless explicitly
-  // acknowledged at the call site. See message-rules.ts's `fictionalContactMarker` doc comment.
-  if (!input.syntheticFictionalContactsAcknowledged && text.includes(rules.fictionalContactMarker)) {
+  // Ruling 79 (item A1): always reported when the marker pattern matches, unless explicitly
+  // acknowledged at the call site. See message-rules.ts's `fictionalContactMarkerPattern` doc
+  // comment for why this is a pattern (label OR number) rather than a single string.
+  if (!input.syntheticFictionalContactsAcknowledged && rules.fictionalContactMarkerPattern.test(text)) {
     issues.push({ code: "fictional-contact-detail-present" });
   }
 

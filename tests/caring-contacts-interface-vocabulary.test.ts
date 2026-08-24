@@ -105,18 +105,75 @@ function extractInterfaceStrings(source: string): string[] {
   return extractStringAndTemplateLiterals(source.replace(CLASSNAME_ATTRIBUTE_VALUE, ""));
 }
 
-/** Every `root -> file -> offending literal` combination found under `root`. */
-function scanRootForProhibitedLanguage(root: string): string[] {
+/**
+ * `source` with only comments and `className` attribute values removed -- everything else is
+ * left exactly as written, including plain JSX text nodes that carry no quotes at all.
+ *
+ * Fix round 1 (Important 3): `extractInterfaceStrings` above only sees quoted/template-literal
+ * strings, but this tree writes copy the OTHER way too -- as plain JSX text between tags (e.g.
+ * shell.tsx's `<span>Caring Contacts</span>`, loading.tsx's `<p className="sr-only">Loading the
+ * Caring Contacts workspace</p>`). `<p>Check your inbox for the latest campaign.</p>` extracted
+ * nothing and scored zero offences under the quote-only scan, while the same words wrapped as
+ * `<p>{"..."}</p>` were caught -- this function is the second pass that closes that gap.
+ */
+function stripCommentsAndClassNameValues(source: string): string {
+  const withoutClassNames = source.replace(CLASSNAME_ATTRIBUTE_VALUE, "");
+  let result = "";
+  let i = 0;
+  const n = withoutClassNames.length;
+  while (i < n) {
+    const two = withoutClassNames.slice(i, i + 2);
+    if (two === "//") {
+      const end = withoutClassNames.indexOf("\n", i);
+      i = end === -1 ? n : end + 1;
+      continue;
+    }
+    if (two === "/*") {
+      const end = withoutClassNames.indexOf("*/", i + 2);
+      i = end === -1 ? n : end + 2;
+      continue;
+    }
+    result += withoutClassNames[i];
+    i += 1;
+  }
+  return result;
+}
+
+// A `g`-flagged copy of the shared vocabulary regex, so `matchAll` can enumerate every hit in the
+// raw-prose pass rather than only reporting the first (`CARING_CONTACTS_PROHIBITED_LANGUAGE`
+// itself stays non-global, matching how the quoted-literal pass above uses `.test()` on it).
+const CARING_CONTACTS_PROHIBITED_LANGUAGE_GLOBAL = new RegExp(
+  CARING_CONTACTS_PROHIBITED_LANGUAGE.source,
+  CARING_CONTACTS_PROHIBITED_LANGUAGE.flags.includes("g")
+    ? CARING_CONTACTS_PROHIBITED_LANGUAGE.flags
+    : `${CARING_CONTACTS_PROHIBITED_LANGUAGE.flags}g`,
+);
+
+/** Every prohibited-vocabulary match found directly in the comment/className-stripped source. */
+function scanRawProseForProhibitedLanguage(source: string): string[] {
+  const stripped = stripCommentsAndClassNameValues(source);
+  return [...stripped.matchAll(CARING_CONTACTS_PROHIBITED_LANGUAGE_GLOBAL)].map((match) => match[0]);
+}
+
+/** Every offence in one file: quoted/template-literal strings, plus raw prose (JSX text). */
+function scanOneFileForProhibitedLanguage(file: string): string[] {
+  const source = readFileSync(file, "utf8");
+  const relativePath = path.relative(process.cwd(), file);
   const offences: string[] = [];
-  for (const file of walk(root)) {
-    const source = readFileSync(file, "utf8");
-    for (const literal of extractInterfaceStrings(source)) {
-      if (CARING_CONTACTS_PROHIBITED_LANGUAGE.test(literal)) {
-        offences.push(`${path.relative(process.cwd(), file)}: ${JSON.stringify(literal)}`);
-      }
+  for (const literal of extractInterfaceStrings(source)) {
+    if (CARING_CONTACTS_PROHIBITED_LANGUAGE.test(literal)) {
+      offences.push(`${relativePath}: ${JSON.stringify(literal)}`);
     }
   }
+  for (const match of scanRawProseForProhibitedLanguage(source)) {
+    offences.push(`${relativePath} (raw prose, e.g. JSX text): ${JSON.stringify(match)}`);
+  }
   return offences;
+}
+
+/** Every `root -> file -> offending literal` combination found under `root`. */
+function scanRootForProhibitedLanguage(root: string): string[] {
+  return walk(root).flatMap((file) => scanOneFileForProhibitedLanguage(file));
 }
 
 describe("caring-contacts interface vocabulary (B3)", () => {
@@ -145,8 +202,46 @@ describe("caring-contacts interface vocabulary (B3)", () => {
     }
   });
 
+  // Fix round 1 (Important 3): the extractor above only sees quoted/template-literal strings, but
+  // this tree writes copy the OTHER way too -- as plain JSX text between tags with no quotes at
+  // all (e.g. shell.tsx's `<span>Caring Contacts</span>`, loading.tsx's `<p className="sr-only">
+  // Loading the Caring Contacts workspace</p>`). `<p>Check your inbox for the latest
+  // campaign.</p>` extracted nothing and scored zero offences before this fix, while the same
+  // words wrapped as `<p>{"..."}</p>` were caught -- an inconsistency the fixture below is
+  // deliberately shaped to close, not to lean on.
+  it("finds a prohibited word planted as PLAIN JSX TEXT, not just inside quotes", () => {
+    const fixtureDir = mkdtempSync(path.join(tmpdir(), "caring-contacts-interface-vocabulary-jsx-text-fixture-"));
+    try {
+      writeFileSync(
+        path.join(fixtureDir, "planted-plain-text-banner.tsx"),
+        [
+          "export function PlantedPlainTextBanner() {",
+          "  return <p>Check your inbox for the latest campaign.</p>;",
+          "}",
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const offences = scanRootForProhibitedLanguage(fixtureDir);
+      expect(offences.length).toBeGreaterThan(0);
+      expect(offences.some((offence) => offence.includes("inbox"))).toBe(true);
+      expect(offences.some((offence) => offence.includes("campaign"))).toBe(true);
+    } finally {
+      rmSync(fixtureDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
   it("finds nothing in the real workspace and caring-contacts app tree", () => {
-    const offences = SCAN_ROOTS.flatMap((root) => scanRootForProhibitedLanguage(root));
+    // Minor 7: a root that exists but holds no .ts/.tsx file would otherwise pass this test
+    // vacuously -- close that with a floor on how many files were actually read.
+    let filesScanned = 0;
+    const offences = SCAN_ROOTS.flatMap((root) => {
+      const files = walk(root);
+      filesScanned += files.length;
+      return files.flatMap((file) => scanOneFileForProhibitedLanguage(file));
+    });
+    expect(filesScanned).toBeGreaterThan(0);
     expect(offences).toEqual([]);
   });
 });
