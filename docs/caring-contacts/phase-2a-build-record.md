@@ -2745,3 +2745,77 @@ Two corrections to how that failure was read, both worth more than the incident:
   did not make the re-run unnecessary, and running it was still right — the difference between narrowing
   a hypothesis and confirming one. But **read which line the runner is actually naming before inferring
   what a failure means.**
+
+
+## Closing item 2 — the condensed bar's mutation proofs
+
+### Mutation A — the 1440px pin assertion IS reachable and DOES discriminate
+
+`top-full` -> `top-0` on the condensed bar's className, one line, nothing else touched. The bar then
+sits at the header's top edge instead of hanging off its bottom, which is precisely the "buried behind
+the header" defect the pin exists to prevent.
+
+Result: **13 failed, 19 passed** (against 32/0 unmutated). The failure at 1440px, verbatim:
+
+```
+12) ui-caring-contacts-workspace.spec.ts:822:9 > pins the condensed bar under the header ... at 1440px
+    Error: the condensed bar is behind the header at 1440px
+    expect(received).toBeGreaterThanOrEqual(expected)
+    Expected: >= 64
+    Received:    0
+    > 877 |  expect(geometry.barBox!.top, `the condensed bar is behind the header at ${width}px`)
+```
+
+Three things make this a proof rather than a red light:
+
+- **It is the pin assertion itself that failed** — line 877 — not an earlier one standing in for it.
+- **The two assertions before it passed first**: the round-1 guard at 869 (`the banner is still on
+  screen ... nothing about the handover is being measured`) and `the condensed bar did not appear` at
+  874. So the pin is REACHED, which is exactly what round 1's degenerate version was not.
+- **The mutation moved a value the assertion reads**: `barBox.top` went 64 -> 0. A mutation that leaves
+  every asserted value unchanged proves nothing however red the suite goes, and three proposed proofs
+  on this branch already failed that test.
+
+The other twelve failures are honest collateral, not scope creep: the six `keeps the stop stated exactly
+once at every scroll position` cases and the forced-colours case all read the bar's on-screen position,
+and an unpinned bar changes it. Worth stating explicitly so a later reader does not treat thirteen
+failures from a one-line change as evidence the mutation was too broad.
+
+### THE TRAP, and it is the most valuable thing in this section
+
+The first attempt at mutation B was written to swap the danger tokens for theme-invariant literals. Its
+anchor, `bg-[color:var(--danger-bg)]`, appears **twice** in the file — once on the full banner and once
+on the condensed bar. A uniqueness assertion caught it and refused to edit:
+
+```
+AssertionError: mutation B anchor not unique for bg-[color:var(--danger-bg)]: 2
+```
+
+But the surrounding script was not written to stop there, and it **ran the whole browser gate anyway,
+on a completely unmutated tree**. That run reported:
+
+```
+32 passed (52.7s)
+EXIT=0
+```
+
+**Read that the way it would have been read without the abort line: a mutation applied, the suite still
+green, therefore the dark-mode assertion cannot fail and the test is worthless.** The conclusion would
+have been exactly backwards, it would have been recorded against a test that is in fact fine, and the
+"evidence" would have been a genuine 32-passed gate run — the strongest-looking kind.
+
+This is the same family as the two traps already recorded here — `npx playwright test` exiting 0 having
+run nothing, and the EPERM lock failure that produces no summary line — but it is worse than either,
+because there is no missing output to notice. The gate really ran, really passed, and really measured
+the unmutated code.
+
+**The rule, and it is now a standing one for this programme: a mutation proof has TWO results, not one.
+Prove the mutation is in the tree before believing anything the gate says about it.** Concretely: assert
+the anchor is unique, assert the replacement is present after writing, print `git diff` of the mutated
+file into the same log as the gate output, and refuse to launch the gate at all if any of that fails.
+The corrected script does all four, which is why its log opens with the applied-mutation line and the
+diff before a single test runs.
+
+A quieter lesson sits underneath it. The uniqueness assertion was cheap insurance added almost as an
+afterthought, and it is the only reason this was caught. **Guard the mutation, not just the assertion**
+— the thing being manipulated is as capable of silent failure as the thing being tested.
