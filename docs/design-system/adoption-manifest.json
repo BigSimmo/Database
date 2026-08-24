@@ -2270,6 +2270,7 @@
         "src/app/(search-app)/factsheets/[slug]/page.tsx",
         "src/app/(search-app)/factsheets/page.tsx",
         "src/app/(search-app)/factsheets/search/page.tsx",
+        "src/app/(search-app)/factsheets/topics/page.tsx",
         "src/app/(search-app)/forms/[slug]/page.tsx",
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
@@ -2475,6 +2476,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["SearchPage"]
+        },
+        {
+          "file": "src/app/(search-app)/factsheets/topics/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/forms/[slug]/page.tsx",
@@ -4004,6 +4015,7 @@
       "src/app/(search-app)/factsheets/[slug]/page.tsx",
       "src/app/(search-app)/factsheets/page.tsx",
       "src/app/(search-app)/factsheets/search/page.tsx",
+      "src/app/(search-app)/factsheets/topics/page.tsx",
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
@@ -4086,6 +4098,7 @@
       "src/app/(search-app)/factsheets/[slug]/page.tsx",
       "src/app/(search-app)/factsheets/page.tsx",
       "src/app/(search-app)/factsheets/search/page.tsx",
+      "src/app/(search-app)/factsheets/topics/page.tsx",
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
@@ -4143,7 +4156,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 94,
+    "inheritedCkbV2RootCount": 95,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 17,
     "declaredV2SurfaceCount": 17
@@ -4152,8 +4165,8 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 34,
-    "rootCount": 95,
-    "productionRouteCount": 80,
-    "nextUiEntryCount": 141
+    "rootCount": 96,
+    "productionRouteCount": 81,
+    "nextUiEntryCount": 142
   }
 }

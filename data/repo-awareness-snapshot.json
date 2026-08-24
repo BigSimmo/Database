@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "01fe261f36dd001734cfd52a0556193edfcbac15",
-    "committed_at": "2026-08-25T06:16:41+08:00"
+    "sha": "49642d65e7d916143dd9bf4eb3159a713f7d9bd5",
+    "committed_at": "2026-08-24T22:49:42Z"
   },
   "routes": {
     "modes": [
@@ -221,6 +221,11 @@
       {
         "path": "/factsheets/search",
         "file": "src/app/(search-app)/factsheets/search/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/factsheets/topics",
+        "file": "src/app/(search-app)/factsheets/topics/page.tsx",
         "area": "product"
       },
       {
@@ -656,6 +661,11 @@
       {
         "path": "/mockups/factsheets-compact-view",
         "file": "src/app/mockups/factsheets-compact-view/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/factsheets-topics-phone",
+        "file": "src/app/mockups/factsheets-topics-phone/page.tsx",
         "area": "mockup"
       },
       {
@@ -1344,9 +1354,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 186,
-      "product_pages": 66,
-      "mockup_pages": 120,
+      "pages": 188,
+      "product_pages": 67,
+      "mockup_pages": 121,
       "redirects": 17,
       "api": 56
     }

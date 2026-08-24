@@ -12,7 +12,7 @@ import { cn, pageContainer } from "@/components/ui-primitives";
  * - Phone: `min-h-0` so the shell dock reserve is not double-counted.
  * - Tablet+: fills below the global header (`--shell-header-h`).
  * - Default width: `pageContainer` (`max-w-7xl`).
- * - `narrow`: patient-facing reading width (`max-w-[64rem]`).
+ * - `narrow`: patient-facing reading width (`max-w-reading`).
  * - `bleed`: children own horizontal padding (full-bleed headers, factsheet action bars).
  *
  * Opt out (different product chrome): DocumentViewer and differentials
@@ -54,7 +54,7 @@ export function InformationPageShell({
     );
   }
 
-  const container = width === "narrow" ? "mx-auto w-full max-w-[64rem]" : pageContainer;
+  const container = width === "narrow" ? "mx-auto w-full max-w-reading" : pageContainer;
 
   return (
     <Tag data-testid={testId} className={cn(padded, className)}>
