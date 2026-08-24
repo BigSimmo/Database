@@ -22,6 +22,7 @@ import {
 } from "@/lib/recovery-readiness-evidence";
 import { registryEntryToSiteContentRecord } from "@/lib/site-content/adapters/registry";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
+import { siteContentValueHash } from "@/lib/site-content/site-content-manifest";
 
 export type DynamicSiteContentKind = "service" | "form" | "medication" | "differential" | "presentation";
 
@@ -443,7 +444,11 @@ export async function readCanonicalSiteContentRecords<T>(input: {
   const rows = data as Array<Record<string, unknown>>;
   const initialized = rows.some((row) => row.initialized === true);
   const snapshot = rows.find((row) => row.snapshot != null)?.snapshot ?? null;
-  if (!initialized) {
+  const retainedReleaseId =
+    snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+      ? (snapshot as Record<string, unknown>).releaseId
+      : null;
+  if (!initialized && typeof retainedReleaseId !== "string") {
     const seeds = input.slug
       ? input.seeds.filter((seed) => {
           const value = seed as Record<string, unknown>;
@@ -515,7 +520,7 @@ export async function publishSiteContentCommand(input: {
   if (sourceResult.error || !sourceResult.data || typeof sourceResult.data !== "object") {
     throw new Error(`Site-content source read failed: ${sourceResult.error?.message ?? "not found"}`);
   }
-  canonicalDynamicSiteContentProjection(input.command.kind, sourceResult.data as never);
+  const canonical = canonicalDynamicSiteContentProjection(input.command.kind, sourceResult.data as never);
   const rpcName = input.command.action === "publish" ? "publish_site_content_record" : "retire_site_content_record";
   const { data, error } = await callRpc(input.supabase, rpcName, {
     p_kind: input.command.kind,
@@ -523,6 +528,7 @@ export async function publishSiteContentCommand(input: {
     p_expected_source_version: input.command.expectedSourceVersion,
     p_expected_change_epoch: input.command.expectedChangeEpoch,
     p_reconciliation_plan_digest: input.command.reconciliationPlanDigest ?? null,
+    p_expected_record_digest: siteContentValueHash(canonical.record),
     p_published_by: input.actorId,
   });
   if (error) throw new Error(`Site-content publication command failed: ${error.message}`);

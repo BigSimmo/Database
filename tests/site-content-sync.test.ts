@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ts from "typescript";
@@ -279,6 +279,81 @@ describe("site-content synchronization planning", () => {
       expect(result.status).toBe(1);
       expect(result.stderr).toMatch(/confirm-project-ref|guarded write authorization/i);
       expect(existsSync(output)).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("allows a post-adoption write to retain a null reconciliation digest", () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        "scripts/run-tsx.mjs",
+        "scripts/sync-site-content-corpus.ts",
+        "--manifest",
+        "tests/fixtures/site-content/static-manifest-baseline.json",
+        "--dynamic",
+        "tests/fixtures/site-content/dynamic-empty.json",
+        "--write",
+        "--project-ref",
+        "project-ref",
+        "--confirm-project-ref",
+        "project-ref",
+        "--expected-state-digest",
+        "0".repeat(64),
+        "--expected-plan-digest",
+        "0".repeat(64),
+        "--recovery-evidence",
+        "tests/fixtures/site-content/dynamic-empty.json",
+        "--provider-authorization",
+        "tests/fixtures/site-content/dynamic-empty.json",
+        "--event-sequence",
+        "1",
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toMatch(/expected current-state digest/i);
+    expect(result.stderr).not.toMatch(/reconciliation/i);
+  });
+
+  it("requires reconciliation flags as an exact initial-adoption-only pair", () => {
+    const directory = mkdtempSync(join(tmpdir(), "site-content-reconciliation-guard-"));
+    const initial = join(directory, "initial.json");
+    try {
+      const dynamic = JSON.parse(readFileSync("tests/fixtures/site-content/dynamic-empty.json", "utf8")) as Record<
+        string,
+        unknown
+      >;
+      dynamic.initialAdoption = true;
+      writeFileSync(initial, `${JSON.stringify(dynamic)}\n`, "utf8");
+      const common = [
+        "scripts/run-tsx.mjs",
+        "scripts/sync-site-content-corpus.ts",
+        "--manifest",
+        "tests/fixtures/site-content/static-manifest-baseline.json",
+      ];
+      const missingPair = spawnSync(process.execPath, [...common, "--dynamic", initial, "--dry-run"], {
+        encoding: "utf8",
+      });
+      const postAdoptionArtifact = spawnSync(
+        process.execPath,
+        [
+          ...common,
+          "--dynamic",
+          "tests/fixtures/site-content/dynamic-empty.json",
+          "--reconciliation",
+          "tests/fixtures/site-content/dynamic-empty.json",
+          "--dry-run",
+        ],
+        { encoding: "utf8" },
+      );
+
+      expect(missingPair.status).toBe(1);
+      expect(missingPair.stderr).toMatch(/initial adoption requires.*reconciliation.*expected-reconciliation/i);
+      expect(postAdoptionArtifact.status).toBe(1);
+      expect(postAdoptionArtifact.stderr).toMatch(/post-adoption.*omit reconciliation/i);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

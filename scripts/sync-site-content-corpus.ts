@@ -84,8 +84,6 @@ function parseArgs(argv: readonly string[]): Options {
       ["confirmProjectRef", "--confirm-project-ref"],
       ["expectedStateDigest", "--expected-state-digest"],
       ["expectedPlanDigest", "--expected-plan-digest"],
-      ["expectedReconciliationDigest", "--expected-reconciliation-digest"],
-      ["reconciliation", "--reconciliation"],
       ["recoveryEvidence", "--recovery-evidence"],
       ["providerAuthorization", "--provider-authorization"],
       ["eventSequence", "--event-sequence"],
@@ -353,10 +351,15 @@ async function main() {
   const dynamic = json(options.dynamic!);
   assertDynamicInput(dynamic);
   let reconciliation: ReconciliationInput | null = null;
-  if (dynamic.initialAdoption && !options.reconciliation) {
-    throw new Error("Initial adoption requires --reconciliation <reviewed-plan.json>.");
+  if (dynamic.initialAdoption && (!options.reconciliation || !options.expectedReconciliationDigest)) {
+    throw new Error(
+      "Initial adoption requires --reconciliation <reviewed-plan.json> and --expected-reconciliation-digest.",
+    );
   }
-  if (options.reconciliation) {
+  if (!dynamic.initialAdoption && (options.reconciliation || options.expectedReconciliationDigest)) {
+    throw new Error("Post-adoption plans must omit reconciliation arguments.");
+  }
+  if (dynamic.initialAdoption && options.reconciliation) {
     const candidate = json(options.reconciliation);
     assertReconciliationInput(candidate);
     reconciliation = candidate;
@@ -404,11 +407,15 @@ async function main() {
       throw new Error("Expected plan digest does not match the deterministic plan.");
     }
     if (
-      !reconciliation ||
-      options.expectedReconciliationDigest !== reconciliation.planDigest ||
-      plan.reconciliationPlanDigest !== reconciliation.planDigest
+      dynamic.initialAdoption &&
+      (!reconciliation ||
+        options.expectedReconciliationDigest !== reconciliation.planDigest ||
+        plan.reconciliationPlanDigest !== reconciliation.planDigest)
     ) {
       throw new Error("Exact reconciliation digest does not match the durable handoff.");
+    }
+    if (!dynamic.initialAdoption && plan.reconciliationPlanDigest !== null) {
+      throw new Error("Post-adoption plan unexpectedly carries a reconciliation digest.");
     }
     const evidence = parseRecoveryReadinessEvidence(json(options.recoveryEvidence!));
     assertRecoveryReadinessForOperation(evidence, "site_release", options.projectRef!);

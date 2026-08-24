@@ -1254,6 +1254,11 @@ describe("site-content publication and release control plane", () => {
     expect(migration).toContain(
       "revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role",
     );
+    expect(migration).toContain("pg_catalog.normalize(lower(coalesce(p_value, '')), 'NFKD')");
+    expect(migration).toContain("U&'[\\0300-\\036F]'");
+    expect(migration).toContain("return p_value #>> '{}'");
+    expect(migration).toContain("site_content_utf16_cutoff_unrepresentable");
+    expect(migration).toContain("v_render#>>'{catalogPayload,availability}'");
   });
 
   it("pins the exact current P03 registry baseline for SQL null and forced-field merging", () => {
@@ -1407,6 +1412,12 @@ describe("site-content publication and release control plane", () => {
     const rollback = migration.slice(rollbackStart, migration.indexOf("$$;", rollbackStart));
     expect(rollback).toContain("active_release_id = p_target_release_id");
     expect(rollback).not.toContain("update public.site_content_public_records");
+    expect(migration).toContain("site-content-bootstrap-public-release-v1");
+    expect(migration).toContain("create or replace function public.site_content_bootstrap_digest(");
+    expect(read).toContain("rr.target_publication_id is null");
+    expect(read).not.toContain("case when s.initialized then r.record else null end");
+    expect(rollback).toContain("site_content_bootstrap_digest(v_target.id)");
+    expect(rollback).toContain("bootstrap-no-embedding-1536-v1");
   });
 
   it("uses a recursive public allowlist and P03-equivalent canonical projections", () => {

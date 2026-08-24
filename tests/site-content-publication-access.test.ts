@@ -128,6 +128,31 @@ describe("canonical site-content publication reads", () => {
     expect(pending.source).toBe("canonical_public");
   });
 
+  it("serves retained epoch-zero release bytes instead of reconstructing current deployment seeds", async () => {
+    const frozenBootstrap = { slug: "seed", title: "Frozen before first activation" };
+    const result = await readCanonicalSiteContentRecords({
+      supabase: {
+        rpc: vi.fn(async () => ({
+          data: [
+            {
+              initialized: false,
+              record: { logicalId: "medications:seed", sourceStatus: "current" },
+              render_payload: frozenBootstrap,
+              snapshot: { state: "unavailable", releaseId: "bootstrap-release" },
+            },
+          ],
+          error: null,
+        })),
+      },
+      kind: "medication",
+      slug: null,
+      seeds: [{ slug: "seed", title: "Changed in a later deployment" }],
+    });
+
+    expect(result.records).toEqual([frozenBootstrap]);
+    expect(result.source).toBe("canonical_public");
+  });
+
   it("never silently falls back after an RPC failure", async () => {
     await expect(
       readCanonicalSiteContentRecords({

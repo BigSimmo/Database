@@ -176,7 +176,10 @@ describe("site-content publication POST", () => {
     expect(validResponse.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith(
       "publish_site_content_record",
-      expect.objectContaining({ p_published_by: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }),
+      expect.objectContaining({
+        p_expected_record_digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+        p_published_by: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      }),
     );
   });
 
@@ -319,5 +322,63 @@ describe("canonical dynamic public projection", () => {
     const privateSourceProjection = canonicalDynamicSiteContentProjection("service", privateSourceRow);
     expect(privateSourceProjection.renderPayload).toMatchObject({ source: { label: "Public source" } });
     expect(JSON.stringify(privateSourceProjection)).not.toContain(privateToken);
+  });
+
+  it("freezes the complete current P03 dynamic seed population into epoch zero without a semantic diff", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql",
+      "utf8",
+    );
+    const match = migration.match(/\$site_content_bootstrap_records\$([\s\S]*?)\$site_content_bootstrap_records\$/);
+    expect(match).not.toBeNull();
+    if (!match) return;
+    const frozen = (JSON.parse(match[1]!) as Array<Record<string, unknown>>).map(
+      ({ logicalId, record, renderPayload }) => ({ logicalId, record, renderPayload }),
+    );
+    const snapshot = loadDifferentialSnapshot();
+    const audit = {
+      id: ownerId,
+      owner_id: ownerId,
+      created_at: "2026-08-24T00:00:00.000Z",
+      updated_at: "2026-08-24T00:00:00.000Z",
+      last_reviewed_at: null,
+      review_due_at: null,
+    };
+    const current = [
+      ...serviceRecords.map((record) =>
+        canonicalDynamicSiteContentProjection("service", {
+          ...registryToRow(record, ownerId, "service"),
+          ...audit,
+        } as RegistryRecordRow),
+      ),
+      ...formRecords.map((record) =>
+        canonicalDynamicSiteContentProjection("form", {
+          ...registryToRow(record, ownerId, "form"),
+          ...audit,
+        } as RegistryRecordRow),
+      ),
+      ...loadMedicationSnapshot().map((record) =>
+        canonicalDynamicSiteContentProjection("medication", {
+          ...medicationToRow(record, ownerId),
+          ...audit,
+        } as MedicationRecordRow),
+      ),
+      ...snapshot.diagnoses.map((record) =>
+        canonicalDynamicSiteContentProjection("differential", {
+          ...diagnosisToRow(record, ownerId, snapshot),
+          ...audit,
+        } as DifferentialRecordRow),
+      ),
+      ...snapshot.presentations.map((record) =>
+        canonicalDynamicSiteContentProjection("presentation", {
+          ...presentationToRow(record, ownerId, snapshot),
+          ...audit,
+        } as DifferentialRecordRow),
+      ),
+    ]
+      .map(({ record, renderPayload }) => ({ logicalId: record.logicalId, record, renderPayload }))
+      .sort((left, right) => left.logicalId.localeCompare(right.logicalId));
+
+    expect(frozen).toEqual(current);
   });
 });

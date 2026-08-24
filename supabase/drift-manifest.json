@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-24T04:48:48.365Z",
+  "generated_at": "2026-08-24T05:59:12.878Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "279204517b6aaf6adc2316d783074a2172933b440c452d2f4784a0b2e19cc4c3",
-  "replay_seconds": 19,
+  "schema_sha256": "63a943e480cb159af80b34d18f161b0e905aee8f1973d912e960fdd1d5c4ce0e",
+  "replay_seconds": 20,
   "snapshot": {
     "views": [
       {
@@ -8352,8 +8352,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "5f85c5f2c406f5f943606c905c8eb8c2",
-        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,uuid)"
+        "def_hash": "409ccf67416451d8648715b76f0ffb92",
+        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,text,uuid)"
       },
       {
         "acl": [
@@ -8394,7 +8394,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "2e3696e5e25c4baa8783da151c2c5a86",
+        "def_hash": "a3680d700e2d7e7246cfad3e7def8ac3",
         "signature": "public.read_site_content_public_records(text,text)"
       },
       {
@@ -8498,8 +8498,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "66d8949d93c7ec20cb3349b5fc714a6b",
-        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,uuid)"
+        "def_hash": "a2851dad731e46b319f5c4b5cbe3e9a0",
+        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,text,uuid)"
       },
       {
         "acl": [
@@ -8530,7 +8530,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a14594294fe549eb677d9b47f6b1335d",
+        "def_hash": "0bf0b3ffe095a21f152c368e4074a1e6",
         "signature": "public.rollback_site_content_release(uuid,uuid,text,jsonb)"
       },
       {
@@ -8601,6 +8601,13 @@
         "acl": [
           "postgres=X/postgres"
         ],
+        "def_hash": "26dffc4b313e3495a6bc6f9e68371e8f",
+        "signature": "public.site_content_bootstrap_digest(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
         "def_hash": "6b0bdc14b06aa40976b362126ed60361",
         "signature": "public.site_content_canonical_json(jsonb)"
       },
@@ -8615,7 +8622,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "68693de63a73a5fde6cfcb5cab6ab4d6",
+        "def_hash": "d1c90100f18515967add6557bef987dc",
         "signature": "public.site_content_compact_text(text[],integer)"
       },
       {
@@ -8629,7 +8636,21 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "79666e37ea1273eb540b0463dc799c6c",
+        "def_hash": "9801d733ca6256d2275db451cc45d803",
+        "signature": "public.site_content_ecmascript_space(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "bb6a622bdde15114205c45b2d19809fc",
+        "signature": "public.site_content_ecmascript_trim(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "974273dd14de280dd0bbaa22a81fe269",
         "signature": "public.site_content_json_array_fields(jsonb,text[])"
       },
       {
@@ -8643,14 +8664,14 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "b038eaf7fef67bf52bbcf2c135900070",
+        "def_hash": "00540cc79a85d8ea63afd6f33c38deaf",
         "signature": "public.site_content_json_text(jsonb)"
       },
       {
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "efa93cc8d2bbb93fb79072571a366958",
+        "def_hash": "8b3c974c4974d5f9c1aadcd99deb478e",
         "signature": "public.site_content_normalize_search_text(text)"
       },
       {
@@ -8713,8 +8734,22 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "8d5b9768712f7e156a7f4c77f2e8a73f",
+        "def_hash": "962257ce807b0d7e3320cc4f4c8e6136",
         "signature": "public.site_content_source_projection(text,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "e5d890b3db7297ebc7c758bd3903d92c",
+        "signature": "public.site_content_utf16_length(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "dfccaa20734afa42a4812c07800b32a7",
+        "signature": "public.site_content_utf16_prefix(text,integer)"
       },
       {
         "acl": [
@@ -9711,7 +9746,7 @@
         "table": "site_content_release_records"
       },
       {
-        "def": "CHECK ((((target_publication_id IS NULL) AND (record IS NULL) AND (render_payload IS NULL)) OR ((target_publication_id IS NOT NULL) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text))))",
+        "def": "CHECK ((((target_publication_id IS NULL) AND (release_id = 'c0f6c316-b6f8-5c55-87ce-6b486032af03'::uuid) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text)) OR ((target_publication_id IS NOT NULL) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text))))",
         "name": "site_content_release_records_check1",
         "table": "site_content_release_records"
       },
