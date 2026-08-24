@@ -111,12 +111,12 @@ merged into one destination, with the site-wide composer as the mode’s only se
 
 Runnable study at [`/mockups/dictionary-az-state`](../src/app/mockups/dictionary-az-state/page.tsx). Two frames only.
 
-Filter is the shared `ResultFilterTrigger`. Abbreviations live inside that sheet as Show. A–Z is browse navigation: it sits next to **Clinical terms** while the query is empty, and stands down as soon as a search runs. Filter then occupies the original results band, matching every other mode. Tap the composer (or the clear X) to feel the handoff.
+Filter is the shared `ResultFilterTrigger`. Abbreviations live inside that sheet as Show. A–Z is browse navigation: while the query is empty, A–Z and Filter sit together in the trailing corner of the heading row; as soon as a search runs, A–Z stands down and Filter occupies the original results band. Tap the composer (or the clear X) to feel the handoff.
 
-| State  | A–Z                    | Filter                                     |
-| ------ | ---------------------- | ------------------------------------------ |
-| Browse | Chip next to the title | Original trigger, right of the heading row |
-| Search | Hidden                 | Original trigger, in the results band      |
+| State  | A–Z                                 | Filter                                  |
+| ------ | ----------------------------------- | --------------------------------------- |
+| Browse | Trailing corner, paired with Filter | Original trigger, same trailing cluster |
+| Search | Hidden                              | Original trigger, in the results band   |
 
 The earlier three-home study at [`/mockups/dictionary-az-filter`](../src/app/mockups/dictionary-az-filter/page.tsx) asked A–Z to live on a search screen. This page is the recommended alternative.
 

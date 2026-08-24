@@ -18,6 +18,8 @@ import { cn } from "@/components/ui-primitives";
  *
  * Two frames only. Same Filter, same Abbreviations-in-Filter rule.
  * A–Z is browse navigation, so it stands down the moment a query runs.
+ * On browse, A–Z and Filter sit together in the trailing corner so the title
+ * stays a title and the two list controls read as one toolbar.
  * ------------------------------------------------------------------ */
 
 const QUERY = "mental state examination";
@@ -275,7 +277,7 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
           <p className="mt-0.5 text-3xs font-medium text-[color:var(--text-muted)]">
             {searching
               ? "Original Filter in the band. No A–Z. Abbreviations live in Show."
-              : "A–Z beside the title. Filter on the right. No results band yet."}
+              : "A–Z and Filter share the trailing corner. No results band yet."}
           </p>
         </div>
         <span className="shrink-0 text-3xs font-bold text-[color:var(--text-soft)]">390 px</span>
@@ -283,26 +285,28 @@ function PhoneFrame({ startSearching }: { startSearching: boolean }) {
       <div className="relative overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--background)]">
         <PhoneChrome>
           <div className="relative h-[30rem] overflow-y-auto pb-16">
-            <div className="flex flex-wrap items-center gap-2 px-4 pb-2 pt-4">
-              <h3 className="min-w-0 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
+            <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-4">
+              <h3 className="min-w-0 truncate text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
                 Clinical terms
               </h3>
               {searching ? null : (
-                <button
-                  type="button"
-                  onClick={() => setSheet("letter")}
-                  aria-haspopup="dialog"
-                  aria-label={`Letters — ${letter === "All" ? "all letters" : `letter ${letter}`}`}
-                  className={cn(
-                    "inline-flex h-11 shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)]",
-                    focusRing,
-                  )}
-                >
-                  {letter === "All" ? "A–Z" : letter}
-                  <ChevronDown className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
-                </button>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSheet("letter")}
+                    aria-haspopup="dialog"
+                    aria-label={`Letters — ${letter === "All" ? "all letters" : `letter ${letter}`}`}
+                    className={cn(
+                      "inline-flex min-h-tap shrink-0 items-center gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)]",
+                      focusRing,
+                    )}
+                  >
+                    {letter === "All" ? "A–Z" : letter}
+                    <ChevronDown className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
+                  </button>
+                  {filterTrigger}
+                </div>
               )}
-              {searching ? null : <span className="ml-auto flex items-center">{filterTrigger}</span>}
             </div>
 
             {searching ? (
@@ -440,10 +444,10 @@ export function DictionaryAzStateMockupsPage() {
             Browse keeps A–Z. Search keeps Filter.
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Two phones, one rule. Abbreviations live inside the original Filter sheet as Show. A–Z sits next to the
-            title only while the catalogue is being browsed. The moment a query runs, A–Z stands down and Filter moves
-            into the results band — the same control every other search page uses. Tap the composer (or the clear X) to
-            feel the handoff.
+            Two phones, one rule. Abbreviations live inside the original Filter sheet as Show. While browsing, A–Z and
+            Filter sit together in the trailing corner so the title stays a title. The moment a query runs, A–Z stands
+            down and Filter moves into the results band — the same control every other search page uses. Tap the
+            composer (or the clear X) to feel the handoff.
           </p>
         </div>
       </header>
