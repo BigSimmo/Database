@@ -108,7 +108,8 @@ const SOURCES: MockSource[] = [
   },
 ];
 
-const sourceById = (id: string) => SOURCES.find((source) => source.id === id) ?? SOURCES[0];
+const sourceById = (id: string) =>
+  SOURCES.find((source) => source.id === id) ?? SOURCES[0];
 
 type AnswerBlock = {
   id: string;
@@ -117,7 +118,8 @@ type AnswerBlock = {
   safety?: boolean;
 };
 
-const QUESTION = "What physical health monitoring does a patient on clozapine need in the first year?";
+const QUESTION =
+  "What physical health monitoring does a patient on clozapine need in the first year?";
 
 const ANSWER_BLOCKS: AnswerBlock[] = [
   {
@@ -157,7 +159,11 @@ const FOLLOW_UPS = [
 
 export type MarkVariant = "superscript" | "bracket" | "pill" | "ghost";
 
-export const MARK_VARIANTS: Array<{ id: MarkVariant; name: string; note: string }> = [
+export const MARK_VARIANTS: Array<{
+  id: MarkVariant;
+  name: string;
+  note: string;
+}> = [
   {
     id: "superscript",
     name: "Superscript",
@@ -200,7 +206,10 @@ function RefMark({
     "relative inline-flex shrink-0 items-center justify-center font-semibold tabular-nums transition select-none";
   const label = `Source ${source.index}, ${source.short}, page ${source.page}`;
 
-  const byVariant: Record<MarkVariant, { style: React.CSSProperties; className: string; text: string }> = {
+  const byVariant: Record<
+    MarkVariant,
+    { style: React.CSSProperties; className: string; text: string }
+  > = {
     superscript: {
       style: {
         fontSize: "0.7em",
@@ -210,10 +219,14 @@ function RefMark({
         borderRadius: 3,
         top: 0,
         ...(active
-          ? { background: "var(--clinical-accent-soft)", boxShadow: "0 0 0 1px var(--clinical-accent-border)" }
+          ? {
+              background: "var(--clinical-accent-soft)",
+              boxShadow: "0 0 0 1px var(--clinical-accent-border)",
+            }
           : null),
       },
-      className: "text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+      className:
+        "text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
       text: String(source.index),
     },
     bracket: {
@@ -224,7 +237,8 @@ function RefMark({
         padding: "0 0.1em",
         ...(active ? { background: "var(--clinical-accent-soft)" } : null),
       },
-      className: "text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+      className:
+        "text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
       text: `[${source.index}]`,
     },
     pill: {
@@ -237,7 +251,9 @@ function RefMark({
         background: "var(--clinical-accent)",
         color: "var(--clinical-accent-contrast)",
         verticalAlign: "0.12em",
-        ...(active ? { boxShadow: "0 0 0 2px var(--clinical-accent-soft)" } : null),
+        ...(active
+          ? { boxShadow: "0 0 0 2px var(--clinical-accent-soft)" }
+          : null),
       },
       className: "",
       text: String(source.index),
@@ -253,7 +269,8 @@ function RefMark({
         verticalAlign: "0.12em",
         ...(active ? { background: "var(--clinical-accent-soft)" } : null),
       },
-      className: "text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+      className:
+        "text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
       text: String(source.index),
     },
   };
@@ -273,7 +290,16 @@ function RefMark({
       {spec.text}
       {/* An unboxed superscript is ~9px tall. This gives the control a real
           touch target without adding a single pixel to the line box. */}
-      <span aria-hidden="true" style={{ position: "absolute", top: -14, right: -6, bottom: -14, left: -6 }} />
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: -14,
+          right: -6,
+          bottom: -14,
+          left: -6,
+        }}
+      />
     </button>
   );
 }
@@ -309,7 +335,12 @@ function Claim({
               {index > 0 ? (
                 <span
                   aria-hidden="true"
-                  style={{ fontSize: "0.7em", verticalAlign: "super", lineHeight: 0, margin: "0 -0.02em" }}
+                  style={{
+                    fontSize: "0.7em",
+                    verticalAlign: "super",
+                    lineHeight: 0,
+                    margin: "0 -0.02em",
+                  }}
                   className="text-[color:var(--text-soft)]"
                 >
                   ,
@@ -344,7 +375,13 @@ function statusLabel(status: SourceStatus) {
  * separate object beside the card rather than part of it, and the badge was
  * already carrying the same signal.
  */
-function SourceRail({ activeId, onOpen }: { activeId: string | null; onOpen: (id: string) => void }) {
+function SourceRail({
+  activeId,
+  onOpen,
+}: {
+  activeId: string | null;
+  onOpen: (id: string) => void;
+}) {
   return (
     <div
       className="flex gap-1.5 overflow-x-auto pb-1"
@@ -384,7 +421,8 @@ function SourceRail({ activeId, onOpen }: { activeId: string | null; onOpen: (id
                 {source.short}
               </span>
               <span className="block text-3xs leading-4 text-[color:var(--text-muted)]">
-                <span className="font-mono tabular-nums">p.{source.page}</span> · {statusLabel(source.status)}
+                <span className="font-mono tabular-nums">p.{source.page}</span>{" "}
+                · {statusLabel(source.status)}
               </span>
             </span>
           </button>
@@ -430,7 +468,15 @@ function SourceDrawer({
   if (openId === null) return null;
   // Keyed on the source: the panel's own transient state (an open menu)
   // belongs to that source and is discarded when you move to another.
-  return <DrawerPanel key={openId} openId={openId} onSelect={onSelect} onClose={onClose} wide={wide} />;
+  return (
+    <DrawerPanel
+      key={openId}
+      openId={openId}
+      onSelect={onSelect}
+      onClose={onClose}
+      wide={wide}
+    />
+  );
 }
 
 function DrawerPanel({
@@ -469,7 +515,7 @@ function DrawerPanel({
 
       const controls = Array.from(
         dialog.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+          "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
         ),
       );
       if (event.key === "Tab") {
@@ -480,10 +526,17 @@ function DrawerPanel({
         }
         const first = controls[0];
         const last = controls[controls.length - 1];
-        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        if (
+          event.shiftKey &&
+          (document.activeElement === first ||
+            document.activeElement === dialog)
+        ) {
           event.preventDefault();
           last.focus();
-        } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+        } else if (
+          !event.shiftKey &&
+          (document.activeElement === last || document.activeElement === dialog)
+        ) {
           event.preventDefault();
           first.focus();
         }
@@ -525,12 +578,21 @@ function DrawerPanel({
           "flex min-h-0 flex-col rounded-t-2xl border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-elevated)] motion-safe:animate-sheet-up",
           wide && "mx-auto w-full rounded-2xl border",
         )}
-        style={{ maxHeight: "78%", ...(wide ? { maxWidth: 560, marginBottom: 16 } : null) }}
+        style={{
+          maxHeight: "78%",
+          ...(wide ? { maxWidth: 560, marginBottom: 16 } : null),
+        }}
       >
-        <div aria-hidden="true" className="mx-auto mt-2 h-1 w-9 rounded-full bg-[color:var(--border-strong)]" />
+        <div
+          aria-hidden="true"
+          className="mx-auto mt-2 h-1 w-9 rounded-full bg-[color:var(--border-strong)]"
+        />
 
         {/* One chrome row: which source you are on, and the way out. */}
-        <div style={{ paddingBottom: 6 }} className="flex items-center gap-1 px-2 pt-2">
+        <div
+          style={{ paddingBottom: 6 }}
+          className="flex items-center gap-1 px-2 pt-2"
+        >
           <button
             type="button"
             onClick={() => step(-1)}
@@ -603,7 +665,12 @@ function DrawerPanel({
             </button>
             {menuOpen ? (
               <div
-                style={{ position: "absolute", right: 0, bottom: 42, width: 208 }}
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: 42,
+                  width: 208,
+                }}
                 className="z-30 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] py-1 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in"
               >
                 {[
@@ -620,7 +687,10 @@ function DrawerPanel({
                       focusRing,
                     )}
                   >
-                    <Icon aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--text-muted)]" />
+                    <Icon
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 text-[color:var(--text-muted)]"
+                    />
                     {label}
                   </button>
                 ))}
@@ -641,7 +711,9 @@ function DrawerPanel({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-          <h2 className="text-base font-semibold leading-5 text-[color:var(--text-heading)]">{source.title}</h2>
+          <h2 className="text-base font-semibold leading-5 text-[color:var(--text-heading)]">
+            {source.title}
+          </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-2xs text-[color:var(--text-muted)]">
             <span className="font-mono tabular-nums">p.{source.page}</span>
             <span aria-hidden="true">·</span>
@@ -650,7 +722,9 @@ function DrawerPanel({
             <span
               className={cn(
                 "font-semibold",
-                source.status === "review-due" ? "text-[color:var(--warning)]" : "text-[color:var(--success)]",
+                source.status === "review-due"
+                  ? "text-[color:var(--warning)]"
+                  : "text-[color:var(--success)]",
               )}
             >
               {source.status === "review-due" ? "Past review date" : "Current"}
@@ -674,9 +748,14 @@ function DrawerPanel({
                 focusRing,
               )}
             >
-              <Table2 aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+              <Table2
+                aria-hidden="true"
+                className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]"
+              />
               {source.attachment.label}
-              <span className="font-normal text-[color:var(--text-muted)]">on this page</span>
+              <span className="font-normal text-[color:var(--text-muted)]">
+                on this page
+              </span>
             </button>
           ) : null}
 
@@ -719,13 +798,19 @@ function MessageActions({ hoverReveal }: { hoverReveal: boolean }) {
       Icon: copied ? Check : Copy,
       onClick: () => setCopied((value) => !value),
     },
-    { key: "ask", label: "Follow up", Icon: CornerUpLeft, onClick: () => undefined },
+    {
+      key: "ask",
+      label: "Follow up",
+      Icon: CornerUpLeft,
+      onClick: () => undefined,
+    },
   ] as const;
   return (
     <div
       className={cn(
         "flex items-center gap-0.5 transition-opacity",
-        hoverReveal && "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+        hoverReveal &&
+          "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
       )}
     >
       {items.map(({ key, label, Icon, onClick }) => (
@@ -775,15 +860,21 @@ function AnswerMessage({
           {ANSWER_BLOCKS.map((block) => {
             // Opening a drawer covers the lower third of the screen, so the
             // claim it belongs to is washed to hold the reader's place.
-            const lit = activeSourceId !== null && block.sourceIds.includes(activeSourceId);
+            const lit =
+              activeSourceId !== null &&
+              block.sourceIds.includes(activeSourceId);
             return (
               <p
                 key={block.id}
                 style={{ paddingTop: 3, paddingBottom: 3 }}
                 className={cn(
                   "-mx-2 rounded-lg px-2 text-base-minus leading-prose transition-colors",
-                  lit ? "bg-[color:var(--clinical-accent-soft)]" : "bg-transparent",
-                  block.safety ? "font-medium text-[color:var(--text-heading)]" : "text-[color:var(--text-heading)]",
+                  lit
+                    ? "bg-[color:var(--clinical-accent-soft)]"
+                    : "bg-transparent",
+                  block.safety
+                    ? "font-medium text-[color:var(--text-heading)]"
+                    : "text-[color:var(--text-heading)]",
                 )}
               >
                 {block.safety ? (
@@ -793,7 +884,12 @@ function AnswerMessage({
                     className="relative mr-1.5 inline-block h-4 w-4 text-[color:var(--warning)]"
                   />
                 ) : null}
-                <Claim block={block} variant={variant} activeSourceId={activeSourceId} onOpen={onOpen} />
+                <Claim
+                  block={block}
+                  variant={variant}
+                  activeSourceId={activeSourceId}
+                  onOpen={onOpen}
+                />
               </p>
             );
           })}
@@ -844,7 +940,10 @@ function Composer({ suggestions = false }: { suggestions?: boolean }) {
   return (
     <div className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-3 pb-3 pt-2">
       {suggestions ? (
-        <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5" style={{ scrollbarWidth: "none" }}>
+        <div
+          className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5"
+          style={{ scrollbarWidth: "none" }}
+        >
           {FOLLOW_UPS.map((item) => (
             <button
               key={item}
@@ -861,7 +960,10 @@ function Composer({ suggestions = false }: { suggestions?: boolean }) {
         </div>
       ) : null}
       <div className="flex items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] py-1 pl-3.5 pr-1 shadow-[var(--shadow-inset)]">
-        <span style={{ color: "var(--text-placeholder)" }} className="min-w-0 flex-1 truncate text-sm">
+        <span
+          style={{ color: "var(--text-placeholder)" }}
+          className="min-w-0 flex-1 truncate text-sm"
+        >
           Ask a follow-up…
         </span>
         <button
@@ -886,7 +988,10 @@ function Composer({ suggestions = false }: { suggestions?: boolean }) {
 function ThreadDivider() {
   return (
     <div className="flex items-center gap-2">
-      <span aria-hidden="true" className="h-px flex-1 bg-[color:var(--border)]" />
+      <span
+        aria-hidden="true"
+        className="h-px flex-1 bg-[color:var(--border)]"
+      />
       <button
         type="button"
         onClick={() => undefined}
@@ -897,7 +1002,10 @@ function ThreadDivider() {
       >
         <span className="min-w-0 truncate">{PRIOR_QUESTION}</span>
       </button>
-      <span aria-hidden="true" className="h-px flex-1 bg-[color:var(--border)]" />
+      <span
+        aria-hidden="true"
+        className="h-px flex-1 bg-[color:var(--border)]"
+      />
     </div>
   );
 }
@@ -931,26 +1039,44 @@ function AnswerScreen({
     <>
       <TopBar />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className={cn("space-y-3 px-3 py-3", wide && "mx-auto w-full max-w-3xl px-5 py-5")}>
+        <div
+          className={cn(
+            "space-y-3 px-3 py-3",
+            wide && "mx-auto w-full max-w-3xl px-5 py-5",
+          )}
+        >
           <ThreadDivider />
           <UserTurn />
           <AnswerMessage
             variant={variant}
             activeSourceId={openId}
-            onOpen={(id) => setOpenId((current) => (current === id ? null : id))}
+            onOpen={(id) =>
+              setOpenId((current) => (current === id ? null : id))
+            }
             wide={wide}
           />
         </div>
       </div>
       <Composer />
-      <SourceDrawer openId={openId} onSelect={setOpenId} onClose={() => setOpenId(null)} wide={wide} />
+      <SourceDrawer
+        openId={openId}
+        onSelect={setOpenId}
+        onClose={() => setOpenId(null)}
+        wide={wide}
+      />
     </>
   );
 }
 
 /* ══════════════════════  page scaffold  ══════════════════════ */
 
-function PhoneFrame({ caption, children }: { caption: string; children: React.ReactNode }) {
+function PhoneFrame({
+  caption,
+  children,
+}: {
+  caption: string;
+  children: React.ReactNode;
+}) {
   return (
     <figure className="min-w-0">
       <figcaption className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -958,7 +1084,11 @@ function PhoneFrame({ caption, children }: { caption: string; children: React.Re
       </figcaption>
       <div className="mx-auto w-full" style={{ maxWidth: PHONE_WIDTH }}>
         <div
-          style={{ height: PHONE_HEIGHT, borderRadius: "1.75rem", borderWidth: 6 }}
+          style={{
+            height: PHONE_HEIGHT,
+            borderRadius: "1.75rem",
+            borderWidth: 6,
+          }}
           className="relative flex flex-col overflow-hidden border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-elevated)]"
         >
           {children}
@@ -968,7 +1098,13 @@ function PhoneFrame({ caption, children }: { caption: string; children: React.Re
   );
 }
 
-function DesktopFrame({ caption, children }: { caption: string; children: React.ReactNode }) {
+function DesktopFrame({
+  caption,
+  children,
+}: {
+  caption: string;
+  children: React.ReactNode;
+}) {
   return (
     <figure className="min-w-0">
       <figcaption className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -1020,9 +1156,16 @@ function Panel({
       id={id}
       className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] sm:p-4"
     >
-      <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{step}</p>
-      <h2 className="mt-1.5 text-lg font-semibold text-[color:var(--text-heading)]">{title}</h2>
-      <p style={PROSE_MEASURE} className="mt-1.5 text-sm leading-6 text-[color:var(--text-muted)]">
+      <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        {step}
+      </p>
+      <h2 className="mt-1.5 text-lg font-semibold text-[color:var(--text-heading)]">
+        {title}
+      </h2>
+      <p
+        style={PROSE_MEASURE}
+        className="mt-1.5 text-sm leading-6 text-[color:var(--text-muted)]"
+      >
         {intro}
       </p>
       <div className="mt-4">{children}</div>
@@ -1035,11 +1178,16 @@ function Panel({
 function MarkSpecimen() {
   const [variant, setVariant] = useState<MarkVariant>("superscript");
   const [openId, setOpenId] = useState<string | null>(null);
-  const chosen = MARK_VARIANTS.find((item) => item.id === variant) ?? MARK_VARIANTS[0];
+  const chosen =
+    MARK_VARIANTS.find((item) => item.id === variant) ?? MARK_VARIANTS[0];
 
   return (
     <div className="space-y-3">
-      <div role="radiogroup" aria-label="Reference mark treatment" className="flex flex-wrap gap-1.5">
+      <div
+        role="radiogroup"
+        aria-label="Reference mark treatment"
+        className="flex flex-wrap gap-1.5"
+      >
         {MARK_VARIANTS.map((item) => (
           <button
             key={item.id}
@@ -1062,7 +1210,9 @@ function MarkSpecimen() {
               </span>
             ) : null}
             {item.id === "pill" ? (
-              <span className="text-3xs font-normal text-[color:var(--text-soft)]">was</span>
+              <span className="text-3xs font-normal text-[color:var(--text-soft)]">
+                was
+              </span>
             ) : null}
           </button>
         ))}
@@ -1071,30 +1221,50 @@ function MarkSpecimen() {
       <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 sm:p-4">
         <div style={PROSE_MEASURE} className="space-y-2.5">
           {ANSWER_BLOCKS.slice(0, 3).map((block) => (
-            <p key={block.id} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
+            <p
+              key={block.id}
+              className="text-base-minus leading-prose text-[color:var(--text-heading)]"
+            >
               <Claim
                 block={block}
                 variant={variant}
                 activeSourceId={openId}
-                onOpen={(id) => setOpenId((current) => (current === id ? null : id))}
+                onOpen={(id) =>
+                  setOpenId((current) => (current === id ? null : id))
+                }
               />
             </p>
           ))}
         </div>
         <p className="mt-3 border-t border-[color:var(--border)] pt-2.5 text-2xs leading-5 text-[color:var(--text-muted)]">
-          <span className="font-semibold text-[color:var(--text-heading)]">{chosen.name}.</span> {chosen.note} Click a
-          mark to see its selected state; the second claim carries two sources, so it shows the cluster.
+          <span className="font-semibold text-[color:var(--text-heading)]">
+            {chosen.name}.
+          </span>{" "}
+          {chosen.note} Click a mark to see its selected state; the second claim
+          carries two sources, so it shows the cluster.
         </p>
       </div>
     </div>
   );
 }
 
-function DetailCard({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+function DetailCard({
+  title,
+  body,
+  children,
+}: {
+  title: string;
+  body: string;
+  children: React.ReactNode;
+}) {
   return (
     <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-      <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">{title}</h3>
-      <p className="mt-1 text-2xs leading-5 text-[color:var(--text-muted)]">{body}</p>
+      <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">
+        {title}
+      </h3>
+      <p className="mt-1 text-2xs leading-5 text-[color:var(--text-muted)]">
+        {body}
+      </p>
       <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3">
         {children}
       </div>
@@ -1114,26 +1284,50 @@ function MarkStates() {
         ] as const
       ).map(([label, state]) => (
         <span key={label} className="inline-flex items-baseline gap-2">
-          <span className="text-3xs uppercase tracking-eyebrow text-[color:var(--text-muted)]">{label}</span>
+          <span className="text-3xs uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+            {label}
+          </span>
           <span>
             …week 52
-            <RefMark source={SOURCES[0]} variant="superscript" active={state.active} onOpen={() => undefined} />
+            <RefMark
+              source={SOURCES[0]}
+              variant="superscript"
+              active={state.active}
+              onOpen={() => undefined}
+            />
           </span>
         </span>
       ))}
       <span className="inline-flex items-baseline gap-2">
-        <span className="text-3xs uppercase tracking-eyebrow text-[color:var(--text-muted)]">Cluster</span>
+        <span className="text-3xs uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Cluster
+        </span>
         <span>
           …four weeks
-          <RefMark source={SOURCES[0]} variant="superscript" active={false} onOpen={() => undefined} />
+          <RefMark
+            source={SOURCES[0]}
+            variant="superscript"
+            active={false}
+            onOpen={() => undefined}
+          />
           <span
             aria-hidden="true"
-            style={{ fontSize: "0.7em", verticalAlign: "super", lineHeight: 0, margin: "0 -0.02em" }}
+            style={{
+              fontSize: "0.7em",
+              verticalAlign: "super",
+              lineHeight: 0,
+              margin: "0 -0.02em",
+            }}
             className="text-[color:var(--text-soft)]"
           >
             ,
           </span>
-          <RefMark source={SOURCES[1]} variant="superscript" active={false} onOpen={() => undefined} />
+          <RefMark
+            source={SOURCES[1]}
+            variant="superscript"
+            active={false}
+            onOpen={() => undefined}
+          />
         </span>
       </span>
     </div>
@@ -1142,12 +1336,21 @@ function MarkStates() {
 
 function UnsupportedClaim() {
   return (
-    <p style={PROSE_MEASURE} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
-      Routine ECG beyond the first four weeks is not specified in your indexed documents.
+    <p
+      style={PROSE_MEASURE}
+      className="text-base-minus leading-prose text-[color:var(--text-heading)]"
+    >
+      Routine ECG beyond the first four weeks is not specified in your indexed
+      documents.
       <span className="whitespace-nowrap">
         {" "}
         <span
-          style={{ fontSize: "0.7em", verticalAlign: "super", lineHeight: 0, marginLeft: "0.12em" }}
+          style={{
+            fontSize: "0.7em",
+            verticalAlign: "super",
+            lineHeight: 0,
+            marginLeft: "0.12em",
+          }}
           className="font-semibold text-[color:var(--warning)]"
         >
           no source
@@ -1159,11 +1362,21 @@ function UnsupportedClaim() {
 
 function StreamingClaim() {
   return (
-    <p style={PROSE_MEASURE} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
-      Haematological monitoring is the part that cannot slip: FBC and ANC at baseline, weekly for the first
+    <p
+      style={PROSE_MEASURE}
+      className="text-base-minus leading-prose text-[color:var(--text-heading)]"
+    >
+      Haematological monitoring is the part that cannot slip: FBC and ANC at
+      baseline, weekly for the first
       <span
         aria-hidden="true"
-        style={{ marginLeft: 6, height: 15, width: 7, borderRadius: 2, background: "var(--clinical-accent)" }}
+        style={{
+          marginLeft: 6,
+          height: 15,
+          width: 7,
+          borderRadius: 2,
+          background: "var(--clinical-accent)",
+        }}
         className="inline-block motion-safe:animate-pulse"
       />
     </p>
@@ -1171,11 +1384,26 @@ function StreamingClaim() {
 }
 
 const REMOVED_FROM_DRAWER = [
-  ["Three source cards", "One source, with a pager. The other two are one tap away and cost a single row."],
-  ["Passages / Tables / Map tabs", "A table or figure on the cited page appears as one chip inside that source."],
-  ["Title and subtitle rows", "The source's own title is the title. Nothing needed a caption above it."],
-  ["Support and status pills", "Status is one word in the metadata line; support strength was never actionable."],
-  ["Two buttons per card", "One primary action — open the page. The rest sit behind the menu."],
+  [
+    "Three source cards",
+    "One source, with a pager. The other two are one tap away and cost a single row.",
+  ],
+  [
+    "Passages / Tables / Map tabs",
+    "A table or figure on the cited page appears as one chip inside that source.",
+  ],
+  [
+    "Title and subtitle rows",
+    "The source's own title is the title. Nothing needed a caption above it.",
+  ],
+  [
+    "Support and status pills",
+    "Status is one word in the metadata line; support strength was never actionable.",
+  ],
+  [
+    "Two buttons per card",
+    "One primary action — open the page. The rest sit behind the menu.",
+  ],
 ];
 
 const ELEVATIONS = [
@@ -1224,10 +1452,15 @@ export function AnswerChatPerfectedMockupsPage() {
           <h1 className="mt-3 text-2xl font-semibold text-[color:var(--text-heading)] sm:text-3xl">
             Numbered chips, refined
           </h1>
-          <p style={PROSE_MEASURE} className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
-            Two decisions carry this page. The mark in the prose became a quiet superscript in a single colour, because
-            a mark that asks a second question of the eye slows the sentence down. The drawer became one source at a
-            time, because listing three sources meant printing the same eight fields three times.
+          <p
+            style={PROSE_MEASURE}
+            className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]"
+          >
+            Two decisions carry this page. The mark in the prose became a quiet
+            superscript in a single colour, because a mark that asks a second
+            question of the eye slows the sentence down. The drawer became one
+            source at a time, because listing three sources meant printing the
+            same eight fields three times.
           </p>
         </header>
 
@@ -1266,7 +1499,10 @@ export function AnswerChatPerfectedMockupsPage() {
           intro="Full prose, no card around it, one quiet caveat line. The second claim rests on two documents, so it carries a cluster."
         >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-            <div className="lg:shrink-0" style={{ width: "100%", maxWidth: PHONE_WIDTH }}>
+            <div
+              className="lg:shrink-0"
+              style={{ width: "100%", maxWidth: PHONE_WIDTH }}
+            >
               <PhoneFrame caption="Phone · tap any number">
                 <AnswerScreen variant="superscript" wide={false} />
               </PhoneFrame>
@@ -1285,9 +1521,16 @@ export function AnswerChatPerfectedMockupsPage() {
           intro="One source, its page, its passage, and one way to open it. Arrow keys or the pager move between sources without closing anything, and the claim that owns the open source stays lit behind the drawer."
         >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-            <div className="lg:shrink-0" style={{ width: "100%", maxWidth: PHONE_WIDTH }}>
+            <div
+              className="lg:shrink-0"
+              style={{ width: "100%", maxWidth: PHONE_WIDTH }}
+            >
               <PhoneFrame caption="Phone · drawer on source 2">
-                <AnswerScreen variant="superscript" wide={false} initialOpenId="s2" />
+                <AnswerScreen
+                  variant="superscript"
+                  wide={false}
+                  initialOpenId="s2"
+                />
               </PhoneFrame>
             </div>
             <div className="min-w-0 flex-1 space-y-5">
@@ -1295,17 +1538,24 @@ export function AnswerChatPerfectedMockupsPage() {
                 <AnswerScreen variant="superscript" wide initialOpenId="s1" />
               </DesktopFrame>
               <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-                <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">What came out of it</h3>
+                <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">
+                  What came out of it
+                </h3>
                 <dl className="mt-2 grid gap-1.5">
                   {REMOVED_FROM_DRAWER.map(([gone, instead]) => (
-                    <div key={gone} className="grid gap-0.5 border-t border-[color:var(--border)] pt-1.5">
+                    <div
+                      key={gone}
+                      className="grid gap-0.5 border-t border-[color:var(--border)] pt-1.5"
+                    >
                       <dt
                         style={{ textDecoration: "line-through" }}
                         className="text-2xs font-semibold text-[color:var(--text-muted)]"
                       >
                         {gone}
                       </dt>
-                      <dd className="text-2xs leading-5 text-[color:var(--text)]">{instead}</dd>
+                      <dd className="text-2xs leading-5 text-[color:var(--text)]">
+                        {instead}
+                      </dd>
                     </div>
                   ))}
                 </dl>
@@ -1344,9 +1594,14 @@ export function AnswerChatPerfectedMockupsPage() {
                   focusRing,
                 )}
               >
-                <Table2 aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+                <Table2
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]"
+                />
                 Monitoring schedule
-                <span className="font-normal text-[color:var(--text-muted)]">on this page</span>
+                <span className="font-normal text-[color:var(--text-muted)]">
+                  on this page
+                </span>
               </button>
             </DetailCard>
           </div>
@@ -1359,9 +1614,16 @@ export function AnswerChatPerfectedMockupsPage() {
         >
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {ELEVATIONS.map(([title, body]) => (
-              <div key={title} className="rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2.5">
-                <p className="text-2xs font-bold text-[color:var(--text-heading)]">{title}</p>
-                <p className="mt-1 text-2xs leading-5 text-[color:var(--text-muted)]">{body}</p>
+              <div
+                key={title}
+                className="rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2.5"
+              >
+                <p className="text-2xs font-bold text-[color:var(--text-heading)]">
+                  {title}
+                </p>
+                <p className="mt-1 text-2xs leading-5 text-[color:var(--text-muted)]">
+                  {body}
+                </p>
               </div>
             ))}
           </div>
