@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, Check, GitCompareArrows, ListChecks, Search, X } from "lucide-react";
 
+import type { CompareCatalogItem, CompareStarterChip } from "@/components/compare";
+import { DifferentialComparePickerControl } from "@/components/differentials/differential-compare-picker-control";
 import { differentialCompareSearchHref, differentialRouteWithQuery } from "@/lib/differentials-navigation";
 
 export type DifferentialCompareQueueItem = {
@@ -12,6 +14,8 @@ type DifferentialCompareQueuePageProps = {
   query?: string;
   items: DifferentialCompareQueueItem[];
   openComparisonHref: string;
+  catalog?: readonly CompareCatalogItem[];
+  starters?: readonly CompareStarterChip[];
 };
 
 /**
@@ -22,11 +26,11 @@ export function DifferentialCompareQueuePage({
   query = "",
   items,
   openComparisonHref,
+  catalog = [],
+  starters = [],
 }: DifferentialCompareQueuePageProps) {
   const trimmedQuery = query.trim();
   const selectedIds = items.map((item) => item.slug);
-  const editSelectionHref = differentialCompareSearchHref(trimmedQuery, selectedIds);
-
   if (items.length === 0) {
     return (
       <main
@@ -44,16 +48,24 @@ export function DifferentialCompareQueuePage({
                 Compare differentials
               </p>
               <h1 className="mt-2 max-w-2xl text-3xl font-bold leading-tight text-[color:var(--text-heading)] sm:text-4xl">
-                Tick diagnoses on Search to build a comparison
+                Choose diagnoses to compare
               </h1>
               <p className="mt-4 max-w-xl text-sm leading-7 text-[color:var(--text-muted)] sm:text-base">
-                Select one or more diagnoses to review their distinguishing features side by side in a focused clinical
-                workspace.
+                Search the diagnosis catalogue on this page, or tick diagnoses on Search and return here. Then open the
+                comparison workspace.
               </p>
+              <DifferentialComparePickerControl
+                catalog={catalog}
+                selectedIds={selectedIds}
+                query={trimmedQuery}
+                starters={starters}
+                empty
+                buttonLabel="Choose diagnoses"
+              />
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={differentialCompareSearchHref(trimmedQuery)}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] px-5 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e2)] transition hover:bg-[color:var(--primary-strong)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
                 >
                   <Search className="h-4 w-4" aria-hidden />
                   {trimmedQuery ? "Back to Search results" : "Open Search"}
@@ -167,13 +179,15 @@ export function DifferentialCompareQueuePage({
               Open comparison
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
-            <Link
-              href={editSelectionHref}
-              data-testid="differential-compare-edit-selection"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
-            >
-              Edit selection
-            </Link>
+            <DifferentialComparePickerControl
+              catalog={catalog}
+              selectedIds={selectedIds}
+              query={trimmedQuery}
+              starters={starters}
+              buttonLabel="Edit selection"
+              buttonTestId="differential-compare-edit-selection"
+              buttonClassName="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-5 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+            />
           </div>
         </section>
       </div>

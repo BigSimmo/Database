@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "06fca542-5d96-4dbb-9c67-2b1aa5c8ec56",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A hardcoded topic denylist refuses in-corpus psychiatric queries with zero retrieval and caches the empty result",
+    "detail": "rag-query-guard.ts:6 short-circuits any query matching ssri, antibiotic, pneumonia, hyperkalaemia and others; every token was transcribed from the eval fixture questions. ssri is demonstrably in-corpus: the golden fixture case vector-gad-worry expects a Generalised Anxiety document whose expectedContentTerms include ssri. So 'Which SSRI is first line for generalised anxiety disorder?' is refused content-blind and the empty result is cached. Worse for eval integrity: classifyCorpusGrounding, the deterministic mechanism built to make exactly this call, is explicitly bypassed for these queries, so the unsupported-query controls pass by literal topic-word match on their own question text rather than by the grounding machinery they exist to validate. A second divergent copy of the same regex lives at clinical-search.ts:371 and additionally contains 'ketamine sedation', so the two guards already disagree. FIX: delete the denylist, let classifyCorpusGrounding decide, single source of truth. Protected surface: needs approval and a canary pair.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96QC2000GN4TMFB912XE9"
+  }
+}

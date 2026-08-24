@@ -1704,7 +1704,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("offline browser gate remains in demo mode when private endpoints are mocked", async ({ page }) => {
+  test("unsafe local caller disables the demo composer when private endpoints are mocked", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
     const unsafeLocalProjectPayload = {
@@ -1732,12 +1732,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/");
 
-    // Use the hydration-aware helper rather than a raw fill: the server-rendered
-    // composer is visible before React owns it, and a fill landing in that gap is
-    // discarded by hydration, leaving submit disabled with title "Enter a
-    // clinical question".
-    await fillVisibleQuestionInput(page, "lithium monitoring");
-    await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
+    const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+    const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+    await expect(questionInput).toBeDisabled();
+    await expect(submitAnswer).toBeDisabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
     await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();

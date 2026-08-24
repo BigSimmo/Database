@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2a0a150f-19f5-4c92-8438-90b1806c8830",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#RZQQBT",
+    "outcome": "Settled PreCompact hook contract in docs/testing.md: .claude/hooks/precompact-issues-capture.sh acts as a silent append-only log (.git/claude-precompact.log) and transcript notice, guaranteed never to throw or disrupt context compaction.",
+    "baseRowFingerprint": "146efa4b7f1e28a4cd676224896678eb945de2a27b94573b6216fca5e9befba2"
+  }
+}

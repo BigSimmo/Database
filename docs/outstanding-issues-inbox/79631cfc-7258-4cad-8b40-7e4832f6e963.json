@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "79631cfc-7258-4cad-8b40-7e4832f6e963",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Enrichment artifact families can be permanently lost, the designed repair function is called by nothing, and no monitoring exists",
+    "detail": "supabase/functions/indexing-v3-agent deletes an artifact family (document_memory_cards, document_index_units, document_embedding_fields) BEFORE calling OpenAI and re-inserting, one family at a time, never staged-then-swapped. A provider outage spanning the retry and deferral budget leaves the family permanently empty, and both terminal states (failed, needs_enrichment_artifacts) are excluded from claim eligibility forever. repair_strict_enrichment_gate_batch (migration 20260625033425) is invoked by NOTHING in the codebase, and no script or query references needs_enrichment_artifacts for monitoring, so a stuck document reports as indexed with an empty artifact family. Silent corruption, not a crash. FIX: stage-then-swap per family, plus a re-queue path or wire the existing repair function into an ops script.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96QH8W98GR7NQCSZH573M"
+  }
+}

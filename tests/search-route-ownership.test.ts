@@ -309,6 +309,30 @@ describe("shared-search route ownership", () => {
     // reserve above it would leave a permanent empty band.
     expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 10.125rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
+    expect(globalsSource).not.toContain("--spacing-page-composer-wide");
+  });
+
+  it("pre-reserves the measured narrow-desktop composer height while keeping its prompt rail on one line", () => {
+    const globalsSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+    const tabletBandStart = globalsSource.indexOf("/* BEGIN tablet mode-home composer geometry */");
+    const tabletBandEnd = globalsSource.indexOf("/* END tablet mode-home composer geometry */");
+
+    expect(tabletBandStart).toBeGreaterThanOrEqual(0);
+    expect(tabletBandEnd).toBeGreaterThan(tabletBandStart);
+    const tabletBand = globalsSource.slice(tabletBandStart, tabletBandEnd);
+
+    expect(tabletBand).toContain("@media (min-width: 640px) and (max-width: 1279.98px)");
+    expect(tabletBand).toContain("--spacing-mode-home-composer-wide: 10rem");
+    expect(tabletBand).toContain(".smart-search-prompt-row .answer-suggestion-chips-scroll");
+    expect(tabletBand).toContain("flex-wrap: nowrap");
+    expect(tabletBand).toContain("overflow-x: auto");
+
+    // The reserve remains conditional on a pending or filled portal host, so a
+    // hidden composer still owns zero height rather than a permanent tablet gap.
+    const homeTemplateSource = readFileSync(resolve(process.cwd(), "src/components/mode-home-template.tsx"), "utf8");
+    expect(homeTemplateSource).toContain("sm:data-[composer-reserve=pending]:min-h");
+    expect(homeTemplateSource).toContain("sm:[&:not(:empty)]:min-h");
+    expect(homeTemplateSource).not.toContain("sm:min-h-[var(--spacing-mode-home-composer-wide)]");
   });
 
   it("leaves the dashboard shell without eager chrome thrash", () => {
@@ -391,6 +415,16 @@ describe("shared-search route ownership", () => {
     expect(ask).toMatch(
       /const modeDestination = appModeHomeHref\(searchMode, \{[\s\S]*?run: true,[\s\S]*?\}\);\n    if \(trimmedQuery && !isDashboardModeHref\(modeDestination\)\) \{[\s\S]*?router\.push\(modeDestination\);\n      return;/,
     );
+  });
+
+  it("does not treat catalogue search docks as tool-detail footer-search pages", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    expect(shellSource).toContain("isToolDetailWithFooterSearch");
+    expect(shellSource).toContain('from "@/lib/information-pages"');
+    expect(shellSource).not.toMatch(/pathname\.startsWith\("\/services\/"\) && pathname !== "\/services"/);
   });
 
   it("keeps unsubmitted dashboard-owned mode homes from auto-running composer drafts", () => {
