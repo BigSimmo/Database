@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   FACTSHEET_DEMO_NOTICE,
+  TOPIC_CHIP_OVERFLOW_AFTER,
+  TOPIC_SECTION_PREVIEW_LIMIT,
   factsheetCategories,
+  factsheetTopicQueryValue,
   factsheets,
   factsheetSlugs,
   featuredFactsheetSlugs,
@@ -11,6 +14,10 @@ import {
   findFactsheet,
   printBlocks,
   relatedFactsheets,
+  resolveFactsheetTopicParam,
+  topicChipOverflow,
+  topicSectionId,
+  visibleTopicSheets,
 } from "@/components/factsheets/factsheets-data";
 
 const kinds = new Set(["medRich", "medLite", "condition", "therapy", "procedure"]);
@@ -63,6 +70,23 @@ describe("factsheet library", () => {
     for (const slug of featuredFactsheetSlugs) {
       expect(findFactsheet(slug)).toBeDefined();
     }
+  });
+
+  it("resolves topic browse helpers for section ids, query params, chips, and collapse", () => {
+    expect(TOPIC_SECTION_PREVIEW_LIMIT).toBe(8);
+    expect(TOPIC_CHIP_OVERFLOW_AFTER).toBe(8);
+    expect(topicSectionId("Tests & procedures")).toBe("factsheet-topic-tests-procedures");
+    expect(factsheetTopicQueryValue("Tests & procedures")).toBe("tests-procedures");
+    expect(resolveFactsheetTopicParam("Medications")).toBe("Medications");
+    expect(resolveFactsheetTopicParam("tests-procedures")).toBe("Tests & procedures");
+    expect(resolveFactsheetTopicParam("factsheet-topic-conditions")).toBe("Conditions");
+    expect(resolveFactsheetTopicParam("unknown")).toBeUndefined();
+    expect(resolveFactsheetTopicParam("")).toBeUndefined();
+
+    expect(topicChipOverflow(["a", "b", "c"], 8)).toEqual({ visible: ["a", "b", "c"], overflow: [] });
+    expect(topicChipOverflow(["a", "b", "c", "d"], 3)).toEqual({ visible: ["a", "b"], overflow: ["c", "d"] });
+    expect(visibleTopicSheets([1, 2, 3, 4], false, 2)).toEqual([1, 2]);
+    expect(visibleTopicSheets([1, 2, 3, 4], true, 2)).toEqual([1, 2, 3, 4]);
   });
 
   it("groups the library into the four topic categories without dropping sheets", () => {
