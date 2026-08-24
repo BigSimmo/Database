@@ -1434,11 +1434,13 @@ describe("Care Plan scenarios, reset, and determinism", () => {
    * `PROTOTYPE_NOW + auditEvents.length + 1` and exactly one event is appended
    * per action, so they are globally unique — an invariant nothing defended.
    *
-   * `withAudit` already takes an `offsetMinutes`, so one future call passing a
-   * non-zero value could collide two events, and the lookup would then return
-   * the wrong actor. That converts an honest name into a quiet lie, which is
-   * the failure this whole area exists to prevent, so it is pinned here rather
-   * than left to be noticed.
+   * `withAudit` no longer takes an `offsetMinutes`, which removed one route to
+   * a collision. It did not remove the property: two `withAudit(state, …)`
+   * calls in a single reducer branch both read the same pre-mutation
+   * `auditEvents.length` and so produce the same moment, and the lookup would
+   * then return the wrong actor. That converts an honest name into a quiet lie,
+   * which is the failure this whole area exists to prevent, so it stays pinned
+   * here rather than left to be noticed.
    */
   it("gives every audit event its own moment, which is what makes an actor lookup sound", () => {
     const state = run(

@@ -917,7 +917,19 @@ describe("Care Plan synthetic, memory-only boundary", () => {
         if (!rule.selectors.some((selector) => classes.some((className) => targetsClass(selector, className)))) {
           continue;
         }
-        for (const [property, value] of rule.declarations) applied.set(property, value);
+        for (const [property, value] of rule.declarations) {
+          applied.set(property, value);
+          // `text-decoration` and `text-decoration-line` are two keys for one
+          // rendered result, and reading them as `a ?? b` always prefers the
+          // shorthand whichever was written later. A trailing
+          // `text-decoration-line: none` removes the underline in a browser
+          // while that read-out still found the earlier shorthand. Recording
+          // the last-written of the pair under one key leaves no stale value to
+          // pick.
+          if (property === "text-decoration" || property === "text-decoration-line") {
+            applied.set("text-decoration-resolved", value);
+          }
+        }
       }
       return applied;
     }
@@ -1098,17 +1110,31 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       // immediately: `border: 0` with `background: rgba(0, 0, 0, 0)` paints
       // exactly as little and bought the exemption anyway. There are unbounded
       // ways to write invisible; there are few ways to write a visible edge.
+      /**
+       * A value that resolves to no paint at all, however it is spelled.
+       *
+       * Both callers need this, and both leaked without it: a
+       * `border: 1px solid transparent` counted as an edge because only the
+       * width was checked, and `rgb(0 0 0 / 0)` walked past an alpha test
+       * anchored to the literal `rgba(`/`hsla(` forms. CSS Color 4 allows every
+       * function to carry an alpha and to use slash syntax, so the check covers
+       * `rgb`, `rgba`, `hsl` and `hsla` in both.
+       */
+      const paintsNothing = (value: string) =>
+        /\btransparent\b/.test(value) ||
+        /\b(?:rgba?|hsla?)\([^)]*[,/]\s*(?:0|0*\.0+|0%)\s*\)/.test(value) ||
+        /^#(?:[0-9a-f]{6}00|[0-9a-f]{3}0)$/.test(value);
+
       const hasVisibleBorder = (value: string | undefined) =>
         value !== undefined &&
         !/\bnone\b/.test(value) &&
+        !paintsNothing(value) &&
         // a non-zero width, so `0`, `0px` and `0 solid` do not qualify
         /(?:^|\s)(?:[1-9]\d*|\d*\.\d*[1-9]\d*)(?:px|rem|em|pt)(?:\s|$)/.test(value);
 
       const hasVisibleBackground = (value: string | undefined) => {
         if (value === undefined) return false;
-        // an explicit zero alpha, however it is spelled
-        if (/^(?:rgba|hsla)\([^)]*[,/]\s*(?:0|0?\.0+|0%)\s*\)$/.test(value)) return false;
-        if (/^#(?:[0-9a-f]{6}00|[0-9a-f]{3}0)$/.test(value)) return false;
+        if (paintsNothing(value)) return false;
         // a custom property whose own fallback paints nothing is not proof of
         // paint — found by probing this repair with
         // `background: var(--nothing-at-all, transparent)`
@@ -1122,7 +1148,7 @@ describe("Care Plan synthetic, memory-only boundary", () => {
         (hasVisibleBackground(declared.get("background")) || hasVisibleBackground(declared.get("background-color")));
       if (isChip || inNav) continue;
 
-      const underline = declared.get("text-decoration") ?? declared.get("text-decoration-line") ?? "";
+      const underline = declared.get("text-decoration-resolved") ?? "";
       expect(
         underline,
         `${where} sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour`,
