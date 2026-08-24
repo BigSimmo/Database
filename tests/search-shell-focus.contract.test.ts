@@ -19,8 +19,9 @@ describe("search / field focus is quiet and shell-owned", () => {
       "}",
       { label: "shared text-field focus rule" },
     );
-    expect(body).not.toContain("outline: 2px solid var(--focus)");
-    expect(body).not.toContain("outline-offset: -2px");
+    expect(body).not.toMatch(/^\s*outline:\s*2px solid var\(--focus\)/m);
+    expect(body).not.toMatch(/^\s*outline-offset:\s*-2px/m);
+    expect(body).toMatch(/^\s*outline-offset:\s*0;/m);
     expect(body).toContain("color-mix(in srgb, var(--clinical-accent)");
   });
 
@@ -33,11 +34,19 @@ describe("search / field focus is quiet and shell-owned", () => {
   });
 
   it("lets the rounded search shell own focus and suppresses the nested input", () => {
-    const shell = sourceSegment(globals, ".search-shell:focus-within {", "}", { label: "search-shell focus" });
+    const shell = sourceSegment(
+      globals,
+      "/* Nested search: the rounded shell owns focus.",
+      ".search-shell-input:focus,",
+      { label: "search-shell focus" },
+    );
+    expect(shell).toContain(".search-shell:focus-within");
     expect(shell).toContain("color-mix(in srgb, var(--clinical-accent)");
     expect(shell).not.toContain("outline: 2px solid var(--focus)");
 
-    const input = sourceSegment(globals, ".search-shell-input:focus,", "}", { label: "search-shell-input focus" });
+    const input = sourceSegment(globals, ".search-shell-input:focus,\n.search-shell-input:focus-visible {", "}", {
+      label: "search-shell-input focus",
+    });
     expect(input).toContain("outline: none");
     expect(input).toContain("box-shadow: none");
   });

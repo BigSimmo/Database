@@ -983,10 +983,10 @@ select,
 }
 
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
-  /* Hairline on the field edge, not a 2px inset rectangle. The old
-     `outline-offset: -2px` + solid `--focus` read as a default browser ring
-     and, on transparent inputs nested in a rounded search shell, drew a
-     sharp box around the text while the icon sat outside it. */
+  /* Hairline on the field edge, not an inset accent rectangle. The previous
+     inset offset plus solid `--focus` read as a default browser ring and, on
+     transparent inputs nested in a rounded search shell, drew a sharp box
+     around the text while the icon sat outside it. */
   box-shadow: var(--shadow-inset);
   outline: 1px solid color-mix(in srgb, var(--clinical-accent) 32%, var(--border-strong));
   outline-offset: 0;
