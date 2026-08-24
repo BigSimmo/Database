@@ -53,15 +53,40 @@ const PATIENT_OVERVIEW_ROUTE = `${PATIENTS_ROUTE}/${PATIENT_OVERVIEW_SYNTHETIC_I
  * the `caring-contacts-workspace` surface, and a proof pointer at a suite that
  * never visits a route is a red gate that has been silenced. Phase 2B Task 5
  * added `/caring-contacts/patients` to that surface and Task 6 added
- * `/caring-contacts/patients/[patientId]`, so the accessibility-mode proofs
- * below run against every screen on the surface rather than against Today
- * alone. A screen added to that surface without being added here is the same
- * silenced gate wearing a newer date.
+ * `/caring-contacts/patients/[patientId]`.
  *
- * That used to be policy held by people. `tests/caring-contacts-workspace-screens.test.ts`
- * now holds it instead: it resolves the route expressions in this array against
- * the workspace's production page routes and fails offline when one is missing,
- * so the omission goes red rather than passing by never visiting the route.
+ * WHAT THIS ARRAY DOES AND DOES NOT BUY, stated exactly, because the sentence
+ * that used to sit here was FALSE and the round that added a third entry
+ * extended the claim instead of checking it. Review round 1, finding I2.
+ *
+ * BEING IN THIS ARRAY CARRIES NO PROOF BY ITSELF. Nothing iterates
+ * `WORKSPACE_SCREENS`. It supplies the `WorkspaceScreen` type and the three
+ * constants below, and each suite then names the screen it visits:
+ *
+ *   * `caring-contacts workspace shell` and `caring-contacts workspace overlays`
+ *     take `openWorkspace`'s `TODAY_SCREEN` default;
+ *   * `caring-contacts workspace accessibility modes` navigates to the bare
+ *     `WORKSPACE_ROUTE` literal -- Today only, for every mode it covers;
+ *   * `caring-contacts service stop, stated on every screen` calls
+ *     `openWorkspace` with a viewport and NO fourth argument, so despite its
+ *     name it also proves Today only;
+ *   * `caring-contacts patients directory` names `PATIENTS_SCREEN`;
+ *   * `caring-contacts patient overview` names `PATIENT_OVERVIEW_SCREEN`.
+ *
+ * So each screen is proved by the block written for it, and by nothing else.
+ * Adding an entry here without writing that block proves nothing about the new
+ * screen; it only makes the omission visible.
+ *
+ * What the array IS load-bearing for: `tests/caring-contacts-workspace-screens.test.ts`
+ * resolves these route expressions against the workspace's production page
+ * routes and fails offline when one is missing or stale, so a screen omitted
+ * from the surface goes red instead of passing by never being visited. That
+ * was policy held by people until Task 6.
+ *
+ * Parameterising the mode blocks over this array is the real fix and is filed
+ * as its own work -- it closes all three screens at once, and the service-stop
+ * block's `maxOffset > bannerTravel` assertion needs deliberate handling on a
+ * short empty-state page rather than being swept into a fix round.
  */
 const WORKSPACE_SCREENS = [
   { name: "Today", route: WORKSPACE_ROUTE, heading: "Today" },

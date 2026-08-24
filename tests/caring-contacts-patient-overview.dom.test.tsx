@@ -302,6 +302,25 @@ describe("the patient overview - Ruling 97: one plan, and the screen never choos
     expect(screen.getByRole("heading", { level: 2, name: /more than one plan/i })).toBeInTheDocument();
   });
 
+  // M7, review round 1: the documented rule is now pinned rather than only described. `?plan=` is
+  // consulted only when there is something to choose between; with exactly one plan that plan
+  // renders whatever the URL says, so a stale or mistyped link cannot turn a one-plan patient into
+  // a one-item chooser, and cannot withhold a plan this actor may see.
+  it("renders the sole plan even when ?plan= names another patient's, and reads only the sole plan", async () => {
+    const { store, episodeCalls } = spiedStore();
+    await createPlan(store, "plan-solo");
+    await createPlan(store, "plan-elsewhere", { patient: "SYN-PATIENT-002" });
+
+    await renderPage(PATIENT, { plan: "plan-elsewhere" });
+
+    // The foreign plan is neither read nor named nor acknowledged.
+    expect(episodeCalls()).toEqual(["plan-solo"]);
+    expect(document.body.textContent).not.toContain("plan-elsewhere");
+    expect(screen.queryByRole("heading", { level: 2, name: /more than one plan/i })).not.toBeInTheDocument();
+    // And the reader is told which plan they are looking at.
+    expect(screen.getByTestId("caring-contacts-plan-summary")).toHaveTextContent("plan-solo");
+  });
+
   it("ignores a repeated ?plan=a&plan=b, which names no single plan", async () => {
     const { store, episodeCalls } = spiedStore();
     const first = await createPlan(store, "plan-first");

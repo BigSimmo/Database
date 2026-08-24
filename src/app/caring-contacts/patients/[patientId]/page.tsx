@@ -50,13 +50,33 @@ const CaringContactsShell = dynamic(() =>
  *     reached a patient whose plan is on another team, and the answer must not distinguish that
  *     from "no plan exists" -- `getPlan` deliberately gives one answer for both, and this screen
  *     does not become the one that tells them apart;
- *   * exactly one plan renders;
+ *   * exactly one plan renders, and the URL cannot change that -- see below;
  *   * more than one, with no plan named in the URL, ASKS. A screen that silently picked would show
  *     one plan's schedule under a heading carrying this patient's name;
  *   * `?plan=<planId>` names one, and is validated against the plans this actor could already list
  *     for this patient before anything is read with it. A plan id that does not belong to this
  *     patient and this team is not an error worth reporting in detail -- it is simply not a plan
- *     this actor may see, so it is ignored and the screen asks.
+ *     this actor may see, so it is ignored.
+ *
+ * WHAT "IGNORED" MEANS WHEN THERE IS EXACTLY ONE PLAN, because the two rules meet there and this
+ * comment used to imply an answer the code does not give (review round 1, finding M7).
+ *
+ * `?plan=` is consulted ONLY when the patient has more than one plan. With exactly one, that plan
+ * renders whatever the URL says -- including when `?plan=` names a plan belonging to somebody
+ * else. The code is written that way deliberately and the comment is what moved:
+ *
+ *   * Ruling 97 states "exactly one plan -> render it" without qualification. The parameter exists
+ *     to CHOOSE among several, and there is nothing to choose from;
+ *   * the alternative -- treating an unrecognised `?plan=` as a reason to fall through to the
+ *     chooser -- would present a one-plan patient with a one-item chooser, turning a mistyped or
+ *     stale URL into an extra click on a clinical screen, and would make the URL able to withhold
+ *     a plan the actor may see;
+ *   * nothing leaks either way. The foreign plan is neither read nor named nor acknowledged; the
+ *     screen renders the plan it would have rendered with no query string at all, and a reader who
+ *     wants to know which plan they are looking at is told, because the plan id is on the screen.
+ *
+ * So the validation is real and is never skipped: no `?plan=` value ever reaches a read without
+ * first matching a plan in `plansForPatient`. What it does not do is give the URL a veto.
  *
  * `getEpisode` is called ONCE, for ONE plan, and only after that rule has picked the plan. The
  * chooser takes its name from `listPatientNames` (Ruling 91) instead: choosing between two plans
@@ -178,6 +198,9 @@ export default async function CaringContactsPatientOverviewPage({
 
     const named =
       requestedPlanId === null ? null : (plansForPatient.find((record) => record.plan.id === requestedPlanId) ?? null);
+    // One plan renders regardless of `?plan=`; the parameter only ever picks between several. See
+    // the module note's "what ignored means when there is exactly one plan" -- the comment was the
+    // half that was wrong, not this line.
     const chosen = plansForPatient.length === 1 ? plansForPatient[0] : named;
 
     if (chosen === null) {

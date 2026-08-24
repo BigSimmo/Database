@@ -362,9 +362,17 @@ describe("Patients directory - rows", () => {
     expect(control).toHaveAttribute("href", "/caring-contacts/patients/patient-plan-1");
     // The route module builds it -- never a path literal assembled in the component.
     expect(control).toHaveAttribute("href", patientRoute("patient-plan-1"));
-    // Nothing here reaches the PLAN detail route, whose page Task 7 builds...
+    // M6, review round 1: the patient half of this negative assertion had to change -- the row
+    // links there now -- but it did not have to be DROPPED. Every link into the patient family is
+    // pinned to exactly the route module's answer for this record, so a wrong patient id, a
+    // hand-built path, or a stray extra link into the family all still fail.
     for (const link of screen.getAllByRole("link")) {
-      expect(link.getAttribute("href") ?? "").not.toMatch(/\/caring-contacts\/plans\//);
+      const href = link.getAttribute("href") ?? "";
+      if (href.startsWith("/caring-contacts/patients/")) {
+        expect(href, "a link into the patient family that is not this record's").toBe(patientRoute("patient-plan-1"));
+      }
+      // Nothing here reaches the PLAN detail route, whose page Task 7 builds...
+      expect(href).not.toMatch(/\/caring-contacts\/plans\//);
       // ...nor reaches an internal route by a raw anchor. `data-internal-link` is the marker the
       // shell test uses to tell a `<Link>` from an `<a href="/…">`, which render identically.
       expect(link.getAttribute("data-internal-link"), `${link.getAttribute("href")} is not a <Link>`).toBe("true");
