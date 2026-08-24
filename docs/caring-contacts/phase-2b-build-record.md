@@ -723,3 +723,52 @@ deferred).** Browser gate green at the post-fix head: `32 passed`, exit 0.
 
 **Group 0 is finished.** Task 2 was cut (Ruling 84), Task 4 merged forward (Ruling 89), so the shared
 scaffolding is: `ListEmptyState`, the overlay trigger and its commit contract. Group 1 begins.
+
+## Task 5 — the Patients directory, and the question it was right to stop on
+
+Returned complete at `d27030405`. `Tests 2 failed | 9851 passed | 74 skipped (9927)` — the two known
+`gate-receipts` file-mode failures only. Typecheck and lint fresh passes, not reused receipts. Twelve
+mutations, each red on its covering test, presence proved with `;` rather than `&&` — the previous
+task's non-run lesson applied without being restated.
+
+**Browser gate green at this head: `32 passed`, exit 0.** The implementer flagged that changing
+Patients from an unavailable button to a link shifts unavailable-control counts (its own DOM
+equivalents went 16 → 14) and warned the Playwright spec might carry the same counts. It does not.
+Measured rather than assumed, and the warning was the right one to give.
+
+**Ruling [91] — a names-only projection is built, as its own task. The OWNER decided this, not me.**
+The brief forbade `getEpisode` on a list, and instructed the implementer to stop and report if the
+approved design needed a name rather than decide for itself. It did exactly that: the design shows
+`row.name`, `PersonAvatar initials` and a "Search name or synthetic ID" box, and it built rows headed
+by the synthetic identifier instead.
+
+That was the correct stop. The tension is real in both directions: `getEpisode` is the only read that
+releases patient name **together with** mobile number, identifiers and cultural identity, so using it
+for a list would pull all four into a page that shows one — and yet **a caseload a clinician cannot
+recognise their own patients in is barely a caseload.** Put to the owner, who chose the narrow read:
+a projection returning the name alone, permission-checked in its own right, never widening
+`getEpisode`.
+
+— Cost if wrong: it changes `repository.ts`'s interface, so both stores and the shared contract suite
+move together; that is the price of the storage contract being the thing that holds them equal, and it
+is the reason this is **its own task rather than a fix round on Task 5**. A fix round would have
+balloonded into a domain change reviewed as a screen change.
+
+**The implementer's own recommendation was the one the owner picked**, arrived at independently. Worth
+recording: an implementer told to stop and report rather than decide produced a better-reasoned option
+than the brief anticipated, because it had read the design and the read contract side by side.
+
+**Concern 2 is a false-evidence claim and must be fixed, not deferred.** The adoption generator
+refuses an undeclared production page route, so the new route had to join the
+`caring-contacts-workspace` surface — whose proof is declared `passed` with
+`tests/ui-caring-contacts-workspace.spec.ts` as its evidence. **That spec has never visited
+`/caring-contacts/patients`.** So the design-system contract now asserts browser proof for a route
+nothing has proved. Same family as Ruling 88: a governance artifact making a claim about coverage that
+is not true. The remedy is a visit in the spec, not a quieter claim.
+
+**Two concerns carried to the review rather than settled here:** the role-restricted empty state uses
+`ListEmptyState`'s `"filtered"` kind for something that is not a filter (an auditor cannot view plans,
+so `listPlans` returns `[]` and "No patients yet" would be a lie) — a third `"not-permitted"` kind may
+be right, but it touches a Group 0 component; and the prohibited vocabulary now bites ordinary English
+(`\bleads?\b` matches "team lead", `\bsafe\b` is banned outright), which the Team screen will hit
+immediately.
