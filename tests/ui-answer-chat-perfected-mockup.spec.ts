@@ -14,8 +14,8 @@ test.describe("Answer-chat perfected mockup drawer @mockup", () => {
     await opener.click();
 
     const sourceOneDrawers = page.locator('[role="dialog"][aria-label="Source 1 of 3"]');
-    await expect(sourceOneDrawers).toHaveCount(2);
-    const drawer = sourceOneDrawers.first();
+    await expect(sourceOneDrawers).toHaveCount(1);
+    const drawer = sourceOneDrawers;
     await expect(drawer).toBeFocused();
 
     const controls = drawer.getByRole("button");
@@ -24,10 +24,11 @@ test.describe("Answer-chat perfected mockup drawer @mockup", () => {
 
     await page.keyboard.press("ArrowRight");
     const sourceTwoDrawers = page.locator('[role="dialog"][aria-label="Source 2 of 3"]');
-    await expect(sourceTwoDrawers.first()).toBeFocused();
+    await expect(sourceTwoDrawers).toHaveCount(1);
+    await expect(sourceTwoDrawers).toBeFocused();
 
     await page.keyboard.press("Escape");
-    await expect(sourceOneDrawers).toHaveCount(1);
+    await expect(sourceTwoDrawers).toHaveCount(0);
     await expect(opener).toBeFocused();
   });
 });
