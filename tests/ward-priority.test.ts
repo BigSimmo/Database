@@ -60,9 +60,9 @@ describe("operational score", () => {
     expect(breachFactor?.detail).toBe("Form 4A passed its deadline 30 min ago");
     // Fix wave 2, finding 6. Closing the gap disclosed in fix wave 1: the comparison above is an
     // ORDERING claim against a form scoring zero, so any positive value satisfied it and dropping
-    // the breached tier from 30 to 10 survived as a mutation. `Bed need confirmed` already pins
-    // its 25; this pins the statutory tiers. No clinical or statutory figure is involved — these
-    // are the model's own operational priority weights.
+    // the breached tier from 30 to 10 survived as a mutation. This pins the statutory tiers
+    // outright. No clinical or statutory figure is involved — these are the model's own
+    // operational priority weights.
     expect(breachFactor?.points).toBe(30);
 
     // A +400 deadline is "clear" under `clockState` (>= 180 min remaining), which scores zero
@@ -89,41 +89,6 @@ describe("operational score", () => {
     expect(approachingFactor?.points).toBe(10);
   });
 
-  it("awards Bed need confirmed points when an examination outcome is recorded as inpatient_order", () => {
-    const base = movementById("WF-001");
-    const confirmed: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "inpatient_order" } };
-    const { factors } = operationalScore(confirmed, NOW_ANCHOR);
-    const factor = factors.find((factor) => factor.label === "Bed need confirmed");
-    expect(factor).toBeDefined();
-    expect(factor?.points).toBe(25);
-  });
-
-  it("does not award Bed need confirmed points for any other examination outcome, or no examination at all", () => {
-    const base = movementById("WF-001");
-    expect(base.examination).toBeUndefined();
-    expect(operationalScore(base, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed")).toBeUndefined();
-
-    const communityOrder: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "community_order" } };
-    expect(
-      operationalScore(communityOrder, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed"),
-    ).toBeUndefined();
-
-    const revoked: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "revoked" } };
-    expect(operationalScore(revoked, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed")).toBeUndefined();
-  });
-
-  it("ranks a movement with a confirmed bed need above an otherwise-identical unassessed one — the clinician's rule that review precedes referral", () => {
-    const base = movementById("WF-001");
-    const unassessed: Movement = { ...base, legalForm: undefined, examination: undefined };
-    const confirmed: Movement = {
-      ...unassessed,
-      examination: { at: NOW_ANCHOR - 30, outcome: "inpatient_order" },
-    };
-    expect(operationalScore(confirmed, NOW_ANCHOR).score).toBeGreaterThan(
-      operationalScore(unassessed, NOW_ANCHOR).score,
-    );
-  });
-
   it("awards no Statutory timing points to a legal form with no dueAt", () => {
     // Task 6A: a Form 3B carries no dueAt — the clinician settled that the post-examination
     // clock counts up, so none is recorded. This must never score as breached, critical or due — the
@@ -136,41 +101,6 @@ describe("operational score", () => {
     };
     const { factors } = operationalScore(noDeadline, NOW_ANCHOR);
     expect(factors.find((factor) => factor.label === "Statutory timing")).toBeUndefined();
-  });
-
-  it("awards Bed need confirmed points when an examination outcome is recorded as inpatient_order", () => {
-    const base = movementById("WF-001");
-    const confirmed: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "inpatient_order" } };
-    const { factors } = operationalScore(confirmed, NOW_ANCHOR);
-    const factor = factors.find((factor) => factor.label === "Bed need confirmed");
-    expect(factor).toBeDefined();
-    expect(factor?.points).toBe(25);
-  });
-
-  it("does not award Bed need confirmed points for any other examination outcome, or no examination at all", () => {
-    const base = movementById("WF-001");
-    expect(base.examination).toBeUndefined();
-    expect(operationalScore(base, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed")).toBeUndefined();
-
-    const communityOrder: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "community_order" } };
-    expect(
-      operationalScore(communityOrder, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed"),
-    ).toBeUndefined();
-
-    const revoked: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "revoked" } };
-    expect(operationalScore(revoked, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed")).toBeUndefined();
-  });
-
-  it("ranks a movement with a confirmed bed need above an otherwise-identical unassessed one — the clinician's rule that review precedes referral", () => {
-    const base = movementById("WF-001");
-    const unassessed: Movement = { ...base, legalForm: undefined, examination: undefined };
-    const confirmed: Movement = {
-      ...unassessed,
-      examination: { at: NOW_ANCHOR - 30, outcome: "inpatient_order" },
-    };
-    expect(operationalScore(confirmed, NOW_ANCHOR).score).toBeGreaterThan(
-      operationalScore(unassessed, NOW_ANCHOR).score,
-    );
   });
 
   it("awards no Statutory timing points to a legal form with no dueAt", () => {
@@ -186,6 +116,57 @@ describe("operational score", () => {
     };
     const { factors } = operationalScore(noDeadline, NOW_ANCHOR);
     expect(factors.find((factor) => factor.label === "Statutory timing")).toBeUndefined();
+  });
+
+  /**
+   * The 2026-08-24 product-owner instruction: whether a patient has been reviewed stops affecting
+   * the queue at all — no points for it, and no gate on requesting a bed. The 25-point
+   * "Bed need confirmed" factor that used to fire on `examination.outcome === "inpatient_order"`
+   * is deleted, and this pins the deletion two ways so it cannot quietly come back: no factor is
+   * labelled for an examination or a review, and adding an examination changes nothing at all.
+   *
+   * The `examination` record itself is untouched and still asserted elsewhere
+   * (`ward-flow-reducer.test.ts` for RECORD_EXAMINATION, `ward-model-phase3.test.ts` for the
+   * fixture shape) — only its effect on priority is gone.
+   */
+  it("scores no factor for having been examined or reviewed", () => {
+    const forbidden = /exam|review|assess|bed need/i;
+    for (const movement of wardMovements) {
+      for (const factor of operationalScore(movement, NOW_ANCHOR).factors) {
+        expect(factor.label, `${movement.id} scored a factor labelled for review: ${factor.label}`).not.toMatch(
+          forbidden,
+        );
+      }
+    }
+
+    // The fixture only carries `inpatient_order`, so drive the other two outcomes explicitly.
+    const base = movementById("WF-001");
+    for (const outcome of ["inpatient_order", "community_order", "revoked"] as const) {
+      const examined: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome } };
+      for (const factor of operationalScore(examined, NOW_ANCHOR).factors) {
+        expect(factor.label, `outcome ${outcome} scored a factor labelled for review`).not.toMatch(forbidden);
+      }
+    }
+  });
+
+  it("scores an examined movement exactly as it scores the same movement unexamined", () => {
+    const unexamined = movementById("WF-001");
+    expect(unexamined.examination, "fixture assumption: WF-001 carries no examination").toBeUndefined();
+    const before = operationalScore(unexamined, NOW_ANCHOR);
+
+    for (const outcome of ["inpatient_order", "community_order", "revoked"] as const) {
+      const examined: Movement = { ...unexamined, examination: { at: NOW_ANCHOR - 30, outcome } };
+      const after = operationalScore(examined, NOW_ANCHOR);
+      expect(after.score, `recording ${outcome} must not move the score`).toBe(before.score);
+      expect(after.factors, `recording ${outcome} must not add or alter a factor`).toEqual(before.factors);
+    }
+
+    // The same identity from the other direction: WF-009 carries a real `inpatient_order`
+    // examination in the fixture, and stripping it must leave its score untouched.
+    const examinedFixture = movementById("WF-009");
+    expect(examinedFixture.examination?.outcome, "fixture assumption: WF-009 was examined").toBe("inpatient_order");
+    const stripped: Movement = { ...examinedFixture, examination: undefined };
+    expect(operationalScore(stripped, NOW_ANCHOR).score).toBe(operationalScore(examinedFixture, NOW_ANCHOR).score);
   });
 
   it("explains itself — every point scored is attributed to a named factor", () => {
@@ -271,13 +252,25 @@ describe("queue order", () => {
     expect(ordered.length).toBe(wardMovements.filter(isOpen).length);
   });
 
-  it("puts a tier 1 movement with a confirmed bed need ahead of a tier 1 movement nobody has assessed — WF-009's examined, confirmed need outranks WF-303's unassessed wait", () => {
-    // Real fixture, not a synthetic pair: before this factor existed, WF-303 (no examination,
-    // score 61) led every tier-1 movement and WF-009 (examination outcome inpatient_order, score
-    // 53) sat behind it. That ordering was exactly backwards under the clinician's rule — a
-    // patient confirmed to need a bed should not sit behind one nobody has reviewed.
+  it("orders tier 1 on waiting time, declines and blockers alone — the re-derived leading order after review stopped scoring", () => {
+    // Re-derived from the code at NOW_ANCHOR after the 25-point "Bed need confirmed" factor was
+    // deleted on 2026-08-24. Two movements moved, both because they used to carry that factor:
+    // WF-017 fell from tier-1 row 2 to row 5 (66 -> 41), and WF-003 fell from row 3 to row 13
+    // (52 -> 27). WF-009 still leads tier 1, but now on 28 waiting + 15 declines + 10 blocker
+    // = 53 rather than on having been examined; it kept the lead only because its wait and
+    // declines were always enough on their own.
+    //
+    // The first five are pinned rather than the whole tier because ranks 6 and 7 are a genuine
+    // 40-40 tie (WF-309, WF-312) whose order is sort stability, not a scoring claim. These five
+    // scores — 53, 50, 43, 42, 41 — are all distinct, so this is a real ordering assertion. It
+    // is also the guard against the deleted factor returning: restore 25 points to WF-017 and it
+    // jumps back to row 2, breaking this.
     const ordered = queueOrder(wardMovements, NOW_ANCHOR);
     const tierOneIds = ordered.filter((movement) => movement.urgency === 1).map((movement) => movement.id);
-    expect(tierOneIds.indexOf("WF-009")).toBeLessThan(tierOneIds.indexOf("WF-303"));
+    expect(tierOneIds.slice(0, 5)).toEqual(["WF-009", "WF-315", "WF-006", "WF-014", "WF-017"]);
+
+    // WF-003 was row 3 and is now behind WF-303, which it used to outrank. Asserted by id
+    // because that pair is the clearest single consequence of the removal.
+    expect(tierOneIds.indexOf("WF-303")).toBeLessThan(tierOneIds.indexOf("WF-003"));
   });
 });
