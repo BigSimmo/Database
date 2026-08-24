@@ -289,7 +289,7 @@ export function DictionaryCataloguePage() {
       role="group"
       aria-label="Show"
       data-testid="dictionary-scope-toggle"
-      className="inline-flex h-7 shrink-0 items-stretch overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)]"
+      className="inline-flex min-h-tap shrink-0 items-stretch overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--clinical-accent-soft)]"
     >
       {scopeOptions.map((option) => {
         const active = params.scope === option.value;
@@ -330,7 +330,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex h-7 max-h-7 shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
