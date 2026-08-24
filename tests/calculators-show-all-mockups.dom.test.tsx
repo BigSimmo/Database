@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { CalculatorsShowAllDirectionsMockup } from "@/components/calculator-mockups";
 
-const STYLES = ["outline", "soft", "well"] as const;
+const STYLES = ["recommended", "soft", "quiet"] as const;
 
 describe("calculators Show all button mockups", () => {
   it("renders three phone homes that differ only by the Show all chip", () => {
@@ -19,7 +19,9 @@ describe("calculators Show all button mockups", () => {
     for (const style of STYLES) {
       const frame = screen.getByTestId(`calculators-show-all-frame-${style}`);
       expect(within(frame).getByRole("heading", { name: "Calculators" })).toBeInTheDocument();
-      expect(within(frame).getByRole("button", { name: "Show all calculators" })).toHaveTextContent("Show all");
+      const showAll = within(frame).getByRole("button", { name: "Show all calculators" });
+      expect(showAll).toHaveTextContent("Show all");
+      expect(showAll).toHaveClass("min-h-tap");
     }
   });
 
@@ -27,7 +29,7 @@ describe("calculators Show all button mockups", () => {
     const user = userEvent.setup();
     render(<CalculatorsShowAllDirectionsMockup />);
 
-    const frame = screen.getByTestId("calculators-show-all-frame-well");
+    const frame = screen.getByTestId("calculators-show-all-frame-recommended");
     const showAll = within(frame).getByRole("button", { name: "Show all calculators" });
     expect(showAll).toHaveAttribute("aria-pressed", "false");
 

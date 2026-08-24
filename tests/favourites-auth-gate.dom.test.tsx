@@ -242,6 +242,17 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Sign-in email could not be sent.");
   });
 
+  it("keeps the Tools Show all chip as a 48px tap target to the directory", () => {
+    render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
+
+    const showAll = screen.getByTestId("tools-show-all");
+    expect(showAll).toHaveAttribute("href", "/tools");
+    expect(showAll).toHaveAttribute("aria-label", "Show all tools");
+    expect(showAll).toHaveClass("min-h-tap");
+    expect(showAll).toHaveTextContent("Show all");
+    expect(screen.getByTestId("tools-show-all-well")).toBeInTheDocument();
+  });
+
   it("blacks out Tools Saved workflows and Favourites shortcuts for guests", () => {
     authSession.status = "signed_out";
     render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);

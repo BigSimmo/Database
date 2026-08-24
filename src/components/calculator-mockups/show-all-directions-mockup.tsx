@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * Design-scratch: three phone homes that are identical except the Show all chip.
- * Shared mockup chrome is suppressed so each frame’s own top bar is the only header.
+ * Design-scratch: the recommended Show all chip (soft fill + compact well)
+ * plus two polished alternatives. Shared mockup chrome is suppressed so each
+ * frame’s own top bar is the only header.
  */
 
 import { Calculator, ChevronDown, Menu, MessageSquarePlus, Plus, Search, type LucideIcon } from "lucide-react";
@@ -15,7 +16,7 @@ import { calculators } from "./calculator-fixtures";
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-type ButtonStyle = "outline" | "soft" | "well";
+type ButtonStyle = "recommended" | "soft" | "quiet";
 
 const shortcuts = calculators.slice(0, 8).map((calc) => ({
   id: calc.id,
@@ -23,33 +24,18 @@ const shortcuts = calculators.slice(0, 8).map((calc) => ({
   icon: calc.icon,
 }));
 
-const styles: Array<{ id: ButtonStyle; number: string; name: string }> = [
-  { id: "outline", number: "01", name: "Outline" },
-  { id: "soft", number: "02", name: "Soft fill" },
-  { id: "well", number: "03", name: "Icon well" },
+const styles: Array<{ id: ButtonStyle; number: string; name: string; note: string }> = [
+  { id: "recommended", number: "01", name: "Recommended", note: "Soft fill + 28px well · 36px capsule · 48px tap" },
+  { id: "soft", number: "02", name: "Soft capsule", note: "Option 2 polished · no well · optical padding" },
+  { id: "quiet", number: "03", name: "Quiet well", note: "Option 3 polished · well only · no pill fill" },
 ];
 
 function ShowAllButton({ style, pressed, onPress }: { style: ButtonStyle; pressed: boolean; onPress: () => void }) {
   const label = "Show all";
-
-  if (style === "outline") {
-    return (
-      <button
-        type="button"
-        onClick={onPress}
-        aria-pressed={pressed}
-        aria-label="Show all calculators"
-        className={cn(
-          "inline-flex h-tap min-h-tap items-center justify-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] pl-5 pr-6 text-sm font-semibold tracking-[-0.01em] text-[color:var(--clinical-accent)]",
-          pressed && "bg-[color:var(--clinical-accent-soft)]",
-          focusRing,
-        )}
-      >
-        <Calculator className="size-icon-md" strokeWidth={1.75} aria-hidden="true" />
-        {label}
-      </button>
-    );
-  }
+  const hitArea = cn(
+    "group inline-flex min-h-tap items-center justify-center text-[color:var(--clinical-accent)]",
+    focusRing,
+  );
 
   if (style === "soft") {
     return (
@@ -58,14 +44,46 @@ function ShowAllButton({ style, pressed, onPress }: { style: ButtonStyle; presse
         onClick={onPress}
         aria-pressed={pressed}
         aria-label="Show all calculators"
-        className={cn(
-          "inline-flex h-tap min-h-tap items-center justify-center gap-1.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-5 text-sm font-semibold tracking-[-0.01em] text-[color:var(--clinical-accent)]",
-          pressed && "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
-          focusRing,
-        )}
+        className={hitArea}
       >
-        <Calculator className="size-icon-md" strokeWidth={1.75} aria-hidden="true" />
-        {label}
+        <span
+          className={cn(
+            "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[color:var(--clinical-accent-soft)] pl-3.5 pr-4 text-xs font-semibold tracking-[-0.01em]",
+            pressed && "bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_78%,var(--clinical-accent))]",
+          )}
+        >
+          <Calculator className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
+          {label}
+        </span>
+      </button>
+    );
+  }
+
+  if (style === "quiet") {
+    return (
+      <button
+        type="button"
+        onClick={onPress}
+        aria-pressed={pressed}
+        aria-label="Show all calculators"
+        className={hitArea}
+      >
+        <span
+          className={cn(
+            "inline-flex h-9 items-center gap-2 rounded-full pr-1 text-xs font-semibold tracking-[-0.01em]",
+            pressed && "text-[color:var(--clinical-accent)]",
+          )}
+        >
+          <span
+            className={cn(
+              "grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)]",
+              pressed && "bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_78%,var(--clinical-accent))]",
+            )}
+          >
+            <Calculator className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          {label}
+        </span>
       </button>
     );
   }
@@ -76,16 +94,19 @@ function ShowAllButton({ style, pressed, onPress }: { style: ButtonStyle; presse
       onClick={onPress}
       aria-pressed={pressed}
       aria-label="Show all calculators"
-      className={cn(
-        "inline-flex h-tap min-h-tap items-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-1 pr-4 text-sm font-semibold tracking-[-0.01em] text-[color:var(--clinical-accent)]",
-        pressed && "border-[color:var(--clinical-accent)]",
-        focusRing,
-      )}
+      className={hitArea}
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--clinical-accent)]">
-        <Calculator className="size-icon-md" strokeWidth={1.75} aria-hidden="true" />
+      <span
+        className={cn(
+          "inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--clinical-accent-soft)] pl-1 pr-3 text-xs font-semibold tracking-[-0.01em]",
+          pressed && "bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_78%,var(--clinical-accent))]",
+        )}
+      >
+        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--surface)]">
+          <Calculator className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
+        </span>
+        {label}
       </span>
-      {label}
     </button>
   );
 }
@@ -116,19 +137,23 @@ function PhoneHome({ style }: { style: ButtonStyle }) {
   const [query, setQuery] = useState("");
   const [pressed, setPressed] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const meta = styles.find((item) => item.id === style);
 
   return (
     <figure className="m-0 w-full max-w-[24.375rem]">
-      <figcaption className="mb-2 text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-        {styles.find((item) => item.id === style)?.number} {styles.find((item) => item.id === style)?.name}
+      <figcaption className="mb-2 grid gap-0.5">
+        <span className="text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
+          {meta?.number} {meta?.name}
+        </span>
+        <span className="text-2xs font-medium text-[color:var(--text-muted)]">{meta?.note}</span>
       </figcaption>
       <div
         data-testid={`calculators-show-all-frame-${style}`}
         className="flex h-[44rem] flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--background)] shadow-[var(--shadow-soft)]"
       >
         <PhoneChrome />
-        <div className="grid justify-items-center gap-3 overflow-y-auto px-4 pb-6 pt-5">
-          <div className="grid justify-items-center gap-3 text-center">
+        <div className="grid justify-items-center gap-2.5 overflow-y-auto px-4 pb-6 pt-5">
+          <div className="grid justify-items-center gap-2.5 text-center">
             <span className="grid size-hero-medallion place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <Calculator className="size-icon-xl" strokeWidth={1.75} aria-hidden="true" />
             </span>

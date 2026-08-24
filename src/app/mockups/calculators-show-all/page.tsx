@@ -4,7 +4,8 @@ import { CalculatorsShowAllDirectionsMockup } from "@/components/calculator-mock
 
 export const metadata: Metadata = {
   title: "Calculators Show all buttons - Clinical KB",
-  description: "Three phone mockups of the Calculators home that differ only in the Show all button style.",
+  description:
+    "Recommended Show all chip plus two polished phone alternatives. The homes are identical except the chip.",
 };
 
 export default function CalculatorsShowAllMockupRoute() {

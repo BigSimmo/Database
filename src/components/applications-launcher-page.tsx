@@ -836,12 +836,19 @@ export function ApplicationsLauncherWorkspace({
           aria-label="Show all tools"
           data-testid="tools-show-all"
           className={cn(
-            "inline-flex min-h-tap items-center justify-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:text-sm lg:min-h-9",
+            "group inline-flex min-h-tap items-center justify-center text-[color:var(--clinical-accent)] lg:min-h-9",
             focusRing,
           )}
         >
-          <Grid2X2 className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" strokeWidth={1.75} aria-hidden="true" />
-          {copy.showAllLabel}
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--clinical-accent-soft)] pl-1 pr-3 text-xs font-semibold tracking-[-0.01em] transition group-hover:bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_82%,var(--clinical-accent))] sm:text-sm">
+            <span
+              data-testid="tools-show-all-well"
+              className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--surface)]"
+            >
+              <Grid2X2 className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            {copy.showAllLabel}
+          </span>
         </Link>
 
         {desktopComposerSlotId ? (
