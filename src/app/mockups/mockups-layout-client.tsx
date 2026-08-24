@@ -74,6 +74,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
+  // These three draw a complete phone — universal header, page body and the
+  // edge-to-edge composer — inside every frame, because the selection surface
+  // under study is defined by what sits between those two. Shared chrome above
+  // them would read as a second real header and a second real search bar.
+  const isTherapyComparePickerMockup = pathname.startsWith("/mockups/therapy-compare-");
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -124,6 +129,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isServicesFilterOptionsMockup &&
         !isFilterSheetRestyleMockup &&
         !isTherapyNavigationMockup &&
+        !isTherapyComparePickerMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
@@ -149,6 +155,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFilterSheetRestyleMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
+        !isTherapyComparePickerMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
