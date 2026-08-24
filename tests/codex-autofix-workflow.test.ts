@@ -364,6 +364,46 @@ describe("Codex auto-resolve workflow guard", () => {
     expect(result.output).toContain("smart risk routing");
   });
 
+  it("rejects dropping the clinical-decision hold", () => {
+    const workflow = originalWorkflow.replace(
+      `            if (clinicalDecisionHoldFiles.length > 0) {`,
+      `            if (false) {`,
+    );
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("clinical-decision hold");
+  });
+
+  it("rejects narrowing the clinical-decision hold away from a protected surface", () => {
+    const workflow = originalWorkflow.replace(`              /^src\\/lib\\/mha-act-sections\\.ts$/,\n`, "");
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("clinical-decision hold");
+  });
+
+  it("rejects evaluating the clinical-decision hold after routing", () => {
+    const holdBlockPattern =
+      /\n {12}\/\/ Held before routing[\s\S]*?\n {12}if \(clinicalDecisionHoldFiles\.length > 0\) \{\n[\s\S]*?\n {12}\}\n/;
+    const holdBlock = originalWorkflow.match(holdBlockPattern)?.[0];
+    expect(holdBlock).toBeTruthy();
+
+    const workflow = originalWorkflow
+      .replace(holdBlock as string, "\n")
+      .replace(`            const routeReasons = [];`, `            const routeReasons = [];${holdBlock as string}`);
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("before automatic-repair routing");
+  });
+
   it("rejects duplicate markers trusted from arbitrary commenters", () => {
     const workflow = originalWorkflow.replace(
       `            const trustedExistingRequests = existingComments.filter(
@@ -543,7 +583,6 @@ describe("Codex auto-resolve request script", () => {
   });
 
   it.each([
-    "src/data/therapies-index.json",
     ".github/actions/setup-node-cached/action.yml",
     "scripts/github-action-pins.mjs",
     "scripts/check-github-action-pins.mjs",
@@ -555,6 +594,78 @@ describe("Codex auto-resolve request script", () => {
 
     expect(result.createdComments).toHaveLength(1);
     expect(result.createdComments[0]?.body).toContain("codex-autoresolve-route:high-risk-path");
+  });
+
+  // A finding on these paths is reported and left for a human. src/data and data
+  // carry static clinical content, the forms surfaces decide what an Act summary
+  // says and whether it renders at all, and the RAG surfaces are separately
+  // protected by AGENTS.md against any unflagged edit.
+  it.each([
+    "data/mha-2014-sections.json",
+    "data/forms-catalog.json",
+    "src/data/therapies-index.json",
+    "src/lib/mha-act-sections.ts",
+    "src/lib/form-catalog.ts",
+    "src/lib/form-ranker.ts",
+    "src/components/forms/form-priority-facts-section.tsx",
+    "src/lib/rag/rag.ts",
+    "src/lib/clinical-search.ts",
+    "src/lib/answer-ranking.ts",
+  ])("holds clinical-decision path %s back from automatic repair", async (filename) => {
+    const result = await runRequestScript({
+      files: [{ additions: 1, deletions: 0, filename }],
+    });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("clinical-decision path"));
+  });
+
+  it("holds a clinical-decision path even when the opt-in label is present", async () => {
+    const result = await runRequestScript({
+      files: [{ additions: 1, deletions: 0, filename: "src/lib/mha-act-sections.ts" }],
+      pullRequestLabels: ["codex-review"],
+    });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("clinical-decision path"));
+  });
+
+  it("holds a clinical-decision path that a test-only exclusion would otherwise drop", async () => {
+    const result = await runRequestScript({
+      files: [
+        { additions: 1, deletions: 0, filename: "tests/forms.test.ts" },
+        { additions: 1, deletions: 0, filename: "data/mha-2014-sections.json" },
+      ],
+    });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("clinical-decision path"));
+  });
+
+  it("holds a rename whose previous path was a clinical-decision path", async () => {
+    const result = await runRequestScript({
+      files: [
+        {
+          additions: 1,
+          deletions: 1,
+          filename: "docs/mha-act-sections.md",
+          previous_filename: "src/lib/mha-act-sections.ts",
+        },
+      ],
+    });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("clinical-decision path"));
+  });
+
+  it("does not hold the bookkeeping snapshot that shares the data directory", async () => {
+    const result = await runRequestScript({
+      files: [{ additions: 1, deletions: 0, filename: "data/outstanding-issues-snapshot.json" }],
+    });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("low-risk pull request"));
+    expect(result.notices).not.toContainEqual(expect.stringContaining("clinical-decision path"));
   });
 
   it("does not copy an untrusted changed filename into the trusted request comment", async () => {

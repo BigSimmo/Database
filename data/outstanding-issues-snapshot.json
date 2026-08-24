@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 86,
+    "pending": 87,
     "resolved": 376
   },
   "queue": [
@@ -1210,6 +1210,12 @@
       "action": "done",
       "summary": "#5MMK5R: Documented in docs/testing.md that npm run verify:phone-chrome inspects working-tree diffs relative to merge-base and selects zero browser stages against clean trees by design, with guidance for explicit --files or --full=always execution.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
+      "action": "add",
+      "summary": "Form 12A shows a false 'Password protected' warning: its PDF is not encrypted at all, and both the manifest and a test pin the wrong fact",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
