@@ -375,12 +375,14 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
@@ -1159,6 +1161,7 @@
         "tests/design-system-target-evidence.test.ts",
         "tests/diagnosis-map-panel.dom.test.tsx",
         "tests/sheet.dom.test.tsx",
+        "tests/therapy-key-facts.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -1564,7 +1567,8 @@
         "tests/ui-formulation.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
-        "tests/ui-ward-coordinator.spec.ts"
+        "tests/ui-ward-coordinator.spec.ts",
+        "tests/ui-ward-roles.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1612,6 +1616,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/record/key-facts.tsx",
         "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
@@ -1642,6 +1647,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/record/key-facts.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
@@ -1653,6 +1659,7 @@
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
         "tests/caring-contacts-overlay-host.dom.test.tsx",
+        "tests/caring-contacts-overlay-trigger.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",

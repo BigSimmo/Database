@@ -3,6 +3,7 @@
 import {
   BookOpenText,
   BookMarked,
+  ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
   ListChecks,
@@ -36,7 +37,7 @@ export const registryModeNavDensityProfiles = {
   formulation: "compact-four",
   differentials: "balanced-four",
   factsheets: "two-item",
-  "therapy-compass": "balanced-four",
+  "therapy-compass": "extended",
   // Four destinations with medium labels, the same family as differentials:
   // "Compare" and "Sources" are well inside the budget calibrated for
   // "Presentations". `extended` was chosen when the mode had five destinations
@@ -53,6 +54,7 @@ export const registryModeNavDensityProfiles = {
  */
 const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   search: Search,
+  review: ClipboardCheck,
   diagnoses: Stethoscope,
   presentations: ClipboardList,
   compare: GitCompareArrows,

@@ -151,14 +151,17 @@ describe("merged dictionary catalogue", () => {
     expect(dictionaryCatalogue({ ...baseCatalogue, q: "" })).toHaveLength(96);
   });
 
-  it("drops the alphabetical index while a query runs, because the chip stands down", () => {
-    // The letter chip is replaced by the query line during a search, so a
-    // `letter` left in the URL would keep narrowing the list with no visible
-    // control to explain it — a filter the reader cannot see or remove.
-    const searched = dictionaryCatalogue({ ...baseCatalogue, q: "tardive", letter: "Z", sort: "relevance" });
-    expect(searched.length).toBeGreaterThan(0);
-    expect(searched).toEqual(dictionaryCatalogue({ ...baseCatalogue, q: "tardive", letter: "all", sort: "relevance" }));
-    // Browsing still honours it.
+  it("keeps the alphabetical index while a query runs, because A–Z stays on the page", () => {
+    // A–Z remains visible under the Filter band during search, so a `letter` in
+    // the URL must keep narrowing — a visible control that did nothing would
+    // break docs/filter-contract.md.
+    const unrestricted = dictionaryCatalogue({ ...baseCatalogue, q: "tardive", letter: "all", sort: "relevance" });
+    const matchingLetter = dictionaryCatalogue({ ...baseCatalogue, q: "tardive", letter: "T", sort: "relevance" });
+    const vacantLetter = dictionaryCatalogue({ ...baseCatalogue, q: "tardive", letter: "Z", sort: "relevance" });
+    expect(matchingLetter.length).toBeGreaterThan(0);
+    expect(matchingLetter.every((hit) => dictionaryBrowseLetter(hit) === "T")).toBe(true);
+    expect(matchingLetter.length).toBeLessThanOrEqual(unrestricted.length);
+    expect(vacantLetter).toHaveLength(0);
     const browsed = dictionaryCatalogue({ ...baseCatalogue, letter: "A" });
     expect(browsed.length).toBeGreaterThan(0);
     expect(browsed.every((hit) => dictionaryBrowseLetter(hit) === "A")).toBe(true);
@@ -195,25 +198,22 @@ describe("merged dictionary catalogue", () => {
     expect(descending).toEqual([...ascending].reverse());
   });
 
-  it("clears every input the search state hides, so dismissing a search really shows the whole catalogue", () => {
-    // The regression this pins: `letter` is ignored while a query runs AND its
-    // chip stands down, so it is invisible and inert — but it survives in the
-    // URL, and the Terms tab's own self-link is one of the things that puts it
-    // there. Clearing only `q`/`query`/`run` handed back 6 of 96 entries for
-    // `?q=tardive&letter=T` under a control whose accessible name promises the
-    // whole catalogue.
+  it("clears the query without discarding a visible A–Z or facet choice", () => {
+    // A–Z stays on the page after dismissing a search, so `letter` must survive
+    // in the URL the way facets do. Clearing it would reset a jump the chip
+    // still shows.
     const dismissed = new URLSearchParams("q=tardive&letter=T");
     for (const key of dictionaryClearedQueryKeys) dismissed.delete(key);
-    expect(dictionaryCatalogue(parseDictionaryCatalogueParams(dismissed))).toHaveLength(96);
+    expect(parseDictionaryCatalogueParams(dismissed).letter).toBe("T");
+    expect(
+      dictionaryCatalogue(parseDictionaryCatalogueParams(dismissed)).every(
+        (hit) => dictionaryBrowseLetter(hit) === "T",
+      ),
+    ).toBe(true);
 
-    // Stated directly as well, so a future edit that drops `letter` from the
-    // list fails here with the reason rather than only through the count above.
-    expect(dictionaryClearedQueryKeys).toContain("letter");
+    expect(dictionaryClearedQueryKeys).not.toContain("letter");
     expect(dictionaryClearedQueryKeys).toContain("run");
 
-    // Facets are deliberately NOT cleared: they stay visible on the band's
-    // applied-filter shelf throughout a search, each removable in one tap, so
-    // dropping them would discard a choice the reader can still see.
     const withFacet = new URLSearchParams("q=tardive&topic=assessment-and-measurement");
     for (const key of dictionaryClearedQueryKeys) withFacet.delete(key);
     expect(parseDictionaryCatalogueParams(withFacet).topics).toEqual(["assessment-and-measurement"]);

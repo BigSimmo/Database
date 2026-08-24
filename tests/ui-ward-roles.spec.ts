@@ -57,6 +57,71 @@ test.describe("Ward screen", () => {
     await expect(page.locator('[data-testid^="ward-unit-card-"]')).toHaveCount(0);
     await expect(page.getByTestId("ward-unit-beds")).toHaveCount(0);
   });
+
+  /**
+   * Whole-branch review I3. Spec §2 decision 5 ("Does the clock move? Yes, with a jump-forward
+   * control") and §5 ("+15 min, +1 hour … so a held bed can be watched expiring in seconds
+   * rather than in an hour") — `ADVANCE_CLOCK` was implemented and tested in the reducer from
+   * Task 3 onward but dispatched only from test-harness buttons; no product surface ever raised
+   * it. WF-003 is fixture-pinned `accepted_awaiting_bed` at `rph-adult-secure`
+   * (`ward-movements.ts`), so Hold needs no prior referral/accept steps here.
+   */
+  test("the demo clock control advances a held bed toward expiry, and reads as demo scaffolding", async ({ page }) => {
+    await gotoWard(page, "rph-adult-secure");
+
+    const card = page.getByTestId("ward-accepted-WF-003");
+    await expect(card).toBeVisible();
+    await card.getByTestId("ward-hold-WF-003").click();
+    await expect(card).toContainText("Bed hold 1h 00m left");
+
+    // The trigger must never be mistaken for a clinical action — checked in words, not merely by
+    // colour: its accessible name and title both say so explicitly.
+    const trigger = page.getByTestId("ward-demo-controls-trigger");
+    await expect(trigger).toHaveAttribute("aria-label", /not a clinical action/i);
+    await expect(trigger).toHaveAttribute("title", /never a clinical action/i);
+
+    await trigger.click();
+    const menu = page.locator("#ward-demo-controls-menu");
+    await expect(menu).toBeVisible();
+    await expect(menu).toContainText(/demo tool, not part of the clinical record/i);
+
+    await page.getByTestId("ward-demo-advance-15").click();
+    await page.getByTestId("ward-demo-advance-15").click();
+    await page.getByTestId("ward-demo-advance-15").click();
+
+    // The one thing spec §5 says the control exists to demonstrate: a held bed watched
+    // expiring in seconds. 45 minutes advanced against a 60-minute hold leaves 15.
+    await expect(card).toContainText("Bed hold 15m left");
+    await expect(card).not.toContainText("Bed hold 1h 00m left");
+  });
+
+  /**
+   * Deferred item 1. `tests/ui-ward-management.spec.ts`'s "retains its operating structure in
+   * dark, forced-colours, and print modes" already proves this for the coordinator command view;
+   * the four role screens had none of it. This copies that established `emulateMedia` sequence
+   * exactly — dark, then forced-colours, then print — and asserts the same class of thing it
+   * does: that the screen's *operating structure* survives each mode. It deliberately makes no
+   * assertion about colour, contrast or appearance, because nothing here measures those.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await gotoWard(page, "bty-adult-secure");
+    await expect(page.getByTestId("ward-unit-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-unit-beds")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Bed capacity" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-unit-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-unit-beds")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Bed capacity" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Incoming referrals" })).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-unit-beds"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-unit-governance"]:visible')).toBeVisible();
+  });
 });
 
 test.describe("Transport officer screen", () => {
@@ -107,6 +172,32 @@ test.describe("Transport officer screen", () => {
     // All eight seed jobs not yet arrived are on screen — never filtered to an inferred "mine".
     await expect(page.locator('[data-testid^="ward-officer-job-"]')).toHaveCount(8);
   });
+
+  /**
+   * Deferred item 1, same pattern as the ward screen's copy of it above. The officer screen is
+   * the one role screen tested at phone width, so it is emulated at phone width here too — the
+   * structure that has to survive is the job list and its governance banner, not a desktop
+   * layout the officer never sees.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/ward-management/transport/officer", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ward-officer-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-joblist")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-job-WF-005")).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-officer-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-joblist")).toBeVisible();
+    await expect(page.getByTestId("ward-officer-job-WF-005")).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-officer-joblist"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-officer-governance"]:visible')).toBeVisible();
+  });
 });
 
 test.describe("Live tracker", () => {
@@ -156,6 +247,31 @@ test.describe("Live tracker", () => {
 
     await expect(page.locator('[data-testid^="ward-tracker-row-"]')).toHaveCount(8);
     await expect(page.getByTestId("ward-tracker-governance")).toContainText(/33 of 41/);
+  });
+
+  /**
+   * Deferred item 1, same pattern as the two screens above. The tracker's operating structure is
+   * its row list and the governance banner that states the excluded movements; both must still
+   * be there in each mode. The leg badges deliberately are not asserted on here — their visual
+   * distinction is a separate, separately tested concern (deferred item 3), and this test makes
+   * no claim about how anything looks.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/ward-management/transport", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ward-tracker-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-tracker-list")).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-tracker-governance")).toBeVisible();
+    await expect(page.getByTestId("ward-tracker-list")).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-tracker-list"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-tracker-governance"]:visible')).toBeVisible();
   });
 });
 
@@ -310,6 +426,31 @@ test.describe("Emergency department screen", () => {
     await expect(page.getByTestId("ward-ed-police-WF-009")).toBeVisible();
     await expect(page.locator('[data-testid^="ward-ed-police-"]')).toHaveCount(1);
   });
+
+  /**
+   * Deferred item 1, completing the four role screens. The ED screen's operating structure is its
+   * two working sections — raising a referral, and the department's own patient list — plus the
+   * governance banner; each must still be present in dark, forced-colours and print.
+   */
+  test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("ward-ed-governance")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Raise a referral" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "This department's patients" })).toBeVisible();
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(page.getByTestId("ward-ed-governance")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Raise a referral" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "This department's patients" })).toBeVisible();
+
+    await page.emulateMedia({ colorScheme: "light", forcedColors: "none", media: "print" });
+    await expect(page.locator('[data-testid="ward-ed-governance"]:visible')).toBeVisible();
+    await expect(page.locator('[data-testid="ward-ed-patient-WF-005"]:visible')).toBeVisible();
+  });
 });
 
 test.describe("Role switcher — the loop", () => {
@@ -373,9 +514,10 @@ test.describe("Role switcher — the loop", () => {
     await expect(examineForm).toBeVisible();
     await examineForm.getByRole("radio", { name: "Inpatient treatment order" }).check();
     await examineForm.getByRole("button", { name: "Confirm examination outcome" }).click();
-    // The examination flips the form 1A -> 3B and the movement remains referable — proven by
-    // the reducer walk in the task report, and re-proven here on screen: the outstanding item
-    // for WF-315 must no longer read "Examination" once this submits.
+    // Since 2026-08-24 the examination does NOT change the form — WF-315 stays on its 1A — and
+    // the movement remains referable. What changes is that the examination is now recorded, so
+    // the outstanding item for WF-315 must no longer read "Examination" once this submits. The
+    // assertion below is unchanged; only the reason it holds is different.
     await expect(page.getByTestId("ward-ed-outstanding-WF-315")).not.toHaveAttribute("data-kind", "examination");
 
     // --- Step 2: Coordinator — select WF-315, refer to all three candidates. ---
@@ -391,8 +533,10 @@ test.describe("Role switcher — the loop", () => {
     await shortlist.getByTestId("ward-shortlist-candidate-rgh-adult-secure").click();
     await shortlist.getByTestId("ward-shortlist-refer").click();
     // Three live referrals — exactly why the ward hop below cannot be inferred and must use the
-    // picker (addendum R52).
-    await expect(shortlist).toContainText(/Parallel referral|referred to 3/i);
+    // picker (addendum R52). Whole-branch review M3: the old regex-based `toContainText` assertion
+    // was satisfied by a single "Parallel referral" badge, so it never actually checked the claim
+    // this comment makes. `toHaveCount(3)` on the real badge locator checks the stated claim.
+    await expect(shortlist.getByTestId("ward-shortlist-referred-badge")).toHaveCount(3);
 
     // --- Step 3: Ward, reached via the picker (three live referrals — R52). ---
     await switchTo("RPH Adult Secure");
@@ -454,5 +598,109 @@ test.describe("Role switcher — the loop", () => {
     await expect(page.getByRole("region", { name: "Priority queue" }).getByTestId("ward-queue-row-WF-315")).toHaveCount(
       0,
     );
+  });
+});
+
+/**
+ * Whole-branch review Critical 1, permanent regression coverage. Reproduces the reviewer's own
+ * decisive live proof, verbatim in shape: a ward drops its own confirmed capacity to zero, and
+ * every screen that reads that unit's capacity — starting with the ward's own — must reflect it
+ * on the very next render, with no `page.goto()` anywhere in the sequence. A `goto` would
+ * re-mount `WardFlowProvider` and re-seed `state.units` from the frozen fixture, which would
+ * make every assertion below pass whether or not the fix actually threads live `units` through —
+ * exactly the class of test that could not have caught C1 in the first place.
+ *
+ * This is added as a permanent test, not a one-off manual probe: C1 was spec §4's own
+ * predicted "correction that most changes the phase", so its rule (a ward's own bed grid, its
+ * own Hold control, and the coordinator's own diagram/shortlist must never disagree about the
+ * same unit at the same instant) is exactly the kind of property that regresses silently — the
+ * whole-branch review found it was wrong for the entirety of Phase 3's development without a
+ * single existing test noticing.
+ */
+test.describe("Live capacity — a ward's own action reaches every screen that reads it", () => {
+  test.describe.configure({ timeout: 45_000 });
+
+  test("a ward confirming zero allocatable beds updates its own screen, then the coordinator, without ever reloading", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1600, height: 1100 });
+
+    function switcherTrigger() {
+      return page.getByRole("button", { name: "Switch role" });
+    }
+    async function switchTo(menuItemName: string) {
+      await switcherTrigger().click();
+      const matches = page.getByRole("menuitem", { name: menuItemName });
+      await expect(matches, `"${menuItemName}" must resolve to exactly one menu item`).toHaveCount(1);
+      await matches.click();
+    }
+
+    // --- Step 1: the ward's own screen, before the drop. RPH Adult Secure seeds with
+    // allocatable = 1 (Ready 1 · Held 1) and carries WF-003 accepted-awaiting-bed, whose Hold
+    // control is therefore fully live: no `aria-disabled`, no `title`. ---
+    await gotoWard(page, "rph-adult-secure");
+
+    const bedGrid = page.getByTestId("ward-unit-beds");
+    await expect(bedGrid).toContainText("Ready 1");
+    await expect(bedGrid).toContainText("Held 1");
+
+    const holdButton = page.getByTestId("ward-hold-WF-003");
+    await expect(holdButton).toBeVisible();
+    await expect(holdButton).not.toHaveAttribute("aria-disabled");
+    await expect(holdButton).not.toHaveAttribute("title");
+
+    // --- Step 2: confirm zero allocatable beds, on this same page, no reload. ---
+    await page.getByTestId("ward-capacity-input").fill("0");
+    await page.getByTestId("ward-capacity-submit").click();
+
+    // --- Step 3: the ward's own screen must move. This is the exact proof the reviewer
+    // performed and found failing: "typing 0 into Confirm allocatable beds ... beds: Ready 2
+    // ... Currently confirmed 2" — the screen that raised the event never moved. ---
+    await expect(bedGrid).toContainText("Ready 0");
+    await expect(bedGrid).toContainText("Held 2"); // the physically-empty pool is unchanged; it is now unconfirmed rather than ready
+    await expect(page.getByText(/Currently confirmed 0 at/)).toBeVisible();
+
+    // --- Step 4: the Hold control must stop advertising an action the reducer would now
+    // refuse — the reviewer's Proof 2 ("hold button ... aria-disabled = null ... nothing
+    // happened"). It must carry BOTH aria-disabled and a stated reason naming this ward. ---
+    await expect(holdButton).toHaveAttribute("aria-disabled", "true");
+    await expect(holdButton).toHaveAttribute("title", /No allocatable bed remains at RPH Adult Secure/);
+
+    // --- Step 5: click through to the coordinator — the role switcher's real <Link>, never a
+    // goto. Coordinator is never ambiguous (spec §9: "Statewide — no ward or department"). ---
+    await switchTo("Coordinator");
+    await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+
+    // --- Step 6: the reviewer's Proof 3. Select any open movement (the diagram renders every
+    // one of the 22 units' own capacity regardless of which movement is selected, so which
+    // movement is picked here does not matter to this proof), then select RPH Adult Secure's
+    // own node in the statewide flow diagram. ---
+    const diagram = page.getByRole("region", { name: "Statewide flow" });
+    await expect(diagram.locator("svg path[marker-end]").first()).toBeAttached({ timeout: 15_000 });
+
+    await page
+      .getByRole("region", { name: "Priority queue" })
+      .locator('[data-testid^="ward-queue-row-"]')
+      .first()
+      .click();
+
+    const rphNode = diagram.getByTestId("ward-diagram-unit-rph-adult-secure");
+    // The diagram's own unit node reads the unit's live capacity directly (Critical 1 also named
+    // `flow-diagram.tsx`'s `serviceGroups`/`unplacedUnits`, which used to be grouped from the
+    // frozen `allUnits()` rather than the live `units` this diagram now receives as a prop).
+    await expect(rphNode).toContainText("Ready 0");
+    await rphNode.click();
+
+    // --- Step 7: the shortlist's own explainable gate row for this exact unit — the reviewer's
+    // literal proof text: "Allocatable bed / Met / 1 allocatable" while the ward had just said
+    // zero. It must now read the opposite: Not met, 0 allocatable. `ward-eligibility.ts` is a
+    // protected surface — this is not a change to what the gate judges, only to which unit's
+    // live data it is judging. ---
+    const shortlist = page.getByRole("complementary", { name: "Explainable shortlist" });
+    await expect(shortlist).toContainText("RPH Adult Secure");
+    const allocatableGate = shortlist.getByTestId("ward-gate-allocatable_bed");
+    await expect(allocatableGate).toHaveAttribute("data-pass", "false");
+    await expect(allocatableGate).toContainText("0 allocatable");
   });
 });

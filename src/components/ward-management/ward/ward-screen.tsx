@@ -56,9 +56,9 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
 /**
  * Task 8: one inpatient unit's own view — the ward answering what the coordinator refers,
  * never a filtered copy of the coordinator's statewide screen. Everything here is scoped to
- * exactly one `Unit`, resolved from the provider's live `units` by id. An id that resolves to nothing renders an
- * explicit empty state naming the id (Global Constraint, addendum R40) — never a substituted
- * unit, never `?? allUnits()[0]`.
+ * exactly one `Unit`, resolved from the provider's live `units`. An id that resolves to nothing
+ * renders an explicit empty state naming the id (Global Constraint, addendum R40) — never a
+ * substituted unit, never `?? allUnits()[0]`.
  *
  * Every figure is derived fresh from the live `movements`/`units` the provider hands back on
  * every render, never cached in local state — the same discipline `ward-flow-queue-selection`
@@ -66,6 +66,14 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
  * and appears under "accepted, held or en route" on the very next render, because both lists are
  * plain filters over the same live array; there is no local "it worked" flag anywhere in this
  * file for the reasons `shortlist-panel.tsx`'s own comment on `OverrideRecord` explains.
+ *
+ * Whole-branch review Critical 1: this screen used to resolve `unit` via `unitById(unitId)` —
+ * `ward-sites.ts`'s frozen fixture — so this ward's own bed grid, its "Currently confirmed"
+ * line, its capacity-input default and `holdBlockedReason`'s allocatable check never moved even
+ * after this exact screen dispatched `CONFIRM_CAPACITY` against itself. `unit` now resolves from
+ * the provider's live `units`, the same collection `CONFIRM_CAPACITY`/`HOLD_BED`/`PATIENT_ARRIVED`
+ * all write to, so a ward reading its own action back is now structurally the same read as
+ * anyone else reading it.
  */
 export function WardScreen({ unitId }: WardScreenProps) {
   const { movements, units, now, dispatch } = useWardFlow();
@@ -135,7 +143,21 @@ export function WardScreen({ unitId }: WardScreenProps) {
     event.preventDefault();
     const parsed = Number(capacityValue);
     if (!Number.isFinite(parsed) || parsed < 0) return;
-    dispatch({ type: "CONFIRM_CAPACITY", role: "ward", now, unitId: wardUnitId, value: Math.floor(parsed) });
+    // `actingUnitId` is this screen's own route parameter — the unit this screen is displaying and
+    // acting as. It states which ward the caller says it is; it does not prove it, and the
+    // reducer's comment on the matching check says the same. On this screen the two ids are equal
+    // by construction (`unit` was resolved by matching the route id), so this guard is not what
+    // stops *this* caller misusing the event — it is what stops any other call site writing to a
+    // unit it did not claim to be acting as, and what puts that claim on the event where the
+    // reducer can compare it.
+    dispatch({
+      type: "CONFIRM_CAPACITY",
+      role: "ward",
+      now,
+      unitId: wardUnitId,
+      actingUnitId: unitId,
+      value: Math.floor(parsed),
+    });
   }
 
   return (

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
-import { edById, unitById } from "@/components/ward-management/ward-sites";
+import { edById } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-role-switcher.module.css";
 
@@ -41,7 +41,7 @@ const OFFICER_HREF = "/ward-management/transport/officer";
  * every other conditionally-available control in this phase already use.
  */
 export function WardRoleSwitcher() {
-  const { movements, focusMovementId } = useWardFlow();
+  const { movements, units, focusMovementId } = useWardFlow();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -70,7 +70,7 @@ export function WardRoleSwitcher() {
   // render, exactly like `coordinator-screen.tsx`'s own `selectedMovement` derivation.
   const focusMovement = focusMovementId ? movements.find((movement) => movement.id === focusMovementId) : undefined;
 
-  // Ward candidates: an accepted destination is the definitive single answer (REFER_TO_UNITS's
+  // Ward candidates: an accepted destination is the definitive single answer (ACCEPT_IN_PRINCIPLE's
   // own reducer case empties `referredUnitIds` the moment one unit accepts — see
   // `ward-flow-reducer.ts`'s `case "ACCEPT_IN_PRINCIPLE"`), so it is checked first. Short of
   // that, every currently live referral is a candidate destination — never just the first one.
@@ -79,8 +79,13 @@ export function WardRoleSwitcher() {
       ? [focusMovement.acceptedUnitId]
       : focusMovement.referredUnitIds
     : [];
+  // Whole-branch review Critical 1: resolved from the live `units`. Names/ids cannot go stale in
+  // this prototype (no event ever renames a unit), so this specific read was never a capacity
+  // hazard the way `ward-screen.tsx`'s `unitById` was — but `units` was already free to read
+  // here via `useWardFlow()`, so converting it costs nothing and keeps this file off the units
+  // guard's allow-list entirely rather than needing a documented identity-only exception.
   const wardCandidates = wardCandidateIds
-    .map((unitId) => unitById(unitId))
+    .map((unitId) => units.find((unit) => unit.id === unitId))
     .filter((unit): unit is NonNullable<typeof unit> => unit !== undefined);
 
   // ED is never ambiguous — a movement carries exactly one `originEdId` — so this is always a

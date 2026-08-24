@@ -107,6 +107,7 @@ import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib
 import {
   isAlwaysStandaloneShellPath,
   isDashboardOwnedModeHomePath,
+  isDictionaryCataloguePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -462,6 +463,7 @@ function GlobalStandaloneSearchShellBody({
   // searchMode before router.push landed, which made isStandaloneModeHome false
   // for one frame (dock reserve + 200ms padding transition = choppy resize).
   const isStandaloneModeHome = !hasSubmittedModeSearch && !rendersDashboardSearch && isStandaloneModeHomePath(pathname);
+  const isDictionaryCatalogue = isDictionaryCataloguePath(pathname);
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations/");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -479,7 +481,9 @@ function GlobalStandaloneSearchShellBody({
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
-  const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
+  // Dictionary catalogue keeps the usual compact phone dock; sm+ still
+  // portals into the in-page slot under mode nav (`desktopHomeComposerSlotId`).
+  const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue;
   // Most standalone mode homes keep the in-flow hero pill at every width. Tools
   // deliberately has no shared composer. Document viewer routes own their own
   // floating composer, so
@@ -929,13 +933,21 @@ function GlobalStandaloneSearchShellBody({
               desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
               showPhoneSuggestionTickerOnHome={isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)}
               searchComposerVisible={shouldShowSearchComposer}
-              desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+              desktopHomeComposerSlotId={
+                isStandaloneModeHome || isDictionaryCatalogue ? modeHomeDesktopComposerSlotId : undefined
+              }
               desktopPageComposerSlotId={
-                shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
+                shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue
+                  ? desktopPageComposerSlotId
+                  : undefined
               }
               // Most standalone homes keep the in-flow hero pill at every width.
               // Tools suppresses the shared composer at every breakpoint.
-              heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
+              // Dictionary catalogue uses the usual compact phone dock; sm+
+              // still portals into the in-page slot under mode nav.
+              heroComposerBreakpoint={
+                mobileHomeComposerPlacement === "footer" || isDictionaryCatalogue ? "sm-up" : "all"
+              }
               // Phones: #main-content owns vertical scroll, so hide-on-scroll
               // collapses the top bar to hand space back to content.
               // Tablet and desktop portal search into normal page flow. The outer
@@ -1012,7 +1024,7 @@ function GlobalStandaloneSearchShellBody({
               data-testid="mobile-composer-reserve-pad"
               className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)]"
             >
-              {shouldShowSearchComposer && !isStandaloneModeHome ? (
+              {shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue ? (
                 <DesktopComposerPortalSlot
                   id={desktopPageComposerSlotId}
                   data-testid="desktop-page-search-composer-slot"

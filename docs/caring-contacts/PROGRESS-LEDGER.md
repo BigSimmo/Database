@@ -4,11 +4,26 @@
 a second copy of the detail: each row points at the file that holds the reasoning. Where this file and a
 detailed record disagree, **the detailed record wins** — this one is a summary and can go stale.
 
-Last updated at head `05584f9b5`, 2026-08-23. Branch `claude/suicide-contact-mockup-b5aaa0`, pushed.
+Last updated 2026-08-24.
 
-> **The branch is SHARED.** On 2026-08-22 a commit (`c3ef20c3f`) authored elsewhere — not from this
-> machine's clone — landed on it while a session was mid-task. `git fetch` before every push, and treat
-> any full-suite result taken on a moving tree as a hypothesis. See Ruling 66.
+> **PHASE 2A HAS LANDED ON `main`, AND THE FEATURE BRANCH IS RETIRED.** Verified 2026-08-24: the whole
+> of Phase 2A was squash-merged as `e4cbe8d3a` — "Claude/suicide contact mockup b5aaa0 (#2279)",
+> 2026-08-23 — and every `docs/caring-contacts/**`, `src/lib/caring-contacts/**`,
+> `src/components/caring-contacts/**`, `caring-contacts/supabase/migrations/**` and
+> `tests/ui-caring-contacts-workspace.spec.ts` path on `main` now matches the old branch tip
+> `cf03f99a4`, except where later `main` work is NEWER (the design-system token consolidation touched
+> three component files). **`main` is the source of truth. Do the closing work on a fresh worktree off
+> `origin/main`, not on `claude/suicide-contact-mockup-b5aaa0`.** No local remote-tracking ref for that
+> branch remains, which is consistent with the PR branch having been deleted after the merge — not
+> verified against GitHub, which needs approval.
+
+> **Sections below that instruct you to work on, push, or fetch the feature branch are superseded by
+> the paragraph above.** They are kept because their _reasoning_ about durability and about shared-tree
+> measurement is still correct and still paid for; only the branch name is stale. In particular the
+> historical note that the branch was SHARED — commit `c3ef20c3f` landed on it on 2026-08-22 from a
+> clone not on this machine, mid-task — is why any full-suite result taken on a moving tree is a
+> hypothesis and not a result. That lesson generalises to `main`, which many sessions touch. See
+> Ruling 66.
 
 ---
 
@@ -39,52 +54,62 @@ experience and clinical sign-off are required before any real use.
 | 1   | Phase 1 + early 2A  | Built the sealed domain and database. 13 owner-behalf decisions. Phase 1 gate passed.                             | `D:\Repos\caring-contacts-handoff-2026-08-20\` |
 | 2   | Phase 2A controller | Plan written; Tasks 1-10 and 11a built and reviewed. Rulings 1-31. Died on an account limit mid-fix-round-2.      | same bundle                                    |
 | 3   | Phase 2A recovery   | Verified the abandoned commit, re-reviewed it, Rulings 32-34, survived a worktree deletion, rebuilt and re-proved | `D:\Repos\caring-contacts-handoff-2026-08-21\` |
+| 4   | Phase 2A completion | Task 11b, Tasks 12-19, the final whole-branch review, Rulings 35-66, the copy review, the condensed bar           | build record, Session 4 onward                 |
+| 5   | Phase 2A closing    | Found the phase already merged to `main`; browser gate green; mutation proofs; issues sweep; 2B planning begun    | build record, Session 5                        |
 
 ## 4. Task status — Phase 2A (19 tasks, 5 groups)
 
-| Task | What it is                                       | State                                                   |
-| ---- | ------------------------------------------------ | ------------------------------------------------------- |
-| 1    | Patient-visible copy into the sealed domain      | Complete, reviewed clean                                |
-| 2    | Roles and actions                                | Complete, reviewed clean                                |
-| 3    | Service safety stop                              | Complete, 1 fix round                                   |
-| 4    | Pathway versions and dual approval               | Complete, 1 fix round                                   |
-| 5    | Referrals                                        | Complete (batched 5-7)                                  |
-| 6    | Plan ownership, reassignment, coverage           | Complete (batched 5-7)                                  |
-| 7    | Moving a contact / changing its date             | Complete (batched 5-7)                                  |
-| 8    | Auditing a view, not only a write                | Complete, 1 fix round (a CRITICAL finding)              |
-| 9    | Notification preferences and training            | Complete, reviewed clean                                |
-| —    | **Checkpoint 1**                                 | **PASSED** — 7,604 tests, typecheck and lint green      |
-| 10   | Storage contract + in-memory store (~21 methods) | Complete, 1 fix round (7 findings), 101 tests           |
-| 11a  | Migration 0003 + row-level security              | Complete, **3 fix rounds**, 96 database tests           |
-| 11b  | Shared-contract move + 22 Postgres methods       | Complete, 2 fix rounds, review clean — typecheck GREEN  |
-| —    | **Checkpoint 2**                                 | **PASSED** — see the build record                       |
-| 12   | Database config that can never hit Clinical KB   | Complete, batched with 13, 1 fix round, review clean    |
-| 13   | Demo role switcher                               | Complete, batched with 12, 1 fix round, review clean    |
-| 14   | Route handlers that audit every view             | Complete, 2 fix rounds, review clean                    |
-| 15   | Route group, four width states, inbound link     | Complete, 1 fix round, review clean                     |
-| 16   | Service-state banner                             | Complete, 1 fix round, review clean                     |
-| 17   | The frozen 24-row overlay definition table       | Complete, 1 fix round, review clean — 0 Important       |
-| 18   | One renderer, twenty-four overlays               | Complete, 2 fix rounds, review clean                    |
-| 19   | Browser proof at six widths + plan closing steps | Complete, 1 fix round, review clean                     |
-| —    | Final whole-branch review                        | **Done** — three parallel reviewers, distinct lenses    |
-| —    | Post-review fixes (Rulings 60-65)                | Complete — incl. a CRITICAL patient-data finding        |
-| —    | Condensed pinned safety bar (owner-requested)    | Built, 1 fix round; **2 mutation proofs still unrun**   |
-| —    | Copy review document for the owner               | **Delivered** — `copy-review.md`, 7 items need his call |
+| Task | What it is                                       | State                                                  |
+| ---- | ------------------------------------------------ | ------------------------------------------------------ |
+| 1    | Patient-visible copy into the sealed domain      | Complete, reviewed clean                               |
+| 2    | Roles and actions                                | Complete, reviewed clean                               |
+| 3    | Service safety stop                              | Complete, 1 fix round                                  |
+| 4    | Pathway versions and dual approval               | Complete, 1 fix round                                  |
+| 5    | Referrals                                        | Complete (batched 5-7)                                 |
+| 6    | Plan ownership, reassignment, coverage           | Complete (batched 5-7)                                 |
+| 7    | Moving a contact / changing its date             | Complete (batched 5-7)                                 |
+| 8    | Auditing a view, not only a write                | Complete, 1 fix round (a CRITICAL finding)             |
+| 9    | Notification preferences and training            | Complete, reviewed clean                               |
+| —    | **Checkpoint 1**                                 | **PASSED** — 7,604 tests, typecheck and lint green     |
+| 10   | Storage contract + in-memory store (~21 methods) | Complete, 1 fix round (7 findings), 101 tests          |
+| 11a  | Migration 0003 + row-level security              | Complete, **3 fix rounds**, 96 database tests          |
+| 11b  | Shared-contract move + 22 Postgres methods       | Complete, 2 fix rounds, review clean — typecheck GREEN |
+| —    | **Checkpoint 2**                                 | **PASSED** — see the build record                      |
+| 12   | Database config that can never hit Clinical KB   | Complete, batched with 13, 1 fix round, review clean   |
+| 13   | Demo role switcher                               | Complete, batched with 12, 1 fix round, review clean   |
+| 14   | Route handlers that audit every view             | Complete, 2 fix rounds, review clean                   |
+| 15   | Route group, four width states, inbound link     | Complete, 1 fix round, review clean                    |
+| 16   | Service-state banner                             | Complete, 1 fix round, review clean                    |
+| 17   | The frozen 24-row overlay definition table       | Complete, 1 fix round, review clean — 0 Important      |
+| 18   | One renderer, twenty-four overlays               | Complete, 2 fix rounds, review clean                   |
+| 19   | Browser proof at six widths + plan closing steps | Complete, 1 fix round, review clean                    |
+| —    | Final whole-branch review                        | **Done** — three parallel reviewers, distinct lenses   |
+| —    | Post-review fixes (Rulings 60-65)                | Complete — incl. a CRITICAL patient-data finding       |
+| —    | Condensed pinned safety bar (owner-requested)    | Built, 1 fix round; browser gate green 2026-08-24      |
+| —    | Copy review document for the owner               | **Delivered** — `copy-review.md`; recommendations now  |
+|      |                                                  | tracked in `copy-decisions-recommended.md`. 13 open,   |
+|      |                                                  | 9 clinical/policy + 4 engineering (the "7" was an      |
+|      |                                                  | undercount and is corrected)                           |
+| —    | Deferred-findings `/issues` sweep                | **Done 2026-08-24** — 7 request files queued in        |
+|      |                                                  | `docs/outstanding-issues-inbox/`, awaiting reconcile   |
+| —    | Phase 2B plan                                    | **In progress** — no plan existed; being written       |
 
 ## 5. Verification evidence, as recorded
 
-| Gate                         | Result                                                                                  |
-| ---------------------------- | --------------------------------------------------------------------------------------- |
-| Phase 1 gate                 | 7,531 tests / 682 files; tsc silent; lint 0 warnings; 55 database tests                 |
-| Phase 2A Checkpoint 1        | 7,604 tests passed; typecheck and lint green                                            |
-| Task 10                      | 101 tests (up from 84)                                                                  |
-| Task 11a, through 3 rounds   | 55 → 71 → 87 → 93 → **96 passed**                                                       |
-| Task 11b, through 2 rounds   | 96 → 159 → 162 → **163 passed** database; full suite **7671 passed, 0 failed**          |
-| Full suite, 2026-08-23       | `Test Files 2 failed \| 701 passed \| 2 skipped (705)`; `Tests 3 failed \| 7841 passed` |
-| Current known-red (expected) | **NONE in this work.** Both 2026-08-23 failures were artefacts, proven so: the          |
-|                              | caring-contacts one passed 22/22 on re-run of the same commit (a concurrent agent       |
-|                              | held a source file mid-edit), and the other was a 120 s timeout under machine load.     |
-| Browser gate                 | **Was fully red — 32/32 — for a reason outside this work**, then unblocked. See §5b.    |
+| Gate                          | Result                                                                                   |
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
+| Phase 1 gate                  | 7,531 tests / 682 files; tsc silent; lint 0 warnings; 55 database tests                  |
+| Phase 2A Checkpoint 1         | 7,604 tests passed; typecheck and lint green                                             |
+| Task 10                       | 101 tests (up from 84)                                                                   |
+| Task 11a, through 3 rounds    | 55 → 71 → 87 → 93 → **96 passed**                                                        |
+| Task 11b, through 2 rounds    | 96 → 159 → 162 → **163 passed** database; full suite **7671 passed, 0 failed**           |
+| Full suite, 2026-08-23        | `Test Files 2 failed \| 701 passed \| 2 skipped (705)`; `Tests 3 failed \| 7841 passed`  |
+| Current known-red (expected)  | **NONE in this work.** Both 2026-08-23 failures were artefacts, proven so: the           |
+|                               | caring-contacts one passed 22/22 on re-run of the same commit (a concurrent agent        |
+|                               | held a source file mid-edit), and the other was a 120 s timeout under machine load.      |
+| Browser gate                  | **GREEN 2026-08-24 on `main`: `32 passed (55.5s)`, exit 0**, no ECONNRESET in a 341-line |
+|                               | log. The 2026-08-23 residual failure at 1440px was LOAD, not a defect — see §5b.         |
+| Condensed-bar mutation proofs | Run 2026-08-24 against `main`. See §5c.                                                  |
 
 ### 5b. The production lock, and why the browser gate went red
 
@@ -114,6 +139,23 @@ has caught: a contact dispatched after a recorded death; ten dispatches across n
 a re-sent undelivered contact; a cross-team row leak; a duplicate active plan; a bypassed audit trigger; a
 committed cross-team write; and a silently rewritable safety incident. **Four tests have been found unable
 to fail and rewritten.**
+
+### 5c. The condensed bar's two mutation proofs — both run 2026-08-24, both discriminate
+
+| Mutation                                                  | Result                   | What it proves                                   |
+| --------------------------------------------------------- | ------------------------ | ------------------------------------------------ |
+| Pin: `top-full` -> `top-0`                                | 13 failed / 19 passed    | The 1440px pin assertion is REACHED and fails at |
+|                                                           |                          | line 877 on `barBox.top` 64 -> 0, with the two   |
+|                                                           |                          | preceding assertions passing first.              |
+| Dark colours: danger tokens -> fixed light-theme literals | **1 failed** / 31 passed | Only the dark-scheme comparison reddens, at line |
+|                                                           |                          | 931, naming the injected literal.                |
+
+**And the trap that nearly produced a false proof.** The first attempt at the colour mutation used an
+anchor matching TWO elements. A uniqueness assertion refused the edit — but the script ran the whole
+browser gate anyway, on an unmutated tree, and reported `32 passed`, exit 0. Read without the abort
+line, that is a real, green, strongest-looking gate run supporting exactly the opposite conclusion.
+**A mutation proof has two results, not one: prove the mutation is in the tree before believing the
+gate.** Full account in the build record.
 
 ## 6. Decisions taken on the owner's behalf
 

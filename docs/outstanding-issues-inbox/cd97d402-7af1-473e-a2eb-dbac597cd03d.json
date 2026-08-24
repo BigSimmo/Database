@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "cd97d402-7af1-473e-a2eb-dbac597cd03d",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Caring Contacts: the frozen interaction matrix's 'Recovery action only' wording is ambiguous",
+    "detail": "Two rows (session-expiry and version-conflict) carry the prose 'Recovery action only', which reads either as recovery-action only or as recovery, action-only. Ruling 58 kept both rows faithful to the frozen record rather than reword them. Resolve the wording when the matrix is next unfrozen, not before.",
+    "source": "docs/caring-contacts/phase-2a-build-record.md Ruling 58; docs/caring-contacts/interaction-matrix.md",
+    "issueUlid": "01M0SA6TG3WP76E62MYHW82KPF"
+  }
+}

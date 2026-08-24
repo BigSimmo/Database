@@ -25,7 +25,8 @@ function firstValue(value?: string | string[]) {
  * home: results need a route of their own, or `appModeHomeHref` would send a
  * submitted query back through the redirect and loop. An empty query has no
  * browse view of its own — diagnoses and presentations are separate tabs — so
- * it forwards to the shared home the same way `/calculators/search` does.
+ * it forwards to the shared home. `/calculators/search` is a browse catalogue
+ * on an empty query and no longer shares this redirect.
  * The proxy issues the 307; this page-level redirect is the backstop and uses
  * the same target builder so navigation context is not dropped.
  */

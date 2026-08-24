@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39+00:00"
+    "committed_at": "2026-08-22T20:52:39Z"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 119,
+    "pending": 138,
     "resolved": 376
   },
   "queue": [
@@ -852,10 +852,22 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "1838b99a-9323-4e3b-84a5-8e52535ecec8",
+      "action": "add",
+      "summary": "Caring Contacts: the governed-message validator has zero production callers",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "183965e3-ec47-48cf-a99f-8b037311ed2d",
       "action": "add",
       "summary": "Patient-profile alerts surface unassessed gates only for contraindication rows, so 266 caution, dose-adjust and monitor gates silently no-op",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "18b32d38-540f-4d7c-af35-3f4f067e4998",
+      "action": "add",
+      "summary": "Caring Contacts: nothing checks screen wording against the prohibited-vocabulary list",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "1902cbe5-1188-4e3e-b96e-7578419ab071",
@@ -868,6 +880,12 @@
       "action": "cancel",
       "summary": "Cancel request 48b805df-a419-4204-85bf-9ba2cbf8d250: Outcome was truncated by shell quoting before the focused proxy result; replace with a complete immutable closure.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "1c9ca9cc-cc96-45f4-acd4-9f034834890b",
+      "action": "add",
+      "summary": "Form 12A retains generic Authority and Criteria prose despite having a readable approved PDF",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "1ec9957a-532d-4425-8352-6851e64ef54f",
@@ -978,6 +996,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "421ff6e8-4cb3-4456-b918-d71218b973d5",
+      "action": "cancel",
+      "summary": "Cancel request e7909949-2a75-44fc-92b0-b978f08546c6: Mitigated by PR #2327: the clinical-decision hold now runs before routing with no override, so these surfaces cannot receive unattended Codex repair.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "423d5a24-569d-4988-83c8-2a9e64d52ddb",
       "action": "add",
       "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
@@ -988,6 +1012,12 @@
       "action": "add",
       "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "455d31fc-c3d3-4645-ae2c-2696836f16af",
+      "action": "add",
+      "summary": "Form 12A displays a false Password protected warning although its committed PDF is readable",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "462215d6-4847-42c9-88e6-43354cc96723",
@@ -1182,6 +1212,12 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "854ca9ba-ba3b-442b-be6d-6f5873ed60ed",
+      "action": "add",
+      "summary": "Caring Contacts: connection-unavailable and permission-unavailable have no runtime caller",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "8f2c28e6-aeef-4648-bb23-c1bd2222226b",
       "action": "done",
       "summary": "#5DYBQQ: Resolved 2026-08-23 at exact HEAD d5e7fe271189618de9f46d2ad19f18084aa620b1 with no Forms source or test change. npm run ensure reported http://localhost:4427; GET /api/local-project-id returned appName Clinical KB, projectId clinical-kb:8955bc2fbdf3, and safeLocalOrigin true. The repository wrapper npm run test:e2e -- tests/ui-forms-section-nav.spec.ts --project=chromium --grep \"expands information previews into one continuous answer\" --repeat-each=2 completed its isolated production build and typecheck, then passed the target in 2 of 2 Chromium repetitions with no retries. src/components/forms/form-detail-page.tsx, src/components/ui/disclosure.tsx, tests/ui-forms-section-nav.spec.ts, and tests/forms-information-disclosure.dom.test.tsx are byte-identical in the worktree, exact HEAD, and origin/main. The earlier missing-pg attempt was dependency/environment restoration only and is excluded from product evidence; no flake-ledger entry, quarantine, weakened assertion, or Forms code change was needed.",
@@ -1212,10 +1248,28 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "978a9fa0-a206-4a8e-be82-f98c13e80ccf",
+      "action": "cancel",
+      "summary": "Cancel request d627018c-e5ce-44c9-a9cc-5d798f807c93: Correction: the queued repair must identify or establish the canonical manifest generation path before changing a data manifest; direct manifest editing is not an approved implementation path.",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "9da200a8-0ae0-451b-bef8-d1636b9e3cff",
+      "action": "add",
+      "summary": "Caring Contacts: postgres-repository.ts is ~2,080 lines and holds five self-contained clusters",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "9dd3e06a-ec5c-439e-bdf5-f092d59706cd",
       "action": "done",
       "summary": "#XCAX01: Resolved 2026-08-23 for the repository fleet-sweep surfaces only. scripts/clean-worktree.mjs and scripts/worktree-inventory.mjs are now permanently report-only across CLI, exported, and programmatic paths: any remove/apply-shaped option is rejected before adapters; Git is confined to an exact read-only allowlist with optional locks and lazy fetch suppressed, and prune is permitted only as --dry-run -v; inspection and Windows reparse-boundary uncertainty fail closed; liveness is tri-state and absence remains unknown; explicit-root inventory has no removal API and immutable mutation counts stay zero. For worktree tooling, verify:preflight invokes only worktrees:report -- --self-test rather than inspecting the fleet. Synthetic proof: tests/clean-worktree.test.ts plus tests/worktree-inventory.test.ts, 46/46 passed, plus both pure self-tests and git diff --check. No live fleet report, cleanup, prune, or file/ref/object/registration/worktree/directory removal occurred. This closure does not change or claim to remove guard-push.mjs's separate exact temporary-worktree lifecycle. Exact-path fleet cleanup remains deferred under #6GW95D.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "a0548b2c-2c80-44f9-9440-5b983e169a13",
+      "action": "add",
+      "summary": "Caring Contacts: the closing-message refusal is a guard that cannot fire",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "a06c9a8d-8c82-47a0-be9f-58f2a2a0273f",
@@ -1234,6 +1288,12 @@
       "action": "add",
       "summary": "Caring Contacts Phase 2B — the screens",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "a4b0610d-ef92-4d1b-bcc8-3da0eb646d5a",
+      "action": "add",
+      "summary": "Caring Contacts: four bare foreign keys onto plans/contacts predate the composite same-team rule",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "a539a411-4648-4f71-8b40-90d49646e8a4",
@@ -1308,6 +1368,12 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "ba655ad0-9934-4885-a959-5efd375a9bf1",
+      "action": "add",
+      "summary": "Caring Contacts: Ruling 60's 640-767px overlay-modality band is pinned on one side only",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "ba668e51-5db9-473c-9104-d424fc8e239e",
       "action": "cancel",
       "summary": "Cancel request f7c179ec-ae2d-49da-9f04-92b727e41aaf: The canceled request incorrectly says the two correlated compact_boundary records were produced by Claude Code 2.1.238. Both source records explicitly carry version 2.1.237; 2.1.238 was only the later locally installed CLI observed on 2026-08-23 and is not valid provenance for those 2026-08-22 compactions. Its Windows paths also used ambiguous doubled separators. Superseded by a corrected done request with exact v2.1.237 provenance and relative or forward-slash paths.",
@@ -1380,16 +1446,34 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "cd97d402-7af1-473e-a2eb-dbac597cd03d",
+      "action": "add",
+      "summary": "Caring Contacts: the frozen interaction matrix's 'Recovery action only' wording is ambiguous",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "d4452409-69bf-4bb6-9ad7-dab654822940",
       "action": "add",
       "summary": "eval-retrieval can report success over zero golden fixture cases",
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
+      "action": "add",
+      "summary": "Form 12A shows a false 'Password protected' warning: its PDF is not encrypted at all, and both the manifest and a test pin the wrong fact",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
       "action": "add",
       "summary": "Caring Contacts: the desktop session gate renders as a 1392x170 letterbox, not a gate",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "d7725691-5968-48f1-9912-bca3a5942731",
+      "action": "add",
+      "summary": "Caring Contacts: the interface prohibited-language helper has the same 'lead' job-title collision B2 just fixed for messages",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "d9c78396-1cea-45bd-a4a7-067865151dd3",
@@ -1422,6 +1506,18 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "e69b9dca-057d-48b4-8c7b-793faa3fd0df",
+      "action": "add",
+      "summary": "Forms mode: 34 forms still show boilerplate Clock/Authority/Criteria prose because the approved-form instruction text is locked in password-protected PDFs",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "e7909949-2a75-44fc-92b0-b978f08546c6",
+      "action": "add",
+      "summary": "The Codex auto-resolve workflow reversed an explicit owner decision on a clinical surface without approval, and no gate distinguishes a bot finding from a decision already made",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "e9890b31-a1cd-4390-a0c2-186e8e724639",
       "action": "done",
       "summary": "#VV83VA: Documented the Windows process-spawn diagnostic in docs/testing.md: PowerShell and cmd-compatible Measure-Command node --version probes distinguish host-wide multi-second spawn starvation from gh, Git, or repository faults; the response is to close stale sessions or reboot, with an explicit prohibition on changing Windows security settings. docs:check-links and docs:check-scripts passed.",
@@ -1440,6 +1536,12 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "ee116498-1f7e-4945-8a5b-4c7f06bb5e28",
+      "action": "add",
+      "summary": "Forms mode: 33 password-protected forms retain generic Clock, Authority, and Criteria prose",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "f2cbf1f2-e5cb-4a05-a73e-e3c740fae534",
       "action": "cancel",
       "summary": "Cancel request 4e1ffb03-9151-4c88-a414-659a804b6a42: Superseded by f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1, the replacement #K9XD5N done request queued on this branch. Both close the same DegradedNotice CLS row against the same baseRowFingerprint.",
@@ -1450,6 +1552,12 @@
       "action": "done",
       "summary": "#K9XD5N: Resolved: Implemented stable layout container for DegradedNotice / offline notices preventing hero section layout shift (~0.16 CLS) on / during online/offline state transitions.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "f6768be1-9aeb-4374-afa1-9529718efada",
+      "action": "cancel",
+      "summary": "Cancel request e69b9dca-057d-48b4-8c7b-793faa3fd0df: Correction: Form 12A is readable and has a fixed clock; its generic maker and threshold need a separate follow-up, while the password-protected-PDF blocker applies to the other 33 generic maker-and-threshold forms.",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
@@ -1468,6 +1576,12 @@
       "action": "cancel",
       "summary": "Cancel request 0f9238c1-8add-450c-92d1-917376761248: Resolved on feature branch: verified patient-visible automated reply strings for therapeutic neutrality, emergency escalation, and GSM-7 limit in message-copy.ts with tests.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fa126adf-ade8-4027-a029-d59b4bef8967",
+      "action": "add",
+      "summary": "Caring Contacts: the same-team write serialisation is accidental and still unpinned",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "fa89c68a-3769-483f-9670-900012471425",

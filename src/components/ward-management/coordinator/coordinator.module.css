@@ -547,7 +547,7 @@
 }
 
 /*
- * `eligibleCandidates` sorts eligible-first but never filters, so a shortlisted unit can still
+ * `eligibleCandidatesAmong` sorts eligible-first but never filters, so a shortlisted unit can still
  * fail a gate (Critical 1 — already declined, wrong security tier, stale capacity, ...). This
  * line must never look like the eligible route above: dashed, and danger-toned rather than
  * accent-toned, so the arrow itself does not read as an endorsement of a route the data denies.
@@ -1453,6 +1453,25 @@
   line-height: var(--co-leading-body);
 }
 
+/*
+ * Whole-branch review I2: a recorded escalation is a real, persistent fact — the network really
+ * was exhausted for this movement at this instant — never a success message, so it deliberately
+ * does not reuse `.shortlistConfirmationRecord`'s success tokens above. `--warning-*`, not
+ * `--danger-*`: an escalation is a recorded operational fact a coordinator is expected to act on
+ * next, not a refusal or an error state.
+ */
+.shortlistEscalationRecord {
+  margin: 0 0 var(--co-space-8);
+  border: 0.0625rem solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  padding: var(--co-space-8) var(--co-space-10);
+  color: var(--warning-text);
+  font-size: var(--text-2xs);
+  font-weight: 650;
+  line-height: var(--co-leading-body);
+}
+
 .shortlistActionRow {
   display: flex;
   flex-wrap: wrap;
@@ -1594,6 +1613,30 @@
   color: var(--clinical-accent);
   font-size: var(--text-3xs);
   font-weight: 700;
+}
+
+/*
+ * Whole-branch review I4: a separate, danger-toned badge for refused transitions — never merged
+ * into `.exceptionsToggleCount` above, which is `items.length`, a different fact (the action
+ * inbox). Rendered only while `rejections.length > 0` (see exception-drawer.tsx), so the trigger
+ * carries no extra chrome until the first refusal and then never goes quiet again — the same
+ * "present the moment the fact is real" rule `.refusalsSection` already applies to the panel
+ * beneath it. Danger tokens, not the neutral accent above: a refusal is the reducer stating an
+ * action did NOT happen, which is a sharper fact than an open work-list item.
+ */
+.exceptionsToggleRefusalCount {
+  display: inline-flex;
+  min-height: var(--co-space-20);
+  align-items: center;
+  gap: var(--co-space-6);
+  border: 0.0625rem solid var(--danger-border);
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--danger-bg);
+  padding: 0 var(--co-space-8);
+  color: var(--danger-text);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .exceptionsDrawer[data-open="true"] .placeholder {

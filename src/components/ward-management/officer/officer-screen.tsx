@@ -74,7 +74,11 @@ function arrivedBlockedReason(movement: Movement, unit: Unit | undefined): strin
 }
 
 function formRequiredLabel(transport: TransportJob): string {
-  return transport.formRequired ?? "No legal form required";
+  // "recorded", not "required" — fix wave 1, item 2, found by the ward-wide scan that item added
+  // rather than named in it. An absent `formRequired` means this transport record names no form;
+  // it does not mean the Mental Health Act requires none, which is a claim this prototype is not
+  // entitled to make in either direction.
+  return transport.formRequired ?? "No transport form recorded";
 }
 
 /**
@@ -183,7 +187,12 @@ export function OfficerScreen() {
                       <dd>{destinationLabel}</dd>
                     </div>
                     <div className={styles.jobDetailRow}>
-                      <dt>Legal form required</dt>
+                      {/* Until 2026-08-24 this label asserted a legal requirement. Its VALUE was
+                          corrected to "No transport form recorded" in the same change that left
+                          the label behind — a field label is a claim too. This names the field the
+                          record holds (`TransportJob.formRequired`) and asserts nothing about what
+                          the Act demands. */}
+                      <dt>Transport form</dt>
                       <dd>{formRequiredLabel(transport)}</dd>
                     </div>
                     <div className={styles.jobDetailRow}>

@@ -28,7 +28,7 @@ import {
   buildActionInbox,
   candidateReason,
   destinationUnit,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
   movementHealthService,
@@ -44,8 +44,9 @@ import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { WardNetworkWorkspace } from "@/components/ward-management/ward-management-network";
 import { ClinicalRail, type WardMode } from "@/components/ward-management/ward-management-navigation";
 import { formatInstant } from "@/components/ward-management/ward-clock";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { Movement } from "@/components/ward-management/ward-model";
-import { siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-modes.module.css";
 
@@ -158,14 +159,15 @@ function DecisionPanel({
   onSelectId: (id: string) => void;
 }) {
   const [confirmed, setConfirmed] = useState(false);
-  const { now, units } = useWardFlow();
-  const candidates = useMemo(() => eligibleCandidates(patient, now, 3, units), [patient, now, units]);
+  const { units, now } = useWardFlow();
+  const candidates = useMemo(() => eligibleCandidatesAmong(patient, units, now, 3), [patient, units, now]);
   // Never fall back to candidates[0] when the id in play isn't one of this movement's own
   // shortlisted candidates — that would silently describe the wrong unit (Task 6 Critical 1).
   const selected = candidates.find((candidate) => candidate.unit.id === selectedId);
-  const offShortlistUnit = !selected && selectedId ? unitById(selectedId) : undefined;
+  // Whole-branch review Critical 1: resolved from the live `units`, not `unitById`.
+  const offShortlistUnit = !selected && selectedId ? units.find((unit) => unit.id === selectedId) : undefined;
   const offShortlistVerdict = offShortlistUnit ? eligibility(patient, offShortlistUnit, now) : undefined;
-  const recordedDestination = destinationUnit(patient);
+  const recordedDestination = destinationUnit(patient, units);
   const isSuggested = selected !== undefined && selected.unit.id !== recordedDestination?.id;
 
   return (
@@ -274,7 +276,7 @@ function DecisionPanel({
 }
 
 function QueueView({ role }: { role: WardRole }) {
-  const { movements, now, units } = useWardFlow();
+  const { movements, units, now } = useWardFlow();
   const [selectedId, setSelectedId] = useState(movements[0].id);
   const rolePatients = useMemo(() => sortByRole(movements, role).filter(isOpen), [movements, role]);
   // Hold only the id and derive the record from the live `movements` list on every render —
@@ -309,7 +311,7 @@ function QueueView({ role }: { role: WardRole }) {
           </thead>
           <tbody>
             {rolePatients.map((patient) => {
-              const top = eligibleCandidates(patient, now, 1, units)[0];
+              const top = eligibleCandidatesAmong(patient, units, now, 1)[0];
               return (
                 <tr key={patient.id} data-selected={selected?.id === patient.id}>
                   <td>
@@ -337,7 +339,7 @@ function QueueView({ role }: { role: WardRole }) {
         <DecisionPanel
           patient={selected}
           role={role}
-          selectedId={destinationUnit(selected)?.id ?? eligibleCandidates(selected, now, 3, units)[0]?.unit.id}
+          selectedId={destinationUnit(selected, units)?.id ?? eligibleCandidatesAmong(selected, units, now)[0]?.unit.id}
           onSelectId={() => undefined}
         />
       ) : (
@@ -582,9 +584,7 @@ function TransportView() {
                         : "Requested"}
                   </span>
                   <small>
-                    {patient.legalForm
-                      ? `${patient.legalForm.label} (${patient.legalForm.code})`
-                      : "No legal form required"}
+                    {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
                   </small>
                 </div>
                 <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>

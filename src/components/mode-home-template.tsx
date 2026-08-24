@@ -40,6 +40,8 @@ type ModeHomeTemplateProps = {
   className?: string;
   headingLevel?: 1 | 2;
   stabilizePhoneCopy?: boolean;
+  /** Optional control between the hero copy and the composer (e.g. Show all). */
+  heroAction?: ReactNode;
 };
 
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
@@ -290,6 +292,7 @@ export function ModeHomeTemplate({
   className,
   headingLevel = 1,
   stabilizePhoneCopy = false,
+  heroAction,
 }: ModeHomeTemplateProps) {
   return (
     <div
@@ -307,6 +310,8 @@ export function ModeHomeTemplate({
         headingLevel={headingLevel}
         stabilizePhoneCopy={stabilizePhoneCopy}
       />
+
+      {heroAction}
 
       {/* Reserve settled composer height only while adoption is pending or the
           portal host is present. SSR starts pending so first paint does not CLS;
