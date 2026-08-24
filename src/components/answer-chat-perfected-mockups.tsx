@@ -969,12 +969,7 @@ function AnswerScreen({
         <div className={cn("space-y-3 px-3 py-3", wide && "mx-auto w-full max-w-3xl px-5 py-5")}>
           <ThreadDivider />
           <UserTurn />
-          <AnswerMessage
-            variant={variant}
-            activeSourceId={openId}
-            onOpen={openSource}
-            wide={wide}
-          />
+          <AnswerMessage variant={variant} activeSourceId={openId} onOpen={openSource} wide={wide} />
         </div>
       </div>
       <Composer />
