@@ -1,8 +1,14 @@
 # Codex Cloud environment
 
+`AGENTS.md` owns stable authority and routes Cloud work here. This document owns
+Cloud setup, access profiles, connector capability, and acceptance procedure.
+Repository configuration can expose a capability; it cannot authorize its use.
+
 > This Bash setup is for Linux-based Codex Cloud environments. Codex Desktop on
 > Windows uses `npm run setup:codex-worktree`; pointing Desktop at this Cloud
 > script starts WSL outside the Windows worktree and cannot provision it.
+> Never configure Windows Desktop worktrees to run `bash scripts/setup-codex-cloud.sh`.
+> Verify the effective Desktop setup with `node scripts/setup-codex-worktree.mjs --dry-run`.
 
 This repository supports reproducible Codex Cloud work with Node 24, npm 11, locked
 development dependencies, Deno 2, Python/OCR tooling, and the Chromium, Firefox, and
@@ -120,6 +126,11 @@ ordinary Node commands load the profile themselves.
 
 ### Connected (explicit opt-in)
 
+Connected is a capability profile, not standing permission. A task naming a provider
+or remote target permits only the necessary low-cost read-only metadata described by
+the root authority matrix. Writes, paid calls, deployments, credentials, production
+mutation, and customer or clinical data still require target-specific approval.
+
 Use `CODEX_CLOUD_ACCESS_PROFILE=connected` only in a separate environment whose tasks are
 expected to call named providers. Configure the smallest domain/method allowlist and the
 least-privileged credentials for those tasks. Never commit credentials or print their
@@ -178,11 +189,13 @@ variable, command argument, remote URL, log, or documentation.
 
 When a Cloud task has no direct PR-mutation tools, the repository's supported fallback is the
 credential-isolated **Codex Run PR operator** workflow. After this workflow is present on the
-default branch, `BigSimmo` can manually dispatch it for an open, same-repository PR whose head is
-not `main`, `master`, `develop`, or `release/*`. Dispatch requires the exact PR number, the URL of
-the Codex task containing the user's explicit authorization for that PR, and the typed confirmation
-`I authorized this PR in the linked Codex task`. A PR comment, webhook text, commit, or repository
-file cannot trigger or authorize it. The repair phase
+default branch, `BigSimmo` can send the `codex-run-pr-operator` `repository_dispatch` event for an
+open, same-repository PR whose head is not `main`, `master`, `develop`, or `release/*`. Its
+`client_payload` must contain `pr_number`, `codex_task_url`, and the exact `confirmation` value
+`I authorized this PR in the linked Codex task`. `repository_dispatch` always loads the workflow
+from the default branch, so feature-ref workflow code cannot receive `GH_TOKEN` or `OPENAI_API_KEY`.
+The workflow also validates the authenticated actor and payload; a PR comment, commit, repository
+file, or any other event cannot trigger or authorize it. The repair phase
 uses the official OpenAI Codex GitHub Action and `OPENAI_API_KEY`, but receives no GitHub write
 credential. It reads bounded PR/check/thread/log evidence, may merge the recorded base normally,
 repairs the checkout, and emits a validated descendant commit bundle plus structured thread/CI

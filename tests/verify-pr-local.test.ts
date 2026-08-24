@@ -68,6 +68,34 @@ describe("verify-pr-local CLI", () => {
     expect(output).not.toContain("- npm run test:ci-workflows");
   });
 
+  it("routes trusted Codex prompt and schema changes through workflow contracts", () => {
+    for (const file of [".github/codex/prompts/run-pr-operator.md", ".github/codex/run-pr-result.schema.json"]) {
+      const output = dryRun(file);
+      expect(output).toContain("- npm run test:ci-workflows");
+      expect(output).not.toContain("- npm run test\n");
+    }
+  });
+
+  it("selects the agent-policy checker for root policy and canonical skill changes", () => {
+    for (const file of [
+      "AGENTS.md",
+      ".agents/skills/dependencies/SKILL.md",
+      ".claude/skills/gates/SKILL.md",
+      ".cursor/agents/design-review.md",
+      ".cursor/agents/pr-babysit.md",
+      ".cursor/agents/pr-bugbot.md",
+      ".cursor/skills/design-review/SKILL.md",
+      "docs/agents-guide.md",
+      "docs/codex-cloud.md",
+      "docs/testing.md",
+      "docs/site-map.md",
+      "docs/wiring-conventions.md",
+      "docs/rag-behaviour/example.md",
+    ]) {
+      expect(dryRun(file)).toContain("- npm run check:agent-policy");
+    }
+  });
+
   it("requires explicit approval before executing the extended plan", () => {
     const result = spawnSync(process.execPath, [script, "--extended", "--files", "docs/frontend-architecture.md"], {
       encoding: "utf8",

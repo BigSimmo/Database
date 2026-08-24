@@ -1,8 +1,6 @@
-name: Codex auto-resolve review comments
+name: Codex review thread resolution
 
 on:
-  pull_request_review:
-    types: [submitted]
   pull_request_review_comment:
     types: [created]
 
@@ -10,302 +8,12 @@ permissions:
   contents: read
 
 jobs:
-  request-codex-autoresolve:
-    name: Request Codex auto-resolve
-    runs-on: ubuntu-24.04
-    # Every other workflow in this repo bounds its jobs; without this the GitHub
-    # default of 360 minutes applies to a job that only reads metadata and posts a
-    # comment.
-    timeout-minutes: 10
-    # Only run after Codex submits a completed review, never on the first inline
-    # comment mid-review. Approvals/dismissals are handled below (no findings).
-    if: >
-      github.event_name == 'pull_request_review' &&
-      github.event.pull_request.state == 'open' &&
-      github.event.review.user.type == 'Bot' &&
-      (github.event.review.user.login == 'chatgpt-codex-connector' ||
-      github.event.review.user.login == 'chatgpt-codex-connector[bot]')
-    permissions:
-      contents: read
-    concurrency:
-      group: codex-autoresolve-${{ github.event.pull_request.number }}
-      cancel-in-progress: false
-    env:
-      # Assigned to job env so a step-level `if` can detect an unconfigured
-      # secret and skip gracefully instead of hard-failing the check.
-      CODEX_TRIGGER_TOKEN: ${{ secrets.CODEX_TRIGGER_TOKEN }}
-    steps:
-      - name: Warn when the trigger token is not configured
-        if: ${{ env.CODEX_TRIGGER_TOKEN == '' }}
-        run: echo "::warning title=Codex auto-resolve::CODEX_TRIGGER_TOKEN secret is not configured; skipping the Codex auto-resolve request. Codex will not be asked to resolve findings until this fine-grained PAT secret is set."
-      - name: Ask Codex to resolve review comments
-        if: ${{ env.CODEX_TRIGGER_TOKEN != '' }}
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          # A fine-grained PAT from a real (non-bot) account. The Codex connector
-          # ignores @codex commands authored by github-actions[bot], so the
-          # request must be posted by a user identity for Codex to act on it.
-          github-token: ${{ secrets.CODEX_TRIGGER_TOKEN }}
-          script: |
-            const pr = context.payload.pull_request;
-            const review = context.payload.review;
-            const allowedCodexBotLogins = new Set([
-              "chatgpt-codex-connector",
-              "chatgpt-codex-connector[bot]",
-            ]);
-            const forceReviewLabel = "codex-review";
-            const skipReviewLabel = "skip-codex-review";
-            const complexSourceFileThreshold = 10;
-            const complexSourceChurnThreshold = 300;
-            const highRiskPathPatterns = [
-              /^supabase\//,
-              /^src\/app\/api\//,
-              /^src\/data\//,
-              /^src\/(?:lib|app|components)\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|billing|payment|quota|job|worker)/i,
-              /^src\/(?:proxy|instrumentation(?:-client)?)\.ts$/,
-              /^src\/lib\/(?:env|client-env|security-headers)\.ts$/,
-              /^scripts\/.*(?:ingest|reindex|migration|governance|production|deploy|drift|supabase)/i,
-              /^scripts\/(?:check-(?:codex-autofix-workflow|github-action-pins)|github-action-pins)\.mjs$/,
-              /^\.github\/(?:actions|workflows)\//,
-              /^(?:package|package-lock)\.json$/,
-              /^(?:next|playwright|vitest)(?:\..+)?\.config\.[cm]?[jt]s$/,
-              /^(?:Dockerfile|railway\.json|nixpacks\.toml)$/,
-            ];
-            const sourcePathPattern = /^(?:src|scripts|supabase|\.github\/(?:actions|workflows))\//;
-            const sourceExtensionPattern = /\.(?:[cm]?[jt]sx?|sql|css|scss|json|ya?ml)$/i;
-            const excludedAutomaticRoutePathPatterns = [
-              /(?:^|\/)(?:__tests__|fixtures|snapshots)\//,
-              /(?:^|\/)tests?\//,
-              /\.(?:snap|test|spec)\.[cm]?[jt]sx?$/i,
-              /(?:^|\/)generated\//,
-            ];
-            const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
-            const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
-            const noChangeMarker = "<!-- codex-thread-result:no-change -->";
-
-            if (
-              review.user?.type !== "Bot" ||
-              !allowedCodexBotLogins.has(review.user.login)
-            ) {
-              core.warning("Skipping Codex auto-resolve request because the review author is not the trusted Codex connector bot.");
-              return;
-            }
-
-            // Gate: only a completed review that actually raised findings is worth
-            // an auto-resolve pass. An approval or dismissal has nothing to fix.
-            if (review.state === "approved" || review.state === "dismissed") {
-              core.notice(`Skipping Codex auto-resolve request because the Codex review state was '${review.state}' (no actionable findings).`);
-              return;
-            }
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const issue_number = pr.number;
-            const headRepository = pr.head.repo?.full_name;
-            if (!headRepository) {
-              core.setFailed("Codex auto-resolve cannot identify the pull request head repository; refusing to route a repair request.");
-              return;
-            }
-            const labels = new Set(
-              (pr.labels || [])
-                .map((label) => (typeof label === "string" ? label : label?.name))
-                .filter(Boolean)
-                .map((label) => label.toLowerCase()),
-            );
-
-            // An explicit skip always wins, including when the opt-in label is
-            // also present. This gives maintainers a deterministic kill switch.
-            if (labels.has(skipReviewLabel)) {
-              core.notice(`Skipping Codex auto-resolve because the pull request has the '${skipReviewLabel}' label.`);
-              return;
-            }
-
-            let reviewComments;
-            try {
-              reviewComments = await github.paginate(github.rest.pulls.listCommentsForReview, {
-                owner,
-                repo,
-                pull_number: issue_number,
-                review_id: review.id,
-                per_page: 100,
-              });
-            } catch (error) {
-              if (error.status === 403) {
-                const message = "Codex auto-resolve failed because the trigger token cannot read review comments.";
-                core.warning(message);
-                core.setFailed(message);
-                return;
-              }
-
-              throw error;
-            }
-
-            if (reviewComments.length === 0) {
-              core.notice("Skipping Codex auto-resolve request because the completed Codex review left no inline findings to resolve.");
-              return;
-            }
-
-            const routeReasons = [];
-            if (labels.has(forceReviewLabel)) {
-              routeReasons.push(`label:${forceReviewLabel}`);
-            } else {
-              let changedFiles;
-              try {
-                changedFiles = await github.paginate(github.rest.pulls.listFiles, {
-                  owner,
-                  repo,
-                  pull_number: issue_number,
-                  per_page: 100,
-                });
-              } catch (error) {
-                if (error.status === 403) {
-                  const message = "Codex auto-resolve failed because the trigger token cannot read pull request files.";
-                  core.warning(message);
-                  core.setFailed(message);
-                  return;
-                }
-
-                throw error;
-              }
-
-              const normalizeChangedPath = (value) =>
-                (value || "").replaceAll("\\", "/").replace(/^\.\/+/, "");
-              const normalizedFiles = changedFiles.map((file) => ({
-                ...file,
-                filename: normalizeChangedPath(file.filename),
-                previous_filename: normalizeChangedPath(file.previous_filename),
-              }));
-              const changedFilePaths = (file) =>
-                [file.filename, file.previous_filename].filter(Boolean);
-              const routeableFilePaths = (file) =>
-                changedFilePaths(file).filter(
-                  (filePath) =>
-                    !excludedAutomaticRoutePathPatterns.some((pattern) => pattern.test(filePath)),
-                );
-              const routeableFiles = normalizedFiles.filter(
-                (file) => routeableFilePaths(file).length > 0,
-              );
-              const highRiskFiles = routeableFiles.filter((file) =>
-                routeableFilePaths(file).some((filePath) =>
-                  highRiskPathPatterns.some((pattern) => pattern.test(filePath)),
-                ),
-              );
-              const changedSourceFiles = routeableFiles.filter(
-                (file) =>
-                  routeableFilePaths(file).some(
-                    (filePath) =>
-                      sourcePathPattern.test(filePath) && sourceExtensionPattern.test(filePath),
-                  ),
-              );
-              const sourceChurn = changedSourceFiles.reduce(
-                (total, file) => total + (file.additions || 0) + (file.deletions || 0),
-                0,
-              );
-
-              if (highRiskFiles.length > 0) {
-                routeReasons.push("high-risk-path");
-              }
-              if (changedSourceFiles.length >= complexSourceFileThreshold) {
-                routeReasons.push(`complex-files:${changedSourceFiles.length}`);
-              }
-              if (sourceChurn >= complexSourceChurnThreshold) {
-                routeReasons.push(`complex-churn:${sourceChurn}`);
-              }
-
-              if (routeReasons.length === 0) {
-                core.notice(
-                  `Skipping Codex auto-resolve for a low-risk pull request (${changedSourceFiles.length} source files, ${sourceChurn} changed source lines). Add '${forceReviewLabel}' to opt in.`,
-                );
-                return;
-              }
-            }
-
-            // The request is posted by the trigger token's account, so dedup must
-            // trust that identity rather than github-actions[bot].
-            let triggerLogin;
-            try {
-              const { data: authenticatedUser } = await github.rest.users.getAuthenticated();
-              triggerLogin = authenticatedUser.login;
-            } catch (error) {
-              const message = "Codex auto-resolve failed because it could not identify the trigger token's account.";
-              core.warning(message);
-              core.setFailed(message);
-              return;
-            }
-
-            const marker = `<!-- codex-autoresolve-pr:${pr.number} -->`;
-            const maxAutoResolveRequests = 1;
-
-            let existingComments;
-            try {
-              existingComments = await github.paginate(github.rest.issues.listComments, {
-                owner,
-                repo,
-                issue_number,
-                per_page: 100,
-              });
-            } catch (error) {
-              if (error.status === 403) {
-                const message = "Codex auto-resolve failed because GitHub denied permission to list issue comments.";
-                core.warning(message);
-                core.setFailed(message);
-                return;
-              }
-
-              throw error;
-            }
-
-            const trustedExistingRequests = existingComments.filter(
-              (comment) =>
-                comment.user?.login === triggerLogin &&
-                (comment.body || "").trimStart().startsWith("<!-- codex-autoresolve"),
-            );
-            const hasTrustedExistingRequest = trustedExistingRequests.some((comment) =>
-              (comment.body || "").includes(marker),
-            );
-
-            if (hasTrustedExistingRequest) {
-              core.notice("Skipping duplicate Codex auto-resolve request for this pull request.");
-              return;
-            }
-
-            if (trustedExistingRequests.length >= maxAutoResolveRequests) {
-              core.warning("Skipping Codex auto-resolve request because this pull request already used its single automatic repair pass.");
-              return;
-            }
-
-            const prompt = [
-              marker,
-              `<!-- codex-autoresolve-head:${pr.head.sha} -->`,
-              `<!-- codex-autoresolve-source-review:${review.id} -->`,
-              `<!-- codex-autoresolve-route:${routeReasons.join(",")} -->`,
-              `${scopedResolveCommand} using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. The only repository destination is ${headRepository}, and the only branch destination is the pull request head branch ${pr.head.ref} at starting commit ${pr.head.sha}; never publish fixes to a detached or synthetic work branch and never create a stacked pull request. Use the authenticated GitHub connector to commit each approved fix to ${headRepository}:${pr.head.ref}, then verify that the pull request head contains the published commit before reporting success. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. For a fixed thread, reply with ${resolvedDispositionMarker} as the first line and <!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> --> as the second line. For a no-code disposition, use ${resolvedDispositionMarker} followed by ${noChangeMarker}. These result markers authorize the workflow to close that exact thread only after it verifies a fixed commit is the pull request head; a local-only commit is not a fix. If publication or verification fails, do not use either result marker, do not claim success, and leave the thread open with the blocker. If human input or new authorization is required, do the same. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`,
-            ].join("\n\n");
-
-            try {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number,
-                body: prompt,
-              });
-            } catch (error) {
-              if (error.status === 403) {
-                const message = "Codex auto-resolve failed because the trigger token cannot comment on the pull request.";
-                core.warning(message);
-                core.setFailed(message);
-                return;
-              }
-
-              throw error;
-            }
-
   resolve-codex-thread:
     name: Resolve Codex review thread
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # Marker-driven thread closure only. This is the narrow job that carries
-    # pull-requests: write, and it acts solely on trusted disposition replies.
+    # This workflow never requests a repair. A human must invoke Codex, and this
+    # bridge only closes the exact thread named by a trusted Codex disposition.
     if: >
       github.event_name == 'pull_request_review_comment' &&
       github.event.pull_request.state == 'open' &&
@@ -315,11 +23,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    # Each reply resolves a distinct thread, so key concurrency per comment —
-    # a per-PR group would cap at one running + one pending and drop resolutions
-    # during a burst of disposition replies.
     concurrency:
-      group: codex-autoresolve-thread-${{ github.event.pull_request.number }}-${{ github.event.comment.id }}
+      # GitHub keeps only one pending run per group. Key by the parent review
+      # comment so dispositions for distinct threads cannot evict one another.
+      group: codex-thread-resolution-${{ github.event.pull_request.number }}-${{ github.event.comment.in_reply_to_id || github.event.comment.id }}
       cancel-in-progress: false
     steps:
       - name: Resolve Codex review thread on disposition marker
@@ -334,7 +41,7 @@ jobs:
               "chatgpt-codex-connector[bot]",
             ]);
             const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
-            const fixedHeadPattern = /^<!-- codex-thread-result:fixed-head:([0-9a-f]{40}) -->$/m;
+            const fixedHeadPattern = /^<!-- codex-thread-result:fixed-head:([0-9a-f]{40}) -->$/;
             const noChangeMarker = "<!-- codex-thread-result:no-change -->";
 
             if (
@@ -345,48 +52,48 @@ jobs:
               return;
             }
 
-            // Only trusted, marked replies resolve a thread. A non-reply review
-            // comment is a fresh finding; the request job (on the submitted
-            // review) owns that path, so there is nothing to do here.
             if (!reviewComment.in_reply_to_id) {
-              core.notice("Skipping non-reply Codex review comment; the auto-resolve request is driven by the submitted review.");
+              core.notice("Skipping non-reply Codex review comment; repair invocation is human-authored.");
               return;
             }
 
-            const replyBody = (reviewComment.body || "").trimStart();
-            if (!replyBody.startsWith(resolvedDispositionMarker)) {
-              core.notice("Skipping review-thread reply without the trusted resolved disposition marker.");
+            const replyLines = (reviewComment.body || "").split(/\r?\n/);
+            const dispositionLine = replyLines[0] || "";
+            const resultLine = replyLines[1] || "";
+            if (dispositionLine !== resolvedDispositionMarker) {
+              core.notice("Skipping review-thread reply without the exact trusted resolved disposition marker.");
               return;
             }
 
-            const fixedHeadMatch = replyBody.match(fixedHeadPattern);
-            const isNoChangeDisposition = replyBody.includes(noChangeMarker);
-            if (Boolean(fixedHeadMatch) === isNoChangeDisposition) {
-              core.setFailed("Codex disposition must declare exactly one result: a verified fixed head or no code change.");
-              return;
-            }
-
-            if (fixedHeadMatch && pr.head.sha !== fixedHeadMatch[1]) {
-              core.setFailed(
-                `Codex reported fixed commit ${fixedHeadMatch[1]}, but the pull request head is ${pr.head.sha}; leaving the thread open.`,
-              );
+            const fixedHeadMatch = resultLine.match(fixedHeadPattern);
+            const isNoChangeDisposition = resultLine === noChangeMarker;
+            const declaredResultLines = replyLines.filter((line) => line.startsWith("<!-- codex-thread-result:"));
+            if (
+              Boolean(fixedHeadMatch) === isNoChangeDisposition ||
+              declaredResultLines.length !== 1 ||
+              declaredResultLines[0] !== resultLine
+            ) {
+              core.setFailed("Codex disposition must declare exactly one result on the second line: a verified fixed head or no code change.");
               return;
             }
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = pr.number;
-            const targetCommentIds = new Set([reviewComment.id, reviewComment.in_reply_to_id]);
+            const targetCommentIds = [reviewComment.id, reviewComment.in_reply_to_id];
             const reviewThreadsQuery = `
               query ReviewThreads($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
                 repository(owner: $owner, name: $repo) {
                   pullRequest(number: $number) {
+                    headRefOid
+                    state
                     reviewThreads(first: 100, after: $cursor) {
                       nodes {
                         id
                         isResolved
                         comments(first: 100) {
                           nodes { databaseId }
+                          pageInfo { endCursor hasNextPage }
                         }
                       }
                       pageInfo {
@@ -398,9 +105,74 @@ jobs:
                 }
               }
             `;
+            const threadCommentsQuery = `
+              query ThreadComments($threadId: ID!, $commentsCursor: String) {
+                node(id: $threadId) {
+                  ... on PullRequestReviewThread {
+                    id
+                    isResolved
+                    comments(first: 100, after: $commentsCursor) {
+                      nodes { databaseId }
+                      pageInfo { endCursor hasNextPage }
+                    }
+                  }
+                }
+              }
+            `;
+            const resolutionPreflightQuery = `
+              query ResolutionPreflight($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) { headRefOid state }
+                }
+              }
+            `;
+            const resolutionPostflightQuery = `
+              query ResolutionPostflight($owner: String!, $repo: String!, $number: Int!, $threadId: ID!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) { headRefOid state }
+                }
+                node(id: $threadId) {
+                  ... on PullRequestReviewThread { id isResolved }
+                }
+              }
+            `;
+            const resolveReviewThreadMutation = `
+              mutation ResolveReviewThread($threadId: ID!) {
+                resolveReviewThread(input: { threadId: $threadId }) {
+                  thread { id isResolved }
+                }
+              }
+            `;
+            const unresolveReviewThreadMutation = `
+              mutation UnresolveReviewThread($threadId: ID!) {
+                unresolveReviewThread(input: { threadId: $threadId }) {
+                  thread { id isResolved }
+                }
+              }
+            `;
+            const compensateResolutionFailure = async (threadId, reason) => {
+              let compensationOutcome;
+              try {
+                const compensation = await github.graphql(unresolveReviewThreadMutation, { threadId });
+                compensationOutcome = compensation.unresolveReviewThread?.thread?.isResolved === false
+                  ? "The thread resolution was reverted."
+                  : "GitHub did not confirm that the thread resolution was reverted.";
+              } catch (compensationError) {
+                const compensationDetail = compensationError instanceof Error
+                  ? compensationError.message
+                  : String(compensationError);
+                compensationOutcome = `Compensation also failed: ${compensationDetail}.`;
+              }
+              const message = `${reason} ${compensationOutcome}`;
+              core.warning(message);
+              core.setFailed(message);
+            };
 
             let cursor = null;
+            let liveHeadRefOid;
+            let liveState;
             let matchingThread;
+            let resolutionAttempted = false;
 
             try {
               do {
@@ -410,15 +182,46 @@ jobs:
                   number: issue_number,
                   cursor,
                 });
-                const connection = result.repository?.pullRequest?.reviewThreads;
-                matchingThread = connection?.nodes?.find((thread) =>
-                  thread.comments.nodes.some((comment) => targetCommentIds.has(comment.databaseId)),
-                );
+                const livePullRequest = result.repository?.pullRequest;
+                liveHeadRefOid = livePullRequest?.headRefOid;
+                liveState = livePullRequest?.state;
+                const connection = livePullRequest?.reviewThreads;
+                for (const thread of connection?.nodes ?? []) {
+                  const threadCommentIds = new Set(
+                    thread.comments.nodes.map((comment) => comment.databaseId),
+                  );
+                  const isCandidate = targetCommentIds.some((commentId) => threadCommentIds.has(commentId));
+                  let commentsCursor = thread.comments.pageInfo?.hasNextPage
+                    ? thread.comments.pageInfo.endCursor
+                    : null;
+                  while (
+                    isCandidate &&
+                    !targetCommentIds.every((commentId) => threadCommentIds.has(commentId)) &&
+                    commentsCursor
+                  ) {
+                    const commentsResult = await github.graphql(threadCommentsQuery, {
+                      threadId: thread.id,
+                      commentsCursor,
+                    });
+                    const currentThread = commentsResult.node;
+                    if (!currentThread || currentThread.id !== thread.id) break;
+                    for (const comment of currentThread.comments.nodes) {
+                      threadCommentIds.add(comment.databaseId);
+                    }
+                    commentsCursor = currentThread.comments.pageInfo?.hasNextPage
+                      ? currentThread.comments.pageInfo.endCursor
+                      : null;
+                  }
+                  if (targetCommentIds.every((commentId) => threadCommentIds.has(commentId))) {
+                    matchingThread = thread;
+                    break;
+                  }
+                }
                 cursor = connection?.pageInfo?.hasNextPage ? connection.pageInfo.endCursor : null;
               } while (!matchingThread && cursor);
 
               if (!matchingThread) {
-                core.setFailed("Codex auto-resolve could not find the review thread for the disposition reply.");
+                core.setFailed("Codex thread resolution could not validate the disposition reply relationship.");
                 return;
               }
 
@@ -427,17 +230,80 @@ jobs:
                 return;
               }
 
-              await github.graphql(
-                `mutation ResolveReviewThread($threadId: ID!) {
-                  resolveReviewThread(input: { threadId: $threadId }) {
-                    thread { id isResolved }
-                  }
-                }`,
-                { threadId: matchingThread.id },
-              );
+              if (liveState !== "OPEN") {
+                core.setFailed("The pull request is no longer open; leaving the review thread unresolved.");
+                return;
+              }
+
+              if (fixedHeadMatch && liveHeadRefOid !== fixedHeadMatch[1]) {
+                core.setFailed(
+                  `Codex reported fixed commit ${fixedHeadMatch[1]}, but the live pull request head is ${liveHeadRefOid || "unavailable"}; leaving the thread open.`,
+                );
+                return;
+              }
+
+              const preflight = await github.graphql(resolutionPreflightQuery, {
+                owner,
+                repo,
+                number: issue_number,
+              });
+              const preflightPullRequest = preflight.repository?.pullRequest;
+              if (preflightPullRequest?.state !== "OPEN") {
+                core.setFailed("The pull request is no longer open immediately before resolution; leaving the thread open.");
+                return;
+              }
+              if (preflightPullRequest.headRefOid !== liveHeadRefOid) {
+                core.setFailed("The pull request head changed immediately before resolution; leaving the thread open.");
+                return;
+              }
+              if (fixedHeadMatch && preflightPullRequest.headRefOid !== fixedHeadMatch[1]) {
+                core.setFailed("The verified fixed head changed immediately before resolution; leaving the thread open.");
+                return;
+              }
+
+              resolutionAttempted = true;
+              const resolution = await github.graphql(resolveReviewThreadMutation, {
+                threadId: matchingThread.id,
+              });
+              if (resolution.resolveReviewThread?.thread?.isResolved !== true) {
+                await compensateResolutionFailure(
+                  matchingThread.id,
+                  "GitHub did not confirm that the Codex review thread was resolved.",
+                );
+                return;
+              }
+
+              const postflight = await github.graphql(resolutionPostflightQuery, {
+                owner,
+                repo,
+                number: issue_number,
+                threadId: matchingThread.id,
+              });
+              const postflightPullRequest = postflight.repository?.pullRequest;
+              const stateOrHeadDrifted =
+                postflightPullRequest?.state !== "OPEN" ||
+                postflightPullRequest?.headRefOid !== preflightPullRequest.headRefOid;
+              if (stateOrHeadDrifted) {
+                await compensateResolutionFailure(
+                  matchingThread.id,
+                  "The pull request state or head changed during resolution.",
+                );
+                return;
+              }
+              if (postflight.node?.id !== matchingThread.id || postflight.node?.isResolved !== true) {
+                await compensateResolutionFailure(
+                  matchingThread.id,
+                  "Post-resolution validation did not confirm that the review thread remained resolved.",
+                );
+                return;
+              }
               core.notice("Resolved the Codex review thread after its explicit disposition reply.");
             } catch (error) {
-              const message = `Codex auto-resolve failed while closing the review thread: ${error.message || error}`;
-              core.warning(message);
-              core.setFailed(message);
+              const failureReason = `Codex thread resolution failed while closing the review thread: ${error.message || error}.`;
+              if (resolutionAttempted && matchingThread) {
+                await compensateResolutionFailure(matchingThread.id, failureReason);
+                return;
+              }
+              core.warning(failureReason);
+              core.setFailed(failureReason);
             }

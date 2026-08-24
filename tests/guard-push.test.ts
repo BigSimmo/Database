@@ -167,18 +167,31 @@ describe("force-push detection", () => {
 
 describe("manual auto-merge ownership policy", () => {
   it("keeps active agent policies aligned on preserving an armed PR", () => {
-    const policyFiles = [
-      "../AGENTS.md",
-      "../.claude/skills/run-pr/SKILL.md",
-      "../.claude/skills/handoff/SKILL.md",
-      "../.cursor/agents/pr-babysit.md",
-    ];
+    const rootPolicy = readFileSync(new URL("../AGENTS.md", import.meta.url), "utf8");
+    expect(rootPolicy).toContain("auto-merge state is user-owned");
+    expect(rootPolicy).toContain("do not disable");
+
+    const policyFiles = ["../.agents/skills/run-pr/SKILL.md", "../.agents/skills/upload/SKILL.md"];
 
     for (const file of policyFiles) {
       const policy = readFileSync(new URL(file, import.meta.url), "utf8");
       expect(policy, file).toContain("auto-merge state is user-owned");
       expect(policy, file).toContain("must not disable");
     }
+
+    for (const [adapter, owner] of [
+      ["../.claude/skills/run-pr/SKILL.md", "../../../.agents/skills/run-pr/SKILL.md"],
+      ["../.claude/skills/handoff/SKILL.md", "../../../.agents/skills/upload/SKILL.md"],
+      ["../.cursor/agents/pr-babysit.md", "../../.agents/skills/run-pr/SKILL.md"],
+    ]) {
+      const policy = readFileSync(new URL(adapter, import.meta.url), "utf8");
+      expect(policy, adapter).toContain(owner);
+      expect(policy, adapter).toContain("Do not duplicate or extend");
+    }
+    const cursor = readFileSync(new URL("../.cursor/agents/pr-babysit.md", import.meta.url), "utf8");
+    expect(cursor).toContain("../../.agents/skills/upload/SKILL.md");
+    expect(cursor).toContain("../../docs/codex-review-protocol.md");
+    expect(cursor).not.toContain("When invoked:");
   });
 });
 

@@ -5,9 +5,13 @@ description: Maintain Database dependencies safely by checking compatible stable
 
 # Dependencies
 
-1. Inspect branch, status, Node/npm versions, `package.json`, lockfile, npm configuration, and active repo processes.
-2. Compare direct dependencies with stable compatible releases and group risky ecosystems coherently.
-3. Read migration notes for framework, runtime, build, test, lint, database, and security-sensitive updates.
-4. Search for old APIs and make only the smallest compatibility changes.
-5. When an update is requested, regenerate the existing npm lockfile and verify install integrity, focused behavior, then broader local gates. Keep review-only requests read-only.
-6. Do not use force flags, switch package managers, publish, deploy, or call provider APIs without approval.
+Sole procedure for exact `dependency`: update stable compatible direct packages, the existing lockfile, and required compatibility code without publishing.
+
+1. Inspect branch/upstream, worktrees/status, engines, npm config, manifest, lockfile, workspaces, CI/scripts, and racing processes. Preserve unrelated work; isolate unsafe state.
+2. Use npm 11 and `package-lock.json`. Never switch managers, add lockfile types, bypass engines/peers/resolution, or force audit fixes.
+3. Compare direct ranges and locked versions with stable releases. Metadata/official-note reads are allowed; provider calls, deploy, commit, and push are not.
+4. Exclude prereleases unless stable requires one. Treat outdated exit codes as inventory and group peer-coupled ecosystems.
+5. For major/core updates, read version-matched official guidance and peer/engine ranges. Search code/config/tests/CI for removed APIs, flags, keys, imports, and paths.
+6. Update direct packages, regenerate only the existing lockfile, and make minimal compatibility edits. Stop architectural/product migrations with versions, files, steps, and gates.
+7. Validate lock/install integrity; run narrow affected compile/config/unit/browser contracts and a non-mutating audit. Widen only for risk.
+8. Report runtime/npm, outdated and old-to-new versions, deferrals, edits, exact checks, audit, artifacts/processes, risks, and commit/push state.

@@ -354,7 +354,6 @@ export const providerCredentialVariables = Object.freeze([
   "CODEX_CLOUD_GITHUB_PAT",
   "GITLAB_TOKEN",
   "GLAB_TOKEN",
-  "CODEX_TRIGGER_TOKEN",
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
   "CROSS_TENANT_SERVICE_ROLE_KEY",
@@ -1132,10 +1131,24 @@ export function validateCodexCloudSetup() {
     }
   }
 
-  const cloudHeadingCount = (agents.match(/^## Codex Cloud environment$/gm) ?? []).length;
-  if (cloudHeadingCount !== 1) {
-    errors.push(`AGENTS.md must contain exactly one Codex Cloud environment section; found ${cloudHeadingCount}.`);
-  }
+  requireMatch(
+    errors,
+    agents,
+    /^### Providers, Cloud, and trusted execution$/m,
+    "AGENTS.md must retain the compact provider, Cloud, and trusted-execution policy section.",
+  );
+  requireMatch(
+    errors,
+    agents,
+    /`docs\/codex-cloud\.md` is the environment\/access-profile contract\./,
+    "AGENTS.md must route Cloud setup and access-profile procedure to docs/codex-cloud.md.",
+  );
+  requireMatch(
+    errors,
+    guide,
+    /This document owns\s+Cloud setup, access profiles, connector capability, and acceptance procedure\./,
+    "The Cloud guide must declare ownership of its detailed procedure.",
+  );
   return errors;
 }
 

@@ -298,12 +298,12 @@ branch's entire diff is bookkeeping records"**.
 First, a clarification the issue flags and that matters for the decision: **these are two
 separate vendors with two separate limits.**
 
-|                                    | CodeRabbit                                                                           | Codex connector                                                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| Limit reported                     | "organization has reached its usage spending cap"; included reviews refill at 1/hour | its own usage limit, unspecified in the record                                                                                   |
-| Configured in-repo                 | `.coderabbit.yaml` (advisory only)                                                   | `.github/workflows/codex-autofix-review-comments.yml` routes _repair_; the _review_ itself comes from the connector app          |
-| Controlled by                      | CodeRabbit org billing settings                                                      | OpenAI/Codex plan settings                                                                                                       |
-| Repo-side throttle already present | none                                                                                 | yes — the autofix workflow routes only high-risk or ≥10-file/≥300-line PRs, and allows one automatic repair pass per PR lifetime |
+|                                    | CodeRabbit                                                                           | Codex connector                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Limit reported                     | "organization has reached its usage spending cap"; included reviews refill at 1/hour | its own usage limit, unspecified in the record                                                                                     |
+| Configured in-repo                 | `.coderabbit.yaml` (advisory only)                                                   | The connector app supplies review; `.github/workflows/codex-autofix-review-comments.yml` only resolves trusted disposition replies |
+| Controlled by                      | CodeRabbit org billing settings                                                      | OpenAI/Codex plan settings                                                                                                         |
+| Repo-side throttle already present | none                                                                                 | repair invocation is human-authored; the workflow has no automatic repair route and scopes thread resolution per PR                |
 
 Raising either is a settings change outside this repository, and it treats the symptom. The
 arithmetic in §2.2 is the argument for ordering: at 25.4 merged PRs/day against a 24/day

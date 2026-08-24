@@ -51,6 +51,7 @@
 !/.agents/skills/health/
 !/.agents/skills/incident/
 !/.agents/skills/ingest/
+!/.agents/skills/issues/
 !/.agents/skills/ledger/
 !/.agents/skills/live-design-sweep/
 !/.agents/skills/migrate/
@@ -68,6 +69,7 @@
 !/.agents/skills/release/
 !/.agents/skills/review/
 !/.agents/skills/run/
+!/.agents/skills/run-pr/
 !/.agents/skills/security/
 !/.agents/skills/session-lifecycle/
 !/.agents/skills/skills/
@@ -75,6 +77,7 @@
 !/.agents/skills/task/
 !/.agents/skills/test/
 !/.agents/skills/ui/
+!/.agents/skills/upload/
 !/.agents/skills/verify-triage-fix/
 !/.agents/skills/workflows/
 /skills-lock.json

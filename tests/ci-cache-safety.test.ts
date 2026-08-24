@@ -119,6 +119,12 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("run: npm run check:verification-plan");
   });
 
+  it("runs the agent-policy checker for policy and workflow scope", () => {
+    expect(workflow).toMatch(
+      /name: Agent policy contract\n\s+if: needs\.changes\.outputs\.workflow_changed == 'true'\n\s+run: npm run check:agent-policy/,
+    );
+  });
+
   it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
     expect(workflow).toMatch(
       /name: Medication lexicon report freshness\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-lexicon-report/,

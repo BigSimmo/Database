@@ -14,7 +14,7 @@ describe("sync-open-pr-branches classifyPr", () => {
     });
   });
 
-  it("skips hold / do-not-merge / skip-branch-sync labels", () => {
+  it("skips every Run PR branch-mutation opt-out label", () => {
     expect(classifyPr({ title: "x", labels: [{ name: "hold" }] }, 3)).toEqual({
       action: "skip",
       reason: "label:hold",
@@ -22,6 +22,10 @@ describe("sync-open-pr-branches classifyPr", () => {
     expect(classifyPr({ title: "x", labels: [{ name: "skip-branch-sync" }] }, 3)).toEqual({
       action: "skip",
       reason: "label:skip-branch-sync",
+    });
+    expect(classifyPr({ title: "x", labels: [{ name: "skip-codex-review" }] }, 3)).toEqual({
+      action: "skip",
+      reason: "label:skip-codex-review",
     });
   });
 

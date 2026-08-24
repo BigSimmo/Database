@@ -58,11 +58,11 @@ Details that matter to anyone reproducing this elsewhere:
 
 ## 2. What Codex and Cursor have
 
-**The `AGENTS.md` prose, and nothing else.** Checked, rather than assumed:
+**Canonical prose and adapters, but no enforcement hook.** Checked, rather than assumed:
 
 - `.claude/settings.json` is read only by Claude Code. Its `PreToolUse` / `PostToolUse` registrations are invisible to the other two agents, so the marker is never dropped and no call is ever denied for them.
 - `plugins/clinical-kb/.codex-plugin/plugin.json` declares `name`, `version`, `description`, `author`, `repository`, `keywords`, `skills` and an `interface` block. **There is no hook, event, or pre-tool-interception field**, and the plugin ships exactly one skill (`skills/clinical-kb-workflow/SKILL.md`). A Codex session reads guidance; nothing intercepts its tool calls.
-- `.cursor/` contains `settings.json` (plugin enablement only — `context7-plugin`, `figma`), `mcp.json`, `agents/` (`design-review.md`, `pr-babysit.md`, `pr-bugbot.md`) and `skills/`. **No deny path.** Note that `.cursor/agents/pr-babysit.md` exists at all: Cursor has a documented agent for exactly the PR-following behaviour the stop rule restricts, with nothing to bound it — and no budget ceiling either.
+- `.cursor/` contains `settings.json` (plugin enablement only — `context7-plugin`, `figma`), `mcp.json`, `agents/` (`design-review.md`, `pr-babysit.md`, `pr-bugbot.md`) and `skills/`. `pr-babysit.md` is now a thin adapter to canonical upload/Run PR policy, so the shared prose supplies the 30-minute babysitting budget and stop rules. **There is still no Cursor deny path or hook-enforced ceiling.**
 
 The consequence is precise, and it is worth stating plainly because it is easy to read the
 hook's existence as though the problem were solved: **prose alone is what was already in force

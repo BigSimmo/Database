@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issues"
+  short_description: "Read or deliberately update the outstanding-issues register"
+  default_prompt: "Use $issues to report the outstanding queue read-only or perform only the issue mutation I explicitly name."

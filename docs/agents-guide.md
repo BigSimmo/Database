@@ -1,15 +1,15 @@
 # Agents Guide
 
-Short onboarding pointer. The authoritative, always-current rules for agents
-working in this repository live in the root [`AGENTS.md`](../AGENTS.md) —
-verification gates, provider confirmation boundaries, Supabase project safety,
-review routing, and workflow shortcuts. This page only orients you; it does not
-duplicate those rules, so it cannot drift from them.
+Short onboarding pointer. Root [`AGENTS.md`](../AGENTS.md) is the authoritative
+router for precedence, authority, safety, shortcuts, and high-risk invariants.
+Detailed procedures have one canonical owner under `.agents/skills/` or in the
+runbook named by that router. This page only orients you; it does not duplicate
+operative rules.
 
 ## Read in this order
 
-1. [`AGENTS.md`](../AGENTS.md) — agent rules, verification gates, shortcuts
-   (`upload`, `dependency`, `bug-hunter`), and safety boundaries.
+1. [`AGENTS.md`](../AGENTS.md) — authority, lifecycle, evidence vocabulary,
+   shortcut routing, verification tiers, and safety boundaries.
 2. [`docs/codebase-index.md`](codebase-index.md) — architecture and module map.
 3. [`docs/README.md`](README.md) — index of all runbooks, governance docs, and
    plans, with maintained vs historical classification.
@@ -27,31 +27,30 @@ duplicate those rules, so it cannot drift from them.
 - `npm run worker` runs the local ingestion worker in a second terminal.
 - When adding environment variables, update the schema in `src/lib/env.ts` and
   document them in `.env.example`.
-- Before handing off changes: `npm run verify:cheap` first, then
-  `npm run verify:pr-local` when the change is PR-ready (see
-  [`docs/process-hardening.md`](process-hardening.md) for the full
-  verification pyramid).
+- Before handoff, select one risk-matched gate: use focused checks for bounded
+  changes, `npm run verify:cheap` for cross-module offline risk, or
+  `npm run verify:pr-local` for PR-ready executable/unknown scope. Do not stack
+  broad gates on unchanged content; see [`docs/process-hardening.md`](process-hardening.md).
 
 ## AI tooling map
 
-This repo intentionally uses several AI systems; the overlap is by design, not
-accident. [`AGENTS.md`](../AGENTS.md) is the single source of truth — every system
-below defers to it, so rules live in one place and cannot drift.
+This repo intentionally uses several AI systems. Every system defers first to
+[`AGENTS.md`](../AGENTS.md), then loads the canonical procedure named there.
 
-| System                    | Owns                                                       | Where it is configured                                                                                                                                     |
-| ------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AGENTS.md** (canonical) | All agent rules, gates, safety boundaries                  | `AGENTS.md`; `CLAUDE.md` imports it with `@AGENTS.md` and adds orientation only (stack, layout, flows) — never a second copy of the rules                  |
-| **Codex** (OpenAI)        | Primary PR code-review + automatic resolve                 | AGENTS.md "Codex review" sections, `docs/codex-review-protocol.md`, `docs/codex-prompt-playbook.md`, `.github/workflows/codex-autofix-review-comments.yml` |
-| **Claude Code**           | Interactive dev; scoped review subagents + workflow skills | `.claude/` (agents, skills, hooks), `.github/workflows/claude.yml`                                                                                         |
-| **Cursor**                | Editor skills + project MCP (Supabase, Context7, …)        | `.cursor/` (skills, `mcp.json`)                                                                                                                            |
-| **Railway MCP**           | Desktop/CLI template; hosted app is separate               | Root `.mcp.json` / `.codex/config.toml` use `https://mcp.railway.com` with OAuth; hosted ChatGPT/Codex requires a workspace-installed app                  |
-| **CodeRabbit**            | Advisory PR review (never blocking)                        | `.coderabbit.yaml` (`commit_status: false`)                                                                                                                |
-| **`.agents/`**            | Home-grown skill catalogue                                 | `.agents/skills/catalog.json`; list with `npm run skills`                                                                                                  |
+| System                    | Owns                                                         | Where it is configured                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **AGENTS.md** (canonical) | Stable authority, safety, routing, invariants                | `AGENTS.md`; `CLAUDE.md` imports it and must not duplicate procedures                                                                     |
+| **Codex** (OpenAI)        | Primary PR review + human-invoked repair; marker resolution  | `docs/codex-review-protocol.md`, `docs/codex-prompt-playbook.md`, `.github/workflows/codex-autofix-review-comments.yml`                   |
+| **Claude Code**           | Interactive dev; scoped review subagents + workflow skills   | `.claude/` (agents, skills, hooks), `.github/workflows/claude.yml`                                                                        |
+| **Cursor**                | Editor agents/adapters + project MCP (Supabase, Context7, …) | `.cursor/` (agents, skills, `mcp.json`)                                                                                                   |
+| **Railway MCP**           | Desktop/CLI template; hosted app is separate                 | Root `.mcp.json` / `.codex/config.toml` use `https://mcp.railway.com` with OAuth; hosted ChatGPT/Codex requires a workspace-installed app |
+| **CodeRabbit**            | Advisory PR review (never blocking)                          | `.coderabbit.yaml` (`commit_status: false`)                                                                                               |
+| **`.agents/`**            | Home-grown skill catalogue                                   | `.agents/skills/catalog.json`; list with `npm run skills`                                                                                 |
 
-Rule of thumb: change agent behaviour in `AGENTS.md`, then let each system inherit it.
-Do not add a new AI system or grow the skill count without retiring something — the
-breadth is already a maintenance cost for a single maintainer. Prefer **≤5 active MCP
-servers** per session (tool-schema token bloat degrades agents).
+Rule of thumb: change stable authority or routing in `AGENTS.md`; change execution
+steps in the one canonical skill/runbook. Compatibility adapters link to that owner;
+`.cursor/agents/pr-babysit.md` is an adapter, not a second Run PR procedure.
+Prefer **≤5 active MCP servers** per session (tool-schema token bloat degrades agents).
 
 ## MCP default read path (ops / docs)
 
@@ -65,7 +64,7 @@ Writes, secret rotations, and hosted mutations stay confirmation-gated per `AGEN
 | **Context7**                | `.cursor/mcp.json` → `npx -y @upstash/context7-mcp@3.2.5` (+ Cursor `context7-plugin`)                                                                                        | Versioned docs for **Tailwind 4, Zod 4, Playwright, Vitest, React 19, `@supabase/supabase-js`** (peers; not exhaustive). Local stdio reads `CONTEXT7_API_KEY` from env (see below) | Next.js 16 — always use `node_modules/next/dist/docs/` (AGENTS.md). Do not invent App Router APIs from training data; never commit the API key   |
 | **Chrome DevTools**         | `.cursor/mcp.json` → `npx -y chrome-devtools-mcp@1.6.0`                                                                                                                       | CLS/LCP/console/network while implementing redesigns (`#147`, `#162`–`#164`, Therapy Compass)                                                                                      | Don't leave it always-on with Browse + Playwright MCP (token bloat). Use for perf/debug passes                                                   |
 | **Figma**                   | Cursor Figma plugin + `.cursor/mcp.json` → `https://mcp.figma.com/mcp` (OAuth); Codex Desktop/CLI template in `.codex/config.toml` stays disabled unless locally opted in     | Desktop Cursor: capture live UI, read/write frames, Make context, Code Connect                                                                                                     | Cursor Cloud Agents do not inherit Desktop OAuth. Treat Make as exploration; product truth is `docs/design-system/` + gates; keep ≤5 active MCPs |
-| **GitHub Checks / Actions** | Operator approval pending                                                                                                                                                     | PR check visibility when `gh pr checks` returns empty totals                                                                                                                       | Bot `update-branch`; broaden scopes beyond Checks/Actions read                                                                                   |
+| **GitHub Checks / Actions** | Connector/native task controls plus necessary low-cost read-only metadata for a named repository or PR                                                                        | PR/check visibility when `gh pr checks` returns empty totals                                                                                                                       | Hosted writes, reruns, thread mutation, sensitive reads, or scopes beyond the named target without separate approval                             |
 
 ### Context7 API key (optional)
 

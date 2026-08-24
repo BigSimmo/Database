@@ -1,49 +1,62 @@
 import fs from "node:fs";
+import {
+  yamlBlock,
+  yamlContractSyntaxFailures,
+  yamlMappingKeys,
+  yamlScalar,
+  yamlSequenceItems,
+} from "./yaml-contract.mjs";
 
 const workflowPath = process.argv[2] ?? ".github/workflows/codex-autofix-review-comments.yml";
-const agentInstructionsPath = "AGENTS.md";
-const reviewProtocolPath = "docs/codex-review-protocol.md";
 const workflow = fs.readFileSync(workflowPath, "utf8");
-const agentInstructions = fs.readFileSync(agentInstructionsPath, "utf8");
-const reviewProtocol = fs.readFileSync(reviewProtocolPath, "utf8");
 
 const failures = [];
 const githubScriptPin = "3a2844b7e9c422d3c10d287c895573f7108da1b3";
-const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
+const removedRepairSecret = ["CODEX", "TRIGGER", "TOKEN"].join("_");
 const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
-const scopedResolvePrompt = `\${scopedResolveCommand} using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. The only repository destination is \${headRepository}, and the only branch destination is the pull request head branch \${pr.head.ref} at starting commit \${pr.head.sha}; never publish fixes to a detached or synthetic work branch and never create a stacked pull request. Use the authenticated GitHub connector to commit each approved fix to \${headRepository}:\${pr.head.ref}, then verify that the pull request head contains the published commit before reporting success. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. For a fixed thread, reply with \${resolvedDispositionMarker} as the first line and <!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> --> as the second line. For a no-code disposition, use \${resolvedDispositionMarker} followed by \${noChangeMarker}. These result markers authorize the workflow to close that exact thread only after it verifies a fixed commit is the pull request head; a local-only commit is not a fix. If publication or verification fails, do not use either result marker, do not claim success, and leave the thread open with the blocker. If human input or new authorization is required, do the same. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`;
 
 const forbiddenPatterns = [
   {
-    pattern: /^\s*issue_comment:/m,
-    message: "Do not trigger Codex auto-resolve from issue_comment events.",
+    pattern: new RegExp(removedRepairSecret),
+    message: "The thread-resolution workflow must not read the removed repair-trigger secret.",
   },
   {
-    pattern: /@codex resolve all review comments/,
-    message: "Do not use the broad Codex resolve-all command; use the scoped actionable-findings command.",
+    pattern: /@codex/i,
+    message: "The workflow must never post or embed a Codex repair command; repair invocation is human-authored.",
+  },
+  {
+    pattern: /^\s{2}pull_request_review:\s*$/m,
+    message: "A submitted Codex review must not trigger an automatic repair pass.",
+  },
+  {
+    pattern: /^\s{2}issue_comment:\s*$/m,
+    message: "Issue comments are not an authorized workflow repair trigger.",
+  },
+  {
+    pattern:
+      /request-codex-autoresolve|Ask Codex to resolve|scopedResolveCommand|routeReasons|highRiskPathPatterns|complexSource(?:File|Churn)Threshold/,
+    message: "Automatic repair request and risk-routing logic must not remain in the resolution-only workflow.",
+  },
+  {
+    pattern: /(?:issues|pulls)\.createComment|createReplyForReviewComment|addComment\s*\(/,
+    message: "The resolution-only workflow must not create a repair-request comment or reply.",
   },
   {
     pattern: /contains\(\s*github\.event\.comment\.user\.login/,
     message:
-      "Do not authorize the Codex connector with a substring comment-login match; require an exact trusted bot identity.",
-  },
-  {
-    pattern: /contains\(\s*github\.event\.review\.user\.login/,
-    message:
-      "Do not authorize the Codex connector with a substring review-login match; require an exact trusted bot identity.",
-  },
-  {
-    pattern: /existingComments\.some\(\(comment\) => \(comment\.body \|\| ""\)\.includes\(marker\)\)/,
-    message: "Do not trust auto-resolve markers from arbitrary pull request commenters.",
+      "Do not authorize the Codex connector with a substring login match; require an exact trusted bot identity.",
   },
   {
     pattern: /^concurrency:/m,
-    message:
-      "Do not apply Codex auto-resolve concurrency to the whole workflow; unrelated events must not displace an authorized pending job.",
+    message: "Concurrency must be scoped to the resolution job and pull request.",
   },
   {
     pattern: /^\s*contents:\s*write\s*$/m,
-    message: "Do not grant content write permission to the Codex auto-resolve bridge.",
+    message: "Do not grant content write permission to the thread-resolution bridge.",
+  },
+  {
+    pattern: /pr\.head\.sha/,
+    message: "Do not trust the event payload head for fixed-thread resolution; query the live pull request head.",
   },
   {
     pattern: /uses:\s*actions\/github-script@v\d+/,
@@ -52,258 +65,148 @@ const forbiddenPatterns = [
 ];
 
 for (const { pattern, message } of forbiddenPatterns) {
-  if (pattern.test(workflow)) {
-    failures.push(message);
+  if (pattern.test(workflow)) failures.push(message);
+}
+for (const syntaxFailure of yamlContractSyntaxFailures(workflow)) {
+  failures.push(`YAML contract rejected ${syntaxFailure}.`);
+}
+
+const requiredChecks = [
+  ["trigger", "  pull_request_review_comment:"],
+  ["trigger", "    types: [created]"],
+  ["open pull request gate", "github.event.pull_request.state == 'open'"],
+  ["event-name gate", "github.event_name == 'pull_request_review_comment'"],
+  ["workflow token binding", "github-token: ${{ github.token }}"],
+  ["bounded job", "    timeout-minutes: 10"],
+  ["pinned action", `uses: actions/github-script@${githubScriptPin} # v9.0.0`],
+  ["event bot type", "github.event.comment.user.type == 'Bot'"],
+  ["exact connector identity", "github.event.comment.user.login == 'chatgpt-codex-connector'"],
+  ["exact connector bot identity", "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'"],
+  ["runtime bot type", 'reviewComment.user?.type !== "Bot"'],
+  ["runtime exact identity", "!allowedCodexBotLogins.has(reviewComment.user.login)"],
+  ["reply relationship gate", "!reviewComment.in_reply_to_id"],
+  ["exact disposition marker", `const resolvedDispositionMarker = "${resolvedDispositionMarker}"`],
+  ["exact first marker line", "dispositionLine !== resolvedDispositionMarker"],
+  ["exact second result line", "declaredResultLines[0] !== resultLine"],
+  ["exclusive result validation", "Boolean(fixedHeadMatch) === isNoChangeDisposition"],
+  ["fixed-head result", "codex-thread-result:fixed-head:([0-9a-f]{40})"],
+  ["no-change result", "codex-thread-result:no-change"],
+  ["live head query", "headRefOid"],
+  ["live state query", "state"],
+  ["live current-head validation", "liveHeadRefOid !== fixedHeadMatch[1]"],
+  [
+    "reply and parent relationship validation",
+    "targetCommentIds.every((commentId) => threadCommentIds.has(commentId))",
+  ],
+  ["paginated thread lookup", "reviewThreads(first: 100, after: $cursor)"],
+  ["paginated nested comment lookup", "comments(first: 100, after: $commentsCursor)"],
+  ["immediate resolution preflight", "query ResolutionPreflight"],
+  ["post-resolution validation", "query ResolutionPostflight"],
+  ["thread resolution mutation", "resolveReviewThread(input: { threadId: $threadId })"],
+  ["compensating thread mutation", "unresolveReviewThread(input: { threadId: $threadId })"],
+  ["single compensation helper", "const compensateResolutionFailure = async (threadId, reason) =>"],
+  ["resolution-attempt marker", "let resolutionAttempted = false"],
+  ["pre-mutation attempt assignment", "resolutionAttempted = true"],
+  ["resolution confirmation", "resolution.resolveReviewThread?.thread?.isResolved !== true"],
+  ["postflight thread identity", "postflight.node?.id !== matchingThread.id"],
+  ["visible failure", "core.setFailed("],
+];
+
+for (const [kind, requiredCheck] of requiredChecks) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex thread-resolution workflow is missing ${kind}: ${requiredCheck}`);
   }
 }
 
-for (const [path, contents] of [
-  [agentInstructionsPath, agentInstructions],
-  [reviewProtocolPath, reviewProtocol],
-]) {
-  if (/resolve all review comments/i.test(contents)) {
-    failures.push(`${path} must not instruct Codex to resolve all review comments.`);
-  }
+const triggerBlock = yamlBlock(workflow, "on:", 0);
+const rootKeys = yamlMappingKeys(workflow, 0);
+if (rootKeys.join(",") !== "name,on,permissions,jobs") {
+  failures.push("Codex thread-resolution workflow must use the exact root mapping set: name, on, permissions, jobs.");
 }
-
-if (!agentInstructions.includes(scopedResolveCommand)) {
-  failures.push(`${agentInstructionsPath} must contain the scoped actionable-findings command.`);
-}
-
-if (!reviewProtocol.includes("If the user clearly asks to fix confirmed findings, make the smallest safe change")) {
-  failures.push(`${reviewProtocolPath} must preserve the scoped fix boundary.`);
-}
-
+const triggerKeys = yamlMappingKeys(triggerBlock, 2);
+const reviewCommentTrigger = yamlBlock(triggerBlock, "pull_request_review_comment:", 2);
 if (
-  !reviewProtocol.includes("Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow")
+  triggerKeys.length !== 1 ||
+  triggerKeys[0] !== "pull_request_review_comment" ||
+  yamlScalar(reviewCommentTrigger, "types", 4) !== "[created]"
 ) {
-  failures.push(`${reviewProtocolPath} must preserve the provider confirmation boundary.`);
+  failures.push("Codex thread-resolution workflow must use the exact pull_request_review_comment created event set.");
 }
 
-const requiredInstructionChecks = [
-  [agentInstructionsPath, agentInstructions, "one automatic repair pass per pull request lifetime"],
-  [agentInstructionsPath, agentInstructions, resolvedDispositionMarker],
-  [reviewProtocolPath, reviewProtocol, "Treat GitHub automatic review as one pass per pull request"],
-  [reviewProtocolPath, reviewProtocol, resolvedDispositionMarker],
-  [reviewProtocolPath, reviewProtocol, "Do not start a new review"],
-];
-
-for (const [path, contents, requiredCheck] of requiredInstructionChecks) {
-  if (!contents.includes(requiredCheck)) {
-    failures.push(`${path} is missing automatic review lifecycle guidance: ${requiredCheck}`);
-  }
+const jobsBlock = yamlBlock(workflow, "jobs:", 0);
+const jobKeys = yamlMappingKeys(jobsBlock, 2);
+if (jobKeys.length !== 1 || jobKeys[0] !== "resolve-codex-thread") {
+  failures.push("Codex thread-resolution workflow must use the exact job set: resolve-codex-thread only.");
 }
 
-// The auto-resolve request must fire only after a completed Codex review; thread
-// closure is driven separately by trusted review-comment disposition replies.
-const requiredTriggerAndPermissionChecks = [
-  "  pull_request_review:",
-  "    types: [submitted]",
-  "  pull_request_review_comment:",
-  "    types: [created]",
-  "  contents: read",
-  "  pull-requests: write",
-  `uses: actions/github-script@${githubScriptPin} # v9.0.0`,
-  "github.event.pull_request.state == 'open'",
-];
-
-for (const requiredCheck of requiredTriggerAndPermissionChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing trigger or permission check: ${requiredCheck}`);
-  }
+const resolutionJob = yamlBlock(jobsBlock, "resolve-codex-thread:", 2);
+const workflowPermissions = yamlBlock(workflow, "permissions:", 0);
+const jobPermissions = yamlBlock(resolutionJob, "permissions:", 4);
+const hasExactPermissionAllowlist =
+  yamlMappingKeys(workflowPermissions, 2).join(",") === "contents" &&
+  yamlScalar(workflowPermissions, "contents", 2) === "read" &&
+  yamlMappingKeys(jobPermissions, 6).join(",") === "contents,pull-requests" &&
+  yamlScalar(jobPermissions, "contents", 6) === "read" &&
+  yamlScalar(jobPermissions, "pull-requests", 6) === "write";
+if (!hasExactPermissionAllowlist) {
+  failures.push(
+    "Codex thread-resolution workflow must use the exact effective permission allowlist: workflow contents read; job contents read plus pull-requests write.",
+  );
 }
 
-// The two jobs must be gated by event name so the request path and the
-// thread-resolution path never handle each other's events.
-const requiredEventGateChecks = [
-  "github.event_name == 'pull_request_review'",
-  "github.event_name == 'pull_request_review_comment'",
-];
-
-for (const requiredCheck of requiredEventGateChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing an event-name gate: ${requiredCheck}`);
-  }
+const stepsBlock = yamlBlock(resolutionJob, "steps:", 4);
+const stepItems = yamlSequenceItems(stepsBlock, 6);
+const resolutionStep = yamlBlock(stepsBlock, "- name: Resolve Codex review thread on disposition marker", 6);
+const stepWith = yamlBlock(resolutionStep, "with:", 8);
+if (
+  stepItems.length !== 1 ||
+  stepItems[0] !== "name: Resolve Codex review thread on disposition marker" ||
+  yamlScalar(resolutionStep, "uses", 8) !== `actions/github-script@${githubScriptPin}` ||
+  yamlMappingKeys(stepWith, 10).join(",") !== "github-token,script" ||
+  yamlScalar(stepWith, "github-token", 10) !== "${{ github.token }}" ||
+  yamlScalar(stepWith, "script", 10) !== "|"
+) {
+  failures.push("Codex thread-resolution workflow must retain the exact pinned step and action wiring.");
 }
 
-// The request must be posted by a real (non-bot) identity the Codex connector
-// will act on, and thread closure must use the workflow's own scoped token.
-const requiredTokenChecks = ["github-token: ${{ secrets.CODEX_TRIGGER_TOKEN }}", "github-token: ${{ github.token }}"];
-
-for (const requiredCheck of requiredTokenChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing a required github-token binding: ${requiredCheck}`);
-  }
+const expectedConcurrencyGroup =
+  "codex-thread-resolution-${{ github.event.pull_request.number }}-${{ github.event.comment.in_reply_to_id || github.event.comment.id }}";
+const concurrencyBlock = yamlBlock(resolutionJob, "concurrency:", 4);
+const hasExactParentThreadConcurrency =
+  yamlMappingKeys(concurrencyBlock, 6).join(",") === "group,cancel-in-progress" &&
+  yamlScalar(concurrencyBlock, "group", 6) === expectedConcurrencyGroup &&
+  yamlScalar(concurrencyBlock, "cancel-in-progress", 6) === "false";
+if (!hasExactParentThreadConcurrency) {
+  failures.push("Codex thread-resolution workflow must use the exact PR-namespaced parent-thread concurrency group.");
 }
 
-// When CODEX_TRIGGER_TOKEN is unset the request job must skip gracefully with a
-// warning rather than hard-fail the check, so a merged-but-unconfigured workflow
-// never blocks unrelated PRs.
-const requiredMissingTokenHandlingChecks = [
-  "CODEX_TRIGGER_TOKEN: ${{ secrets.CODEX_TRIGGER_TOKEN }}",
-  "if: ${{ env.CODEX_TRIGGER_TOKEN == '' }}",
-  "if: ${{ env.CODEX_TRIGGER_TOKEN != '' }}",
-  "CODEX_TRIGGER_TOKEN secret is not configured",
-];
-
-for (const requiredCheck of requiredMissingTokenHandlingChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing graceful missing-token handling: ${requiredCheck}`);
-  }
+const githubScriptPins = workflow.match(/uses:\s*actions\/github-script@[^\s]+/g) ?? [];
+if (githubScriptPins.length !== 1) {
+  failures.push("The resolution-only workflow must contain exactly one github-script step.");
 }
 
-const requiredConcurrencyChecks = [
-  "    concurrency:",
-  "      group: codex-autoresolve-${{ github.event.pull_request.number }}",
-  "      cancel-in-progress: false",
-];
-
-for (const requiredCheck of requiredConcurrencyChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing authorized job concurrency check: ${requiredCheck}`);
-  }
+const resolutionPreflightIndex = workflow.indexOf("const preflight = await github.graphql(resolutionPreflightQuery");
+const resolutionMutationIndex = workflow.indexOf("const resolution = await github.graphql(resolveReviewThreadMutation");
+const resolutionPostflightIndex = workflow.indexOf("const postflight = await github.graphql(resolutionPostflightQuery");
+if (
+  resolutionPreflightIndex === -1 ||
+  resolutionMutationIndex === -1 ||
+  resolutionPostflightIndex === -1 ||
+  resolutionPreflightIndex > resolutionMutationIndex ||
+  resolutionMutationIndex > resolutionPostflightIndex
+) {
+  failures.push("The live pull request state/head must be checked immediately before and after thread resolution.");
 }
 
-if (!workflow.includes("codex-autoresolve-pr:${pr.number}")) {
-  failures.push("Codex auto-resolve marker must be scoped to the pull request for a single lifetime pass.");
-}
-
-// Both the request path (submitted review author) and the thread path (review
-// comment author) must match the trusted connector by exact login and bot type.
-const requiredIdentityChecks = [
-  "github.event.review.user.type == 'Bot'",
-  "github.event.review.user.login == 'chatgpt-codex-connector'",
-  "github.event.review.user.login == 'chatgpt-codex-connector[bot]'",
-  'review.user?.type !== "Bot"',
-  "!allowedCodexBotLogins.has(review.user.login)",
-  "github.event.comment.user.type == 'Bot'",
-  "github.event.comment.user.login == 'chatgpt-codex-connector'",
-  "github.event.comment.user.login == 'chatgpt-codex-connector[bot]'",
-  'reviewComment.user?.type !== "Bot"',
-  "!allowedCodexBotLogins.has(reviewComment.user.login)",
-];
-
-for (const requiredCheck of requiredIdentityChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing trusted connector identity check: ${requiredCheck}`);
-  }
-}
-
-// A completed review only warrants a repair pass when it actually raised
-// findings, and a non-reply review comment must never become a repair request.
-const requiredReviewGateChecks = [
-  'review.state === "approved" || review.state === "dismissed"',
-  "github.rest.pulls.listCommentsForReview",
-  "reviewComments.length === 0",
-  "!reviewComment.in_reply_to_id",
-];
-
-for (const requiredCheck of requiredReviewGateChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing a completed-review findings gate: ${requiredCheck}`);
-  }
-}
-
-// A finding is necessary but not sufficient for an automatic repair request.
-// Route only explicit opt-ins, high-risk paths, or materially complex source
-// changes, and retain an explicit label-based kill switch.
-const requiredRiskRoutingChecks = [
-  'const forceReviewLabel = "codex-review"',
-  'const skipReviewLabel = "skip-codex-review"',
-  "labels.has(skipReviewLabel)",
-  "github.rest.pulls.listFiles",
-  "previous_filename: normalizeChangedPath(file.previous_filename)",
-  "routeableFilePaths(file).length > 0",
-  "routeableFilePaths(file).some",
-  "excludedAutomaticRoutePathPatterns.some",
-  "highRiskPathPatterns.some",
-  "/^src\\/data\\//",
-  "/^\\.github\\/(?:actions|workflows)\\//",
-  "check-(?:codex-autofix-workflow|github-action-pins)",
-  "changedSourceFiles.length >= complexSourceFileThreshold",
-  "sourceChurn >= complexSourceChurnThreshold",
-  "if (routeReasons.length === 0)",
-  "codex-autoresolve-route:${routeReasons.join",
-];
-
-for (const requiredCheck of requiredRiskRoutingChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing smart risk routing: ${requiredCheck}`);
-  }
-}
-
-const requiredHeadRoutingChecks = [
-  "const headRepository = pr.head.repo?.full_name",
-  "The only repository destination is ${headRepository}",
-  "${headRepository}:${pr.head.ref}",
-];
-
-for (const requiredCheck of requiredHeadRoutingChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing PR-head repository routing: ${requiredCheck}`);
-  }
-}
-
-const requiredThreadResolutionChecks = [
-  `const resolvedDispositionMarker = "${resolvedDispositionMarker}"`,
-  "replyBody.startsWith(resolvedDispositionMarker)",
-  "codex-thread-result:fixed-head:([0-9a-f]{40})",
-  "codex-thread-result:no-change",
-  "pr.head.sha !== fixedHeadMatch[1]",
-  "leaving the thread open",
-  "reviewThreads(first: 100, after: $cursor)",
-  "resolveReviewThread(input: { threadId: $threadId })",
-  "pull-requests: write",
-  "core.setFailed(message)",
-];
-
-for (const requiredCheck of requiredThreadResolutionChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing direct review-thread resolution: ${requiredCheck}`);
-  }
-}
-
-// Deduplication must trust only the account that actually posts the request
-// (resolved at runtime), not a hard-coded bot login.
-const requiredDedupeChecks = [
-  "github.rest.users.getAuthenticated",
-  "comment.user?.login === triggerLogin",
-  "const maxAutoResolveRequests = 1",
-  "const trustedExistingRequests = existingComments.filter(",
-  '.trimStart().startsWith("<!-- codex-autoresolve")',
-  '(comment.body || "").includes(marker)',
-  "trustedExistingRequests.length >= maxAutoResolveRequests",
-  "core.setFailed(message)",
-];
-
-for (const requiredCheck of requiredDedupeChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`Codex auto-resolve workflow is missing trusted duplicate-marker check: ${requiredCheck}`);
-  }
-}
-
-if (!workflow.includes(`uses: actions/github-script@${githubScriptPin} # v9.0.0`)) {
-  failures.push("Codex auto-resolve workflow must use the reviewed immutable github-script pin.");
-}
-
-if (!workflow.includes(`const scopedResolveCommand = "${scopedResolveCommand}";`)) {
-  failures.push("Codex auto-resolve workflow must define the scoped actionable-findings command exactly once.");
-}
-
-if (!workflow.includes(`const resolvedDispositionMarker = "${resolvedDispositionMarker}";`)) {
-  failures.push("Codex auto-resolve workflow must define the resolved thread disposition marker.");
-}
-
-if (!workflow.includes(`\`${scopedResolvePrompt}\``)) {
-  failures.push("Codex auto-resolve workflow must emit the scoped actionable-findings resolve prompt.");
+const executableUnresolveCalls = workflow.match(/github\.graphql\(unresolveReviewThreadMutation/g) ?? [];
+if (executableUnresolveCalls.length !== 1 || workflow.includes("resolutionApplied")) {
+  failures.push("Every post-resolution failure must use the single best-effort compensation helper.");
 }
 
 if (failures.length > 0) {
-  console.error(`Codex auto-resolve workflow guard failed for ${workflowPath}:`);
-  for (const failure of failures) {
-    console.error(`- ${failure}`);
-  }
+  console.error(`Codex thread-resolution workflow guard failed for ${workflowPath}:`);
+  for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
-console.log("Codex auto-resolve workflow guard passed.");
+console.log("Codex thread-resolution workflow guard passed.");

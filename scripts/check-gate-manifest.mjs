@@ -95,7 +95,7 @@ const staticGateCount = localGates.filter((gate) => !HEAVY_GATES.has(gate)).leng
 
 const documentedCounts = [
   {
-    file: "CLAUDE.md",
+    file: "docs/process-hardening.md",
     pattern: /(\d+) static\/consistency gates/,
     expected: staticGateCount,
     describes: "static/consistency gates in the verify:cheap chain (excludes lint/typecheck/test)",

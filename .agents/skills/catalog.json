@@ -11,10 +11,12 @@
         "fix",
         "review",
         "task",
+        "upload",
         "handover",
         "health",
         "audit",
         "export",
+        "issues",
         "ledger",
         "prompt-perfector",
         "rag-cloud-sdd"
@@ -30,7 +32,7 @@
     },
     {
       "name": "Operations and release",
-      "skills": ["release", "deploy", "operations", "incident", "recovery", "performance", "dependencies"]
+      "skills": ["release", "deploy", "run-pr", "operations", "incident", "recovery", "performance", "dependencies"]
     }
   ],
   "aliases": {

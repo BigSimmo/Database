@@ -1,0 +1,4 @@
+interface:
+  display_name: "Upload"
+  short_description: "Safely commit, push, or publish Database work"
+  default_prompt: "Use $upload to hand off Database changes or publish a requested pull request within the requested verification scope."

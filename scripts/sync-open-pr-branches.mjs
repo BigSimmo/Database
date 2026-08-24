@@ -24,7 +24,7 @@ import { pathToFileURL } from "node:url";
 
 const APPLY = process.argv.includes("--apply");
 const BASE = "main";
-const SKIP_LABELS = new Set(["hold", "do-not-merge", "skip-branch-sync"]);
+const SKIP_LABELS = new Set(["hold", "do-not-merge", "skip-branch-sync", "skip-codex-review"]);
 const ACTIVE_RUN_STATES = new Set(["pending", "queued", "in_progress", "requested", "waiting"]);
 
 function ghJson(args) {

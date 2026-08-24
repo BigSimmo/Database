@@ -1,5 +1,10 @@
 # Process Hardening Plan
 
+`AGENTS.md` owns stable authority, lifecycle, and verification-tier selection.
+This runbook owns the detailed gates, receipts, lock/admission behavior, CI cost controls,
+hook portability, and historical evidence. Shortcut procedures live in their canonical
+`.agents/skills/` owners rather than being repeated here.
+
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
 ## Testing speed playbook (pointer)
@@ -16,6 +21,7 @@ Playwright workers or revive the refuted cache/shard hacks listed there.
 - `static-pr` remains required but step-routes the same signals. Workflow-only edits run focused workflow tests instead of full coverage and safety/RAG; documentation changes run documentation integrity checks; heavy/unknown changes retain lint, typecheck, coverage, safety/RAG, and all applicable build/UI/database/container jobs. `PR required` remains `if: always()` and requires every in-scope job, including `safety` whenever `static_heavy_changed` is true.
 - Repeated low-yield provider work was removed from ordinary PRs: dependency audit runs when a lockfile/npm configuration can change the dependency tree (and on the scheduled full-run sentinel), eval-canary liveness moved to the daily Ops Digest cadence, and PR-body synchronization runs only when the current PR's own diff changes `PR_POLICY_BODY.md`.
 - The operating rule is incremental value, not a fixed command count: each added check must cover a distinct plausible failure path. Never rerun an unchanged pass, and do not stack broad gates when one suitable gate already covers the risk.
+- The current `verify:cheap` chain contains 34 static/consistency gates before lint, typecheck, and the full offline unit suite; `check:gate-manifest` keeps this count synchronized.
 
 ## Gate receipts: never pay twice for the same local proof (2026-08-21)
 
@@ -52,8 +58,8 @@ Boundaries, each of which is a test in `tests/gate-receipts.test.ts`:
 - **Fail open.** Unreadable git state, or a scope resolving to zero files, runs the gate. A bug here
   costs a redundant run, never a skipped one.
 - **Artefact-producing gates are excluded.** `build` and `test:coverage` leave `.next/` and
-  `coverage/` behind, which downstream gates read; skipping them would serve stale output — the
-  stale-`.next` trap `AGENTS.md` already documents under "Bundle budget".
+  `coverage/` behind, which downstream gates read; skipping them would serve stale output.
+  Use `node scripts/clean-next-build.mjs` when a fresh Next build is required.
 
 Three false-skip holes were found by Codex review on PR #2216 and closed there, each now a
 regression test. They are worth stating because they are the shape this mechanism fails in:
@@ -198,22 +204,10 @@ artifact before release; see
 
 ## Open PR branch sync (operator-only)
 
-- **Problem:** landing one PR advances `main` and leaves the rest of a large open
-  queue behind. GitHub then marks many heads `CONFLICTING`/`DIRTY` even when the
-  merge tree is clean, which stalls squash auto-merge and creates endless manual
-  re-sync churn.
-- **Mitigation:** automatic `GITHUB_TOKEN` branch mutation was retired after repeated
-  `github-actions[bot]` heads left CI, SAST, and secret-scan runs awaiting approval. Use the local
-  helper deliberately: `npm run sync:pr-branches` is report-only and
-  `npm run sync:pr-branches:apply` verifies and uses the current human/operator `gh` identity,
-  refusing missing or bot identities. Opt out with
-  `hold`, `do-not-merge`, or `skip-branch-sync`.
-- **Guardrail:** `npm run check:github-actions` rejects workflow-authored GitHub
-  `update-branch` calls. Do not weaken required checks or widen approval for untrusted actors to
-  remove queue friction; change this policy only with a separately reviewed authentication model.
-- **Operator rule:** prefer clearing the open queue (merge or close) over keeping
-  dozens of long-lived feature branches that all touch shared docs like the
-  branch-review ledger.
+The canonical operator procedure, authorization, opt-outs, identity checks, sync ordering,
+and conflict boundaries live only in [`.agents/skills/run-pr/SKILL.md`](../.agents/skills/run-pr/SKILL.md).
+Historical context: automatic `GITHUB_TOKEN` branch mutation was retired after bot-authored heads
+left required checks awaiting approval. `npm run check:github-actions` preserves that guardrail.
 
 ## PR bundling reduces per-task CI churn (2026-07-30)
 
@@ -223,19 +217,16 @@ artifact before release; see
   Production-UI-hours on runs that never completed. Every task minting its own
   `claude/<task-slug>` branch and PR means a single ledger-append line pays the same
   required-CI bill as a large change.
-- **Rule:** see AGENTS.md "PR bundling (reduce one-task-one-PR churn)" — bundle
-  same-scope, independently low-risk, separately-revertible-commit work into one PR
-  instead of minting a branch per task. Review records and issue requests now use independent
-  immutable files, so they should accompany their owning product PR rather than become ledger-only PRs.
-- **Does not change:** required-check scoping, per-commit verification rigor, or the
-  deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
-  backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.
+- **Current ownership:** publication scope follows the user's request and
+  [`.agents/skills/upload/SKILL.md`](../.agents/skills/upload/SKILL.md). This section records the
+  historical CI-cost measurement; it does not create a standing bundling procedure.
 - **Clinical vs. operational risk bundling detection (#178):** While low-risk same-scope tasks should bundle to reduce CI churn, bundling operational-risk changes with clinical or UI changes is an anti-pattern. `scripts/pr-policy.mjs` detects when `operationalRisk` paths (`.github/workflows/`, `package.json`, `package-lock.json`, root tool configs, `Dockerfile`, `railway.json`, `nixpacks.toml`) are bundled with `clinicalRisk` (`supabase/`, `src/app/api/`, clinical/RAG/auth libs, clinical reference datasets) or `ui` surfaces (`src/app/`, `src/components/`, `public/`, UI specs). The PR policy emits an advisory warning (`Operational-risk changes are bundled with <classes> changes. Split the PR where practical so each risk class remains independently revertible.`) to keep operational infra and patient-safety or visual regressions independently revertible.
 
 ## Anti-conflict and silent-CI signal (2026-07-30)
 
-- **Operating procedure:** AGENTS.md "Anti-conflict and CI-speed operating procedure".
-  Future-process only — do not mutate unrelated active PRs unless explicitly asked.
+- **Operating procedure:** open-PR maintenance and sync route to
+  [`.agents/skills/run-pr/SKILL.md`](../.agents/skills/run-pr/SKILL.md). Do not mutate unrelated
+  active PRs unless that workflow is explicitly requested.
 - **Outstanding-issues concurrency (`#112`):** the structural gate landed in PR #1410
   (`npm run check:outstanding-issues` in `verify:cheap` / CI `static-pr` — duplicate IDs,
   both-tables, stale `issues:next-id`, malformed rows). PR #1416 added `merge=union` in
@@ -249,8 +240,8 @@ artifact before release; see
   `.github/workflows/pr-mergeability.yml` checks trusted `pull_request_target` events and
   uses a protected-base `push` sweep to publish a fresh `PR mergeability` check on each
   unchanged open-PR head. Only that sweep receives job-scoped `checks: write`; neither path
-  checks out PR code or updates branches. Behind-but-clean heads remain an operator
-  `sync:pr-branches` concern. Contract: `npm run check:pr-mergeability`.
+  checks out PR code or updates branches. Behind-but-clean heads remain governed by the canonical
+  Run PR skill. Contract: `npm run check:pr-mergeability`.
 - **Confirmed in the field the same day (PR #1427):** that PR pushed, opened, and was marked
   ready for review while producing **zero** `pull_request` runs — no `CI`, no `Gitleaks`, no
   `Semgrep` — with only `pull_request_target` (`PR policy`) firing. `git merge-tree` showed
@@ -593,7 +584,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 - **Remaining debt (grew with PR #171) — pill portion resolved 2026-07-08:** the COMPOSER chrome (`answer-footer-search-*`, `universal-home-search-edge`/`universal-top-search-edge` (the home-composer edges), `document-mobile-search-pill`, `*-composer-edge`) was intentionally unlayered. #171's frosted rework pushed these from ~19 to ~92 computed-style conflicts, concentrated in the shared `ui-primitives` constants (`chatComposerShell/Input`, `chatSendButton`, `chatComposerIconButton`). The **pill surface** is now layered via a `chatComposerShell` base/delta split (next bullet); the pill-interior controls and the positioning chrome stay unlayered for the reasons below. When adding a utility to a still-unlayered composer-chrome element, check the class body first — the class wins.
 - **Composer PILL surface now layered (2026-07-08):** the base/delta split shipped for the pill. `chatComposerShell` (the pill's shared `ui-primitives` constant) is split into `chatComposerShellBase` (utilities the pill class does NOT set — `flex items-center rounded-full border`) and `chatComposerShellDelta` (utilities the class ALSO sets — `min-h-14 gap-2 border-colour bg px-2 shadow focus-within:border`). `chatComposerShell` stays `base + delta` (byte-identical class set) for any non-layered caller. The pill call sites (`master-search-header.tsx`, `universal-search-command-mockups.tsx`) pass `chatComposerShellBase`, so `.answer-footer-search-pill` (+ `:hover`/`:focus-within`/`@640`) moved into `@layer components` with **zero computed-style change** (16/16 parity states byte-identical). The pill is a `<form>`, so no global element reset competes with it.
   - **Why the pill-interior controls (`answer-footer-search-input/-send/-action`) were NOT layered — and why the earlier "reverted, nothing shipped" attempt misread this:** the controls land on `<input>`/`<button>` elements, and `globals.css` has three **intentionally-unlayered** global resets that target those elements — `button,input,textarea,select { font: inherit }`, the `@media(max-width:640px)` 16px `font-size` floor (explicitly unlayered to beat `text-*` utilities), and `button,a,summary { transition-property: …; transition-duration: var(--duration-fast) }`. Unlayered rules beat **all** `@layer` rules, so an unlayered chrome control class wins by specificity (baseline), but moving it into `@layer components` drops it **below** those resets → the input reverts to inherited font (16px/400/24px instead of 18px/560/1.2) and the send button to the reset's transition (`var(--duration-fast)` ≈ 0.12s instead of the chrome 0.16s). A prior 2026-07-08 pass hit exactly this regression, reverted everything, and blamed "a Tailwind-v4 layer-ordering subtlety where a fresh `@layer components` block loses to `@layer utilities`." **That diagnosis was wrong:** the hand-authored `@layer components` block resolves correctly (utilities > components as intended — the pill proves it); the controls regressed because of the unlayered element resets, not layer order. Layering the controls also **gains nothing** — a `text-*` utility on the input can't beat the unlayered `font: inherit` either. So the controls (and their `chatComposerInput`/`chatSendButton`/`chatComposerIconButton` constants) stay unlayered/unsplit, exactly as baseline. Making them layerable would require moving the three global resets into `@layer base`, an app-wide change to every input/button that is out of scope here (and would break the 16px iOS floor's intent).
-  - Also deliberately kept UNLAYERED: the composer POSITIONING chrome (`*-composer-edge`, `*-search-edge/-dock/-backdrop`, `-pill-open`, `document-mobile-search-*`, and every descendant-combinator override) — their conflicts are with inline responsive position utilities (not the shared constants) and are not parity-covered. `desktop-home-search-*` from the old debt note no longer exists in the code. `DocumentViewer`'s bottom composer is hand-rolled inline (no constants, no pill class) so it was untouched. Proven byte-identical across 16 states with `scripts/capture-chrome-parity.ts`. **Capture gotcha bit hard this pass:** Turbopack CSS HMR served the stale (pre-change) bundle after `git stash`, silently contaminating the diff in both directions; the reliable protocol is **kill server → `rm -rf .next` → fresh `ensure` → warm routes → capture** once per code state, then compare (never compare across an HMR CSS change on the same server).
+  - Also deliberately kept UNLAYERED: the composer POSITIONING chrome (`*-composer-edge`, `*-search-edge/-dock/-backdrop`, `-pill-open`, `document-mobile-search-*`, and every descendant-combinator override) — their conflicts are with inline responsive position utilities (not the shared constants) and are not parity-covered. `desktop-home-search-*` from the old debt note no longer exists in the code. `DocumentViewer`'s bottom composer is hand-rolled inline (no constants, no pill class) so it was untouched. Proven byte-identical across 16 states with `scripts/capture-chrome-parity.ts`. **Capture gotcha bit hard this pass:** Turbopack CSS HMR served the stale (pre-change) bundle after `git stash`, silently contaminating the diff in both directions; the reliable protocol is **kill the repo-owned server → `node scripts/clean-next-build.mjs` → fresh `ensure` → warm routes → capture** once per code state, then compare (never compare across an HMR CSS change on the same server).
 - `tests/ui-overlap.spec.ts` is the standing regression guard for the visible symptom (overlapping header controls, composer clear-button geometry) across 640-1536px widths.
 
 ## Cross-browser test robustness under client-only rendering (2026-07-02)
@@ -775,13 +766,18 @@ Machinery added to retire repeated traps and surface live-product signal proacti
 the durable index for the tooling; `docs/operator-backlog.md` tracks the human-only enablement steps.
 
 - **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
-  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): five guards.
-  The non-bypassable auto-merge ownership guard blocks a push on every PR branch when the PR's
-  auto-merge is armed. The other guards retain explicit overrides: format-before-push (closes the `verify:cheap` vs
-  CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
-  with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), drift-manifest freshness
-  (`SKIP_DRIFT_GUARD=1`), and static gate (changed-file lint + source-only typecheck through the run
-  coordinator; `SKIP_STATIC_GUARD=1`). `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): six guards.
+  The auto-merge ownership guard has no override. The in-flight CI guard prevents a new push from
+  cancelling useful hosted evidence; its general operator override is
+  `SKIP_IN_FLIGHT_CI_GUARD=1 git push`, but the bare-publication route must not use it or bypass either
+  guard. The four
+  readiness-only guards have exact push-only overrides after `git commit --no-verify` when its local
+  commit hook alone blocks: format (`SKIP_FORMAT_GUARD=1 git push`), drift-manifest freshness
+  (`SKIP_DRIFT_GUARD=1 git push`), static lint/typecheck (`SKIP_STATIC_GUARD=1 git push`), and ledger
+  write discipline (`SKIP_LEDGER_WRITE_GUARD=1 git push`). Never attach those variables to `git commit`,
+  use `git push --no-verify`, skip the push hook wholesale, or substitute `SKIP_IN_FLIGHT_CI_GUARD` for
+  bare publication. Format checking reuses only an exact-lock worktree dependency tree and otherwise
+  blocks with `npm ci --include=dev`. `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
   installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
   Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
 - **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory

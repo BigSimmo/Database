@@ -167,10 +167,10 @@ describe("migration-history probe and guard-migration contract", () => {
     expect(doc).toContain("## Guard-migration contract");
     expect(doc).toContain("## Migration-history probe");
     expect(doc).toContain("## Runtime index-monitoring ratchet");
-    const agents = read("AGENTS.md");
-    expect(agents).toMatch(/fail-fast\s+validation\s+(guard\s+)?migration/i);
-    expect(agents).toContain("20260804110240");
-    expect(agents).toContain("migration_history");
+    expect(doc).toMatch(/fail-fast\s+validation\s+(guard\s+)?migration/i);
+    expect(doc).toContain("20260804110240");
+    expect(doc).toContain("migration_history");
+    expect(read("AGENTS.md")).toContain("docs/database-drift-detection.md");
   });
 
   it("the guard classes are exactly the documented set and the contract date is fixed", () => {

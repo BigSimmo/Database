@@ -24,6 +24,7 @@ const workflowScripts = [
   "check:gitleaks-pinned",
   "check:ci-triage",
   "check:pr-policy",
+  "check:agent-policy",
   "check:gate-manifest",
   "check:skills",
   "check:pr-mergeability",

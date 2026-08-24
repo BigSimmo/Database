@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run PR"
+  short_description: "Run the bounded open-PR maintenance sweep"
+  default_prompt: "Use $run-pr for the explicitly authorized Database open-PR maintenance sweep without merging protected branches."

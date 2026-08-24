@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync } from "node:fs";
+import { AGENT_POLICY_INPUT_PATHS } from "./check-agent-policy.mjs";
 
 const zeroSha = /^0{40}$/;
 
@@ -61,7 +62,10 @@ function getArgValue(args, name) {
 
 function pathMatches(filePath, patterns) {
   return patterns.some((pattern) => {
-    if (typeof pattern === "string") return filePath === pattern || filePath.startsWith(`${pattern}/`);
+    if (typeof pattern === "string") {
+      const normalizedPattern = pattern.replaceAll("\\", "/").replace(/\/+$/, "");
+      return filePath === normalizedPattern || filePath.startsWith(`${normalizedPattern}/`);
+    }
     return pattern.test(filePath);
   });
 }
@@ -133,6 +137,8 @@ const docPatterns = [
 const generatedMedicationLexiconReport = "docs/medication-interaction-lexicon-review.md";
 
 const workflowPatterns = [
+  ...AGENT_POLICY_INPUT_PATHS,
+  ".github/codex",
   ".github/workflows",
   ".github/actions",
   ".agents/skills",
@@ -140,7 +146,6 @@ const workflowPatterns = [
   ".cursor/skills",
   "plugins/clinical-kb/skills",
   ".github/pull_request_template.md",
-  "AGENTS.md",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
   /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
@@ -966,7 +971,12 @@ function selfTest() {
     build_changed: true,
     perf_changed: false,
   });
-  assertScope("perf-off-for-docs", ["docs/testing.md"], { docs_only: true, perf_changed: false });
+  assertScope("perf-off-for-docs", ["docs/testing.md"], {
+    docs_only: false,
+    workflow_only: true,
+    workflow_changed: true,
+    perf_changed: false,
+  });
   assertScope("perf-off-for-supabase", ["supabase/migrations/20260101000000_example.sql"], {
     db_changed: true,
     perf_changed: false,
@@ -1192,12 +1202,72 @@ function selfTest() {
     docs_only: false,
     build_changed: false,
   });
+  for (const file of [".github/codex/prompts/run-pr-operator.md", ".github/codex/run-pr-result.schema.json"]) {
+    assertScope(`trusted-codex-policy:${file}`, [file], {
+      workflow_changed: true,
+      workflow_only: true,
+      coverage_changed: false,
+      static_heavy_changed: false,
+      docs_only: false,
+      build_changed: false,
+    });
+  }
+  assertScope("agent-policy-owner-docs", ["docs/agents-guide.md", "docs/codex-cloud.md"], {
+    workflow_changed: true,
+    workflow_only: true,
+    coverage_changed: false,
+    static_heavy_changed: false,
+    docs_only: false,
+    build_changed: false,
+  });
+  assertScope(
+    "agent-policy-active-client-surfaces",
+    [
+      ".claude/skills/gates/SKILL.md",
+      ".cursor/agents/design-review.md",
+      ".cursor/agents/pr-babysit.md",
+      ".cursor/agents/pr-bugbot.md",
+      ".cursor/skills/design-review/SKILL.md",
+    ],
+    {
+      workflow_changed: true,
+      workflow_only: true,
+      coverage_changed: false,
+      static_heavy_changed: false,
+      docs_only: false,
+      build_changed: false,
+    },
+  );
+  assertScope("agent-policy-canonical-inputs", ["docs/testing.md", "docs/site-map.md", "docs/wiring-conventions.md"], {
+    workflow_changed: true,
+    workflow_only: true,
+    coverage_changed: false,
+    static_heavy_changed: false,
+    docs_only: false,
+    build_changed: false,
+  });
+  assertScope("agent-policy-canonical-directory-input", ["docs/rag-behaviour/example.md"], {
+    workflow_changed: true,
+    workflow_only: true,
+    coverage_changed: false,
+    static_heavy_changed: false,
+    docs_only: false,
+    build_changed: false,
+  });
   assertScope("gitleaks-pin-script", ["scripts/run-gitleaks-pinned.mjs"], {
     workflow_changed: true,
     source_changed: true,
     docs_only: false,
     build_changed: false,
     static_heavy_changed: true,
+  });
+  assertScope("agent-policy-checker", ["scripts/check-agent-policy.mjs"], {
+    workflow_changed: true,
+    source_changed: true,
+    coverage_changed: true,
+    static_heavy_changed: true,
+    docs_only: false,
+    build_changed: false,
   });
   assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
     workflow_changed: true,

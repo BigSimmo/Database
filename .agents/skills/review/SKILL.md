@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review the current Database diff, branch, or explicitly approved PR target for high-confidence correctness, security, privacy, clinical, and reliability defects. Use for code review, diff review, or readiness feedback.
+description: Review the current Database diff, branch, or named PR target for high-confidence correctness, security, privacy, clinical, and reliability defects.
 ---
 
 # Review
@@ -9,5 +9,5 @@ description: Review the current Database diff, branch, or explicitly approved PR
 2. Resolve the local target SHA and check whether the same scope was already reviewed.
 3. Inspect changed behavior and realistic failure paths; prioritize reproducible P0-P2 findings.
 4. Cite exact files and lines, trigger, impact, and the smallest proof or fix.
-5. Do not call GitHub or hosted CI without explicit approval.
+5. A named remote target authorizes its necessary low-cost read-only metadata. Hosted writes, reruns, sensitive data, and paid calls remain separately gated.
 6. Record the completed local review in the ledger when repository instructions require it.

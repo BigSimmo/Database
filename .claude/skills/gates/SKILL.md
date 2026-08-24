@@ -26,7 +26,7 @@ Check these before believing any result.
   for exactly this reason — if installed packages do not match `package-lock.json`, treat any test,
   lint, or typecheck result as void until `npm ci` has run. Its own failure message says as much.
 - **`verify:cheap` stops at the first failing check.** Everything after that point never ran. Do not
-  describe the change as broadly verified when the gate died at check 2 of 36.
+  describe the change as broadly verified when the gate died at check 2 of 37.
 - **Changed-file formatting is required in CI but is not part of `verify:cheap`.** A locally green
   `verify:cheap` can still fail CI on formatting. During iteration, format only task-owned files.
   Before a push, follow `AGENTS.md`: from an isolated or otherwise fully owned worktree run
@@ -70,12 +70,16 @@ mode, and command.
 
 ## Provider boundary
 
-Never run provider-backed gates without explicit user confirmation: `eval:rag`, `eval:quality`,
-`eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, and any GitHub,
-Supabase, OpenAI, or hosted-CI call. Report the command and ask instead of running it.
+A task naming a provider or remote target authorizes only the necessary low-cost read-only metadata
+for that target. It does not authorize a provider-backed gate. Never run `eval:rag`, `eval:quality`,
+`eval:retrieval:quality`, `verify:release`, `check:supabase-project`, or `test:live` without
+target-specific explicit user confirmation. Hosted comments, CI reruns, thread resolution, pushes,
+deployments, paid calls, sensitive production/customer/clinical data, and every provider mutation
+remain separately gated.
 
-The only standing exception is the user typing `Run PR`, and that authorises only the GitHub actions
-enumerated in the `run-pr` skill, for that sweep alone.
+Only the exact `Run PR` shortcut adds the GitHub authority in
+[`$run-pr`](../../../.agents/skills/run-pr/SKILL.md), for that sweep alone. It never authorizes
+provider-backed gates.
 
 ## Third-party claims are not evidence
 

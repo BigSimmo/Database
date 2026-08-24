@@ -13,7 +13,7 @@ export const repositorySkillSurfaces = [
   { name: "Clinical KB plugin", root: path.join(repositoryRoot, "plugins", "clinical-kb", "skills") },
 ];
 export const expectedRepositorySkillSurfaceCounts = {
-  Codex: 43,
+  Codex: 46,
   Claude: 8,
   Cursor: 15,
   "Clinical KB plugin": 1,
@@ -134,11 +134,15 @@ export function validateRepositorySkillPolicies(
     }
   };
 
+  requireContract(".agents/skills/issues/SKILL.md", [
+    "## Plain `/issues` (read-only)",
+    "run only `npm run issues:report -- --json`",
+    "Do not fetch, contact a provider, edit, stage, commit, reconcile",
+    "`/ledger` is a separate session-extraction workflow",
+  ]);
   requireContract(".claude/skills/issues/SKILL.md", [
-    "creates one validated UUID JSON file",
-    "never edit the canonical ledger",
-    "commit only the newly created request file(s)",
-    "git add -- docs/outstanding-issues-inbox/<uuid>.json",
+    "../../../.agents/skills/issues/SKILL.md",
+    "Do not duplicate or extend its authorization",
   ]);
   requireContract(".claude/skills/ledger/SKILL.md", [
     "create no request and do not change the canonical ledger",
@@ -155,9 +159,9 @@ export function validateRepositorySkillPolicies(
     "Indexing is provider-backed",
   ]);
   requireContract(".claude/skills/handoff/SKILL.md", [
-    "never unstage",
-    "mutate another session's index entries",
-    "run `npm run format`",
+    "../../../.agents/skills/upload/SKILL.md",
+    "../../../.agents/skills/handover/SKILL.md",
+    "Do not duplicate or extend their authorization",
   ]);
   requireContract(".claude/skills/prlanded/SKILL.md", [
     "require an explicit cleanup request",

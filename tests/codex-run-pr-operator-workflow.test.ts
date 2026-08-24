@@ -3,6 +3,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const workflow = readFileSync(new URL("../.github/workflows/codex-run-pr-operator.yml", import.meta.url), "utf8");
+const canonicalRunPrSkill = readFileSync(new URL("../.agents/skills/run-pr/SKILL.md", import.meta.url), "utf8");
+const syncHelper = readFileSync(new URL("../scripts/sync-open-pr-branches.mjs", import.meta.url), "utf8");
+
+function quotedValues(source: string, marker: string) {
+  const line = source.split(/\r?\n/).find((candidate) => candidate.includes(marker)) ?? "";
+  return [...line.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+}
 
 function job(name: string, nextName?: string) {
   const start = workflow.indexOf(`  ${name}:`);
@@ -39,9 +46,74 @@ const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor a
   ...args: string[]
 ) => (...values: unknown[]) => Promise<void>;
 const workflowScripts = extractWorkflowScripts(workflow);
+const prepareScriptSource = workflowScripts.at(0);
+if (!prepareScriptSource) throw new Error("Expected a github-script preparation block in the workflow.");
+const prepareScript = new AsyncFunction("github", "context", "core", "process", "require", prepareScriptSource);
 const mutateScriptSource = workflowScripts.at(-1);
 if (!mutateScriptSource) throw new Error("Expected a github-script mutation block in the workflow.");
 const mutateScript = new AsyncFunction("github", "context", "core", "process", "require", mutateScriptSource);
+
+async function runPrepareScriptWithBase(baseRef: string) {
+  const failures: string[] = [];
+  let baseRefReads = 0;
+  const expectedHead = "1".repeat(40);
+  const pr = {
+    base: { ref: baseRef },
+    head: {
+      ref: "codex/example",
+      repo: { full_name: "BigSimmo/Database" },
+      sha: expectedHead,
+    },
+    labels: [],
+    merged: false,
+    state: "open",
+  };
+  const github = {
+    rest: {
+      git: {
+        getRef: async () => {
+          baseRefReads += 1;
+          throw new Error("UNTRUSTED_BASE_REACHED");
+        },
+      },
+      pulls: {
+        get: async () => ({ data: pr }),
+      },
+      repos: {
+        get: async () => ({ data: { default_branch: "main" } }),
+        getCollaboratorPermissionLevel: async () => ({ data: { permission: "write" } }),
+      },
+      users: {
+        getAuthenticated: async () => ({ data: { login: "BigSimmo", type: "User" } }),
+      },
+    },
+  };
+  const context = {
+    actor: "BigSimmo",
+    payload: {
+      client_payload: {
+        codex_task_url: "https://chatgpt.com/codex/tasks/task_authorized",
+        confirmation: "I authorized this PR in the linked Codex task",
+        pr_number: "42",
+      },
+    },
+    repo: { owner: "BigSimmo", repo: "Database" },
+  };
+
+  try {
+    await prepareScript(
+      github,
+      context,
+      { setFailed: (message: string) => failures.push(message), setOutput: () => undefined },
+      { env: {} },
+      () => ({}),
+    );
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== "UNTRUSTED_BASE_REACHED") throw error;
+  }
+
+  return { baseRefReads, failures };
+}
 
 type Disposition = {
   action: "leave_open" | "resolve_fixed" | "resolve_no_change";
@@ -173,9 +245,15 @@ describe("Codex Run PR operator workflow", () => {
   const publish = job("publish", "mutate");
   const mutate = job("mutate");
 
-  it("requires a deliberate human dispatch tied to an authorizing Codex task", () => {
-    expect(workflow).toContain("workflow_dispatch:");
+  it("uses only default-branch-owned repository dispatch tied to a deliberate authorizing task", () => {
+    expect(workflow).toContain("repository_dispatch:");
+    expect(workflow).toContain("types: [codex-run-pr-operator]");
+    expect(workflow).not.toMatch(/^\s+workflow_dispatch:/mu);
     expect(workflow).not.toContain("issue_comment:");
+    expect(workflow).not.toContain("${{ inputs.");
+    expect(workflow).not.toContain("context.payload.inputs");
+    expect(workflow).toContain("github.event.client_payload.pr_number");
+    expect(workflow).toContain("github.event.client_payload.confirmation");
     expect(prepare).toContain('test "$DISPATCH_ACTOR" = "BigSimmo"');
     expect(prepare).toContain("I authorized this PR in the linked Codex task");
     expect(prepare).toContain("taskUrlPattern");
@@ -203,6 +281,13 @@ describe("Codex Run PR operator workflow", () => {
     expect(taskUrlPattern.test(`${taskUrl}/`)).toBe(true);
     expect(taskUrlPattern.test(`${taskUrl}?redirect=https://example.com`)).toBe(false);
     expect(taskUrlPattern.test(`${taskUrl}#fragment`)).toBe(false);
+  });
+
+  it("refuses an untrusted same-repository feature branch as the operator base", async () => {
+    const result = await runPrepareScriptWithBase("feature/untrusted-policy-base");
+
+    expect(result.failures).toEqual(["The pull request base must be the repository default branch (main)."]);
+    expect(result.baseRefReads).toBe(0);
   });
 
   it("collects the complete bounded Run PR control-plane evidence", () => {
@@ -244,6 +329,68 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).not.toContain("secrets.GH_TOKEN");
     expect(repair).not.toContain("github-token:");
     expect(repair).not.toContain("./.github/actions/");
+  });
+
+  it("refuses repair when any root, nested, client, or trusted prompt policy surface differs", () => {
+    const expectedTrustedPatterns = [
+      "AGENTS.md",
+      "*/AGENTS.md",
+      "AGENTS.override.md",
+      "*/AGENTS.override.md",
+      "CLAUDE.md",
+      "*/CLAUDE.md",
+      "docs/codex-review-protocol.md",
+      ".codex/*",
+      ".agents/*",
+      ".claude/*",
+      ".cursor/*",
+      ".github/codex/*",
+    ];
+    const arrayMatch = repair.match(/trusted_policy_patterns=\(\r?\n([\s\S]*?)\r?\n\s*\)/u);
+    expect(arrayMatch, "trusted policy pattern array is missing").not.toBeNull();
+    const actualTrustedPatterns = [...(arrayMatch?.[1] ?? "").matchAll(/^\s+([^\s#]+)\s*$/gm)].map((match) =>
+      match[1].replace(/^'|'$/g, ""),
+    );
+
+    expect(actualTrustedPatterns).toEqual(expectedTrustedPatterns);
+    expect(repair).toContain('if ! git diff --name-only --no-renames --no-ext-diff -z "$BASE_SHA" "$EXPECTED_HEAD"');
+    expect(repair).toContain("mapfile -d '' -t policy_candidates < \"$policy_candidates_file\"");
+    expect(repair).toContain("The operative policy diff could not be computed.");
+    expect(repair).toContain('[[ "$changed_path" == $trusted_policy_pattern ]]');
+    expect(repair).toContain("Operative Run PR policy differs from the trusted base");
+    expect(repair.indexOf("trusted_policy_patterns=(")).toBeLessThan(
+      repair.indexOf("Run official Codex repair action"),
+    );
+
+    const globToRegExp = (glob: string) =>
+      new RegExp(`^${glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*")}$`, "u");
+    const isSealed = (path: string) => actualTrustedPatterns.some((pattern) => globToRegExp(pattern).test(path));
+    for (const path of [
+      "AGENTS.md",
+      "src/AGENTS.md",
+      "src/nested/AGENTS.override.md",
+      "packages/ui/CLAUDE.md",
+      ".codex/config.toml",
+      ".agents/skills/run-pr/SKILL.md",
+      ".claude/skills/run-pr/SKILL.md",
+      ".cursor/agents/pr-babysit.md",
+      ".github/codex/prompts/run-pr-operator.md",
+      "docs/codex-review-protocol.md",
+    ]) {
+      expect(isSealed(path), `${path} must be sealed`).toBe(true);
+    }
+    expect(isSealed("src/app/page.tsx")).toBe(false);
+  });
+
+  it("keeps full and branch-mutation Run PR opt-outs aligned across every executable owner", () => {
+    const expectedBranchMutationOptOuts = ["hold", "do-not-merge", "skip-branch-sync", "skip-codex-review"];
+    const operatorOptOuts = quotedValues(prepare, '["hold", "do-not-merge"');
+    const syncOptOuts = quotedValues(syncHelper, "const SKIP_LABELS");
+
+    expect(operatorOptOuts).toEqual(expectedBranchMutationOptOuts);
+    expect(syncOptOuts).toEqual(expectedBranchMutationOptOuts);
+    expect(canonicalRunPrSkill).toContain("`skip-codex-review` is a full per-PR opt-out");
+    expect(canonicalRunPrSkill).toContain("`skip-branch-sync` forbids every feature-head mutation");
   });
 
   it("seals only bounded descendants and excludes policy or credential-bearing paths", () => {

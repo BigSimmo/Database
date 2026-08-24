@@ -252,6 +252,10 @@ jobs:
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:pr-policy
 
+      - name: Agent policy contract
+        if: needs.changes.outputs.workflow_changed == 'true'
+        run: npm run check:agent-policy
+
       - name: Gate-manifest self-test
         if: needs.changes.outputs.workflow_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:gate-manifest
@@ -296,7 +300,7 @@ jobs:
         if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'
         run: npm run test:ci-workflows
 
-      - name: Codex auto-resolve workflow guard
+      - name: Codex thread-resolution workflow guard
         if: needs.changes.outputs.codex_autofix_changed == 'true'
         run: npm run check:codex-autofix-workflow
 

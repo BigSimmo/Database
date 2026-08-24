@@ -107,8 +107,12 @@ describe("Codex Desktop worktree setup", () => {
     const cloudDocumentation = readFileSync(path.resolve("docs/codex-cloud.md"), "utf8");
 
     expect(packageJson.scripts["setup:codex-worktree"]).toBe("node scripts/setup-codex-worktree.mjs");
-    expect(agentInstructions).toContain("Never configure Windows Desktop worktrees");
-    expect(agentInstructions).toContain("node scripts/setup-codex-worktree.mjs --dry-run");
+    expect(agentInstructions).toContain("Windows worktree setup is `node scripts/setup-codex-worktree.mjs`");
+    expect(agentInstructions).toContain(
+      "Linux/Cloud setup is `bash scripts/setup-codex-cloud.sh`; do not cross-wire them",
+    );
     expect(cloudDocumentation).toContain("This Bash setup is for Linux-based Codex Cloud environments");
+    expect(cloudDocumentation).toContain("Never configure Windows Desktop worktrees");
+    expect(cloudDocumentation).toContain("node scripts/setup-codex-worktree.mjs --dry-run");
   });
 });
