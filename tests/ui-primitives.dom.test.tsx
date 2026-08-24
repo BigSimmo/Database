@@ -109,7 +109,7 @@ describe("ToggleSwitch", () => {
     expect(toggle.className).toMatch(/min-w-tap/);
     expect(toggle).toHaveClass("rounded-lg");
     expect(toggle).not.toHaveClass("rounded-full");
-    expect(toggle.firstElementChild).toHaveClass("border", "shadow-[var(--shadow-inset)]");
+    expect(toggle.firstElementChild).toHaveClass("box-content", "border", "shadow-[var(--shadow-inset)]");
     await userEvent.click(toggle);
     expect(onToggle).toHaveBeenCalledOnce();
   });
