@@ -131,23 +131,28 @@ Runs 3 and 4 are `29 passed`, 1 skipped.
 
 The full account is in `verification-report.md`. The headline:
 
-**Both patient-facing prints end with the shared `PrintOutput` confidential footer** —
+**Both patient-facing prints carry the shared `PrintOutput` confidential footer** —
 `Confidential clinical document. Handle it, keep it, and dispose of it according to local
 health service policy.` On a clinician's handover copy that is exactly right. On a person's
-own safety plan it is the last thing they read, directly after the sheet has told them
-`Keep it somewhere you can find it quickly`, and it re-frames their own document as an
-institutional artefact they must dispose of under somebody else's policy.
+own safety plan it comes after the sheet has told them `Keep it somewhere you can find it
+quickly`, and it re-frames their own document as an institutional artefact they must dispose
+of under somebody else's policy. (Corrected in fix round 1: it is **not** the last thing
+they read — `print-output.tsx:124` renders the provenance `<footer>` after it.)
 
 It is also a quiet specification deviation. The specification enumerates what the clinician
 print carries and names a confidential-document footer among them; the Personal Safety Plan
 print and the Patient Plan print each have their own enumerated list and **neither names
 it**.
 
-**Reported, not changed** (Ruling 60). It is a product-copy decision on a shared primitive
-whose wording is deliberately owned centrally so two printed documents from this repository
-cannot make different promises, and this project has twice lost a line from a printed page
-by editing print output in passing. Recommendation: drop `confidential` from the two
-patient-facing prints and keep it on the clinician print. One line, once decided.
+**Reported, not changed** (Ruling 60). It is a product-copy decision, the user is the one to
+make it, and this project has twice lost a line from a printed page by editing print output
+in passing. Recommendation: drop `confidential` from the two patient-facing prints and keep
+it on the clinician print.
+
+(Blast radius corrected in fix round 1. This does **not** touch the shared primitive:
+`CONFIDENTIAL_DOCUMENT_FOOTER`, `PrintOutput` and the clinician print are all untouched and
+no other consumer moves. It is two deletions inside Care Plan — the `confidential` prop at
+`safety-plan-pages.tsx:540` and at `patient-plan-pages.tsx:585`.)
 
 Otherwise the patient-facing surfaces read well and read as the person's own. The Personal
 Safety Plan opens `This is your plan, in your own words`, holds the person's own sentences

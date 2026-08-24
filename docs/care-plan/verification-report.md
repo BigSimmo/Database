@@ -219,7 +219,8 @@ know Rowan and their number. `If you need help now` is last, which is where a re
 when everything above has not worked, and every crisis line carries its own hours and its
 own caveat rather than one footnote at the bottom.
 
-**One finding, and it is the last thing the reader sees.** The sheet ends:
+**One finding, in the sheet's closing furniture.** Near the end, after the person's own
+words and the crisis lines, the sheet says:
 
 > Confidential clinical document. Handle it, keep it, and dispose of it according to local
 > health service policy.
@@ -227,9 +228,15 @@ own caveat rather than one footnote at the bottom.
 That is the shared `PrintOutput` primitive's confidential footer, switched on by both
 patient-facing prints. On a clinician's handover copy it is exactly right. On a person's own
 safety plan it re-frames their own document as an institutional artefact they must dispose
-of according to somebody else's policy — directly after the page has told them to keep it
-somewhere they can find it quickly. It is not wrong; it is cold, and it is the wrong voice
-for the one page in this product written entirely in the person's own.
+of according to somebody else's policy — after the page has told them to keep it somewhere
+they can find it quickly. It is not wrong; it is cold, and it is the wrong voice for the one
+page in this product written entirely in the person's own.
+
+**Correction to the first version of this report**, which called it "the last thing the
+reader sees". It is not. `print-output.tsx:124` renders the provenance `<footer>` after it,
+so the actual last line is `Synthetic Care Plan prototype. Nothing on this page describes a
+real person…`. The finding stands; the dramatic framing did not, and a report whose value is
+that a later reader can trust it does not get to keep an inaccurate flourish.
 
 It is also a quiet specification deviation. The specification enumerates what the clinician
 print carries and names `a confidential-document footer` among them; the Personal Safety
@@ -237,9 +244,15 @@ Plan print and the Patient Plan print each have their own enumerated list and **
 names it**.
 
 **Recommendation:** drop `confidential` from the two patient-facing prints and keep it on
-the clinician print. Not changed here: it is a product-copy decision on a shared primitive
-whose wording is deliberately owned centrally, and this task should not make that call
-alone. It is a one-line change once decided.
+the clinician print.
+
+**Correction to the blast radius**, which the first version of this report overstated. This
+does **not** touch the shared primitive: `CONFIDENTIAL_DOCUMENT_FOOTER`, `PrintOutput`, and
+the clinician print are all untouched, and no other consumer in the repository changes. It
+is two deletions inside Care Plan — the `confidential` prop at `safety-plan-pages.tsx:540`
+and at `patient-plan-pages.tsx:585`. Still not changed here, because it is a product-copy
+decision and the user is the one to make it, but they should decide against the real cost
+rather than the inflated one.
 
 Two smaller notes, neither a defect: all four public crisis lines print on every sheet,
 including the Peel and regional numbers on a metropolitan patient's copy, which is
@@ -310,7 +323,28 @@ which checks this task runs: `typecheck`, `lint`, the Care Plan Vitest files,
 | Chromium journeys                              | `29 passed (1.6m)`, 1 skipped (above)                                                                                                                                                                                                         |
 | `git diff --check` over the whole task range   | Clean. Working tree clean at the Task 11 commit                                                                                                                                                                                               |
 
-## Two gaps in the brief's own checklist, stated rather than glossed
+## Gaps in the brief's own checklist, stated rather than glossed
+
+Two of these were closed in fix round 1 and are recorded here because the first version of
+this report did not mention them at all. The rest remain open.
+
+**Closed in fix round 1:**
+
+- **The Review Trigger journey resolved nothing.** A case named `a Review Trigger is
+  resolved without the plan changing by itself` opened the sheet and pressed `Escape`, and a
+  second named `the Reviews worklists open, resolve, and stay operable…` only switched tabs.
+  The brief required the resolution journey and this report listed it as delivered. It now
+  genuinely resolves: blank submission refused, resolution written, outcome asserted, entry
+  gone from the queue, and the plan it was raised against asserted byte-for-byte unchanged.
+  The second case is renamed to `the four Reviews worklists switch and stay operable on a
+  320px phone`, which is what it does.
+- **The per-width list was a third implemented.** The brief asks for heading and action
+  wrapping, Current Plan readability, CMHT and Safety access, 48 px primary targets and dock
+  clearance at each of the five widths; only overflow and rail/dock ownership were checked.
+  All of it is now in `the plan stays readable and every primary action stays reachable at
+  each width`.
+
+**Still open:**
 
 - **`npm run workflow:clinical-proof … --write-evidence` was not run.** The brief lists it;
   the user's later revision of D2 narrowed this task to the fast checks named above and it
@@ -318,11 +352,35 @@ which checks this task runs: `typecheck`, `lint`, the Care Plan Vitest files,
   source, failure-mode and prototype-boundary — is present in this report from the scans and
   journeys directly, but it was not produced by that workflow and should not be described as
   if it were.
-- **The browser journeys do not cover drafting and submitting a new Management Plan
+- **The browser journeys do not cover drafting or submitting a new Management Plan
   Version.** They cover comparing, returning for changes, and approving, which is where the
-  senior-approval boundary lives. Drafting and submission are covered by reducer and DOM
-  tests only, so the authoring form has DOM proof and no rendered proof. Worth adding; not
-  added here.
+  senior-approval boundary lives. Drafting and submission have reducer and DOM proof only, so
+  the eleven-field authoring form has no rendered proof at all. The case that used to be
+  called `the whole authoring lifecycle…` is renamed to `a submitted version is returned for
+  changes without the Current Plan moving`, because it was claiming this gap rather than
+  covering it.
+- **The affordance table is a hand-maintained list of six classes** while the frozen static
+  tripwire derives eleven. Out of scope for this round by the reviewer's decision — the
+  derived tripwire means no link class is unguarded today — and it is the same shape that
+  beat the frozen guard in the first place. The whole-branch review has it.
+
+## The sweep of all thirty case names against what each case does
+
+The Critical finding was that a test named for work it does not do is worse than a missing
+test, because the name is what a later reader trusts. Every one of the thirty cases was
+re-read against its own body. **Three more of the same shape were found**, all now fixed:
+
+| Case | What the name claimed | What it did | Fix |
+| ---- | --------------------- | ----------- | --- |
+| `a manual Identification Review is recorded without creating a plan` | a referral is recorded | opened the referral sheet and pressed `Escape` — nothing was recorded | Now refuses a reasonless referral, records a real one, asserts the outcome, asserts no plan appeared, and follows it into the Identification Review worklist |
+| `the whole authoring lifecycle runs in the browser without losing the Current Plan` | drafting, submitting, comparing, returning **and** approving | returning for changes only | Renamed to `a submitted version is returned for changes without the Current Plan moving`; the drafting and submission gap is recorded above rather than named over |
+| `a Personal Safety Plan is written, made current, and printed without touching the clinical plan` | the trailing clause — that the clinical plan is untouched | wrote, made current and printed; asserted nothing at all about the Management Plan | Now reads the Current Plan metadata before, walks to the Safety Plan through the interface, and asserts the Management Plan is identical afterwards |
+
+The remaining twenty-six were checked and do what they say. Two are worth noting as accurate
+but narrower than they sound, and both say so in a comment rather than in the name:
+`the pinned safety boundary survives dark mode and forced colours` checks one route rather
+than all twenty-one, and `keyboard traversal reaches the plan without a mouse` walks forty
+tab stops on one surface rather than the whole family.
 
 ## Evidence capture — attempted, not completed
 

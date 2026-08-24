@@ -521,12 +521,19 @@ waits for a React root before touching anything.
 **One copy finding, reported rather than changed** — see `verification-report.md`. Both
 patient-facing prints carry the shared `PrintOutput` confidential footer: `Confidential
 clinical document. Handle it, keep it, and dispose of it according to local health service
-policy.` On a clinician's handover copy that is right. On a person's own safety plan it is
-the last thing they read, directly after the page told them to keep it somewhere they can
-find it quickly, and it re-frames their own document as an institutional artefact. The
-specification enumerates that footer for the clinician print and names it in **neither**
-patient-facing list. It is a one-line change on a shared primitive whose wording is
-deliberately owned centrally, so it is the user's call.
+policy.` On a clinician's handover copy that is right. On a person's own safety plan it comes
+after the page has told them to keep it somewhere they can find it quickly, and it re-frames
+their own document as an institutional artefact. The specification enumerates that footer
+for the clinician print and names it in **neither** patient-facing list. It is the user's
+call.
+
+_Two corrections from fix round 1, both against this paragraph's first version._ It is not
+"the last thing they read": `print-output.tsx:124` renders the provenance `<footer>` after
+it. And it does not touch the shared primitive — `CONFIDENTIAL_DOCUMENT_FOOTER`,
+`PrintOutput` and the clinician print are all untouched, and the change is two deletions
+inside Care Plan, at `safety-plan-pages.tsx:540` and `patient-plan-pages.tsx:585`. The
+finding stands; the framing and the blast radius were both overstated, and the user should
+decide against the real ones.
 
 ---
 
@@ -1128,15 +1135,21 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     shipping a handoff whose reviewer would find a feature nobody can open.
 
 60. **The confidential-document footer on the two patient-facing prints is reported, not changed.**
-    It is the shared `PrintOutput` primitive's wording, deliberately owned centrally so that two
-    printed documents from this repository cannot make different promises about how paper is
-    handled. On a person's own safety plan it reads coldly and it is the last line they see. The
-    specification enumerates it for the clinician print and names it in neither patient-facing
-    list, so removing it is defensible — but it is a product-copy decision on a shared primitive,
-    and this project has twice lost a line from a printed page by editing print output in passing.
-    _Cost if wrong:_ a cold sentence stays on two synthetic sheets until the user rules — against
-    an implementer quietly changing the wording of every printed clinical document in the
-    repository on its own authority.
+    On a person's own safety plan it reads coldly, coming after the page has told them to keep it
+    somewhere they can find it quickly. The specification enumerates it for the clinician print
+    and names it in neither patient-facing list, so removing it is defensible — but it is a
+    product-copy decision, the user is the one to make it, and this project has twice lost a line
+    from a printed page by editing print output in passing. _Cost if wrong:_ a cold sentence stays
+    on two synthetic sheets until the user rules.
+
+    **Corrected in fix round 1, twice, against this ruling's first version.** It is not "the last
+    line they see" — `print-output.tsx:124` renders the provenance `<footer>` after it. And it is
+    **not** a change to the shared primitive: `CONFIDENTIAL_DOCUMENT_FOOTER`, `PrintOutput` and
+    the clinician print are all untouched, and no other consumer in the repository moves. It is
+    two deletions inside Care Plan, at `safety-plan-pages.tsx:540` and
+    `patient-plan-pages.tsx:585`. The ruling stands and the reasoning for deferring it stands; the
+    two facts it leaned on did not, and a user deciding this deserves the real cost rather than an
+    inflated one.
 
 61. **The link-affordance gate's colour requirement was narrowed after a probe, not after an
     argument.** The first shape required all six named affordances to differ in colour from the

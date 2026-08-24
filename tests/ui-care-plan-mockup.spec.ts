@@ -111,6 +111,22 @@ const SCENARIOS = [
 
 const REQUIRED_WIDTHS = [320, 390, 768, 1024, 1440] as const;
 
+/**
+ * The floor a primary tap target has to clear, in CSS pixels.
+ *
+ * This repository's convention is `min-h-12` / `var(--spacing-tap)`, which is
+ * 48 px, and it is deliberately above both the WCAG AA minimum (24 px, 2.5.8)
+ * and the AAA enhanced criterion (44 px, 2.5.5): `min-h-11` was tried and
+ * reintroduced a known sub-pixel `ui-smoke` flake, so 44 is banned here rather
+ * than merely unambitious.
+ *
+ * 47.5 rather than 48 because a fractional viewport can round a 48 px box to
+ * 47.98; a `min-h-11` regression measures 44, which is nowhere near it. The
+ * first shape of these guards asserted 44 while their own messages said 48, so
+ * the exact edit this repository bans would have passed them.
+ */
+const TAP_TARGET_FLOOR = 47.5;
+
 const SYNTHETIC_MARKER = "Synthetic prototype — fictional data only";
 const MEMORY_NOTICE = "Nothing is saved. Reloading this page starts over.";
 const PINNED_BOUNDARY_SENTENCE = "Do not rely on this plan if today is different";
@@ -129,7 +145,17 @@ async function gotoRoute(page: Page, route: string, heading?: string) {
   await page.goto(route, { waitUntil: "domcontentloaded" });
   // The shell's synthetic marker is the first thing every route paints, so it
   // doubles as the "this route actually rendered" signal.
-  await expect(page.getByTestId("care-plan-synthetic-marker")).toHaveText(SYNTHETIC_MARKER, { timeout: 45_000 });
+  //
+  // `.first()` because the framework streams the route subtree, so mid-load the
+  // shell is transiently present twice and a bare locator raises a strict-mode
+  // violation instead of waiting. That surfaced only once the machine was under
+  // enough load to widen the window, which is exactly the shape of flake worth
+  // fixing at the locator rather than by loosening the assertion: what is being
+  // asserted here is that the marker is present and says the right thing, never
+  // how many copies the streaming DOM holds at that instant.
+  await expect(page.getByTestId("care-plan-synthetic-marker").first()).toHaveText(SYNTHETIC_MARKER, {
+    timeout: 45_000,
+  });
 
   // Rendered is not the same as interactive, and this suite is the first thing
   // able to tell the difference. Every control is server-rendered, so a click
@@ -184,8 +210,13 @@ async function expectNoHorizontalOverflow(page: Page) {
  * demonstrating the tool that a reload discards what they are showing.
  */
 async function expectSyntheticBoundary(page: Page) {
-  await expect(page.getByTestId("care-plan-synthetic-marker")).toHaveText(SYNTHETIC_MARKER);
-  await expect(page.getByText(MEMORY_NOTICE, { exact: true })).toBeVisible();
+  // Scoped to the shell banner, which is the one place the standing statement
+  // lives. That keeps this strict about *where* the boundary is rather than
+  // merely that the string exists somewhere, and it is immune to the streaming
+  // duplicate `gotoRoute` documents above.
+  const banner = page.getByRole("banner").first();
+  await expect(banner.getByTestId("care-plan-synthetic-marker")).toHaveText(SYNTHETIC_MARKER);
+  await expect(banner.getByText(MEMORY_NOTICE, { exact: true })).toBeVisible();
 }
 
 /** No control may sit underneath the phone dock, where a thumb cannot reach it. */
@@ -336,15 +367,22 @@ async function expectLooksLikeALink(page: Page, name: string, affordance: Afford
   const background = parseColour(measured.background);
   expect(colour, `\`${name}\` has an unreadable computed colour: ${measured.colour}`).not.toBeNull();
   expect(surrounding, "the reference span has an unreadable computed colour").not.toBeNull();
+  // Fails closed, like its two siblings above. Chromium serialises some colours
+  // as `color(srgb …)` or `color-mix(…)`, which `parseColour` cannot read — and
+  // an unreadable background used to make this function *skip* both the
+  // "not its own background colour" and the "border differs from the surface"
+  // checks with nothing going red. A guard that quietly stops checking is the
+  // exact shape this whole file replaced.
+  expect(background, `\`${name}\` has an unreadable computed background: ${measured.background}`).not.toBeNull();
 
   // It paints at all. Every one of Ruling 57's nine spellings ended here.
   expect(
     colour!.a,
     `\`${name}\` paints its text in ink that is effectively invisible (${measured.colour})`,
   ).toBeGreaterThanOrEqual(0.5);
-  if (background !== null) {
+  {
     expect(
-      sameColour({ ...colour!, a: 1 }, { ...background, a: 1 }),
+      sameColour({ ...colour!, a: 1 }, { ...background!, a: 1 }),
       `\`${name}\` paints its text the same colour as its own background (${measured.colour})`,
     ).toBe(false);
   }
@@ -380,13 +418,71 @@ async function expectLooksLikeALink(page: Page, name: string, affordance: Afford
       if (border.width <= 0 || border.style === "none" || ink === null || ink.a < 0.5) return false;
       // A border the colour of the surface behind it is a border nobody sees,
       // which is the same defect as a transparent one wearing a different name.
-      return background === null || !sameColour({ ...ink, a: 1 }, { ...background, a: 1 });
+      // `background` is asserted non-null above, so an unreadable surface colour
+      // reddens rather than turning this comparison off.
+      return !sameColour({ ...ink, a: 1 }, { ...background!, a: 1 });
     });
     expect(
       painted.length,
       `\`${name}\` draws no visible border on any side (${JSON.stringify(measured.borders)})`,
     ).toBeGreaterThan(0);
   }
+}
+
+/**
+ * The monochrome contract, asserted on resolved ink rather than on a class name.
+ *
+ * This is the test of whether `[data-print-monochrome]` genuinely wins the
+ * cascade against every Tailwind utility and CSS-module rule inside the printed
+ * subtree — a greyscale printer flattens tint, so a state carried by tint is a
+ * state lost on paper. Call it with print media already emulated.
+ */
+async function expectMonochromePaper(page: Page, surface: string) {
+  const ink = await printPaper(page).evaluate((element) => {
+    const samples = [element, ...element.querySelectorAll("h2, h3, p, li, dd")].slice(0, 40);
+    return samples.map((node) => {
+      const style = getComputedStyle(node as Element);
+      return { colour: style.color, background: style.backgroundColor };
+    });
+  });
+  expect(ink.length, `${surface}: nothing was sampled, so this asserts nothing`).toBeGreaterThan(5);
+  for (const sample of ink) {
+    const colour = parseColour(sample.colour);
+    expect(colour, `${surface}: unreadable printed colour: ${sample.colour}`).not.toBeNull();
+    expect(
+      colour!.r + colour!.g + colour!.b,
+      `${surface}: printed text is not black on paper (${sample.colour}), so a greyscale printer decides its contrast`,
+    ).toBe(0);
+    const background = parseColour(sample.background);
+    // Fails closed on a colour it cannot read. Only a genuinely transparent
+    // background is exempt — that is "no tint", which is the thing being asked
+    // for; an unreadable one used to skip the check silently.
+    expect(background, `${surface}: unreadable printed background: ${sample.background}`).not.toBeNull();
+    if (background!.a > 0) {
+      expect(
+        background!.r + background!.g + background!.b,
+        `${surface}: printed background is tinted (${sample.background}), so a state carried by tint is lost on greyscale`,
+      ).toBe(765);
+    }
+  }
+}
+
+/**
+ * Every block in the printed subtree asks the browser to keep it whole.
+ *
+ * Half of somebody's reasons for living on the previous sheet, or a crisis
+ * number separated from the sentence saying it is not an emergency service, is
+ * not an acceptable printed document. Call it with print media emulated.
+ */
+async function expectPageBreakControl(page: Page, surface: string) {
+  const breaks = await printPaper(page).evaluate((element) =>
+    [...element.querySelectorAll("[data-print-break-inside='avoid']")].map(
+      (node) => getComputedStyle(node).breakInside,
+    ),
+  );
+  expect(breaks.length, `${surface}: no printed block asks to be kept whole`).toBeGreaterThan(0);
+  for (const value of breaks)
+    expect(value, `${surface}: a printed block may be split across a page break`).toBe("avoid");
 }
 
 /**
@@ -562,40 +658,8 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await expect(phoneDock(page)).toBeHidden();
     await expect(page.getByRole("button", { name: "Print this plan" })).toBeHidden();
 
-    // The monochrome contract actually wins the cascade against every Tailwind
-    // utility and CSS-module rule in the subtree, rather than merely being
-    // declared. Asserted on resolved ink, not on a class name.
-    const ink = await paper.evaluate((element) => {
-      const samples = [element, ...element.querySelectorAll("h2, h3, p, li, dd")].slice(0, 40);
-      return samples.map((node) => {
-        const style = getComputedStyle(node as Element);
-        return { colour: style.color, background: style.backgroundColor };
-      });
-    });
-    for (const sample of ink) {
-      const colour = parseColour(sample.colour);
-      expect(colour, `unreadable printed colour: ${sample.colour}`).not.toBeNull();
-      expect(
-        colour!.r + colour!.g + colour!.b,
-        `printed text is not black on paper (${sample.colour}), so a greyscale printer decides its contrast`,
-      ).toBe(0);
-      const background = parseColour(sample.background);
-      if (background !== null && background.a > 0) {
-        expect(
-          background.r + background.g + background.b,
-          `printed background is tinted (${sample.background}), so a state carried by tint is lost on greyscale`,
-        ).toBe(765);
-      }
-    }
-
-    // Page-break control is asked for, per block, rather than left to chance.
-    const breaks = await paper.evaluate((element) =>
-      [...element.querySelectorAll("[data-print-break-inside='avoid']")].map(
-        (node) => getComputedStyle(node).breakInside,
-      ),
-    );
-    expect(breaks.length, "no printed block asks to be kept whole").toBeGreaterThan(0);
-    for (const value of breaks) expect(value).toBe("avoid");
+    await expectMonochromePaper(page, "the clinician summary");
+    await expectPageBreakControl(page, "the clinician summary");
 
     await page.emulateMedia({ media: "screen" });
   });
@@ -631,14 +695,10 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await expect(paper).not.toContainText("Not recorded");
 
     // The crisis line and the sentence that says it is not an emergency service
-    // are never separated by a page break.
-    const crisisBreaks = await paper.evaluate((element) =>
-      [...element.querySelectorAll("[data-print-break-inside='avoid']")].map(
-        (node) => getComputedStyle(node).breakInside,
-      ),
-    );
-    expect(crisisBreaks.length).toBeGreaterThan(0);
-    for (const value of crisisBreaks) expect(value).toBe("avoid");
+    // are never separated by a page break, and the sheet is readable on a
+    // greyscale printer.
+    await expectPageBreakControl(page, "the Personal Safety Plan");
+    await expectMonochromePaper(page, "the Personal Safety Plan");
 
     await expect(paper.getByText(/000/).first()).toBeVisible();
     await expect(paper.getByText(/not an emergency service/i).first()).toBeVisible();
@@ -683,7 +743,15 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     );
   });
 
-  test("the whole authoring lifecycle runs in the browser without losing the Current Plan", async ({ page }) => {
+  /**
+   * Named for the half of the lifecycle it exercises. Drafting a version and
+   * submitting it for approval are **not** covered by any browser journey — they
+   * have reducer and DOM proof only — and the earlier name, "the whole authoring
+   * lifecycle", claimed them. Approving is covered, in the staleness journey
+   * below. The gap is recorded in `verification-report.md` rather than papered
+   * over by a name.
+   */
+  test("a submitted version is returned for changes without the Current Plan moving", async ({ page }) => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
     await gotoRoute(page, routes.reviews, "Reviews");
@@ -762,6 +830,13 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await expect(paper).not.toContainText("Not recorded");
     // Nothing clinical, and nothing from the internal record, reaches the person.
     await expect(paper).not.toContainText(/Management Plan Version|Awaiting Approval|audit|Disposition/i);
+
+    // The sheet that actually leaves the building gets the same two paper
+    // guarantees as the clinician's. It carried neither until fix round 1, while
+    // the accessibility document described both as covering all three surfaces.
+    await expectMonochromePaper(page, "the Patient Plan");
+    await expectPageBreakControl(page, "the Patient Plan");
+
     await page.emulateMedia({ media: "screen" });
   });
 
@@ -806,7 +881,17 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
   }) => {
     test.setTimeout(300_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
-    await gotoRoute(page, routes.safetyPlanEdit, "Draft Personal Safety Plan Version");
+
+    // Reached by clicking from the Management Plan, which also records what the
+    // clinical plan says before any of this — the second half of this case's
+    // name was previously asserted nowhere at all.
+    await gotoRoute(page, routes.managementPlan, "Management Plan");
+    const planBefore = (await page.getByTestId("care-plan-current-plan-metadata").innerText()).trim();
+    expect(planBefore).toContain("Current version");
+    await page.getByRole("link", { name: "Personal Safety Plan" }).first().click();
+    await expect(page.getByRole("heading", { level: 1, name: "Personal Safety Plan" })).toBeVisible();
+    await page.getByRole("link", { name: /^Start a new version with this person$/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Draft Personal Safety Plan Version" })).toBeVisible();
 
     await page.getByRole("button", { name: "Start a new version" }).click();
     await expect(page.getByTestId("care-plan-safety-form-surface")).toBeVisible();
@@ -829,10 +914,21 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await page.getByRole("link", { name: "Print this plan" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Print Personal Safety Plan" })).toBeVisible();
     await expect(printPaper(page)).toBeVisible();
+
+    // "without touching the clinical plan" — the clause the name has always
+    // carried and nothing used to check. The two documents are independent, and
+    // making a Personal Safety Plan version current needs no Management Plan
+    // approval and moves no Management Plan version.
+    await page
+      .getByRole("navigation", { name: "Patient sections" })
+      .getByRole("link", { name: "Management Plan" })
+      .click();
+    await expect(page.getByRole("heading", { level: 1, name: "Management Plan" })).toBeVisible();
+    await expect(page.getByTestId("care-plan-current-plan-metadata")).toHaveText(planBefore);
   });
 
   test("a Review Trigger is resolved without the plan changing by itself", async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
     await gotoRoute(page, routes.reviews, "Reviews");
     // Worklists belong to the liaison, community and senior roles; the default
@@ -840,15 +936,49 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await switchRole(page, ...LIAISON);
     await page.getByRole("tab", { name: /^Review Suggested/ }).click();
 
-    const resolve = page.getByRole("button", { name: /^Record what was decided for / }).first();
+    // What the plan says before any of this, read from the record itself rather
+    // than assumed, so the after-assertion is an equality and not a bare value.
+    await desktopRail(page).getByRole("link", { name: "Home" }).click();
+    const planBefore = (await page.getByTestId("care-plan-current-plan-metadata").innerText()).trim();
+    expect(planBefore).toContain("Current version");
+    await desktopRail(page).getByRole("link", { name: "Reviews" }).click();
+    await page.getByRole("tab", { name: /^Review Suggested/ }).click();
+
+    const resolve = page.getByRole("button", { name: "Record what was decided for Rowan Sample" });
     await expect(resolve).toBeVisible();
     await resolve.click();
     const sheet = page.getByRole("dialog", { name: "Record what was decided" });
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText(/It changes no plan and approves nothing/i);
-    await page.keyboard.press("Escape");
+
+    // A resolution with nothing written in it is refused and the sheet stays
+    // open. This is the positive control for the submit below: without it, a
+    // "resolution" that silently did nothing would look identical to one that
+    // worked.
+    await sheet.getByRole("button", { name: "Record the decision" }).click();
+    await expect(page.getByTestId("care-plan-review-resolution-error")).toContainText(
+      /needs an account of what was decided/i,
+    );
+    await expect(sheet).toBeVisible();
+
+    await page
+      .getByLabel("What the team decided")
+      .fill("Discussed with the team on Tuesday. The plan still fits; the quiet room was the problem, not the plan.");
+    await sheet.getByRole("button", { name: "Record the decision" }).click();
+
+    // It is genuinely resolved: the sheet closes, the outcome says so, and the
+    // entry has left the queue.
     await expect(sheet).toBeHidden();
-    await expect(resolve).toBeFocused();
+    await expect(page.getByTestId("care-plan-reviews-outcome")).toContainText(
+      "Review Trigger resolved. No plan was changed.",
+    );
+    await expect(page.getByRole("button", { name: "Record what was decided for Rowan Sample" })).toHaveCount(0);
+
+    // And the plan it was raised against is exactly what it was. A trigger
+    // never changes a plan by itself, and this is the only assertion in the
+    // suite that actually watches that happen.
+    await desktopRail(page).getByRole("link", { name: "Home" }).click();
+    await expect(page.getByTestId("care-plan-current-plan-metadata")).toHaveText(planBefore);
   });
 
   test("a team's contact details are confirmed as checked, never as available", async ({ page }) => {
@@ -993,22 +1123,57 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
   });
 
   test("a manual Identification Review is recorded without creating a plan", async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
+    // Alex Fiction's only earlier referral is closed, so a fresh one is
+    // legitimately permitted — Ruling 55.
     await gotoRoute(page, patientPath("SYN-PATIENT-005"), "Patient overview");
+
+    // The screen says out loud that attendance counts decide nothing.
+    await expect(page.getByText(/do not determine eligibility|decide nothing/i).first()).toBeVisible();
+    // No plan before, and none after: a referral asks a group to consider
+    // coordinated care, it does not start one.
+    await expect(page.getByRole("region", { name: "Current Plan" })).toHaveCount(0);
 
     await page.getByRole("button", { name: "Refer Alex Fiction for Identification Review" }).click();
     const sheet = page.getByRole("dialog", { name: "Refer for Identification Review" });
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText(/creates no plan/i);
-    await page.keyboard.press("Escape");
-    await expect(sheet).toBeHidden();
 
-    // The screen says out loud that attendance counts decide nothing.
-    await expect(page.getByText(/do not determine eligibility|decide nothing/i).first()).toBeVisible();
+    // A referral with no reason is refused: no numeric rule exists, so the
+    // reason is the whole referral. The positive control for the submit below.
+    await sheet.getByRole("button", { name: "Add to Identification Review" }).click();
+    await expect(page.getByTestId("care-plan-referral-error")).toBeVisible();
+    await expect(sheet).toBeVisible();
+
+    await page
+      .getByLabel("Reason for multidisciplinary review")
+      .fill("Four presentations this quarter with no shared plan; the team would like to consider coordinated care.");
+    await sheet.getByRole("button", { name: "Add to Identification Review" }).click();
+
+    // Genuinely recorded: the sheet closes and the outcome says so.
+    await expect(sheet).toBeHidden();
+    await expect(page.getByTestId("care-plan-outcome")).toBeVisible();
+    // And still no plan on this person's workspace.
+    await expect(page.getByRole("region", { name: "Current Plan" })).toHaveCount(0);
+
+    // It reaches the worklist, reached by clicking so the session survives.
+    await desktopRail(page).getByRole("link", { name: "Reviews" }).click();
+    await page.getByRole("tab", { name: /^Identification Review/ }).click();
+    await expect(
+      page.getByRole("button", { name: "Record the Identification Review decision for Alex Fiction" }),
+    ).toBeVisible();
   });
 
-  test("the Reviews worklists open, resolve, and stay operable on a 320px phone", async ({ page }) => {
+  /**
+   * Named for exactly what it does. It switches between the four worklists and
+   * checks they stay operable at the narrowest supported width; it resolves
+   * nothing. Resolving a Review Trigger end to end is `a Review Trigger is
+   * resolved without the plan changing by itself` above, and the earlier name of
+   * this case claimed that work as well — which is worse than not having it,
+   * because the name is what a later reader trusts.
+   */
+  test("the four Reviews worklists switch and stay operable on a 320px phone", async ({ page }) => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: 320, height: 844 });
     await gotoRoute(page, routes.reviews, "Reviews");
@@ -1020,7 +1185,9 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
       await expect(tab).toBeVisible();
       const box = await tab.boundingBox();
       expect(box, `the ${label} tab has no painted box at 320px`).not.toBeNull();
-      expect(box!.height, `the ${label} tab is below the 48px tap convention at 320px`).toBeGreaterThanOrEqual(44);
+      expect(box!.height, `the ${label} tab is below the 48px tap convention at 320px`).toBeGreaterThanOrEqual(
+        TAP_TARGET_FLOOR,
+      );
       await tab.click();
       await expect(page.getByTestId("care-plan-review-queue")).toBeVisible();
       await expectNoHorizontalOverflow(page);
@@ -1068,13 +1235,93 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
           for (const item of await phoneDock(page).getByRole("link").all()) {
             const box = await item.boundingBox();
             expect(box, "a phone dock destination has no painted box").not.toBeNull();
-            expect(box!.height, "a phone dock destination is below the 48px tap convention").toBeGreaterThanOrEqual(44);
+            expect(box!.height, "a phone dock destination is below the 48px tap convention").toBeGreaterThanOrEqual(
+              TAP_TARGET_FLOOR,
+            );
           }
         } else {
           await expect(desktopRail(page)).toBeVisible();
           await expect(phoneDock(page)).toBeHidden();
         }
       }
+    }
+  });
+
+  /**
+   * The rest of the brief's per-width list, which the first round did not
+   * implement: heading and action wrapping, Current Plan readability, CMHT and
+   * Safety access, and the 48 px floor on primary targets — at each of the five
+   * widths, not only at one.
+   *
+   * The reflow case above covers overflow and rail/dock ownership and nothing
+   * else, which is why this is a second case rather than more assertions inside
+   * that loop: they answer different questions and should fail separately.
+   */
+  test("the plan stays readable and every primary action stays reachable at each width", async ({ page }) => {
+    test.setTimeout(300_000);
+    for (const width of REQUIRED_WIDTHS) {
+      const at = `at ${width}px`;
+      await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+      await gotoRoute(page, routes.managementPlan, "Management Plan");
+
+      // Heading and action wrapping: the page heading keeps its own line, and
+      // no section action is painted on top of the heading it belongs to.
+      const heading = await page.getByRole("heading", { level: 1, name: "Management Plan" }).boundingBox();
+      expect(heading, `the page heading has no painted box ${at}`).not.toBeNull();
+      expect(heading!.width, `the page heading is crushed ${at}`).toBeGreaterThan(60);
+      const planActions = page.getByRole("region", { name: "Plan actions" });
+      await expect(planActions, `Plan actions is not reachable ${at}`).toBeVisible();
+      const actionsHeading = await planActions.getByRole("heading", { name: "Plan actions" }).boundingBox();
+      const firstAction = await planActions.getByRole("button").first().boundingBox();
+      expect(actionsHeading, `the Plan actions heading has no painted box ${at}`).not.toBeNull();
+      expect(firstAction, `Plan actions offers no control ${at}`).not.toBeNull();
+      expect(
+        firstAction!.y,
+        `a plan action is painted over its own heading ${at}, so one of them is unreadable`,
+      ).toBeGreaterThanOrEqual(actionsHeading!.y + actionsHeading!.height - 1);
+
+      // Current Plan readability: the card, its five sections, and the pinned
+      // boundary above them, none of it clipped.
+      await expect(page.getByRole("region", { name: "Current Plan" }), `no Current Plan ${at}`).toBeVisible();
+      await expectPinnedBoundaryAbovePlanContent(page);
+      const fifth = page.getByRole("heading", { name: "5. What would make this presentation different" });
+      await expect(fifth, `the fifth section is not visible ${at}`).toBeVisible();
+      const sections = page.getByTestId("care-plan-first-minute-sections");
+      const clipped = await sections.evaluate((element) => element.scrollHeight - element.clientHeight);
+      expect(clipped, `the first-minute sections are clipped ${at}`).toBeLessThanOrEqual(1);
+      const sectionsBox = await sections.boundingBox();
+      expect(sectionsBox, `the first-minute sections have no painted box ${at}`).not.toBeNull();
+      expect(sectionsBox!.width, `the Current Plan card is too narrow to read ${at}`).toBeGreaterThanOrEqual(
+        Math.min(width, 320) - 48,
+      );
+
+      // CMHT and Safety Plan access, and the 48 px floor on every primary
+      // target, measured rather than assumed.
+      for (const name of [
+        "Email North River CMHT",
+        "Call North River CMHT",
+        "Call the after-hours line",
+        "Personal Safety Plan",
+      ]) {
+        const control = page.getByRole("link", { name }).first();
+        await expect(control, `\`${name}\` is not reachable ${at}`).toBeVisible();
+      }
+      for (const control of await page.getByRole("region", { name: "Plan actions" }).getByRole("button").all()) {
+        const box = await control.boundingBox();
+        const label = (await control.innerText()).replace(/\s+/g, " ").trim().slice(0, 40);
+        expect(box, `\`${label}\` has no painted box ${at}`).not.toBeNull();
+        expect(box!.height, `\`${label}\` is below the 48px tap convention ${at}`).toBeGreaterThanOrEqual(
+          TAP_TARGET_FLOOR,
+        );
+      }
+
+      // Phone dock clearance where applicable: the last plan action must not sit
+      // underneath the dock at maximum scroll.
+      await expectPhoneDockClearance(
+        page,
+        page.getByRole("region", { name: "Plan actions" }).getByRole("button").last(),
+      );
+      await expectNoHorizontalOverflow(page);
     }
   });
 
@@ -1187,13 +1434,19 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     const text = parseColour(contrast.text);
     const background = parseColour(contrast.background);
     expect(text, `unreadable dark-mode text colour: ${contrast.text}`).not.toBeNull();
-    if (background !== null && background.a > 0) {
-      const luminance = (c: Rgba) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-      expect(
-        Math.abs(luminance(text!) - luminance(background)),
-        "dark-mode heading text is the same brightness as the page behind it",
-      ).toBeGreaterThan(60);
-    }
+    // Fails closed. An unreadable page background used to turn the whole
+    // luminance comparison off, so a dark mode that painted nothing would have
+    // passed this silently.
+    expect(background, `unreadable dark-mode page background: ${contrast.background}`).not.toBeNull();
+    expect(
+      background!.a,
+      "the dark-mode page background is transparent, so nothing was painted behind the heading",
+    ).toBeGreaterThan(0);
+    const luminance = (c: Rgba) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    expect(
+      Math.abs(luminance(text!) - luminance(background!)),
+      "dark-mode heading text is the same brightness as the page behind it",
+    ).toBeGreaterThan(60);
     await page.emulateMedia({ colorScheme: "light" });
   });
 

@@ -84,23 +84,34 @@ never reads a spelling.
 
 For each named affordance it asserts:
 
-1. The text colour is painted at all — alpha ≥ 0.5 — and is not the same colour as the
-   effective background behind it.
-2. The colour differs from the prose it sits in. The reference is not a hard-coded token
-   but a throwaway span inserted at the control's own position in the tree, so it measures
-   the colour this text would have had as ordinary body copy.
-3. The affordance the class is contracted to carry is actually drawn: a real underline
-   with opaque decoration ink and non-zero thickness, or a border with non-zero width and
-   opaque ink, or both.
+1. **Every class.** The text colour is painted at all — alpha ≥ 0.5 — and is not the same
+   colour as the effective background behind it.
+2. **The four accent text links only, not the two pill controls.** The colour differs from
+   the prose it sits in. The reference is not a hard-coded token but a throwaway span
+   inserted at the control's own position in the tree, so it measures the colour this text
+   would have had as ordinary body copy. A pill is exempt on purpose: its affordance is its
+   border and its 48 px box, and a probe showed that requiring a colour difference there
+   reddened for a recolouring that costs a reader nothing.
+3. **Per class, from the table below.** The affordance the class is contracted to carry is
+   actually drawn: a real underline with opaque decoration ink and non-zero thickness, or a
+   border with non-zero width and opaque ink that differs from the surface behind it, or
+   both.
 
-| Class                 | Route            | Contracted affordance    |
-| --------------------- | ---------------- | ------------------------ |
-| `pinnedBoundaryLink`  | Patient overview | underline                |
-| `patientNavSecondary` | Patient overview | border (a pill control)  |
-| `inlineLink`          | History          | underline                |
-| `timelineLink`        | ED Presentations | underline                |
-| `queueAction`         | Reviews          | underline **and** border |
-| `specimenLink`        | System states    | underline                |
+Every one of these fails closed on a colour it cannot parse. Chromium serialises some
+values as `color(srgb …)` or `color-mix(…)`, which the parser cannot read — and the first
+version of this gate treated an unreadable **background** as "skip this check", silently
+turning off both the own-background comparison and the border-versus-surface comparison
+with nothing going red. That was the same disappear-quietly shape the whole file exists to
+replace, and it is now an explicit non-null assertion.
+
+| Class                 | Route            | Contracted affordance    | Colour differs from prose |
+| --------------------- | ---------------- | ------------------------ | ------------------------- |
+| `pinnedBoundaryLink`  | Patient overview | underline                | required                  |
+| `patientNavSecondary` | Patient overview | border (a pill control)  | exempt                    |
+| `inlineLink`          | History          | underline                | required                  |
+| `timelineLink`        | ED Presentations | underline                | required                  |
+| `queueAction`         | Reviews          | underline **and** border | required                  |
+| `specimenLink`        | System states    | underline                | required                  |
 
 The class is resolved to the exact token the build emitted, matched on `_`/`-`
 boundaries, so `queueActions` (a wrapper) can never answer for `queueAction` (a control) —
@@ -149,15 +160,22 @@ Three print surfaces, none of which had ever been printed before this task.
   subtree on all three, because the shared rule hides everything outside
   `[data-print-output]` and the shell's own marker therefore does not travel. This exact
   line has been removed by accident twice on this project.
-- **Monochrome is resolved, not declared.** Up to forty elements inside the paper are
-  sampled and their computed `color` asserted to be pure black and their computed
-  `background-color`, where painted, asserted to be pure white. That is the test of
-  whether the monochrome rule actually wins the cascade against every Tailwind utility and
-  CSS-module rule in the subtree.
-- **Page-break control is asked for per block.** Every `PrintSection` in the paper is
-  asserted to compute `break-inside: avoid`, so half of somebody's reasons for living do
-  not land on the previous sheet, and a crisis number is never separated from the sentence
-  saying it is not an emergency service.
+- **Monochrome is resolved, not declared — on all three.** Up to forty elements inside the
+  paper are sampled and their computed `color` asserted to be pure black and their computed
+  `background-color`, where painted, asserted to be pure white. That is the test of whether
+  the monochrome rule actually wins the cascade against every Tailwind utility and
+  CSS-module rule in the subtree. Only a genuinely transparent background is exempt; an
+  **unreadable** one now reddens, where the first version of this check skipped it.
+- **Page-break control is asked for per block — on all three.** Every `PrintSection` in the
+  paper is asserted to compute `break-inside: avoid`, so half of somebody's reasons for
+  living do not land on the previous sheet, and a crisis number is never separated from the
+  sentence saying it is not an emergency service.
+
+  Both of those bullets read as universal in the first version of this document and were
+  true of the clinician summary and the Personal Safety Plan only. **The Patient Plan — the
+  sheet that actually leaves the building — had neither**, which is the wrong one to have
+  missed. Both now run against all three papers through one shared helper, so a fourth print
+  surface cannot be added with only some of them.
 - **Screen chrome does not print.** The rail, the phone dock and the print button itself
   are asserted hidden under print emulation.
 - **The person's own document is complete.** Every one of the seven Personal Safety Plan
