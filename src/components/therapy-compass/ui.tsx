@@ -2,37 +2,13 @@ import type { ReactNode } from "react";
 import { ShieldCheck, TriangleAlert, type LucideIcon } from "lucide-react";
 
 import { Chip, type ChipAppearance } from "@/components/ui/chip";
-import {
-  cn,
-  EmptyState as SharedEmptyState,
-  LoadingPanel,
-  toneInfo,
-  toneSuccess,
-  toneWarning,
-} from "@/components/ui-primitives";
+import { cn, EmptyState as SharedEmptyState, LoadingPanel } from "@/components/ui-primitives";
 
 import { reviewStatusMeta } from "./data/select";
 
 // ---- tag pill -----------------------------------------------------------
 
 type Tone = "neutral" | "purple" | "info" | "success" | "warning" | "accent";
-
-/**
- * Border + background + text for a filled pill. `info`/`success`/`warning` reuse the
- * shared recipes: `--success` and `--success-soft` are aliases of `--success-text` and
- * `--success-bg`, so these render identically to the tone classes they replace. Therapy
- * additionally needs `purple` (therapy modality) and `accent`, which the shared kit
- * does not carry.
- */
-const TONE_SURFACE: Record<Tone, string> = {
-  neutral: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
-  purple: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
-  info: toneInfo,
-  success: toneSuccess,
-  warning: toneWarning,
-  accent:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]",
-};
 
 /** Text colour only, for the borderless transparent eyebrow. */
 const TONE_TEXT: Record<Tone, string> = {
@@ -114,15 +90,9 @@ export function StatusBadge({ status }: { status: string }) {
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
   const Icon = meta.tone === "success" ? ShieldCheck : TriangleAlert;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold",
-        TONE_SURFACE[tone],
-      )}
-    >
-      <Icon size={14} strokeWidth={1.9} aria-hidden="true" />
+    <Chip size="standard" appearance={{ kind: "status", tone }} icon={Icon}>
       {meta.label}
-    </span>
+    </Chip>
   );
 }
 

@@ -55,7 +55,7 @@ export type TcBindings = {
   goPathways: () => void;
   goDetail: () => void;
   goReview: () => void;
-  workspaceHref: (href: string) => string;
+  workspaceHref: (href: string, patch?: Partial<TherapyWorkspaceState>) => string;
   isHome: boolean;
   isOther: boolean;
   otherLabel: string;
@@ -92,6 +92,7 @@ export type TcBindings = {
   compareTherapies: Therapy[];
   toggleCompare: (slug: string) => void; // add/remove + navigate
   addCompare: (slug: string) => void;
+  replaceCompareSlugs: (slugs: readonly string[]) => void;
   removeCompare: (slug: string) => void;
   clearCompare: () => void;
   isInCompare: (slug: string) => boolean;
@@ -414,7 +415,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goPathways: () => go("pathways"),
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
-      workspaceHref: (href) => therapyHrefWithSearchParams(href, workspaceParams()),
+      workspaceHref: (href, patch) => therapyHrefWithSearchParams(href, workspaceParams(patch)),
       isHome: screen === "home",
       isOther: !THERAPY_KNOWN_SCREENS.includes(screen as (typeof THERAPY_KNOWN_SCREENS)[number]),
       otherLabel: screen.charAt(0).toUpperCase() + screen.slice(1),
@@ -498,6 +499,17 @@ export function TcProvider({ children }: { children: ReactNode }) {
           compareSlugs.includes(slug) || compareSlugs.length >= THERAPY_MAX_COMPARE
             ? compareSlugs
             : [...compareSlugs, slug];
+        setCompareSlugs(next);
+        replaceWorkspace({ compareSlugs: next });
+      },
+      replaceCompareSlugs: (slugs) => {
+        const next: string[] = [];
+        for (const slug of slugs) {
+          const trimmed = slug.trim();
+          if (!trimmed || next.includes(trimmed)) continue;
+          next.push(trimmed);
+          if (next.length >= THERAPY_MAX_COMPARE) break;
+        }
         setCompareSlugs(next);
         replaceWorkspace({ compareSlugs: next });
       },

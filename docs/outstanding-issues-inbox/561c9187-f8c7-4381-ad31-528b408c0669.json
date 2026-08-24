@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "561c9187-f8c7-4381-ad31-528b408c0669",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#JZM7RM",
+    "outcome": "Harmonized and documented automated PR review fixer governance in docs/agents-guide.md; established repository GitHub workflow as authoritative responder with deduplication markers and client watcher throttling.",
+    "baseRowFingerprint": "95c43f250172f44f71d7c63ab4a241813b6a45906a5efaede8389f6d875a77e6"
+  }
+}

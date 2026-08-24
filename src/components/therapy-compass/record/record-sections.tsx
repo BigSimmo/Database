@@ -140,13 +140,12 @@ export function TherapyRecordSections({ therapy }: { therapy: Therapy }) {
         <TextSection icon={Target} title="How it works" body={therapy.mechanism} />
         <DeliverySection therapy={therapy} />
         {/* `timeRequired` is prose about session counts, protocol length and
-            intensity — it was previously only ever seen truncated inside a
-            tile, which is where the "Time & setting" line in the old rail came
-            from. It is a body field, so it is rendered as one. */}
+            intensity. The Format tile opens it in a sheet; the reading column
+            still carries the full field. */}
         <TextSection icon={Clock} title="Time and intensity" body={therapy.timeRequired} />
-        {/* The key-facts tile clamps this to two lines, and several records list
-            four or five settings. Nothing on the record may exist only in a
-            clipped form, so the full list is rendered here. */}
+        {/* The key-facts tile glances this as `{first} +N` and opens the full
+            list in a sheet. Several records list four or five settings, so the
+            reading column still carries the complete field. */}
         <TextSection icon={MapPin} title="Where it is delivered" body={therapy.setting} />
         <TextSection icon={Users} title="Who it suits" body={therapy.patientPopulation} />
         <TextSection icon={TriangleAlert} title="Common pitfalls" body={therapy.commonPitfalls} />

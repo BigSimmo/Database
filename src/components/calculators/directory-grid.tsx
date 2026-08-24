@@ -4,7 +4,7 @@ import { BookOpen, Calculator, ChevronDown, Clock3, Info, ListChecks, Search, Sh
 import { useMemo, useState } from "react";
 
 import { cardSelected, cardSurface } from "@/components/card-recipes";
-import { cn } from "@/components/ui-primitives";
+import { cn, searchShellInput } from "@/components/ui-primitives";
 import { CALCULATOR_DOMAIN_ACCENT } from "@/lib/category-identity";
 
 import {
@@ -211,7 +211,7 @@ export function CalculatorsDirectoryGridMockup() {
           <form
             role="search"
             onSubmit={(event) => event.preventDefault()}
-            className="grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 shadow-[var(--e1)]"
+            className="search-shell grid min-h-12 w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 shadow-[var(--e1)]"
           >
             <Search className="size-icon-lg text-[color:var(--decoration-soft)]" aria-hidden="true" />
             <input
@@ -220,7 +220,10 @@ export function CalculatorsDirectoryGridMockup() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by scale, symptom, or indication"
               aria-label="Search calculators"
-              className="min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus:outline-none"
+              className={cn(
+                searchShellInput,
+                "text-sm font-semibold text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)]",
+              )}
             />
           </form>
 
