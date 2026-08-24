@@ -234,3 +234,106 @@ captured sheet.
    in this one. The underlying defect is unchanged and still belongs in `/issues`.
 7. **The pinned safety boundary's wording order reads awkwardly** — `Then read the full
 section.` arrives before the link naming the section. Cosmetic, recorded, not changed.
+
+---
+
+# Task 11 — fix round 1
+
+The task review returned **spec ✅ / changes needed**: all three navigation fixes approved,
+Ruling 57's replacement approved as a genuine computed-style assertion — and then killed with
+a tenth spelling none of my four probes covered,
+`text-decoration-color: color-mix(in srgb, black 0%, transparent)`, which died on the
+fail-closed unparseable branch. That is the right direction and it is how the reviewer found
+Important 2 below.
+
+## Critical — a test named for work it does not do
+
+Two cases claimed work they did not perform, and the report listed one of them as delivered.
+
+- `a Review Trigger is resolved without the plan changing by itself` opened the resolution
+  sheet and pressed `Escape`. Nothing was resolved.
+- `the Reviews worklists open, resolve, and stay operable on a 320px phone` switched tabs.
+  Nothing was resolved there either.
+
+Both are now correct. The first genuinely resolves: it reads the Current Plan metadata first,
+opens the sheet, **submits it blank and asserts the refusal** — the positive control, without
+which a resolution that silently did nothing would look identical to one that worked — then
+writes a resolution, asserts `Review Trigger resolved. No plan was changed.`, asserts the
+entry has left the queue, and finally asserts the plan is character-for-character what it was.
+The second is renamed to `the four Reviews worklists switch and stay operable on a 320px
+phone`.
+
+The brief's per-width list was also a third implemented — only overflow and rail/dock
+ownership. Heading and action wrapping, Current Plan readability, CMHT and Safety access, the
+48 px floor on primary targets and dock clearance now all run at each of the five widths, in
+`the plan stays readable and every primary action stays reachable at each width`. Both gaps
+are now in the verification report's gap section, which did not mention either.
+
+## The sweep — what re-reading all thirty names against their bodies found
+
+**Three more of the same shape**, all fixed:
+
+| Case                                                                                              | Claimed                                 | Did                                        | Now                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `a manual Identification Review is recorded without creating a plan`                              | a referral is recorded                  | opened the sheet, pressed `Escape`         | refuses a reasonless referral, records a real one, asserts no plan appeared, follows it into the worklist                                      |
+| `the whole authoring lifecycle runs in the browser without losing the Current Plan`               | draft, submit, compare, return, approve | returned for changes only                  | renamed `a submitted version is returned for changes without the Current Plan moving`; the drafting/submission gap is recorded, not named over |
+| `a Personal Safety Plan is written, made current, and printed without touching the clinical plan` | the trailing clause                     | asserted nothing about the Management Plan | reads the Current Plan before, walks the interface, asserts it identical after                                                                 |
+
+The remaining twenty-six do what they say. Two are accurate but narrower than they sound and
+now say so in a comment: the dark-mode/forced-colours boundary case checks one route rather
+than twenty-one, and the keyboard case walks forty tab stops on one surface.
+
+## Important 1 — tap-target guards that could not catch their own regression
+
+Both asserted `>= 44` while their messages said "below the 48px tap convention", so
+`min-h-12 → min-h-11` — the exact edit this repository bans, because 44 px reintroduces a
+known `ui-smoke` flake — passed them. Both now use a shared `TAP_TARGET_FLOOR = 47.5`
+(47.5 rather than 48 because a fractional viewport can round a 48 px box to 47.98; a
+`min-h-11` regression measures 44, nowhere near it).
+
+## Important 2 — a guard that silently stopped checking
+
+`parseColour` returns `null` for Chromium's `color(srgb …)` and `color-mix(…)` serialisations.
+Text and decoration ink failed closed on `null`; **background did not**. Four checks were
+disabled by an unreadable background with nothing going red: the own-background comparison and
+the border-versus-surface comparison in `expectLooksLikeALink`, the print monochrome background
+check, and the dark-mode luminance check. All four are now explicit non-null assertions. Only a
+genuinely transparent background is still exempt from the monochrome check, because that is "no
+tint" — the thing being asked for.
+
+## Important 3 — the Patient Plan paper had no monochrome or page-break proof
+
+The two checks lived inline in the clinician and Safety Plan journeys only, while the
+accessibility document opened "Three print surfaces…" and stated both as unqualified bullets.
+They are now one shared helper each, run against all three papers, so a fourth print surface
+cannot be added with only some of them. The bullets say so.
+
+## Important 4 — the defect I had just fixed, one branch along
+
+`management-plan-read.tsx` put the Patient Plan link inside the `currentManagementVersion !==
+null` arm only, so a **withdrawn** record lost it again — and that is the branch it matters most
+in, because the specification keeps a Patient Plan readable precisely so somebody holding a
+printed copy of a withdrawn plan can still be told what they were given. The row is now one
+helper called from both branches. Regression test RED first:
+`Unable to find an accessible element with the role "link" and name "Open the Patient Plan"`,
+then `Tests 269 passed (269)` → `Tests 270 passed (270)`.
+
+## Minor — three evidence corrections
+
+- The confidential footer is **not** "the last thing the reader sees": `print-output.tsx:124`
+  renders the provenance `<footer>` after it. Corrected in the verification report, this report
+  and Ruling 60.
+- The blast radius was overstated. It does **not** touch the shared primitive — it is two
+  deletions inside Care Plan, at `safety-plan-pages.tsx:540` and `patient-plan-pages.tsx:585`.
+  Corrected everywhere, so the user decides against the real cost. **Not changed**, per
+  instruction.
+- `accessibility-acceptance.md` stated the colour-difference assertion unconditionally while its
+  own table and the code exempt `patientNavSecondary`. The list is now explicit about which
+  clause applies to which class, and the table carries a `Colour differs from prose` column.
+- `interaction-matrix.md` now records that the Patient Plan link renders on the Current **and**
+  withdrawn branches and not on a record that never had a plan.
+
+## Not fixed, by instruction
+
+The affordance table is a hand-maintained list of six classes while the frozen static tripwire
+derives eleven. Recorded for the whole-branch review.

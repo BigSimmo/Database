@@ -176,6 +176,7 @@ Three print surfaces, none of which had ever been printed before this task.
   sheet that actually leaves the building — had neither**, which is the wrong one to have
   missed. Both now run against all three papers through one shared helper, so a fourth print
   surface cannot be added with only some of them.
+
 - **Screen chrome does not print.** The rail, the phone dock and the print button itself
   are asserted hidden under print emulation.
 - **The person's own document is complete.** Every one of the seven Personal Safety Plan

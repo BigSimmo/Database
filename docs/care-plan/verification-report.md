@@ -331,18 +331,18 @@ this report did not mention them at all. The rest remain open.
 **Closed in fix round 1:**
 
 - **The Review Trigger journey resolved nothing.** A case named `a Review Trigger is
-  resolved without the plan changing by itself` opened the sheet and pressed `Escape`, and a
+resolved without the plan changing by itself` opened the sheet and pressed `Escape`, and a
   second named `the Reviews worklists open, resolve, and stay operable…` only switched tabs.
   The brief required the resolution journey and this report listed it as delivered. It now
   genuinely resolves: blank submission refused, resolution written, outcome asserted, entry
   gone from the queue, and the plan it was raised against asserted byte-for-byte unchanged.
   The second case is renamed to `the four Reviews worklists switch and stay operable on a
-  320px phone`, which is what it does.
+320px phone`, which is what it does.
 - **The per-width list was a third implemented.** The brief asks for heading and action
   wrapping, Current Plan readability, CMHT and Safety access, 48 px primary targets and dock
   clearance at each of the five widths; only overflow and rail/dock ownership were checked.
   All of it is now in `the plan stays readable and every primary action stays reachable at
-  each width`.
+each width`.
 
 **Still open:**
 
@@ -357,7 +357,7 @@ this report did not mention them at all. The rest remain open.
   senior-approval boundary lives. Drafting and submission have reducer and DOM proof only, so
   the eleven-field authoring form has no rendered proof at all. The case that used to be
   called `the whole authoring lifecycle…` is renamed to `a submitted version is returned for
-  changes without the Current Plan moving`, because it was claiming this gap rather than
+changes without the Current Plan moving`, because it was claiming this gap rather than
   covering it.
 - **The affordance table is a hand-maintained list of six classes** while the frozen static
   tripwire derives eleven. Out of scope for this round by the reviewer's decision — the
@@ -370,11 +370,11 @@ The Critical finding was that a test named for work it does not do is worse than
 test, because the name is what a later reader trusts. Every one of the thirty cases was
 re-read against its own body. **Three more of the same shape were found**, all now fixed:
 
-| Case | What the name claimed | What it did | Fix |
-| ---- | --------------------- | ----------- | --- |
-| `a manual Identification Review is recorded without creating a plan` | a referral is recorded | opened the referral sheet and pressed `Escape` — nothing was recorded | Now refuses a reasonless referral, records a real one, asserts the outcome, asserts no plan appeared, and follows it into the Identification Review worklist |
-| `the whole authoring lifecycle runs in the browser without losing the Current Plan` | drafting, submitting, comparing, returning **and** approving | returning for changes only | Renamed to `a submitted version is returned for changes without the Current Plan moving`; the drafting and submission gap is recorded above rather than named over |
-| `a Personal Safety Plan is written, made current, and printed without touching the clinical plan` | the trailing clause — that the clinical plan is untouched | wrote, made current and printed; asserted nothing at all about the Management Plan | Now reads the Current Plan metadata before, walks to the Safety Plan through the interface, and asserts the Management Plan is identical afterwards |
+| Case                                                                                              | What the name claimed                                        | What it did                                                                        | Fix                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `a manual Identification Review is recorded without creating a plan`                              | a referral is recorded                                       | opened the referral sheet and pressed `Escape` — nothing was recorded              | Now refuses a reasonless referral, records a real one, asserts the outcome, asserts no plan appeared, and follows it into the Identification Review worklist       |
+| `the whole authoring lifecycle runs in the browser without losing the Current Plan`               | drafting, submitting, comparing, returning **and** approving | returning for changes only                                                         | Renamed to `a submitted version is returned for changes without the Current Plan moving`; the drafting and submission gap is recorded above rather than named over |
+| `a Personal Safety Plan is written, made current, and printed without touching the clinical plan` | the trailing clause — that the clinical plan is untouched    | wrote, made current and printed; asserted nothing at all about the Management Plan | Now reads the Current Plan metadata before, walks to the Safety Plan through the interface, and asserts the Management Plan is identical afterwards                |
 
 The remaining twenty-six were checked and do what they say. Two are worth noting as accurate
 but narrower than they sound, and both say so in a comment rather than in the name:

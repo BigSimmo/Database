@@ -380,12 +380,10 @@ async function expectLooksLikeALink(page: Page, name: string, affordance: Afford
     colour!.a,
     `\`${name}\` paints its text in ink that is effectively invisible (${measured.colour})`,
   ).toBeGreaterThanOrEqual(0.5);
-  {
-    expect(
-      sameColour({ ...colour!, a: 1 }, { ...background!, a: 1 }),
-      `\`${name}\` paints its text the same colour as its own background (${measured.colour})`,
-    ).toBe(false);
-  }
+  expect(
+    sameColour({ ...colour!, a: 1 }, { ...background!, a: 1 }),
+    `\`${name}\` paints its text the same colour as its own background (${measured.colour})`,
+  ).toBe(false);
 
   // For a text link, it is not the same colour as the prose it sits in.
   if (affordance.distinctColour) {
@@ -919,6 +917,12 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // carried and nothing used to check. The two documents are independent, and
     // making a Personal Safety Plan version current needs no Management Plan
     // approval and moves no Management Plan version.
+    //
+    // Routed back through Home rather than the patient section navigation: a
+    // print route deliberately carries none, which is correct and is what the
+    // first attempt at this step tripped over.
+    await desktopRail(page).getByRole("link", { name: "Home" }).click();
+    await page.getByRole("link", { name: "Open the full record for Rowan Sample" }).click();
     await page
       .getByRole("navigation", { name: "Patient sections" })
       .getByRole("link", { name: "Management Plan" })
