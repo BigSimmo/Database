@@ -219,6 +219,11 @@
         "area": "product"
       },
       {
+        "path": "/factsheets/topics",
+        "file": "src/app/(search-app)/factsheets/topics/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/favourites",
         "file": "src/app/(search-app)/favourites/page.tsx",
         "area": "product"
@@ -651,6 +656,11 @@
       {
         "path": "/mockups/factsheets-compact-view",
         "file": "src/app/mockups/factsheets-compact-view/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/factsheets-topics-phone",
+        "file": "src/app/mockups/factsheets-topics-phone/page.tsx",
         "area": "mockup"
       },
       {
@@ -1339,9 +1349,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 185,
-      "product_pages": 65,
-      "mockup_pages": 120,
+      "pages": 187,
+      "product_pages": 66,
+      "mockup_pages": 121,
       "redirects": 17,
       "api": 56
     }

@@ -73,6 +73,9 @@ export type AppModeDefinition = {
   search: AppModeSearchConfig;
 };
 
+/** Canonical clean category-browse route for the Factsheets mode. */
+export const factsheetsTopicsHref = "/factsheets/topics";
+
 export const appModeDefinitions = [
   {
     id: "answer",

@@ -649,6 +649,56 @@ export function factsheetSlugs(): string[] {
   return factsheets.map((sheet) => sheet.slug);
 }
 
+/** Canonical detail route for a factsheet record. */
+export function factsheetDetailHref(slug: string): string {
+  return `/factsheets/${slug}`;
+}
+
+/** Category-ordered groups for the Topics browse page. */
+export function factsheetsGroupedByCategory(): Array<{ category: FactsheetCategory; sheets: Factsheet[] }> {
+  return factsheetCategories.map((category) => ({
+    category,
+    sheets: factsheets.filter((sheet) => sheet.category === category),
+  }));
+}
+
+/** First N rows shown before the section's "Show all" control. */
+export const TOPIC_SECTION_PREVIEW_LIMIT = 8;
+
+/** Stable section / hash id for a topic heading. */
+export function topicSectionId(category: string): string {
+  return `factsheet-topic-${category.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+}
+
+/** Query value for `?topic=` — the section slug without the `factsheet-topic-` prefix. */
+export function factsheetTopicQueryValue(category: FactsheetCategory): string {
+  return topicSectionId(category).replace(/^factsheet-topic-/, "");
+}
+
+/**
+ * Resolve `?topic=` to a known category. Accepts the display name, the section
+ * id, or the short slug. Unknown values return undefined so every topic stays
+ * closed instead of opening a blank filter.
+ */
+export function resolveFactsheetTopicParam(value?: string | null): FactsheetCategory | undefined {
+  const raw = value?.trim();
+  if (!raw) return undefined;
+  const exact = factsheetCategories.find((entry) => entry === raw);
+  if (exact) return exact;
+  const slug = raw.replace(/^factsheet-topic-/i, "").toLowerCase();
+  return factsheetCategories.find((entry) => factsheetTopicQueryValue(entry) === slug);
+}
+
+/** Rows a topic section should paint before the reader asks to expand it. */
+export function visibleTopicSheets<T>(
+  sheets: readonly T[],
+  expanded: boolean,
+  limit = TOPIC_SECTION_PREVIEW_LIMIT,
+): T[] {
+  if (expanded || sheets.length <= limit) return [...sheets];
+  return sheets.slice(0, limit);
+}
+
 /** Server-driven filter for the search page: optional query + optional category. */
 export function filterFactsheets(query: string, category?: string): Factsheet[] {
   const q = query.trim().toLowerCase();
