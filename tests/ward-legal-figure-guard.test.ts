@@ -568,6 +568,87 @@ function targetMovementId(event: WardFlowEvent): string | undefined {
 }
 
 /**
+ * Fix round 1 (2026-08-25). `RELEASE_HOLD` only ever succeeds at stage `bed_held`, and once the
+ * round-robin sweep above lets `HANDOVER_READY` (or a transport-progression event) fire first, a
+ * movement is past `bed_held` for good — the only way back is `RELEASE_HOLD` itself, the very
+ * event under test. That is a limitation of the SWEEP's fixed cyclic ordering, not of the domain:
+ * a movement of any legal-form code can genuinely sit at `bed_held` with a live transport job, the
+ * same as a Form 1A can (see `WF-016`/`WF-005`, the pre-seeded fixture movements that let 1A pass
+ * without needing this helper at all). Excusing the gap via `STRUCTURALLY_IMPOSSIBLE_FOR_CODE`
+ * would therefore be a FALSE claim about the domain — exactly what that list's own doc comment
+ * forbids ("never 'the sweep did not happen to get there'"). So this builds the precondition
+ * explicitly instead, the same way `RESET_SCENARIO`/`SET_SCENARIO` are exercised on their own
+ * below, and every step asserts it was NOT refused — a genuinely impossible step fails loudly with
+ * the reducer's own reason quoted, rather than the construction silently stopping early and
+ * reporting nothing.
+ */
+function buildHeldMovementFor(code: string, now: number): { state: WardFlowState; movementId: string } {
+  const seeded = seedWardFlowState();
+  const ed = allEmergencyDepartments()[0];
+  const raised = wardFlowReducer(seeded, {
+    type: "RAISE_REFERRAL",
+    role: EVENT_ROLE.RAISE_REFERRAL[0],
+    now,
+    edId: ed.id,
+    draft: {
+      cohort: "Adult",
+      security: "Open",
+      sex: "Female",
+      specialling: false,
+      legalStatus: "Referred for psychiatric examination",
+      urgency: 2,
+      legalFormCode: code,
+    },
+  });
+  expect(raised.rejections, `RAISE_REFERRAL for Form ${code} was refused: ${raised.rejections.at(-1)?.reason}`).toEqual(
+    [],
+  );
+  const movement = raised.movements.at(-1)!;
+
+  // Neither REFER_TO_UNITS, ACCEPT_IN_PRINCIPLE nor HOLD_BED gate on cohort, security or sex —
+  // that eligibility scoring lives in the protected `ward-eligibility.ts`, a UI-facing concern the
+  // reducer itself never consults — so any unit with spare allocatable capacity is a genuine,
+  // reachable destination for this construction, not a fabricated shortcut.
+  const unit = raised.units.find((candidate) => candidate.allocatable.value > 0);
+  expect(unit, `no unit with allocatable capacity was found to hold a bed for Form ${code}`).toBeDefined();
+
+  const referred = wardFlowReducer(raised, {
+    type: "REFER_TO_UNITS",
+    role: EVENT_ROLE.REFER_TO_UNITS[0],
+    now,
+    movementId: movement.id,
+    unitIds: [unit!.id],
+  });
+  expect(
+    referred.rejections,
+    `REFER_TO_UNITS for Form ${code} was refused: ${referred.rejections.at(-1)?.reason}`,
+  ).toEqual([]);
+
+  const acceptedInPrinciple = wardFlowReducer(referred, {
+    type: "ACCEPT_IN_PRINCIPLE",
+    role: EVENT_ROLE.ACCEPT_IN_PRINCIPLE[0],
+    now,
+    movementId: movement.id,
+    unitId: unit!.id,
+  });
+  expect(
+    acceptedInPrinciple.rejections,
+    `ACCEPT_IN_PRINCIPLE for Form ${code} was refused: ${acceptedInPrinciple.rejections.at(-1)?.reason}`,
+  ).toEqual([]);
+
+  const held = wardFlowReducer(acceptedInPrinciple, {
+    type: "HOLD_BED",
+    role: EVENT_ROLE.HOLD_BED[0],
+    now,
+    movementId: movement.id,
+    unitId: unit!.id,
+  });
+  expect(held.rejections, `HOLD_BED for Form ${code} was refused: ${held.rejections.at(-1)?.reason}`).toEqual([]);
+
+  return { state: held, movementId: movement.id };
+}
+
+/**
  * Applies the first candidate of this type that the reducer ACCEPTS, optionally restricted to
  * candidates acting on a movement whose legal form carries `code`.
  *
@@ -788,6 +869,56 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
       // code that vanished from the model would make its whole pass silently vacuous.
       const carrying = finalState.movements.filter((movement) => movement.legalForm?.code === code);
       expect(carrying.length, `the sweep never held a Form ${code}`).toBeGreaterThan(0);
+    }
+
+    // RELEASE_HOLD / CANCEL_TRANSPORT, exercised explicitly per code (fix round 1, 2026-08-25) —
+    // see `buildHeldMovementFor`'s own doc comment for why the round-robin sweep above can never
+    // reach these two for a code without a pre-seeded fixture movement, and why that is a
+    // traversal limitation rather than grounds for a `STRUCTURALLY_IMPOSSIBLE_FOR_CODE` entry.
+    // Mutates the SAME `Set` instances already stored in `coverage` above, so this genuinely
+    // satisfies the "Non-vacuity 3" check below rather than sidestepping it.
+    for (const code of SWEEP_CODES) {
+      const accepted = coverage.get(code)!;
+
+      const forRelease = buildHeldMovementFor(code, NOW_ANCHOR);
+      const released = wardFlowReducer(forRelease.state, {
+        type: "RELEASE_HOLD",
+        role: EVENT_ROLE.RELEASE_HOLD[0],
+        now: NOW_ANCHOR,
+        movementId: forRelease.movementId,
+        reason: "hold_made_in_error",
+      });
+      expect(
+        released.rejections,
+        `RELEASE_HOLD for Form ${code} was refused: ${released.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      accepted.add("RELEASE_HOLD");
+      offenders.push(...offendingFormsIn(released, `RELEASE_HOLD(${code})`));
+
+      const forCancel = buildHeldMovementFor(code, NOW_ANCHOR);
+      const readyForHandover = wardFlowReducer(forCancel.state, {
+        type: "HANDOVER_READY",
+        role: EVENT_ROLE.HANDOVER_READY[0],
+        now: NOW_ANCHOR,
+        movementId: forCancel.movementId,
+      });
+      expect(
+        readyForHandover.rejections,
+        `HANDOVER_READY for Form ${code} was refused: ${readyForHandover.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      const cancelled = wardFlowReducer(readyForHandover, {
+        type: "CANCEL_TRANSPORT",
+        role: EVENT_ROLE.CANCEL_TRANSPORT[0],
+        now: NOW_ANCHOR,
+        movementId: forCancel.movementId,
+        reason: "provider_unavailable",
+      });
+      expect(
+        cancelled.rejections,
+        `CANCEL_TRANSPORT for Form ${code} was refused: ${cancelled.rejections.at(-1)?.reason}`,
+      ).toEqual([]);
+      accepted.add("CANCEL_TRANSPORT");
+      offenders.push(...offendingFormsIn(cancelled, `CANCEL_TRANSPORT(${code})`));
     }
 
     // Non-vacuity 3: every movement-targeted event type was ACCEPTED against a movement carrying
