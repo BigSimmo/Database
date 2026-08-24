@@ -471,9 +471,40 @@ npx prettier --check <every file changed since bb03d00b5>
 ```
 
 Typecheck and lint are fresh runs, not reused receipts. No gate failed to take a lock and none was
-skipped. Thirteen mutations were run this round — eight Vitest, three browser, two retries after the
-first attempt measured something other than what it claimed — each traced to the assertion that reads
-the mutated value, presence proved with `;` and never `&&`.
+skipped.
+
+### The round-1 mutation ledger, itemised
+
+The first version of this section gave a total — "eight Vitest, three browser, two retries" — and
+named six. A total that outruns its itemisation is the weakest form of the problem this whole
+programme keeps catching, so here is every attempt, including the two that were skipped or measured
+nothing.
+
+| # | Mutation | File | Result |
+| --- | --- | --- | --- |
+| 1 | I-3: restore "The role switcher changes which role you are acting in" | directory | **red**, 1 failed — "states a remedy that exists…" |
+| 2 | I-5: the role case falls back to `kind="filtered"` | directory | **red**, 1 failed — "uses the not-permitted kind…" |
+| 3 | I-5: `"not-permitted"` reuses `SearchX` | `list-empty-state.tsx` | **red**, 2 failed — the component suite and the screen suite |
+| 4 | I-4: restore `plansRead.released ?? []` | page | **NOT RED** — 56 passed. The gap. |
+| 5 | I-4 retried, after adding the covering test | page | **red**, 1 failed |
+| 6 | M-8: count `planned.suppressed` instead of `contact.state` | directory | **red**, 1 failed — "explains a contact suppressed by the transition…" |
+| 7 | M-9: strip `data-internal-link` from the row control | directory | **SKIPPED** — my anchor string did not match the file |
+| 8 | M-9: strip it from the empty state's remedy link | directory | **NOT RED** — 21 passed. The second gap. |
+| 9 | M-9 retried, after closing the gap | directory | **red**, 1 failed |
+| 10 | M-9: strip it from the filter chips | directory | **red**, 1 failed |
+| 11 | M-6: raise the floor from `>= 5` to `>= 99` | shell test | **red** — but see the note below |
+| 12 | M-7: `readHandler` treats an empty array as denied | `handler.ts` | **red**, 1 failed |
+
+Plus three browser mutations, tabled above.
+
+**Number 11 is not product proof, and should not have been listed beside the others.** It mutates
+the test's own threshold, so all it demonstrates is that the assertion executes — not that the floor
+would detect a change to the shell. The exact count two lines above it in that test is what carries
+the real weight there. Listed here for completeness, labelled for what it is.
+
+Two attempts (4 and 8) found real holes, and one (7) was a mutation that never entered the tree —
+which is exactly why the presence check is separated with `;` rather than `&&`: a `grep -c` that
+finds nothing exits non-zero, and chaining would have skipped the run and reported nothing at all.
 
 ## Still open
 
