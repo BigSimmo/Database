@@ -156,6 +156,11 @@ describe("mobile composer reserve contract", () => {
     // dock on `/` and lost the hero composer, ticker and privacy notice.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
+    const shell = source("src/components/clinical-dashboard/global-search-shell.tsx");
+    expect(shell).toContain("isDictionaryCataloguePath(pathname)");
+    expect(shell).toMatch(
+      /const heroOwnsPhoneComposer =\s*\(isStandaloneModeHome && mobileHomeComposerPlacement === "hero"\) \|\| isDictionaryCatalogue;/,
+    );
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toMatch(
       /const heroComposerBreakpoint =\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,

@@ -124,8 +124,9 @@ test("keeps mixed result filters truthful, URL-owned, and phone-operable", async
  * The merged catalogue's phone header.
  *
  * Filter lives in the original results band on browse and search. Compact Terms
- * / Abbreviations and A–Z sit under that band. This pins the geometry rather
- * than asserting class names.
+ * / Abbreviations and A–Z sit under that band. The in-page "Clinical terms"
+ * title is gone; the original shared composer sits at the top (no phone dock).
+ * This pins the geometry rather than asserting class names.
  */
 test("merges search and browse into one catalogue with a measured phone header", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -141,6 +142,15 @@ test("merges search and browse into one catalogue with a measured phone header",
   // The phone chrome stack is position:fixed and mounts collapsed, so every
   // offset below it is wrong until it settles (#XPY409, docs/testing.md).
   await page.waitForTimeout(1200);
+
+  await expect(page.getByRole("heading", { name: "Clinical terms" })).toHaveCount(0);
+  await expect(page.getByText("Clinical dictionary", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Dictionary catalogue", level: 1 })).toHaveCount(1);
+  await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+  const composer = page.getByTestId("dictionary-catalogue-composer");
+  await expect(composer).toBeVisible();
+  await expect(composer.getByTestId("global-search-input")).toBeVisible();
+  await expect(page.locator("#main-content [data-testid='global-search-input']")).toHaveCount(1);
 
   const ribbon = page.getByTestId("search-query-ribbon");
   const toggle = page.getByTestId("dictionary-scope-toggle");
@@ -165,12 +175,16 @@ test("merges search and browse into one catalogue with a measured phone header",
   const browseGeometry = await page.evaluate(() => {
     const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect() ?? null;
     return {
+      composerBottom: box('[data-testid="dictionary-catalogue-composer"]')?.bottom ?? -1,
+      ribbonTop: box('[data-testid="search-query-ribbon"]')?.top ?? -1,
       ribbonBottom: box('[data-testid="search-query-ribbon"]')?.bottom ?? -1,
       filterTop: box('[data-testid="dictionary-filter-trigger-phone"]')?.top ?? -1,
       toggleTop: box('[data-testid="dictionary-scope-toggle"]')?.top ?? -1,
       letterTop: box('[data-testid="dictionary-letter-chip"]')?.top ?? -1,
     };
   });
+  expect(browseGeometry.composerBottom).toBeGreaterThan(0);
+  expect(browseGeometry.ribbonTop).toBeGreaterThanOrEqual(browseGeometry.composerBottom);
   expect(browseGeometry.ribbonBottom).toBeGreaterThan(0);
   expect(browseGeometry.toggleTop).toBeGreaterThanOrEqual(browseGeometry.ribbonBottom);
   expect(Math.abs(browseGeometry.toggleTop - browseGeometry.letterTop)).toBeLessThanOrEqual(2);
@@ -194,6 +208,8 @@ test("merges search and browse into one catalogue with a measured phone header",
 
   await gotoDictionary(page, "/dictionary/search?q=tardive+dyskinesia", "dictionary-catalogue-main");
   await page.waitForTimeout(1200);
+  await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
+  await expect(page.getByTestId("dictionary-catalogue-composer").getByTestId("global-search-input")).toBeVisible();
   await expect(ribbon).toBeVisible();
   await expect(ribbon.getByTestId("dictionary-clear-query")).toBeVisible();
   await expect(

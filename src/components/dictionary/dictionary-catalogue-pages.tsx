@@ -23,6 +23,7 @@ import {
   type ResultFilterOption,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { DictionaryResultRow } from "@/components/dictionary/dictionary-result-row";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { type PageSection } from "@/components/in-page-nav/page-section-index";
@@ -47,6 +48,7 @@ import {
   dictionaryTopics,
   type DictionaryEntryKind,
 } from "@/lib/dictionary-data";
+import { modeHomeComposerReservePendingValue, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 const scopeOptions = [
   { value: "definitions", label: "Terms" },
@@ -117,8 +119,9 @@ function catalogueNoun(scope: DictionaryCatalogueScope, count: number) {
  * only as a redirect for existing links.
  *
  * The Filter band is always on this page (count, optional query, Filter). Compact
- * Terms / Abbreviations and A–Z sit under that band. The shared bottom composer
- * is this page's ONLY search input. Do not add a second one —
+ * Terms / Abbreviations and A–Z sit under that band. The shared composer portals
+ * into this page at the top (under mode nav, above the Filter band) at every
+ * width — there is no phone bottom dock. Do not add a second search field —
  * `docs/search-chrome-behaviour.md`'s one-composer-per-page rule is a hard
  * constraint with committed tests behind it.
  */
@@ -303,7 +306,7 @@ export function DictionaryCataloguePage() {
             aria-controls="dictionary-catalogue-results"
             onClick={() => setOne("view", option.value, "definitions")}
             className={cn(
-              "inline-flex min-h-tap items-center gap-1 px-2 text-2xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
+              "inline-flex min-h-tap items-center gap-1 px-2 text-xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
               active
                 ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
@@ -330,7 +333,7 @@ export function DictionaryCataloguePage() {
       data-testid="dictionary-letter-chip"
       title="Jump to a letter"
       className={cn(
-        "inline-flex min-h-tap shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-2xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
+        "inline-flex min-h-tap shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] sm:hidden",
         focusRing,
       )}
     >
@@ -374,16 +377,13 @@ export function DictionaryCataloguePage() {
   return (
     <>
       <InformationPageShell testId="dictionary-catalogue-main" width="bleed" gap={false}>
-        <header className="mx-auto w-full max-w-[76rem] px-4 pb-3 pt-4 sm:px-6 sm:pb-4 sm:pt-7">
-          {/* Desktop-only: on a phone the mode-nav rail sitting directly above
-              already reads "Terms", so the kicker repeats it for a whole band. */}
-          <p className="hidden text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)] sm:block">
-            Clinical dictionary
-          </p>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:mt-1 sm:text-4xl">
-            Clinical terms
-          </h1>
-        </header>
+        <DesktopComposerPortalSlot
+          id={modeHomeDesktopComposerSlotId}
+          data-testid="dictionary-catalogue-composer"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="mode-home-composer-slot mx-auto block w-full max-w-[76rem] min-w-0 px-4 pt-3 sm:px-6 sm:pt-4 min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+        />
+        <h1 className="sr-only">Dictionary catalogue</h1>
         {/* The original Filter band stays on browse and search. Compact Terms /
             Abbreviations and A–Z sit underneath on the right. */}
         <div className="mx-auto w-full max-w-[76rem] px-4 pb-2 sm:px-6 sm:pb-3">
