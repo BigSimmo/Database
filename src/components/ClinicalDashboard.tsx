@@ -99,7 +99,6 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
-import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import {
@@ -465,7 +464,10 @@ function ClinicalDashboardContent({
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
-  const [answerViewMode, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
+  // Write-only for now: the clinical-notes panel was its only reader and the source
+  // drawer replaced that panel. The state and its resets stay until the panel itself
+  // is removed (handover §8), so re-wiring a view mode does not have to be rebuilt.
+  const [, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
   const [bulkActionStatus, setBulkActionStatus] = useState<string | null>(null);
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -2895,11 +2897,6 @@ function ClinicalDashboardContent({
       })
       .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
   }, [answer?.answerSections, answerPreformatted, sourceLookup]);
-  const answerEvidenceMapRows = useMemo(() => {
-    if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
-    return evidenceMapRowsFromRenderModel(answerRenderModel).slice(0, answerRenderModel.trust === "high" ? 8 : 6);
-  }, [answerRenderModel]);
-
   const showSystemNotice = Boolean(setupWarning && !demoMode);
   const groupedGovernanceWarningCount = useMemo(
     () =>
@@ -3812,12 +3809,8 @@ function ClinicalDashboardContent({
                         sourceSummary={sourceSummary}
                         renderModel={answerRenderModel}
                         weakEvidence={weakEvidence}
-                        answerViewMode={answerViewMode}
-                        answerEvidenceMapRows={answerEvidenceMapRows}
-                        onScopeDocument={handleScopeDocument}
                         answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
-                        demoMode={demoMode}
                         safeAnswerSections={safeAnswerSections}
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}

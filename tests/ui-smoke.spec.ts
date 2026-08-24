@@ -1967,36 +1967,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Demo", { exact: true })).toHaveCount(0);
     await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
     await expect(plainAnswer.getByTestId("plain-answer-prose").locator("svg")).toHaveCount(0);
-    const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
-    await expect(sourceCapsule).not.toContainText("Check sources");
-    await expectMinTouchTarget(sourceCapsule);
-    await sourceCapsule.click();
-    const sourceSheet = page.getByRole("dialog", { name: "Sources" });
-    await expect(sourceSheet).toBeVisible();
-    const sourcePreview = page.getByTestId("source-capsule-preview");
-    await expect(sourcePreview).toBeVisible();
-    await expect(sourcePreview).toContainText("Best match");
-    await expect(sourcePreview.getByTestId("source-capsule-preview-row")).toHaveCount(2);
-    const firstPreviewSource = sourcePreview.getByTestId("source-capsule-preview-row").first();
-    await expect(firstPreviewSource).toHaveAttribute("href", /\/documents\/.+chunk=/);
-    await expectMinTouchTarget(firstPreviewSource);
-    await expect(sourcePreview.getByRole("link", { name: /Open S1 source page/i })).toBeVisible();
+    // The source rail replaced the "Sources" capsule and its popover/sheet pair:
+    // the cited list is on the page rather than one tap behind a chip, and each
+    // row opens the per-source drawer.
+    const sourceRail = page.getByTestId("answer-source-rail");
+    await expect(sourceRail).toBeVisible();
+    const railRows = sourceRail.getByTestId("answer-source-rail-row");
+    await expect(railRows).toHaveCount(2);
+    const firstRailRow = railRows.first();
+    await expectMinTouchTarget(firstRailRow);
+    await expect(sourceRail.getByRole("link", { name: /Open S1 source page/i })).toHaveAttribute(
+      "href",
+      /\/documents\/.+chunk=/,
+    );
+    await firstRailRow.click();
+    const sourceDrawer = page.getByTestId("answer-source-drawer");
+    await expect(sourceDrawer).toBeVisible();
+    await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toContainText("Opened from the source list");
     await expect(page.getByRole("dialog", { name: /PDF|document/i })).toHaveCount(0);
-    const copyQuoteButton = sourcePreview.getByRole("button", { name: "Copy passage" });
-    await expect(copyQuoteButton).toBeVisible();
-    await expectMinTouchTarget(copyQuoteButton);
+    // Paging is the drawer's whole navigation model; at two sources it is numbered.
+    const pager = sourceDrawer.getByTestId("answer-source-drawer-pager");
+    await expect(pager).toHaveAttribute("data-pager-variant", "numbered");
+    await pager.getByRole("button", { name: /Source S2/ }).click();
+    await expect(sourceDrawer.getByRole("link", { name: "View original PDF" })).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    await page.keyboard.press("Escape");
+    await expect(sourceDrawer).toHaveCount(0);
+    // Focus returns to the row the drawer was showing, not the row it opened from.
+    await expect(railRows.nth(1)).toBeFocused();
     if (browserName === "chromium") {
+      // The grant used to ride along with the removed "Copy passage" control; the
+      // clipboard read below still needs it.
       await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
         origin: new URL(page.url()).origin,
       });
-      await copyQuoteButton.click();
-      await expect(sourcePreview.getByRole("button", { name: "Copied passage" })).toBeVisible();
-    }
-    await expectNoPageHorizontalOverflow(page);
-    await page.keyboard.press("Escape");
-    await expect(sourceSheet).toHaveCount(0);
-    await expect(sourceCapsule).toBeFocused();
-    if (browserName === "chromium") {
       const copyWithSources = plainAnswer.getByRole("button", { name: "Copy answer with source status" });
       await expect(copyWithSources).toBeVisible();
       await expectMinTouchTarget(copyWithSources);
@@ -2008,11 +2012,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }
     await expect(plainAnswer.getByRole("button", { name: "More answer actions" })).toHaveCount(0);
 
+    // The support card is the answer-level strip now: priority/safety, evidence
+    // gaps, and feedback. Everything per-source moved to the rail and drawer, so
+    // the clinical-notes and evidence rows are gone rather than relocated.
     const supportCard = page.getByTestId("answer-support-card");
     await expect(supportCard).toBeVisible();
-    await expect(supportCard).toContainText("Clinical notes");
-    await expect(supportCard).toContainText("Evidence");
     await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
+    await expect(supportCard).toContainText("Report a problem");
+    await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
     await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
 
     // Safety findings are MANDATORY for this clozapine fixture — the answer is saturated
@@ -2033,37 +2041,38 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(safetyFindingsSheet).toHaveCount(0);
     await expect(safetyFindingsTrigger).toBeFocused();
 
-    const clinicalTable = page.getByLabel("Inline table preview").first();
+    // Decision 2 (2026-08-24): tables fold into the source drawer, so they are no
+    // longer on the answer surface at all — reaching one goes through a rail row.
+    await expect(page.getByLabel("Inline table preview")).toHaveCount(0);
+    // A table hangs off the source it was cited from, so open the row that has it
+    // rather than assuming it is the best match.
+    const tableDrawer = page.getByTestId("answer-source-drawer");
+    const clinicalTable = tableDrawer.getByLabel("Inline table preview").first();
+    let foundTable = false;
+    for (let index = 0; index < (await railRows.count()); index += 1) {
+      await railRows.nth(index).click();
+      await expect(tableDrawer).toBeVisible();
+      if (await clinicalTable.count()) {
+        foundTable = true;
+        break;
+      }
+      await page.keyboard.press("Escape");
+      await expect(tableDrawer).toHaveCount(0);
+    }
+    expect(foundTable).toBe(true);
     await expect(clinicalTable).toBeVisible();
     await expect(clinicalTable.getByRole("table")).toBeVisible();
     await expect(clinicalTable).toContainText("FBC/ANC");
     await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
-    const openTableSource = clinicalTable.getByRole("link", { name: "Open table source" });
-    await expect(openTableSource).toBeVisible();
-    await expectMinTouchTarget(openTableSource);
     await expect(clinicalTable.getByRole("button", { name: "Copy table preview" })).toHaveCount(0);
     await expect(clinicalTable.getByRole("button", { name: "More table actions" })).toHaveCount(0);
-    const tableExpandButton = clinicalTable.getByTestId("table-expand-button");
     await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeVisible();
-    await page.keyboard.press("Escape");
-    const tableDialog = await openMobileTableFullscreen(page, clinicalTable);
-    await expect(tableDialog.getByRole("table")).toBeVisible();
-    await expect(tableDialog).toContainText("FBC/ANC");
-    await expect(tableDialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
     await expectNoPageHorizontalOverflow(page);
-    await page.keyboard.press("Escape");
-    await expect(tableDialog).toBeHidden();
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      await expect(tableExpandButton).toBeFocused();
-    } else {
-      await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
-    }
-    if (await tableExpandButton.isVisible().catch(() => false)) {
-      const reopenedTableDialog = await openMobileTableFullscreen(page, clinicalTable);
-      await reopenedTableDialog.getByRole("button", { name: "Close full-screen table" }).click();
-      await expect(reopenedTableDialog).toBeHidden();
-      await expect(tableExpandButton).toBeFocused();
-    }
+    // Full-screen table expansion from inside the drawer is covered on its own by
+    // the "clinical table mobile expansion" test below, which owns the nested
+    // dialog case rather than repeating it here.
+    await tableDrawer.getByRole("button", { name: "Close source detail" }).click();
+    await expect(tableDrawer).toHaveCount(0);
     await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
     await expect(page.getByTestId("raw-answer-narrative")).toHaveCount(0);
     await expect(page.getByText("Source narrative")).toHaveCount(0);
@@ -2084,110 +2093,56 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("mobile-section-fab-menu")).toHaveCount(0);
     await expectDomIntegrity(page, { mobileNav: true });
 
-    const clinicalNotesTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
-    await expect(clinicalNotesTrigger).toBeVisible();
-    await expect(clinicalNotesTrigger).toContainText("Clinical notes");
-    await expect(clinicalNotesTrigger).toContainText(/notes?/i);
-    await expectMinTouchTarget(clinicalNotesTrigger);
-    await clinicalNotesTrigger.click();
-    const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
-    await expect(clinicalNotesSheet).toBeVisible();
-    await expect(clinicalNotesSheet.getByTestId("clinical-notes-checklist")).toBeVisible();
-    const essentialsTab = clinicalNotesSheet.getByRole("tab", { name: /Essentials/ });
-    const actionsTab = clinicalNotesSheet.getByRole("tab", { name: /Actions/ });
-    const safetyTab = clinicalNotesSheet.getByRole("tab", { name: /Safety/ });
-    await expect(essentialsTab).toBeVisible();
-    await expect(actionsTab).toBeVisible();
-    await expect(safetyTab).toBeVisible();
-    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
-    await actionsTab.focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(safetyTab).toBeFocused();
-    await expect(safetyTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowLeft");
-    await expect(actionsTab).toBeFocused();
-    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("Home");
-    await expect(essentialsTab).toBeFocused();
-    await expect(essentialsTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("End");
-    await expect(safetyTab).toBeFocused();
-    await expect(safetyTab).toHaveAttribute("aria-selected", "true");
-    await page.keyboard.press("ArrowLeft");
-    await expect(actionsTab).toBeFocused();
-    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
-    expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
-    const linkedNoteRow = clinicalNotesSheet.getByTestId("clinical-note-row").first();
-    await expect(linkedNoteRow).toHaveAttribute("href", /\/documents\//);
-    await expect(clinicalNotesSheet.getByText("Review toxicity symptoms", { exact: true })).toBeVisible();
-    await tapOutsideActiveSurface(page);
-    await expect(clinicalNotesSheet).toHaveCount(0);
-
-    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-    await expect(evidenceDrawer).toBeVisible();
-    await expect(evidenceDrawer).toContainText("Evidence");
-    await expect(evidenceDrawer).toContainText(/claims?/i);
-    await expect(evidenceDrawer).toContainText(/quotes?/i);
+    // The clinical-notes sheet and the five-tab evidence sheet are both gone: the
+    // rail lists every cited document and the drawer carries that document's
+    // support, passage, tables and images. Their triggers must not come back.
+    await expect(page.locator("#answer-clinical-notes-drawer-mobile-trigger")).toHaveCount(0);
+    await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("clinical-notes-checklist")).toHaveCount(0);
+    await expect(page.getByTestId("mobile-evidence-tabs")).toHaveCount(0);
     await expect(page.getByTestId("evidence-support-panel")).toHaveCount(0);
 
+    // Document order on the answer surface: question, prose, the rail that cites
+    // it, then the answer-level support strip.
     const hierarchy = await page.evaluate(() => {
       const question = document.querySelector('[data-testid="answer-card-query"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
+      const rail = document.querySelector('[data-testid="answer-source-rail"]');
       const support = document.querySelector('[data-testid="answer-support-card"]');
-      const table = document.querySelector('[aria-label="Inline table preview"]');
       return {
         questionTop: question?.getBoundingClientRect().top ?? 9999,
         plainAnswerTop: plainAnswer?.getBoundingClientRect().top ?? 9999,
+        railTop: rail?.getBoundingClientRect().top ?? 9999,
         supportTop: support?.getBoundingClientRect().top ?? 9999,
-        tableTop: table?.getBoundingClientRect().top ?? 9999,
       };
     });
     expect(hierarchy.questionTop).toBeLessThan(hierarchy.plainAnswerTop);
-    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.supportTop);
-    expect(hierarchy.supportTop).toBeLessThan(hierarchy.tableTop);
+    expect(hierarchy.plainAnswerTop).toBeLessThan(hierarchy.railTop);
+    expect(hierarchy.railTop).toBeLessThan(hierarchy.supportTop);
 
-    await evidenceDrawer.click();
-    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-    await expect(evidenceSheet).toBeVisible();
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-    const evidenceSheetOrder = await evidenceSheet.evaluate((element) => {
-      const tabs = element.querySelector('[data-testid="mobile-evidence-tabs"]');
-      const claims = element.querySelector('[data-testid="evidence-claims-panel"]');
-      return {
-        tabsTop: tabs?.getBoundingClientRect().top ?? 9999,
-        claimsTop: claims?.getBoundingClientRect().top ?? 9999,
-      };
-    });
-    expect(evidenceSheetOrder.tabsTop).toBeLessThan(evidenceSheetOrder.claimsTop);
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
-    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-claims"));
-    const sourcePanelLink = evidenceSheet
-      .getByTestId("mobile-evidence-panel-claims")
-      .getByTestId("evidence-map-open-source")
-      .first();
-    await expect(sourcePanelLink).toBeVisible();
-    await expect(sourcePanelLink).toHaveAttribute("href", /\/documents\/.+chunk=/);
-    await expectMinTouchTarget(sourcePanelLink);
-    await evidenceSheet.getByTestId("mobile-evidence-tab-tables").click();
-    await expect(evidenceSheet.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
-    await expectMinTouchTarget(evidenceSheet.getByTestId("mobile-evidence-tab-tables"));
-    const gapsTab = evidenceSheet.getByTestId("mobile-evidence-tab-gaps");
-    if (await gapsTab.count()) {
-      await gapsTab.click();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-gaps")).toBeVisible();
-      await expectMinTouchTarget(gapsTab);
-    }
-    await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
+    // Evidence gaps and feedback are answer-level, so they stayed on the card
+    // rather than following the per-source content into the drawer.
+    const feedbackTrigger = supportCard.getByTestId("answer-feedback-trigger");
+    await expect(feedbackTrigger).toBeVisible();
+    await expectMinTouchTarget(feedbackTrigger);
+    await feedbackTrigger.click();
+    await expect(supportCard.getByTestId("answer-review-panel")).toBeVisible();
+    await feedbackTrigger.click();
+    await expect(supportCard.getByTestId("answer-review-panel")).toHaveCount(0);
 
     await expect(page.getByTestId("answer-section-heading")).toHaveText("Answer");
     await expect(page.getByTestId("answer-header-actions")).toHaveCount(0);
 
     await expect(page.getByText("Top source detail")).toHaveCount(0);
     await expect(page.getByText("Retrieval details")).toHaveCount(0);
+    // Tapping the backdrop dismisses the source drawer and returns focus to the
+    // rail row that opened it.
+    await railRows.first().click();
+    const dismissDrawer = page.getByTestId("answer-source-drawer");
+    await expect(dismissDrawer).toBeVisible();
     await tapOutsideActiveSurface(page);
-    await expect(evidenceSheet).toHaveCount(0);
-    await expect(evidenceDrawer).toBeFocused();
+    await expect(dismissDrawer).toHaveCount(0);
+    await expect(railRows.first()).toBeFocused();
 
     await openScopeControl(page);
     const scopePopover = page.getByTestId("scope-command-popover");
@@ -2295,15 +2250,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
       await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
       await visibleAnswerSubmitButton(page).click();
-      const firstTable = page.getByRole("table", { name: "ANC actions" });
-      const secondTable = page.getByRole("table", { name: "Metabolic monitoring" });
-      await expect(firstTable).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await expect(firstTable).toContainText("1.0–1.5 × 10⁹/L");
-      await expect(firstTable).toContainText("Withhold and seek specialist advice");
-      await expect(secondTable).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await expect(secondTable).toContainText("HbA1c");
-      await expect(secondTable).toContainText("At baseline and review");
-      await expect(page.getByTestId("canonical-table-caveat")).toContainText("headers are incomplete");
+      // Tables live in the source drawer now, one page at a time. The clipboard
+      // still carries every table, so each one must remain reachable — a copy that
+      // quotes a table nothing on screen can show is exactly the drift this test
+      // was written to catch.
+      const rail = page.getByTestId("answer-source-rail");
+      await expect(rail).toBeVisible({ timeout: uiAssertionTimeoutMs });
+      const rows = rail.getByTestId("answer-source-rail-row");
+      const rowCount = await rows.count();
+      const seenTables: string[] = [];
+      let sawCaveat = false;
+      for (let index = 0; index < rowCount; index += 1) {
+        await rows.nth(index).click();
+        const drawer = page.getByTestId("answer-source-drawer");
+        await expect(drawer).toBeVisible();
+        for (const name of ["ANC actions", "Metabolic monitoring"]) {
+          const table = drawer.getByRole("table", { name });
+          if (await table.count()) {
+            await expect(table).toBeVisible();
+            if (name === "ANC actions") {
+              await expect(table).toContainText("1.0–1.5 × 10⁹/L");
+              await expect(table).toContainText("Withhold and seek specialist advice");
+            } else {
+              await expect(table).toContainText("HbA1c");
+              await expect(table).toContainText("At baseline and review");
+            }
+            if (!seenTables.includes(name)) seenTables.push(name);
+          }
+        }
+        if (await drawer.getByTestId("canonical-table-caveat").count()) sawCaveat = true;
+        await page.keyboard.press("Escape");
+        await expect(drawer).toHaveCount(0);
+      }
+      expect(seenTables.sort()).toEqual(["ANC actions", "Metabolic monitoring"]);
+      expect(sawCaveat).toBe(true);
 
       const answerSurface = page.getByTestId("plain-answer-response");
       await answerSurface.getByRole("button", { name: "Copy answer with source status" }).click();
@@ -2475,6 +2455,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
       const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
+      const sourceRail = document.querySelector('[data-testid="answer-source-rail"]');
       // Include vertical margins: the phone bottom clearance (`max-sm:mb-4`) sits
       // outside getBoundingClientRect().height and still consumes scroll budget.
       let alsoMatchesHeight = 0;
@@ -2495,11 +2476,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
           box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
         );
       }
+      // The source rail is real, always-rendered content in the same sense: it is
+      // the cited source list, which the old capsule hid behind a single chip.
+      let sourceRailHeight = 0;
+      if (sourceRail instanceof HTMLElement) {
+        const box = sourceRail.getBoundingClientRect();
+        const styles = window.getComputedStyle(sourceRail);
+        sourceRailHeight = Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }
       return {
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
         alsoMatchesHeight,
         supportLabelHeight,
+        sourceRailHeight,
       };
     });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
@@ -2513,7 +2505,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // AnswerCard's required support label is likewise real, always-rendered
     // content (`support` became a required prop), so it is measured and added
     // the same way rather than absorbed into the flat allowance.
-    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + 8;
+    // The rail is measured and added for the same reason the support label is:
+    // always-rendered content, not phantom scroll. The flat 8px unexplained-
+    // overflow allowance is deliberately unchanged — that is the part of this
+    // guard the redesign must not be allowed to spend.
+    const permittedOverflow = geo.alsoMatchesHeight + geo.supportLabelHeight + geo.sourceRailHeight + 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2679,15 +2675,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // content in this scroll container; account for its measured height the
     // same way the geometry above accounts for chrome, rather than baking a
     // stale pre-label constant into the post-collapse ceiling.
-    const supportLabelHeight = await page.evaluate(() => {
-      const supportLabel = document.querySelector('[data-testid="answer-card-support"]');
-      if (!(supportLabel instanceof HTMLElement)) return 0;
-      const box = supportLabel.getBoundingClientRect();
-      const styles = window.getComputedStyle(supportLabel);
-      return Math.ceil(
-        box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
-      );
-    });
+    // Measured, not constant: the support label and the source rail are both
+    // always-rendered content whose height moves the scroll budget. The rail
+    // joined them when it replaced the single-chip capsule.
+    const measuredHeight = (selector: string) =>
+      page.evaluate((testId) => {
+        const element = document.querySelector(`[data-testid="${testId}"]`);
+        if (!(element instanceof HTMLElement)) return 0;
+        const box = element.getBoundingClientRect();
+        const styles = window.getComputedStyle(element);
+        return Math.ceil(
+          box.height + (Number.parseFloat(styles.marginTop) || 0) + (Number.parseFloat(styles.marginBottom) || 0),
+        );
+      }, selector);
+    const supportLabelHeight =
+      (await measuredHeight("answer-card-support")) + (await measuredHeight("answer-source-rail"));
     const geometry = {
       maxOffset: scrollGeometry.maxScrollTop,
       collapseBudget,
@@ -3036,16 +3038,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
-    const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-    await expect(evidenceDrawer).toBeVisible();
-    await evidenceDrawer.click();
+    // The quote cards' follow-up action came across with the passage: it now lives
+    // in the source drawer, beneath the passage it asks about.
+    const followUpRail = page.getByTestId("answer-source-rail");
+    await expect(followUpRail).toBeVisible();
+    await followUpRail.getByTestId("answer-source-rail-row").first().click();
 
-    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-    await expect(evidenceSheet).toBeVisible();
-    await evidenceSheet.getByRole("tab", { name: /Quotes/i }).click();
-    await expect(evidenceSheet.getByRole("tabpanel", { name: /Quotes/i })).toBeVisible();
+    const followUpDrawer = page.getByTestId("answer-source-drawer");
+    await expect(followUpDrawer).toBeVisible();
+    await expect(followUpDrawer.getByTestId("answer-source-drawer-passage")).toBeVisible();
 
-    const followUpButton = evidenceSheet.getByRole("button", { name: /Ask a follow-up from quote/i }).first();
+    const followUpButton = followUpDrawer.getByTestId("answer-source-drawer-follow-up");
     await expect(followUpButton).toBeVisible();
     await followUpButton.click();
 
@@ -3094,24 +3097,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(supportCard).toBeVisible();
     await expect(supportCard).toContainText("Review source match");
     await expect(supportCard).toContainText("Verify cited passages");
-    await expect(supportCard).toContainText("Clinical notes");
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).toContainText(/sources?|claims?/i);
-    await expect(supportCard.getByTestId("answer-evidence-trigger")).not.toContainText("0 claims");
+    await expect(supportCard.getByTestId("answer-clinical-notes-trigger")).toHaveCount(0);
+    await expect(supportCard.getByTestId("answer-evidence-trigger")).toHaveCount(0);
 
-    const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
-    await expect(clinicalTrigger).toBeVisible();
-    await clinicalTrigger.click();
-    const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
-    await expect(clinicalNotesSheet).toBeVisible();
+    // A source-only answer still cites real documents, so the rail must list them
+    // and the drawer must open — the degraded path is exactly where a clinician
+    // most needs the route back to the page.
+    const sourceOnlyRail = page.getByTestId("answer-source-rail");
+    await expect(sourceOnlyRail).toBeVisible();
+    const sourceOnlyRow = sourceOnlyRail.getByTestId("answer-source-rail-row").first();
+    await expect(sourceOnlyRow).toBeVisible();
+    await sourceOnlyRow.click();
+    const sourceOnlyDrawer = page.getByTestId("answer-source-drawer");
+    await expect(sourceOnlyDrawer).toBeVisible();
+    await expect(sourceOnlyDrawer.getByRole("link", { name: "View original PDF" })).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(clinicalNotesSheet).toHaveCount(0);
-
-    await supportCard.getByTestId("answer-evidence-trigger").click();
-    const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-    await expect(evidenceSheet).toBeVisible();
-    await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(evidenceSheet).toHaveCount(0);
+    await expect(sourceOnlyDrawer).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3136,62 +3137,32 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(supportCard).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
 
-      const sourceCapsule = plainAnswer.getByRole("button", { name: "Open answer sources" });
-      await expectMinTouchTarget(sourceCapsule);
-      await sourceCapsule.click();
-      const sourceSurface = page.getByRole("dialog", { name: "Sources" });
-      await expect(sourceSurface).toBeVisible();
-      await expect(sourceSurface.getByTestId("source-capsule-preview-row").first()).toHaveAttribute(
+      // One source surface at every breakpoint: the rail on the page, the drawer
+      // behind each row. There is no capsule, no popover/sheet split, and no
+      // separate clinical-notes or evidence sheet to reach.
+      const rail = page.getByTestId("answer-source-rail");
+      await expect(rail).toBeVisible();
+      const railRow = rail.getByTestId("answer-source-rail-row").first();
+      await expectMinTouchTarget(railRow);
+      await expect(rail.getByRole("link", { name: /Open S1 source page/i })).toHaveAttribute(
         "href",
         /\/documents\/.+chunk=/,
       );
-      await expectMinTouchTarget(sourceSurface.getByTestId("source-capsule-preview-row").first());
-      await page.keyboard.press("Escape");
-      await expect(sourceSurface).toHaveCount(0);
-      await expect(sourceCapsule).toBeFocused();
-      if (!viewport.sheet) {
-        await sourceCapsule.click();
-        await expect(sourceSurface).toBeVisible();
-        await sourceCapsule.click();
-        await expect(sourceSurface).toHaveCount(0);
-      }
-
-      const clinicalTrigger = page.locator("#answer-clinical-notes-drawer-mobile-trigger");
-      await expectMinTouchTarget(clinicalTrigger);
-      await clinicalTrigger.click();
-      const clinicalSurface = page.getByRole("dialog", { name: "Clinical notes" });
-      await expect(clinicalSurface).toBeVisible();
-      await expect(clinicalSurface.getByTestId("clinical-notes-checklist")).toBeVisible();
-      await expect(clinicalSurface.getByRole("tab", { name: /Actions/ })).toBeVisible();
-      await expectMinTouchTarget(clinicalSurface.getByRole("link", { name: /^Source$/ }).first());
-      const clinicalCopy = clinicalSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).first();
-      await expectMinTouchTarget(clinicalCopy);
-      await clinicalCopy.click();
-      await page.keyboard.press("Escape");
-      await expect(clinicalSurface).toHaveCount(0);
-      await expect(clinicalTrigger).toBeVisible();
-
-      const evidenceTrigger = page.locator("#answer-evidence-drawer-mobile-trigger");
-      await expectMinTouchTarget(evidenceTrigger);
-      await evidenceTrigger.click();
-      const evidenceSurface = page.getByRole("dialog", { name: "Evidence" });
-      await expect(evidenceSurface).toBeVisible();
-      await expect(evidenceSurface.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-      await expect(evidenceSurface.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
-      await expect(evidenceSurface.getByTestId("evidence-claims-panel")).toBeVisible();
-      await expectMinTouchTarget(evidenceSurface.getByRole("link", { name: /^Source$/ }).first());
-      const evidenceCopy = evidenceSurface.getByRole("button", { name: /^(Copy|Copied)$/ }).last();
-      await expectMinTouchTarget(evidenceCopy);
-      await evidenceCopy.click();
-      const evidenceTablesTab = evidenceSurface.getByTestId("mobile-evidence-tab-tables");
-      if (await evidenceTablesTab.count()) {
-        await evidenceTablesTab.click();
-        await expect(evidenceSurface.getByTestId("mobile-evidence-panel-tables")).toBeVisible();
-        await expectMinTouchTarget(evidenceTablesTab);
+      await railRow.click();
+      const drawer = page.getByTestId("answer-source-drawer");
+      await expect(drawer).toBeVisible();
+      await expect(drawer.getByTestId("answer-source-drawer-support")).toBeVisible();
+      await expectMinTouchTarget(drawer.getByRole("link", { name: "View original PDF" }));
+      const drawerPager = drawer.getByTestId("answer-source-drawer-pager");
+      if (await drawerPager.count()) {
+        await expectMinTouchTarget(drawerPager.getByRole("button", { name: "Next source" }));
       }
       await page.keyboard.press("Escape");
-      await expect(evidenceSurface).toHaveCount(0);
-      await expect(evidenceTrigger).toBeFocused();
+      await expect(drawer).toHaveCount(0);
+      await expect(railRow).toBeFocused();
+
+      await expect(page.locator("#answer-clinical-notes-drawer-mobile-trigger")).toHaveCount(0);
+      await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
 
       await expectNoPageHorizontalOverflow(page);
     });
@@ -3212,7 +3183,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const submitAnswer = visibleAnswerSubmitButton(page);
       await submitAnswer.click();
 
-      const clinicalTable = page.getByLabel("Inline table preview").first();
+      // Decision 2 (2026-08-24): the wide-screen table column is gone at every
+      // breakpoint, so a table is only ever reached through the source drawer.
+      await expect(page.getByLabel("Inline table preview")).toHaveCount(0);
+      await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
+        "data-desktop-table-aside",
+        "false",
+      );
+      const tableRail = page.getByTestId("answer-source-rail");
+      await expect(tableRail).toBeVisible();
+      await tableRail.getByTestId("answer-source-rail-row").first().click();
+      const tableDrawer = page.getByTestId("answer-source-drawer");
+      await expect(tableDrawer).toBeVisible();
+
+      const clinicalTable = tableDrawer.getByLabel("Inline table preview").first();
       await expect(clinicalTable).toBeVisible();
       await expect(clinicalTable).toContainText("FBC/ANC");
       await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -3220,31 +3204,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const expandButton = clinicalTable.getByTestId("table-expand-button");
       const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
       if (!viewport.expands) {
-        await expect(page.getByRole("button", { name: "Open answer sources" })).toContainText(/sources?/i);
-        await expect(page.getByTestId("table-specific-answer-layout")).toHaveAttribute(
-          "data-desktop-table-aside",
-          "true",
-        );
-        const desktopLayout = await page.evaluate(() => {
-          const answer = document.querySelector('[data-testid="plain-answer-response"]');
-          const support = document.querySelector('[data-testid="answer-support-card"]');
-          const table = document.querySelector('[aria-label="Inline table preview"]');
-          const answerRect = answer?.getBoundingClientRect();
-          const supportRect = support?.getBoundingClientRect();
-          const tableRect = table?.getBoundingClientRect();
-          return {
-            answerRight: answerRect?.right ?? 0,
-            answerTop: answerRect?.top ?? 9999,
-            supportRight: supportRect?.right ?? 0,
-            tableLeft: tableRect?.left ?? 0,
-            tableTop: tableRect?.top ?? 9999,
-          };
-        });
-        expect(desktopLayout.tableLeft).toBeGreaterThan(
-          Math.max(desktopLayout.answerRight, desktopLayout.supportRight),
-        );
-        expect(Math.abs(desktopLayout.tableTop - desktopLayout.answerTop)).toBeLessThan(180);
+        // Desktop reads the table in place inside the drawer rather than expanding it.
         await expect(expandButton).toHaveCount(0);
+        await expect(tableSurface).toBeVisible();
         await expectNoPageHorizontalOverflow(page);
         return;
       }
@@ -3252,7 +3214,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(tableSurface).not.toHaveAttribute("role", "button");
       await expect(tableSurface).not.toHaveAttribute("tabindex");
       await expect(expandButton).toHaveAttribute("aria-expanded", "false");
-      await page.keyboard.press("Escape");
       const surfaceDialog = await openMobileTableFullscreen(page, clinicalTable);
       await expect(expandButton).toHaveAttribute("aria-expanded", "true");
       await expect(surfaceDialog.getByRole("button", { name: "Close full-screen table" })).toBeFocused();
