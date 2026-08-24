@@ -294,7 +294,10 @@ function MessageActions({ hoverReveal = false }: { hoverReveal?: boolean }) {
 
   return (
     <div
-      className={cn("flex items-center gap-0.5 transition-opacity", hoverReveal && "opacity-0 group-hover:opacity-100")}
+      className={cn(
+        "flex items-center gap-0.5 transition-opacity",
+        hoverReveal && "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+      )}
     >
       {items.map(({ key, label, Icon, onClick }) => (
         <button
