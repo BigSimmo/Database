@@ -46,7 +46,7 @@ below defers to it, so rules live in one place and cannot drift.
 | **Cursor**                | Editor skills + project MCP (Supabase, Context7, …)        | `.cursor/` (skills, `mcp.json`)                                                                                                                            |
 | **Railway MCP**           | Desktop/CLI template; hosted app is separate               | Root `.mcp.json` / `.codex/config.toml` use `https://mcp.railway.com` with OAuth; hosted ChatGPT/Codex requires a workspace-installed app                  |
 | **CodeRabbit**            | Advisory PR review (never blocking)                        | `.coderabbit.yaml` (`commit_status: false`)                                                                                                                |
-| **`.agents/`**            | Home-grown single-word skill catalogue                     | `.agents/skills/catalog.json`; list with `npm run skills`                                                                                                  |
+| **`.agents/`**            | Home-grown skill catalogue                                 | `.agents/skills/catalog.json`; list with `npm run skills`                                                                                                  |
 
 Rule of thumb: change agent behaviour in `AGENTS.md`, then let each system inherit it.
 Do not add a new AI system or grow the skill count without retiring something — the
@@ -94,3 +94,15 @@ Writes, secret rotations, and hosted mutations stay confirmation-gated per `AGEN
 
 Never paste credential values into chat, issues, or commits. Prefer presence/length checks
 (`check:local-presence`) over dumping env contents.
+
+## Auto-fixer governance and deduplication (#JZM7RM)
+
+To prevent dual competing responders from answering the same PR review comment (observed on PR #2249 where both a repo workflow and an app-level watcher generated duplicate competing commits):
+
+1. **Authoritative responder**: The repository GitHub Action (`.github/workflows/codex-autofix-review-comments.yml`) is the primary automated resolver for Codex PR review comments. It includes explicit governance safeguards:
+   - Trusted-bot login gating (`chatgpt-codex-connector[bot]`).
+   - Per-PR deduplication marker (`<!-- codex-autoresolve-pr:<number> -->`).
+   - Three-cycle head-SHA cap per PR lifetime to prevent runaway repair loops.
+   - Respect for `skip-codex-review` labels.
+2. **App-level watcher throttling**: Interactive desktop/client app watchers ("Autofix pull requests") must be disabled or stand down on pull requests where repository workflows run. Do not instruct an interactive agent session to concurrently fix a review comment that is already queued or being addressed by the repository workflow.
+3. **Deduplication markers**: Automated fixers must inspect review threads for existing disposition markers (`<!-- codex-thread-disposition:resolved -->`) and active commit history before initiating new edits or pushing duplicate commits.

@@ -183,6 +183,13 @@ export const toneBar: Record<CalculatorTone, string> = {
   danger: "bg-[color:var(--danger)]",
 };
 
+const toneBandPattern: Record<CalculatorTone, string> = {
+  success: "border-b-2 border-[color:var(--text-heading)]",
+  info: "border-t-2 border-[color:var(--text-heading)]",
+  warning: "border-y-2 border-[color:var(--text-heading)]",
+  danger: "border-2 border-[color:var(--text-heading)]",
+};
+
 export function SeverityPill({ tone, label, className }: { tone: CalculatorTone; label: string; className?: string }) {
   return (
     <span
@@ -217,11 +224,15 @@ export function ScoreBandBar({
 
   return (
     <div className={cn("grid gap-1", className)}>
-      <div className="relative flex h-2 overflow-hidden rounded-full border border-[color:var(--border)]">
+      <div
+        className="relative flex h-2 overflow-hidden rounded-full border border-[color:var(--border)]"
+        role="img"
+        aria-label={`Score severity scale from ${calc.minScore} to ${calc.maxScore}`}
+      >
         {calc.bands.map((band) => (
           <div
             key={`${band.min}-${band.label}`}
-            className={cn(toneBar[band.tone], started ? "opacity-70" : "opacity-30")}
+            className={cn(toneBar[band.tone], toneBandPattern[band.tone], started ? "opacity-70" : "opacity-30")}
             style={{ width: `${((band.max - band.min + 1) / (span + 1)) * 100}%` }}
           />
         ))}

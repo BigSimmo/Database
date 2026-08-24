@@ -404,13 +404,16 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
     });
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
-    const kind = new URL(route.request().url()).searchParams.get("kind");
+    const url = new URL(route.request().url());
+    const kind = url.searchParams.get("kind");
+    const view = url.searchParams.get("view") ?? "full";
     const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
         total: records.length,
-        governance: {},
+        verifiedCount: 0,
+        ...(view === "full" ? { governance: {} } : {}),
         demoMode: true,
       },
     });
@@ -1701,7 +1704,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("offline browser gate remains in demo mode when private endpoints are mocked", async ({ page }) => {
+  test("unsafe local caller disables the demo composer when private endpoints are mocked", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
     const unsafeLocalProjectPayload = {
@@ -1729,12 +1732,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/");
 
-    // Use the hydration-aware helper rather than a raw fill: the server-rendered
-    // composer is visible before React owns it, and a fill landing in that gap is
-    // discarded by hydration, leaving submit disabled with title "Enter a
-    // clinical question".
-    await fillVisibleQuestionInput(page, "lithium monitoring");
-    await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
+    const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+    const submitAnswer = page.getByRole("button", { name: "Generate source-backed answer" });
+    await expect(questionInput).toBeDisabled();
+    await expect(submitAnswer).toBeDisabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
     await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
@@ -3532,10 +3533,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect.poll(() => requestCount).toBeGreaterThan(baselineRequestCount);
     await currentResponseDelivered;
-    const sourceStatus = page.getByRole("heading", { name: "Source status" }).locator("..");
-    const singularSourceCount = sourceStatus.getByText("1 source", { exact: true });
+    const sourceStatus = page.getByTestId("differentials-source-status");
+    const singularSourceCount = sourceStatus.getByText("1 indexed source match", { exact: true });
     await expect(singularSourceCount).toBeVisible();
-    await expect(sourceStatus).not.toContainText("2 sources");
+    await expect(sourceStatus).not.toContainText("2 indexed source matches");
   });
 
   test("submitted favourites searches stay on the command library route", async ({ page }) => {
@@ -3582,8 +3583,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
         json: {
           records: [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }],
           total: 1,
+          verifiedCount: 0,
           demoMode: true,
-          governance: {},
         },
       });
     });
@@ -3599,7 +3600,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(hub.getByText("13YARN").first()).toBeVisible();
   });
 
-  test("favourites command library exposes truthful item details and a keyboard-operable action menu", async ({
+  test("favourites command library exposes truthful item details and a keyboard-operable action dialog", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1536, height: 900 });
@@ -3622,12 +3623,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const moreActions = page.getByRole("button", { name: "More actions for Lithium monitoring guideline" });
     await moreActions.focus();
     await page.keyboard.press("ArrowDown");
-    const menu = page.getByRole("menu");
-    await expect(menu.getByRole("menuitem", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(menu.getByRole("menuitem", { name: "Copy citation" })).toBeFocused();
+    const dialog = page.getByRole("dialog", { name: "Actions for Lithium monitoring guideline" });
+    await expect(dialog.getByRole("link", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Copy citation" })).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(menu.getByRole("menuitem", { name: "Copied" })).toBeFocused();
+    await expect(dialog.getByRole("button", { name: "Copied" })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(moreActions).toBeFocused();
   });
@@ -5581,9 +5582,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
 
     const dialog = await openGuide(page);
-    await dialog.evaluate((element) => element.style.setProperty("--safe-area-bottom", "34px"));
     const band = dialog.locator(".guide-tour-dock");
     await expect(band).toBeVisible();
+    // Seed the inset on :root and wait until content padding includes it. An
+    // inline style on the dialog node is lost when React re-renders the Sheet,
+    // which made contentPaddingBottom flake at 80px (5rem + 0) instead of 114px
+    // (5rem + 34px). Re-seed inside the poll so a late Sheet render cannot
+    // measure the unseeded token.
+    await expect
+      .poll(
+        async () => {
+          await page.evaluate(() => {
+            document.documentElement.style.setProperty("--safe-area-bottom", "34px");
+          });
+          return band.evaluate((element) => {
+            const contentElement = element.closest('[role="dialog"]')?.querySelector("[data-guide-content]");
+            return contentElement ? Number.parseFloat(window.getComputedStyle(contentElement).paddingBottom) : 0;
+          });
+        },
+        { message: "guide content padding must include the seeded 34px safe-area inset (5rem + 34px)" },
+      )
+      .toBeGreaterThanOrEqual(114);
 
     const painted = await band.evaluate((element) => {
       const style = window.getComputedStyle(element);

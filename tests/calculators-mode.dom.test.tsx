@@ -27,9 +27,9 @@ import {
   type CalculatorFilterState,
 } from "@/components/calculators/calculator-filters";
 import { calculators, type CalculatorFixture } from "@/components/calculators/calculator-fixtures";
-import { CalculatorsHomePage } from "@/components/calculators/home-page";
 import { CalculatorsSearchPage } from "@/components/calculators/search-page";
 import { deriveCalculator, type AnswerMap } from "@/components/calculators/calculator-ui";
+import { SharedHomeEmptyState } from "@/components/clinical-dashboard/answer-status";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 
 function completeAnswers(calc: CalculatorFixture): AnswerMap {
@@ -80,6 +80,18 @@ describe("calculator mode routing", () => {
     );
     expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
 
+    await expect(
+      CalculatorsSearchRoute({
+        searchParams: Promise.resolve({
+          run: "1",
+          q: "  ",
+          focus: "1",
+          queryMode: "compare_guidance",
+        }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(navigation.redirect).toHaveBeenLastCalledWith("/?focus=1&queryMode=compare_guidance&mode=calculators");
+
     const results = await CalculatorsSearchRoute({
       searchParams: Promise.resolve({ run: "1", q: " depression " }),
     });
@@ -110,16 +122,14 @@ describe("calculator mode routing", () => {
     expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=GAD-7");
   });
 
-  it("mounts the universal hero composer slot and canonical starter searches", () => {
-    const { container } = render(<CalculatorsHomePage />);
+  it("keeps calculator home copy on the shared lightweight home", () => {
+    render(<SharedHomeEmptyState modeId="calculators" />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "Clinical Calculators" })).toBeVisible();
-    expect(container.querySelector(".mode-home-composer-slot")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Depression severity/ })).toHaveAttribute(
-      "href",
-      "/calculators/search?q=depression&run=1",
-    );
-    expect(screen.getByRole("link", { name: "PHQ-9" })).toHaveAttribute("href", "/calculators/search?q=PHQ-9&run=1");
+    expect(screen.getByTestId("shared-home-empty-state")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Clinical Calculators" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Validated psychiatry scores with the indication, items, and next actions in one place."),
+    ).toBeInTheDocument();
   });
 });
 

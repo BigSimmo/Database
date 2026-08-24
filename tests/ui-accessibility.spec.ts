@@ -483,7 +483,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     // Retry fill-then-enabled together: the server-rendered composer is visible
     // before React controls it, and a fill landing in that gap is discarded by
     // hydration, leaving the search button disabled and the click a no-op.
-    const presentationInput = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const presentationInput = page.locator('input[placeholder="Ask or search a presentation..."]:visible').first();
     const differentialSubmit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await expect(async () => {
       await presentationInput.fill("acute confusion");
@@ -513,8 +513,8 @@ test.describe("Clinical KB accessibility coverage", () => {
     await filterGroup.getByRole("radio", { name: /^Presentations/ }).click();
     await expect(filterGroup.getByRole("radio", { name: /^Presentations/ })).toBeChecked();
     await expect(filterGroup.getByRole("radio", { name: /^All/ })).not.toBeChecked();
-    await filterGroup.getByRole("radio", { name: /^Diagnoses/ }).click();
-    await expect(filterGroup.getByRole("radio", { name: /^Diagnoses/ })).toBeChecked();
+    await filterGroup.getByRole("radio", { name: /^Differentials/ }).click();
+    await expect(filterGroup.getByRole("radio", { name: /^Differentials/ })).toBeChecked();
 
     // The radio role promises a keyboard model, so prove it in a real browser and
     // not only in jsdom: one tab stop, arrows moving focus AND selection, Home and
@@ -522,19 +522,19 @@ test.describe("Clinical KB accessibility coverage", () => {
     // focus trap, which is what the sheet puts around this group.
     const all = filterGroup.getByRole("radio", { name: /^All/ });
     const presentations = filterGroup.getByRole("radio", { name: /^Presentations/ });
-    const diagnoses = filterGroup.getByRole("radio", { name: /^Diagnoses/ });
-    await diagnoses.focus();
-    await diagnoses.press("Home");
+    const differentials = filterGroup.getByRole("radio", { name: /^Differentials/ });
+    await differentials.focus();
+    await differentials.press("Home");
     await expect(all).toBeFocused();
     await expect(all).toBeChecked();
     await all.press("ArrowRight");
     await expect(presentations).toBeFocused();
     await expect(presentations).toBeChecked();
     await presentations.press("End");
-    await expect(diagnoses).toBeFocused();
-    await expect(diagnoses).toBeChecked();
+    await expect(differentials).toBeFocused();
+    await expect(differentials).toBeChecked();
     // Exactly one tab stop for the group — the checked option.
-    await expect(diagnoses).toHaveAttribute("tabindex", "0");
+    await expect(differentials).toHaveAttribute("tabindex", "0");
     await expect(all).toHaveAttribute("tabindex", "-1");
     await expect(presentations).toHaveAttribute("tabindex", "-1");
 

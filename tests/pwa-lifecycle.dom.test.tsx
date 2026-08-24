@@ -49,6 +49,73 @@ function dispatchInstallEligibility(outcome: "accepted" | "dismissed" = "accepte
   return prompt;
 }
 
+const HERO_MAIN_CONTENT_SELECTOR = 'body:has(#main-content[data-phone-footer-owner="hero"])';
+const ALLOWED_HERO_MAIN_CONTENT_SELECTORS = new Set([
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-notice-stack`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-grip`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-tagline`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-support`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-benefits`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-header`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-body`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-compact-copy`,
+  `${HERO_MAIN_CONTENT_SELECTOR} .pwa-install-native-sheet .pwa-install-actions`,
+]);
+
+function splitCssSelectors(prelude: string) {
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+  for (const char of prelude) {
+    if (char === "(") depth += 1;
+    else if (char === ")") depth = Math.max(0, depth - 1);
+    if (char === "," && depth === 0) {
+      parts.push(current.replace(/\s+/g, " ").trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  const last = current.replace(/\s+/g, " ").trim();
+  if (last) parts.push(last);
+  return parts.filter(Boolean);
+}
+
+function normalizeCssSelector(selector: string) {
+  return selector
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/:has\(\s+/g, ":has(")
+    .replace(/\s+\)/g, ")");
+}
+
+function disallowedMainContentHasSelectors(styles: string) {
+  const withoutComments = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+  const disallowed: string[] = [];
+  let token = "";
+  for (const char of withoutComments) {
+    if (char === "{") {
+      const prelude = token.replace(/\s+/g, " ").trim();
+      if (!prelude.startsWith("@")) {
+        for (const selector of splitCssSelectors(prelude).map(normalizeCssSelector)) {
+          if (selector.includes("body:has(#main-content") && !ALLOWED_HERO_MAIN_CONTENT_SELECTORS.has(selector)) {
+            disallowed.push(selector);
+          }
+        }
+      }
+      token = "";
+      continue;
+    }
+    if (char === "}") {
+      token = "";
+      continue;
+    }
+    token += char;
+  }
+  return disallowed;
+}
+
 beforeEach(() => {
   window.history.replaceState({}, "", "/");
   window.localStorage.clear();
@@ -420,5 +487,50 @@ describe("notice-stack hero-compact geometry selectors", () => {
         `body:has(#main-content[data-phone-footer-owner="hero"]) ${selector === ".pwa-notice-stack" ? selector : `.pwa-install-native-sheet ${selector}`}`,
       );
     }
+  });
+
+  it("rejects every unguarded body:has(#main-content...) geometry consumer", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+
+    expect(disallowedMainContentHasSelectors(styles)).toEqual([]);
+
+    const unsafeFixture = `${styles}\nbody:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay { bottom: 0; }`;
+    expect(disallowedMainContentHasSelectors(unsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+
+    const multilineUnsafeFixture = `${styles}
+body:has(#main-content[data-phone-footer-owner="hero"])
+  .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(multilineUnsafeFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+
+    const spacedHasFixture = `${styles}
+body:has(
+  #main-content[data-phone-footer-owner="hero"]
+) .future-overlay {
+  bottom: 0;
+}`;
+    expect(disallowedMainContentHasSelectors(spacedHasFixture)).toEqual([
+      'body:has(#main-content[data-phone-footer-owner="hero"]) .future-overlay',
+    ]);
+  });
+
+  it("top-aligns the sm+ hero canvas from first paint so a bottom-right install card cannot overlap the composer", () => {
+    const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
+    expect(styles).toContain("@media (min-width: 640px) and (max-width: 1919.98px)");
+    expect(styles).toContain(
+      '#main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {\n    place-items: start center;\n    align-content: start;',
+    );
+    expect(styles).not.toContain("body:has(.pwa-notice-stack) #main-content");
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) \{\s*#main-content\[data-phone-footer-owner="hero"\] \[data-mode-home-canvas\] \{/,
+    );
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) and \(max-width: 1279\.98px\) \{\s*body:has\(#main-content\[data-phone-footer-owner="hero"\]\) \.pwa-notice-stack \{/,
+    );
   });
 });

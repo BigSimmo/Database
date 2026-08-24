@@ -136,9 +136,9 @@ npx tsx scripts/soak-test.ts \
   --confirm-staging \
   --users 30 --duration-s 600 --ramp-s 120
 
-# Authenticated run (bypasses anonymous rate limits):
-npx tsx scripts/soak-test.ts --target https://<staging-host> --confirm-staging \
-  --bearer "$STAGING_ACCESS_TOKEN"
+# Authenticated release run (required; keep the token out of argv):
+SOAK_BEARER_TOKEN="$STAGING_ACCESS_TOKEN" npx tsx scripts/soak-test.ts \
+  --target https://<staging-host> --confirm-staging
 ```
 
 What it does:
@@ -150,17 +150,20 @@ What it does:
 - Records per-endpoint latency percentiles (p50/p90/p95/max), HTTP error
   counts, and 429s (reported separately — a 429 is the limiter working, not a
   system failure).
-- Exits non-zero if the non-429 error rate exceeds 5 % — so it can gate a
-  staging deploy.
+- Exits non-zero unless both endpoints succeed, search p95 is ≤ 3 s, answer p95
+  is ≤ 25 s, non-429 failures remain strictly below 1 %, 429s remain ≤ 5 %, and
+  authentication failures remain zero.
 
 Safety rails (enforced in the script):
 
 - Requires an explicit `--target` **and** `--confirm-staging`; refuses to run
   otherwise.
-- Refuses any target whose host matches production markers (the production
-  Supabase ref, or hosts passed via `--forbid-host`, repeatable).
-- Read-only traffic: only search and answer endpoints — no uploads, no
-  mutations, no admin routes.
+- Accepts only a plain HTTPS origin and refuses redirects, the production app
+  host, the production Supabase ref, and hosts passed via `--forbid-host`.
+- Requires `SOAK_BEARER_TOKEN`; command-line bearer values are refused so the
+  token cannot appear in process arguments.
+- Uses fixed synthetic non-PHI search and answer requests. It performs no
+  document/admin mutation, though normal route telemetry and cache writes may occur.
 
 Success criteria for a 30-user staging soak (maps to the SLO table):
 
@@ -169,6 +172,7 @@ Success criteria for a 30-user staging soak (maps to the SLO table):
 | `/api/search` p95         | ≤ 3 s                 |
 | `/api/answer` p95         | ≤ 25 s (mixed routes) |
 | Non-429 error rate        | < 1 %                 |
+| HTTP 429 rate             | ≤ 5 %                 |
 | Auth failures during ramp | 0                     |
 
 Follow-ups after the first staging soak: record results here, compare against

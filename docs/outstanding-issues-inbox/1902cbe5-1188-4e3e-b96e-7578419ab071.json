@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "1902cbe5-1188-4e3e-b96e-7578419ab071",
+  "createdOn": "2026-08-23",
+  "action": "queue",
+  "payload": {
+    "id": "#057",
+    "when": "Now that #056 is closed; schedule against the next exact candidate SHA.",
+    "outcome": "Run SHA-bound tenancy proof, authenticated staging soak, and rollback against one exact candidate image; retain strict evidence.",
+    "baseRowFingerprint": "61e048feb4306398437eb17fa6706432897d3953df0ccae3bb8c1535155198e4"
+  }
+}

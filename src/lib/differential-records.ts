@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/supabase/database.types";
+import { normalizePresentationWorkflow } from "@/lib/differential-presentation-display";
 import type {
   DifferentialPresentationWorkflow,
   DifferentialRecord,
@@ -49,21 +50,22 @@ export function presentationToRow(
   ownerId: string,
   snapshot: DifferentialSnapshot,
 ): DifferentialRecordInsert {
+  const normalizedWorkflow = normalizePresentationWorkflow(workflow);
   const governance = deriveGovernanceFromSnapshot(snapshot);
   return {
     owner_id: ownerId,
     kind: "presentation",
-    slug: normalizeDifferentialSlug(workflow.id),
-    title: workflow.title,
-    subtitle: workflow.subtitle,
-    status: workflow.status,
-    clinical_hinge: workflow.safetySnapshot.summary,
-    tags: workflow.safetySnapshot.tags,
-    payload: workflow,
+    slug: normalizeDifferentialSlug(normalizedWorkflow.id),
+    title: normalizedWorkflow.title,
+    subtitle: normalizedWorkflow.subtitle,
+    status: normalizedWorkflow.status,
+    clinical_hinge: normalizedWorkflow.safetySnapshot.summary,
+    tags: normalizedWorkflow.safetySnapshot.tags,
+    payload: normalizedWorkflow,
     source: {
-      label: workflow.sourceStatus.label,
-      version: workflow.sourceStatus.version,
-      lastUpdated: workflow.sourceStatus.lastUpdated,
+      label: normalizedWorkflow.sourceStatus.label,
+      version: normalizedWorkflow.sourceStatus.version,
+      lastUpdated: normalizedWorkflow.sourceStatus.lastUpdated,
     },
     source_status: governance.source_status,
     validation_status: governance.validation_status,
@@ -93,7 +95,7 @@ export function diagnosisToRow(
 }
 
 export function rowToPresentationWorkflow(row: DifferentialRecordRow): DifferentialPresentationWorkflow {
-  return row.payload as DifferentialPresentationWorkflow;
+  return normalizePresentationWorkflow(row.payload as DifferentialPresentationWorkflow);
 }
 
 export function rowToDifferentialRecord(row: DifferentialRecordRow): DifferentialRecord {

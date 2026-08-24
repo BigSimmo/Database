@@ -23,6 +23,7 @@ export const DECLINE_REASONS = [
   "acuity_mix",
   "capability_mismatch",
   "bed_held_for_earlier_referral",
+  "out_of_catchment",
 ] as const;
 export type DeclineReason = (typeof DECLINE_REASONS)[number];
 
@@ -32,12 +33,53 @@ export const PARALLEL_REFERRAL_CAP = 3;
 export type LegalStatus =
   "Voluntary" | "Referred for psychiatric examination" | "Detained awaiting examination" | "Involuntary inpatient";
 
+/**
+ * The legal clock and the ED clock are different clocks (spec "Model changes this phase
+ * requires", `Movement.formedAt`). `dueAt`, when present, is the legal clock — a statutory
+ * deadline a specific form carries. Task 6A first established that a Form 3B ("inpatient
+ * treatment order") has no such deadline: put to the clinician directly, his answer was that
+ * the post-examination clock "is just counting how long they have been in ED determining
+ * priority. So counting up," i.e. not a legal countdown at all. This model briefly gave a Form
+ * 1A ("referral for examination") an authored `dueAt` on the strength of an unverified figure
+ * an earlier agent wrote into this file from its own recollection, not from the clinician.
+ * Asked directly on 2026-08-23, the product owner's instruction was narrower than a corrected
+ * figure — "please can you leave the legal part and just start a clock once the patient arrives
+ * to ED. Keep it simple for now" — so as of that date **neither a Form 1A nor a Form 3B carries
+ * a `dueAt` in this model.** (The transport/transfer forms — 4A, "Transport order"; 4C,
+ * "Transfer between authorised hospitals" — are a different question, out of scope for this
+ * correction, and still carry real `dueAt` figures unrelated to the examination timeline this
+ * comment is about.) The field stays optional (never required) precisely so a form can honestly
+ * carry none, the same shape Task 6A gave a 3B and this now gives a 1A too. Never substitute a
+ * fallback number for an absent `dueAt`, never let an absent `dueAt` read as "clear" or "not yet
+ * due" — render its absence explicitly — and never reintroduce a `dueAt` on a 1A or 3B without a
+ * figure that traces back to the clinician or product owner by name and date, not to an
+ * assistant's recollection of the Mental Health Act.
+ */
 export type LegalForm = {
   code: string;
   label: string;
   kind: "examination" | "detention" | "transport" | "transfer";
-  dueAt: Instant;
+  dueAt?: Instant;
 };
+
+/**
+ * The emergency department's access target, in minutes. This is a real, named figure from spec
+ * §7 — but it is a **departmental performance measure**, counted UP from `Movement.openedAt`
+ * (how long the patient has been in the department), because that is the number a department is
+ * judged on and mental health patients are its largest breachers. It is **not** a Mental Health
+ * Act deadline: it must never be attached to a `LegalForm`, never gain a `dueAt`, and never feed
+ * a legal-breach count or an eligibility gate. Task 6A only introduces and pins this constant
+ * (see `tests/ward-model.test.ts`); Task 11's emergency department screen is what actually
+ * renders it against `openedAt`.
+ *
+ * The spec originally named this figure four hours (240 minutes). The product owner — the
+ * spec's own author — superseded that figure for this prototype on 2026-08-22, in response to a
+ * direct clinical question, and set it to 24 hours (1440 minutes) instead. Nothing about *how*
+ * this figure is counted, rendered or safeguarded changed: it is still counted up from
+ * `openedAt`, never a deadline, and still barred from every `LegalForm`/`dueAt`/breach/
+ * eligibility surface listed above.
+ */
+export const ED_ACCESS_TARGET_MINUTES = 1440;
 
 /**
  * A capacity number is meaningless without where it came from and when.
@@ -142,6 +184,29 @@ export type Movement = {
   transport?: TransportJob;
   blocker: string;
   closure?: MovementClosure;
+  /** When the referral for examination was made. May precede `openedAt` for a community-formed
+   *  patient — the legal clock and the department clock are different clocks. */
+  formedAt?: Instant;
+  /** How the patient reached the department. Police attendance is a real and invisible pressure. */
+  arrivalMode?: "self" | "ambulance" | "police";
+  /** When a held bed lapses. A hold cannot expire without a time to expire at. */
+  bedHeldUntil?: Instant;
+  /** The psychiatric examination a Form 1A refers the person for. Until it happens you often do
+   *  not know whether an authorised bed is needed at all. */
+  examination?: { at: Instant; outcome: "inpatient_order" | "community_order" | "revoked" };
+  /** Referrals ended because another unit accepted. A shrinking `referredUnitIds` tells nobody. */
+  withdrawnReferrals: { unitId: string; at: Instant; reason: string }[];
+  /** Recorded when the network is exhausted. */
+  escalation?: { at: Instant; triedUnitIds: string[]; contact: string };
+};
+
+/** A transition the reducer refused, surfaced on the coordinator screen rather than swallowed. */
+export type Rejection = {
+  id: string;
+  at: Instant;
+  movementId: string;
+  attempted: string;
+  reason: string;
 };
 
 export type BedRelease = {

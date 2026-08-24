@@ -65,6 +65,30 @@ export const OWNER_SCOPE_ALLOWLIST = [
     reason:
       "Global setup/health diagnostic: a head-count existence probe for pending cleanup rows (schema/ops posture), not an owner-data read. Same local-origin-gated status route — see docs/audit/tenancy-defense-in-depth-review.md §3 (TEN-N1).",
   },
+  {
+    file: "src/app/api/clinical-quality/route.ts",
+    table: "rag_answer_feedback",
+    reason:
+      "Administrator-only clinical-quality aggregate. GET and PATCH call authorizeAndLimit before these helpers run; they return governance metadata, never raw question, answer, excerpt, or patient text. Per-owner filtering would defeat the cross-tenant quality-control purpose — see docs/audit/tenancy-defense-in-depth-review.md §6.",
+  },
+  {
+    file: "src/app/api/clinical-quality/route.ts",
+    table: "clinical_registry_record_sources",
+    reason:
+      "Administrator-only clinical-quality aggregate. GET and PATCH call authorizeAndLimit before these helpers run; they return governance metadata, never raw question, answer, excerpt, or patient text. Per-owner filtering would defeat the cross-tenant quality-control purpose — see docs/audit/tenancy-defense-in-depth-review.md §6.",
+  },
+  {
+    file: "src/app/api/clinical-quality/route.ts",
+    table: "clinical_registry_records",
+    reason:
+      "Administrator-only clinical-quality aggregate. GET and PATCH call authorizeAndLimit before these helpers run; they return governance metadata, never raw question, answer, excerpt, or patient text. Per-owner filtering would defeat the cross-tenant quality-control purpose — see docs/audit/tenancy-defense-in-depth-review.md §6.",
+  },
+  {
+    file: "src/app/api/clinical-quality/route.ts",
+    table: "rag_retrieval_logs",
+    reason:
+      "Administrator-only clinical-quality aggregate. GET and PATCH call authorizeAndLimit before these helpers run; they return governance metadata, never raw question, answer, excerpt, or patient text. Per-owner filtering would defeat the cross-tenant quality-control purpose — see docs/audit/tenancy-defense-in-depth-review.md §6.",
+  },
 ];
 
 /** Extract table names that declare an `owner_id` column from supabase/schema.sql. */

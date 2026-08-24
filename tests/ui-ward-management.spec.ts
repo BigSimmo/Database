@@ -42,18 +42,38 @@ test.describe("Ward Flow command view", () => {
   // "supports role-aware queue review and human-confirmed destination choice" and "collapses
   // the queue, opens the action inbox, and reaches the patient workspace" asserted against
   // WardManagementConsole, which Task 3 stopped rendering at /ward-management. That component is
-  // unreferenced now and is deleted in Task 9; the equivalent coverage on the coordinator screen
-  // has no home yet. See the fixme placeholders in tests/ui-ward-coordinator.spec.ts.
+  // unreferenced and Task 9 deletes it; the equivalent coverage on the coordinator screen has no
+  // home yet. See the fixme placeholders in tests/ui-ward-coordinator.spec.ts.
+  //
+  // Task 9 retires Constellation into the coordinator screen. Its own behaviour (the
+  // ward-constellation gate check, the WF-002 confirm journey) already has a home: the confirm
+  // journey and the failing-gate icon guard both live in tests/ui-ward-coordinator.spec.ts
+  // ("shows a failing gate as a failure and never auto-allocates"), so the Constellation step is
+  // removed here rather than repointed — leaving it would assert a route that no longer exists.
 
+  /**
+   * This test performs one page load plus seven sequential route navigations. Against a dev
+   * server, which compiles each route on demand, that costs ~3.8 s warm and ~15.2 s cold,
+   * measured at HEAD `12f17b13a`. The failures previously recorded here as a flake are
+   * consistent with budget exhaustion on a machine running the same gate ~6x slower — that
+   * surfaces at whichever mode link the clock happens to expire on, and it is not a weakening
+   * of any assertion here. CI runs this spec against a production build, which
+   * scripts/run-playwright.mjs builds and serves, so no on-demand compilation happens there and
+   * the larger allowance below costs CI nothing.
+   *
+   * What the larger allowance does cost: playwright.config.ts sets no actionTimeout or
+   * navigationTimeout, so a genuinely hung navigation in this one test now burns 120 s rather
+   * than 45 s before failing — worst case about +75 s on a Chromium-only PR shard and about
+   * +225 s across the three browsers of verify:release, both well inside those jobs' budgets.
+   */
   test("opens every Ward Flow mode", async ({ page }) => {
+    test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 1024 });
     await gotoWardFlow(page);
 
-    // Constellation-specific behaviour (the ward-constellation gate check, the WF-002 confirm
-    // journey) is out of scope here — this only proves every mode link still opens its route.
-    // Constellation stays in this walk until Task 9 retires the route.
+    // This only proves every remaining mode link still opens its route; per-mode behaviour is
+    // covered by each mode's own tests elsewhere.
     const modes = [
-      ["Constellation", "ward-constellation"],
       ["Network", "ward-mode-network"],
       ["Priority queue", "ward-mode-queue"],
       ["Capacity", "ward-mode-capacity"],
@@ -64,8 +84,32 @@ test.describe("Ward Flow command view", () => {
     ] as const;
     for (const [linkName, testId] of modes) {
       await page.getByRole("link", { name: linkName }).click();
-      await expect(page.getByTestId(testId)).toBeVisible();
+      await expect(page.getByTestId(testId)).toBeVisible({ timeout: 15_000 });
       await expectNoPageOverflow(page);
+    }
+  });
+
+  /**
+   * Task 9 review Critical 1: `.modeNavigation` (ward-management-modes.module.css) is a flex
+   * column, and flex items shrink by default even with an explicit `height` unless
+   * `flex-shrink: 0` is set. Without it, the eight rail mode links compressed to as little as
+   * 22px on narrow viewports — under half the mandated 3rem/48px tap-target floor — while a
+   * check run only at 1440x1024 (where the rail had room to spare) stayed green. 320x640 is
+   * short enough on both axes to force the rail's mode-link section into its scrollable
+   * fallback, which is exactly the condition that exposed the regression.
+   */
+  test("keeps every rail mode link at the 3rem tap-target floor on a short, narrow viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await gotoWardFlow(page);
+
+    const nav = page.getByRole("navigation", { name: "Ward Flow views" });
+    const links = await nav.getByRole("link").all();
+    expect(links.length).toBe(8);
+    for (const link of links) {
+      const box = await link.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(48);
+      expect(box!.width).toBeGreaterThanOrEqual(48);
     }
   });
 

@@ -2,7 +2,7 @@
 // (public/mockups/therapy-compass/*.json). Fields mirror the export's
 // `data/therapies.json` after trimming to what the UI renders.
 
-export type ReviewStatus = "reviewed" | "needs_review" | string;
+export type ReviewStatus = "reviewed" | "needs_review";
 
 export type TherapySource = {
   title: string | null;
@@ -65,6 +65,11 @@ export type Therapy = {
   limitations: string | null;
   references: string | null;
   reviewStatus: ReviewStatus;
+  /** Display-approved public professional/governance attribution; never contact or account details. */
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  /** Pins a reviewed record to the exact non-review content that was attested. */
+  reviewedContentSha256?: string | null;
   confidenceLevel: string | null;
   contentOrigin: string | null;
   patientSheetAvailable: boolean;

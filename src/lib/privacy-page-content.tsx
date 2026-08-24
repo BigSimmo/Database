@@ -78,6 +78,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     gist: "Questions, docs, telemetry — safety-plan work stays in-tab",
     body: [
       "Questions, generated answers, account identifiers, uploaded documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and uploaded material can contain sensitive information if you enter it. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by Clinical KB.",
+      "Clinical Ask accepts a typed or dictated question and non-identifying Case Context. It cannot guarantee that text is de-identified: identifier-shaped input is blocked as a warning aid, not transformed or certified. Review the transcript and remove identifiable details before asking.",
       "Signing in creates an account record held by the authentication provider. Saved favourites and display preferences are stored against that account so they follow you between devices; they describe how you use the app, not who your patients are.",
     ],
   },
@@ -94,6 +95,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
         browser tab for up to 12 hours. That tab-only copy stays in this tab, is not shared across tabs or devices, and
         is never sent to the application service.
       </>,
+      "Clinical Ask keeps its draft, transcript, Case Context, clarification answers, and response in ephemeral page memory for the current tab. Raw Clinical Ask content is not placed in the URL or browser history and is not attached to feedback or content-free telemetry. Clearing the case, signing out, changing account, refreshing, or closing the tab discards that in-memory session.",
     ],
   },
   {
@@ -119,6 +121,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
       </>,
       "The requests the app sends carry deliberate limits: it asks the provider not to retain the response in the provider's own stored-response history, it never sends your raw account identifier — a keyed pseudonym is used instead when the operator configures one — and it asks for the shortest prompt-cache lifetime the model supports. A requested cache lifetime is a minimum the provider may exceed, not a deletion deadline.",
       "Those are application settings, and they are the limit of what this page can tell you. Whether a data-processing agreement, a zero-retention arrangement, or a particular storage region is in place for the provider account is an operator and legal matter that the application cannot observe or promise.",
+      "Clinical Ask may use server-side external authority search only for an evidence gap, unresolved conflict, staleness, or a source marked needs review. Returned authority extracts are discarded after the request; the answer retains attributable citations and retrieval dates. This does not mean an authority, source, answer, or feature has received clinical or governance approval.",
     ],
   },
   {
@@ -140,6 +143,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     body: [
       "Some things never reach the application service because they stay on this device. Your sign-in session, the light or dark theme, display preferences, and saved-item shortcuts are held by this browser. Recent searches use per-tab session storage and disappear when the tab closes. Completed answer threads are kept for up to 12 hours so a recent answer reappears quickly.",
       "Safety-plan working content is stricter again: it exists only in the page's memory while the generator is open, and is discarded when you clear it or close the tab.",
+      "Clinical Ask audio is held only long enough to record, upload for transcription, or offer an in-memory retry. The browser recording and retry copy are disposed after transcription, cancellation, clear case, account change, or unmount. Audio is not put into URLs, browser storage, feedback, or telemetry by Clinical KB.",
       "You can clear this from inside the app. Settings, under Privacy and security, clears recent searches and saved items; New chat clears the current answer thread; signing out clears the thread and the session; clearing site data in your browser removes the rest. None of that affects documents or logs already stored on the server.",
     ],
   },
@@ -150,6 +154,7 @@ export const PRIVACY_SECTIONS: PrivacySection[] = [
     gist: "30-day queries · 90-day logs · hourly cache purge",
     body: [
       "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process. Completed answer threads in the current browser tab expire no later than 12 hours after the most recent answer and are also cleared by New chat, sign-out, or an account change. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+      "Memory-only Clinical Ask handling is not a zero-retention promise for providers or network infrastructure. Provider retention, regional processing, the separately deployable feedback migration, staging evidence, clinical evaluation, and production readiness must each be verified by the responsible operator before launch.",
       "Audit records are the deliberate exception: they are append-only and retained indefinitely by design, because an access trail that expires cannot answer a later question about who reached what.",
     ],
   },

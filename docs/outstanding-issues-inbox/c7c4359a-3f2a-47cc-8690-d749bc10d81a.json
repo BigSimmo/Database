@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c7c4359a-3f2a-47cc-8690-d749bc10d81a",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "The tenancy boundary is app-code only, so a single missing owner predicate has nothing behind it; make the property mechanical",
+    "detail": "20260719070000_align_existing_acls revokes ALL on every public base table from public, anon and authenticated and re-grants only service_role, and roles.sql makes that the default for future objects. The roughly 30 policies written TO authenticated therefore can never be evaluated, and every read path uses the RLS-bypassing admin client across 37 API route files. This is deliberate and pinned by tests, not a bug - but it means RLS is a dead backstop and app code is the only tenancy boundary. The audit scanned all owner-bearing .from() calls under src/app/api and found no unscoped read, so the property holds today by review rather than by enforcement. FIX: a lint or contract test asserting that any admin-client query against an owner-bearing table in src/app/api is lexically accompanied by an owner predicate.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96S72J43Z6BD14K9V44J5"
+  }
+}

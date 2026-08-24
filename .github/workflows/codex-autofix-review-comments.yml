@@ -79,6 +79,24 @@ jobs:
               /\.(?:snap|test|spec)\.[cm]?[jt]sx?$/i,
               /(?:^|\/)generated\//,
             ];
+            // Surfaces where an automatic repair pass must never write. A Codex
+            // finding here can be sound as a code observation and still be wrong
+            // as an action, because what a clinician is shown -- and whether it is
+            // shown at all -- is an owner decision this workflow cannot see. On PR
+            // #2314 a P1 finding reversed the owner's explicit choice to display
+            // drafted Mental Health Act summaries behind an awaiting-review label:
+            // the applied fix inverted the render gate and collapsed the card from
+            // 54 forms to 1. The review is not suppressed, only the unattended
+            // write, so the findings stay visible for a human to action.
+            const clinicalDecisionHoldPathPatterns = [
+              /^data\/(?!outstanding-issues-snapshot\.json$)/,
+              /^src\/data\//,
+              /^src\/lib\/mha-act-sections\.ts$/,
+              /^src\/lib\/form-(?:catalog|ranker)\.ts$/,
+              /^src\/components\/forms\//,
+              /^src\/lib\/rag\//,
+              /^src\/lib\/(?:clinical-search|retrieval-selection|released-search-order|ranking-config|answer-ranking|answer-verification)\.ts$/,
+            ];
             const scopedResolveCommand = "@codex resolve actionable Codex review findings for this pull request and current head";
             const resolvedDispositionMarker = "<!-- codex-thread-disposition:resolved -->";
             const noChangeMarker = "<!-- codex-thread-result:no-change -->";
@@ -145,38 +163,57 @@ jobs:
               return;
             }
 
+            let changedFiles;
+            try {
+              changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+                owner,
+                repo,
+                pull_number: issue_number,
+                per_page: 100,
+              });
+            } catch (error) {
+              if (error.status === 403) {
+                const message = "Codex auto-resolve failed because the trigger token cannot read pull request files.";
+                core.warning(message);
+                core.setFailed(message);
+                return;
+              }
+
+              throw error;
+            }
+
+            const normalizeChangedPath = (value) =>
+              (value || "").replaceAll("\\", "/").replace(/^\.\/+/, "");
+            const normalizedFiles = changedFiles.map((file) => ({
+              ...file,
+              filename: normalizeChangedPath(file.filename),
+              previous_filename: normalizeChangedPath(file.previous_filename),
+            }));
+            const changedFilePaths = (file) =>
+              [file.filename, file.previous_filename].filter(Boolean);
+
+            // Held before routing and before the opt-in label is read, so neither a
+            // label nor a risk score can hand a clinical rendering decision to an
+            // unattended pass. The test and generated exclusions deliberately do
+            // not apply here: a diff touching a held path is held whatever else it
+            // touches, and there is no override.
+            const clinicalDecisionHoldFiles = normalizedFiles.filter((file) =>
+              changedFilePaths(file).some((filePath) =>
+                clinicalDecisionHoldPathPatterns.some((pattern) => pattern.test(filePath)),
+              ),
+            );
+
+            if (clinicalDecisionHoldFiles.length > 0) {
+              core.notice(
+                `Skipping Codex auto-resolve because this pull request changes ${clinicalDecisionHoldFiles.length} clinical-decision path(s). The review findings stay on the pull request for a human to action: an automatic pass must not decide what a clinician sees, or whether they see it.`,
+              );
+              return;
+            }
+
             const routeReasons = [];
             if (labels.has(forceReviewLabel)) {
               routeReasons.push(`label:${forceReviewLabel}`);
             } else {
-              let changedFiles;
-              try {
-                changedFiles = await github.paginate(github.rest.pulls.listFiles, {
-                  owner,
-                  repo,
-                  pull_number: issue_number,
-                  per_page: 100,
-                });
-              } catch (error) {
-                if (error.status === 403) {
-                  const message = "Codex auto-resolve failed because the trigger token cannot read pull request files.";
-                  core.warning(message);
-                  core.setFailed(message);
-                  return;
-                }
-
-                throw error;
-              }
-
-              const normalizeChangedPath = (value) =>
-                (value || "").replaceAll("\\", "/").replace(/^\.\/+/, "");
-              const normalizedFiles = changedFiles.map((file) => ({
-                ...file,
-                filename: normalizeChangedPath(file.filename),
-                previous_filename: normalizeChangedPath(file.previous_filename),
-              }));
-              const changedFilePaths = (file) =>
-                [file.filename, file.previous_filename].filter(Boolean);
               const routeableFilePaths = (file) =>
                 changedFilePaths(file).filter(
                   (filePath) =>

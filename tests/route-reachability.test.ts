@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
+import { colourCodingReferenceHref } from "@/lib/reference-routes";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
 import { collectSiteMapData } from "../scripts/generate-site-map";
 
@@ -41,6 +42,10 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
+  ],
+  [
+    "/ward-management/constellation",
+    "Retired Phase 1 constellation view. It redirects to /ward-management/network so live-main bookmarks keep working; in-app navigation uses the eight remaining rail modes and does not send readers through the redirect.",
   ],
 ]);
 
@@ -475,6 +480,7 @@ for (const mode of appModeDefinitions) {
   for (const href of hrefs) builderTargets.add(pathOnly(href));
 }
 for (const tool of tools) builderTargets.add(pathOnly(tool.href));
+builderTargets.add(pathOnly(colourCodingReferenceHref()));
 
 // ModeNav destinations are data (registry href strings rendered as <Link>s), so
 // a JSX/router scan never sees `/differentials/compare` and peers as literals.

@@ -174,7 +174,7 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
 async function installTherapyFixtures(page: Page) {
   await page.route("**/therapy-compass-data/*.json", async (route) => {
     const filename = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
-    if (!/^(?:therapies(?:-(?:home|index))?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
+    if (!/^(?:therapies(?:-index)?\.[a-f0-9]{16}|pathways|reference)\.json$/.test(filename)) {
       await route.abort("blockedbyclient");
       return;
     }
@@ -459,10 +459,13 @@ test.describe("previously uncovered production routes", () => {
         // guaranteed to leave the URL where this step asserts it. Waiting for
         // the handler makes the assign hop the only path the click can take.
         await waitForReactEventHandler(remove);
+        // Same-route `?ids=` assign can update the URL without a new document
+        // load. `waitUntil: "domcontentloaded"` then hangs for 30s after the
+        // hop already happened (Production UI on #2299: waitForURL timeout
+        // while the heading assertion never ran). Wait for the URL only.
         await Promise.all([
           currentPage.waitForURL(/\/dsm\/compare\?ids=bipolar-ii-disorder$/, {
             timeout: 30_000,
-            waitUntil: "domcontentloaded",
           }),
           remove.click(),
         ]);
@@ -500,15 +503,11 @@ test.describe("previously uncovered production routes", () => {
         await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
-        const selects = currentPage.locator("select");
-        const before = await selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value));
         const swap = currentPage.getByRole("button", { name: "Swap compared specifiers" });
         await expect(swap).toBeEnabled();
         await waitForReactEventHandler(swap);
         await swap.click();
-        await expect
-          .poll(() => selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value)))
-          .toEqual([before[1], before[0]]);
+        await expect(currentPage).toHaveURL(/\/specifiers\/compare\?a=with-anxious-distress&b=with-mixed-features$/);
       },
     );
   });
@@ -671,7 +670,7 @@ test.describe("previously uncovered production routes", () => {
       "/reference/colour-coding",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Colour coding reference", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Colour coding & badges", level: 1 })).toBeVisible();
       },
       async (currentPage) => {
         const skipLink = currentPage.getByRole("link", { name: "Skip to main content" });

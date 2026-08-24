@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { jsonError, PublicApiError } from "../src/lib/http";
+import { jsonError, PublicApiError, publicErrorResponse } from "../src/lib/http";
+import { apiErrorPayloadSchema } from "../src/lib/api-error-payload";
 import { logger } from "../src/lib/logger";
 import { AuthenticationError, unauthorizedResponse } from "../src/lib/supabase/auth";
 
@@ -40,6 +41,27 @@ describe("jsonError public payload", () => {
       message: "Request failed.",
       code: "internal_error",
     });
+  });
+
+  it("emits payloads accepted by the strict canonical schema", async () => {
+    const body = await jsonError(new PublicApiError("Missing.", 404, { code: "not_found" })).json();
+    expect(apiErrorPayloadSchema.parse(body)).toEqual(body);
+    expect(apiErrorPayloadSchema.safeParse({ ...body, internalCause: "secret" }).success).toBe(false);
+  });
+
+  it("builds expected public errors without logging by default", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const response = publicErrorResponse("Missing.", 404, { code: "not_found", requestId: "req_public" });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: "Missing.",
+      message: "Missing.",
+      code: "not_found",
+      requestId: "req_public",
+    });
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it("only returns stable snake_case error codes and falls back to status-based codes for invalid codes", async () => {

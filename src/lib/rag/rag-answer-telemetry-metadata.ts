@@ -47,3 +47,28 @@ export function answerLatencyMetadata(
     ...extendedAnswerTelemetryFields(timings),
   };
 }
+
+export function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["scoreExplanations"]>) {
+  return {
+    score_explanation_count: scoreExplanations.length,
+    top_cited_score_explanations: scoreExplanations.slice(0, 8).map((entry) => ({
+      chunk_id: entry.chunk_id,
+      document_id: entry.document_id,
+      final_score: entry.finalScore,
+      vector_score: entry.score_explanation?.vectorScore ?? null,
+      text_rank: entry.score_explanation?.textRank ?? null,
+      weighted_hybrid_score: entry.score_explanation?.weightedHybridScore ?? null,
+      rrf_score: entry.score_explanation?.rrfScore ?? null,
+      memory_boost: entry.score_explanation?.memoryBoost ?? null,
+      title_boost: entry.score_explanation?.titleBoost ?? null,
+      metadata_boost: entry.score_explanation?.metadataBoost ?? null,
+      lexical_coverage_score: entry.score_explanation?.lexicalCoverageScore ?? null,
+      metadata_match_score: entry.score_explanation?.metadataMatchScore ?? null,
+      section_title_match_boost: entry.score_explanation?.sectionTitleMatchBoost ?? null,
+      freshness_recency_boost: entry.score_explanation?.freshnessRecencyBoost ?? null,
+      clinical_signal_boost: entry.score_explanation?.clinicalSignalBoost ?? null,
+      penalty: entry.score_explanation?.penalty ?? null,
+      final_rank: entry.score_explanation?.finalRank ?? null,
+    })),
+  };
+}

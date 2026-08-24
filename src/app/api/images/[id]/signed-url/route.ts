@@ -4,7 +4,7 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoImage } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, PublicApiError, publicErrorResponse } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     if (isDemoMode()) {
       const image = getDemoImage(id);
-      if (!image) return NextResponse.json({ error: "Demo image not found." }, { status: 404 });
+      if (!image) return publicErrorResponse("Demo image not found.", 404);
       return NextResponse.json({
         url: image.signed_url ?? image.storage_path,
         mimeType: image.mime_type,
@@ -44,7 +44,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .maybeSingle();
 
     if (error) throw new Error(error.message);
-    if (!image) return NextResponse.json({ error: "Image not found." }, { status: 404 });
+    if (!image) return publicErrorResponse("Image not found.", 404);
 
     const { data: document, error: documentError } = await withOwnerReadScope(
       supabase.from("documents").select("id,metadata").eq("id", image.document_id),
@@ -52,14 +52,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     ).maybeSingle();
 
     if (documentError) throw new Error(documentError.message);
-    if (!document) return NextResponse.json({ error: "Image not found." }, { status: 404 });
+    if (!document) return publicErrorResponse("Image not found.", 404);
     if (
       !isCommittedGenerationMetadata({
         rowMetadata: image.metadata,
         committedGeneration: committedIndexGeneration(document.metadata),
       })
     ) {
-      return NextResponse.json({ error: "Image not found." }, { status: 404 });
+      return publicErrorResponse("Image not found.", 404);
     }
 
     const signed = await supabase.storage

@@ -3,12 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useId, useMemo, useState } from "react";
-import { ArrowRight, ChevronRight, GitCompareArrows, ListChecks, Search, Tags } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 
-import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
-import { ModeHomeMain, ModeHomeTemplate } from "@/components/mode-home-template";
-import { appModeIcons } from "@/lib/app-mode-icons";
-import { sharedHomePresentation } from "@/lib/ui-copy";
 import {
   SearchResultsHeaderBand,
   type AppliedFilterChip,
@@ -28,9 +24,8 @@ import {
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn } from "@/components/ui-primitives";
-import { appModeHomeHref } from "@/lib/app-modes";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { searchSpecifiers, specifierFamilies, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
 import {
   readResultFilterValue,
@@ -57,77 +52,6 @@ const diagnosisOptions = [
   { value: "mood", label: "Mood episodes" },
 ];
 
-function presetHref(query: string) {
-  return appModeHomeHref("specifiers", { query, run: true, focus: true });
-}
-
-function SpecifierPathwayStrip() {
-  return (
-    <ClinicalPathwayStrip
-      id="specifier-pathway"
-      eyebrow="Specifier pathway"
-      title="Build diagnostic wording in clinical order"
-      steps={[
-        { label: "Diagnosis", body: "Name the disorder" },
-        { label: "Episode features", body: "Describe what is present now" },
-        { label: "Course and onset", body: "Place the episode in time" },
-        { label: "Severity or remission", body: "State current burden and recovery" },
-      ]}
-    />
-  );
-}
-
-function SpecifiersHome() {
-  return (
-    <ModeHomeMain testId="specifiers-home" contentAlign="startOnPhone">
-      <ModeHomeTemplate
-        testId="specifiers"
-        title={sharedHomePresentation.specifiers.title}
-        subtitle={sharedHomePresentation.specifiers.subtitle}
-        icon={appModeIcons.specifiers}
-        actionsLabel="Specifier workflows"
-        desktopComposerSlotId={modeHomeDesktopComposerSlotId}
-        actions={[
-          {
-            title: "Find a specifier",
-            description: "Match a presentation or diagnosis.",
-            icon: Search,
-            href: "/specifiers?focus=1",
-          },
-          {
-            title: "Build diagnostic wording",
-            description: "Assemble a clear, ordered diagnosis.",
-            icon: ListChecks,
-            href: "/specifiers/builder",
-          },
-          {
-            title: "Compare close calls",
-            description: "See the deciding features side by side.",
-            icon: GitCompareArrows,
-            href: "/specifiers/compare",
-          },
-        ]}
-        pillsTitle="Common clinical starts"
-        pills={specifierSearchPresets.map((preset) => ({
-          label: preset.label,
-          href: presetHref(preset.query),
-          icon: Tags,
-        }))}
-        pillsAction={
-          <Link
-            href="/specifiers/map"
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
-          >
-            Browse map
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
-        }
-        footer={<SpecifierPathwayStrip />}
-      />
-    </ModeHomeMain>
-  );
-}
-
 function EmptySearchResults({ query }: { query: string }) {
   return (
     <div className={cn(specifierCard, "grid justify-items-center gap-3 px-5 py-12 text-center")}>
@@ -144,7 +68,7 @@ function EmptySearchResults({ query }: { query: string }) {
         </p>
       </div>
       <Link
-        href="/specifiers"
+        href={consolidatedModeSearchPath("specifiers")}
         className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
       >
         Clear search
@@ -464,8 +388,12 @@ function SpecifierResults({ query }: { query: string }) {
   );
 }
 
-export function SpecifiersHomePage({ query = "", autoRunSearch = false }: { query?: string; autoRunSearch?: boolean }) {
-  const trimmedQuery = query.trim();
-  if (!autoRunSearch || !trimmedQuery) return <SpecifiersHome />;
-  return <SpecifierResults query={trimmedQuery} />;
+export function SpecifiersHomePage({
+  query = "",
+}: {
+  query?: string;
+  /** Kept so existing callers can pass it; empty queries now browse the catalogue. */
+  autoRunSearch?: boolean;
+}) {
+  return <SpecifierResults query={query.trim()} />;
 }

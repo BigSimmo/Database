@@ -7,6 +7,7 @@ import {
   clientChunkNamesFromManifestSource,
   clientRouteAndChunkNamesFromManifestSource,
   compareToBudget,
+  decideBaselineSourceWarning,
   EXIT_FAILSAFE_MS,
   exitProcess,
   findFixtureSnapshotsInChunks,
@@ -19,6 +20,7 @@ import {
   normalizeManifestRoute,
   partitionRouteClientChunks,
   resolveBaselineCommitDistance,
+  resolveBaselineGitStatus,
   resolveBaselineSource,
   STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD,
 } from "../scripts/check-bundle-budget.mjs";
@@ -95,7 +97,10 @@ describe("exitProcess", () => {
 
 describe("check-bundle-budget CLI exit", () => {
   /** Minimal build tree: one chunk, a build manifest, and one production route. */
-  function makeSandbox({ withRouteManifests = true } = {}) {
+  function makeSandbox({
+    withRouteManifests = true,
+    baselineSource,
+  }: { withRouteManifests?: boolean; baselineSource?: string } = {}) {
     const sandbox = mkdtempSync(path.join(tmpdir(), "bundle-budget-cli-"));
     const chunksDir = path.join(sandbox, ".next", "static", "chunks");
     mkdirSync(chunksDir, { recursive: true });
@@ -122,6 +127,7 @@ describe("check-bundle-budget CLI exit", () => {
       // Baselines well above the tiny fixture chunk so the CLI takes the success path.
       JSON.stringify({
         enforce: true,
+        baselineSource,
         production: { gzipBytes: 100_000, tolerancePct: 10 },
         mockups: { gzipBytes: 100_000, tolerancePct: 25 },
       }),
@@ -129,10 +135,10 @@ describe("check-bundle-budget CLI exit", () => {
     return sandbox;
   }
 
-  function runCli(sandbox: string) {
+  function runCli(sandbox: string, args: string[] = []) {
     const script = path.join(process.cwd(), "scripts/check-bundle-budget.mjs");
     return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
-      const child = spawn(process.execPath, [script], {
+      const child = spawn(process.execPath, [script, ...args], {
         cwd: sandbox,
         env: { ...process.env, NODE_OPTIONS: "", BUNDLE_BUDGET_ROOT: sandbox },
         stdio: ["ignore", "pipe", "pipe"],
@@ -214,6 +220,34 @@ describe("check-bundle-budget CLI exit", () => {
     try {
       expect(result.code).toBe(1);
       expect(result.stderr).toContain("could not be decoded");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("warns without failing when a configured baseline commit cannot be resolved", async () => {
+    const sandbox = makeSandbox({ baselineSource: "c".repeat(40) });
+    const result = await runCli(sandbox);
+    try {
+      expect(result.code).toBe(0);
+      expect(result.stderr).toContain("WARN (baseline source unresolvable)");
+      expect(result.stderr).toContain("Fetch the recorded baseline commit");
+      expect(result.stdout).toContain("[bundle-budget] done.");
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("keeps an unresolvable baseline warning structured in JSON output", async () => {
+    const sandbox = makeSandbox({ baselineSource: "c".repeat(40) });
+    const result = await runCli(sandbox, ["--json"]);
+    try {
+      expect(result.code).toBe(0);
+      expect(result.stderr).toBe("");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.warnings).toEqual([
+        expect.objectContaining({ code: "baseline-source-unresolvable", remediation: expect.any(String) }),
+      ]);
     } finally {
       rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
@@ -301,6 +335,52 @@ describe("bundle baseline provenance", () => {
     );
   });
 
+  it("checks that the baseline resolves and is an ancestor before distance comparison", () => {
+    const mockExec = vi.fn(() => "");
+    expect(resolveBaselineGitStatus(gitHead, process.cwd(), mockExec as unknown as typeof execFileSync)).toEqual({
+      commitExists: true,
+      comparableAsAncestor: true,
+    });
+    expect(mockExec).toHaveBeenNthCalledWith(
+      1,
+      "git",
+      ["-C", process.cwd(), "cat-file", "-e", `${gitHead.toLowerCase()}^{commit}`],
+      expect.any(Object),
+    );
+    expect(mockExec).toHaveBeenNthCalledWith(
+      2,
+      "git",
+      ["-C", process.cwd(), "merge-base", "--is-ancestor", gitHead.toLowerCase(), "HEAD"],
+      expect.any(Object),
+    );
+  });
+
+  it("returns a pure remediation warning for an unresolvable baseline source", () => {
+    const warning = decideBaselineSourceWarning({
+      baselineSource: gitHead,
+      commitExists: false,
+      comparableAsAncestor: null,
+    });
+    expect(warning).toMatchObject({ code: "baseline-source-unresolvable", remediation: expect.any(String) });
+    expect(warning?.remediation).toContain("Fetch the recorded baseline commit");
+  });
+
+  it("returns a pure remediation warning when the baseline is not comparable as an ancestor", () => {
+    const warning = decideBaselineSourceWarning({
+      baselineSource: gitHead,
+      commitExists: true,
+      comparableAsAncestor: false,
+    });
+    expect(warning).toMatchObject({ code: "baseline-source-not-ancestor", remediation: expect.any(String) });
+    expect(warning?.message).toContain("cannot be compared as an ancestor of HEAD");
+  });
+
+  it("does not warn when the baseline resolves as an ancestor", () => {
+    expect(
+      decideBaselineSourceWarning({ baselineSource: gitHead, commitExists: true, comparableAsAncestor: true }),
+    ).toBeNull();
+  });
+
   it("returns null for malformed or absent baseline commit SHA", () => {
     expect(resolveBaselineCommitDistance(null)).toBeNull();
     expect(resolveBaselineCommitDistance("not-a-sha")).toBeNull();
@@ -374,6 +454,23 @@ describe("initial dashboard fixture boundary", () => {
       },
     ]);
     expect(violations).toEqual(["forms fixture catalogue"]);
+  });
+
+  it.each([
+    ["medications snapshot", ["GABA / Glutamate Modulator", "1998 mg/day", "Renal Adj."]],
+    [
+      "medication interaction index",
+      ["generatedFrom", "sourceRowCount", "rowsWithCatalogueTarget", "medicationsWithUnresolvedRows"],
+    ],
+  ])("detects the complete %s marker group as prevention-only leakage", (name, markers) => {
+    expect(findFixtureSnapshotsInChunks([{ name: "page.js", buffer: Buffer.from(markers.join(" ")) }])).toEqual([name]);
+  });
+
+  it.each([
+    ["medications snapshot", ["GABA / Glutamate Modulator", "1998 mg/day"]],
+    ["medication interaction index", ["generatedFrom", "sourceRowCount", "rowsWithCatalogueTarget"]],
+  ])("does not flag %s when one low-collision marker is missing", (_name, markers) => {
+    expect(findFixtureSnapshotsInChunks([{ name: "page.js", buffer: Buffer.from(markers.join(" ")) }])).toEqual([]);
   });
 
   it("does not flag an isolated UI string as a serialized fixture", () => {

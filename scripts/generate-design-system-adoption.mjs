@@ -81,6 +81,10 @@ const CANONICAL_NON_VISUAL_ROUTES = Object.freeze({
     route: "src/app/(search-app)/documents/source/page.tsx",
     kind: "next-redirect-only",
   },
+  "ward-management-constellation-legacy-redirect": {
+    route: "src/app/ward-management/constellation/page.tsx",
+    kind: "next-redirect-only",
+  },
 });
 
 const toPosix = (value) => value.split(path.sep).join("/");
@@ -502,6 +506,106 @@ function validateCandidateSourceBinding(candidateSourceHead, { root, policy }) {
   return failures;
 }
 
+const AUTOMATED_OR_PENDING_REVIEWER =
+  /(?:\bai\b|\bagents?\b|automat(?:ed|ion|ic)|\bbots?\b|chatgpt|claude|codex|copilot|cursor\b|gemini|gpt-?\d|\bllm\b|openai|anthropic|pending)/i;
+const HUMAN_GITHUB_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/;
+const HUMAN_DISPLAY_NAME = /^[A-Za-z][A-Za-z .'-]{1,79}$/;
+
+/** Project-controlled human GitHub logins that may stamp visual-baseline provenance. */
+export const APPROVED_HUMAN_GITHUB_LOGINS = Object.freeze(["BigSimmo"]);
+
+/** GitHub logins that must never pass as a human display name or reviewer login. */
+export const REJECTED_SERVICE_ACCOUNT_LOGINS = Object.freeze([
+  "build-service",
+  "github-actions",
+  "dependabot",
+  "renovate",
+]);
+
+function trimIdentity(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function loginEquals(left, right) {
+  return left.toLowerCase() === right.toLowerCase();
+}
+
+function isApprovedHumanGithubLogin(value) {
+  return APPROVED_HUMAN_GITHUB_LOGINS.some((login) => loginEquals(login, value));
+}
+
+function isRejectedServiceAccountLogin(value) {
+  return REJECTED_SERVICE_ACCOUNT_LOGINS.some((login) => loginEquals(login, value));
+}
+
+function automatedOrPendingReviewerFailure(value) {
+  if (!AUTOMATED_OR_PENDING_REVIEWER.test(value)) return null;
+  return "visual baseline provenance human reviewer attribution must be a verified human identity, not an automated, bot, AI, or pending review";
+}
+
+function githubLoginFailure(value) {
+  const automatedFailure = automatedOrPendingReviewerFailure(value);
+  if (automatedFailure) return automatedFailure;
+  if (!HUMAN_GITHUB_LOGIN.test(value) || !isApprovedHumanGithubLogin(value)) {
+    return "visual baseline provenance human reviewer GitHub login must be on the project allowlist";
+  }
+  return null;
+}
+
+function displayNameFailure(value) {
+  const automatedFailure = automatedOrPendingReviewerFailure(value);
+  if (automatedFailure) return automatedFailure;
+  if (HUMAN_GITHUB_LOGIN.test(value) && isRejectedServiceAccountLogin(value)) {
+    return "visual baseline provenance human reviewer GitHub login must be on the project allowlist";
+  }
+  if (!HUMAN_DISPLAY_NAME.test(value)) {
+    return "visual baseline provenance human reviewer attribution must be a GitHub login or a human display name";
+  }
+  return null;
+}
+
+/**
+ * Validate a human reviewer stamp.
+ *
+ * GitHub logins (`login` / `--reviewed-by-login`) are allowlisted. Display names
+ * (`displayName` / `--reviewed-by`) are not — a single-token name such as `Alice`
+ * is a valid display name and must not be rejected just because it is also
+ * login-shaped. Service-account logins such as `build-service` remain rejected in
+ * both fields. A legacy string is classified as a login only when it is an
+ * approved human login or a rejected service account; otherwise it is a display name.
+ *
+ * @param {string | { login?: string, displayName?: string }} reviewedBy
+ */
+export function humanReviewerAttributionFailure(reviewedBy) {
+  if (reviewedBy && typeof reviewedBy === "object" && !Array.isArray(reviewedBy)) {
+    const login = trimIdentity(reviewedBy.login);
+    const displayName = trimIdentity(reviewedBy.displayName);
+    if (!login && !displayName) {
+      return "visual baseline provenance requires a non-empty human reviewer attribution";
+    }
+    if (login) {
+      const failure = githubLoginFailure(login);
+      if (failure) return failure;
+    }
+    if (displayName) {
+      const failure = displayNameFailure(displayName);
+      if (failure) return failure;
+    }
+    return null;
+  }
+
+  if (typeof reviewedBy !== "string" || reviewedBy.trim() === "") {
+    return "visual baseline provenance requires a non-empty human reviewer attribution";
+  }
+  const value = reviewedBy.trim();
+  const automatedFailure = automatedOrPendingReviewerFailure(value);
+  if (automatedFailure) return automatedFailure;
+  if (HUMAN_GITHUB_LOGIN.test(value) && (isApprovedHumanGithubLogin(value) || isRejectedServiceAccountLogin(value))) {
+    return githubLoginFailure(value);
+  }
+  return displayNameFailure(value);
+}
+
 export function validateLinuxVisualBaselineSet(
   baselinePaths,
   { root = ROOT, trackedFiles = trackedFilesForRoot(root) } = {},
@@ -548,6 +652,16 @@ export function validateLinuxVisualBaselineSet(
     Number.isNaN(Date.parse(provenance.review.reviewedAt))
   ) {
     failures.push("visual baseline provenance requires an approved timestamped human review");
+  }
+  if (provenance.review?.reviewerType === "human") {
+    const reviewerLogin = trimIdentity(provenance.review?.reviewerLogin);
+    const attributionFailure = reviewerLogin
+      ? humanReviewerAttributionFailure({
+          login: reviewerLogin,
+          displayName: provenance.review?.reviewedBy,
+        })
+      : humanReviewerAttributionFailure(provenance.review?.reviewedBy);
+    if (attributionFailure) failures.push(attributionFailure);
   }
   const runId = provenance.source?.runId;
   if (
@@ -1331,8 +1445,8 @@ export function manifestSections(manifest) {
     "`generate-design-system-adoption.mjs` discovers every production `src/app/**/page.tsx` and",
     "requires each route to appear exactly once in `adoption-contract.json`. Undeclared, missing, or",
     "multiply-owned routes fail the check. `src/app/api/**` and `src/app/mockups/**` are non-page",
-    "product exclusions; the only route-only disposition is the documented legacy document-source",
-    "redirect. Shared shell/component roots carry their own explicit `shared-shell` disposition.",
+    "product exclusions; the only route-only dispositions are the documented legacy-redirect",
+    "surfaces. Shared shell/component roots carry their own explicit `shared-shell` disposition.",
     "",
     `Registered public components: ${manifest.summary.registeredComponentCount}`,
     `Declared product roots: ${manifest.summary.rootCount}`,
@@ -1626,7 +1740,7 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
   if (contract.defaultProofApplicability !== CANONICAL_DEFAULT_PROOF_APPLICABILITY)
     failures.push("default proof applicability must remain required");
   if (JSON.stringify(contract.nonVisualRouteContracts) !== JSON.stringify(CANONICAL_NON_VISUAL_ROUTES))
-    failures.push("non-visual route contracts drifted from the canonical redirect-only route");
+    failures.push("non-visual route contracts drifted from the canonical redirect-only routes");
   if (JSON.stringify(contract.proofEvidencePolicy) !== JSON.stringify(CANONICAL_PROOF_EVIDENCE_POLICY))
     failures.push("proof evidence path policy drifted from the canonical contract");
   if (JSON.stringify(contract.visualBaselinePolicy) !== JSON.stringify(CANONICAL_VISUAL_BASELINE_POLICY))

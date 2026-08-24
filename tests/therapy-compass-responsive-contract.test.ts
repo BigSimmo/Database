@@ -13,12 +13,12 @@ const registryModeNavSource = read("src/components/mode-nav/registry-mode-nav.ts
 const therapyCardSource = read(`${therapyPath}/therapy-card.tsx`);
 const therapyFavouriteSource = read(`${therapyPath}/use-therapy-favourite.ts`);
 const workspaceSource = read(`${therapyPath}/workspace.tsx`);
-const homeSource = read(`${therapyPath}/screens/home-screen.tsx`);
 const modeHomeComposerSource = read("src/lib/mode-home-composer.ts");
 const modeHomeTemplateSource = read("src/components/mode-home-template.tsx");
 const informationPageShellSource = read("src/components/information-page-shell.tsx");
 const printOutputSource = read("src/components/ui/print-output.tsx");
 const detailSource = read(`${therapyPath}/screens/detail-screen.tsx`);
+const keyFactsSource = read(`${therapyPath}/record/key-facts.tsx`);
 const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
 const recommendSource = read(`${therapyPath}/screens/recommend-screen.tsx`);
 const pathwaysSource = read(`${therapyPath}/screens/pathways-screen.tsx`);
@@ -139,8 +139,8 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {
-    expect(homeSource).toContain("ModeHomeMain");
-    expect(homeSource).toContain("ModeHomeTemplate");
+    const sharedHomeSource = read("src/components/clinical-dashboard/answer-status.tsx");
+    expect(sharedHomeSource).toContain("ModeHomeTemplate");
     expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("max-sm:border-t");
     expect(modeHomeTemplateSource).toContain("sm:rounded-lg sm:border");
@@ -150,13 +150,20 @@ describe("Therapy Compass responsive contract", () => {
     // row before and after the Geist font swap. A 10px desktop override made
     // the final row 961px, wrapped one pill, and produced desktop CLS 0.126.
     expect(modeHomeTemplateSource).not.toContain("sm:gap-2.5");
-    expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
+    expect(sharedHomeSource).toContain("desktopComposerSlotId={desktopComposerSlotId}");
     // The caveat footer under the composer was removed from every mode home;
     // Therapy keeps only its page-bottom footer, gated `showFooter={!isHome}`.
     // Both halves of that are enforced structurally in
     // tests/mode-home-no-caveat-footer.test.ts rather than by name here.
-    expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(1);
-    expect(detailSource).toContain("max-sm:static");
+    // The record page is a single reading column at every width now, so it has
+    // no multi-column grid of its own to reflow and no sticky rail to un-stick.
+    // What replaced them is the key-facts strip, which is phone-first in the
+    // medication `DetailTile` shape: two up on a phone, four across from `sm`.
+    // Four short tiles at one-per-row would push the record body a full screen
+    // down, which is the fold problem this page was rebuilt to fix.
+    expect(keyFactsSource).toContain("grid-cols-2");
+    expect(keyFactsSource).toContain("sm:grid-cols-4");
+    expect(detailSource).not.toContain("sticky");
     expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);
     expect(compareSource).toContain("<Tabs");
     expect(compareSource).toContain("<SegmentedControl");
@@ -298,9 +305,6 @@ describe("clinical accent contrast contract", () => {
     expect(read(`${therapyPath}/ui.tsx`)).toContain(
       "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]",
     );
-    expect(homeSource).toContain("ModeHomeTemplate");
-    expect(homeSource).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
-    expect(homeSource).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
     expect(pathwaysSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
     expect(briefSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
   });

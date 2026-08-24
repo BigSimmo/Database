@@ -180,16 +180,44 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     select: { subclassIncludes: ["Anticholinergic"] },
   },
   {
+    // Every row this term fires on is about additive ANTICHOLINERGIC burden, not
+    // about histamine blockade — one says so in its own words: "if given with
+    // TCAs, sedating antihistamines, or antipsychotics". The second-generation
+    // agents are denied because they carry essentially no anticholinergic
+    // activity, and the catalogue labels them as such ("H1 Antihistamine (2nd
+    // Gen)"). Before this, benzatropine + loratadine produced a CRITICAL
+    // "anticholinergic toxidrome ... risk of toxic megacolon" alert and
+    // oxybutynin + cetirizine produced "frank delirium and bowel impaction".
+    //
+    // Cyclizine, promethazine, alimemazine and diphenhydramine stay: all four
+    // are genuinely anticholinergic and are what the rows mean.
+    // Clinical review 2026-08-22 (ledger #1YPV51).
     id: "antihistamines",
     surfaces: ["antihistamines", "antihistamine"],
     kind: "catalogue",
-    select: { subclassIncludes: ["Antihistamine"] },
+    select: { subclassIncludes: ["Antihistamine"], denySlugs: ["cetirizine", "fexofenadine", "loratadine"] },
   },
   {
+    // Every row is a SYSTEMIC effect: five are insulin resistance and raised
+    // BSL, one is tendon rupture with ciprofloxacin, one is additive
+    // hypokalaemia. A steroid cream does not massively increase insulin
+    // requirements, so the four purely topical agents are denied — the
+    // catalogue marks them "Topical Glucocorticoid".
+    //
+    // Inhaled agents are deliberately KEPT. The hypokalaemia row is about a
+    // formoterol inhaler and names "high-dose corticosteroids", and high-dose
+    // inhaled steroids do carry systemic effects. Beclometasone and mometasone
+    // are catalogued "Topical/Inhaled" and are kept on the same reasoning.
+    // Fludrocortisone is a mineralocorticoid and is kept: it raises BSL and
+    // drives hypokalaemia, which is exactly what these rows describe.
+    // Clinical review 2026-08-22 (ledger #1YPV51).
     id: "corticosteroids",
     surfaces: ["corticosteroids", "corticosteroid", "steroids", "steroid"],
     kind: "catalogue",
-    select: { classes: ["Steroid"] },
+    select: {
+      classes: ["Steroid"],
+      denySlugs: ["betamethasone", "clobetasol", "hydrocortisone-1", "triamcinolone"],
+    },
   },
   {
     // Not a class — a name alias, and the most consequential one in the file.
@@ -252,10 +280,17 @@ const CATALOGUE_TERMS: LexiconTerm[] = [
     },
   },
   {
+    // Almost every row is an enzyme inducer destroying the COMBINED pill —
+    // carbamazepine, St John's wort, topiramate above 200 mg — plus one about
+    // estrogen and VTE risk with tranexamic acid. Depot medroxyprogesterone is
+    // the method a woman is switched TO when she is on an inducer, so warning
+    // that it will fail does not merely cry wolf: it argues against the option
+    // that still works. Removed on clinical review 2026-08-22 (ledger #1YPV51).
+    // Levonorgestrel is kept: implant and pill formulations are inducer-affected.
     id: "oral-contraceptives",
     surfaces: ["oral contraceptives", "oral contraceptive", "combined oral contraceptive pill", "cocp", "ocps", "ocp"],
     kind: "catalogue",
-    select: { slugs: ["ethinylestradiol", "levonorgestrel", "medroxyprogesterone"] },
+    select: { slugs: ["ethinylestradiol", "levonorgestrel"] },
   },
   {
     id: "fibrates",
