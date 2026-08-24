@@ -4,19 +4,19 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                                                   | Composer placement                                                                        | Reserve owner                                                                  |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                    | Page content; no fixed phone dock reserve                                      |
-| Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls | Idle shell padding only                                                        |
-| Therapy Recommend (`/therapy-compass/recommend`)             | In-flow clinical-situation composer; no shared composer or phone dock                     | Idle shell padding only                                                        |
-| Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                                           | Overlaid glass header plus answer composer dock                                           | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes                                | `DocumentViewer` floating composer                                                        | `DocumentViewer` content padding                                               |
-| Document section navigation                                  | Header row disclosure (phone sheet) + rail index card at `lg`                             | None — adds no chrome and no reserve                                           |
-| Record page breadcrumb header                                | Same header row without the disclosure or track; view mode inline from `sm`               | None — portals into the phone collapse row, sticky at `sm+`                    |
-| Calculators (`/calculators`)                                 | In-flow hero composer at home; shared compact dock after submission                       | Page content at home; shell reserve for submitted results                      |
-| Info/detail pages with no composer                           | No fixed composer                                                                         | Idle shell padding only                                                        |
-| Guide Centre dialog (`GuideDialog`)                          | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm`       | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)            |
+| Page state                                                   | Composer placement                                                                                | Reserve owner                                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                            | Page content; no fixed phone dock reserve                                      |
+| Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls         | Idle shell padding only                                                        |
+| Therapy Recommend (`/therapy-compass/recommend`)             | In-flow clinical-situation composer; no shared composer or phone dock                             | Idle shell padding only                                                        |
+| Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                        | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
+| Answer result view                                           | Overlaid glass header plus answer composer dock                                                   | Dashboard `#main-content` top/bottom reserves                                  |
+| Document detail/source routes                                | `DocumentViewer` floating composer                                                                | `DocumentViewer` content padding                                               |
+| Document section navigation                                  | Header row disclosure (phone sheet) + rail index card at `lg`                                     | None — adds no chrome and no reserve                                           |
+| Record page breadcrumb header                                | Same header row without the disclosure or track; view mode inline from `sm`                       | None — portals into the phone collapse row, sticky at `sm+`                    |
+| Calculators (`/calculators`)                                 | In-flow hero composer at home; shared compact dock on `/calculators/search` (browse or submitted) | Page content at home; shell reserve for the catalogue and submitted results    |
+| Info/detail pages with no composer                           | No fixed composer                                                                                 | Idle shell padding only                                                        |
+| Guide Centre dialog (`GuideDialog`)                          | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm`               | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)            |
 
 The Tools row is scoped to the **mounted Tools directory**, not to `resultKind: "tools"`. Factsheets,
 Dictionary and Therapy Compass borrow that result kind purely as a benign search kind, and on the
@@ -794,6 +794,23 @@ Rules:
 Coverage: `tests/phone-dock-addon-contract.test.ts` (registry, exclusivity, CSS/TS
 value parity), `tests/patient-details-dock-action.dom.test.tsx` (portal target,
 breakpoint, sheet wiring).
+
+## Clinical Ask composer chrome
+
+Services, Forms, Differentials, Formulation, DSM, and Specifiers may mount the
+Ask / Dictate rail above the shared composer once the draft has text or a
+search is submitted. Therapy never does.
+
+`clinicalAskComposerChromeEnabled` in
+`src/components/clinical-dashboard/use-clinical-ask-shell-state.ts` is the
+single gate. `therapy-compass` stays a Clinical Ask backend mode, but both
+`GlobalSearchShell` and `ClinicalDashboard` refuse the rail and the extra dock
+reserve on the shared Therapy home (`/?mode=therapy-compass`) and on
+`/therapy-compass/*` results. Query-gated remounts of that rail were flickering
+the microphone on Therapy.
+
+Coverage: `tests/clinical-ask-composer-chrome.test.ts`,
+`tests/ui-clinical-ask.spec.ts`.
 
 ## Change checklist
 
