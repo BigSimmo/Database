@@ -24,6 +24,7 @@ import {
   SAFETY_PLAN_SECTION_KEYS,
   SAFETY_PLAN_SECTION_LABEL,
   formatPerthDate,
+  safetyPlanConfirmationRow,
 } from "@/components/care-plan/mockups/prototype-ui";
 import { CarePlanRouteSurface, scenarioFromQuery } from "@/components/care-plan/mockups/routable-suite";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/routes";
@@ -2567,11 +2568,15 @@ describe("Care Plan Personal Safety Plan reading", () => {
     expect(ownership).toHaveTextContent(/never replaces fresh assessment/i);
   });
 
-  it("states the version, last-confirmed date, review currency and who wrote it with them", () => {
+  it("states the version, when the person's part was recorded, review currency and who wrote it with them", () => {
     renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
     const metadata = screen.getByTestId("care-plan-safety-version");
     expect(metadata).toHaveTextContent("Version 1");
-    expect(metadata).toHaveTextContent(formatPerthDate(ROWAN_SAFETY_VERSION.confirmedAt));
+    // The afternoon Rowan's part was recorded, spelled out rather than read off
+    // the fixture. Not 04/09/2025, the next morning, when the version went
+    // live — which is what this row asserted until D1 was applied to it.
+    expect(metadata).toHaveTextContent("03/09/2025");
+    expect(metadata.textContent ?? "").not.toContain("04/09/2025");
     expect(metadata).toHaveTextContent(formatPerthDate(ROWAN_SAFETY_VERSION.reviewDueAt));
     expect(metadata).toHaveTextContent("Morgan Sample");
     expect(metadata).toHaveTextContent(/Rowan chose the wording/);
@@ -3984,6 +3989,92 @@ describe("Care Plan Identification Review workflow", () => {
  * off `PATIENT_CONFIRMATION_LABEL`, which is the constant the component renders
  * from — an assertion generated from the copy can never disagree with it.
  */
+describe("Care Plan Personal Safety Plan confirmation row", () => {
+  function confirmationRowText(term: string): string | null {
+    const node = [...document.querySelectorAll("dt")].find((candidate) => candidate.textContent === term);
+    return node?.nextElementSibling?.textContent ?? null;
+  }
+
+  it("dates a confirmed version by when the person's part was recorded, on the reading surface", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-001"));
+    expect(confirmationRowText("Confirmed with this person on")).toBe("03/09/2025");
+
+    const surface = screen.getByTestId("care-plan-safety-surface").textContent ?? "";
+    // `confirmedAt`, the day the version went live, which this row used to show.
+    expect(surface).not.toContain("04/09/2025");
+    expect(surface).not.toContain("Last confirmed");
+  });
+
+  it("dates the sheet the person takes home by the same moment, in the second person", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-001"));
+    expect(confirmationRowText("Confirmed with you on")).toBe("03/09/2025");
+
+    const paper = screen.getByTestId("care-plan-safety-print-output").textContent ?? "";
+    expect(paper).not.toContain("04/09/2025");
+    expect(paper).not.toContain("Last confirmed");
+  });
+
+  /**
+   * The gate that matters. `participationRecordedAt` is written for every
+   * participation state, so a repoint gated only on the timestamp being present
+   * would print a confirmation line on the sheet of somebody who declined —
+   * worse than the defect being fixed. Evie declined, and 20/06/2026 is in her
+   * record as the moment that decision was taken down.
+   */
+  it("prints no confirmation line at all on the sheet of a person who declined", () => {
+    renderRoute(carePlanRoute.safetyPlanPrint("SYN-PATIENT-004"));
+    const paper = screen.getByTestId("care-plan-safety-print-output").textContent ?? "";
+
+    expect(paper).not.toContain("Confirmed with you");
+    expect(paper).not.toContain("Confirmed");
+    // Her recorded participation moment, which must not reach this sheet.
+    expect(paper).not.toContain("20/06/2026");
+    expect(paper).not.toContain("Last confirmed");
+    expect(paper).not.toContain("Not recorded");
+    // The sheet still does its job.
+    expect(paper).toContain("Evie");
+    expect(paper).toContain("1300 555 788");
+  });
+
+  it("shows no confirmation row for a version the person has not confirmed, and still says so in words", () => {
+    renderRoute(carePlanRoute.safetyPlan("SYN-PATIENT-002"));
+    expect(confirmationRowText("Confirmed with this person on")).toBeNull();
+    expect(confirmationRowText("Confirmed with this person")).toBeNull();
+
+    // The state is never left unsaid: it is stated below the grid instead.
+    expect(screen.getByTestId("care-plan-safety-confirmation")).toHaveTextContent("Discussed, not yet confirmed");
+    const surface = screen.getByTestId("care-plan-safety-surface").textContent ?? "";
+    expect(surface).not.toContain("Last confirmed");
+  });
+
+  /**
+   * A confirmed version whose moment the record never captured. No fixture
+   * holds one — every version confirmed through the application is stamped as
+   * it is saved — so this is asserted against the pure helper directly rather
+   * than left as an unreachable branch behind a route.
+   */
+  it("says the date is not recorded for a confirmed version whose moment was never captured", () => {
+    const terms = { withDate: "Confirmed with you on", withoutDate: "Confirmed with you" };
+
+    expect(
+      safetyPlanConfirmationRow({ patientConfirmation: "confirmed", participationRecordedAt: null }, terms),
+    ).toEqual({ term: "Confirmed with you", detail: "The date is not recorded" });
+    // The other two cases, so all three stay distinguishable in the words.
+    expect(
+      safetyPlanConfirmationRow(
+        { patientConfirmation: "confirmed", participationRecordedAt: "2025-09-03T15:40:00+08:00" },
+        terms,
+      ),
+    ).toEqual({ term: "Confirmed with you on", detail: "03/09/2025" });
+    expect(
+      safetyPlanConfirmationRow(
+        { patientConfirmation: "declined", participationRecordedAt: "2026-06-20T15:30:00+08:00" },
+        terms,
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("Care Plan Personal Safety Plan status beside the plan link", () => {
   function safetyPlanStatusText(): string {
     const term = [...document.querySelectorAll("dt")].find((node) => node.textContent === "Personal Safety Plan");

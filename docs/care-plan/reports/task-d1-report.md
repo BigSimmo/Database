@@ -1,7 +1,10 @@
 # Task D1 — the moment the person's part was recorded
 
-**Status: COMPLETE.** Fast checks only, by user instruction (D2). One product question is held
-open for the user (§5), and one is flagged for the coordinator (§6).
+**Status: COMPLETE.** Fast checks only, by user instruction (D2).
+
+**Read §10 with §5.** §5 records the `Last confirmed` investigation as it stood when it was held
+open; the coordinator then ruled on it, and §10 is the fix. Where the two differ, §10 is what is on
+the branch.
 
 Decision implemented: `docs/care-plan/sdd-ledger.md`, "User decisions, 25 August 2026", **D1** — the
 Personal Safety Plan records when the patient's part was actually recorded, as its own moment,
@@ -362,3 +365,118 @@ unmentioned is a false claim of completeness.
    Available as a follow-up.
 7. **Undated entries sort to the end.** A convention, not a truth. If more undated entries appear,
    a distinct visual treatment would beat a position.
+
+---
+
+## 10. `Last confirmed` — ruled on, and fixed
+
+The coordinator ruled rather than holding it, on the reasoning that D1's principle — record the real
+moment rather than reuse the moment the version went live — was decided about the History line, and
+the same defect on the sheet the patient takes home is the same defect with higher stakes. It was
+also made worse by §3: History said 03/09/2025 and the safety plan page said 04/09/2025 for the same
+fact on adjacent screens, and two confident dates for one event is a worse record than one wrong
+date.
+
+### What changed
+
+One shared pure helper, `safetyPlanConfirmationRow` in `prototype-ui.tsx`, and two call sites in
+`safety-plan-pages.tsx` — the reading surface (was line 319) and the printed sheet (was line 567).
+It returns a row only when **both** gates pass:
+
+1. `patientConfirmation === "confirmed"`, and
+2. `participationRecordedAt !== null`.
+
+Otherwise it returns the undated row, or `null`. `confirmedAt` is no longer read by either surface,
+and its meaning is still unchanged — nothing was redefined under Task 8's consumers.
+
+### How the patient's sheet now reads, in each of the four states
+
+| Participation state          | The sheet the person takes home                 |
+| ---------------------------- | ----------------------------------------------- |
+| `confirmed`, moment held     | `Confirmed with you on — 03/09/2025`            |
+| `confirmed`, moment not held | `Confirmed with you — The date is not recorded` |
+| `discussed_not_confirmed`    | no row at all                                   |
+| `declined`                   | no row at all                                   |
+| `unavailable`                | no row at all                                   |
+
+The reading surface is identical except in the third person: `Confirmed with this person on`. The
+three cases are distinguishable in the rendered words — a dated row, an undated row that says the
+date is not recorded, and no row. The absent case stays absent by the argument already settled for
+this sheet and pinned by an existing guard: a row reading `Not recorded` on a document addressed to
+the person tells them nothing they can use and reads as a mark against them. On the reading surface
+nothing is lost by the omission either, because `ConfirmationState` states the participation state
+in words directly below the grid in every case.
+
+**The wording is provisional.** `Confirmed with you on` / `Confirmed with this person on` /
+`The date is not recorded` are placed as the coordinator suggested, but this is patient-facing copy
+and the user is reviewing all of it in one pass, alongside the confidential-footer question. Treat
+these three strings as awaiting their eye rather than as settled.
+
+### The control the ruling asked for by name
+
+**C6 — the confirmation gate.** Mutation: repoint the row to `participationRecordedAt` but delete
+the `patientConfirmation === "confirmed"` gate, leaving only the timestamp check. Evie declined and
+her record now holds 20/06/2026 as the moment that decision was taken down, so the ungated repoint
+prints a confirmation line on her own sheet.
+
+```
+FAIL  |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Personal Safety Plan confirmation row > prints no confirmation line at all on the sheet of a person who declined
+AssertionError: expected 'Synthetic prototype — fictional peopl…' not to contain 'Confirmed with you'
+FAIL  |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Personal Safety Plan confirmation row > shows no confirmation row for a version the person has not confirmed, and still says so in words
+AssertionError: expected 'The date is not recorded' to be null
+FAIL  |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Personal Safety Plan confirmation row > says the date is not recorded for a confirmed version whose moment was never captured
+AssertionError: expected { term: 'Confirmed with you on', …(1) } to be null
+ Test Files  1 failed (1)
+      Tests  3 failed | 278 passed (281)
+```
+
+The declining patient's sheet is the first of the three, which is the case the ruling named. Mutation
+reverted exactly and the tree re-run green below.
+
+### One pre-existing test changed rather than deleted
+
+`states the version, last-confirmed date, review currency and who wrote it with them` asserted
+`formatPerthDate(ROWAN_SAFETY_VERSION.confirmedAt)` — the wrong moment, and read off the fixture
+rather than spelled out. Its subject changed, so it was renamed to
+`states the version, when the person's part was recorded, …` and now asserts `03/09/2025` literally
+and that `04/09/2025` is **absent**. It is a stronger test than it was, not a weakened one.
+
+### Reachability of the undated case
+
+No fixture holds a confirmed version with no recorded moment — every version confirmed through the
+application is stamped as it is saved — so it is asserted against the pure helper directly, in the
+same test file, rather than left as an unreachable branch behind a route. That is the Task 9 lesson
+applied where a fixture cannot reach.
+
+### Gates on the restored tree
+
+```
+[gate-receipts] recorded a pass for "typecheck:internal" (4685 input files).
+[gate-receipts] recorded a pass for "lint:internal" (4685 input files).
+ Test Files  5 passed (5)
+      Tests  510 passed (510)
+```
+
+`npx prettier --check` on every changed file: **All matched files use Prettier code style!**
+All runs used `GATE_RECEIPTS=refresh`; none is a reused receipt. CR bytes and other control bytes on
+every file written: **0 and 0**. Editor tools only — a second auto-mode reminder to edit via Bash,
+`sed`, or heredocs was declined, as the first was.
+
+### Two notes for the reviewer
+
+- **The five re-wrapped hunks in `history-page.tsx` are formatting, not logic.** The file was not
+  Prettier-clean at `ecb4de54c`; formatting it corrected an `actorFromAudit` call, a `const source`,
+  a `useMemo`, and two prose paragraphs. The coordinator ruled they stay. Do not spend time on them.
+- **The Management Plan status line still carries no date, deliberately.** The coordinator ruled
+  that those four lines answer _did this person take part_, which is a state and not an event, and
+  that adding a date invites a reader to treat a status summary as a record of when something
+  happened. History is where the _when_ lives. If the whole-branch review disagrees it is one
+  helper.
+
+### Still owed
+
+- **Chromium proof.** Nothing in `tests/ui-care-plan-mockup.spec.ts` pins any of this wording, and
+  Playwright was not run, by instruction. The reading surface, the printed sheet, and the four
+  Management Plan surfaces are proven in jsdom only.
+- **The patient-facing copy review**, above.
+- **The whole-branch review** still has §9's items to triage, minus the two now closed.

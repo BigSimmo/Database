@@ -174,13 +174,56 @@ export const PATIENT_CONFIRMATION_EXPLANATION: Record<PatientConfirmationState, 
  * the version went live, which is not a moment the person acted. What the
  * record now holds about the person's part is `participationRecordedAt`, and
  * whether that belongs on this line is a product decision that has not been
- * taken. Dropping a date that was wrong loses nothing.
+ * taken, and the whole-branch review may revisit it. Dropping a date that was
+ * wrong loses nothing.
  */
 export function safetyPlanStatusLine(
   version: { version: number; patientConfirmation: PatientConfirmationState } | null,
 ): string {
   if (version === null) return "No current version";
   return `Current version ${version.version} — ${PATIENT_CONFIRMATION_LABEL[version.patientConfirmation]}`;
+}
+
+/**
+ * The confirmation row on the Personal Safety Plan itself — the reading surface
+ * and the sheet the person takes home.
+ *
+ * Both rows used to read `Last confirmed <formatPerthDate(confirmedAt)>`.
+ * `confirmedAt` is set inside `make-safety-plan-current`, at the moment a
+ * clinician published the version, which is not a moment the person did
+ * anything: a draft can sit unpublished for weeks, and whoever publishes it may
+ * not be whoever sat down with them. So a row a reader takes as *the day this
+ * person confirmed their plan* was showing the day it went live — on the
+ * person's own document. User decision D1 (25 August 2026) chose to record the
+ * real moment rather than reuse that one; this applies that decision to the
+ * sheet rather than only to History.
+ *
+ * Two gates, and the second is the load-bearing one:
+ *
+ * - the moment being present, because a confirmed version whose moment the
+ *   record never captured must say so rather than borrow another date;
+ * - `patientConfirmation === "confirmed"`, because `participationRecordedAt` is
+ *   written for **every** participation state. Gating on the timestamp alone
+ *   would print a confirmation line on the sheet of somebody who declined —
+ *   a worse defect than the one being fixed, and of exactly the class this
+ *   build has spent three tasks removing.
+ *
+ * The three cases are distinguishable in the rendered words and not only in the
+ * code: a dated row, an undated row that says the date is not recorded, and no
+ * row at all when the person did not confirm. The last stays absent by the
+ * argument already settled for this sheet — a row reading `Not recorded` on a
+ * document addressed to the person tells them nothing they can use and reads as
+ * a mark against them.
+ */
+export function safetyPlanConfirmationRow(
+  version: { patientConfirmation: PatientConfirmationState; participationRecordedAt: string | null },
+  terms: { withDate: string; withoutDate: string },
+): { term: string; detail: string } | null {
+  if (version.patientConfirmation !== "confirmed") return null;
+  if (version.participationRecordedAt === null) {
+    return { term: terms.withoutDate, detail: "The date is not recorded" };
+  }
+  return { term: terms.withDate, detail: formatPerthDate(version.participationRecordedAt) };
 }
 
 export const FIRST_MINUTE_SECTION_ID_PREFIX = "care-plan-first-minute";
