@@ -278,10 +278,12 @@ not built, the caller passes an explicit unavailable handler in `unavailable-des
 Contract tests: a trigger for a nonexistent overlay id fails loudly; a screen cannot compile if it
 opens an overlay without supplying a commit handler.
 
-**Task 4 — The Patients destination becomes real.** `shell.tsx` gains the `href`, the route file exists
-and renders the empty state, `npm run sitemap:update` runs, `docs/codebase-index.md` gains its entry,
-and the reachability assertion is added. **This task is what proves Group 0 works**, and it ends with a
-navigable link the owner can click.
+**Task 4 — MERGED INTO TASK 5 (Ruling 89).** As written it would ship a page rendering the empty state
+before Task 5 supplies data — i.e. a caseload screen saying "No patients yet" whether or not patients
+exist. That is the exact defect Task 1's component was built to prevent, and the orphan-route gate
+would have forced an inbound link at the same moment, making the false state reachable rather than
+merely present. Its real deliverables — the `href` in `PRIMARY_DESTINATIONS`, `npm run sitemap:update`,
+the `docs/codebase-index.md` entry and the reachability assertion — travel with Task 5.
 
 **Checkpoint 0:** `npm run test`, `npm run typecheck`, `npm run lint`, and the caring-contacts browser
 gate all green. The Patients link navigates.

@@ -453,3 +453,35 @@ so explicitly in the brief.
 
 Task 1: fix round 1/5 dispatched — 3 items (mutation narrative corrected and re-run as specified, the
 `ListEmptyState` rename, the `role="group"` structure).
+
+## Ruling 89 — Task 4 is merged into Task 5, because as written it ships a false statement
+
+Found while writing Task 4's brief, verifying its premises in code first.
+
+**What is already there, and does not need building:** `src/lib/caring-contacts-routes.ts` declares
+all fifteen destinations plus typed helpers for every dynamic route (`patientRoute`, `planRoute`,
+`contactRoute`, `pathwayRoute`, `episodeTimelineRoute`). `shell.tsx`'s own comment says the change to
+light up a destination is exactly "adding an `href` here". So Task 4's mechanical half is one line.
+
+**The problem is its other half.** The plan has Task 4 create `patients/page.tsx` rendering the empty
+state, as Group 0's proving step — before Task 5 gives it real data. A page that renders
+`ListEmptyState` unconditionally **says "No patients yet" whether or not patients exist**. That is a
+false statement on a clinical caseload screen, and it is the *precise* defect Task 1's component was
+built to prevent: an empty-looking list that is not empty. Shipping it, even for one task, would mean
+the first screen of this phase overclaims in exactly the way the phase's first component exists to
+stop.
+
+Ruling: [89] Task 4 is **merged into Task 5**. Its real deliverables — the `href` in
+`PRIMARY_DESTINATIONS`, `npm run sitemap:update`, the `docs/codebase-index.md` entry, and the
+reachability assertion — travel with the screen that has real data, and the page is never reachable
+in a state where it can lie. — Why: the alternative is a page whose only content is a claim it cannot
+support. "It is only temporary" is not a defence a clinical surface gets, and the orphan-route gate
+would have forced the inbound link at the same moment, making the false state reachable rather than
+merely present. — Cost if wrong: Group 0 loses its proving step, so the first thing that exercises the
+scaffolding end to end is a larger task with more to go wrong at once. Accepted, because Task 5 was
+the immediate next task anyway and nothing else in Group 0 waits on it.
+
+**The general shape, and it is the same one as Ruling 87:** before making something reachable, ask
+what its arrival makes true. There the answer was "confirm buttons that do nothing"; here it is "a
+caseload screen that says empty when it is not". Both were invisible while the thing stayed
+unreachable.
