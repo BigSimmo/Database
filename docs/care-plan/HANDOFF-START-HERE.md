@@ -99,17 +99,34 @@ Ask before any of those.
 
 ## 2. What is in this package
 
-| Folder          | Contents                                                                                      |
-| --------------- | --------------------------------------------------------------------------------------------- |
-| `handoff/`      | The session handoff and the SDD ledger — the two documents that matter most                   |
-| `spec/`         | The binding specification, the eleven-task implementation plan, and the domain glossary       |
-| `reports/`      | Every task brief and every implementer report, Tasks 3 to 9 — about 400 KB of decision detail |
-| `review-diffs/` | The fourteen review packages each reviewer worked from                                        |
-| `transcripts/`  | The full raw conversation transcript of the session that built Tasks 3 to 9 (4 MB JSONL)      |
+44 files, about 36 MB, covering **all four sessions** that built this product.
+
+| Folder          | Contents                                                                                                                                                                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `handoff/`      | Both session handoffs (21 and 23 August), the SDD ledger, the complete work ledger, the original build handover, the earlier conversation transcript, the verification log, and the first start-here note                                           |
+| `spec/`         | The binding specification, the eleven-task implementation plan, and the domain glossary                                                                                                                                                             |
+| `reports/`      | Every task brief and implementer report, Tasks 3 to 9 — about 400 KB of decision detail                                                                                                                                                             |
+| `review-diffs/` | The fourteen review packages each reviewer worked from                                                                                                                                                                                              |
+| `transcripts/`  | **Raw transcripts of all four sessions** — the two Codex design sessions of 20–21 August, the Claude session of 21 August that ran the design review, the grilling round and Tasks 1–2, and the Claude session of 22–24 August that built Tasks 3–9 |
 
 Everything in `handoff/`, `spec/` and `reports/` is **also committed to the git branch**,
-so it survives independently of this folder. The transcript and the review diffs are
-here only.
+so it survives independently of this folder. The raw transcripts and the review diffs are
+here only — they are too large, and too much of them is machine noise, to belong in the
+repository.
+
+### What is NOT here, and cannot be
+
+**The Task 1 and Task 2 briefs and implementer reports do not exist.** They lived in the
+skill's git-ignored workspace, which was destroyed along with the whole worktree on
+21 August 2026 — that destruction is why the ledger became a tracked file. What survives
+of those two tasks is the ledger's account of them (rulings 1 to 25, their commit ranges
+and their evidence), the `complete-work-ledger.md` narrative, and the 21 August raw
+transcript, which contains the work as it happened. That is enough to understand every
+decision; it is not the original paperwork.
+
+The `docs/care-plan/` folder was also dropped from `main` when PR #2274 was prepared.
+Every file in it has been recovered from the old branch tip `f01b8583c`, which is still in
+the local object store at `D:\Repos\Database\.git`, and restored onto this branch.
 
 ---
 
