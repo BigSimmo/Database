@@ -608,6 +608,7 @@ describe("capacity confirmation", () => {
       role: "ward",
       now: NOW,
       unitId: "rph-older-adult",
+      actingUnitId: "rph-older-adult",
       value: 3,
     });
     const unit = next.units.find((candidate) => candidate.id === "rph-older-adult")!;
@@ -616,6 +617,41 @@ describe("capacity confirmation", () => {
     // Untouched: a sibling unit's allocatable count must not move.
     const sibling = next.units.find((candidate) => candidate.id === "rph-adult-secure")!;
     expect(sibling.allocatable.value).toBe(1);
+  });
+
+  /**
+   * Deferred item 2. The role check only proves *a* ward raised the event, not *which* ward, so a
+   * ward user on one unit could restate another unit's allocatable count. The event now carries
+   * the unit the caller stated it was acting as, and the reducer refuses a mismatched pair.
+   *
+   * This is a recorded claim, not an authenticated identity — nothing verifies that the caller
+   * really is `actingUnitId`. The test therefore proves only what the reducer does: matched pair
+   * writes, mismatched pair refuses and names both ids, and the target unit is left untouched.
+   */
+  it("refuses a confirmation raised acting as one unit but targeting another, naming both", () => {
+    const before = seeded().units.find((candidate) => candidate.id === "rph-adult-secure")!.allocatable;
+
+    const next = wardFlowReducer(seeded(), {
+      type: "CONFIRM_CAPACITY",
+      role: "ward",
+      now: NOW,
+      unitId: "rph-adult-secure",
+      actingUnitId: "rph-older-adult",
+      value: 7,
+    });
+
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0].reason).toContain("rph-older-adult");
+    expect(next.rejections[0].reason).toContain("rph-adult-secure");
+    expect(next.rejections[0].attempted).toBe("CONFIRM_CAPACITY");
+
+    // Nothing was written: neither the value nor the confirmation stamp moved.
+    const after = next.units.find((candidate) => candidate.id === "rph-adult-secure")!.allocatable;
+    expect(after.value).toBe(before.value);
+    expect(after.confirmedAt).toBe(before.confirmedAt);
+    // And the unit the caller claimed to be acting as was not written to either.
+    const claimed = next.units.find((candidate) => candidate.id === "rph-older-adult")!;
+    expect(claimed.allocatable.value).not.toBe(7);
   });
 });
 
@@ -722,6 +758,7 @@ describe("arrival capacity floor", () => {
       role: "ward",
       now: NOW,
       unitId: "rph-adult-secure",
+      actingUnitId: "rph-adult-secure",
       value: 5,
     });
     state = walkToArrival(state, "WF-017"); // empty 1 -> 0, allocatable 5 -> 4

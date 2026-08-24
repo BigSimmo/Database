@@ -429,7 +429,11 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
     case "PATIENT_ARRIVED":
       return movementIds.map((movementId) => ({ type, role, now, movementId }));
     case "CONFIRM_CAPACITY":
-      return unitIds.flatMap((unitId) => [0, 1, 2].map((value) => ({ type, role, now, unitId, value })));
+      // `actingUnitId` mirrors `unitId`: the reducer refuses a mismatched pair outright, so a
+      // generated mismatch would exercise the rejection path rather than this guard's subject.
+      return unitIds.flatMap((unitId) =>
+        [0, 1, 2].map((value) => ({ type, role, now, unitId, actingUnitId: unitId, value })),
+      );
     case "RECORD_ESCALATION":
       return movementIds.map((movementId) => ({
         type,

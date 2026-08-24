@@ -481,6 +481,23 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
     }
 
     case "CONFIRM_CAPACITY": {
+      // The role check above only proves *a* ward raised this. It does not say *which* ward, so
+      // before this a ward user on unit A could restate unit B's allocatable count.
+      //
+      // What this check does: it compares the unit the caller said it was acting as against the
+      // unit being written to, and refuses the event when they differ. What it does not do: prove
+      // the claim. `actingUnitId` is whatever the call site put on the event — the ward screen
+      // reads it from its own `/ward-management/ward/[unitId]` route, but nothing here verifies
+      // that, and this prototype carries no authenticated actor identity to verify it against.
+      // This is a recorded assertion by the caller, not an authorisation decision, and must not
+      // be described or extended as one.
+      if (event.actingUnitId !== event.unitId) {
+        return reject(
+          state,
+          event,
+          `CONFIRM_CAPACITY was raised acting as unit ${event.actingUnitId} but targets unit ${event.unitId}`,
+        );
+      }
       const unit = findUnit(state, event.unitId);
       if (!unit) return reject(state, event, `no unit found for id ${event.unitId}`);
       const updatedUnit: Unit = {
