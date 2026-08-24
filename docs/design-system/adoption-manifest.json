@@ -730,6 +730,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/caring-contacts-empty-state.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-target-evidence.test.ts",
