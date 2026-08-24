@@ -46,8 +46,17 @@ which 20/30 (v18) and 21/30 (v19) answers were `source_only`.
 question set, and ledger `#231` is the open row about that fallback behaviour. But it
 is enough to conclude the thing that matters here:
 
-> Numbered marks are an enhancement that appears on model-synthesis answers.
+> Numbered marks are an enhancement that appears wherever an answer carries sections.
 > The rail and the drawer must work on every answer, including source-only ones.
+
+**Corrected 2026-08-24 — do not gate marks on the quality tier.** The six fallback sites
+above do set `answerSections: []`, but they are not the only route to `source_only`.
+`applyProviderLabels` (`src/lib/rag/rag-extractive-answer.ts`) tags **any** model-less
+`routingMode: "extractive"` answer `source_only`, and `buildExtractiveAnswer` passes
+`answerSections: naturalAnswer.answerSections ?? []` straight through — so a deterministic
+extractive answer can be `source_only` **and** carry sections with support levels. Gate marks
+on the sections and their `supportLevel`, never on `answerQualityTier`. One rule, no special
+case, and it fails closed: no sections, no marks.
 
 That is why the rail and drawer ship first, and the marks second.
 
@@ -75,13 +84,13 @@ goes when they do.
 Every one of these reaches this surface, and two of them change what the surface must
 contain rather than just what it says:
 
-| State               | What changes                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `ready`             | The drawn case. Marks where sections earn them, rail, drawer.                                                       |
-| `source_only`       | **No `answerSections`, so no marks at all.** The rail is the only route to a source. 20/30 in the read cited in §1. |
-| `stale_evidence`    | Adds a banner. Overdue documents are named on the rail card and in the drawer, never in the mark (§4).              |
-| `partial_retrieval` | Adds a banner, and sections resting on unretrieved documents are absent — drop the section, never the citation.     |
-| `ungrounded`        | Renders as `source_only` plus a stronger notice.                                                                    |
+| State               | What changes                                                                                                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`             | The drawn case. Marks where sections earn them, rail, drawer.                                                                                                                                                                                   |
+| `source_only`       | Often no `answerSections`, so no marks and the rail is the only route to a source (20/30 in the read cited in §1) — but **not always**: the extractive route is tagged `source_only` and can carry sections. Gate on sections, not on the tier. |
+| `stale_evidence`    | Adds a banner. Overdue documents are named on the rail card and in the drawer, never in the mark (§4).                                                                                                                                          |
+| `partial_retrieval` | Adds a banner, and sections resting on unretrieved documents are absent — drop the section, never the citation.                                                                                                                                 |
+| `ungrounded`        | Renders as `source_only` plus a stronger notice.                                                                                                                                                                                                |
 
 Two consequences the design has to answer, both drawn in v2 panel one:
 
@@ -91,12 +100,21 @@ Two consequences the design has to answer, both drawn in v2 panel one:
   caution is never raised with nowhere to go. That route is the drawer, so the banner's
   action opens it.
 
-**Ordering: the evidence arrives before the prose.** A `VerifiedEvidencePreviewUnit`
+**Ordering: the evidence arrives before the prose, but arrives unnumbered.** A `VerifiedEvidencePreviewUnit`
 (sequence 0) lands after retrieval, ranking, owner-scope and governance, carrying the
 trimmed sources, and the client already consumes it (`search-utils.ts`,
-`onEvidencePreview`). The rail can be numbered and on screen before there is an answer to
-number. Then whole verified sections land — `VerifiedAnswerSectionUnit`, each with its own
+`onEvidencePreview`). The rail can therefore be on screen before there is an answer at all.
+Then whole verified sections land — `VerifiedAnswerSectionUnit`, each with its own
 `citations` and `supportLevel`. See §12.3.
+
+**But do not number the preview.** `buildEvidencePreviewUnit` emits the top slice of the
+retrieval results in retrieval order; `buildAnswerRenderModel` independently rebuilds
+`primarySources` from citations, quote cards, section citation ids and core source links,
+then dedupes and caps by trust. Different sets, different order — so a number assigned at
+preview time can point at a different document once the answer lands, which is exactly the
+attribution failure this design exists to prevent. Render preview cards unnumbered and assign
+numbers when the answer arrives, or define and test an explicit identity/order reconciliation
+contract first. Minimal regression case: preview `[A, B]`, final citations `[B]`.
 
 ---
 
@@ -329,7 +347,15 @@ ordinary Tailwind utilities and design tokens. Never hardcode hex
 11. Under `forcedColors: "active"` the open mark is still distinguishable from a closed
     one, and the claim owning the open source is still identifiable.
 12. `stale_evidence` and `partial_retrieval` render their banner and its `onOpenSource`
-    route, and that route opens the drawer.
+    route, and that route opens the drawer. `source_only` renders the compact disclosure
+    instead, and does not restate the verification notice.
+13. A `source_only` answer that **does** carry sections still renders its marks — the gate is
+    the sections, not `answerQualityTier`.
+14. Opening the drawer from the rail or the pager shows no claim-support sentence; opening it
+    from a mark shows that mark's section support, including when one source is cited by two
+    sections at different support levels.
+15. Preview-stage source cards render unnumbered, and numbers appear only once the answer
+    lands.
 
 ---
 
@@ -463,7 +489,18 @@ What does occur is better, and it is the sequence v2 panel three draws: evidence
 lands and the rail paints, then verified sections land whole. It is also buildable now —
 the preview half already ships.
 
-### 12.4 The table aside is an unacknowledged removal
+### 12.4 Two corrections found in review of this document (2026-08-24)
+
+Both were raised against PR #2356 and both were verified in the code before being accepted.
+
+- **`source_only` does not imply section-less.** See the corrected block in §1. The invariant
+  as first written would have suppressed marks on extractive answers carrying perfectly good
+  section-level citation ids.
+- **The evidence preview must not be numbered.** See the ordering block in §2b. Numbering it
+  and promising the number is stable would reintroduce, in the streaming path, the exact
+  wrong-page attribution the design forbids everywhere else.
+
+### 12.5 The table aside is an unacknowledged removal
 
 `data-testid="table-specific-answer-layout"` gives tables their own column on `lg:` today
 (`answer-result-surface.tsx`). Folding tables into a chip inside the drawer removes that

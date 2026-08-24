@@ -380,14 +380,14 @@ function MarkedText({
   section: V2Section;
   pool: V2Source[];
   activeId: string | null;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, sectionId?: string | null) => void;
 }) {
   if (section.support === "unsupported" || section.support === "nearby" || section.sourceIds.length === 0) {
     const nearbyId = section.support === "nearby" ? section.sourceIds[0] : undefined;
     return (
       <>
         {section.text}
-        <WordMark onOpen={nearbyId ? () => onOpen(nearbyId) : undefined} />
+        <WordMark onOpen={nearbyId ? () => onOpen(nearbyId, section.id) : undefined} />
       </>
     );
   }
@@ -419,7 +419,7 @@ function MarkedText({
                 support={section.support}
                 active={activeId === source.id}
                 place={place}
-                onOpen={() => onOpen(source.id)}
+                onOpen={() => onOpen(source.id, section.id)}
               />
             </span>
           );
@@ -429,7 +429,7 @@ function MarkedText({
             <MarkComma />
             <button
               type="button"
-              onClick={() => onOpen(section.sourceIds[shown.length])}
+              onClick={() => onOpen(section.sourceIds[shown.length], section.id)}
               aria-label={`${overflow} more sources for this claim`}
               style={{ fontSize: "0.7em", verticalAlign: "super", lineHeight: 0, padding: "0.2em 0.13em" }}
               className={cn(
@@ -483,11 +483,20 @@ function V2Rail({
   activeId,
   onOpen,
   compact = false,
+  unnumbered = false,
 }: {
   pool: V2Source[];
   activeId: string | null;
   onOpen: (id: string) => void;
   compact?: boolean;
+  /** Preview cards carry no number. The preview is the top slice of the
+   *  retrieval results in retrieval order (`buildEvidencePreviewUnit`), while
+   *  the final list is rebuilt from what the answer actually cites and capped by
+   *  trust (`collectSourceCandidates` / `dedupeSourceLinks`). Different sets in a
+   *  different order — so a number assigned at preview time can point at a
+   *  different document once the answer lands, which is the precise failure this
+   *  design exists to prevent. Numbering is what arrival buys. */
+  unnumbered?: boolean;
 }) {
   const [open, setOpen] = useState(!compact);
   if (compact && !open) {
@@ -530,14 +539,17 @@ function V2Rail({
           )}
         >
           <span
+            aria-hidden={unnumbered ? "true" : undefined}
             className={cn(
               "grid h-5 min-w-5 place-items-center rounded-md border text-3xs font-bold tabular-nums",
-              source.status === "review-due"
-                ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+              unnumbered
+                ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]"
+                : source.status === "review-due"
+                  ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                  : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
             )}
           >
-            {source.index}
+            {unnumbered ? "\u2022" : source.index}
           </span>
           <span className="min-w-0">
             <span
@@ -590,7 +602,7 @@ function V2Drawer({
 }: {
   pool: V2Source[];
   openId: string | null;
-  support: SupportLevel;
+  support: SupportLevel | null;
   onSelect: (id: string) => void;
   onClose: () => void;
   wide: boolean;
@@ -621,7 +633,7 @@ function V2DrawerPanel({
 }: {
   pool: V2Source[];
   openId: string;
-  support: SupportLevel;
+  support: SupportLevel | null;
   onSelect: (id: string) => void;
   onClose: () => void;
   wide: boolean;
@@ -801,13 +813,18 @@ function V2DrawerPanel({
           </p>
 
           {/* The support clause. One line, in words — the reason this claim's
-              number is plain, dotted, or absent, stated where it is checked. */}
+              number is plain, marked, or absent, stated where it is checked.
+              Support is a property of a claim, so when the drawer was opened
+              from the rail or the pager there is no claim to describe and the
+              clause is omitted rather than guessed. */}
           <p className="mt-2 text-2xs leading-5 text-[color:var(--text-muted)]">
-            {support === "direct"
-              ? "This page states the claim directly."
-              : support === "partial"
-                ? "This page supports part of the claim. Read the passage before relying on the rest."
-                : "Related to the question — this page does not state the claim."}
+            {support === null
+              ? "Opened from the source list, so this is the document, not a claim."
+              : support === "direct"
+                ? "This page states the claim directly."
+                : support === "partial"
+                  ? "This page supports part of the claim. Read the passage before relying on the rest."
+                  : "Related to the question — this page does not state the claim."}
           </p>
 
           <blockquote
@@ -865,18 +882,55 @@ function VerificationNotice({ kind, sourceCount }: { kind: AnswerStateKind; sour
   const model = kind !== "source_only";
   return (
     <p className="text-3xs leading-4 text-[color:var(--text-muted)]">
-      {model ? `AI-generated from ${sourceCount} cited sources` : "Assembled from your documents"} · check each number
-      against its page
+      {model
+        ? `AI-generated from ${sourceCount} cited sources · check each number against its page`
+        : "Assembled from your documents · check each statement against its source"}
     </p>
   );
 }
 
-/** `stale_evidence` and `partial_retrieval` carry a banner. `source_only` is
- *  already stated by the verification notice — a second banner restates it
- *  (`#227`). A degraded `AnswerCard` still requires `onOpenSource`; the rail
- *  remains the route when no banner renders. */
+/**
+ * `stale_evidence` and `partial_retrieval` carry the full banner: each says
+ * something the verification notice cannot, and each owes a route back to a
+ * cited page, because a degraded `AnswerCard` requires `onOpenSource` — a
+ * caution is never raised with nowhere to go.
+ *
+ * `source_only` does not get that treatment. Production carries it as a compact
+ * amber disclosure that expands (`source-only-disclosure` in
+ * `answer-content.tsx`), and the notice above already names the attribution, so
+ * a full banner here would print the same sentence twice (`#227`). Compact, and
+ * no route of its own: on this state the rail is the route.
+ */
+function SourceOnlyDisclosure() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section
+      role="note"
+      className="w-fit max-w-full overflow-hidden rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]"
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className={cn("inline-flex min-h-12 w-full items-center gap-1.5 px-2.5 text-left text-2xs", focusRing)}
+      >
+        <TriangleAlert aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" />
+        <span className="font-semibold text-[color:var(--text-heading)]">Source-only</span>
+        <span className="text-[color:var(--text-muted)]">· verify passages</span>
+      </button>
+      {open ? (
+        <p className="border-t border-[color:var(--warning-border)] px-2.5 py-2 text-2xs leading-5 text-[color:var(--text-muted)]">
+          Assembled from your documents without the AI model, so it may be less complete. Verify dose, threshold, timing
+          and monitoring against the cited passages.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function StateBanner({ kind, onOpenSource }: { kind: AnswerStateKind; onOpenSource: () => void }) {
-  if (kind === "ready" || kind === "source_only") return null;
+  if (kind === "source_only") return <SourceOnlyDisclosure />;
+  if (kind === "ready") return null;
   const copy: Record<
     Exclude<AnswerStateKind, "ready" | "source_only">,
     { title: string; body: string; action: string }
@@ -956,7 +1010,7 @@ function SectionProse({
   sections: V2Section[];
   pool: V2Source[];
   activeId: string | null;
-  onOpen: (id: string) => void;
+  onOpen: (id: string, sectionId?: string | null) => void;
 }) {
   return (
     <div style={PROSE_MEASURE} className="space-y-2">
@@ -998,10 +1052,19 @@ function SectionProse({
   );
 }
 
-/** Partial retrieval read two of four documents, so the metabolic track — the
- *  one resting on source 3 — is simply not in the answer. A mark pointing at a
- *  source the answer never retrieved is the failure this whole design exists to
- *  avoid, so the frame drops the section rather than the citation. */
+/**
+ * Partial retrieval read two of four documents, so the metabolic track — the
+ * one resting on source 3 — is simply not in the answer. A mark pointing at a
+ * source the answer never retrieved is the failure this whole design exists to
+ * avoid, so the frame drops the section rather than the citation.
+ *
+ * `source_only` carries none here, but **do not read that as an invariant.**
+ * `applyProviderLabels` tags any model-less `routingMode: "extractive"` answer
+ * `source_only`, and `buildExtractiveAnswer` passes `answerSections` straight
+ * through — so a source-only answer can arrive WITH sections and their support
+ * levels. Marks are therefore gated on the sections themselves, never on the
+ * quality tier. One rule, no special case.
+ */
 const SECTIONS_BY_STATE: Record<AnswerStateKind, V2Section[]> = {
   ready: SECTIONS,
   source_only: [],
@@ -1015,17 +1078,35 @@ function AnswerScreen({
   pool = THREE_SOURCES,
   compactRail = false,
   initialOpenId = null,
+  /** The claim whose mark opened the drawer. Null models a rail or pager open,
+   *  which carries no claim — and the drawer then says so rather than guessing. */
+  initialSectionId = null,
 }: {
   kind: AnswerStateKind;
   wide: boolean;
   pool?: V2Source[];
   compactRail?: boolean;
   initialOpenId?: string | null;
+  initialSectionId?: string | null;
 }) {
   const [openId, setOpenId] = useState<string | null>(initialOpenId);
-  const marks = kind !== "source_only";
+  const [openSectionId, setOpenSectionId] = useState<string | null>(initialSectionId);
+  const sections = SECTIONS_BY_STATE[kind];
+  // Gated on the sections, not on `kind`. See SECTIONS_BY_STATE.
+  const marks = sections.length > 0;
+  // Support belongs to a claim, not to a source: one document can carry a claim
+  // directly and another only partly. Resolve it from the section whose mark was
+  // pressed, and leave it null when the drawer was opened from the rail or the
+  // pager — those carry no claim, and inventing one is the exact failure this
+  // design exists to prevent.
   const openSupport =
-    SECTIONS.find((section) => openId !== null && section.sourceIds.includes(openId))?.support ?? "unsupported";
+    openSectionId === null ? null : (sections.find((section) => section.id === openSectionId)?.support ?? null);
+  const openSource = (id: string, sectionId?: string | null) =>
+    setOpenId((current) => {
+      const next = current === id ? null : id;
+      setOpenSectionId(next === null ? null : (sectionId ?? null));
+      return next;
+    });
 
   return (
     <>
@@ -1042,25 +1123,18 @@ function AnswerScreen({
             </span>
             <div className="min-w-0 space-y-2.5">
               <VerificationNotice kind={kind} sourceCount={pool.length} />
-              <StateBanner kind={kind} onOpenSource={() => setOpenId(pool[kind === "stale_evidence" ? 2 : 0].id)} />
+              <StateBanner
+                kind={kind}
+                onOpenSource={() => openSource(pool[kind === "stale_evidence" ? 2 : 0].id, null)}
+              />
               {marks ? (
-                <SectionProse
-                  sections={SECTIONS_BY_STATE[kind]}
-                  pool={pool}
-                  activeId={openId}
-                  onOpen={(id) => setOpenId((current) => (current === id ? null : id))}
-                />
+                <SectionProse sections={sections} pool={pool} activeId={openId} onOpen={openSource} />
               ) : (
                 <p style={PROSE_MEASURE} className="text-base-minus leading-prose text-[color:var(--text-heading)]">
                   {SOURCE_ONLY_PROSE}
                 </p>
               )}
-              <V2Rail
-                pool={pool}
-                activeId={openId}
-                compact={compactRail}
-                onOpen={(id) => setOpenId((current) => (current === id ? null : id))}
-              />
+              <V2Rail pool={pool} activeId={openId} compact={compactRail} onOpen={(id) => openSource(id, null)} />
               <ActionRow />
             </div>
           </div>
@@ -1071,8 +1145,14 @@ function AnswerScreen({
         pool={pool}
         openId={openId}
         support={openSupport}
-        onSelect={setOpenId}
-        onClose={() => setOpenId(null)}
+        onSelect={(id) => {
+          setOpenId(id);
+          setOpenSectionId(null);
+        }}
+        onClose={() => {
+          setOpenId(null);
+          setOpenSectionId(null);
+        }}
         wide={wide}
       />
     </>
@@ -1138,7 +1218,12 @@ function PendingScreen({ stage }: { stage: "asked" | "evidence" | "answered" }) 
                       ))}
                     </div>
                   )}
-                  <V2Rail pool={THREE_SOURCES} activeId={null} onOpen={() => undefined} />
+                  <V2Rail
+                    pool={THREE_SOURCES}
+                    activeId={null}
+                    onOpen={() => undefined}
+                    unnumbered={stage !== "answered"}
+                  />
                 </>
               )}
             </div>
@@ -1350,13 +1435,13 @@ export function AnswerChatPerfectedV2MockupsPage() {
         <Panel
           step="One"
           title="The four answers"
-          intro="Same question, four payloads. The first is what the design already drew. The second is what twenty of thirty answers were in the 2026-08-18 blinded read: assembled without the model, no sections, no numbers — the state the rail exists for, and the one the design was silent about."
+          intro="Same question, four payloads. The first is what the design already drew. The second is what twenty of thirty answers were in the 2026-08-18 blinded read: assembled without the model and, in this case, carrying no sections — so no numbers at all. That is the state the rail exists for, and the one the design was silent about."
         >
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {(
               [
                 ["Model synthesis · numbered", "ready"],
-                ["Source-only · no marks at all", "source_only"],
+                ["Source-only · this one has no sections", "source_only"],
                 ["Stale evidence · banner + route", "stale_evidence"],
                 ["Partial retrieval · one track missing", "partial_retrieval"],
               ] as const
@@ -1374,6 +1459,16 @@ export function AnswerChatPerfectedV2MockupsPage() {
             Note what the second frame proves. With no numbers in the prose, every route to a source runs through the
             rail — so the rail cannot be treated as a summary of the marks, and it cannot be the control that gets
             shrunk when space is tight.
+          </p>
+          <p style={PROSE_MEASURE} className="mt-2 text-2xs leading-5 text-[color:var(--text-muted)]">
+            One correction to the handover, found while building this:{" "}
+            <span className="font-semibold text-[color:var(--text-heading)]">
+              source-only does not mean section-less.
+            </span>{" "}
+            The deterministic extractive route passes <code className="font-mono">answerSections</code> straight through
+            and is then tagged source-only for having no model, so that answer can arrive with sections and support
+            levels intact. Marks are gated on the sections, never on the quality tier — one rule rather than a special
+            case, and it means a source-only answer sometimes does carry numbers.
           </p>
         </Panel>
 
@@ -1476,9 +1571,12 @@ export function AnswerChatPerfectedV2MockupsPage() {
             ))}
           </div>
           <p style={PROSE_MEASURE} className="mt-4 text-2xs leading-5 text-[color:var(--text-muted)]">
-            The rail is numbered and on screen before there is an answer to number, and it does not move when the prose
-            arrives. Sections are then delivered whole and already verified — never a claim that renumbers as more text
-            lands, which is the failure the first pass was trying to avoid by drawing a caret.
+            The sources are on screen before the answer is, and deliberately <em>not</em> numbered yet. The preview is
+            the top slice of the retrieval results in retrieval order; the final list is rebuilt from what the answer
+            actually cites and capped by how far the answer is trusted. Those are different sets in a different order,
+            so a number assigned here could point at a different document once the answer lands. Numbering is what
+            arrival buys. Sections then land whole and already verified — never a claim that renumbers as more text
+            arrives, which is the failure the first pass was trying to draw with a caret.
           </p>
         </Panel>
 
@@ -1489,8 +1587,8 @@ export function AnswerChatPerfectedV2MockupsPage() {
         >
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
             <div className="lg:shrink-0" style={{ width: "100%", maxWidth: PHONE_WIDTH }}>
-              <PhoneFrame caption="Phone · six sources, counter pager">
-                <AnswerScreen kind="ready" wide={false} pool={SIX_SOURCES} initialOpenId="s3" />
+              <PhoneFrame caption="Phone · six sources, counter pager, opened from a mark">
+                <AnswerScreen kind="ready" wide={false} pool={SIX_SOURCES} initialOpenId="s3" initialSectionId="n4" />
               </PhoneFrame>
             </div>
             <div className="min-w-0 flex-1 space-y-4">
@@ -1503,7 +1601,7 @@ export function AnswerChatPerfectedV2MockupsPage() {
                   {[
                     [
                       "Support, as one clause of words",
-                      "Not a pill. If support decides whether the claim gets a number, the reader is owed the reason at the moment they open the page it points at.",
+                      "Not a pill. If support decides whether the claim gets a number, the reader is owed the reason at the moment they open the page it points at. It is scoped to the claim whose mark was pressed, so one document cited by two claims can be direct for one and partial for the other — and a drawer opened from the rail says plainly that it carries no claim at all rather than inventing one.",
                     ],
                     [
                       "A way to say the page doesn't support the claim",
