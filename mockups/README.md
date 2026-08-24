@@ -112,10 +112,7 @@ merged into one destination, with the site-wide composer as the mode’s only se
 Runnable study at [`/mockups/dictionary-heading-controls`](../src/app/mockups/dictionary-heading-controls/page.tsx).
 This is a layout question, not a production change.
 
-Round 1 asked whether Filter can leave the control row while the compact Terms / Abbreviations toggle and A–Z sit
-next to **Clinical terms**. Round 2 (2026-08-24) starts from the live search state: the query band currently sits
-_above_ the toggle, so a two-word query and Filter jam on one line. The browse stack to keep is title → toggle + A–Z
-→ results; the new directions put the display bar _under_ those buttons once there is text.
+Round 1 asked whether Filter can leave the control row. Round 2 moved the query display **under** the Terms / Abbreviations buttons once text is there. Round 3 asks where **A–Z** goes during that search: production and directions 03–06 hide it, because a letter jump does not rank a result set. If it must stay visible, 07–10 try four homes on the 06 query-field chrome.
 
 | Direction             | When text is there                                               | Trade-off                                           |
 | --------------------- | ---------------------------------------------------------------- | --------------------------------------------------- |
@@ -126,6 +123,10 @@ _above_ the toggle, so a two-word query and Filter jam on one line. The browse s
 | 04 Query chip         | Title → toggle → count + dismissible query chip + Filter         | Chip and Filter can wrap at 320 px                  |
 | 05 Query owns a line  | Title → toggle → full query, then count / clear / Filter         | Extra row, but both words of the query stay visible |
 | 06 Query field        | Title → toggle → query field + Filter; count lives on the toggle | Field is a second composer echo                     |
+| 07 Beside the toggle  | A–Z stays on the button row during search                        | Competes with Abbreviations on a 390 px row         |
+| 08 In the query row   | A–Z sits with Filter beside the query field                      | The field is narrower; query may truncate           |
+| 09 Next to the title  | A–Z is a heading companion                                       | Title row wraps on 320 px                           |
+| 10 Inside Filter      | No page chip; letter jump lives in the Filter sheet              | A–Z is one extra tap, and not visible while reading |
 
 Shared mockup chrome is suppressed because each frame draws its own top bar, mode nav and composer.
 

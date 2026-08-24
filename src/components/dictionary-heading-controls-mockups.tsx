@@ -21,7 +21,13 @@ import { cn } from "@/components/ui-primitives";
  * jamming into one truncated phrase.
  *
  * Tap the composer in any frame to run “mental state examination” and
- * clear it again. A–Z stands down during a search.
+ * clear it again.
+ *
+ * A–Z currently stands down during a search — the live catalogue does the
+ * same, because a letter jump is meaningless against a ranked result set.
+ * Round 3 asks where it should live if it must stay visible once text is
+ * there: beside the toggle, in the query row, next to the title, or inside
+ * Filter.
  * ------------------------------------------------------------------ */
 
 const TERM_COUNT = 96;
@@ -33,12 +39,23 @@ const QUERY_ABBRS = 2;
 type BrowseLayout = "now" | "persistent" | "ribbon";
 type SearchLayout = "under-band" | "under-chip" | "under-own-line" | "under-field";
 type Layout = BrowseLayout | SearchLayout;
+type LetterHome = "hide" | "buttons" | "bar" | "heading" | "sheet";
 
-function usePageState({ startSearching = false, empty = false }: { startSearching?: boolean; empty?: boolean } = {}) {
+function usePageState({
+  startSearching = false,
+  empty = false,
+  startSheet = "none",
+  letterHome = "hide",
+}: {
+  startSearching?: boolean;
+  empty?: boolean;
+  startSheet?: "none" | "letter" | "filter";
+  letterHome?: LetterHome;
+} = {}) {
   const [scope, setScope] = useState<"terms" | "abbr">("terms");
   const [letter, setLetter] = useState("All");
   const [query, setQuery] = useState(startSearching || empty ? QUERY : "");
-  const [sheet, setSheet] = useState<"none" | "letter" | "filter">("none");
+  const [sheet, setSheet] = useState<"none" | "letter" | "filter">(startSheet);
   const searching = query.length > 0;
   const termCount = searching ? (empty ? 0 : QUERY_TERMS) : TERM_COUNT;
   const abbrCount = searching ? (empty ? 0 : QUERY_ABBRS) : ABBR_COUNT;
@@ -59,6 +76,7 @@ function usePageState({ startSearching = false, empty = false }: { startSearchin
     abbrCount,
     count,
     noun,
+    letterHome,
   };
 }
 
@@ -157,11 +175,11 @@ function LetterChip({ state }: { state: PageState }) {
   );
 }
 
-function HeadingCompanions({ state }: { state: PageState }) {
+function HeadingCompanions({ state, letterOnly = false }: { state: PageState; letterOnly?: boolean }) {
   return (
     <div className="flex shrink-0 items-center gap-1.5">
-      <ScopeToggle state={state} />
-      {state.searching ? null : <LetterChip state={state} />}
+      {letterOnly ? null : <ScopeToggle state={state} />}
+      {letterOnly || !state.searching ? <LetterChip state={state} /> : null}
     </div>
   );
 }
@@ -245,11 +263,19 @@ function NowControlRow({ state }: { state: PageState }) {
 /* Image two’s button row: title stays alone, toggle + A–Z sit on the next
    line. Filter only joins this row while browsing — once there is text, it
    moves into the display bar underneath. */
-function ButtonsThenBarRow({ state, showFilter }: { state: PageState; showFilter: boolean }) {
+function ButtonsThenBarRow({
+  state,
+  showFilter,
+  showLetter,
+}: {
+  state: PageState;
+  showFilter: boolean;
+  showLetter: boolean;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2">
       <ScopeToggle state={state} />
-      {state.searching ? null : <LetterChip state={state} />}
+      {showLetter ? <LetterChip state={state} /> : null}
       {showFilter ? (
         <span className="ml-auto">
           <FilterControl state={state} />
@@ -276,6 +302,7 @@ function QueryBandCard({ state }: { state: PageState }) {
           {state.query}
         </p>
         <ClearQuery state={state} />
+        {state.letterHome === "bar" ? <LetterChip state={state} /> : null}
         <FilterControl state={state} />
       </div>
     </div>
@@ -342,18 +369,32 @@ function QueryFieldBar({ state }: { state: PageState }) {
           <X className="size-icon-sm" aria-hidden="true" />
         </button>
       </div>
+      {state.letterHome === "bar" ? <LetterChip state={state} /> : null}
       <FilterControl state={state} />
     </div>
   );
 }
 
-function PageHeading({ state, companions }: { state: PageState; companions: boolean }) {
+function PageHeading({
+  state,
+  companions,
+  letterOnly = false,
+}: {
+  state: PageState;
+  companions: boolean;
+  letterOnly?: boolean;
+}) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4 pt-4", companions ? "pb-2" : "pb-1")}>
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-2 gap-y-1.5 px-4 pt-4",
+        companions || letterOnly ? "pb-2" : "pb-1",
+      )}
+    >
       <h3 className="min-w-0 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
         Clinical terms
       </h3>
-      {companions ? <HeadingCompanions state={state} /> : null}
+      {companions || letterOnly ? <HeadingCompanions state={state} letterOnly={letterOnly} /> : null}
     </div>
   );
 }
@@ -465,10 +506,63 @@ function SheetLayer({ state }: { state: PageState }) {
             </div>
           </>
         ) : (
-          <p className="text-sm font-medium text-[color:var(--text-muted)]">
-            Topics, kinds and sources stay in this sheet. Scope and letter stay on the page so the sheet does not hide
-            the view you are already in.
-          </p>
+          <>
+            {state.letterHome === "sheet" ? (
+              <div className="mb-3">
+                <p className="pb-1.5 text-xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">
+                  Jump to letter
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    state.setLetter("All");
+                    close();
+                  }}
+                  className={cn(
+                    "mb-1.5 h-11 w-full rounded-lg border text-sm font-extrabold",
+                    focusRing,
+                    state.letter === "All"
+                      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                      : "border-[color:var(--border)] text-[color:var(--text)]",
+                  )}
+                >
+                  All letters
+                </button>
+                <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}>
+                  {letters.map((option) => {
+                    const vacant = emptyLetters.has(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={vacant}
+                        onClick={() => {
+                          state.setLetter(option);
+                          close();
+                        }}
+                        className={cn(
+                          "grid h-11 place-items-center rounded-lg border text-sm font-extrabold",
+                          focusRing,
+                          state.letter === option
+                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                            : vacant
+                              ? "border-[color:var(--border)] text-[color:var(--disabled)]"
+                              : "border-[color:var(--border)] text-[color:var(--clinical-accent)]",
+                        )}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            <p className="text-sm font-medium text-[color:var(--text-muted)]">
+              {state.letterHome === "sheet"
+                ? "A–Z lives in this sheet during a search, next to topics, kinds and sources."
+                : "Topics, kinds and sources stay in this sheet. Scope and letter stay on the page so the sheet does not hide the view you are already in."}
+            </p>
+          </>
         )}
       </div>
     </div>
@@ -486,6 +580,8 @@ function PhoneFrame({
   width = 390,
   startSearching = false,
   empty = false,
+  letterHome = "hide",
+  startSheet = "none",
 }: {
   layout: Layout;
   label: string;
@@ -493,10 +589,13 @@ function PhoneFrame({
   width?: number;
   startSearching?: boolean;
   empty?: boolean;
+  letterHome?: LetterHome;
+  startSheet?: "none" | "letter" | "filter";
 }) {
-  const state = usePageState({ startSearching, empty });
+  const state = usePageState({ startSearching, empty, letterHome, startSheet });
   const buttonsThenBar = isSearchLayout(layout);
   const companions = layout === "persistent" || layout === "ribbon";
+  const showLetterOnButtons = letterHome === "buttons" || (letterHome === "hide" && !state.searching);
   return (
     <div className="max-w-full shrink-0" style={{ width: `${width}px` }}>
       <div className="mb-2 flex items-end justify-between gap-3">
@@ -542,7 +641,7 @@ function PhoneFrame({
           ))}
         </div>
         <div className="relative h-[28rem] overflow-y-auto pb-16">
-          <PageHeading state={state} companions={companions} />
+          <PageHeading state={state} companions={companions} letterOnly={letterHome === "heading"} />
           {layout === "now" ? (
             <>
               {state.searching ? (
@@ -564,7 +663,7 @@ function PhoneFrame({
           ) : null}
           {buttonsThenBar ? (
             <>
-              <ButtonsThenBarRow state={state} showFilter={!state.searching} />
+              <ButtonsThenBarRow state={state} showFilter={!state.searching} showLetter={showLetterOnButtons} />
               {state.searching ? (
                 layout === "under-band" ? (
                   <QueryBandCard state={state} />
@@ -609,8 +708,9 @@ export function DictionaryHeadingControlsMockupsPage() {
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
             Browse already works as title, then Terms / A–Z, then results. The live search state inverts that: the query
             band sits above the toggle, so “mental state examination” and Filter share one jammed line. These frames
-            keep the button row where it is and put the display bar underneath once there is text. Tap any composer to
-            clear or restore the query.
+            keep the button row where it is and put the display bar underneath once there is text. A–Z currently
+            disappears during a search — the same as production. The section below tries four homes for it. Tap any
+            composer to clear or restore the query.
           </p>
         </div>
       </header>
@@ -647,6 +747,48 @@ export function DictionaryHeadingControlsMockupsPage() {
             startSearching
             label="06 Query field"
             note="A cleaned field shows only the query. Count lives in the toggle, Filter sits beside the field."
+          />
+        </div>
+      </section>
+
+      <section aria-labelledby="az-title" className="mx-auto max-w-[92rem] px-4 pt-8 sm:px-6 lg:px-8">
+        <h2 id="az-title" className="text-lg font-extrabold text-[color:var(--text-heading)]">
+          Where A–Z goes
+        </h2>
+        <p className="mt-1 max-w-3xl text-sm font-medium text-[color:var(--text-muted)]">
+          Today it stands down the moment a query runs, because a letter jump does not rank a result set. If it must
+          stay on screen, it has to sit somewhere that does not fight the query field. All four frames use direction 06
+          as the search chrome.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-6">
+          <PhoneFrame
+            layout="under-field"
+            startSearching
+            letterHome="buttons"
+            label="07 Beside the toggle"
+            note="A–Z stays on the button row, exactly as in browse. The query field is underneath."
+          />
+          <PhoneFrame
+            layout="under-field"
+            startSearching
+            letterHome="bar"
+            label="08 In the query row"
+            note="A–Z sits with Filter beside the field. Toggle row is only Terms / Abbreviations."
+          />
+          <PhoneFrame
+            layout="under-field"
+            startSearching
+            letterHome="heading"
+            label="09 Next to the title"
+            note="A–Z is a heading companion. Toggle stays on its own row above the field."
+          />
+          <PhoneFrame
+            layout="under-field"
+            startSearching
+            letterHome="sheet"
+            startSheet="filter"
+            label="10 Inside Filter"
+            note="No page chip. Open Filter to jump letters. Sheet starts open so the home is visible."
           />
         </div>
       </section>
