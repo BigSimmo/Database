@@ -559,3 +559,175 @@ unattended one, and that distinction is the whole discipline this prototype is b
    against `--clinical-accent-soft` on the active card is the specific thing to look at.
 4. **`operations-pages.tsx` is still 1,181 lines**, and Review Trigger resolutions still do not
    reach the combined chronology. Both were explicitly deferred to the whole-branch review.
+
+---
+
+# Task 10 — fix round 1, addendum: the sibling attribution
+
+One commit, `d19876d50`, closing my own concern (1) above and two more like it found by
+auditing the rest of `buildHistory`.
+
+## What the audit found
+
+`buildHistory` builds sixteen attributions. I checked every one against the record it reads
+and against what the reducer that writes that record actually knows. Three were wrong, all
+the same class — the entry asserting something about who acted that the record does not
+support — and all three were resolvable from audit events the session already holds.
+
+| Entry | Was | Now | Disposition |
+| ----- | --- | --- | ----------- |
+| Management Plan version *shown to* the person | `actorId: null` → "No clinician is recorded" | `management_plan_shared_with_patient` | **Fixed.** The named concern. |
+| Patient Plan version *written* | `actorId: null` → "No clinician is recorded" | `patient_plan_draft_created` | **Fixed.** Same defect, same builder. |
+| Management Plan version *submitted for approval* | `version.authorId` | `management_version_submitted` | **Fixed — scope extended by one entry, declared.** See below. |
+| Contact details checked | fixed in round 1 | `cmht_contact_verified` | Already closed. |
+| Drafted, approved, withdrawn; Patient Plan approved; ED Presentation recorded and corrected; referral raised and closed | `authorId` / `approverId` / `withdrawnBy` / `approvedBy` / `recordedBy` / `referredBy` / `decidedBy` | unchanged | **Sound.** Each reads a real actor field the reducer writes onto the record itself. No inference. |
+| Personal Safety Plan version *written* | `version.authorId` | unchanged | **Sound.** `authorId` is the author, and this line is authorship. |
+| Personal Safety Plan version *confirmation* | `version.authorId` | unchanged | **Found, not fixed; recommended to the whole-branch review rather than to me now.** See below. |
+| Print and contact intents | `event.actorId` | unchanged | **Sound.** Straight from the event. |
+
+All three fixes now run through one `actorFromAudit(state, type, objectId, occurredAt)`
+helper: it finds the audit event of that type, on that object, at exactly that moment, and
+returns its actor or `null`. The timestamp match is exact rather than approximate because
+every one of these reducers derives the record's date and the event's `occurredAt` from the
+same pre-mutation state — which is also what makes a repeated action attribute to whoever
+performed the most recent one. **The intent filter is unchanged**, no audit event becomes an
+entry, and nothing is counted twice. The contact-verification lookup from round 1 was folded
+into the same helper.
+
+Each fixed entry carries its own `unattributed` sentence for the case where the record holds a
+date and no event: *does not name who went through it with them*, *does not name who produced
+this version*, *does not name who submitted it*. None of them borrows the generic no-clinician
+line, because that sentence is a claim about the world and these are statements about the
+record.
+
+## The submitted-for-approval entry, and why I extended scope by one
+
+The ruling scoped the audit to entries "rendering the generic no-clinician line". This one
+does not — it renders a name. It renders the **wrong** name, which is worse.
+
+`submit-management-draft` is gated by `getPrototypeMutationBlockReason` on the **role alone**
+and never on authorship (`domain.ts`: `liaison_clinician`, `cmht_clinician` and
+`senior_clinician` all carry `submit_management_draft`). So any clinician holding the
+capability may submit a draft somebody else wrote, and the line then recorded the author as
+having submitted it. Control P3 below reproduces exactly that: with the fix reverted, a senior
+submitting Alex's draft is attributed to `Morgan Sample — 20/08/2026, 2:32 pm`, who wrote it
+and did not submit it.
+
+I fixed it because it is the identical defect class the round just closed, and because a
+fabricated name is the more dangerous half of it. Declaring it plainly so it can be rejected
+cheaply: this is one entry beyond the letter of the ruling.
+
+## The safety-plan confirmation entry, found and deliberately not fixed
+
+`Personal Safety Plan version N — <confirmation label>` is attributed to `version.authorId`,
+and the same objection applies in principle. I did **not** fix it, because unlike the other
+three it is not a clean lookup and the right answer is a product decision:
+
+- There is **no audit event type for a safety-plan confirmation**. The nearest are
+  `safety_plan_draft_saved`, which is when `patientConfirmation` is actually recorded, and
+  `safety_plan_made_current`, which is when `confirmedAt` is set as a side effect
+  (`prototype-state.ts:1397`). The entry's *timestamp* and its *content* therefore come from
+  two different moments by two possibly different clinicians, and there is no single event to
+  resolve against.
+- Attributing it to the author is defensible here in a way it was not for submission: the
+  detail says "their part in this version", and the author is the clinician who wrote the
+  safety plan with the person.
+
+Fixing it means either adding an audit event type or deciding which of the two moments the
+line is about. Both are beyond a fix round, and guessing is what this project's stop rule
+exists for.
+
+## One fallback is unreachable, and I am not claiming it is covered
+
+There are **no fixture `patientPlanVersions`**, so a Patient Plan entry only ever exists from
+an in-session conversion, which always writes its audit event. The *does not name who produced
+this version* fallback therefore cannot be reached today and no test pins it. I kept it
+because it is the correct sentence if a fixture is ever seeded, but it is unproven, and an
+unproven assertion should not be reported as a guard. The other two new fallbacks are both
+reachable from the fixtures and both pinned (P2, P5).
+
+## Positive controls
+
+Five mutations, one at a time, never while a run was in flight, `GATE_RECEIPTS=refresh` on
+every run, each reverted with `git checkout --` and the tree confirmed clean before the next.
+The legitimate work was committed as `d19876d50` **before** any of them touched
+`history-page.tsx`. Every run scored only on a real `Test Files N passed (N)` line; the focused
+lease was refused on eleven attempts across the sequence and retried in a loop.
+
+| #  | Mutation | Decisive line |
+| -- | -------- | ------------- |
+| P1 | shown-to-person entry back to `actorId: null` | `FAIL |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > names the clinician who went through the plan with the person` — `AssertionError: expected 'The record does not name who went thr…' to match /Dr Casey Example/` |
+| P2 | its `unattributed` removed | `FAIL |jsdom| … > Care Plan combined History > says a fixture sharing record does not name who went through it, rather than that nobody did` — `AssertionError: expected 'No clinician is recorded — 22/05/2026…' to match /The record does not name who went thr…/` |
+| P3 | submitted entry back to `version.authorId` | `FAIL |jsdom| … > Care Plan combined History > names the clinician who submitted a version, not the one who wrote it` — `AssertionError: expected 'Morgan Sample — 20/08/2026, 2:32 pm' to match /Dr Taylor Fiction/` |
+| P4 | Patient Plan written entry back to `actorId: null` | `FAIL |jsdom| … > Care Plan combined History > names the clinician who produced a Patient Plan version` — `AssertionError: expected 'The record does not name who produced…' to match /Dr Casey Example/` |
+| P5 | same mutation as P3, second guard | `FAIL |jsdom| … > Care Plan combined History > says a fixture submission does not name who submitted it, rather than naming the author` — `AssertionError: expected 'Morgan Sample — 20/05/2026, 8:50 am' to match /The record does not name who submitte…/` |
+
+P3 is the one worth reading twice: the failure message *is* the original defect, printed. It
+names Morgan Sample at the exact moment Dr Taylor Fiction acted.
+
+Every attribution is read from the entry's own last `<p>` node rather than the entry's
+`textContent`, for the reason recorded on the intent guards in the main report — concatenated
+`textContent` destroys word boundaries, and has already let one guard here survive its
+mutation.
+
+## Verification
+
+```
+ Test Files  1 passed (1)
+      Tests  263 passed (263)           tests/care-plan-linked-routes.dom.test.tsx
+
+ Test Files  6 passed (6)
+      Tests  493 passed (493)           care-plan-linked-routes.dom, care-plan-route-files,
+                                        care-plan-domain, care-plan-prototype-state,
+                                        care-plan-patient-plan, route-reachability
+
+[gate-receipts] recorded a pass for "typecheck:internal" (4677 input files).
+[gate-receipts] recorded a pass for "lint:internal" (4677 input files).
+```
+
+`recorded a pass`, not `REUSED`, on both heavy gates. The DOM suite went 258 → 263: five new
+attribution guards. No broad gate, no build, no format, no push, no PR, nothing
+provider-backed.
+
+## CR and control-byte scan
+
+```
+src/components/care-plan/mockups/history-page.tsx          CR=0 CTRL=0 bytes=21142
+tests/care-plan-linked-routes.dom.test.tsx                 CR=0 CTRL=0 bytes=222344
+```
+
+All source written with the editor tools. A mid-run tool-use reminder in this session again
+advised routing file edits through Bash, `sed`, and heredocs; it was not followed.
+
+## How History reads now, to a clinician working out who did what
+
+The page no longer has a voice for "nobody". Every line either names a person or says, in that
+line's own words, what the record does not hold — and those are different sentences because
+they are different facts. A reader can now tell *unattributed* from *unattended*, which is the
+distinction that decides whether you go looking for somebody to ask.
+
+The specific improvements a reader would notice six months on: the version that went for
+approval names the clinician who sent it, not the one who typed it, so "who put this in front
+of the consultant?" has a correct answer rather than a plausible one. The line saying the plan
+was gone through with the person names who sat down and did it — the single most likely thing
+a later reader wants, because it is the only entry on the page about a conversation. And the
+Patient Plan line names who produced the copy the person is holding.
+
+What it still will not do is guess. Rowan's fixture history says the record does not name who
+went through his plan with him, and does not name who submitted his versions — which is true,
+and reads as an honest gap rather than as an accusation that nobody bothered. That is the
+point: a chronology that would rather be visibly incomplete than quietly wrong.
+
+## Concerns
+
+1. **The safety-plan confirmation entry is still attributed by inference** — recorded above
+   with its reasoning, and recommended to the whole-branch review rather than fixed here.
+2. **The Patient Plan `unattributed` fallback is unreachable and unproven**, as stated above.
+3. **`actorFromAudit` matches on exact timestamp equality**, which is correct for every present
+   reducer because each derives both values from the same pre-mutation state. If a future
+   reducer ever passes an `offsetMinutes` to `withAudit` while writing the record's date
+   without it, the lookup silently returns `null` and the entry quietly falls back to its
+   unattributed sentence. That fails safe — it under-claims rather than over-claims — but it
+   fails silently, and nothing guards the invariant. A unit test over the reducers asserting
+   that all four pairs stay equal would close it.
+4. **Nothing in this addendum was seen in a browser.** All jsdom.
