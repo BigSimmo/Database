@@ -11,6 +11,15 @@ the whole programme.
 
 Base commit for this plan: `875c8b604`.
 
+**How to find a ruling in this file.** Every ruling is headed `**Ruling [N] — …**`, with square
+brackets. A brief that asks you to "read Rulings 96–99" is naming those, and `grep "Ruling 96"`
+finds nothing because of the brackets — search `Ruling \[96\]`, or just `[96]`. Task 6's implementer
+reported Rulings 96–99 as absent from this file ("the build record stops at 94"); they were present
+at lines 1051–1081 the whole time, and Ruling 95 with them. Its brief restated all four in full, so
+the work did not proceed without them — but the report is wrong on the fact, and the cause is this
+file's citation style not matching the briefs'. Briefs from here on use the brackets so the two
+match. A pointer nobody can follow is a pointer that will be reported as a missing document.
+
 ---
 
 ## Pre-flight scan of the plan
@@ -1154,3 +1163,21 @@ re-review should verdict that as well as the code.
    names", and the notice only makes that inference sound at the page level.
 
 **Task 6 dispatched**, BASE `fa7f8ac98d12ef7c9c2a632101100712972483af`. Brief: `task-6-brief.md`.
+
+### Task 6 browser gate
+
+`npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium` against `6d79a8432`:
+**`43 passed (1.6m)`**, exit 0, zero failures. Up from 38, and the five added are the overview
+screen's own describe block — that is the whole of the increase.
+
+**I wrote a wrong sentence here and caught it before it set.** I first recorded that the third
+`WORKSPACE_SCREENS` entry "carries the existing accessibility-mode and service-stop proofs onto the
+new route". It does not. Those suites name `TODAY_SCREEN` and `PATIENTS_SCREEN` as literals; nothing
+iterates the array. Five new tests is exactly one new describe block and nothing else, and the
+arithmetic said so before I checked the code — a third screen joining six-width parameterised suites
+could not have cost five tests.
+
+So `WORKSPACE_SCREENS` is a **registry, not a driver**: joining it proves nothing by itself. That is
+the silenced-gate hazard its own comment warns about, one level deeper than the comment describes —
+a screen can be listed there and still be visited by no accessibility-mode or service-stop proof.
+Carried to the Task 6 review rather than settled here.
