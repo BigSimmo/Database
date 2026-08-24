@@ -129,7 +129,7 @@ describe("PageSecondaryNavigation", () => {
     );
     const bar = screen.getByTestId("mode-nav");
     expect(bar).toHaveAttribute("aria-label", "Factsheets pages");
-    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual(["Topics", "Search"]);
+    expect([...bar.querySelectorAll("li a")].map((link) => link.textContent)).toEqual(["Search", "Topics"]);
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute("aria-current", "page");
     // Search is the tab you are already on. Its own link must not reset the
     // category filter you are reading, nor drop `run` — that flips

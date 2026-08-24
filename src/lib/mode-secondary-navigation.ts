@@ -61,10 +61,11 @@ export const modeSecondaryNavigationRegistry = {
     { id: "compare", label: "Compare", href: "/therapy-compass/compare" },
     { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways" },
   ],
-  // Two genuinely distinct surfaces: `/factsheets/topics` (category browse) and
-  // `/factsheets/search` (query + filters + result rows). `/factsheets/[slug]`
-  // is a record and never reaches here — `hasLocalInformationPageNavigation`
-  // returns null for it first.
+  // Two genuinely distinct surfaces: `/factsheets/search` (query + filters +
+  // result rows) and `/factsheets/topics` (category browse). Search leads, the
+  // same way Dictionary leads with Terms then Topics. `/factsheets/[slug]` is a
+  // record and never reaches here — `hasLocalInformationPageNavigation` returns
+  // null for it first.
   //
   // No `focus: true` on Topics, unlike the Search/Find entry of every mode
   // above. Those tabs are the mode's search affordance, so focusing the composer
@@ -72,8 +73,8 @@ export const modeSecondaryNavigationRegistry = {
   // would open the phone keyboard over the topics the user asked to see. The
   // search affordance for this mode is the Search tab.
   factsheets: [
-    { id: "topics", label: "Topics", href: "/factsheets/topics" },
     { id: "search", label: "Search", href: "/factsheets/search" },
+    { id: "topics", label: "Topics", href: "/factsheets/topics" },
   ],
   // Search and Browse were one catalogue behind two destinations: the same
   // entries, the same rows, the same data, so a reader who typed a term while on
