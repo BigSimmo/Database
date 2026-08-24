@@ -929,6 +929,19 @@ describe("Care Plan synthetic, memory-only boundary", () => {
           if (property === "text-decoration" || property === "text-decoration-line") {
             applied.set("text-decoration-resolved", value);
           }
+          // The shorthand resets every longhand it does not name, so a later
+          // `text-decoration: underline` restores a visible line over an
+          // earlier `text-decoration-color: transparent`. Without this the
+          // guard called that pair a defect, which it is not — a lie in the
+          // safe direction is still a lie, and this one would bite whoever
+          // wrote the pair.
+          if (property === "text-decoration") {
+            const colour =
+              /\btransparent\b|\bcurrentcolor\b|#[0-9a-f]{3,8}\b|(?:rgba?|hsla?)\([^)]*\)|var\([^)]*\)/.exec(
+                value,
+              )?.[0];
+            applied.set("text-decoration-color", colour ?? "currentcolor");
+          }
         }
       }
       return applied;
@@ -1094,6 +1107,63 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       ).toBe(true);
     }
 
+    /**
+     * A value that resolves to no paint at all, however it is spelled.
+     *
+     * Successive probes have each found a new spelling: `border: 0` and
+     * `background: rgba(0, 0, 0, 0)` leaked past a denylist of keywords;
+     * `border: 1px solid transparent` leaked past a width-only border test;
+     * `rgb(0 0 0 / 0)` leaked past an alpha test anchored to the literal
+     * `rgba(`/`hsla(` forms; and `rgb(0 0 0 / 0.0%)` leaked past an alternation
+     * that could express a decimal **or** a percent but not both at once.
+     *
+     * The alpha is therefore matched as one shape — optional leading zeros, an
+     * optional point, at least one zero, an optional percent — rather than as a
+     * list of the ways it has been written so far. CSS Color 4 lets every
+     * colour function carry an alpha in comma or slash form, so all four spell
+     * it.
+     */
+    const paintsNothing = (value: string) =>
+      /\btransparent\b/.test(value) ||
+      /\b(?:rgba?|hsla?)\([^)]*[,/]\s*0*\.?0+\s*%?\s*\)/.test(value) ||
+      /^#(?:[0-9a-f]{6}00|[0-9a-f]{3}0)$/.test(value);
+
+    /**
+     * Controls on the helper itself. A check that rejected everything would
+     * pass every invisibility probe ever written against this guard and be
+     * worse than the hole it closed, so the opaque list is the load-bearing
+     * half: it is what stops a future tightening from quietly condemning every
+     * chip in the stylesheet.
+     */
+    for (const invisible of [
+      "transparent",
+      "1px solid transparent",
+      "rgb(0 0 0 / 0)",
+      "rgb(0 0 0 / 0.0%)",
+      "rgb(0 0 0 / .0%)",
+      "rgba(0, 0, 0, 0)",
+      "rgba(0,0,0,.00)",
+      "hsl(0 0% 0% / 0%)",
+      "hsla(0, 0%, 0%, 0.0)",
+      "#00000000",
+    ]) {
+      expect(paintsNothing(invisible), `"${invisible}" paints nothing but the check did not say so`).toBe(true);
+    }
+    for (const opaque of [
+      "1px solid var(--border-strong)",
+      "var(--surface)",
+      "#0b3d2e",
+      "rgb(0 0 0 / 100%)",
+      "rgb(0 0 0 / 1)",
+      "rgba(0, 0, 0, 1)",
+      "rgba(0, 0, 0, 0.5)",
+      "hsl(0 0% 0% / 0.5)",
+      "hsl(200, 50%, 40%)",
+      "canvas",
+    ]) {
+      expect(paintsNothing(opaque), `"${opaque}" paints something but the check called it invisible`).toBe(false);
+    }
+
     for (const { file, classes, inNav } of linkElements) {
       const where = `${classes.map((name) => `.${name}`).join(" + ")} in ${file}`;
       const declared = appliedProperties(classes);
@@ -1110,21 +1180,6 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       // immediately: `border: 0` with `background: rgba(0, 0, 0, 0)` paints
       // exactly as little and bought the exemption anyway. There are unbounded
       // ways to write invisible; there are few ways to write a visible edge.
-      /**
-       * A value that resolves to no paint at all, however it is spelled.
-       *
-       * Both callers need this, and both leaked without it: a
-       * `border: 1px solid transparent` counted as an edge because only the
-       * width was checked, and `rgb(0 0 0 / 0)` walked past an alpha test
-       * anchored to the literal `rgba(`/`hsla(` forms. CSS Color 4 allows every
-       * function to carry an alpha and to use slash syntax, so the check covers
-       * `rgb`, `rgba`, `hsl` and `hsla` in both.
-       */
-      const paintsNothing = (value: string) =>
-        /\btransparent\b/.test(value) ||
-        /\b(?:rgba?|hsla?)\([^)]*[,/]\s*(?:0|0*\.0+|0%)\s*\)/.test(value) ||
-        /^#(?:[0-9a-f]{6}00|[0-9a-f]{3}0)$/.test(value);
-
       const hasVisibleBorder = (value: string | undefined) =>
         value !== undefined &&
         !/\bnone\b/.test(value) &&
