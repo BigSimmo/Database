@@ -43,6 +43,10 @@ describe("compareSnapshots", () => {
     expect(compareSnapshots(null, regenerated).join(" ")).toMatch(/missing|version/);
   });
 
+  it("reports a scalar committed snapshot as stale instead of throwing", () => {
+    expect(compareSnapshots("not-a-snapshot", regenerated).join(" ")).toMatch(/version|missing/);
+  });
+
   it("catches a key the generator no longer emits", () => {
     const committed = { ...structuredClone(regenerated), legacy_section: {} };
     expect(compareSnapshots(committed, regenerated).join(" ")).toMatch(/legacy_section/);
