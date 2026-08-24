@@ -8,6 +8,7 @@ import { AUTOMATED_REPLY_RESPONSE, EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/c
 import { PROVISIONAL_MESSAGE_RULES } from "@/lib/caring-contacts/message-rules";
 import {
   calculateGsm7,
+  resolveClosingContactMessageBody,
   validateGovernedMessage,
   type GovernedMessageInput,
 } from "@/lib/caring-contacts/message-policy";
@@ -274,6 +275,68 @@ describe("rule 5: closing-message-missing-ending-statement / closing-message-mis
   it("reports both codes when both the ending statement and the support information are absent", () => {
     const result = validateGovernedMessage({ text: "Nothing relevant here.", messageType: "closing" });
     expect(result).toEqual({
+      valid: false,
+      issues: [
+        { code: "closing-message-missing-ending-statement" },
+        { code: "closing-message-missing-support-information" },
+      ],
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rule 5b — resolveClosingContactMessageBody (item A4, 2026-08-24)
+//
+// No closing message has ever been written -- that wording is a clinical decision deferred to a
+// lived-experience representative, not an implementation gap. This is the refusal ONLY: no
+// closing-message wording is drafted here or anywhere in this task. See
+// docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md, "A4".
+// ---------------------------------------------------------------------------
+
+describe("rule 5b: resolveClosingContactMessageBody / closing-message-body-not-authored", () => {
+  it("refuses with its own identifiable reason when no authored body exists", () => {
+    expect(resolveClosingContactMessageBody(undefined)).toEqual({
+      ok: false,
+      issue: { code: "closing-message-body-not-authored" },
+    });
+  });
+
+  it("refuses the same way for an empty or whitespace-only authored body -- never an empty string, never silent", () => {
+    expect(resolveClosingContactMessageBody("")).toEqual({
+      ok: false,
+      issue: { code: "closing-message-body-not-authored" },
+    });
+    expect(resolveClosingContactMessageBody("   ")).toEqual({
+      ok: false,
+      issue: { code: "closing-message-body-not-authored" },
+    });
+  });
+
+  it("does not refuse a closing contact that does have an authored body", () => {
+    const result = resolveClosingContactMessageBody(compliantClosingMessage);
+    expect(result).toEqual({ ok: true, body: compliantClosingMessage });
+  });
+
+  it("never falls back to the ordinary (non-closing) message text", () => {
+    // A body-not-authored refusal must never resolve to some other message's text -- it has no
+    // `body` field on the failure branch at all.
+    const result = resolveClosingContactMessageBody(undefined);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result).not.toHaveProperty("body");
+  });
+
+  it("is a different failure from closing-message-missing-ending-statement (missing body vs. wrong body)", () => {
+    // A body that EXISTS but is wrong (lacks the required ending statement) is caught later, by
+    // validateGovernedMessage, with a different code -- proving the two failures are distinguishable.
+    const noBody = resolveClosingContactMessageBody(undefined);
+    expect(noBody).toEqual({ ok: false, issue: { code: "closing-message-body-not-authored" } });
+
+    const wrongBody = "Some closing text with no ending statement.";
+    const resolved = resolveClosingContactMessageBody(wrongBody);
+    expect(resolved).toEqual({ ok: true, body: wrongBody });
+    const validated = validateGovernedMessage({ text: wrongBody, messageType: "closing" });
+    expect(validated).toEqual({
       valid: false,
       issues: [
         { code: "closing-message-missing-ending-statement" },

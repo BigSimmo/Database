@@ -132,3 +132,33 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
 
   return issues.length === 0 ? { valid: true } : { valid: false, issues };
 }
+
+export type ClosingMessageBodyIssue = { code: "closing-message-body-not-authored" };
+
+export type ClosingMessageBodyResolution = { ok: true; body: string } | { ok: false; issue: ClosingMessageBodyIssue };
+
+/**
+ * Resolves the outgoing text for a `closing` contact (item A4, 2026-08-24).
+ *
+ * No closing message has ever been written -- final wording is a clinical decision the owner has
+ * deferred to a lived-experience representative, not an implementation gap. A plan reaching its
+ * end today has nothing to send, and the only acceptable response to that is a loud, identifiable
+ * refusal: never an empty string, never a silent fall-back to some other message's text, and never
+ * a silently skipped contact. This is the refusal only -- it drafts no closing-message wording of
+ * its own, deliberately, because an implementer doing so would be the exact failure this exists to
+ * prevent. This is distinct from `closing-message-missing-ending-statement`: that code means a body
+ * exists but is wrong; this one means no body exists to check at all.
+ *
+ * No existing seam resolves a contact's message body anywhere in this domain today (checked
+ * schedule.ts, simulation.ts, repository.ts, model.ts) -- `PlannedContact` carries a `messageType`
+ * but no body content, and nothing yet supplies one. This function is the mechanism a future
+ * sender must call once that seam is built; it is not itself wired into the schedule or the
+ * simulation driver, because doing so would require inventing where an authored closing body comes
+ * from, which is exactly the decision this task defers.
+ */
+export function resolveClosingContactMessageBody(authoredClosingBody: string | undefined): ClosingMessageBodyResolution {
+  if (!authoredClosingBody || authoredClosingBody.trim().length === 0) {
+    return { ok: false, issue: { code: "closing-message-body-not-authored" } };
+  }
+  return { ok: true, body: authoredClosingBody };
+}
