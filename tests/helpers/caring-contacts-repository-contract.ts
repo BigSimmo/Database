@@ -41,6 +41,7 @@ import {
   type WriteContext,
 } from "@/lib/caring-contacts/repository";
 import { DEFAULT_RETENTION_POLICY, deidentifyEpisode, isDueForDeidentification } from "@/lib/caring-contacts/retention";
+import { FIRST_CONTACT_REASON_MAX_LENGTH } from "@/lib/caring-contacts/schedule";
 
 const TEAM_A = teamId("TEAM-NORTH");
 
@@ -225,6 +226,72 @@ async function createActivePlan(store: CaringContactRepository, options: { actor
       writeContext(actor, `ext-activate-${suffix}`),
     ),
   );
+}
+
+/**
+ * A first contact three days after discharge — moved off the programme's usual discharge + 1, and
+ * so requiring a reason, without landing on the discharge + 7 day that absorbs Week 1. Keeping the
+ * absorption out of these cases means a failure here is about the reason and nothing else.
+ */
+const MOVED_FIRST_CONTACT_DAY = "2026-03-05";
+
+/**
+ * The kind of sentence a coordinator really writes: it names a relative and a living arrangement.
+ * That is the whole argument for clearing it (Ruling 105), so the fixture has to look like it —
+ * a reason reading "coordinator decision" would let a clearance that missed the field pass every
+ * assertion below that greps for identifying content.
+ */
+const FIRST_CONTACT_REASON = "Patient asked to wait until she is home from her sister's.";
+
+let movedFirstContactSequence = 0;
+
+/**
+ * A plan whose first contact was MOVED, built through the repository like every other fixture here
+ * — including the referral and pathway version it names, which the Postgres schema requires as
+ * same-team foreign keys.
+ *
+ * Returns the raw `createPlan` result rather than unwrapping it, because the refusal cases below
+ * need to inspect it. Each call uses a fresh plan and patient, so a refused create leaves nothing
+ * behind for the next one to collide with.
+ */
+async function createPlanWithMovedFirstContact(
+  store: CaringContactRepository,
+  options: { reason?: string; firstContactDate?: string; actor?: Actor } = {},
+) {
+  movedFirstContactSequence += 1;
+  const suffix = String(movedFirstContactSequence);
+  const actor = options.actor ?? COORDINATOR_A;
+  const referral = referralId(`MOVED-REFERRAL-${suffix}`);
+  const pathway = `MOVED-PATHWAY-${suffix}`;
+  const patient = patientId(`MOVED-PATIENT-${suffix}`);
+  const plan = planId(`MOVED-PLAN-${suffix}`);
+
+  unwrap(
+    await store.createReferral({ referralId: referral, patientId: patient }, writeContext(actor, `moved-r-${suffix}`)),
+  );
+  unwrap(
+    await store.savePathwayVersion(
+      { version: draftPathwayVersion(actor, pathway) },
+      writeContext(actor, `moved-p-${suffix}`),
+    ),
+  );
+
+  const created = await store.createPlan(
+    {
+      planId: plan,
+      referralId: referral,
+      patientId: patient,
+      pathwayVersionId: pathwayVersionId(pathway),
+      dischargeAt: DISCHARGE_AT,
+      sendingPreference: "morning",
+      firstContactDate: options.firstContactDate ?? MOVED_FIRST_CONTACT_DAY,
+      firstContactReason: options.reason ?? FIRST_CONTACT_REASON,
+      patientDetail: PATIENT_DETAIL,
+    },
+    writeContext(actor, `moved-create-${suffix}`),
+  );
+
+  return { planId: plan, created };
 }
 
 function createInput(overrides: Partial<CreatePlanInput> = {}): CreatePlanInput {
@@ -2589,6 +2656,114 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
     // -------------------------------------------------------------------------
     // Clearing an episode's identifying detail
     // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // The reason a first contact was moved (Ruling 105)
+    //
+    // `buildApprovedSchedule` refuses any first-contact date other than discharge + 1 unless a
+    // non-blank reason is given, and until this task it threw the string away: the system demanded
+    // a reason, refused without one, and kept nothing. These cases pin where the stored reason may
+    // and may not travel, and both stores run all of them.
+    // -------------------------------------------------------------------------
+    describe("the reason a first contact was moved", () => {
+      it("keeps the reason and releases it through the one read that releases patient detail", async () => {
+        const store = await newStore();
+        const { planId: moved } = await createPlanWithMovedFirstContact(store);
+
+        const episode = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        expect(episode?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+
+        // Positive control on the fixture itself: the date really did move, so the reason above is
+        // a stored reason for a real move rather than a string kept for a plan on the usual day.
+        const contacts = await store.listContacts(moved, { actor: COORDINATOR_A });
+        const first = contacts.find((stored) => stored.planned.messageType === "first");
+        expect(first?.planned.calendarDay).toBe(MOVED_FIRST_CONTACT_DAY);
+      });
+
+      it("holds no reason for a plan whose first contact is on the programme's usual day", async () => {
+        // Null rather than an empty string, and never the string a caller may have sent anyway: a
+        // reason is required only when the date moves, so a plan on the usual day is not missing
+        // one. Storing free text nothing accounts for is the failure this case pins.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(
+          await store.createPlan(
+            createInput({ firstContactReason: "Sent although no move was requested" }),
+            writeContext(COORDINATOR_A, "usual-day-create"),
+          ),
+        );
+
+        const episode = await store.getEpisode(PLAN_ID, { actor: TEAM_LEAD_A });
+        expect(episode?.firstContactReason).toBeNull();
+        expect(JSON.stringify(episode)).not.toContain("no move was requested");
+      });
+
+      it("stores the reason trimmed, exactly as the schedule accepted it", async () => {
+        const store = await newStore();
+        const { planId: moved } = await createPlanWithMovedFirstContact(store, {
+          reason: `  ${FIRST_CONTACT_REASON}\n`,
+        });
+
+        const episode = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        expect(episode?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+      });
+
+      it("never puts the reason on a plan record, which is what a caseload lists", async () => {
+        // The reason is a clinical note keyed to one patient. `listPlans` is rendered for every
+        // patient in the team, and `PlanRecord` is what it returns -- so the reason must not be
+        // reachable there, whether or not any screen reads it today.
+        const store = await newStore();
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store);
+        const record = unwrap(created);
+
+        const fetched = await store.getPlan(moved, { actor: COORDINATOR_A });
+        const listed = await store.listPlans({ actor: COORDINATOR_A });
+        const names = await store.listPatientNames({ actor: COORDINATOR_A });
+
+        for (const released of [record, fetched, listed, names]) {
+          expect(JSON.stringify(released)).not.toContain("sister");
+          expect(JSON.stringify(released)).not.toContain("firstContactReason");
+        }
+      });
+
+      it("is as unobtainable to another team as the plan itself", async () => {
+        const store = await newStore();
+        const { planId: moved } = await createPlanWithMovedFirstContact(store);
+
+        // Positive control first: the reason IS released to an actor of the owning team, so the
+        // null below is the team scoping and not the field being absent everywhere.
+        expect((await store.getEpisode(moved, { actor: TEAM_LEAD_A }))?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+
+        expect(await store.getEpisode(moved, { actor: COORDINATOR_B })).toBeNull();
+        expect(await store.listPlans({ actor: COORDINATOR_B })).toEqual([]);
+      });
+
+      it("refuses a reason past the cap by name, and stores no plan at all (Ruling 106)", async () => {
+        // Refused, never truncated: a clinical reason cut off mid-sentence can invert its meaning,
+        // and nothing in the record would show that it had happened.
+        const store = await newStore();
+        const overLong = "x".repeat(FIRST_CONTACT_REASON_MAX_LENGTH + 1);
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store, { reason: overLong });
+
+        expect(created).toEqual({ ok: false, reason: "first-contact-reason-too-long" });
+        expect(await store.getPlan(moved, { actor: COORDINATOR_A })).toBeNull();
+      });
+
+      it("accepts a reason exactly at the cap, so the refusal above is the boundary and not the rule", async () => {
+        const store = await newStore();
+        const atCap = "y".repeat(FIRST_CONTACT_REASON_MAX_LENGTH);
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store, { reason: atCap });
+
+        unwrap(created);
+        expect((await store.getEpisode(moved, { actor: TEAM_LEAD_A }))?.firstContactReason).toBe(atCap);
+      });
+
+      it("still refuses a moved first contact with no reason at all, unchanged", async () => {
+        const store = await newStore();
+        const { created } = await createPlanWithMovedFirstContact(store, { reason: "   " });
+        expect(created).toEqual({ ok: false, reason: "first-contact-reason-required" });
+      });
+    });
+
     describe("markRetentionCleared", () => {
       it("marks a plan cleared, refuses an unknown plan, and refuses a role without the grant", async () => {
         const store = await newStore();
@@ -2675,6 +2850,61 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         expect(JSON.stringify(after)).not.toContain("Jordan");
         expect(JSON.stringify(after)).not.toContain("491 570 156");
         expect(JSON.stringify(after)).not.toContain("UR-00219384");
+      });
+
+      it("clears the reason a first contact was moved, which is free text a clinician wrote", async () => {
+        // Ruling 105, and the point of that ruling most likely to be missed. The reason is not on
+        // ../retention's list of identifying fields -- that list names name, mobile number,
+        // identifiers and cultural identity -- but a real one reads "patient asked to wait until
+        // she is home from her sister's", which is patient-identifying content in every practical
+        // sense. `CLEARED_PATIENT_DETAIL` blanks a fixed set of fields, so a fifth one added
+        // anywhere else would survive a clearance and leave identifying prose in a record the
+        // system reports as de-identified.
+        //
+        // Pinned HERE, in the shared suite, rather than in either store's own file: the in-memory
+        // store clears by spreading the whole constant and so gained this for free, while the
+        // Postgres store names its columns in SQL and had to be told. A test living with the
+        // in-memory store would have proved nothing about the one that could forget.
+        const store = await newStore();
+        const { planId: moved, created } = await createPlanWithMovedFirstContact(store);
+        const record = unwrap(created);
+
+        const activated = unwrap(
+          await store.activatePlan(
+            { planId: moved, expectedVersion: record.plan.version },
+            writeContext(COORDINATOR_A, "moved-clear-activate"),
+          ),
+        );
+        unwrap(
+          await store.withdrawPlan(
+            { planId: moved, expectedVersion: activated.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, "moved-clear-withdraw"),
+          ),
+        );
+
+        // Positive control: the reason is genuinely held right up to the clearance, so its absence
+        // afterwards is this write acting rather than the fixture never having stored it.
+        const before = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        expect(before?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+        expect(JSON.stringify(before)).toContain("sister");
+
+        unwrap(await store.markRetentionCleared({ planId: moved }, writeContext(COORDINATOR_A, "moved-clear")));
+
+        const after = await store.getEpisode(moved, { actor: TEAM_LEAD_A });
+        // The episode survives -- de-identification keeps what aggregate reporting needs. It is the
+        // identifying content that is gone, and the reason is part of that content.
+        expect(after).not.toBeNull();
+        expect(after?.state).toBe("withdrawn");
+        expect(after?.firstContactReason).toBeNull();
+        expect(JSON.stringify(after)).not.toContain("sister");
+
+        // The moved DATE is deliberately untouched. It is not identifying, it is the first
+        // contact's own calendar day rather than a second copy of anything, and an aggregate report
+        // of when plans started must still be able to see it.
+        const contacts = await store.listContacts(moved, { actor: COORDINATOR_A });
+        expect(contacts.find((stored) => stored.planned.messageType === "first")?.planned.calendarDay).toBe(
+          MOVED_FIRST_CONTACT_DAY,
+        );
       });
 
       it("clears the cultural-identity report too, which lives outside the plan row", async () => {

@@ -22,11 +22,12 @@
 //      the last entry is a CLOSING message rather than one more caring contact. Nothing here may
 //      be a literal.
 //
-//   4. Ruling 96's display half, and the gap under it. The first contact date is shown; when it is
-//      not the default of discharge + 1 the screen must say so in place. The recorded REASON is
-//      validated by `buildApprovedSchedule` and then discarded by both stores -- it reaches no
-//      column and no field -- so the screen states that absence rather than staying silent about a
-//      moved date.
+//   4. Ruling 96's display half, and Ruling 108's three cases under it. The first contact date is
+//      shown; when it is not the default of discharge + 1 the screen must say so in place, and show
+//      the recorded REASON in the clinician's own words. When no reason is held the screen says
+//      WHICH absence it is -- a role that may not read the episode, a retention clearance, or a plan
+//      older than the field -- because those are three different facts and only one of them is
+//      about the plan being old.
 //
 // Built on the helper shape `caring-contacts-patients-page.dom.test.tsx` established for Task 5.
 import { render, screen, within } from "@testing-library/react";
@@ -191,6 +192,30 @@ async function recordDeath(store: CaringContactRepository, id: PlanId) {
     { actor, idempotencyKey: idempotencyKey(`death-${id}`) },
   );
   if (!result.ok) throw new Error(`recordHospitalStatusEvent(${id}) refused: ${result.reason}`);
+}
+
+/**
+ * Makes one plan answer like a row created before the first-contact reason was kept.
+ *
+ * No store can produce such a plan any more: `createPlan` always writes what the schedule accepted,
+ * and no write removes a reason on its own. But old rows hold null forever -- nothing was migrated
+ * into them, deliberately (Ruling 108) -- so the case is real and has to be renderable. It is
+ * staged at the boundary the screen actually reads, `getEpisode`, answered with null in that one
+ * field and untouched in every other, which is exactly how an old row answers.
+ *
+ * Deliberately NOT done by reaching into the store's state: that would depend on the in-memory
+ * store's internals, and the case being staged is a property of the DATA, not of either store.
+ */
+function forgetFirstContactReason(store: CaringContactRepository, plan: string): void {
+  const patched: CaringContactRepository = {
+    ...store,
+    async getEpisode(id, context) {
+      const episode = await store.getEpisode(id, context);
+      if (episode === null || String(id) !== plan) return episode;
+      return { ...episode, firstContactReason: null };
+    },
+  };
+  mocks.store.current = patched;
 }
 
 async function renderPage(
@@ -404,7 +429,10 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
     expect(screen.queryByRole("note", { name: /First contact moved/i })).not.toBeInTheDocument();
   });
 
-  it("states IN PLACE that a moved first contact's recorded reason is not held with the plan", async () => {
+  it("shows a moved first contact's recorded reason IN PLACE, in the clinician's own words", async () => {
+    // Ruling 108, second case, and spec 4.4's contract: a reason reachable only by hovering has
+    // not been stated. It is rendered verbatim and attributed, never paraphrased into the
+    // surrounding sentence.
     const { store } = spiedStore();
     await createPlan(store, "plan-solo", {
       firstContactDate: ABSORBING_FIRST_CONTACT_DAY,
@@ -416,8 +444,54 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
     const note = screen.getByRole("note", { name: "First contact moved from the usual day" });
     expect(note).toHaveTextContent(ABSORBING_FIRST_CONTACT_DAY);
     expect(note).toHaveTextContent(/7 days after discharge/i);
-    // The gap, stated rather than invented or omitted.
-    expect(note).toHaveTextContent(/reason .* is not kept with the plan/i);
+    expect(note).toHaveTextContent("Patient was interstate for the first week.");
+    expect(note).toHaveTextContent(/coordinator who created it gave this reason/i);
+    // The old gap sentence is gone: the reason IS kept with the plan now.
+    expect(note).not.toHaveTextContent(/not kept with the plan/i);
+  });
+
+  it("says an older plan predates the field, rather than blaming a coordinator (Ruling 108)", async () => {
+    // The third case, and the one that will persist: a plan created before the column existed
+    // holds null forever, because no placeholder was migrated into old rows. Reproduced here by
+    // clearing the reason on a stored plan directly, which is the only way this suite can produce
+    // a row the store itself can no longer create.
+    const { store } = spiedStore();
+    await createPlan(store, "plan-solo", {
+      firstContactDate: ABSORBING_FIRST_CONTACT_DAY,
+      firstContactReason: "Patient was interstate for the first week.",
+    });
+    forgetFirstContactReason(store, "plan-solo");
+
+    await renderPage();
+
+    const note = screen.getByRole("note", { name: "First contact moved from the usual day" });
+    expect(note).toHaveTextContent(/created before reasons were kept with the plan/i);
+    expect(note).toHaveTextContent(/Nobody failed to give one/i);
+    expect(note).not.toHaveTextContent("Patient was interstate for the first week.");
+  });
+
+  it("names the retention clearance when a cleared episode holds no reason", async () => {
+    // A cleared episode ALSO holds no reason, and saying "this plan predates the field" about one
+    // would be a false statement on a clinical record. The screen tells them apart the same way
+    // `NoNameHeldNotice` does -- a blank name on a released episode is the clearance.
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo", {
+      firstContactDate: ABSORBING_FIRST_CONTACT_DAY,
+      firstContactReason: "Patient was interstate for the first week.",
+    });
+    await endPlan(store, id);
+    const cleared = await store.markRetentionCleared(
+      { planId: id },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("clear-reason-plan-solo") },
+    );
+    if (!cleared.ok) throw new Error(`markRetentionCleared refused: ${cleared.reason}`);
+
+    await renderPage();
+
+    const note = screen.getByRole("note", { name: "First contact moved from the usual day" });
+    expect(note).toHaveTextContent(/retention clearance has since removed it/i);
+    expect(note).not.toHaveTextContent(/created before reasons were kept/i);
+    expect(note).not.toHaveTextContent("Patient was interstate for the first week.");
   });
 
   it("shows the discharge day the whole calendar hangs off", async () => {

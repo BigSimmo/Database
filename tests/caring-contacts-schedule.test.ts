@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { awstCalendarDay, toAwstParts } from "@/lib/caring-contacts/clock";
-import { buildApprovedSchedule } from "@/lib/caring-contacts/schedule";
+import { buildApprovedSchedule, FIRST_CONTACT_REASON_MAX_LENGTH } from "@/lib/caring-contacts/schedule";
 
 const discharge = new Date("2026-03-10T06:30:00.000Z"); // 14:30 AWST on 2026-03-10
 
@@ -141,6 +141,70 @@ describe("buildApprovedSchedule", () => {
         firstContactReason: "   ",
       }),
     ).toEqual({ ok: false, reason: "first-contact-reason-required" });
+  });
+
+  it("publishes the reason it accepted, trimmed, so a store never re-derives whether one was needed", () => {
+    // Ruling 107: the write path already existed and this is the one thing that was missing from
+    // it. The schedule decides whether a reason is required, so the schedule -- not each store --
+    // is what says which string may be persisted.
+    const result = buildApprovedSchedule({
+      dischargeAt: discharge,
+      sendingPreference: "morning",
+      firstContactDate: "2026-03-13",
+      firstContactReason: "  Patient asked to wait until she is home from her sister's.\n",
+    });
+    expect(result).toMatchObject({ ok: true, firstContactReason: "Patient asked to wait until she is home from her sister's." });
+  });
+
+  it("publishes NO reason when the first contact is on the usual day, whatever was supplied", () => {
+    // A reason is required only when the date moves, so a plan on the usual day is not missing one
+    // -- and free text about a patient that no surface ever accounts for should not be stored.
+    const notRequested = buildApprovedSchedule({ dischargeAt: discharge, sendingPreference: "morning" });
+    expect(notRequested).toMatchObject({ ok: true, firstContactReason: null });
+
+    const supplied = buildApprovedSchedule({
+      dischargeAt: discharge,
+      sendingPreference: "morning",
+      firstContactDate: "2026-03-11", // the default day, stated explicitly
+      firstContactReason: "Sent although no move was requested",
+    });
+    expect(supplied).toMatchObject({ ok: true, firstContactReason: null });
+  });
+
+  it("refuses a reason past the cap by its own name, rather than truncating it (Ruling 106)", () => {
+    // Truncation is what is being refused here, not length as such: "not because the family
+    // objected" cut off after "not" says the opposite, and nothing in the record would show it.
+    expect(
+      buildApprovedSchedule({
+        dischargeAt: discharge,
+        sendingPreference: "morning",
+        firstContactDate: "2026-03-13",
+        firstContactReason: "x".repeat(FIRST_CONTACT_REASON_MAX_LENGTH + 1),
+      }),
+    ).toEqual({ ok: false, reason: "first-contact-reason-too-long" });
+
+    // The boundary itself is accepted, so the refusal above is the cap and not the rule.
+    const atCap = "x".repeat(FIRST_CONTACT_REASON_MAX_LENGTH);
+    expect(
+      buildApprovedSchedule({
+        dischargeAt: discharge,
+        sendingPreference: "morning",
+        firstContactDate: "2026-03-13",
+        firstContactReason: atCap,
+      }),
+    ).toMatchObject({ ok: true, firstContactReason: atCap });
+  });
+
+  it("measures the cap after trimming, so surrounding whitespace cannot refuse an acceptable reason", () => {
+    const atCap = "x".repeat(FIRST_CONTACT_REASON_MAX_LENGTH);
+    expect(
+      buildApprovedSchedule({
+        dischargeAt: discharge,
+        sendingPreference: "morning",
+        firstContactDate: "2026-03-13",
+        firstContactReason: `   ${atCap}   `,
+      }),
+    ).toMatchObject({ ok: true, firstContactReason: atCap });
   });
 
   it("suppresses Week 1 when the first contact absorbs it, rather than sending twice in a day", () => {
