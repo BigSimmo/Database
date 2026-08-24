@@ -19,6 +19,7 @@ import { pageContainer } from "@/components/ui-primitives";
 
 import { useTcBindings } from "../bindings";
 import { matchesAvailability, matchesTopics } from "../data/select";
+import { hasSearchableTherapyQuery } from "@/lib/therapy-ranking";
 import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 import { TherapyReviewNotice } from "../therapy-review-notice";
@@ -39,7 +40,7 @@ export function SearchScreen() {
   // An empty query gives every record the same baseline score and then sorts
   // alphabetically, so only call out a best match when the scorer had real
   // query evidence to rank. Facets narrow the list but do not rank it.
-  const hasRankedQuery = q.trim().length > 0;
+  const hasRankedQuery = hasSearchableTherapyQuery(q);
   const topics = useMemo(() => new Set(b.search.tags), [b.search.tags]);
   // Filters only — the query is deliberately excluded. It counts toward the
   // sheet's Clear all (see below), because `clearSearch` resets it, but the
