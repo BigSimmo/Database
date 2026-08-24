@@ -656,3 +656,21 @@ Task 3: fix round 1/5 (5 addressed, 0 open by the implementer's account; commits
 `9a36d292e`..`1306c0b7d`). Scoped re-review dispatched, told to judge the Important-3 token claim
 hard — "one rule closes all six cases" is the kind of claim most likely to be over-stated. Browser
 gate re-running at the post-fix head, because the earlier green is stale by this branch's own rule.
+
+### Browser gate re-taken after fix round 1 — green, and the staleness rule paid for itself
+
+```
+32 passed (51.2s)
+EXIT=0
+```
+
+Zero failures, run against the tree at `744fb7a99` (source state `1306c0b7d`). The earlier green at
+`9a36d292e` was correctly declared stale: Ruling 90 changed **which** rows render the refusal
+paragraph and the confirm-sequence fix changed **what** renders at commit time, so neither the input
+nor the output of the assertion that mattered was the same thing twice.
+
+Both greens say `32 passed`, which is exactly why the rule matters rather than exactly why it does
+not. **Identical numbers across two different trees are not evidence of the same fact** — they are two
+separate measurements that happen to agree, and only one of them describes the code that now exists.
+Had the fix broken the viewport assertion, the stale green would have said `32 passed` about a tree
+nobody was shipping.
