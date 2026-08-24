@@ -1053,6 +1053,41 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     would have seen — mitigated by four independent re-reviews, every one of which attacked the
     work with probes rather than reading it.
 
+### User decisions, 25 August 2026
+
+These were **decided by the user**, not ruled on their behalf. They are recorded here in the
+rulings section because everything downstream reads from this file, but they carry more authority
+than a ruling: do not reopen them.
+
+**D1. The Personal Safety Plan records when the patient's part was actually recorded, as its own
+moment.** Task 10's fix loop found that History showed a date beside "the patient's part was
+recorded" which was in fact `confirmedAt` — set inside `make-safety-plan-current` — while
+`patientConfirmation` itself is written by `save-safety-plan-draft`. Those are two different
+moments and can be different days. The fix loop made the line honest about **who** (it stops
+naming the version's author, who may not be the person who sat down with the patient) and left
+the **when** as the open question, correctly, because choosing it is clinical rather than
+engineering.
+
+The user chose the faithful option: record the real moment separately from the moment the version
+went live, and show that. This is a domain change — a new recorded timestamp, written where the
+participation state is written, read by History — so it does **not** belong inside Task 11, which
+is acceptance evidence rather than product behaviour. It gets its own small task after Task 11's
+implementation and before the whole-branch review, built RED/GREEN with a positive control like
+anything else. Until it lands, the line stays as the fix loop left it: honest about who, imprecise
+about when, and written up.
+
+**D2. When Task 11's build finishes, run the held-back release gates and then stop.** The user
+asked on 24 August that the work stay local and focused on building; this extends that instruction
+to its endpoint. After Task 11 and the D1 task land, run the gates that have deliberately not been
+run — `verify:pr-local`, `build`, `check:production-readiness`, `docs:update`, whole-tree
+`format` — report exactly what they say, and **stop there**. Do not push, do not open the pull
+request, do not merge. Publication is a separate decision the user will make with the gate results
+in front of them.
+
+Task 11's `verification-report.md` must therefore list every unrun gate explicitly as **not run,
+by user instruction** rather than omitting it — an unrun check reported as unrun is evidence; an
+unrun check left unmentioned is a false claim of completeness.
+
 ---
 
 ## Deferred minors — for the whole-branch review to triage
