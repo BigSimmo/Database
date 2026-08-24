@@ -851,57 +851,122 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       return ranges;
     }
 
-    const linkClasses = new Map<string, { files: Set<string>; everOutsideNav: boolean }>();
+    /**
+     * The whole opening tag of every `<Link>`/`<a>`, so that **every** class it
+     * carries is seen however the className was written.
+     *
+     * The previous shape required the literal `className={styles.X}` and was
+     * therefore blind to a composed className. `patient-navigation.tsx` already
+     * had one — `cn(styles.patientNavItem, styles.patientNavSecondary)` — so
+     * `patientNavSecondary` was underived and unguarded, and a probe class with
+     * no colour, weight or underline added to that same call passed this test
+     * 24/24. That is the hard-coded list of four in a new costume: it stopped
+     * naming the classes but still only saw links written one way.
+     *
+     * The end of the tag is found by scanning rather than by a lazy `>`, because
+     * a `>` occurs inside `=>` and inside attribute expressions. Brace depth
+     * tracks attribute expressions; the `=` check catches a stray arrow at
+     * depth zero.
+     */
+    function openingTags(source: string): { at: number; text: string }[] {
+      const tags: { at: number; text: string }[] = [];
+      for (const match of source.matchAll(/<(?:Link|a)[\s>]/g)) {
+        const at = match.index ?? 0;
+        let index = at;
+        let depth = 0;
+        while (index < source.length) {
+          const character = source[index];
+          if (character === "{") depth += 1;
+          else if (character === "}") depth -= 1;
+          else if (character === ">" && depth === 0 && source[index - 1] !== "=") break;
+          index += 1;
+        }
+        tags.push({ at, text: source.slice(at, index + 1) });
+      }
+      return tags;
+    }
+
+    /**
+     * The affordance belongs to the **element a reader sees**, not to each class
+     * in isolation. A composed className may pair a base class with a modifier
+     * that legitimately declares only what it overrides —
+     * `patientNavSecondary` sets a margin and a colour and takes its weight from
+     * `patientNavItem` — and demanding colour and weight of the modifier on its
+     * own would force meaningless declarations. So the classes on one tag are
+     * merged, in source order, and the merged result is what must read as a
+     * link. A sole-class link is just the one-element case of that, so the
+     * defect this guard was repaired for is unaffected.
+     */
+    const linkElements: { file: string; classes: string[]; inNav: boolean }[] = [];
+    const linkClasses = new Map<string, Set<string>>();
     for (const { path, source } of readNamespaceSources()) {
       if (!/\.tsx$/.test(path)) continue;
       const ranges = navRanges(source);
-      for (const match of source.matchAll(/<(?:Link|a)\s(?:[^>]|=>)*?className=\{styles\.([A-Za-z][\w$]*)\}/g)) {
-        const at = match.index ?? 0;
-        const inNav = ranges.some(([from, to]) => at > from && at < to);
-        const entry = linkClasses.get(match[1]) ?? { files: new Set<string>(), everOutsideNav: false };
-        entry.files.add(path);
-        entry.everOutsideNav = entry.everOutsideNav || !inNav;
-        linkClasses.set(match[1], entry);
+      for (const { at, text } of openingTags(source)) {
+        const classes = [...text.matchAll(/\bstyles\.([A-Za-z][\w$]*)/g)].map((match) => match[1]);
+        if (classes.length === 0) continue;
+        linkElements.push({ file: path, classes, inNav: ranges.some(([from, to]) => at > from && at < to) });
+        for (const className of classes) {
+          linkClasses.set(className, (linkClasses.get(className) ?? new Set<string>()).add(path));
+        }
       }
     }
 
     // A derived list that derives nothing is the failure this guard exists for.
-    // Ten classes were applied to a link when this was written; if the scan ever
-    // finds fewer, the regex has stopped matching and every assertion below is
-    // vacuous.
+    // Eleven classes were carried by a link when this was written; if the scan
+    // ever finds fewer, it has stopped seeing links and every assertion below is
+    // vacuous. The named four are the shapes that have each broken once: the two
+    // repaired links, the composed className, and a bordered control.
     expect(
       linkClasses.size,
-      "no <Link>/<a> className={styles.…} was found at all — the scan has stopped seeing links",
-    ).toBeGreaterThanOrEqual(10);
-    for (const inherited of ["inlineLink", "pinnedBoundaryLink", "specimenLink", "queueAction"]) {
+      "no styles.… class was found on any <Link>/<a> opening tag — the scan has stopped seeing links",
+    ).toBeGreaterThanOrEqual(11);
+    for (const inherited of ["inlineLink", "specimenLink", "queueAction", "patientNavSecondary"]) {
       expect(
         [...linkClasses.keys()],
         `.${inherited} is applied to a link in the mockups but the scan did not derive it`,
       ).toContain(inherited);
     }
 
-    for (const [className, { files, everOutsideNav }] of [...linkClasses].sort()) {
-      const where = [...files].sort().join(", ");
-      const declared = declaredPropertiesFor(className);
+    // Fails closed on a rename: a class that matches no rule is invisible in a
+    // merge, so it is checked on its own before anything is merged.
+    for (const [className, files] of [...linkClasses].sort()) {
       expect(
-        declared.size,
-        `.${className} (used by ${where}) matched no rule at all — has it been renamed or rebound?`,
+        declaredPropertiesFor(className).size,
+        `.${className} (used by ${[...files].sort().join(", ")}) matched no rule at all — has it been renamed or rebound?`,
       ).toBeGreaterThan(0);
-      expect(declared.has("color"), `.${className} (used by ${where}) declares no colour, so it renders as body text`)
-        .toBe(true);
-      expect(
-        declared.has("font-weight"),
-        `.${className} (used by ${where}) declares no font weight, so it renders at body weight`,
-      ).toBe(true);
+    }
+
+    for (const { file, classes, inNav } of linkElements) {
+      const where = `${classes.map((name) => `.${name}`).join(" + ")} in ${file}`;
+      const declared = new Map<string, string>();
+      for (const className of classes) {
+        for (const [property, value] of declaredPropertiesFor(className)) declared.set(property, value);
+      }
+
+      expect(declared.has("color"), `${where} declares no colour, so the link renders as body text`).toBe(true);
+      expect(declared.has("font-weight"), `${where} declares no font weight, so the link renders at body weight`).toBe(
+        true,
+      );
 
       // A filled chip carries its own edges. Navigation carries the landmark.
-      const isChip = declared.has("border") && (declared.has("background") || declared.has("background-color"));
-      if (isChip || !everOutsideNav) continue;
+      //
+      // Presence is not enough: `border: none` plus `background: transparent`
+      // paints nothing and would buy a silent underline exemption. So would a
+      // `background` declared only inside `@media (forced-colors: active)`,
+      // because at-rule bodies are merged into the base rule by the parser
+      // above — the less visible half of the same hole.
+      const paints = (value: string | undefined) =>
+        value !== undefined && !/^(none|transparent|initial|unset)$/.test(value);
+      const isChip =
+        paints(declared.get("border")) &&
+        (paints(declared.get("background")) || paints(declared.get("background-color")));
+      if (isChip || inNav) continue;
 
       const underline = declared.get("text-decoration") ?? declared.get("text-decoration-line") ?? "";
       expect(
         underline,
-        `.${className} (used by ${where}) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour`,
+        `${where} sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour`,
       ).toContain("underline");
     }
   });

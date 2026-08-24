@@ -233,7 +233,26 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
         heading: `Personal Safety Plan version ${version.version} — ${PATIENT_CONFIRMATION_LABEL[version.patientConfirmation]}`,
         detail:
           "This is this person's own document. What is recorded here is their part in this version, not a clinical approval of it.",
-        actorId: version.authorId,
+        /**
+         * Not `version.authorId`, which this line used to name.
+         *
+         * There is no single actor to resolve here, and that is the finding
+         * rather than an obstacle to it. `patientConfirmation` is written by
+         * `save-safety-plan-draft` and `confirmedAt` is set later, as a side
+         * effect inside `make-safety-plan-current`, by whoever made it current
+         * — possibly a different clinician on a different day. `authorId` is
+         * never reassigned, so naming the author asserted a person at a moment
+         * the application cannot place them at. Rowan's fixture shows it: his
+         * `confirmedAt` is a day after `createdAt`.
+         *
+         * Which of those two moments this line is *about* is a product
+         * decision, and it stays deferred. But not knowing who acted is exactly
+         * what the unattributed sentence is for, and this build's rule is that
+         * uncertainty degrades conservatively rather than guessing. So the line
+         * says what the record holds and no more.
+         */
+        actorId: null,
+        unattributed: "The record does not name who recorded their part",
       });
     }
   }

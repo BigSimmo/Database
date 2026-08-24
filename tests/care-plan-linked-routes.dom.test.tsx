@@ -4051,6 +4051,32 @@ describe("Care Plan combined History", () => {
     expect(attribution).not.toMatch(/No clinician is recorded/);
   });
 
+  /**
+   * The design question — which moment this line is about — stays deferred. The
+   * defect that does not need it answered is that the line named the author at
+   * a moment the application cannot place them at: `patientConfirmation` is
+   * written by `save-safety-plan-draft`, `confirmedAt` is set later inside
+   * `make-safety-plan-current` by whoever made it current, and `authorId` is
+   * never reassigned. Rowan's fixture confirms the gap is real — his
+   * `confirmedAt` is a day after `createdAt`.
+   */
+  it("does not name the safety-plan author as having recorded the person's part", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Personal Safety Plan version 1 —/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who recorded their part/);
+    // The author, named here before this was fixed.
+    expect(attribution).not.toMatch(/Morgan Sample/);
+    // And not the generic sentence, which would claim nobody was involved in
+    // something a person certainly did.
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
   it("says a fixture submission does not name who submitted it, rather than naming the author", () => {
     renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
     const entry = within(screen.getByTestId("care-plan-history-list"))
