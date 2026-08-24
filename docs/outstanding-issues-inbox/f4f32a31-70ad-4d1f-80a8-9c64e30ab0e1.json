@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#K9XD5N",
+    "outcome": "Resolved: Implemented stable layout container for DegradedNotice / offline notices preventing hero section layout shift (~0.16 CLS) on / during online/offline state transitions.",
+    "baseRowFingerprint": "0016d4d2beae87e8eb7f464be86accea54b38adee968bc3b4c11c2b22861af23"
+  }
+}

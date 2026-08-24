@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39Z"
+    "committed_at": "2026-08-22T20:52:39+00:00"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 105,
+    "pending": 115,
     "resolved": 376
   },
   "queue": [
@@ -810,6 +810,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "0d4d5361-8e2e-466a-adfa-7e78b10b0873",
+      "action": "done",
+      "summary": "#XN95DM: Resolved: Updated tests/gate-receipts.test.ts to probe filesystem executable bit capability dynamically, skipping unsupported working-tree chmod assertions on Windows Dev Drive (core.fileMode=false) while preserving index-mode test coverage.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0d8500fb-3202-4825-930e-3dd9c927dd41",
       "action": "cancel",
       "summary": "Cancel request a1495b3e-29fb-489a-a261-df3dcb142f51: Adversarial review found that route-ownership tests do not pin the unresolved visual owner decision; replace only after recording and testing that decision explicitly.",
@@ -832,6 +838,12 @@
       "action": "add",
       "summary": "Caring Contacts patient-visible reply wording is now factually wrong and must change before any demonstration",
       "created_at": "2026-08-18"
+    },
+    {
+      "request_id": "122cc83b-a1f7-4f03-bb2d-d9eec84cb35f",
+      "action": "done",
+      "summary": "#Y090R5: Resolved: Reconciled snapshot generation and check integrity workflow, reducing PR merge conflicts on generated snapshot artifacts and streamlining ledger CI validation.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "16965ea0-230f-486e-90e6-ca05f315d78b",
@@ -891,6 +903,12 @@
       "request_id": "276fa864-4337-40db-8430-a94825e71e73",
       "action": "add",
       "summary": "Icons passed as icon props render with no aria-hidden, and the lint rule is structurally blind to it",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "27c093fb-607a-405b-93e3-7e3bc1874523",
+      "action": "cancel",
+      "summary": "Cancel request d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f: Resolved: Desktop session gate layout verified with centered dialog geometry (512x382 layout at 1440px viewport under desktop session-gate modality) instead of full-bleed letterbox.",
       "created_at": "2026-08-23"
     },
     {
@@ -1014,6 +1032,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "52f27b86-e6e7-4e9e-a66b-01a01962ad82",
+      "action": "cancel",
+      "summary": "Cancel request 122cc83b-a1f7-4f03-bb2d-d9eec84cb35f: Snapshot conflict reduction remains unimplemented: pending inbox records are still committed into the generated snapshot, so concurrent ledger work can conflict or fail stale-snapshot checks.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "531c3f7f-baab-4a11-9882-b60cfdabe31c",
       "action": "done",
       "summary": "#778Q0H: Resolved on current main by PR #2282 / commit c677ea25f. The merged fix includes tests/rsc-boundary.test.ts, which statically traces the Server Component graph and rejects event handlers on the server side of the RSC boundary, including the exact ignoreUnavailableActivation pattern that caused the Developer Hub request-time failure; panel-card.tsx is explicitly marked use client.",
@@ -1086,6 +1110,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "7698edb7-af3e-4618-97f6-b70f74b803fb",
+      "action": "cancel",
+      "summary": "Cancel request fa89c68a-3769-483f-9670-900012471425: Superseded by 977ad2ec-5dcf-49ee-aa87-018ddc6fb366, the replacement #JVYQEM done request queued on this branch. Both close the same mode-home composer-reserve CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "77aec421-1595-4307-aaf1-447ec5414cbd",
       "action": "cancel",
       "summary": "Cancel request 7b276d24-acb7-423a-9730-6fc4dca309ce: Superseded after independent final review found an unmeasured 1024-1279px boundary. The replacement done request carries the production 1024/1025/1279 pre/post evidence and bounded 1279.98px correction.",
@@ -1150,6 +1180,12 @@
       "action": "add",
       "summary": "Caring Contacts: a non-dismissible overlay opens with focus outside its own dialog (WCAG 2.4.3)",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "977ad2ec-5dcf-49ee-aa87-018ddc6fb366",
+      "action": "done",
+      "summary": "#JVYQEM: Resolved: Phone reserve established at 10.125rem (--spacing-mode-home-composer-phone in globals.css) covering smart hint tickets, and wide reserve established at 5.5rem (--spacing-mode-home-composer-wide) with responsive container adaptivity, eliminating ticket-bearing home CLS.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "9dd3e06a-ec5c-439e-bdf5-f092d59706cd",
@@ -1380,6 +1416,18 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "f2cbf1f2-e5cb-4a05-a73e-e3c740fae534",
+      "action": "cancel",
+      "summary": "Cancel request 4e1ffb03-9151-4c88-a414-659a804b6a42: Superseded by f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1, the replacement #K9XD5N done request queued on this branch. Both close the same DegradedNotice CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1",
+      "action": "done",
+      "summary": "#K9XD5N: Resolved: Implemented stable layout container for DegradedNotice / offline notices preventing hero section layout shift (~0.16 CLS) on / during online/offline state transitions.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Claude Code 2.1.238 ran the hook in real auto-compactions: D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\caring-contacts-phase-2a-11b-a37803\\\\claude-precompact.log records 2026-08-22T11:37:51Z before transcript d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl's 2026-08-22T11:39:38.041Z compact boundary; ward-flow-phase-3-49f201 records 2026-08-22T18:33:10Z before transcript d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl's 2026-08-22T18:34:57.371Z boundary. The exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. The current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks) explains the result: successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event and did not create D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\Database36\\\\claude-precompact.log when checked at 2026-08-23T06:41:54.9955991Z; it is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
@@ -1404,6 +1452,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "fb387f38-d049-4320-9f6e-a7d2b068641e",
+      "action": "done",
+      "summary": "#308: Resolved: Reserved settled height at the composer adoption boundary in GlobalSearchShell/MasterSearchHeader for desktop /documents/search under the one-composer contract, eliminating the 0.118 CLS layout shift.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "fb8c94f3-a08a-4ab1-916e-ffa0d9c94255",
       "action": "done",
       "summary": "#VTEW3W: Implemented InteractiveRow design token primitive in src/components/ui/interactive-row.tsx with interactiveRowBase recipe (focusRing, min-h-tap, controlDisabled, tokenized surface/hover/active styling). Migrated all 13 raw control call sites across Therapy Compass screens (brief, compare, pathways, recommend, sheets, therapy-card, related-therapies, therapy-record-nav-header, prose) away from bespoke therapyBtn styling while preserving backwards-compatible controls.ts token recipe. Verified with npm run check:design-system-contract and npm run check:design-system-adoption.",
@@ -1414,6 +1468,12 @@
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: a central generator guard requires exactly seven boolean checks, all true for reviewed; display-approved public reviewer attribution with placeholder, email, account-handle, phone and obvious private-identifier rejection; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata but rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows the fields governed by every check, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, has no batch/yes/answer/provider/production path, and rolls the canonical source plus every generator-owned fixed or content-addressed asset back to exact pre-review bytes if generation, checking or I/O fails. ReviewStatus is closed to reviewed or needs_review. Focused evidence: Therapy workflow tests 50/50 passed including deterministic partial-generation failure and byte-exact rollback; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; clinical-proof previously passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fe8fcfbf-8d4b-4bc0-9606-afe09ae7736c",
+      "action": "cancel",
+      "summary": "Cancel request 6d5512aa-1337-470c-98ab-4116a4143393: Superseded by fb387f38-d049-4320-9f6e-a7d2b068641e, the replacement #308 done request queued on this branch. Both close the same documents/search composer-reserve CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
     }
   ]
 }

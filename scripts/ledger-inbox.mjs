@@ -675,6 +675,9 @@ export function assertSafeRemoteReconciliation(argv = [], options = {}) {
 }
 
 function createRequest(action, argv) {
+  const positionalId = argv[1]?.startsWith("--") ? undefined : argv[1];
+  const targetId = argValue(argv, "id") ?? positionalId;
+  const targetRequestId = argValue(argv, "requestId") ?? argValue(argv, "id") ?? positionalId;
   const payload =
     action === "add"
       ? {
@@ -686,12 +689,12 @@ function createRequest(action, argv) {
           issueUlid: issueUlid(),
         }
       : action === "done"
-        ? { id: argv[1], outcome: argValue(argv, "outcome") }
+        ? { id: targetId, outcome: argValue(argv, "outcome") }
         : action === "cancel"
-          ? { requestId: argv[1], reason: argValue(argv, "reason") }
+          ? { requestId: targetRequestId, reason: argValue(argv, "reason") }
           : action === "queue"
             ? {
-                id: argv[1],
+                id: targetId,
                 acuity: argValue(argv, "acuity"),
                 capability: argValue(argv, "capability"),
                 when: argValue(argv, "when"),
@@ -705,7 +708,7 @@ function createRequest(action, argv) {
                 // which is the half of ledger #313 the inbox would otherwise
                 // reintroduce: updateIssue accepts --pri and validateRequest
                 // permits it, but nothing could produce the payload.
-                id: argv[1],
+                id: targetId,
                 pri: argValue(argv, "pri"),
                 summary: argValue(argv, "summary"),
                 detail: argValue(argv, "detail"),
