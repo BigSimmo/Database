@@ -1275,6 +1275,9 @@ function DirectionSection({
           <DesktopFrame caption="Desktop · same transcript, wider reading column">
             <AnswerScreen variant={variant} wide />
           </DesktopFrame>
+          <DesktopFrame caption="Desktop · dock open on the cited passage">
+            <AnswerScreen variant={variant} wide initialOpenId="s2" />
+          </DesktopFrame>
           <PhoneFrame caption="Phone · dock open on the cited passage">
             <AnswerScreen variant={variant} wide={false} initialOpenId="s2" />
           </PhoneFrame>
