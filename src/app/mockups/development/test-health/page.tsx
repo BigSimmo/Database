@@ -39,9 +39,8 @@ export default function DeveloperTestHealthPage() {
       </div>
 
       <p className={META_CLASS}>
-        A quarantined test still runs, but its failure no longer blocks a merge. Quarantine requires three
-        reproductions on the same commit and lapses within thirty days, so this list should be short and should
-        empty itself.
+        A quarantined test still runs, but its failure no longer blocks a merge. Quarantine requires three reproductions
+        on the same commit and lapses within thirty days, so this list should be short and should empty itself.
       </p>
 
       <section aria-labelledby="developer-test-health-heading" className="grid gap-3">

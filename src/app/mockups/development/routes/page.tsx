@@ -83,11 +83,7 @@ export default function DeveloperRoutesPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <CountTile testId="developer-routes-count-modes" value={counts.modes} label="app modes" />
         <CountTile testId="developer-routes-count-product" value={counts.product_pages} label="product pages" />
-        <CountTile
-          testId="developer-routes-count-mockup"
-          value={counts.mockup_pages}
-          label="design-scratch pages"
-        />
+        <CountTile testId="developer-routes-count-mockup" value={counts.mockup_pages} label="design-scratch pages" />
         <CountTile testId="developer-routes-count-api" value={counts.api} label="API routes" />
       </div>
 
@@ -151,9 +147,9 @@ export default function DeveloperRoutesPage() {
             Other · {otherPages.length}
           </h2>
           <p className={META_CLASS}>
-            These pages carry an area this page does not recognise. They are shown as they are rather than dropped,
-            so together with the {counts.product_pages} product and {counts.mockup_pages} design-scratch pages
-            counted above, nothing from this snapshot goes unlisted.
+            These pages carry an area this page does not recognise. They are shown as they are rather than dropped, so
+            together with the {counts.product_pages} product and {counts.mockup_pages} design-scratch pages counted
+            above, nothing from this snapshot goes unlisted.
           </p>
           <ul data-testid="developer-routes-pages-other" className="grid gap-2">
             {otherPages.map((page) => (

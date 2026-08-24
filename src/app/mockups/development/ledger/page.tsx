@@ -62,11 +62,7 @@ export default function DeveloperLedgerPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <CountTile testId="developer-ledger-count-open" value={snapshot.counts.open} label="open items" />
         <CountTile testId="developer-ledger-count-p1" value={snapshot.counts.p1} label="blocking, priority P1" />
-        <CountTile
-          testId="developer-ledger-count-queued"
-          value={snapshot.counts.queued}
-          label="in the running order"
-        />
+        <CountTile testId="developer-ledger-count-queued" value={snapshot.counts.queued} label="in the running order" />
         <CountTile
           testId="developer-ledger-count-pending"
           value={snapshot.counts.pending}

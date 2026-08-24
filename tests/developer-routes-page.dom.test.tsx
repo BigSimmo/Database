@@ -148,9 +148,7 @@ describe("developer routes page", () => {
       ),
     ).toBeNull();
     expect(
-      within(screen.getByTestId("developer-routes-pages-mockup")).queryByTestId(
-        `developer-routes-page-${target.path}`,
-      ),
+      within(screen.getByTestId("developer-routes-pages-mockup")).queryByTestId(`developer-routes-page-${target.path}`),
     ).toBeNull();
     // The caption sits beside the `<ul>`, not inside it, so this reads the
     // section as a whole rather than the list element `other` above. This

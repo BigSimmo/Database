@@ -141,9 +141,7 @@ describe("developer documentation page", () => {
     // though one document sits under a heading the summary never listed.
     expect(within(region).getAllByRole("listitem")).toHaveLength(overridden.documentation.counts.documents);
     // Rendered under its own heading, named as it stands.
-    expect(
-      screen.getByRole("heading", { name: new RegExp("an-unrecognised-section") }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: new RegExp("an-unrecognised-section") })).toBeInTheDocument();
   });
 
   it("says every document is indexed, in words, when none are missing — the branch the live snapshot's 180 uncatalogued documents never take", () => {

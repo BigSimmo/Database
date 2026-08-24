@@ -76,11 +76,10 @@ export default function DeveloperDocumentationPage() {
       </div>
 
       <p className={META_CLASS}>
-        The index is <span className={MONO_CLASS}>docs/README.md</span>, which describes itself as a curated map
-        rather than a complete listing — so a document missing from it is expected some of the time, not
-        automatically a defect. Review records live on their own page and are not counted here. Whether links inside
-        these documents still resolve is already guaranteed by a check that runs on every pull request, so it is not
-        repeated here.
+        The index is <span className={MONO_CLASS}>docs/README.md</span>, which describes itself as a curated map rather
+        than a complete listing — so a document missing from it is expected some of the time, not automatically a
+        defect. Review records live on their own page and are not counted here. Whether links inside these documents
+        still resolve is already guaranteed by a check that runs on every pull request, so it is not repeated here.
       </p>
 
       <section aria-labelledby="developer-documentation-uncatalogued-heading" className="grid gap-3">

@@ -32,16 +32,8 @@ export default function DeveloperReviewStatePage() {
       freshnessLabel="Repository"
     >
       <div className="grid grid-cols-2 gap-3">
-        <CountTile
-          testId="developer-review-state-count-records"
-          value={counts.records}
-          label="review records"
-        />
-        <CountTile
-          testId="developer-review-state-count-refs"
-          value={counts.refs}
-          label="distinct branches reviewed"
-        />
+        <CountTile testId="developer-review-state-count-records" value={counts.records} label="review records" />
+        <CountTile testId="developer-review-state-count-refs" value={counts.refs} label="distinct branches reviewed" />
       </div>
 
       {/*
@@ -60,9 +52,9 @@ export default function DeveloperReviewStatePage() {
       <p data-testid="developer-review-state-scope" className={META_CLASS}>
         This is the repository&rsquo;s own review history: which branch was reviewed, at which exact commit, and what
         the reviewer concluded. It does not show which pull requests are open, whether their checks are green, or
-        whether a review is outstanding — none of that exists on disk, and reading it would need credentials this
-        page deliberately does not have. A branch absent from this list has not been reviewed at any head; it does
-        not mean there is no pull request.
+        whether a review is outstanding — none of that exists on disk, and reading it would need credentials this page
+        deliberately does not have. A branch absent from this list has not been reviewed at any head; it does not mean
+        there is no pull request.
       </p>
 
       <section aria-labelledby="developer-review-state-heading" className="grid gap-3">

@@ -38,11 +38,7 @@ export function QuarantineList({ entries, now }: { entries: readonly Quarantined
       {entries.map((entry) => {
         const expired = isQuarantineExpired(entry, now);
         return (
-          <li
-            key={entry.id}
-            data-testid={`developer-test-health-entry-${entry.id}`}
-            className={CARD_CLASS}
-          >
+          <li key={entry.id} data-testid={`developer-test-health-entry-${entry.id}`} className={CARD_CLASS}>
             <div className={ROW_CLASS}>
               <span className={MONO_CLASS}>{entry.id}</span>
               {expired ? (

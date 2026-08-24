@@ -366,11 +366,11 @@ of Phase 1's task ledger; the remaining registry entries (clinical, system, and 
   generator and the reader. `scripts/generate-repo-awareness-snapshot.ts` builds
   `data/repo-awareness-snapshot.json` from the route walker, the docs tree, the flake ledger, and
   the review records; it runs as the last step of `npm run docs:update`. `src/lib/developer-area/
-  repo-awareness-snapshot.ts` (`loadRepoAwarenessSnapshot`) is the typed reader, with a version
+repo-awareness-snapshot.ts` (`loadRepoAwarenessSnapshot`) is the typed reader, with a version
   guard that throws loudly on an unrecognised snapshot rather than silently under-reporting the
   repository. `scripts/check-repo-awareness-snapshot.ts` (`npm run check:repo-awareness-snapshot`)
   fails when the committed snapshot is behind the repository it describes. `src/lib/developer-area/
-  freshness.ts` is the label-agnostic content-age helper both the ledger and the repo-awareness
+freshness.ts` is the label-agnostic content-age helper both the ledger and the repo-awareness
   pages use to render their freshness stamp.
 - **Task ledger data:** `src/lib/developer-area/ledger-snapshot.ts` imports the generated
   `data/outstanding-issues-snapshot.json` (never hand-edited; listed in `.prettierignore`) rather
