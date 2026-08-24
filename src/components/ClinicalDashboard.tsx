@@ -3543,11 +3543,17 @@ function ClinicalDashboardContent({
                 data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
                 className={cn(
                   compactMobileModeHome
-                    ? // Fill leftover <main> space (already padded for overlay
-                      // chrome). A nested 100dvh floor double-counted that pad
-                      // and sank the cluster with a scrollbar. One flex column
-                      // on phones; sm+ keeps the grid floor for tablet/desktop.
-                      "max-sm:flex max-sm:flex-1 max-sm:flex-col max-sm:items-center max-sm:justify-center sm:min-h-[calc(100dvh-11rem)]"
+                    ? cn(
+                        // Fill leftover <main> space (already padded for overlay
+                        // chrome). A nested 100dvh floor double-counted that pad
+                        // and sank the cluster with a scrollbar. One flex column
+                        // on phones; sm+ keeps the grid floor for tablet/desktop.
+                        "max-sm:flex max-sm:flex-1 max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
+                        // Idle services/forms registry homes share the compact
+                        // path only to drop large phone padding. Flex-centre is
+                        // for centred shared homes, matching the prior gate.
+                        centeredModeHome && "max-sm:items-center max-sm:justify-center",
+                      )
                     : // A rendered answer is content-sized and top-aligned on phones:
                       // it must NOT inherit the viewport-height floor (that floor exists
                       // to give the centred home block room). With the floor, a short

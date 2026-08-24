@@ -129,7 +129,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(clinicalDashboardSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
     expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-col");
     expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
-    expect(clinicalDashboardSource).toContain("max-sm:items-center max-sm:justify-center");
+    expect(clinicalDashboardSource).toContain('centeredModeHome && "max-sm:items-center max-sm:justify-center"');
     // Nested min-h-0 + flex-1 inside #main-content lets the home column shrink
     // around extra content (PWA scroll-runway, late notices) instead of
     // overflowing the standalone main scrollport.
