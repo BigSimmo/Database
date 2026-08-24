@@ -96,7 +96,7 @@ export function SheetsScreen() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    className={cn(interactiveRowBase, b.chipAbout)}
+                    className={cn(interactiveRowBase, "w-auto", b.chipAbout)}
                     onClick={b.toggleAbout}
                     aria-pressed={b.secAbout}
                   >
@@ -104,7 +104,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={cn(interactiveRowBase, b.chipSteps)}
+                    className={cn(interactiveRowBase, "w-auto", b.chipSteps)}
                     onClick={b.toggleSteps}
                     aria-pressed={b.secSteps}
                   >
@@ -112,7 +112,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={cn(interactiveRowBase, b.chipPractice)}
+                    className={cn(interactiveRowBase, "w-auto", b.chipPractice)}
                     onClick={b.togglePractice}
                     aria-pressed={b.secPractice}
                   >
@@ -120,7 +120,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={cn(interactiveRowBase, b.chipCoping)}
+                    className={cn(interactiveRowBase, "w-auto", b.chipCoping)}
                     onClick={b.toggleCoping}
                     aria-pressed={b.secCoping}
                   >
@@ -128,7 +128,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={cn(interactiveRowBase, b.chipContacts)}
+                    className={cn(interactiveRowBase, "w-auto", b.chipContacts)}
                     onClick={b.toggleContacts}
                     aria-pressed={b.secContacts}
                   >

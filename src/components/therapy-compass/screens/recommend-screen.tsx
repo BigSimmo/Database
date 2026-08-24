@@ -83,7 +83,7 @@ export function RecommendScreen() {
                         className={cn(
                           interactiveRowBase,
                           controlPressed,
-                          "inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
+                          "inline-flex w-auto min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
                           "aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)] aria-pressed:font-semibold aria-pressed:text-[color:var(--clinical-accent-hover)]",
                         )}
                         onClick={() => b.toggleConstraint(constraint.key)}

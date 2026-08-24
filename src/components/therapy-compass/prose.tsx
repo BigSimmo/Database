@@ -256,7 +256,7 @@ export function ProseBlock({
           aria-label={expanded ? `Show less of ${label}` : `Show more of ${label}`}
           className={cn(
             interactiveRowBase,
-            "-mx-1 mt-1 inline-flex min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline",
+            "-mx-1 mt-1 inline-flex w-auto min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline",
           )}
         >
           {expanded ? "Show less" : "Show more"}
