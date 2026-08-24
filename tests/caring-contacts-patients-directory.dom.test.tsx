@@ -90,11 +90,14 @@ describe("Patients directory - the two empty states are not interchangeable", ()
     expect(empty.textContent ?? "").toContain("2");
     // Never the no-data claim.
     expect(container.textContent ?? "").not.toContain("No patients yet");
-    // The remedy is reachable, not merely described.
-    expect(screen.getByRole("link", { name: /show every plan/i })).toHaveAttribute(
-      "href",
-      CARING_CONTACTS_ROUTES.patients,
-    );
+    // The remedy is reachable, not merely described...
+    const remedy = screen.getByRole("link", { name: /show every plan/i });
+    expect(remedy).toHaveAttribute("href", CARING_CONTACTS_ROUTES.patients);
+    // ...and reaches it as a `<Link>`, not a raw anchor. The row test below makes this assertion
+    // for the filter chips; without it here, the empty state's own action was the one link on this
+    // screen that nothing checked -- measured, not assumed: removing the attribute from this link
+    // alone left the whole file green.
+    expect(remedy).toHaveAttribute("data-internal-link", "true");
   });
 
   it("a caseload hidden by the identifier search names the search text as the reason", () => {

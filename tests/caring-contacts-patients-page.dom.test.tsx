@@ -204,6 +204,21 @@ describe("the /caring-contacts/patients page - fails closed", () => {
     expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "plan", outcome: "failed" }));
   });
 
+  // I-4. `listPlans` returns an array for every actor by contract, so this branch is unreachable
+  // through the real stores -- which is exactly why it was wrong and why nothing caught it. The
+  // page originally defaulted a null release to `[]`, and the ONE path this branch exists for
+  // would then have rendered "No patients yet" from an answer that was never given: a false
+  // statement about a caseload, from a store that had just broken its own contract. A branch that
+  // cannot run is still read, and is still copied by the next screen.
+  it("throws rather than inventing an empty caseload when the store breaks its list contract", async () => {
+    const { store } = inMemoryStoreWithSpy();
+    vi.spyOn(store, "listPlans").mockResolvedValue(null as unknown as PlanRecord[]);
+
+    const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
+
+    await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(/returned no list/i);
+  });
+
   it("throws rather than rendering a caseload beside a service state it could not read", async () => {
     const { store } = inMemoryStoreWithSpy();
     vi.spyOn(store, "getServiceState").mockRejectedValue(new Error("service state unreachable"));
