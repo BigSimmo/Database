@@ -22,7 +22,9 @@
 // bounded by the return types declared below, and those already exclude patient-identifying detail:
 // every write returns a `PlanRecord`, `StoredContact`, `Referral`, `PathwayVersion`,
 // `PlanAssignment`, `DispatchRecord`, `ServiceState`, `NotificationPreferences`, `TrainingRecord`
-// or `void`, and `StoredPlan`'s `patientDetail` is released through `getEpisode` alone. A new write
+// or `void`, and no write returns any of `StoredPlan`'s `patientDetail`. That detail is released by
+// READS alone, and only by two of them: `getEpisode`, which releases all four fields together, and
+// `listPatientNames`, which releases the name and structurally cannot release the rest. A new write
 // that would put anything else identifying in a result needs a NARROWER RETURN TYPE, not a filter on
 // the way into storage: the stored result is the answer a replay must return, so filtering it makes
 // a genuine retry receive less than the first call did.
@@ -179,12 +181,39 @@ export const READ_ACTIONS = Object.freeze({
   auditTrail: "viewAccessTrail",
   episode: "generateClinicalRecordSummary",
   referral: "viewReferral",
+  /**
+   * Ruling 95: the names-only projection is checked in its own right, against the EXISTING
+   * `viewPatientRecord`. No new capability is minted -- a see-names-but-not-records tier would have
+   * to be decided for every role to satisfy `permissions.ts`'s exhaustiveness guard, and no role
+   * wants one.
+   */
+  patientName: "viewPatientRecord",
 } as const satisfies Record<string, CaringContactAction>);
 
 /** Either governance action reading a pathway version's content is granted by. Same rule, same reason. */
 export const PATHWAY_VERSION_READ_ACTIONS: readonly CaringContactAction[] = Object.freeze([
   "authorPathwayVersion",
   "approvePathwayVersion",
+]);
+
+/**
+ * EVERY action `listPatientNames` requires -- an ALL-of list, unlike `PATHWAY_VERSION_READ_ACTIONS`
+ * above, which is an any-of.
+ *
+ * `READ_ACTIONS.patientName` is the capability Ruling 95 names, and it is not the whole rule. The
+ * projection ENUMERATES the team's plans, so it must release a name only for a plan the actor could
+ * have listed for themselves -- the same "scoped through the plan" rule `listContacts` follows.
+ * Without `READ_ACTIONS.plan` alongside it the read would be a WIDENING rather than a narrowing:
+ * the auditor role holds `viewPatientRecord` but not `viewReferral`, so it answers `[]` to
+ * `listPlans` and `null` to `getEpisode` and can obtain no patient's name by any route today. A
+ * names read gated on `viewPatientRecord` alone would hand that role every name the team holds.
+ *
+ * This decides the SCOPE of the read, not its capability, so it re-opens nothing: no action is
+ * minted, and the name still travels on `viewPatientRecord` exactly as ruled.
+ */
+export const PATIENT_NAME_READ_ACTIONS: readonly CaringContactAction[] = Object.freeze([
+  READ_ACTIONS.plan,
+  READ_ACTIONS.patientName,
 ]);
 
 /**
@@ -241,8 +270,46 @@ export type PlanRecord = {
   contacts: readonly StoredContact[];
 };
 
-/** What the datastore holds. The patient detail is released only through `getEpisode`. */
+/** What the datastore holds. Full detail is released only by `getEpisode`; `listPatientNames` releases the name alone. */
 export type StoredPlan = PlanRecord & { patientDetail: EpisodePatientDetail };
+
+/**
+ * One plan's patient NAME, and the plan it belongs to. The whole of what `listPatientNames`
+ * releases (Ruling 91).
+ *
+ * WHY THIS SHAPE, AND NOT A NARROWED RECORD. It is declared here as its own two-field type rather
+ * than as a `Pick` of `Episode` or a `PlanRecord` with the other fields blanked, because a shape
+ * that COULD hold a mobile number, an identifier list or a cultural identity is one edit away from
+ * doing so -- and it would still typecheck, still pass every existing test, and still be described
+ * by its own name as a names projection. Two fields is the guarantee; empty fields are a promise.
+ * The assertion below turns that from a convention into a compile error.
+ *
+ * WHY KEYED BY PLAN, NOT BY PATIENT. The patient detail is held PER PLAN, and
+ * `markRetentionCleared` clears it per plan -- so one patient's two episodes can honestly differ,
+ * one cleared and one not. A patient-keyed map would have to invent a rule for which of those wins.
+ * Plan-keyed joins 1:1 onto `listPlans`, which is what a caseload renders, and needs no such rule.
+ *
+ * WHY A LIST, NOT A LOOKUP PER PLAN. A caseload costs ONE round trip rather than one per row, and
+ * a list cannot be used as an existence oracle: a per-plan lookup would have to answer for a plan
+ * id the caller supplied, and `getPlan` deliberately gives the same answer for "no such plan" and
+ * "another team's plan" so a cross-team actor cannot tell them apart. This read never takes a plan
+ * id at all, so there is nothing for it to be asked about.
+ *
+ * `patientName` is `""` for a plan whose detail a retention clearance has already removed --
+ * `CLEARED_PATIENT_DETAIL` above is what the stores write, and an emptied field IS the cleared
+ * value. A caller must therefore treat blank as "no name held", never as a name.
+ */
+export type PatientNameProjection = { planId: PlanId; patientName: string };
+
+/**
+ * Pins the projection's fields to exactly those two. Adding `patientMobileNumber`,
+ * `patientIdentifiers` or `culturalIdentity` -- or anything else -- stops this line compiling, so
+ * the read cannot be widened quietly by someone who has not read the paragraph above.
+ */
+export const PATIENT_NAME_PROJECTION_RELEASES_ONLY_THE_NAME: SameUnion<
+  keyof PatientNameProjection,
+  "planId" | "patientName"
+> = true;
 
 export type CreatePlanInput = {
   planId: PlanId;
@@ -446,6 +513,18 @@ export interface CaringContactRepository {
   /** Null for a plan that does not exist AND for one belonging to another team. */
   getPlan(planId: PlanId, context: ReadContext): Promise<PlanRecord | null>;
   listPlans(context: ReadContext): Promise<PlanRecord[]>;
+  /**
+   * The patient NAME for each plan this actor could list, and nothing else about them (Ruling 91).
+   *
+   * Its own method with its own capability check, so a caseload can name the people on it without
+   * `getEpisode` -- the only other read that releases a name, and one that releases the mobile
+   * number, the identifiers and the cultural identity alongside it.
+   *
+   * Empty, never a refusal, for an actor whose role does not cover it and for one outside the team
+   * -- the same answer `listPlans` gives, for the same reason: a refusal would confirm that records
+   * exist. Team scoping is `listPlans`'s exactly, so a plan invisible there has no name here.
+   */
+  listPatientNames(context: ReadContext): Promise<PatientNameProjection[]>;
   listContacts(planId: PlanId, context: ReadContext): Promise<StoredContact[]>;
   /** The contacts that may actually go out. Keyed off contact state, never off `sendAt`. */
   listSendableContacts(planId: PlanId, context: ReadContext): Promise<StoredContact[]>;

@@ -5,6 +5,7 @@ import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
+import { CARING_CONTACTS_ROUTES, type CaringContactsRouteKey } from "@/lib/caring-contacts-routes";
 import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
 import { colourCodingReferenceHref } from "@/lib/reference-routes";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
@@ -516,6 +517,36 @@ if (tcReservedSegments.length === 0) {
 }
 for (const match of tcReservedSegments) {
   builderTargets.add(`${tcBase}/${match[1]}`);
+}
+
+// The Caring Contacts workspace owns its own navigation. `shell.tsx` holds one frozen
+// destination table and renders each entry as a `<Link href={href}>` — an identifier, never a
+// literal — so the JSX scan above sees no path at all. The table is the source of truth for what
+// is linked, and an entry carries an `href` only once its page exists (Ruling 52), so reading it
+// here is reading the same fact the shell renders rather than a second copy of it.
+// `caring-contacts-routes.ts` is deliberately React-free string data, so importing it is safe.
+// `tests/caring-contacts-workspace-shell.dom.test.tsx` independently pins that each of these is
+// rendered as a real link, which is what stops this builder from vouching for a dead entry.
+const workspaceShellSrc = readFileSync(path.join(srcRoot, "components/caring-contacts/workspace/shell.tsx"), "utf8");
+const workspaceHrefKeys = [...workspaceShellSrc.matchAll(/href:\s*CARING_CONTACTS_ROUTES\.(\w+)/g)].map(
+  (match) => match[1],
+);
+// Fail loudly rather than silently covering nothing: an empty parse here would let every built
+// workspace destination read as an orphan, or — worse — let a future one go unchecked.
+if (workspaceHrefKeys.length === 0) {
+  throw new Error(
+    "route-reachability: parsed no `href: CARING_CONTACTS_ROUTES.*` entries from the Caring Contacts shell — " +
+      "update this parser to match the current source so workspace destinations stay covered.",
+  );
+}
+for (const key of workspaceHrefKeys) {
+  const href = CARING_CONTACTS_ROUTES[key as CaringContactsRouteKey];
+  if (!href) {
+    throw new Error(
+      `route-reachability: the Caring Contacts shell links CARING_CONTACTS_ROUTES.${key}, which does not exist.`,
+    );
+  }
+  builderTargets.add(pathOnly(href));
 }
 
 /** A route is reachable if a builder emits it, or a non-mockup source file links to it. */

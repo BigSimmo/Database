@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "801d50ab-adbb-48e7-90ab-f8e6ed7ca588",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caring Contacts: nothing enforces that a new workspace screen joins the browser spec's WORKSPACE_SCREENS",
+    "detail": "The design-system adoption generator refuses an undeclared production page route, so adding a screen forces it into the caring-contacts-workspace surface -- whose five proof categories are all declared passed with tests/ui-caring-contacts-workspace.spec.ts as sole evidence. The generator validates that the evidence path is a tracked file, never that the suite visits the route. So a screen added to the surface but not to the spec's WORKSPACE_SCREENS silently re-creates the Critical finding fixed in Task 5 fix round 1: a governance artifact asserting dark, forced-colours, 320px, print and browser proof for a route nothing has visited. Closure: a static check comparing the surface's routes against the spec's screen list, failing when they diverge.",
+    "source": "Task 5 fix round 1, implementer-identified, 2026-08-24",
+    "issueUlid": "01M0TAPTG6PDM6NGJ1HVZ83DRM"
+  }
+}

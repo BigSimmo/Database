@@ -487,7 +487,8 @@ remaining items are compliance-posture and PHI-minimisation gaps.
 
 ### Mode-aware Clinical Ask privacy boundary
 
-Clinical Ask adds typed/dictated questions, editable transcripts, non-identifying Case Context, clarification answers,
+Clinical Ask is currently dormant with no user-visible composer entry point. If reactivated, it adds typed/dictated
+questions, editable transcripts, non-identifying Case Context, clarification answers,
 request-scoped external authority extracts, and cited answers. Draft, transcript, context, clarification, and response
 remain ephemeral and tab-scoped; audio is disposed after transcription, cancellation, clear, account change, or
 unmount. Identifier-shape detection is a blocking warning aid, not de-identification and not a guarantee that clinical
