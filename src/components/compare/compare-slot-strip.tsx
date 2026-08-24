@@ -46,7 +46,7 @@ export function CompareSlotStrip({
                 onClick={() => onSelectSlot(index)}
                 aria-pressed={activeIndex === index}
                 className={cn(
-                  "grid min-h-[5.5rem] min-w-0 grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface)] p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  "grid min-h-22 min-w-0 grid-cols-[var(--spacing-9)_minmax(0,1fr)] items-start gap-2 rounded-lg border bg-[color:var(--surface)] p-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                   onClearSlot && slot.id ? "pr-12" : null,
                   activeIndex === index ? "border-[color:var(--clinical-accent)]" : "border-[color:var(--border)]",
                   index === 0

@@ -7,7 +7,7 @@ import {
   type CompareStarterChip,
 } from "@/components/compare";
 import { DsmComparisonPage } from "@/components/dsm/dsm-comparison-page";
-import { defaultDsmComparisonSlugs, getDsmDiagnosis, listDsmDiagnosisSummaries, type DsmDiagnosis } from "@/lib/dsm";
+import { defaultDsmComparisonSlugs, listDsmDiagnosisSummaries, resolveDsmCompareIds } from "@/lib/dsm";
 
 export const metadata: Metadata = {
   title: "Compare DSM diagnoses | Clinical KB",
@@ -19,16 +19,7 @@ type DsmComparisonRouteProps = {
 };
 
 function selectedComparison(value?: string | string[]) {
-  const selectedIds = parseCompareIds(Array.isArray(value) ? value[0] : value, 3);
-  const diagnoses: DsmDiagnosis[] = [];
-  const resolvedIds = selectedIds.map((slug) => {
-    if (!slug) return null;
-    const diagnosis = getDsmDiagnosis(slug);
-    if (!diagnosis) return null;
-    diagnoses.push(diagnosis);
-    return diagnosis.slug;
-  });
-  return { diagnoses, selectedIds: resolvedIds };
+  return resolveDsmCompareIds(parseCompareIds(Array.isArray(value) ? value[0] : value, 3));
 }
 
 function catalogItems(): CompareCatalogItem[] {
