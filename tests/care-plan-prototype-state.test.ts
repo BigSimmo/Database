@@ -1426,4 +1426,40 @@ describe("Care Plan scenarios, reset, and determinism", () => {
 
     expect(JSON.stringify(state)).toBe(before);
   });
+
+  /**
+   * History resolves who performed a record-derived action by finding the audit
+   * event of that type, on that object, at exactly that timestamp. That is only
+   * sound while an audit timestamp identifies one moment: every `occurredAt` is
+   * `PROTOTYPE_NOW + auditEvents.length + 1` and exactly one event is appended
+   * per action, so they are globally unique — an invariant nothing defended.
+   *
+   * `withAudit` already takes an `offsetMinutes`, so one future call passing a
+   * non-zero value could collide two events, and the lookup would then return
+   * the wrong actor. That converts an honest name into a quiet lie, which is
+   * the failure this whole area exists to prevent, so it is pinned here rather
+   * than left to be noticed.
+   */
+  it("gives every audit event its own moment, which is what makes an actor lookup sound", () => {
+    const state = run(
+      "normal",
+      SENIOR,
+      { type: "record-plan-shared-with-patient", patientId: MIRA },
+      { type: "approve-management-version", versionId: MIRA_AWAITING_VERSION },
+      { type: "verify-cmht-contact", cmhtId: "SYN-CMHT-001" },
+      { type: "verify-cmht-contact", cmhtId: "SYN-CMHT-003" },
+      {
+        type: "withdraw-current-management-version",
+        patientId: ROWAN,
+        reason: "A reason recorded for the withdrawal.",
+      },
+    );
+
+    expect(state.auditEvents.length).toBeGreaterThan(4);
+    const moments = state.auditEvents.map(({ occurredAt }) => occurredAt);
+    expect(
+      new Set(moments).size,
+      "two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician",
+    ).toBe(moments.length);
+  });
 });
