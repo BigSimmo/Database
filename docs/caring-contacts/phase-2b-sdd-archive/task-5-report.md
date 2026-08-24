@@ -320,3 +320,168 @@ The full-suite run that produced the numbers in §5 was taken **after** both wer
    behaviour, not a defect, but it means nobody will _see_ a row, an `AutomatedState`, or the
    filtered-empty state without creating plans through `POST /api/caring-contacts/plans` first. All
    three paths are covered by tests.
+
+---
+
+# Fix round 1
+
+All ten items taken. Head `a976e3c98`. Not pushed, no pull request.
+
+## Before anything else: this worktree had been moved to another branch
+
+Partway through this round the working directory was on `claude/caring-contacts-foundation` at
+`a2b3248d0`, not on the task branch — `src/app/caring-contacts/patients/` and
+`patients-directory.tsx` had simply vanished from disk, and two edits I had just made landed on that
+other branch's files instead. Nothing was lost: the reflog showed an ordinary
+checkout/rebase/checkout sequence, and `claude/browser-test-gate-handoff-d5c1db` still held my three
+commits plus the two ledger commits added since.
+
+Recovered by saving the stray diff, restoring the foundation tree to exactly the state I found it in,
+switching back, and re-applying. Recorded because "the source file is missing" is not the first
+symptom anyone expects of a branch switch, and because the correct first move was to look before
+touching anything.
+
+## C-1 — real browser coverage, and what running it actually measured
+
+`openWorkspace()` is now parameterised by screen (`WORKSPACE_SCREENS`, carrying each route with the
+`h1` it must render), and a `caring-contacts patients directory` block genuinely visits
+`/caring-contacts/patients` under all four accessibility modes plus two behavioural checks:
+
+| Test                                                                   | Proof category it earns |
+| ---------------------------------------------------------------------- | ----------------------- |
+| serves an empty caseload as a page, not a missing resource             | browser                 |
+| holds the frozen layout at 320px                                       | compact320              |
+| re-resolves its surfaces and ink in dark                               | dark                    |
+| states the empty caseload in words once forced colours drop every tint | forcedColours           |
+| prints with the synthetic marker and the empty state still on the page | print                   |
+| is reachable from the workspace rail, not only by typing its URL       | browser                 |
+
+```
+38 passed (58.3s)      exit 0      at a976e3c98
+```
+
+Was 32. All six new tests appear in the log by name.
+
+**Three browser mutations, each red on its own assertion** — adding coverage that cannot fail is the
+same defect as the one this item is about, one level up:
+
+| Mutation                                     | Result                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------- |
+| filter chip `min-h-tap` to `min-h-11`        | **red** — "the state filter chip is under the production tap floor" |
+| empty-state `border` class removed           | **red** — "the empty state has no border under forced colours"      |
+| page calls `notFound()` on an empty caseload | **red** — 6 failed                                                  |
+
+**The third taught me something I had asserted wrongly.** I expected the HTTP status assertion to be
+what caught it. It was not: with `notFound()` in the page the route still answered **200**, and only
+the content assertions failed. The route is dynamic and streams under the segment's Suspense
+boundary, so the headers are flushed before the render reaches the refusal, and the 404 arrives as
+content rather than as a status code. The status line is kept — it still catches a refusal made
+before the stream opens — but the test now states which assertions are load-bearing, so nobody later
+trims it to the one that cannot catch this.
+
+That is the reviewer's own lesson landing on my new test: `expect(status).toBe(200)` is a well-formed
+check that would have certified a well-formed lie.
+
+## I-2 — the client-component count
+
+Corrected in all three places: `docs/codebase-index.md`, `patients-directory.tsx`, and
+`unavailable-destination.tsx`, which is where I inherited it. There are five —
+`unavailable-destination.tsx`, `overlays/workspace-overlays.tsx`, `overlays/overlay-host.tsx`,
+`overlays/overlay-trigger.tsx`, `service-stop-scroll-watcher.tsx`. The conclusion is unchanged and is
+now stated as the thing that actually holds Ruling 13: the set is small and shared across screens,
+not one member large.
+
+## I-3 (Ruling 93) — the remedy, and a correction to the ruling's premise
+
+**Fixed as directed.** The screen no longer names a role switcher. It says that nothing on this
+screen changes it and that no control for it exists anywhere in this workspace yet.
+
+**One factual correction, offered because I verified it rather than to argue the fix.** Ruling 93
+states that `CARING_CONTACTS_ROLE_COOKIE` "appears exactly once in `src/`, its own declaration in
+`session.ts`, and nothing writes it". It appears four times, and it **is** written:
+`src/app/api/caring-contacts/session/route.ts:53` sets it in the `POST` handler of the demo session
+route, which exists precisely to switch the demo role.
+
+The ruling's conclusion is nonetheless right and the fix is unchanged: there is no role-switching
+control **in the interface**. A clinician reading this screen cannot reach the switch, because it is
+an HTTP endpoint with nothing in front of it. So the old sentence was still a false statement about
+something reachable, and the new wording — the role is set outside the interface — is true of both
+the endpoint and the missing control.
+
+I raise it because the difference matters to whoever builds the switcher: the server half exists.
+
+The new test asserts the remedy's **content** — it must say nothing on this screen changes it, must
+say no control exists in this workspace, and must not contain "role switcher". Mutation F1 restores
+the old sentence and the test goes red.
+
+## I-4 — the null release throws, and is now pinned
+
+`plansRead.released ?? []` replaced with a throw matching the service-state read above it.
+
+**The mutation initially did not go red, which is the finding.** Restoring `?? []` left all 56 tests
+green: the branch is unreachable through the real stores, so nothing exercised it — the same reason
+it was wrong and the same reason nobody noticed. It is now pinned by spying `listPlans` to `null`,
+and the retried mutation goes red on that test alone.
+
+## I-5 (Ruling 92) — `ListEmptyState` gains `"not-permitted"`
+
+Third kind, same `heading`/`because`/`changedBy` shape, `EyeOff` rather than `SearchX`. Four tests in
+the component's own suite, including one that renders `"filtered"` and `"not-permitted"` side by side
+and asserts their icons differ — the icon is what states the difference wordlessly, so an icon shared
+between the two is a false statement made without words. The type doc records why the kind exists and
+that its remedy must be real (Ruling 93), so the next screen copying this one copies the constraint.
+
+## Minors
+
+- **M-6** — floor restored to `>= 5`, with a note that the exact count is asserted directly above it
+  and that a floor a change did not breach is not loosened. Raising it to 99 goes red.
+- **M-7** — `readHandler`'s empty-list 200 pinned in `tests/caring-contacts-api-handler.test.ts`,
+  using the auditor role so the `[]` is genuinely the "you may not see these" case the module's own
+  note calls out. Treating an empty array as denied goes red.
+- **M-8** — suppression counted from `contact.state === "suppressed"`. The two reasons now carry
+  different explanations because they have different remedies: the schedule's absorption is
+  reversible by changing the first-contact date; any other suppression is terminal (`suppressed` is
+  in the contact model's terminal set) and this row does not hold what caused it, so it says that
+  rather than inventing a remedy or naming a screen that does not exist.
+- **M-9** — `data-internal-link` asserted on every link. **This one also had a gap the mutation
+  found:** the assertion covered the filter chips but not the empty state's own remedy link, so
+  stripping the attribute from that single link left the file green. Both paths are pinned now, and
+  both mutations go red.
+- **M-10** — `label` is a destination noun (`The patient record for <id>`), so the screen-reader note
+  reads correctly; the visible text carries the identifier so one row's control stays
+  distinguishable from the next.
+
+## Gates, at `a976e3c98`
+
+```
+npm run test        →  Tests  2 failed | 9860 passed | 74 skipped (9936)
+                       Test Files  1 failed | 815 passed | 3 skipped (819)
+```
+
+The two known Windows `chmodSync` file-mode failures in `tests/gate-receipts.test.ts`, and nothing
+else.
+
+```
+npm run typecheck   →  [gate-receipts] recorded a pass for "typecheck:internal" (5227 input files)
+npm run lint        →  [gate-receipts] recorded a pass for "lint:internal" (5227 input files)
+npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium
+                    →  38 passed (58.3s), exit 0
+npx prettier --check <every file changed since bb03d00b5>
+                    →  All matched files use Prettier code style!
+```
+
+Typecheck and lint are fresh runs, not reused receipts. No gate failed to take a lock and none was
+skipped. Thirteen mutations were run this round — eight Vitest, three browser, two retries after the
+first attempt measured something other than what it claimed — each traced to the assertion that reads
+the mutated value, presence proved with `;` and never `&&`.
+
+## Still open
+
+1. **The names-only projection (Ruling 91)** is the owner's decision and its own task. Nothing here
+   anticipates it; rows are still headed by the synthetic identifier.
+2. **Ruling 93's premise about the role cookie is inaccurate** — the demo session route does write it
+   (see I-3). Worth correcting in the build record so the next person does not re-derive it.
+3. **`WORKSPACE_SCREENS` is a list a future screen must be added to.** It is documented in place as
+   the thing keeping the adoption contract's proof claim true, but nothing enforces it: a Task 6
+   screen added to the surface and not to that list recreates C-1 exactly. A static check that every
+   route in the surface's `routes` appears in that spec would close it, and I did not build one.
