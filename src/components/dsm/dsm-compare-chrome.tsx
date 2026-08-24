@@ -26,7 +26,7 @@ export function DsmCompareChrome({
       maxCount={3}
       items={items}
       starters={starters}
-      emptyTitle="Choose diagnoses"
+      emptyTitle="Choose at least two diagnoses"
       emptyDescription="Search the DSM catalogue, or start from a common trio."
       actionLabel="Choose diagnoses"
       searchPlaceholder="Search diagnosis or ICD code"

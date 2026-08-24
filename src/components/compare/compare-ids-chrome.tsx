@@ -27,6 +27,7 @@ export function CompareIdsChrome({
   pickerTestId,
   changeLabel = "Change selection",
   slotPlaceholder = "Choose",
+  swapLabel,
   icon,
   filterLocally = true,
   onCommit,
@@ -46,6 +47,7 @@ export function CompareIdsChrome({
   pickerTestId: string;
   changeLabel?: string;
   slotPlaceholder?: string;
+  swapLabel?: string;
   icon?: LucideIcon;
   filterLocally?: boolean;
   onCommit: (ids: Array<string | null>) => void;
@@ -94,6 +96,7 @@ export function CompareIdsChrome({
         activeIndex={picker.open ? picker.activeSlot : null}
         onSelectSlot={picker.openSlot}
         onSwap={maxCount === 2 ? swap : undefined}
+        swapLabel={swapLabel}
         changeLabel={changeLabel}
         onChange={() => picker.openSlot(firstEmptySlot(ids) ?? 0)}
       />

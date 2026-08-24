@@ -12,6 +12,7 @@ export function CompareSlotStrip({
   onSelectSlot,
   onSwap,
   swapHref,
+  swapLabel = "Swap compared items",
   changeLabel,
   onChange,
 }: {
@@ -20,6 +21,7 @@ export function CompareSlotStrip({
   onSelectSlot: (index: number) => void;
   onSwap?: () => void;
   swapHref?: string;
+  swapLabel?: string;
   changeLabel?: string;
   onChange?: () => void;
 }) {
@@ -75,7 +77,7 @@ export function CompareSlotStrip({
                   <Link
                     href={swapHref}
                     className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)]"
-                    aria-label="Swap compared items"
+                    aria-label={swapLabel}
                   >
                     <ArrowRightLeft className="h-5 w-5" aria-hidden="true" />
                   </Link>
@@ -83,7 +85,7 @@ export function CompareSlotStrip({
                   <button
                     type="button"
                     onClick={onSwap}
-                    aria-label="Swap compared items"
+                    aria-label={swapLabel}
                     className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)]"
                   >
                     <ArrowRightLeft className="h-5 w-5" aria-hidden="true" />

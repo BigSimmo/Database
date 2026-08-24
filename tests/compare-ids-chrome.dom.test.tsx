@@ -89,4 +89,30 @@ describe("CompareIdsChrome", () => {
     await user.click(screen.getByRole("option", { name: /MMSE/ }));
     expect(committed.at(-1)).toEqual(["mse", "mmse"]);
   });
+
+  it("swaps a filled pair through the labelled control", async () => {
+    const user = userEvent.setup();
+    const committed: Array<Array<string | null>> = [];
+
+    render(
+      <CompareIdsChrome
+        selectedIds={["mse", "mmse"]}
+        maxCount={2}
+        items={items}
+        emptyTitle="Choose two terms"
+        emptyDescription="Search the catalogue."
+        actionLabel="Choose terms"
+        searchPlaceholder="Search term"
+        pickerTitle="Choose two terms"
+        pickerDescription="Assign a term to A or B."
+        pickerId="dictionary-compare-picker"
+        pickerTestId="dictionary-compare-picker"
+        swapLabel="Swap compared specifiers"
+        onCommit={(ids) => committed.push(ids)}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Swap compared specifiers" }));
+    expect(committed.at(-1)).toEqual(["mmse", "mse"]);
+  });
 });

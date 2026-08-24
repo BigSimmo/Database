@@ -80,6 +80,7 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
         pickerTestId="specifier-compare-picker"
         changeLabel="Change specifiers"
         slotPlaceholder="Choose specifier"
+        swapLabel="Swap compared specifiers"
         icon={Tags}
         onCommit={(ids) => router.push(pairCompareHref(COMPARE_PATH, ids[0], ids[1]))}
       />
