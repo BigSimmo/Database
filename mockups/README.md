@@ -107,6 +107,20 @@ row in place on the page. Shared mockup chrome is suppressed because each frame 
 The tab rail reads Terms · Topics · More rather than Search · Browse · More: this round assumes Search and Browse have
 merged into one destination, with the site-wide composer as the mode’s only search surface.
 
+## Dictionary — original Filter at the top, three A–Z homes (2026-08-24)
+
+Runnable study at [`/mockups/dictionary-az-filter`](../src/app/mockups/dictionary-az-filter/page.tsx). Three frames only.
+
+The Filter button is the shared `ResultFilterTrigger` used on every search page, sitting in the results band under the title. Abbreviations leave the page and become a Show lens inside that sheet. A–Z is the remaining placement question.
+
+| Direction | A–Z home                                   | Trade-off                                                             |
+| --------- | ------------------------------------------ | --------------------------------------------------------------------- |
+| 01 Title  | Next to **Clinical terms**                 | Band stays count + query + Filter, like other modes                   |
+| 02 Band   | Beside Filter in the original results band | Two narrowing controls on the one line that already carries the query |
+| 03 Filter | Inside Filter, under Show                  | Quietest band; A–Z is one extra tap                                   |
+
+Shared mockup chrome is suppressed because each frame draws its own top bar, mode nav and composer.
+
 ## Dictionary — Filter in the bar, Terms and A–Z beside the title (2026-08-23)
 
 Runnable study at [`/mockups/dictionary-heading-controls`](../src/app/mockups/dictionary-heading-controls/page.tsx).
