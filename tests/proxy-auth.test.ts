@@ -62,6 +62,21 @@ describe("proxy auth claims forwarding & anti-spoofing", () => {
     getClaims.mockClear();
   });
 
+  it("keeps rotated session cookie flags when forwarding verified claims", async () => {
+    const { proxy } = await import("../src/proxy");
+    const request = new NextRequest(new URL("http://localhost/api/answer"));
+    request.cookies.set("sb-unit-test-auth-token", "base64-opaque-session");
+
+    const response = await proxy(request);
+    const cookie = response.cookies.get("sb-unit-test-auth-token");
+    expect(cookie?.value).toBe("rotated-session");
+    expect(cookie?.httpOnly).toBe(true);
+    expect(cookie?.path).toBe("/");
+    const setCookie = response.headers.getSetCookie();
+    expect(setCookie.some((header) => /sb-unit-test-auth-token=rotated-session/i.test(header))).toBe(true);
+    expect(setCookie.some((header) => /HttpOnly/i.test(header) && /Path=\//i.test(header))).toBe(true);
+  });
+
   it("strips client-supplied x-proxy-auth-user header to prevent spoofing", async () => {
     const { proxy } = await import("../src/proxy");
     const maliciousRequest = new NextRequest(new URL("http://localhost/api/answer"), {

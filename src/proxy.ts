@@ -242,11 +242,14 @@ export async function proxy(request: NextRequest) {
     const previousCookies = response.cookies.getAll();
     const previousHeaders = new Headers(response.headers);
     response = NextResponse.next({ request: { headers: requestHeadersWithNonce(userHeaderValue) } });
-    for (const cookie of previousCookies) {
-      response.cookies.set(cookie.name, cookie.value);
-    }
     for (const [k, v] of previousHeaders.entries()) {
+      // `Headers.entries()` does not reliably preserve Set-Cookie attributes.
+      // Re-apply cookies through the cookie store after this copy instead.
+      if (k.toLowerCase() === "set-cookie") continue;
       response.headers.set(k, v);
+    }
+    for (const cookie of previousCookies) {
+      response.cookies.set(cookie);
     }
   }
   return withCsp(response);
