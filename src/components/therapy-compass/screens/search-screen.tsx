@@ -36,6 +36,10 @@ export function SearchScreen() {
   const q = b.search.query;
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
+  // An empty query gives every record the same baseline score and then sorts
+  // alphabetically, so only call out a best match when the scorer had real
+  // query evidence to rank. Facets narrow the list but do not rank it.
+  const hasRankedQuery = q.trim().length > 0;
   const topics = useMemo(() => new Set(b.search.tags), [b.search.tags]);
   // Filters only — the query is deliberately excluded. It counts toward the
   // sheet's Clear all (see below), because `clearSearch` resets it, but the
@@ -236,8 +240,8 @@ export function SearchScreen() {
             />
           ) : (
             <div className="flex flex-col gap-3.5">
-              {shown.map((t) => (
-                <ResultCard key={t.slug} therapy={t} />
+              {shown.map((t, index) => (
+                <ResultCard key={t.slug} therapy={t} featured={hasRankedQuery && index === 0} />
               ))}
             </div>
           )}
