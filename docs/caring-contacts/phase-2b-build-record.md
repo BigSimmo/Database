@@ -359,3 +359,42 @@ overlays being decision surfaces rather than dialogs.
 
 **The general shape, worth keeping:** a mechanism that is safe only because nothing reaches it is
 not safe, it is unreached. Before making something reachable, check what its arrival makes true.
+
+## Task 1 — the shared EmptyState component
+
+Dispatched sonnet, base `ff79cb6ce`. Returned **DONE** at `97a7ff782`.
+New file `tests/caring-contacts-empty-state.dom.test.tsx`: `Tests 9 passed (9)`. Full suite
+`Tests 2 failed | 9794 passed | 74 skipped (9870)` — the two known `gate-receipts` file-mode
+failures and no others. Typecheck and lint clean, both after real lease acquisition rather than a
+lock-contention exit.
+
+**The lock incident, and the correction it produced.** The implementer paused mid-task waiting on the
+repository's heavy-run lease, held by a concurrent session's Playwright run — with its work
+UNCOMMITTED. On a machine that has destroyed four working directories mid-session, that is the
+expensive shape of an ordinary delay. Resumed with an explicit instruction ordering: **commit first,
+then retry the gate, bounded.** It committed, retried twice, acquired the lease and finished for real.
+
+The instruction is now standing for every remaining brief: *commit before waiting on any gate, and a
+lock-acquisition failure is neither a pass nor a failure — if the output carries no summary line the
+run did not happen, whatever the exit code says.* Machine health was checked rather than assumed:
+`node --version` returned in 0.083s, so this was ordinary lease contention and not the
+process-spawn starvation that has previously made everything slow.
+
+**Task C's B3 scan caught a defect in Task 1, one task after being built.** The first draft used
+lucide-react's `Inbox` icon; `caring-contacts-interface-vocabulary.test.ts` rejected it, because
+"inbox" is banned as reply-monitoring language. The implementer switched to `FolderOpen`.
+
+This is worth recording precisely, because it cuts both ways. It **fired on a bare identifier, not on
+user-facing prose** — which is exactly deferred item 2 from Task C's re-review ("the raw-prose pass
+scans identifiers, imports and JSX attribute names, not only prose … a future `const conversation = …`
+would fail the test with a confusing message"). That deferred concern materialised within one task,
+so it is real and will recur. Whether it was a *false* positive is a judgement I have put to Task 1's
+reviewer rather than settled myself: an icon named `Inbox` is not text a patient or clinician reads,
+but it is also the kind of name that leaks into a `data-testid` or an `aria-label` without anyone
+noticing. If the reviewer judges it over-reach, narrow the scan; if not, leave it and accept the
+occasional harmless rename. **Do not narrow it merely because it was inconvenient once.**
+
+Task 1: task review dispatched (sonnet), with four open questions — the missing `role="group"`
+wrapper that the sibling `AutomatedState` has, whether typing `action` as `ReactNode` weakens the
+button-wiring guarantee, whether the discriminated union delivers its promise at the type level, and
+whether the mutation proof is genuine.
