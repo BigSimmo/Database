@@ -20,6 +20,7 @@ import {
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
@@ -414,7 +415,7 @@ export function WardNetworkWorkspace() {
           </p>
           <p className={styles.patientSubLine}>
             {patient.legalStatus} ·{" "}
-            {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
+            {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
           </p>
           <p className={styles.patientSubLine}>
             {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}

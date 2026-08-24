@@ -93,15 +93,15 @@ describe("buildActionInbox", () => {
   it("emits a legal-timing item for EVERY past-due movement, not just the first", () => {
     const first = movementFrom({
       id: "TEST-legal-one",
-      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 20 },
+      legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 20 },
     });
     const second = movementFrom({
       id: "TEST-legal-two",
-      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 90 },
+      legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 90 },
     });
     const notDue = movementFrom({
       id: "TEST-legal-not-due",
-      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR + 500 },
+      legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR + 500 },
     });
 
     const items = buildActionInbox([first, second, notDue], NOW_ANCHOR)

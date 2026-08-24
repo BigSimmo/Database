@@ -248,6 +248,14 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // props cannot cross a Server → Client boundary. It takes no props at all, which is
   // what keeps the service-state record on the server side of this seam.
   "overlays/workspace-overlays.tsx",
+  // Task 3's control: the button a screen renders to raise one of the 24 overlays. A click
+  // handler is by definition a client capability, so this cannot be a Server Component.
+  // Added on the same three conditions as the entries above: its props are an overlay id, a
+  // class name, children, and a `WorkspaceOverlayCommit` — an intent union of a callback and
+  // a plain-words reason string, never a state object and nothing derived from the record;
+  // the companion test below proves its source and everything it reaches never name that
+  // module or type; and it is here deliberately rather than to clear a red test.
+  "overlays/overlay-trigger.tsx",
   // Decides WHEN the condensed stop bar is shown, and never what it says. A scroll position
   // and two element rectangles are browser facts, so this one cannot be answered on the
   // server — and the header is not the height of its token (87.5px at 320/390, 65px above,

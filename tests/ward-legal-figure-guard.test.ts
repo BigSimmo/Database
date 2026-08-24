@@ -9,6 +9,7 @@ import {
   wardFlowReducer,
   type WardFlowState,
 } from "../src/components/ward-management/ward-flow-reducer";
+import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import { DECLINE_REASONS, type LegalForm, type LegalStatus } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
@@ -142,11 +143,24 @@ const DEADLINE_BEARING_FORM_PROVENANCE: Record<string, string> = {
 };
 
 /**
- * The two codes on the examination timeline. Used ONLY for non-vacuity — proving the fixture and
- * the traversal actually held these forms — never as the set of codes the rule checks. The rule
- * is the allowlist above.
+ * Every code the sweep drives, taken from `SELECTABLE_LEGAL_FORMS` rather than hand-listed.
+ *
+ * **INVERTED on 2026-08-24, and this is the whole point of the change.** This was
+ * `EXAMINATION_TIMELINE_CODES = new Set(["1A", "3B"])` — a remembered pair. The intake picker
+ * then made 3D, 4A and 4C runtime-authorable, and the sweep still drove only 1A and 3B, so a
+ * branch keyed on any other code was invisible. Measured, not theorised: a
+ * `movement.legalForm?.code === "3D" ? { ...movement.legalForm, dueAt: event.now + 10080 }` put
+ * inside `TRANSPORT_ACCEPTED` left the entire ward suite green at 20 files / 252 passed, with a
+ * seven-day fabricated deadline live on a Form 3D that the console would render as "due …" and
+ * the shortlist as "due in N min".
+ *
+ * Deriving it from the picker's own list means **a code added later is checked by default rather
+ * than by being remembered**. The rule the sweep applies is still `offendingFormsIn`'s — no form
+ * of ANY code may carry a `dueAt` unless its code has a recorded provenance line in
+ * `DEADLINE_BEARING_FORM_PROVENANCE` — so widening the codes widens coverage without widening
+ * what is permitted.
  */
-const EXAMINATION_TIMELINE_CODES = new Set(["1A", "3B"]);
+const SWEEP_CODES: readonly string[] = SELECTABLE_LEGAL_FORMS.map((form) => form.code);
 
 /**
  * Word-level token sets. Matching is on exact tokens, never substrings: substring matching would
@@ -358,22 +372,30 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
 
   switch (type) {
     case "RAISE_REFERRAL":
+      // Since 2026-08-24 the form is CHOSEN on the draft rather than derived from the status, so
+      // the candidates now cross every selectable code (and "no form") with both
+      // awaiting-examination statuses. RAISE_REFERRAL is the only remaining place a form is
+      // authored at runtime, which makes this the one generator that can put a fabricated
+      // `dueAt` on a live movement — it must therefore reach every code, not just the two the
+      // deleted derivation used to produce.
       return allEmergencyDepartments().flatMap((ed) =>
-        (["Referred for psychiatric examination", "Detained awaiting examination"] as LegalStatus[]).map(
-          (legalStatus) => ({
-            type,
-            role,
-            now,
-            edId: ed.id,
-            draft: {
-              cohort: "Adult" as const,
-              security: "Open" as const,
-              sex: "Female" as const,
-              specialling: false,
-              legalStatus,
-              urgency: 2 as const,
-            },
-          }),
+        (["Referred for psychiatric examination", "Detained awaiting examination"] as LegalStatus[]).flatMap(
+          (legalStatus) =>
+            [...SELECTABLE_LEGAL_FORMS.map((form) => form.code), null].map((legalFormCode) => ({
+              type,
+              role,
+              now,
+              edId: ed.id,
+              draft: {
+                cohort: "Adult" as const,
+                security: "Open" as const,
+                sex: "Female" as const,
+                specialling: false,
+                legalStatus,
+                urgency: 2 as const,
+                legalFormCode,
+              },
+            })),
         ),
       );
     case "RECORD_EXAMINATION":
@@ -407,7 +429,11 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
     case "PATIENT_ARRIVED":
       return movementIds.map((movementId) => ({ type, role, now, movementId }));
     case "CONFIRM_CAPACITY":
-      return unitIds.flatMap((unitId) => [0, 1, 2].map((value) => ({ type, role, now, unitId, value })));
+      // `actingUnitId` mirrors `unitId`: the reducer refuses a mismatched pair outright, so a
+      // generated mismatch would exercise the rejection path rather than this guard's subject.
+      return unitIds.flatMap((unitId) =>
+        [0, 1, 2].map((value) => ({ type, role, now, unitId, actingUnitId: unitId, value })),
+      );
     case "RECORD_ESCALATION":
       return movementIds.map((movementId) => ({
         type,
@@ -461,14 +487,16 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
  * code-keyed guard that makes it impossible — and must not lean on the check alone.
  */
 const STRUCTURALLY_IMPOSSIBLE_FOR_CODE: Record<string, { type: WardFlowEvent["type"]; reason: string }[]> = {
-  "3B": [
-    {
-      type: "RECORD_EXAMINATION",
-      // ward-flow-reducer.ts: `if (movement.legalForm?.code !== "1A") return reject(...)`. A 3B is
-      // what RECORD_EXAMINATION PRODUCES, so by construction it acts on a 1A and never on a 3B.
-      reason: "the reducer refuses RECORD_EXAMINATION unless the form is 1A; a 3B is its output",
-    },
-  ],
+  // EMPTY since 2026-08-24, and the emptiness is the point. The only entry this list ever held
+  // was `3B: RECORD_EXAMINATION`, justified by the reducer's `if (movement.legalForm?.code !==
+  // "1A") return reject(...)`. That guard is deleted — an examination may now be recorded for
+  // any patient, on any form or on none — so the exclusion is no longer true and has been
+  // removed rather than kept as a comfortable blind spot. Every movement-targeted event must now
+  // be ACCEPTED against a movement carrying each code, with nothing excused.
+  //
+  // STATED LIMIT: with the list empty, the partial check further down iterates nothing and so
+  // proves nothing. The coverage assertion is carrying the whole load. A future entry must quote
+  // the code-keyed reducer guard that makes it impossible, exactly as the deleted one did.
 };
 
 /** The movement an event acts on, or `undefined` for the unit- and scenario-scoped events. */
@@ -499,6 +527,12 @@ function applyFirstAccepted(
       const target = state.movements.find((movement) => movement.id === targetMovementId(event));
       if (target?.legalForm?.code !== code) continue;
     }
+    // RAISE_REFERRAL is not movement-targeted, but since 2026-08-24 it is the ONLY reducer path
+    // that authors a form, so the sweep for a code has to raise referrals carrying that code.
+    // Without this the sweep would only ever create movements of whichever code sorts first,
+    // and — worse — could never hold a FRESH, un-examined movement of the other code to drive
+    // RECORD_EXAMINATION against, since every fixture 3B already carries an examination.
+    if (code !== undefined && event.type === "RAISE_REFERRAL" && event.draft.legalFormCode !== code) continue;
     const next = wardFlowReducer(state, event);
     if (next.rejections.length === state.rejections.length) return { applied: next, event };
   }
@@ -579,20 +613,36 @@ function collectLegalForms(): { source: string; movementId: string; form: LegalF
       collected.push({ source: "seeded state", movementId: movement.id, form: movement.legalForm });
   }
 
-  // Every reducer path that authors a legal form: RAISE_REFERRAL builds the 1A, RECORD_EXAMINATION
-  // replaces it with the 3B. A fabricated constant would have to be applied in one of these.
-  const nonVoluntary: LegalStatus[] = ["Referred for psychiatric examination", "Detained awaiting examination"];
-  for (const legalStatus of nonVoluntary) {
+  // RAISE_REFERRAL is now the ONLY reducer path that authors a legal form, and it authors
+  // whichever code the clinician chose — so every selectable code is driven through it here,
+  // not just the two the deleted status derivation used to produce. A fabricated `dueAt` would
+  // have to be applied either in the list itself or in this branch.
+  const legalStatus: LegalStatus = "Referred for psychiatric examination";
+  for (const selectable of SELECTABLE_LEGAL_FORMS) {
     const referred = wardFlowReducer(seeded, {
       type: "RAISE_REFERRAL",
       role: "ed",
       now: NOW_ANCHOR,
       edId: "jhc-ed",
-      draft: { cohort: "Adult", security: "Open", sex: "Female", specialling: false, legalStatus, urgency: 2 },
+      draft: {
+        cohort: "Adult",
+        security: "Open",
+        sex: "Female",
+        specialling: false,
+        legalStatus,
+        urgency: 2,
+        legalFormCode: selectable.code,
+      },
     });
     const raised = referred.movements.at(-1)!;
     if (raised.legalForm) collected.push({ source: "RAISE_REFERRAL", movementId: raised.id, form: raised.legalForm });
 
+    // RECORD_EXAMINATION no longer AUTHORS a form — since 2026-08-24 it leaves the form exactly
+    // as the clinician set it, in every outcome. So this is no longer a fourth authoring site;
+    // it is collected as the form a movement still carries AFTER being examined, which is the
+    // surface a post-examination `dueAt` would now have to appear on. `after RECORD_EXAMINATION`
+    // is named that way rather than left as `RECORD_EXAMINATION` so no later reader mistakes it
+    // for an authoring path.
     const examined = wardFlowReducer(referred, {
       type: "RECORD_EXAMINATION",
       role: "ed",
@@ -602,7 +652,11 @@ function collectLegalForms(): { source: string; movementId: string; form: LegalF
     });
     const afterExamination = examined.movements.find((movement) => movement.id === raised.id);
     if (afterExamination?.legalForm)
-      collected.push({ source: "RECORD_EXAMINATION", movementId: raised.id, form: afterExamination.legalForm });
+      collected.push({
+        source: "after RECORD_EXAMINATION",
+        movementId: raised.id,
+        form: afterExamination.legalForm,
+      });
   }
 
   return collected;
@@ -616,21 +670,24 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     // or if one of the four sources silently stopped producing a form. Asserting only a total
     // would let a reducer path that returned `undefined` forever pass unnoticed.
     expect(collected.length).toBeGreaterThan(0);
-    for (const source of ["fixture", "seeded state", "RAISE_REFERRAL", "RECORD_EXAMINATION"]) {
+    for (const source of ["fixture", "seeded state", "RAISE_REFERRAL", "after RECORD_EXAMINATION"]) {
       expect(
         collected.filter((entry) => entry.source === source).length,
         `no legal form was collected from ${source}`,
       ).toBeGreaterThan(0);
     }
-    for (const code of EXAMINATION_TIMELINE_CODES) {
+    for (const code of SWEEP_CODES) {
       expect(
         collected.filter((entry) => entry.form.code === code).length,
         `no Form ${code} was inspected — this guard would pass vacuously`,
       ).toBeGreaterThan(0);
     }
 
+    // The rule is the allowlist, not a remembered pair of codes: a form of ANY code carrying a
+    // `dueAt` is an offender unless that code has a recorded provenance line. 4A and 4C have
+    // one; 1A, 3B, 3D and anything added later do not, and are therefore checked by default.
     const offenders = collected
-      .filter((entry) => EXAMINATION_TIMELINE_CODES.has(entry.form.code) && entry.form.dueAt !== undefined)
+      .filter((entry) => entry.form.dueAt !== undefined && !(entry.form.code in DEADLINE_BEARING_FORM_PROVENANCE))
       .map((entry) => `${entry.source}:${entry.movementId} (Form ${entry.form.code}, dueAt ${entry.form.dueAt})`);
     expect(offenders).toEqual([]);
   });
@@ -658,7 +715,7 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     const offenders: string[] = [];
     const coverage = new Map<string, Set<WardFlowEvent["type"]>>();
 
-    for (const code of EXAMINATION_TIMELINE_CODES) {
+    for (const code of SWEEP_CODES) {
       const { accepted, offenders: found, finalState } = driveEveryEventAgainst(code);
       coverage.set(code, accepted);
       offenders.push(...found);
@@ -733,7 +790,7 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     for (const code of ["4A", "4C"]) {
       expect(code in DEADLINE_BEARING_FORM_PROVENANCE, `Form ${code} should be permitted`).toBe(true);
     }
-    for (const code of ["1A", "3B", "2B", "6A", "MHA-99", ""]) {
+    for (const code of ["1A", "3B", "3D", "2B", "6A", "MHA-99", ""]) {
       expect(code in DEADLINE_BEARING_FORM_PROVENANCE, `Form ${code} must not be permitted`).toBe(false);
     }
 
@@ -751,12 +808,12 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
         {
           ...seeded.movements[0],
           id: "PROBE-4A",
-          legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 10 },
+          legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 10 },
         },
         {
           ...seeded.movements[0],
           id: "PROBE-9Z",
-          legalForm: { code: "9Z", label: "Invented form", kind: "transport", dueAt: NOW_ANCHOR - 10 },
+          legalForm: { code: "9Z", kind: "transport", dueAt: NOW_ANCHOR - 10 },
         },
       ],
     };
@@ -765,17 +822,55 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     expect(flagged[0]).toContain("PROBE-9Z");
   });
 
-  it("records provenance for every exported declaration in ward-model.ts that writes a number down", () => {
+  it("records provenance for every exported declaration in the model files that writes a number down", () => {
     const modelPath = `${WARD_DIR}/ward-model.ts`;
-    const allExported = exportedNamesInFile(modelPath);
-    const numericExported = exportedNamesInFile(modelPath, true);
+    const formsPath = `${WARD_DIR}/ward-legal-forms.ts`;
+    const registerPath = "src/lib/form-register.ts";
+
+    /**
+     * Every module that may hold Mental Health Act content reachable from the ward surfaces. The
+     * rule follows the DECLARATIONS, not a filename, and it has had to move twice:
+     *
+     *  - `ward-legal-forms.ts` was added when the selectable-form list left `ward-model.ts` (the
+     *    ED-access-target quarantine in tests/ward-flow-single-source.test.ts fired, correctly);
+     *  - `src/lib/form-register.ts` was added when the official-title register was split out of
+     *    `form-catalog.ts` so a client bundle could read a title without its JSON. That split put
+     *    a ward-reachable module holding Act content OUTSIDE `WARD_DIR`, where nothing scanned
+     *    it: `export const FORM_1A_REFERRAL_EXPIRY_MINUTES = 7 * 24 * 60;` appended there left
+     *    this file and ward-flow-single-source green at 18 passed.
+     *
+     * Titles are what the register legitimately holds. A numeric duration constant is not, and
+     * this is the check that says so. A new module of this kind belongs on this list on the day
+     * it is created.
+     */
+    const PROVENANCE_SCANNED_FILES = [modelPath, formsPath, registerPath];
+
+    const numericExported = PROVENANCE_SCANNED_FILES.flatMap((path) => exportedNamesInFile(path, true));
+
+    // Non-vacuity per file: each one is really being read, not silently skipped — a mistyped path
+    // would otherwise contribute nothing and this whole scan would narrow without failing.
+    for (const [path, sentinel] of [
+      [modelPath, "MOVEMENT_STAGES"],
+      [formsPath, "SELECTABLE_LEGAL_FORMS"],
+      [registerPath, "formTitleForCode"],
+    ] as const) {
+      expect(exportedNamesInFile(path), `exportedNamesInFile read nothing from ${path}`).toContain(sentinel);
+    }
+
+    // …and neither of the two non-numeric sentinels is itself flagged, so they are not merely
+    // allowlisted into silence.
+    expect(exportedNamesInFile(formsPath, true), "SELECTABLE_LEGAL_FORMS writes a number down").not.toContain(
+      "SELECTABLE_LEGAL_FORMS",
+    );
+    expect(exportedNamesInFile(registerPath, true), "formTitleForCode writes a number down").not.toContain(
+      "formTitleForCode",
+    );
 
     // Non-vacuity 1: the AST really read the file, and really distinguishes declarations that
     // write a number from those that do not. `MOVEMENT_STAGES` and `DECLINE_REASONS` are exported
     // string arrays and must be excluded; the two numeric constants must be included. If the
     // containment rule ever matched nothing, the offender list below would be empty for the wrong
     // reason, and these assertions are what catch that.
-    expect(allExported, "exportedNamesInFile read nothing from ward-model.ts").toContain("MOVEMENT_STAGES");
     expect(numericExported, "MOVEMENT_STAGES is an array of strings").not.toContain("MOVEMENT_STAGES");
     expect(numericExported, "DECLINE_REASONS is an array of strings").not.toContain("DECLINE_REASONS");
     expect(numericExported).toContain("ED_ACCESS_TARGET_MINUTES");
@@ -827,12 +922,17 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     expect(offenders).toEqual([]);
   });
 
-  // Fix wave 1, finding 5. Part 1 exercises the reducer's two legal-form authoring sites by
-  // dispatching RAISE_REFERRAL and RECORD_EXAMINATION. That is complete only while those remain
-  // the ONLY two sites — a third branch stamping a `dueAt` would be invisible to Part 1, which
-  // would then still pass while claiming to cover "every LegalForm the reducer produces". Pin the
-  // set, so growing a new authoring site fails here until Part 1 is taught to exercise it.
-  it("pins the reducer's legal-form authoring sites, so Part 1 cannot silently miss a new one", () => {
+  // Fix wave 1, finding 5, re-pointed 2026-08-24. Part 1 is complete only while it exercises
+  // every place a legal form is authored. That set MOVED: the reducer used to build a 1A in
+  // RAISE_REFERRAL and a 3B in RECORD_EXAMINATION, and now builds neither — it attaches whatever
+  // the clinician chose from `SELECTABLE_LEGAL_FORMS`. So this pins two things at once, and the
+  // first is strictly stronger than what it replaced:
+  //
+  //   1. the reducer authors NO legal-form literal of its own any more, so it cannot stamp a
+  //      fabricated code or `dueAt` on a movement at all; and
+  //   2. the declared list Part 1 drives is exactly these codes, in this order, so adding a code
+  //      to the picker fails here until Part 1 is driving it too.
+  it("pins where legal forms are authored, so Part 1 cannot silently miss one", () => {
     const reducerPath = `${WARD_DIR}/ward-flow-reducer.ts`;
     const source = ts.createSourceFile(
       reducerPath,
@@ -844,30 +944,79 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
 
     // An authored legal form is an object literal carrying a `code:` string. Read from the AST,
     // so a `code` mentioned in a comment or a string cannot inflate or hide the count.
-    const authoredCodes: string[] = [];
-    const visit = (node: ts.Node): void => {
-      if (ts.isObjectLiteralExpression(node)) {
-        for (const property of node.properties) {
-          if (
-            ts.isPropertyAssignment(property) &&
-            ts.isIdentifier(property.name) &&
-            property.name.text === "code" &&
-            ts.isStringLiteral(property.initializer)
-          ) {
-            authoredCodes.push(property.initializer.text);
+    const authoredCodesIn = (file: ts.SourceFile): string[] => {
+      const codes: string[] = [];
+      const visit = (node: ts.Node): void => {
+        if (ts.isObjectLiteralExpression(node)) {
+          for (const property of node.properties) {
+            if (
+              ts.isPropertyAssignment(property) &&
+              ts.isIdentifier(property.name) &&
+              property.name.text === "code" &&
+              ts.isStringLiteral(property.initializer)
+            ) {
+              codes.push(property.initializer.text);
+            }
           }
         }
-      }
-      ts.forEachChild(node, visit);
+        ts.forEachChild(node, visit);
+      };
+      visit(file);
+      return codes;
     };
-    visit(source);
 
-    // Non-vacuity: the walk really found the literals rather than returning an empty list.
-    expect(authoredCodes.length, "no legal-form literal was found in the reducer").toBeGreaterThan(0);
+    const formsPath = `${WARD_DIR}/ward-legal-forms.ts`;
+    const formsSource = ts.createSourceFile(
+      formsPath,
+      readFileSync(formsPath, "utf8"),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
+    );
 
-    // Exactly these two, in source order. A third authoring site — of any code — fails, and so
-    // does deleting one, which would mean Part 1 is dispatching at a site that no longer exists.
-    expect(authoredCodes).toEqual(["1A", "3B"]);
+    // Non-vacuity: the walk really reads `code:` literals rather than returning an empty list for
+    // any file handed to it. Proven on the file that HAS them, so the reducer's empty result
+    // below is a fact about the reducer and not a broken walk.
+    expect(
+      authoredCodesIn(formsSource).length,
+      "no legal-form literal was found in ward-legal-forms.ts",
+    ).toBeGreaterThan(0);
+
+    // 1. The reducer authors none. A single `code:` literal reappearing here means a branch has
+    //    started deciding a patient's form again, which is the whole thing 2026-08-24 removed.
+    expect(authoredCodesIn(source), "the reducer authors a legal form again").toEqual([]);
+
+    // 2. The declared list, in source order. Adding a code fails here until Part 1 drives it.
+    expect(authoredCodesIn(formsSource)).toEqual(["1A", "3B", "3D", "4A", "4C"]);
+    expect(SELECTABLE_LEGAL_FORMS.map((form) => form.code)).toEqual(["1A", "3B", "3D", "4A", "4C"]);
+
+    // 3. NO entry carries a title. Since 2026-08-24 titles come from the Chief Psychiatrist's
+    //    register at render time, and a stored one is exactly how "Inpatient treatment order" —
+    //    the title of a Form 6A — came to be printed on every Form 3B. `label` is gone from the
+    //    type, so this reads the runtime object: any key beyond `code`/`kind`/`dueAt` fails.
+    for (const form of SELECTABLE_LEGAL_FORMS) {
+      expect(
+        Object.keys(form).filter((key) => !["code", "kind", "dueAt"].includes(key)),
+        `Form ${form.code} carries a field this model may not hold`,
+      ).toEqual([]);
+    }
+
+    // 4. Form 3D carries no classification. This model holds none for a 3D, and the register's
+    //    categories were explicitly not adopted, so inventing one here is barred.
+    const form3D = SELECTABLE_LEGAL_FORMS.find((form) => form.code === "3D");
+    expect(form3D, "Form 3D is no longer offered").toBeDefined();
+    expect(form3D!.kind, "a classification was invented for Form 3D").toBeUndefined();
+
+    // 5. Non-vacuity for 4: the absence above is a property of 3D, not of every entry.
+    expect(SELECTABLE_LEGAL_FORMS.filter((form) => form.kind !== undefined).map((form) => form.code)).toEqual([
+      "1A",
+      "3B",
+      "4A",
+      "4C",
+    ]);
+
+    // 5. No offered form carries a deadline. Forms record that they exist, never when they lapse.
+    expect(SELECTABLE_LEGAL_FORMS.filter((form) => form.dueAt !== undefined)).toEqual([]);
   });
 
   /**
@@ -927,6 +1076,50 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
         literals.filter((literal) => literal.includes("no statutory deadline")),
         `${path} renders a claim about what the Mental Health Act requires`,
       ).toEqual([]);
+    }
+
+    // Fix wave 1, item 2 — the same overreach in a second place, and this one was on the DEFAULT
+    // path once the picker started defaulting to no form: renderers printed "No legal form
+    // required", which asserts what the Mental Health Act REQUIRES of this patient. "Recorded"
+    // reports what the record holds, which is all this prototype can verify. Scanned across every
+    // ward file, not just the renderers above, because the wording was duplicated across several.
+    //
+    // **BROADENED 2026-08-24, and the narrowness was itself the defect.** This matched the exact
+    // string `legal form required`: case-sensitive, and requiring the word "legal". Two surfaces
+    // stood while it read green — `ward-management-console.tsx`'s "No Mental Health Act transport
+    // form required" (28 lines below a line this same change had already fixed, on the production
+    // patient route, and the DEFAULT rendering for every referral raised with the picker left
+    // alone) and `officer-screen.tsx`'s `<dt>Legal form required</dt>`, whose value had been
+    // corrected to "No transport form recorded" while its own label still said "required".
+    // Lower-casing and dropping the "legal" requirement is what sees both.
+    //
+    // STATED LIMIT: unlike the two literal checks above, this is a RAW TEXT scan, so a comment
+    // that quotes the rejected wording trips it exactly as a live string would. That is the
+    // fail-safe direction — a false positive costs a rewording, a false negative shipped the
+    // claim — and it is why the comments at both fixed sites describe the old wording rather
+    // than quoting it. Do not "fix" this by matching AST string literals only: a JSX text node
+    // and a `<dt>` label are both claims, and the sibling deadline check above already shows how
+    // easily a literal-only scan misses one.
+    const wardFilesScanned = scanWardFiles();
+    expect(wardFilesScanned.length, "no ward file was scanned").toBeGreaterThan(0);
+    const requiredOffenders = wardFilesScanned
+      .filter((file) => readFileSync(file.path, "utf8").toLowerCase().includes("form required"))
+      .map((file) => file.path);
+    expect(requiredOffenders, "a ward surface claims a form is or is not REQUIRED").toEqual([]);
+
+    // Non-vacuity: the replacement wording really is present, so the check above cannot pass by
+    // the whole phrase having been deleted rather than corrected.
+    const recordedCarriers = wardFilesScanned
+      .filter((file) => readFileSync(file.path, "utf8").includes("No legal form recorded"))
+      .map((file) => file.path.replaceAll("\\", "/"));
+    for (const expected of [
+      `${WARD_DIR}/ward-management-console.tsx`,
+      `${WARD_DIR}/ward-management-modes.tsx`,
+      `${WARD_DIR}/ward-management-network.tsx`,
+      `${WARD_DIR}/coordinator/shortlist-panel.tsx`,
+      `${WARD_DIR}/ed/ed-screen.tsx`,
+    ]) {
+      expect(recordedCarriers, `${expected} no longer says "No legal form recorded"`).toContain(expected);
     }
 
     // Finding 7: the breach line must still exist in the shortlist renderer. Before this, the only

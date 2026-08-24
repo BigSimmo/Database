@@ -293,16 +293,30 @@ function readsUnitsFixture(source: string, fileName: string): boolean {
  * and its review to carry, not this file's; that is why the two tests below are named for the
  * literal case they actually catch, not for the constant's reach in general.
  */
-const LEGAL_FORM_REQUIRED_FIELDS = ["code", "label", "kind"];
+const LEGAL_FORM_REQUIRED_FIELDS = ["code", "kind"];
 
 /**
- * True if the file contains an object literal shaped like a `LegalForm` construction — carrying
- * all three of `LegalForm`'s required fields (`code`, `label`, `kind`; `ward-model.ts`) on the
- * same object literal. This matches every real `LegalForm` construction without needing the type
- * checker, and is specific in practice, not just in theory: verified by hand (this same
- * AST-walk, run standalone against all of `SRC_DIR`) that exactly two files anywhere under `src`
- * match this shape — `ward-movements.ts` (the fixture) and `ward-flow-reducer.ts` (the only
- * place that produces one at runtime) — both genuine `LegalForm` sites, zero false positives.
+ * True if the file contains an object literal carrying both `code` and `kind` on the same object
+ * literal — the shape a populated `LegalForm` is written in. This matches without needing the
+ * type checker.
+ *
+ * **The field list was `["code", "label", "kind"]` until 2026-08-24.** `LegalForm.label` was
+ * deleted that day, when the product owner approved taking form titles from the Chief
+ * Psychiatrist's register instead of storing them, so the old triple matched nothing at all and
+ * this guard would have been silently inert. `["code", "kind"]` matches a strict SUPERSET of the
+ * literals the triple did, so the quarantine below is now stricter, not weaker.
+ *
+ * Re-measured after the change with this same AST-walk run standalone against all of `SRC_DIR`:
+ * exactly two files match — `ward-movements.ts` (the fixture) and `ward-legal-forms.ts` (the
+ * declared list a clinician chooses from) — both genuine `LegalForm` sites, zero false positives.
+ *
+ * TWO LIMITS, stated rather than glossed:
+ *   - `kind` is OPTIONAL, so an entry written without it (Form 3D) does not match on its own.
+ *     `ward-legal-forms.ts` still matches because its other four entries carry one.
+ *   - `ward-flow-reducer.ts` no longer matches, because it no longer authors a form at all — it
+ *     attaches one the clinician chose. That is a narrowing of what this predicate has to watch,
+ *     not a gap: `tests/ward-legal-figure-guard.test.ts` pins the reducer's authored-code list at
+ *     empty, so a reappearing literal there fails that guard.
  */
 function constructsLegalForm(source: string, fileName: string): boolean {
   if (!LEGAL_FORM_REQUIRED_FIELDS.every((name) => source.includes(name))) return false;

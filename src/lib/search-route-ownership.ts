@@ -52,6 +52,19 @@ export function isStandaloneModeHomePath(pathname: string): boolean {
   return standaloneModeHomePaths.includes(pathname as (typeof standaloneModeHomePaths)[number]);
 }
 
+/**
+ * Dictionary catalogue owns the desktop in-flow composer slot (under mode
+ * nav, above the Filter band). Phones keep the usual compact bottom dock.
+ * Pathname-only so a submitted `?q=` cannot move the desktop composer into
+ * the generic page slot above mode nav.
+ *
+ * `/dictionary/browse` redirects onto `/dictionary/search`; keep both so the
+ * brief pre-redirect frame cannot paint the wrong slot.
+ */
+export function isDictionaryCataloguePath(pathname: string): boolean {
+  return pathname === "/dictionary/search" || pathname === "/dictionary/browse";
+}
+
 /** Exact pathnames that mount ClinicalDashboard for an unsubmitted mode home. */
 export function isDashboardOwnedModeHomePath(pathname: string): boolean {
   return Object.hasOwn(dashboardOwnedModeHomePaths, pathname);
