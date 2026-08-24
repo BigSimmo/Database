@@ -3,8 +3,7 @@
 import { useId, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
-
-import { therapyBtn } from "./controls";
+import { interactiveRowBase } from "@/components/ui/interactive-row";
 
 /**
  * A source marker the catalogue writes inline at the end of a sentence, e.g.
@@ -256,8 +255,8 @@ export function ProseBlock({
           // driving the page by voice.
           aria-label={expanded ? `Show less of ${label}` : `Show more of ${label}`}
           className={cn(
-            therapyBtn,
-            "-mx-1 mt-1 inline-flex min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline",
+            interactiveRowBase,
+            "-mx-1 mt-1 inline-flex w-auto min-h-tap items-center px-1 text-xs font-bold text-[color:var(--clinical-accent)] hover:underline",
           )}
         >
           {expanded ? "Show less" : "Show more"}

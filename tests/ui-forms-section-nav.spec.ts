@@ -58,10 +58,15 @@ test.describe("Forms section navigation", () => {
     const trigger = section.getByRole("button", { name: "Does not authorise" });
     const preview = "Psychiatric treatment or detention beyond the linked authority.";
 
-    await expect(trigger.getByText(preview)).toBeVisible({ timeout: 20_000 });
+    await expect(trigger).toBeVisible({ timeout: 20_000 });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(trigger.getByText(preview)).toBeVisible();
     await trigger.click();
 
-    const panel = page.locator(`#${await trigger.getAttribute("aria-controls")}`);
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const panelId = await trigger.getAttribute("aria-controls");
+    if (!panelId) throw new Error("Disclosure trigger is missing aria-controls");
+    const panel = page.locator(`#${panelId}`);
     await expect(trigger.getByText(preview)).toHaveCount(0);
     await expect(panel.getByText(preview)).toBeVisible();
     await expect(panel).not.toHaveClass(/border-t/);

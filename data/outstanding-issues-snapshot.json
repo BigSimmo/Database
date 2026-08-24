@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39Z"
+    "committed_at": "2026-08-22T20:52:39+00:00"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 113,
+    "pending": 115,
     "resolved": 376
   },
   "queue": [
@@ -1272,6 +1272,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "b9b03e99-c1ec-4a74-ad42-8d9cb5585ab0",
+      "action": "done",
+      "summary": "#NEBJAM: Standardized Therapy Compass UI kit components in src/components/therapy-compass/ui.tsx on shared design-system primitives: Tag and TagRow compose shared Chip from @/components/ui/chip; StatusBadge standardizes on shared Chip with status appearance (kind: 'status', tone: meta.tone) and clinical iconography (ShieldCheck, TriangleAlert); IconTile adheres to design system token palette and size-tap sizing; LoadingState adopts shared LoadingPanel; EmptyState adopts shared SharedEmptyState with clinical centered treatment; Eyebrow uses tokenized tracking and colors; Meter provides full accessibility with named completeness bands. Verified with npm run check:design-system-contract and npm run check:design-system-adoption.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "ba2bdfba-b1e1-4e13-83b4-8cb0f3ddc092",
       "action": "add",
       "summary": "Caring Contacts: three unmitigated hazards block any real-patient pilot (safety officer, lived-experience review, Aboriginal health review)",
@@ -1449,6 +1455,12 @@
       "request_id": "fb387f38-d049-4320-9f6e-a7d2b068641e",
       "action": "done",
       "summary": "#308: Resolved: Reserved settled height at the composer adoption boundary in GlobalSearchShell/MasterSearchHeader for desktop /documents/search under the one-composer contract, eliminating the 0.118 CLS layout shift.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fb8c94f3-a08a-4ab1-916e-ffa0d9c94255",
+      "action": "done",
+      "summary": "#VTEW3W: Implemented InteractiveRow design token primitive in src/components/ui/interactive-row.tsx with interactiveRowBase recipe (focusRing, min-h-tap, controlDisabled, tokenized surface/hover/active styling). Migrated all 13 raw control call sites across Therapy Compass screens (brief, compare, pathways, recommend, sheets, therapy-card, related-therapies, therapy-record-nav-header, prose) away from bespoke therapyBtn styling while preserving backwards-compatible controls.ts token recipe. Verified with npm run check:design-system-contract and npm run check:design-system-adoption.",
       "created_at": "2026-08-23"
     },
     {
