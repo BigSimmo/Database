@@ -1,5 +1,28 @@
 # Caring Contacts — the copy decisions, with a recommendation for each
 
+> ## OWNER APPROVED ALL THIRTEEN, 2026-08-24
+>
+> The owner read the thirteen items in chat and answered "go ahead with your recommendations."
+> That is the decision of record for every item below. Two qualifications, because approval of a
+> recommendation is not the same as the recommendation being executable today:
+>
+> - **A9 (adding Lifeline `13 11 14`) CANNOT be executed yet, by its own terms.** The recommendation
+>   was to add Lifeline *and drop the `Fictional Support Line` line once a real crisis number is
+>   chosen* — because the message is roughly nine characters from its two-segment maximum, so nothing
+>   can be added until something comes out. No real crisis number exists. **A9 is APPROVED IN
+>   PRINCIPLE and BLOCKED ON a real crisis number.** Do not implement it by removing some other
+>   sentence chosen by an implementer; the owner was explicitly asked to name what goes, and the
+>   answer that arrived approves the shape, not a specific removal. Re-ask when a real number exists.
+> - **A4 (the closing message) is approved as a DEFERRAL, not as text.** The approved recommendation
+>   is that the wording be written in a later phase with a lived-experience representative, and that
+>   the system refuse loudly in the meantime. The refusal half is buildable now; the wording is not,
+>   and no implementer should draft it.
+>
+> Everything else is approved for implementation. Patient-visible strings are therefore NO LONGER
+> FROZEN — but each change must cite the item number it implements, and the sealed domain's
+> `message-copy` module remains the single place they live.
+
+
 **Written 2026-08-24. Nothing here has been implemented.** Patient-visible wording stays frozen until
 the owner answers, per the standing constraint in `phase-2a-handoff.md`.
 
@@ -212,3 +235,25 @@ across, and let B3's scan flag it at that point.
 1. The owner marks this file up, or answers item by item.
 2. Only then does any patient-visible string change, and each change carries its decision reference.
 3. A1's machine check, B1, B2 and B3 can start as soon as he says go; none touches patient wording.
+
+---
+
+## Implementation status, 2026-08-24
+
+Approval is not implementation. Nothing below has been built yet.
+
+| Item      | Approved outcome                                                   | Where it gets built                       |
+| --------- | ------------------------------------------------------------------ | ----------------------------------------- |
+| A1        | Machine check refusing any message containing "Fictional"          | Small change now, beside the length check |
+| A2        | Narrow the storage promise to who is not reading                    | Small change now, `message-copy`          |
+| A3        | Say nobody reads it AND something automatic comes back              | Small change now, `message-copy`          |
+| A4        | Refuse loudly when a final message is missing; wording deferred     | Refusal now; wording a later phase        |
+| A5        | Patient not told during a service-wide stop — DELIBERATE            | Decision only; nothing to build           |
+| A6        | Confirm intended; show the count of contacts a pause discards        | Phase 2B, Group 1                         |
+| A7        | Keep the asymmetry; add a confirmation naming what is lost           | Phase 2B, Group 1                         |
+| A8        | Confirm no-later-retry; surface it on the plan, not only in a panel  | Phase 2B, Groups 1-2                      |
+| A9        | Add Lifeline — **BLOCKED**, needs a real crisis number first        | Re-ask when one exists                    |
+| B1        | Make the two panels describe what they actually show                 | Phase 2B, Group 3                         |
+| B2        | Narrow the "lead" ban to the commercial sense                        | Small change now                          |
+| B3        | Extend the prohibited-word scan to interface strings                 | Small change now (issues inbox P2)        |
+| B4        | Leave the design-scratch sentence alone                              | No action                                 |
