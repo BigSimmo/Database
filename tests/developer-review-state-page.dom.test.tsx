@@ -89,5 +89,4 @@ describe("developer review state page", () => {
     );
     expect(screen.queryByTestId("developer-review-state-records")).not.toBeInTheDocument();
   });
-
 });

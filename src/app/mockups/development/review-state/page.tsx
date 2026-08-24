@@ -50,8 +50,8 @@ export default function DeveloperReviewStatePage() {
        * from an absence.
        */}
       <p data-testid="developer-review-state-scope" className={META_CLASS}>
-        This is the repository&rsquo;s own review history: which recorded ref was reviewed, at which exact commit, and what
-        the reviewer concluded. It does not show which pull requests are open, whether their checks are green, or
+        This is the repository&rsquo;s own review history: which recorded ref was reviewed, at which exact commit, and
+        what the reviewer concluded. It does not show which pull requests are open, whether their checks are green, or
         whether a review is outstanding — none of that exists on disk, and reading it would need credentials this page
         deliberately does not have. A ref absent from this list has not been reviewed at any head; it does not mean
         there is no pull request.
@@ -62,9 +62,9 @@ export default function DeveloperReviewStatePage() {
           Records · {counts.records}
         </h2>
         <p className={META_CLASS}>
-          Newest first. Each record is immutable; a later review of the same recorded ref adds a row rather than replacing
-          one. Showing all {counts.records} — nothing here is capped, paginated, or filtered, so a count and its list
-          can never disagree.
+          Newest first. Each record is immutable; a later review of the same recorded ref adds a row rather than
+          replacing one. Showing all {counts.records} — nothing here is capped, paginated, or filtered, so a count and
+          its list can never disagree.
         </p>
         {/*
          * `record` is `{ date, ref, head, scope, outcome, checks }` — six free-text
@@ -83,31 +83,31 @@ export default function DeveloperReviewStatePage() {
             No immutable review records are committed.
           </p>
         ) : (
-        <ol data-testid="developer-review-state-records" className="grid gap-3">
-          {records.map((record, index) => (
-            <li
-              // `head` alone is not unique — 21 records in the corpus share a
-              // date, ref AND head, because one branch can be reviewed twice at one
-              // commit under different scopes. Adding `scope` disambiguates every
-              // record today, but nothing structurally guarantees it, so the index
-              // carries uniqueness and the fields carry readability.
-              key={`${record.date}-${record.ref}-${record.head}-${record.scope}-${index}`}
-              className={CARD_CLASS}
-            >
-              <div className={ROW_CLASS}>
-                <span className={META_CLASS}>{record.date}</span>
-                <span className="text-sm font-bold text-[color:var(--text-heading)]">{record.ref}</span>
-                <span className={MONO_CLASS}>{record.head}</span>
-              </div>
-              <p className={META_CLASS}>{record.scope}</p>
-              <p className="text-sm leading-6 text-[color:var(--text-heading)]">{record.outcome}</p>
-              <details>
-                <summary className={DISCLOSURE_CLASS}>Checks run</summary>
-                <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">{record.checks}</p>
-              </details>
-            </li>
-          ))}
-        </ol>
+          <ol data-testid="developer-review-state-records" className="grid gap-3">
+            {records.map((record, index) => (
+              <li
+                // `head` alone is not unique — 21 records in the corpus share a
+                // date, ref AND head, because one branch can be reviewed twice at one
+                // commit under different scopes. Adding `scope` disambiguates every
+                // record today, but nothing structurally guarantees it, so the index
+                // carries uniqueness and the fields carry readability.
+                key={`${record.date}-${record.ref}-${record.head}-${record.scope}-${index}`}
+                className={CARD_CLASS}
+              >
+                <div className={ROW_CLASS}>
+                  <span className={META_CLASS}>{record.date}</span>
+                  <span className="text-sm font-bold text-[color:var(--text-heading)]">{record.ref}</span>
+                  <span className={MONO_CLASS}>{record.head}</span>
+                </div>
+                <p className={META_CLASS}>{record.scope}</p>
+                <p className="text-sm leading-6 text-[color:var(--text-heading)]">{record.outcome}</p>
+                <details>
+                  <summary className={DISCLOSURE_CLASS}>Checks run</summary>
+                  <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">{record.checks}</p>
+                </details>
+              </li>
+            ))}
+          </ol>
         )}
       </section>
     </PanelPageShell>
