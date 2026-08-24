@@ -27,20 +27,16 @@ Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header
 
 ## Calculators Show all chip (2026-08-24)
 
-Runnable study at [`/mockups/calculators-show-all`](../src/app/mockups/calculators-show-all/page.tsx). Tools already
-proved the placement — hero, then a compact launcher, then search — but the shipping chip is optically left-heavy: a
-14px accent icon, heading-coloured label, equal 12px padding, and an inset shadow. These frames keep that stack for
-Calculators and rebuild the chip.
+Three phone homes at [`/mockups/calculators-show-all`](../src/app/mockups/calculators-show-all/page.tsx). The page is
+the Tools launcher with Calculators copy. Only the **Show all** chip changes.
 
-| Direction                   | Interior                                               | Trade-off                                     |
-| --------------------------- | ------------------------------------------------------ | --------------------------------------------- |
-| 01 Tools transplant         | Shipping Tools classes, calculator glyph               | Documents the defect; not a candidate         |
-| 02 Matched wordmark         | One accent colour, optical trailing padding            | Still a loose glyph, no designed left mass    |
-| 03 Icon-well capsule (rec.) | 32px circular well, soft fill, 48px tap height         | Closest to Tools; well is the designed object |
-| 04 Symmetric pair           | Matching wells left (icon) and right (directory count) | Strongest symmetry; a new grammar vs Tools    |
+| Style      | Chip                                                           |
+| ---------- | -------------------------------------------------------------- |
+| 01 Outline | Hairline pill, icon + label one accent colour, optical padding |
+| 02 Soft    | Soft accent fill, no border, same centred wordmark             |
+| 03 Well    | 32px circular icon well + label                                |
 
-Shared mockup chrome is suppressed because every phone frame draws its own top bar and composer. Tapping **Show all**
-opens the unfiltered directory in that frame.
+Shared mockup chrome is suppressed because each frame draws its own top bar and composer.
 
 ## Production behavior
 
