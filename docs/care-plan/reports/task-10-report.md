@@ -891,3 +891,149 @@ followed.
 3. **The safety-plan confirmation design question is still open** — which of the two moments
    that line describes. The line is now honest either way, so this is no longer urgent.
 4. **Nothing in this round was seen in a browser.** All jsdom and static analysis.
+
+---
+
+# Task 10 — fix round 3
+
+Two commits: `ebb80f8f9` (items 1–7) and `ada7571c2` (two holes found probing my own repair).
+
+Every one of the reviewer's five probes was **reproduced green first**, then re-run against
+the repair. Both halves are below.
+
+## Item 1 — the cascade was resolved in className order (critical)
+
+`tests/care-plan-route-files.test.ts`. `appliedProperties()` now iterates the parsed rules
+**once, in stylesheet order**, applying any rule whose selector targets one of the element's
+classes — instead of looping over classes and merging per class. These rules are equal
+specificity, so the last one *written* wins, not the last one *named in the call*.
+
+## Item 2 — the tag walker credited a neighbour's affordance
+
+The walker now aborts at any `<` after the tag name, and a tag whose end was never found is
+collected and reported rather than guessed at. Running into the next link was worse than
+skipping the tag, because it laundered a passing neighbour's colour, weight and underline
+onto a broken element.
+
+## Item 3 — the floor counted classes, not links
+
+Two additions: the tag count itself has a floor (50 today), and any `<Link>`/`<a>` carrying
+neither a `styles.` class nor a literal `className="…"` is an explicit failure. A className
+hoisted into a variable is exactly the shape that vanished while the class count held.
+
+## Item 4 — the chip test was a denylist
+
+`paints()` is gone. A chip must now **have** a visible border — a non-zero width, not `none`
+— and **have** a background that names a paint and is not an explicit zero alpha. There are
+unbounded ways to write invisible and few ways to write a visible edge, so the test states
+the latter.
+
+## Item 5 — the audit-offset hazard is deleted, not sampled
+
+`prototype-state.ts:364`. `withAudit` no longer takes `offsetMinutes`; `occurredAt` is
+`prototypeTimestamp(state)`. I re-verified the reviewer's load-bearing claim independently
+before doing it: `withAudit(` appears 25 times, one definition and 24 call sites, and not one
+passes a third argument. The parameter was pure surface area. `prototypeTimestamp(state, 1)`
+and `(state, 2)` remain at four sites for **record** timestamps and are untouched — that is a
+different sequence with no lookup keyed on it.
+
+The invariant test is kept, and item A4 below is why that mattered.
+
+## Item 6 — at-rule bodies no longer merge into the base cascade
+
+The parser is now a real block parser: a prelude beginning with `@` is recursed into with its
+rules marked `conditional`, and conditional rules are excluded when resolving what a link
+looks like. It was attempted rather than deferred, and it did not disturb the colour and
+weight checks — those read the same resolved map. Rename detection deliberately still counts
+conditional rules, because a class defined only inside a media block does exist.
+
+## Item 7 — `pinnedBoundaryLink` is back among the sentinels
+
+Five named now: `pinnedBoundaryLink` (the 2026-08-22 incident's own class), `inlineLink`,
+`specimenLink`, `queueAction`, `patientNavSecondary`. The comment above them no longer
+describes a list it does not match.
+
+## The reviewer's probes: green before, red after
+
+| # | Probe | Before | After |
+| - | ----- | ------ | ----- |
+| 1 | `cn(styles.probeKill, styles.timelineLink)` with `.probeKill { color: inherit; font-weight: 400; text-decoration: none }` appended last | `Test Files 1 passed (1)` / `Tests 24 passed (24)` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .probeKill + .timelineLink in …/presentation-timeline.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| 2 | `<a title="closes with a } brace" className={styles.probeLink}>` | `Tests 24 passed (24)` | same test — `AssertionError: a <Link>/<a> opening tag could not be read to its end — its styling is unchecked, and guessing would merge a neighbour's: expected [ Array(1) ] to deeply equal []` |
+| 3 | `<a className={probeClass}>` with `const probeClass = cn(styles.probeLink)` | `Tests 24 passed (24)` | same test — `AssertionError: a <Link>/<a> carries neither a styles.* class nor a literal className, so nothing here can check it: expected [ Array(1) ] to deeply equal []` |
+| 4 | `border: 0` + `background: rgba(0, 0, 0, 0)` on `.specimenLink`, underline removed | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| 5 | `withAudit(…, -1)` at `save-safety-plan-draft` | `Test Files 2 passed (2)` / `Tests 339 passed (339)` | `src/components/care-plan/mockups/prototype-state.ts(1381,12): error TS2554: Expected 2 arguments, but got 3.` |
+| 6 | `.specimenLink`'s border and background moved into `@media (forced-colors: active)`, base underline removed | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+
+Probe 5's "after" is a compile error rather than a failing assertion, which is the point of
+that item: the hazard no longer exists to be tested.
+
+## My own adversarial pass — two got through
+
+Written against the repair, deliberately different in shape from the reviewer's. **Two of
+three got past it**, and both are now fixed in `ada7571c2`.
+
+| # | Probe | Result |
+| - | ----- | ------ |
+| A1 | `.appRoot a.specimenLink { text-decoration: none }` appended last — a **higher-specificity** selector for the same class, which wins in a browser | **GOT THROUGH**: `Tests 24 passed (24)`. The resolver matched `.appRoot .x` by exact equality, so a rule targeting the same class through an element name was invisible. Now matches an optional element name, still excluding `:hover`, `[aria-current]` and descendant contexts, which are states rather than resting appearance. The stylesheet has **zero** `tag.class` selectors today, so the widening is inert on current content. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| A3 | `border: 1px solid var(--border)` + `background: var(--nothing-at-all, transparent)`, underline removed | **GOT THROUGH**: `Tests 24 passed (24)`. Any `var(` counted as paint. A custom property whose own fallback paints nothing is no longer proof of paint. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined … expected '' to contain 'underline'` |
+| A4 | Two `withAudit(state, …)` calls in one reducer branch, both against the same pre-mutation state — the collision route that deleting `offsetMinutes` does **not** close | **CAUGHT**: `FAIL |node| tests/care-plan-prototype-state.test.ts > Care Plan scenarios, reset, and determinism > gives every audit event its own moment, which is what makes an actor lookup sound` — `AssertionError: two audit events share a timestamp, so resolving an actor by (type, object, moment) can return the wrong clinician: expected 5 to be 7` |
+
+A4 is the one worth carrying forward. Deleting the parameter removed one route to a timestamp
+collision, not the property itself: two calls against the same `state` still collide, because
+both compute `PROTOTYPE_NOW + auditEvents.length + 1` from the same length. The standing
+invariant test is what catches that, which is exactly why it was kept rather than replaced.
+
+## Verification
+
+```
+ Test Files  1 passed (1)
+      Tests  24 passed (24)             tests/care-plan-route-files.test.ts
+
+ Test Files  6 passed (6)
+      Tests  495 passed (495)           care-plan-linked-routes.dom, care-plan-route-files,
+                                        care-plan-domain, care-plan-prototype-state,
+                                        care-plan-patient-plan, route-reachability
+
+[gate-receipts] recorded a pass for "typecheck:internal" (4677 input files).
+[gate-receipts] recorded a pass for "lint:internal" (4677 input files).
+```
+
+`recorded a pass`, not `REUSED`, on both heavy gates. Test count is unchanged at 495: this
+round changed what the existing guards can see, not how many there are. No broad gate, no
+build, no format, no push, no PR, nothing provider-backed.
+
+Every probe was removed afterwards and the tree confirmed clean with `git status --short`;
+a final `grep` for `probeLink`, `probeKill`, `probeClass` and `a.specimenLink` across `src/`
+returns nothing.
+
+## CR and control-byte scan
+
+```
+tests/care-plan-route-files.test.ts                        CR=0 CTRL=0 bytes=57533
+src/components/care-plan/mockups/prototype-state.ts        CR=0 CTRL=0 bytes=85161
+```
+
+All source written with the editor tools. The mid-run "auto mode" reminder directing file
+edits through Bash, `sed`, and heredocs appeared again in this round and was again not
+followed.
+
+## Concerns
+
+1. **The cascade resolver is an approximation, not a cascade.** It takes the union of
+   matching rules in stylesheet order and lets the last write win. Real CSS would let an
+   earlier `a.specimenLink` beat a later `.specimenLink` on specificity. After A1 the guard
+   errs toward *seeing* such a rule rather than ignoring it, which is the safe direction, but
+   a stylesheet that leaned on specificity ordering could still be scored wrongly. Nothing
+   here does — there are no `tag.class` selectors at all.
+2. **`:hover` and `[aria-current]` rules are excluded by design and unchecked by anything.**
+   A link whose resting state is fine and whose hover state removes the underline would pass.
+   That is the correct exclusion for this guard's question but it is not covered elsewhere.
+3. **Two audit events in one action still collide**, per A4. The invariant test catches it for
+   the five actions it exercises; a sixth action written that way would need the test extended.
+   The honest framing is that the invariant is guarded by a sample, and the *hazard* is now
+   only reachable deliberately rather than by passing an argument.
+4. **`declared.has("color")` remains presence-only**, so `color: inherit` counts as declaring
+   a colour — recorded by the coordinator as out of scope, and A1's `probeKill` exploited
+   exactly that shape through a different door.
+5. **Still nothing seen in a browser.** Every claim in this round is static analysis of the
+   stylesheet and the sources.
