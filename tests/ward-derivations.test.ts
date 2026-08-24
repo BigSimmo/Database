@@ -9,7 +9,13 @@ import {
   transportLeg,
 } from "../src/components/ward-management/ward-derivations";
 import { eligibility } from "../src/components/ward-management/ward-eligibility";
-import { PARALLEL_REFERRAL_CAP, type TransportJob } from "../src/components/ward-management/ward-model";
+import {
+  DECLINE_REASONS,
+  PARALLEL_REFERRAL_CAP,
+  type Decline,
+  type Movement,
+  type TransportJob,
+} from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { allUnits, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
@@ -22,6 +28,17 @@ function transportJob(overrides: Partial<TransportJob> = {}): TransportJob {
   };
 }
 
+// A real, valid, open fixture movement to spread from when a test needs to inject its own
+// movement list — same approach as tests/ward-pressure.test.ts's `movementFrom`. Object.assign
+// rather than spread, because `{ ...base, ...Partial<T> }` widens every overridden field back to
+// optional under TypeScript's spread-merge rules even though every field is present at runtime.
+const inboxBaseMovement = wardMovements.find((movement) => movement.id === "WF-002");
+if (!inboxBaseMovement) throw new Error("Fixture movement WF-002 is required as a template for ward-derivations tests");
+
+function movementFrom(overrides: Partial<Movement>): Movement {
+  return Object.assign({}, inboxBaseMovement, overrides);
+}
+
 describe("buildActionInbox", () => {
   // RULING 1 (Task 8): buildActionInbox used to build each of its three categories with
   // `.find()`, so it could only ever report one movement per category. Expected numbers here
@@ -29,7 +46,7 @@ describe("buildActionInbox", () => {
   // real count rather than pinning today's fixture size — a shape kept below even though the
   // legal-timing category is dormant (see the next test): if a `dueAt` ever returns to this
   // fixture, `.find()` regressing to one-item-per-category must still be caught here.
-  it("emits one item per movement that carries a breached legal deadline, not just the first", () => {
+  it("emits no legal-timing item for the real fixture, which carries no past-due deadline", () => {
     const expectedIds = wardMovements
       .filter(
         (movement) =>
@@ -49,8 +66,52 @@ describe("buildActionInbox", () => {
     // the past — so this category is empty on today's fixture. `expectedIds`/`items` still
     // agreeing on that, computed independently, is the proof that `buildActionInbox` itself has
     // not silently started fabricating a breach.
+    //
+    // This is an ABSENCE check and cannot catch a `.find()` regression. The positive proof that
+    // the legal category emits one item PER movement lives in the next test, which injects its
+    // own movements rather than relying on a fixture that no longer contains a breach.
     expect(expectedIds).toHaveLength(0);
     expect(items).toEqual(expectedIds);
+  });
+
+  /**
+   * Fix wave 1, finding 3 — the restored `.find()`-regression guard for the legal category.
+   *
+   * The original test asserted `expectedIds.length > 1` against the real fixture. After the
+   * 2026-08-23 correction the fixture carries no past-due 1A/3B at all, so that assertion was
+   * changed to `toHaveLength(0)` and the guard silently stopped guarding: appending `.slice(0, 1)`
+   * to `breachedLegal` in ward-derivations.ts — the exact historical `.find()` regression this
+   * test exists to catch — left the whole suite green (measured: 45 passed).
+   *
+   * `buildActionInbox(movements, now)` takes an explicit array, so the fix is to inject two
+   * qualifying movements instead of hoping the fixture contains some. Both carry a Form **4A**
+   * ("Transport order"), which is about moving a person and is unrelated to the examination
+   * timeline this project's fabrications were about. The `- 20` and `- 90` offsets are arbitrary
+   * test scaffolding chosen to sit in the past; they are NOT Mental Health Act figures and
+   * nothing derives them from one.
+   */
+  it("emits a legal-timing item for EVERY past-due movement, not just the first", () => {
+    const first = movementFrom({
+      id: "TEST-legal-one",
+      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 20 },
+    });
+    const second = movementFrom({
+      id: "TEST-legal-two",
+      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 90 },
+    });
+    const notDue = movementFrom({
+      id: "TEST-legal-not-due",
+      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR + 500 },
+    });
+
+    const items = buildActionInbox([first, second, notDue], NOW_ANCHOR)
+      .filter((item) => item.id.startsWith("legal-"))
+      .map((item) => item.id)
+      .sort();
+
+    // Both past-due movements, and only those two. `.slice(0, 1)` or a `.find()` yields one id
+    // and fails; a filter that ignored `clockState` would also emit the not-due one and fail.
+    expect(items).toEqual(["legal-TEST-legal-one", "legal-TEST-legal-two"]);
   });
 
   // Regression proof for the 2026-08-23 correction: WF-303 is the real fixture Form 1A that an
@@ -67,6 +128,12 @@ describe("buildActionInbox", () => {
     expect(items.find((item) => item.id === "legal-WF-303")).toBeUndefined();
   });
 
+  // Fix wave 2, finding 3. Exactly one fixture movement (WF-009) reaches the cap, so this
+  // fixture-derived test could not catch a one-item regression: `.slice(0, 1)` on
+  // `heavilyDeclined` left it green (measured: 19 passed). It is kept — agreement between two
+  // independently computed lists is still worth pinning — but the positive proof now lives in the
+  // injected test below, and the floor here stops it degrading into a pure absence check if the
+  // fixture ever loses WF-009.
   it("emits one item per movement that reached the parallel-referral cap, not just the first", () => {
     const expectedIds = wardMovements
       .filter((movement) => movement.declines.length >= PARALLEL_REFERRAL_CAP)
@@ -78,9 +145,35 @@ describe("buildActionInbox", () => {
       .map((item) => item.id)
       .sort();
 
+    expect(expectedIds.length, "the fixture no longer contains a capped movement").toBeGreaterThan(0);
     expect(items).toEqual(expectedIds);
   });
 
+  // The `.find()`-regression guard for the declines category, on injected movements so it does not
+  // depend on how many fixture movements happen to qualify. No legal form and no deadline is
+  // involved here at all — this category counts declines.
+  it("emits a declines item for EVERY capped movement, not just the first", () => {
+    const decline = (unitId: string): Decline => ({ unitId, at: NOW_ANCHOR - 60, reason: DECLINE_REASONS[0] });
+    const capped = (id: string): Movement =>
+      movementFrom({ id, declines: [decline("unit-a"), decline("unit-b"), decline("unit-c")] });
+    const underCap = movementFrom({ id: "TEST-declines-under", declines: [decline("unit-a")] });
+
+    expect(capped("TEST-declines-one").declines.length, "fixture assumption: three declines meets the cap").toBe(
+      PARALLEL_REFERRAL_CAP,
+    );
+
+    const items = buildActionInbox([capped("TEST-declines-one"), capped("TEST-declines-two"), underCap], NOW_ANCHOR)
+      .filter((item) => item.id.startsWith("declines-"))
+      .map((item) => item.id)
+      .sort();
+
+    expect(items).toEqual(["declines-TEST-declines-one", "declines-TEST-declines-two"]);
+  });
+
+  // Fix wave 2, finding 3 — checked for the same shape as the declines category above. Two
+  // fixture movements currently qualify, so a one-item regression IS caught here today; the floor
+  // below is what keeps that true if the fixture changes, and the injected test after it does not
+  // depend on the fixture at all.
   it("emits one item per movement with transport accepted but not yet en route, not just the first", () => {
     const expectedIds = wardMovements
       .filter(
@@ -91,6 +184,8 @@ describe("buildActionInbox", () => {
       )
       .map((movement) => `transport-${movement.id}`)
       .sort();
+
+    expect(expectedIds.length, "the fixture no longer contains a stalled transport").toBeGreaterThan(1);
 
     const items = buildActionInbox(wardMovements, NOW_ANCHOR)
       .filter((item) => item.id.startsWith("transport-"))
@@ -145,8 +240,9 @@ describe("buildActionInbox", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  // Task 6A: WF-003 is a real fixture Form 3B, which now honestly carries no dueAt (the Mental
-  // Health Act imposes no post-examination deadline). It must never surface a "legal-WF-003"
+  // Task 6A: WF-003 is a real fixture Form 3B, which honestly carries no dueAt — the clinician,
+  // asked directly, settled that the post-examination clock is elapsed ED wait counting up, not a
+  // countdown, so this model records no deadline for a 3B. It must never surface a "legal-WF-003"
   // inbox item, however long it has been open — a form with no deadline is never breached.
   it("never lists a legal-timing item for a movement whose form has no dueAt", () => {
     const movement = wardMovements.find((candidate) => candidate.id === "WF-003");

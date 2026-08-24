@@ -21,9 +21,9 @@
     "candidateSourceHead": "9b1e7248450cea8af52962b769872c9ff5541761"
   },
   "review": {
-    "status": "approved",
-    "reviewerType": "human",
-    "reviewedBy": "Claude Code (Opus 5) — automated adopt; all six actual renders reviewed in session, human confirmation pending in PR review",
+    "status": "pending",
+    "reviewerType": "automated",
+    "reviewedBy": "Claude Code (Opus 5)",
     "reviewedAt": "2026-08-18T22:37:18Z",
     "candidateSourceHead": "9b1e7248450cea8af52962b769872c9ff5541761"
   },

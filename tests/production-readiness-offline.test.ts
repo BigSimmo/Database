@@ -3,10 +3,95 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { isProviderFreeCodexCloud, openAIReadinessPolicy } from "../scripts/production-readiness";
+import {
+  clinicalAskReadinessFindings,
+  isProviderFreeCodexCloud,
+  openAIReadinessPolicy,
+  validClinicalAskEvidenceArtifact,
+} from "../scripts/production-readiness";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
 
 describe("production readiness provider policy", () => {
+  it("separates Clinical Ask code configuration from approval-gated live evidence", () => {
+    const existing = new Set([
+      "supabase/migrations/20260822120000_expand_answer_feedback_for_clinical_ask.sql",
+      ".local/clinical-ask-evidence/synthetic-evaluation.json",
+    ]);
+    const findings = clinicalAskReadinessFindings(
+      {
+        CLINICAL_ASK_ENABLED: "false",
+        CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED: "false",
+        CLINICAL_ASK_DISABLED_MODES: "",
+        OPENAI_TRANSCRIPTION_MODEL: "gpt-4o-mini-transcribe",
+      },
+      (filePath) => existing.has(filePath),
+      (filePath) =>
+        filePath.endsWith("synthetic-evaluation.json")
+          ? JSON.stringify({
+              area: "synthetic evaluation",
+              issuer: "Synthetic evaluator",
+              target: "seven Clinical Ask modes",
+              date: "2026-08-22",
+              scope: "offline synthetic cases",
+              status: "passed",
+            })
+          : undefined,
+    );
+    expect(findings.filter((finding) => finding.status === "config_present").map((finding) => finding.area)).toEqual([
+      "master flag",
+      "external flag",
+      "emergency denylist",
+      "transcription model",
+      "migration file",
+    ]);
+    expect(findings.find((finding) => finding.area === "synthetic evaluation")?.status).toBe("evidence_supplied");
+    expect(findings.find((finding) => finding.area === "hosted migration")?.status).toBe("not_verified");
+    expect(findings.find((finding) => finding.area === "authority approval")?.status).toBe("not_verified");
+    expect(findings.find((finding) => finding.area === "protected staging canary")?.status).toBe("not_verified");
+    expect(findings.find((finding) => finding.area === "contractual retention and region")?.status).toBe(
+      "not_verified",
+    );
+    expect(findings.find((finding) => finding.area === "physical iPhone acceptance")?.status).toBe("not_verified");
+  });
+
+  it("does not treat empty or unrelated evidence files as readiness passes", () => {
+    expect(validClinicalAskEvidenceArtifact("", "synthetic evaluation")).toBe(false);
+    expect(validClinicalAskEvidenceArtifact("{}", "synthetic evaluation")).toBe(false);
+    expect(
+      validClinicalAskEvidenceArtifact(
+        JSON.stringify({
+          area: "authority approval",
+          issuer: "Reviewer",
+          target: "authority registry",
+          date: "2026-08-22",
+          scope: "registered authorities",
+          status: "approved",
+        }),
+        "synthetic evaluation",
+      ),
+    ).toBe(false);
+    const findings = clinicalAskReadinessFindings(
+      {
+        CLINICAL_ASK_ENABLED: "false",
+        CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED: "false",
+        CLINICAL_ASK_DISABLED_MODES: "",
+        OPENAI_TRANSCRIPTION_MODEL: "gpt-4o-mini-transcribe",
+      },
+      () => true,
+      () => "{}",
+    );
+    expect(findings.filter(({ status }) => status === "evidence_supplied")).toEqual([]);
+  });
+
+  it("blocks a seven-mode launch claim with a non-empty emergency denylist or missing explicit configuration", () => {
+    const findings = clinicalAskReadinessFindings(
+      { CLINICAL_ASK_ENABLED: "true", CLINICAL_ASK_DISABLED_MODES: "therapy-compass" },
+      () => false,
+    );
+    expect(findings.find((finding) => finding.area === "external flag")?.status).toBe("blocked");
+    expect(findings.find((finding) => finding.area === "emergency denylist")?.status).toBe("blocked");
+    expect(findings.find((finding) => finding.area === "transcription model")?.status).toBe("blocked");
+  });
   it("passes the explicit staging declaration to the shared project guard", () => {
     const source = readFileSync(new URL("../scripts/production-readiness.ts", import.meta.url), "utf8");
     expect(source).toContain("SUPABASE_STAGING_PROJECT_REF: process.env.SUPABASE_STAGING_PROJECT_REF");
@@ -72,6 +157,11 @@ describe("production readiness provider policy", () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("Provider capability gap:");
     expect(result.stdout).toContain("CLOUD PROVIDER-FREE READY:");
+    // Local operator receipts are intentionally ignored by Git but may exist in a developer checkout.
+    // The pure finding test above owns the deterministic missing-evidence assertions; this spawned
+    // integration check only requires both readiness areas to be reported.
+    expect(result.stdout).toMatch(/Clinical Ask (?:not verified|evidence supplied) — hosted migration/);
+    expect(result.stdout).toMatch(/Clinical Ask (?:not verified|evidence supplied) — physical iPhone acceptance/);
   });
 
   it("documents local presence fill guidance for safety/query-hash/deep-probe gaps", () => {

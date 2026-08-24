@@ -14,6 +14,22 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 
 **Provider-backed boundary:** `test:live`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, and other OpenAI/Supabase/hosted workflows need **explicit user approval** before agents run them (see root `AGENTS.md`). Prefer offline gates (`verify:cheap`, `verify:pr-local`, `eval:rag:offline`) unless that approval is in the task.
 
+### Windows process-spawn diagnostic
+
+Before investigating a slow `git push`, `gh`, or pre-push guard on a Windows workstation, measure an unrelated local process spawn. In PowerShell:
+
+```powershell
+Measure-Command { node --version }
+```
+
+From `cmd.exe`, invoke the same measurement without relying on shell aliases:
+
+```cmd
+powershell -NoProfile -Command "Measure-Command { node --version }"
+```
+
+Subsecond completion is healthy; if this simple command takes multiple seconds, treat it as host process-spawn starvation rather than a repository or GitHub CLI fault. Close stale Codex and terminal sessions, then retry; reboot the workstation if the condition persists. Do not change Windows Defender, add security exclusions, or otherwise alter Windows security settings as part of this diagnosis.
+
 ## Risk-based selection
 
 Start with the cheapest check that can fail for the changed behavior. Add another check only when it covers a distinct plausible regression that the existing evidence does not. Documentation and policy changes normally need formatting, documentation, syntax, or focused contract checks; localized behavior needs its directly affected test; cross-cutting or uncertain executable changes escalate to the relevant domain or broad gate. Do not routinely stack focused tests, the full unit suite, lint, typecheck, build, and browser checks, and do not rerun an unchanged passing gate.
@@ -44,6 +60,16 @@ export PLAYWRIGHT_KEEP_BUILD_ROOT=true
 ```
 
 `verify:phone-chrome` sets a session keep-root automatically when it runs two or more browser stages, then cleans that root on exit. Its dry-run wording deliberately says **webpack cache reuse**, not build skipping.
+
+**Clean-tree selection behavior (`#5MMK5R`).** `npm run verify:phone-chrome` evaluates working-tree diffs relative to the branch merge-base to identify affected browser contracts and journeys. When run against a clean working tree with no diff relative to base, it selects zero browser stages by design. To test specific browser stages against a clean tree, supply explicit comma-separated paths via `npm run verify:phone-chrome -- --files <paths>` or force all stages via `npm run verify:phone-chrome -- --full=always`.
+
+### Dev Drive trusted package cache verification (#6SMMB4)
+
+On Windows workstations hosting worktrees on a Dev Drive (`D:`, ReFS) where `npm config get cache` resolves to `D:\.npm-cache`, register the whole volume as a trusted Dev Drive (`fsutil devdrv query D:` and `fsutil devdrv trust D:`). Trusting the volume enables Defender performance mode with asynchronous scanning; it does not disable Defender. Querying or trusting a Dev Drive requires an elevated administrator command prompt; non-elevated prompts return `Error 5: Access is denied`.
+
+### PreCompact hook contract and logging (#RZQQBT)
+
+`.claude/hooks/precompact-issues-capture.sh` is log-only and write-isolated. It appends firing receipts to `claude-precompact.log` under the directory from `git rev-parse --git-dir` (the worktree git dir for linked worktrees, not a hardcoded `.git/` path) and stays silent on stdout and stderr. Claude Code surfaces hook stdout to model context for `SessionStart` and `UserPromptSubmit`; `SessionStart` is the post-compaction backstop. The PreCompact hook is a silent audit log, guaranteed never to throw an unhandled error or break an automatic or manual context compaction.
 
 **Refuted levers (do not revive):** persistent Actions cache for the Next webpack tree (~804 MB, evicts browser cache); transporting the critical job's 1.09 GB webpack cache to three shard runners (CI 31285952061 spent 19–67s downloading it and the slowest runner was slower than a cold build); splitting `ui-phone-scroll*` to rebalance `--shard` (siblings still co-land); renaming specs to game alphabetical shard order; Playwright `workers > 1` or blocking retries; dropping Production UI from ordinary UI PRs; Firefox/WebKit on every PR (main/weekly matrix only).
 

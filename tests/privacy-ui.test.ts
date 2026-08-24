@@ -80,6 +80,17 @@ describe("privacy UI", () => {
     expect(markup).toContain("browser session replay is not enabled");
     expect(markup).toContain("rather than validated clinical decision support");
     expect(markup).toContain("degrades to a deterministic source-only answer");
+    expect(markup).toContain("Clinical Ask accepts a typed or dictated question and non-identifying Case Context");
+    expect(markup).toContain("cannot guarantee that text is de-identified");
+    expect(markup).toContain("ephemeral page memory for the current tab");
+    expect(markup).toContain("not placed in the URL or browser history");
+    expect(markup).toContain("not attached to feedback or content-free telemetry");
+    expect(markup).toContain("Clinical Ask audio is held only long enough");
+    expect(markup).toContain("disposed after transcription, cancellation, clear case, account change, or unmount");
+    expect(markup).toContain("external authority search only for an evidence gap");
+    expect(markup).toContain("retains attributable citations and retrieval dates");
+    expect(markup).toContain("not a zero-retention promise");
+    expect(markup).toContain("production readiness must each be verified");
 
     // The provider section states only what the application itself does. A
     // zero-retention or no-training claim is an operator/contractual matter the

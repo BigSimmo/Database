@@ -13,7 +13,10 @@ import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 async function gotoCoordinator(page: Page) {
   await page.goto("/ward-management", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("ward-coordinator")).toBeVisible({ timeout: 15_000 });
+  // A second same-URL navigation can leave a hidden duplicate of the screen
+  // in the tree. Strict getByTestId then fails even though one copy is visible
+  // — match the command-view helper, which waits for a single visible screen.
+  await expect(page.locator('[data-testid="ward-coordinator"]:visible')).toHaveCount(1, { timeout: 15_000 });
   // The console is visible from the first paint, but this dev environment settles the route
   // shortly after (a second same-URL navigation event follows the first). A click issued in
   // that window can be lost even though every element is already visible and stable, so wait
@@ -1120,6 +1123,9 @@ test.describe("Ward Flow coordinator screen", () => {
     // drawer is ever opened — the exact gap the review's own Proof 2 found (a refused HOLD_BED
     // was invisible until the drawer was explicitly clicked open, and the badge never moved).
     await expect(refusalBadge).toHaveText("1 refused");
+
+    // The refusal is visible, with its own real content — not merely the word "refus" surviving
+    // from an empty-state placeholder.
     const drawer = page.getByRole("button", { name: /Exceptions/ });
     await drawer.click();
     const exceptions = page.getByRole("region", { name: "Exceptions" });

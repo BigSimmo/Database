@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "b3e7edcc-8184-4783-8d55-a43b204f036f",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5247dacd-b129-468a-8235-d60a1a7cc341",
+    "reason": "Superseded by origin/main 576ac7b51 (PR #2308), which updates both governance manifests to landed reviewedCommit 883f1007a. Exact merged-head governance contracts pass, so creating this P1 would be stale."
+  }
+}

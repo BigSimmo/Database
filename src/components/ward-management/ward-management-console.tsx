@@ -43,19 +43,21 @@ import styles from "./ward-management.module.css";
 
 /**
  * The "label (code) · …" line for a legal form, shared by the readiness card and the legal
- * panel below. This states an absent `dueAt` explicitly rather than ever formatting an
- * undefined instant, which is how "due NaN:NaN" would ship. Task 6A introduced this for a Form
- * 3B (the Mental Health Act imposes no post-examination deadline, clinician-confirmed); the
- * 2026-08-23 product-owner correction removed every `dueAt` from every Form 1A too — see
- * `LegalForm`'s own doc comment in ward-model.ts. Neither code reaches the `dueAt`-defined
- * branch below any longer, but that branch stays live: the transport/transfer forms (4A/4C, out
- * of scope for this correction) still carry a real `dueAt` and still render through it.
+ * panel below. Neither a Form 1A nor a Form 3B carries a `dueAt` in this model (see `LegalForm`'s
+ * own doc comment in ward-model.ts) — this states that absence explicitly rather than ever
+ * formatting an undefined instant, which is how "due NaN:NaN" would ship.
+ *
+ * The wording is deliberately "no deadline recorded", not "no statutory deadline". It reports
+ * what THIS RECORD holds, which is all we can verify. "No statutory deadline" asserts what the
+ * Mental Health Act requires, and that is a legal claim this prototype is not entitled to make in
+ * either direction — asserting an absence is the same overreach as asserting the seven-day figure
+ * that was deleted on 2026-08-23.
  */
 function legalFormReadinessLine(legalForm: LegalForm): string {
   const named = `${legalForm.label} (${legalForm.code})`;
   return legalForm.dueAt !== undefined
     ? `${named} · due ${formatInstant(legalForm.dueAt)}`
-    : `${named} · no statutory deadline`;
+    : `${named} · no deadline recorded`;
 }
 
 const stageIcons = {
@@ -106,7 +108,7 @@ function MovementPipeline({
 }
 
 export function WardPatientWorkspace({ patientId }: { patientId: string }) {
-  const { movements, units, now } = useWardFlow();
+  const { movements, now, units } = useWardFlow();
   // Read the live, single source of truth rather than the frozen fixture — a patient just
   // referred on the coordinator screen must resolve here too, and a missing id must render an
   // explicit "not found" rather than ever substituting a different movement.

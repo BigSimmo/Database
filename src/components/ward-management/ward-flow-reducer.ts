@@ -1,13 +1,6 @@
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import type {
-  LegalForm,
-  LegalStatus,
-  Movement,
-  MovementStage,
-  Rejection,
-  Unit,
-} from "@/components/ward-management/ward-model";
+import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
 
@@ -111,31 +104,6 @@ function nextReferralId(sequence: number): string {
   return `WF-9${String(sequence).padStart(2, "0")}`;
 }
 
-/**
- * The 1A/3B invariant (spec "Model changes this phase requires": a movement on 1A has no
- * `examination` recorded, a movement on 3B has one) applies at creation too, and every other
- * constructor of a `Movement` already honours it — the hand-authored fixture, the generated
- * fixture (`ward-movements.ts`'s `routineMovements`), and `RECORD_EXAMINATION`'s own 1A-to-3B
- * transition. `RAISE_REFERRAL` was the one runtime constructor that did not (whole-branch review
- * I5): it wrote no `legalForm` at all, whatever `legalStatus` the draft carried, so a non-voluntary
- * referral's own card could read "Referred for psychiatric examination" beside "No legal form
- * recorded for this movement" — the same fact, disagreeing — and its examination could never be
- * recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`).
- *
- * A brand-new referral has never been examined, so the rule collapses to one condition:
- * non-voluntary means a fresh 1A; voluntary means no form at all, exactly like every fixture
- * entry. The 1A carries no `dueAt` — see `LegalForm`'s own doc comment in `ward-model.ts`: as of
- * the 2026-08-23 product-owner correction, neither a 1A nor a 3B carries one.
- */
-function initialLegalForm(legalStatus: LegalStatus): LegalForm | undefined {
-  if (legalStatus === "Voluntary") return undefined;
-  return {
-    code: "1A",
-    label: "Referral for examination",
-    kind: "examination",
-  };
-}
-
 export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): WardFlowState {
   // 1. Role check first, before the event's payload is inspected at all.
   const requiredRole: WardFlowRole = EVENT_ROLE[event.type];
@@ -156,6 +124,18 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         return reject(state, event, `no emergency department found for id ${event.edId}`);
       }
       const sequence = state.referralSequence + 1;
+      // Whole-branch review I5: a raised referral must carry the legal form its own status
+      // implies, or its card reads "Referred for psychiatric examination" beside "No legal form
+      // recorded for this movement" — the same fact disagreeing — and `RECORD_EXAMINATION`
+      // (which refuses unless `legalForm?.code === "1A"`) could never fire on a patient the ED
+      // raised itself. A brand-new referral has never been examined, so only the two
+      // awaiting-examination statuses take a fresh 1A here: an "Involuntary inpatient" has
+      // already been examined and carries a 3B in every fixture record, and a "Voluntary"
+      // referral carries no form at all. The 1A carries no `dueAt` — see `LegalForm`'s own doc
+      // comment in `ward-model.ts`.
+      const awaitingExamination =
+        event.draft.legalStatus === "Referred for psychiatric examination" ||
+        event.draft.legalStatus === "Detained awaiting examination";
       const created: Movement = {
         id: nextReferralId(sequence),
         originEdId: event.edId,
@@ -166,7 +146,13 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         sex: event.draft.sex,
         specialling: event.draft.specialling,
         legalStatus: event.draft.legalStatus,
-        legalForm: initialLegalForm(event.draft.legalStatus),
+        legalForm: awaitingExamination
+          ? {
+              code: "1A",
+              label: "Referral for examination",
+              kind: "examination",
+            }
+          : undefined,
         statusChanges: [],
         stage: "placement_requested",
         owner: department.name,
@@ -174,6 +160,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         declines: [],
         blocker: "Awaiting coordinator referral",
         withdrawnReferrals: [],
+        ...(awaitingExamination ? { formedAt: event.now } : {}),
       };
       return {
         ...state,
@@ -201,10 +188,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
           ...movement,
           examination: { at: event.now, outcome: event.outcome },
           // 1A (awaiting examination) becomes 3B (examined, awaiting a bed) — the statutory
-          // form follows the examination, it is never authored independently of it. The Mental
-          // Health Act imposes no post-examination deadline (clinician-confirmed, Task 6A), so
-          // the 3B carries no dueAt — the patient's wait from here is the ED clock (elapsed,
-          // counting up from `openedAt`), never a legal countdown.
+          // form follows the examination, it is never authored independently of it. The 3B
+          // carries no `dueAt`: this model holds no deadline for it. Stated that way
+          // deliberately — what the record holds is verifiable, whereas what the Mental Health
+          // Act does or does not require is a legal claim this prototype is not entitled to make
+          // in either direction. The question was settled for the 3B by the clinician (Task 6A:
+          // "It is just counting how long they have been in ED determining priority. So counting
+          // up"), so the patient's wait from here is the ED clock (elapsed, counting up from
+          // `openedAt`), never a legal countdown.
           legalForm: {
             code: "3B",
             label: "Inpatient treatment order",

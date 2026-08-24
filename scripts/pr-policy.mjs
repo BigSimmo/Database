@@ -603,7 +603,7 @@ function selfTest() {
   // Clinical reference datasets are clinical output even with no code diff. PR
   // #1489 shipped 205 therapy records past this classifier as non-clinical.
   assert.equal(classifyPullRequestFiles(["src/data/therapies-index.json"]).clinicalRisk, true);
-  assert.equal(classifyPullRequestFiles(["public/therapy-compass-data/therapies-home.json"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["public/therapy-compass-data/pathways.json"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["data/clinical-snapshot.json"]).clinicalRisk, true);
   // Unreviewed clinical content switches and mode reachability in src/lib (#P5542X).
   assert.equal(classifyPullRequestFiles(["src/lib/clinical-content-policy.ts"]).clinicalRisk, true);

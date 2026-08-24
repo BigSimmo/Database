@@ -67,22 +67,23 @@ function capacityLine(unit: Unit) {
 }
 
 /**
- * A `LegalForm` with no `dueAt` states the form and the real elapsed ED time via the existing
- * `elapsedLabel` (never a new formatter), worded as time IN the department rather than time
- * left against anything, so it can never be misread as a statutory countdown the way a bare
- * number next to a form code could be. Task 6A introduced this branch for a Form 3B (the Mental
- * Health Act imposes no post-examination deadline, clinician-confirmed); the 2026-08-23
- * product-owner correction removed every `dueAt` from every Form 1A too — see `LegalForm`'s own
- * doc comment in ward-model.ts. Neither code can reach the `dueAt`-defined branch below any
- * longer, but that branch stays live code, not dead code: the transport/transfer forms (4A/4C,
- * out of scope for this correction) still carry a real `dueAt` and still render "due in N min"
- * or "passed its deadline" through it today.
+ * Neither a Form 1A nor a Form 3B carries a `dueAt` in this model (see `LegalForm`'s own doc
+ * comment in ward-model.ts). For that case this states the form and the real elapsed ED time via
+ * the existing `elapsedLabel` (never a new formatter), worded as time IN the department rather
+ * than time left against anything, so it can never be misread as a statutory countdown the way a
+ * bare number next to a form code could be.
+ *
+ * The wording is deliberately "no deadline recorded", not "no statutory deadline". It reports
+ * what THIS RECORD holds, which is all we can verify. "No statutory deadline" asserts what the
+ * Mental Health Act requires, and that is a legal claim this prototype is not entitled to make in
+ * either direction — asserting an absence is the same overreach as asserting the seven-day figure
+ * that was deleted on 2026-08-23.
  */
 function legalFormLine(movement: Movement, now: Instant) {
   if (!movement.legalForm) return "No legal form recorded for this movement";
   const named = `Form ${movement.legalForm.code} (${movement.legalForm.label})`;
   if (movement.legalForm.dueAt === undefined) {
-    return `${named} — no statutory deadline; ${elapsedLabel(movement, now)} in the emergency department`;
+    return `${named} — no deadline recorded; ${elapsedLabel(movement, now)} in the emergency department`;
   }
   const remaining = minutesUntil(movement.legalForm.dueAt, now);
   return remaining < 0
@@ -418,7 +419,8 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
         {/* Whole-branch review Critical 1: this list was headed "Nearest candidates", a proximity
             claim the model cannot support — `Unit` has no distance, geo, locality or catchment
             field, and `eligibleCandidatesAmong` filters on cohort and sorts eligible-first,
-            breaking ties on the live `units` array's own order. WF-018, sitting in SCGH's own emergency department,
+            breaking ties on the live `units` array's own order. WF-018, sitting in SCGH's own
+            emergency department,
             was shown RPH Older Adult above SCGH Older Adult under that heading. The subtitle
             states the real ordering rather than leaving the reader to assume one. */}
         <h4 className={styles.shortlistSectionHeading}>Candidates</h4>

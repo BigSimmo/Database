@@ -93,13 +93,14 @@ describe("anonymous API rate-limit identity", () => {
 
 describe("withOwnerReadScope", () => {
   function recordingQuery() {
-    const calls: { method: "or" | "is"; argument: string | null }[] = [];
+    const calls: { method: "or" | "is" | "eq"; argument: string | null; column?: string }[] = [];
     const query = {
-      eq() {
+      eq(...args: [column: string, value: unknown]) {
+        calls.push({ method: "eq", column: args[0], argument: String(args[1]) });
         return query;
       },
       is(...args: [column: string, value: null]) {
-        calls.push({ method: "is", argument: args[1] });
+        calls.push({ method: "is", column: args[0], argument: args[1] });
         return query;
       },
       or(filters: string) {
@@ -110,21 +111,44 @@ describe("withOwnerReadScope", () => {
     return { query, calls };
   }
 
-  it("scopes an authenticated read to the caller's rows plus the public corpus", () => {
+  // A null owner is not by itself a publication decision: `documents.owner_id` is
+  // `on delete set null`, so deleting an auth user blanks the owner of every document they
+  // held. Only `publish_approved_documents` writes a null owner deliberately, and it always
+  // stamps `metadata.public_corpus`. These assertions pin the marker into every read path so
+  // an orphaned private document cannot re-enter the public corpus.
+  const publicCorpusMarker = "metadata->>public_corpus.eq.true";
+
+  it("scopes an authenticated read to the caller's rows plus the published public corpus", () => {
     const { query, calls } = recordingQuery();
     const ownerId = "11111111-1111-4111-8111-111111111111";
 
     withOwnerReadScope(query, ownerId);
 
-    expect(calls).toEqual([{ method: "or", argument: `owner_id.eq.${ownerId},owner_id.is.null` }]);
+    expect(calls).toEqual([
+      { method: "or", argument: `owner_id.eq.${ownerId},and(owner_id.is.null,${publicCorpusMarker})` },
+    ]);
   });
 
-  it("scopes an anonymous read to the public corpus", () => {
+  it("scopes an anonymous read to the published public corpus", () => {
     const { query, calls } = recordingQuery();
 
     withOwnerReadScope(query, undefined);
 
-    expect(calls).toEqual([{ method: "is", argument: null }]);
+    expect(calls).toEqual([
+      { method: "is", column: "owner_id", argument: null },
+      { method: "eq", column: "metadata->>public_corpus", argument: "true" },
+    ]);
+  });
+
+  it("never exposes an owner-less document that publication did not mark as public", () => {
+    for (const ownerId of [undefined, "11111111-1111-4111-8111-111111111111"]) {
+      const { query, calls } = recordingQuery();
+
+      withOwnerReadScope(query, ownerId);
+
+      const filters = calls.map((call) => `${call.column ?? ""}${call.argument ?? "null"}`).join("|");
+      expect(filters, `owner ${String(ownerId)} must require the publication marker`).toContain("public_corpus");
+    }
   });
 
   it("fails closed on a non-uuid owner id instead of interpolating PostgREST filter syntax", () => {
@@ -133,7 +157,10 @@ describe("withOwnerReadScope", () => {
 
       withOwnerReadScope(query, ownerId);
 
-      expect(calls).toEqual([{ method: "is", argument: null }]);
+      expect(calls).toEqual([
+        { method: "is", column: "owner_id", argument: null },
+        { method: "eq", column: "metadata->>public_corpus", argument: "true" },
+      ]);
     }
   });
 });

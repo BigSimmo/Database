@@ -28,5 +28,13 @@ export async function generateMetadata({ searchParams }: CompareRouteProps): Pro
 
 export default async function SpecifierCompareRoute({ searchParams }: CompareRouteProps) {
   const params = searchParams ? await searchParams : {};
-  return <SpecifierComparePage initialLeft={first(params.a)} initialRight={first(params.b)} />;
+  const initialLeft = first(params.a);
+  const initialRight = first(params.b);
+  return (
+    <SpecifierComparePage
+      key={`${initialLeft ?? ""}:${initialRight ?? ""}`}
+      initialLeft={initialLeft}
+      initialRight={initialRight}
+    />
+  );
 }

@@ -29,32 +29,12 @@ export const HUB_PANELS: readonly HubPanel[] = [
   { id: "decision-log", name: "Decision log", summary: "Why things are the way they are", group: "work", phase: 4 },
 
   {
-    id: "source-review",
-    name: "Source review queue",
-    summary: "Documents shaping answers most, with no qualified human sign-off",
+    id: "clinical-trust",
+    name: "Clinical trust cockpit",
+    summary: "Quality feedback, source-change impact, and content maturity",
     group: "clinical",
-    phase: 3,
-  },
-  {
-    id: "source-currency",
-    name: "Source currency",
-    summary: "Age, publisher, jurisdiction, superseded guidance",
-    group: "clinical",
-    phase: 3,
-  },
-  {
-    id: "governance-debt",
-    name: "Governance debt",
-    summary: "Missing metadata and unattributed reviews",
-    group: "clinical",
-    phase: 3,
-  },
-  {
-    id: "answer-quality",
-    name: "Answer quality",
-    summary: "Retrieval scores and document quality signals",
-    group: "clinical",
-    phase: 3,
+    phase: 1,
+    href: "/mockups/development/clinical-trust",
   },
   {
     id: "hazard-register",

@@ -77,6 +77,9 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
  */
 export function WardScreen({ unitId }: WardScreenProps) {
   const { movements, units, now, dispatch } = useWardFlow();
+  // Resolved from the provider's live `units`, not the frozen `unitById()` fixture — after
+  // `CONFIRM_CAPACITY` or `HOLD_BED` updates `state.units`, this screen must show the current
+  // bed counts (and gate `holdBlockedReason` on them) rather than the stale fixture value.
   const unit = units.find((candidate) => candidate.id === unitId);
 
   // Declared unconditionally, before the early return below — React hooks must run in the same

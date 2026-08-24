@@ -114,8 +114,10 @@ export async function fetchRemoteVersions(url: string, serviceKey: string): Prom
     throw new Error(
       `Migration history is unreadable on this project. public.migration_history_versions() is not ` +
         `available — apply supabase/migrations/${MIGRATION_HISTORY_VERSIONS_MIGRATION} through the normal ` +
-        `linked migration workflow (an approved window plus \`supabase db push\`; the Supabase GitHub ` +
-        `auto-deploy is off) — and the direct read also failed. ${detail}`,
+        `reviewed migration path. For production, merge the reviewed migration to main in an approved window; ` +
+        `the configured Supabase GitHub integration deploys it, after which the live schema-drift and ` +
+        `migration-history gates must both pass. For non-production, use the documented approved linked-project ` +
+        `procedure. The direct read also failed. ${detail}`,
     );
   }
 }

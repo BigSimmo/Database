@@ -102,8 +102,9 @@ describe("Phase 3 model additions", () => {
   });
 
   // Renamed and inverted 2026-08-23. Task 6A first established that a Form 3B carries no
-  // `dueAt` (the Mental Health Act imposes no post-examination deadline, clinician-confirmed —
-  // the post-examination clock is elapsed ED wait, counting up, never a legal countdown) while
+  // `dueAt`: put to the clinician directly, he settled that the post-examination clock "is just
+  // counting how long they have been in ED determining priority. So counting up," so no
+  // post-examination deadline is recorded for a 3B. That was established while
   // this fixture still gave a Form 1A one. That 1A `dueAt` was never a real statutory figure —
   // it was an unverified number an earlier agent wrote into ward-model.ts from its own
   // recollection of the Act, not from the clinician or product owner. Put to the product owner

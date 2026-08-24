@@ -3,7 +3,13 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
+import {
+  assertAllowedFile,
+  assertFileContentSignature,
+  jsonError,
+  publicErrorResponse,
+  PublicApiError,
+} from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
@@ -154,7 +160,7 @@ export async function POST(request: Request) {
     });
     const file = formData.get("file");
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Missing file field." }, { status: 400 });
+      return publicErrorResponse("Missing file field.", 400, { code: "missing_file" });
     }
 
     assertAllowedFile(file, env.MAX_UPLOAD_MB);
@@ -194,7 +200,8 @@ export async function POST(request: Request) {
     }
 
     const health = await probeSupabaseHealth(adminSupabase);
-    if (!health.ok) return NextResponse.json({ error: `Upload is paused. ${health.message}` }, { status: 503 });
+    if (!health.ok)
+      return publicErrorResponse(`Upload is paused. ${health.message}`, 503, { code: "upload_unavailable" });
 
     assertUploadNotAborted(request);
     const upload = await adminSupabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {

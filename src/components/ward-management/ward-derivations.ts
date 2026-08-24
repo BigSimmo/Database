@@ -330,24 +330,36 @@ export type InboxItem = {
 /**
  * Every item here is computed from real movement fields — nothing is authored.
  *
- * RULING (Task 8): each category uses `.filter()`, never `.find()`. Measured against the real
- * fixture at `NOW_ANCHOR` at the time, several movements carried a breached statutory deadline,
- * one had reached the parallel-referral cap, and two had transport accepted but not departed —
- * a `.find()`-based inbox reported exactly one of each regardless, understating the legal
- * breach count. This is the coordinator's work list, not a report: every qualifying movement
- * gets its own row. (The legal-breach category itself is dormant since the 2026-08-23
- * product-owner correction — see the comment on `breachedLegal` below — but `.filter()` stays
- * the right shape for whichever category is non-empty on a given fixture.)
+ * RULING (Task 8): each category uses `.filter()`, never `.find()`. A `.find()`-based inbox
+ * reported exactly one item per category regardless of how many movements qualified, silently
+ * understating the coordinator's work list.
+ *
+ * Re-measured against the real fixture at `NOW_ANCHOR` on 2026-08-23: **zero** movements carry a
+ * breached legal deadline, one has reached the parallel-referral cap, and two have transport
+ * accepted but not departed. The legal category is empty because the 2026-08-23 product-owner
+ * correction removed every `dueAt` from Forms 1A and 3B (see `LegalForm`'s own doc comment in
+ * ward-model.ts), and the only deadlines left in this fixture — the transport/transfer forms 4A
+ * and 4C — are not currently in the past. An earlier version of this comment claimed five
+ * movements carried a breached statutory deadline; that number described the deleted fabrication
+ * and is not true of any figure in this model.
+ *
+ * The `.filter()` shape stays regardless, for two reasons: the transport category alone still
+ * qualifies two movements today, so `.find()` would still understate the list; and the legal
+ * category is dormant rather than removed, so it must count correctly the moment a form that
+ * legitimately carries a deadline falls due. This is the coordinator's work list, not a report:
+ * every qualifying movement gets its own row.
  */
 export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
   const items: InboxItem[] = [];
 
-  // A form with no `dueAt` is never breached and contributes nothing here — `undefined` must
-  // never reach `clockState`'s arithmetic. As of the 2026-08-23 product-owner correction,
-  // neither a Form 1A nor a Form 3B carries one any longer (Task 6A first established this for
-  // 3B; see `LegalForm`'s doc comment in ward-model.ts) — only the transport/transfer forms
-  // (4A/4C) still do, and none of those are due in the past on today's fixture, so
-  // `breachedLegal` is empty today and no "Legal timing breached" item appears.
+  // A form with no `dueAt` is never breached and contributes nothing here; `undefined` must never
+  // reach `clockState`'s arithmetic. As of the 2026-08-23 product-owner correction that is every
+  // Form 1A and every Form 3B in this model — the record carries no deadline for them. Stated
+  // that way deliberately: what this model holds is a fact about the record, whereas what the
+  // Mental Health Act does or does not require is a legal claim this prototype is not entitled to
+  // make in either direction. The question was settled for the 3B by the clinician (Task 6A:
+  // "It is just counting how long they have been in ED determining priority. So counting up") and
+  // for the 1A by the product owner on 2026-08-23. See `LegalForm`'s doc comment in ward-model.ts.
   const breachedLegal = movements.filter(
     (movement) => movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, now) === "breached",
   );

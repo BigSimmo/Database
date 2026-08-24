@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c186182a-b838-4055-b37e-e9e75457b835",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "No automated reaper for abandoned reindex generations, so crashed mid-builds leak rows and storage indefinitely",
+    "detail": "cleanup_abandoned_document_index_generations is called from exactly one place, scripts/cleanup-abandoned-reindex-generations.ts via npm run reindex:cleanup-staged. No cron.schedule, Railway cron, or CI job references it. Any crash mid-build, or the empty-generation guard at worker/main.ts throwing, leaves staged rows under a never-committed index_generation_id and storage objects under {owner}/images/{doc}/{generation}/ that nothing revisits. Unbounded Postgres row and Storage growth, dependent on an operator remembering to run a janitor. FIX: write storage_cleanup_jobs rows for superseded generations at commit time, where the commit RPC already knows both generation ids.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96RJ9Q4Y7TR4X22WM7B8X"
+  }
+}

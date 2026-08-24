@@ -8,6 +8,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                    | Page content; no fixed phone dock reserve                                      |
 | Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls | Idle shell padding only                                                        |
+| Therapy Recommend (`/therapy-compass/recommend`)             | In-flow clinical-situation composer; no shared composer or phone dock                     | Idle shell padding only                                                        |
 | Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
 | Answer result view                                           | Overlaid glass header plus answer composer dock                                           | Dashboard `#main-content` top/bottom reserves                                  |
 | Document detail/source routes                                | `DocumentViewer` floating composer                                                        | `DocumentViewer` content padding                                               |
@@ -348,6 +349,38 @@ Rail items are `min-h-12` like every other production tap target. Two rails are 
 phone and `min-h-11` would buy back 4px per rail — do not take it. That is the substitution
 `AGENTS.md` calls out, and it reintroduces a known `ui-smoke` sub-pixel flake.
 
+**Band calibration is opt-in, and the default is the generic plan.** `planModeNavBands` fits
+four items from the 33rem band. Medications override that to 42rem — two priority slots plus
+More until every slot fits — because each of its labels carries a count badge, and that is
+now requested explicitly with `rail={{ countedLabels: true }}`. It used to be keyed on
+"exactly four sections", which silently applied medication's width budget to any four-item
+rail: Therapy's four unbadged labels inherited it and sat two-and-More on every phone.
+A rail whose labels carry no badge should pass a `density` from its own label family and
+leave `countedLabels` off — measured against its own labels, not assumed. Therapy's four
+render without truncation from 500px and clip at 430px, which is `balanced-four` (31rem);
+`compact-four` (23rem) does fit four slots on a large phone but clips every one of them.
+
+**Route rails: the sections may be other pages (`/therapy-compass/[slug]`).** Therapy's record
+header declares its sections as that therapy's own routes — the record, its patient sheet, its
+brief intervention, and the comparison — so selecting one navigates rather than swapping a
+panel or scrolling to an anchor. The rail is then "this record's pages", and `activeId` is the
+page you are on.
+
+Two rules follow, and both differ from the panel-swap adopters:
+
+- **A destination whose artefact does not exist is omitted, not disabled.** Not every therapy
+  ships a patient sheet or a brief version, and a rail slot has nowhere to carry the stated
+  reason that `docs/wiring-conventions.md` requires of a disabled control. Dropping the slot
+  is the same answer `useResolvedPageSections` gives for an anchor that is not rendered, so
+  the rail length varies per record by design.
+- **It is guarded by its own test, not by `in-page-nav-route-sections`.** That file asserts a
+  declared section resolves to rendered DOM — an anchor or a panel. A route destination
+  resolves to a navigation call, so `tests/therapy-record-nav.dom.test.tsx` asserts the
+  routing and the omission rule instead.
+
+Therapy's mode-level `ModeNav` is still a separate multi-route pattern and is unaffected: that
+bar moves between Therapy's tools, this rail moves within one record.
+
 ### The differentials presentations workflow keeps its own layout — decided, not pending
 
 `src/components/differentials/differential-presentation-workflow-page.tsx` is **not** being
@@ -424,6 +457,17 @@ in-page navigation work defaults to the DocumentViewer template above.
     omit `source-images` when `visualCount === 0`, and do not require a "Tables and diagrams" sheet row in smoke for
     the empty-images lithium demo doc.
 23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
+
+The PWA notice rules that use `:has(#main-content ...)` are a deliberately
+bounded post-hydration exception. `#main-content` can disappear briefly while
+React replaces streamed route content, so those selectors are unsafe for
+first-paint page geometry and must never become a general shell or composer
+input. Every occurrence stays between the `BEGIN/END post-hydration PWA
+main-content selector allowlist` markers in `globals.css`, where
+`PwaLifecycle` waits for the settled shell signature before mounting notices.
+`tests/pwa-lifecycle.dom.test.tsx` rejects any unclassified occurrence outside
+that block. Add a non-`:has()` ownership signal when geometry is needed before
+hydration; do not widen the allowlist to make a new selector pass.
 
 ## Results band (`SearchResultsHeaderBand`)
 
@@ -595,6 +639,24 @@ only for routes without an addon row; addon routes refine by that row's height.
 
 The clearance is only visible near scroll top, where the header is always
 revealed, so it costs no usable height.
+
+### Streaming shell-presence selector boundary
+
+Next can temporarily remove `#main-content` while it streams a route and React
+hydrates the replacement shell. During that gap every
+`body:has(#main-content...)` selector evaluates false. Geometry driven by one of
+those selectors is therefore safe only when the affected surface cannot mount
+until the app shell is present; otherwise it can paint once with fallback
+geometry and move when `#main-content` returns.
+
+The current exception is deliberately narrow. `PwaLifecycle` holds the PWA
+notice stack until the shell exists, so the phone-hero rules may target
+`.pwa-notice-stack` and descendants of its `.pwa-install-native-sheet`. The
+install-sheet selectors are intentional descendants of the guarded stack, not
+independent consumers. Do not add another `body:has(#main-content...)` geometry
+consumer without giving it the same mount-time shell gate and adding it to the
+explicit allowlist in `tests/pwa-lifecycle.dom.test.tsx`; that contract includes
+an unsafe negative fixture so a newly introduced consumer fails closed.
 
 ### Phone sticky-header mount and settle timing
 

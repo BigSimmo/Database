@@ -74,8 +74,12 @@ describe("migration history remote read", () => {
   it("fails with the remedy named when neither path can read history", async () => {
     stubFetch(({ url }) => (url.includes("/rpc/") ? rpcAbsent() : profileBlocked()));
 
-    await expect(fetchRemoteVersions(URL_, KEY)).rejects.toThrow(MIGRATION_HISTORY_VERSIONS_MIGRATION);
+    const failure = fetchRemoteVersions(URL_, KEY);
+    await expect(failure).rejects.toThrow(MIGRATION_HISTORY_VERSIONS_MIGRATION);
+    await expect(fetchRemoteVersions(URL_, KEY)).rejects.toThrow(/merge the reviewed migration to main/);
+    await expect(fetchRemoteVersions(URL_, KEY)).rejects.toThrow(/GitHub integration deploys it/);
     await expect(fetchRemoteVersions(URL_, KEY)).rejects.toThrow(/PGRST106/);
+    await expect(fetchRemoteVersions(URL_, KEY)).rejects.not.toThrow(/auto-deploy is off/);
   });
 
   it("treats a database with no history table as an error, not an empty history", async () => {

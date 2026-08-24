@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "43122ce4-bfa2-43d1-83b0-f859eae6fc84",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
+    "detail": "At application head 7cf37b530, three post-remediation Windows runs measured mobile-root LCP 7422-8032ms and TBT 747-1381ms versus pre-head 6c0e759 medians 7073ms and 547ms; every post LCP exceeds the pre median. Root requests simultaneously fell 60 to 52 and transfer fell about 14.9KB, so the eager-prefetch removal worked and is not an evidence-backed cause. The comparison is confounded by four concurrent origin/main commits and host-load-sensitive timing. Next: run a quiet-host three-run control on synchronized origin/main and the branch, then use Linux CI traces/analyzer ownership to attribute only if the regression persists. Stop: do not undo the proven CLS/request fixes, raise budgets, or edit opaque chunks from timing alone.",
+    "source": "docs/evidence/performance-remediation-2026-08-23.md; three retained lighthouse-post-* distributions",
+    "issueUlid": "01M0PZ8XJ7GQ5X8TBPRS3BRMSD"
+  }
+}

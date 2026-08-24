@@ -79,23 +79,18 @@ function adoptBaselines(
     artifactDir,
     head,
     write = true,
+    reviewedBy = "Fixture Reviewer",
+    reviewedByLogin,
   }: {
     artifactDir: string;
     head: string;
     write?: boolean;
+    reviewedBy?: string;
+    reviewedByLogin?: string;
   },
 ) {
-  const args = [
-    scriptPath,
-    "--from",
-    artifactDir,
-    "--run-id",
-    "424242",
-    "--head",
-    head,
-    "--reviewed-by",
-    "fixture-reviewer",
-  ];
+  const args = [scriptPath, "--from", artifactDir, "--run-id", "424242", "--head", head, "--reviewed-by", reviewedBy];
+  if (reviewedByLogin) args.push("--reviewed-by-login", reviewedByLogin);
   if (write) args.push("--write");
   return execFileSync("node", args, {
     cwd: fixtureRoot,
@@ -119,7 +114,8 @@ function seedRepository(fixtureRoot: string, awaitingValues: string) {
 }
 
 describe("adopt-visual-baselines.mjs", () => {
-  it("retains unchanged baselines during a partial refresh artifact", () => {
+  // git init + commit + adopt-visual-baselines.mjs under the full suite exceeds the 30s default.
+  it("retains unchanged baselines during a partial refresh artifact", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-partial-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
@@ -160,7 +156,7 @@ describe("adopt-visual-baselines.mjs", () => {
     }
   });
 
-  it("accepts a refresh capture head with empty AWAITING_BASELINE", () => {
+  it("accepts a refresh capture head with empty AWAITING_BASELINE", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-refresh-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
@@ -192,7 +188,7 @@ describe("adopt-visual-baselines.mjs", () => {
     }
   });
 
-  it("refuses to retain a baseline without a passing visual-junit result", () => {
+  it("refuses to retain a baseline without a passing visual-junit result", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-nojunit-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {
@@ -212,7 +208,50 @@ describe("adopt-visual-baselines.mjs", () => {
     }
   });
 
-  it("records per-candidate SHA-256 values that match the written PNGs", () => {
+  it("refuses to stamp GitHub Copilot or other automated attributions as human approval", { timeout: 90_000 }, () => {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-copilot-"));
+    const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
+    try {
+      const head = seedRepository(fixtureRoot, "");
+      for (const id of baselineIds) writePng(fixtureRoot, `tests/__screenshots__/linux/${id}.png`, validPng);
+      commitFixture(fixtureRoot, "seed committed baselines");
+
+      writePng(artifactDir, "test-results/ui-visual-baseline/dashboard-shell-actual.png", validPng);
+      for (const id of baselineIds.slice(1)) {
+        writePng(artifactDir, `tests/__screenshots__/linux/${id}.png`, validPng);
+      }
+      writeVisualJunit(artifactDir, {
+        "dashboard-shell": "failed",
+        "dashboard-shell-phone": "passed",
+        "search-results-band": "passed",
+        "search-results-band-phone": "passed",
+        "document-viewer": "passed",
+        "therapy-compass-home": "passed",
+      });
+
+      expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "GitHub Copilot" })).toThrow(
+        /verified human identity/,
+      );
+      expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "build-service" })).toThrow(
+        /project allowlist/,
+      );
+      expect(() =>
+        adoptBaselines(fixtureRoot, {
+          artifactDir,
+          head,
+          reviewedBy: "Alice",
+          reviewedByLogin: "build-service",
+          write: false,
+        }),
+      ).toThrow(/project allowlist/);
+      expect(() => adoptBaselines(fixtureRoot, { artifactDir, head, reviewedBy: "Alice", write: false })).not.toThrow();
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+      fs.rmSync(artifactDir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("records per-candidate SHA-256 values that match the written PNGs", { timeout: 90_000 }, () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-hash-"));
     const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), "adopt-visual-artifact-"));
     try {

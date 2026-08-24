@@ -252,6 +252,8 @@ describe("DocumentViewer — shell states", () => {
     pendingSearches[1]?.resolve(
       Response.json({
         query: "second query",
+        pageHits: [2],
+        hitCount: 1,
         results: [
           {
             id: "second-hit",
@@ -272,6 +274,8 @@ describe("DocumentViewer — shell states", () => {
     pendingSearches[0]?.resolve(
       Response.json({
         query: "first query",
+        pageHits: [1],
+        hitCount: 1,
         results: [
           {
             id: "first-hit",
@@ -302,6 +306,8 @@ describe("DocumentViewer — shell states", () => {
     pendingSearches[2]?.resolve(
       Response.json({
         query: "closing query",
+        pageHits: [3],
+        hitCount: 1,
         results: [
           {
             id: "closed-hit",
@@ -324,6 +330,47 @@ describe("DocumentViewer — shell states", () => {
     fireEvent.keyDown(reopenedSearch, { key: "Escape" });
     expect(screen.queryByRole("textbox", { name: "Search within this document" })).toBeNull();
     await waitFor(() => expect(searchTrigger).toHaveFocus());
+  });
+
+  it("fails closed when document search returns a malformed success payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("/search?")) {
+          return Response.json({ query: "clozapine", results: {}, pageHits: [], hitCount: 0 });
+        }
+        return Response.json({ error: "Unexpected request" }, { status: 404 });
+      }),
+    );
+
+    render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detailPayload()} />);
+    const searchTriggers = await screen.findAllByRole("button", { name: "Search document" });
+    fireEvent.click(searchTriggers[1]!);
+    fireEvent.change(await screen.findByRole("textbox", { name: "Search within this document" }), {
+      target: { value: "clozapine" },
+    });
+
+    expect(await screen.findByText("Document search returned an invalid response.")).toBeVisible();
+  });
+
+  it("fails closed when document detail returns a malformed success payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).includes("/signed-url")) {
+          return Response.json(
+            { error: "Preview unavailable", message: "Preview unavailable", code: "preview" },
+            { status: 503 },
+          );
+        }
+        return Response.json({ document: { id: "doc-1", title: "Incomplete" } });
+      }),
+    );
+
+    render(<DocumentViewer documentId="doc-1" initialPage={1} />);
+
+    await waitFor(() => expect(screen.getByText("Document details returned an invalid response.")).toBeVisible());
+    expect(screen.queryByRole("heading", { level: 1, name: "Incomplete" })).toBeNull();
   });
 
   // A private document's signed URL is a bearer link. The viewer holds the

@@ -52,6 +52,9 @@ import {
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
+import { parseApiErrorResponse } from "@/lib/api-client-error";
+import { parseApiSuccessResponse } from "@/lib/api-success-response";
+import { documentDetailResponseSchema, documentSearchResponseSchema } from "@/lib/document-client-contracts";
 import {
   canSkipDetailRequest,
   documentLoadKey,
@@ -632,10 +635,13 @@ export function DocumentViewer({
               signal: controller.signal,
               headers: clientDemoMode ? undefined : authorizationHeader,
             }).then(async (response) => {
-              const payload = await response.json();
               if (response.status === 401) markSessionExpired();
-              if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
-              return payload as DocumentDetailPayload;
+              if (!response.ok) throw await parseApiErrorResponse(response);
+              return (await parseApiSuccessResponse(
+                response,
+                documentDetailResponseSchema,
+                "Document details returned an invalid response.",
+              )) as DocumentDetailPayload;
             });
         // Navigation keeps the current preview; a full load re-issues only the preview URL.
         const previewRequest = isFullReload
@@ -781,10 +787,13 @@ export function DocumentViewer({
         headers: clientDemoMode ? undefined : authorizationHeader,
       })
         .then(async (response) => {
-          const payload = await response.json();
           if (response.status === 401) markSessionExpired();
-          if (!response.ok) throw new Error(payload.error || "Document search could not be loaded.");
-          return payload;
+          if (!response.ok) throw await parseApiErrorResponse(response);
+          return parseApiSuccessResponse(
+            response,
+            documentSearchResponseSchema,
+            "Document search returned an invalid response.",
+          );
         })
         .then((payload) => {
           if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
@@ -794,7 +803,7 @@ export function DocumentViewer({
             setDocumentSearchError("Document search returned an outdated response. Retry the search.");
             return;
           }
-          setDocumentSearchState({ query, results: Array.isArray(payload.results) ? payload.results : [] });
+          setDocumentSearchState({ query, results: payload.results });
           setDocumentSearchError(null);
         })
         .catch((error) => {

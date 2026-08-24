@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c48454d1-86d0-4f12-8b98-ee897fd3e97f",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "isPublicDocument ranks caller-adjacent metadata above owner_id",
+    "detail": "src/lib/documents/is-public-document.ts:49-61 returns true for metadata.public_corpus, is_public, public, visibility === 'public' or source_kind === 'registry_record' BEFORE consulting owner_id at :64 - a second, weaker definition of public than the one the DB and publish_approved_documents use. Not exploitable today: upload metadata is server-constructed and bulk edit accepts only a fixed key schema. But the function is exported as a standardized predicate and documented for reuse, so the next access decision that adopts it inherits a metadata-driven publication bypass. FIX: make owner_id === null the first and authoritative check, or scope the helper to rendering only.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96SX1N8B1761WQVS47HGA"
+  }
+}

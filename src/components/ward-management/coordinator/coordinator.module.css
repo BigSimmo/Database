@@ -547,7 +547,7 @@
 }
 
 /*
- * `eligibleCandidates` sorts eligible-first but never filters, so a shortlisted unit can still
+ * `eligibleCandidatesAmong` sorts eligible-first but never filters, so a shortlisted unit can still
  * fail a gate (Critical 1 — already declined, wrong security tier, stale capacity, ...). This
  * line must never look like the eligible route above: dashed, and danger-toned rather than
  * accent-toned, so the arrow itself does not read as an endorsement of a route the data denies.

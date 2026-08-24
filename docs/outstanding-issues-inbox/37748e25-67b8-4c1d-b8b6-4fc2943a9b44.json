@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "37748e25-67b8-4c1d-b8b6-4fc2943a9b44",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#BSBE9B",
+    "outcome": "Resolved 2026-08-23 by truthfully versioning the existing hard-table corpus as docling-lab-fixtures.v2 (manifest.v2.json) while retaining 36 synthetic fixtures and 10 hostile files. The table_heavy set contains actual unruled, colSpan-merged, and rotated-header geometry; representative tables for each shape now carry number, number/unit, and comparator assertions whose strings exist only in that table. validateLabManifest fails closed if a shape, real span, table binding, or scoped exactness coverage disappears. The benchmark still imports the existing legacy extractor read-only; src/lib/extractors/document.ts, worker/python/extract_pdf_assets.py, worker/python/requirements.txt, and both lab dependency files remain byte-identical to origin/main. Evidence: focused Vitest 23/23 passed; npm run check:docling-lab passed (36 fixtures, 10 hostile, 6 canaries); mutation probes for all three shapes and prose leakage passed. No worker, Supabase, provider, lock regeneration, or aggregate snapshot change. The full owner-dispatched v2 benchmark remains deliberately unrun, and documentation continues to block any table-quality promotion until that separate evidence is recorded.",
+    "baseRowFingerprint": "ba9c4a5bb2bba7bb11417c5df79cbbfc89db22d5fa2360108cc0c7b0fcb73d69"
+  }
+}

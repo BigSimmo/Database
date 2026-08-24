@@ -3,7 +3,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
 import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { env, isDemoMode } from "@/lib/env";
-import { jsonError, PublicApiError } from "@/lib/http";
+import { jsonError, publicErrorResponse, PublicApiError } from "@/lib/http";
 import { buildStorageCleanupJobUpdate } from "@/lib/ingestion";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
 import { clearCachedSignedUrlsForDocument } from "@/lib/signed-url-cache";
@@ -133,7 +133,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const { id: rawId } = await params;
     if (isDemoMode()) {
-      return NextResponse.json({ error: "Demo documents cannot be renamed." }, { status: 400 });
+      return publicErrorResponse("Demo documents cannot be renamed.", 400, { code: "demo_mode_unavailable" });
     }
 
     const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
@@ -149,7 +149,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .maybeSingle();
 
     if (documentError) throw new Error(documentError.message);
-    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    if (!document) return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
     if (document.title.trim() === body.title) {
       throw new PublicApiError("Document title is unchanged.");
     }
@@ -196,7 +196,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   try {
     const { id: rawId } = await params;
     if (isDemoMode()) {
-      return NextResponse.json({ error: "Demo documents cannot be deleted." }, { status: 400 });
+      return publicErrorResponse("Demo documents cannot be deleted.", 400, { code: "demo_mode_unavailable" });
     }
 
     const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
@@ -214,7 +214,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (!parsedResult.success) throw new Error("delete_document_if_idle returned an invalid result.");
     const result = parsedResult.data;
     if (result.outcome === "not_found") {
-      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+      return publicErrorResponse("Document not found.", 404, { code: "document_not_found" });
     }
     if (result.outcome === "active_job") {
       throw new PublicApiError(

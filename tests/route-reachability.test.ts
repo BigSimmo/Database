@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
+import { colourCodingReferenceHref } from "@/lib/reference-routes";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
 import { collectSiteMapData } from "../scripts/generate-site-map";
 
@@ -479,6 +480,7 @@ for (const mode of appModeDefinitions) {
   for (const href of hrefs) builderTargets.add(pathOnly(href));
 }
 for (const tool of tools) builderTargets.add(pathOnly(tool.href));
+builderTargets.add(pathOnly(colourCodingReferenceHref()));
 
 // ModeNav destinations are data (registry href strings rendered as <Link>s), so
 // a JSX/router scan never sees `/differentials/compare` and peers as literals.

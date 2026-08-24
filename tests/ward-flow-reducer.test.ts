@@ -265,12 +265,15 @@ describe("new referrals", () => {
 
   /**
    * Whole-branch review I5: RAISE_REFERRAL used to write no `legalForm` at all, whatever
-   * `legalStatus` the draft carried, so a non-voluntary referral could never have its examination
-   * recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`). This pins the
-   * 1A/3B invariant at creation, the same rule the fixture's own `routineMovements` generator
-   * already follows, so the runtime creator can never drift from it again.
+   * `legalStatus` the draft carried, so a referral awaiting examination could never have its
+   * examination recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`). The
+   * two tests below pin both halves of the rule at creation: a voluntary referral gets no form,
+   * and an awaiting-examination one gets a real, examinable 1A. An "Involuntary inpatient" draft
+   * is deliberately covered by neither — that patient has already been examined and carries a 3B
+   * in every fixture record, and whether a 1A should ever be authored for one is an open
+   * clinical question for the product owner, not something this test may decide.
    */
-  it("gives a non-voluntary referral a fresh Form 1A, and a voluntary one no form at all", () => {
+  it("gives a voluntary referral no legal form at all", () => {
     const voluntary = wardFlowReducer(seeded(), {
       type: "RAISE_REFERRAL",
       role: "ed",
@@ -287,13 +290,15 @@ describe("new referrals", () => {
     });
     const voluntaryCreated = voluntary.movements[voluntary.movements.length - 1];
     expect(voluntaryCreated.legalForm).toBeUndefined();
+    // `formedAt` is stamped only for a referral awaiting examination, so its absence here is
+    // the other half of the same gate.
+    expect(voluntaryCreated.formedAt).toBeUndefined();
+  });
 
-    for (const legalStatus of [
-      "Referred for psychiatric examination",
-      "Detained awaiting examination",
-      "Involuntary inpatient",
-    ] as const) {
-      const state = wardFlowReducer(seeded(), {
+  it.each(["Referred for psychiatric examination", "Detained awaiting examination"] as const)(
+    "creates an examinable Form 1A for a %s referral",
+    (legalStatus) => {
+      const referred = wardFlowReducer(seeded(), {
         type: "RAISE_REFERRAL",
         role: "ed",
         now: NOW,
@@ -307,20 +312,27 @@ describe("new referrals", () => {
           urgency: 2,
         },
       });
-      const created = state.movements[state.movements.length - 1];
-      expect(created.legalForm?.code).toBe("1A");
-      // 2026-08-23: RAISE_REFERRAL still creates a Form 1A for a non-voluntary referral (I5 is
-      // unchanged), but the form carries no `dueAt` any longer (see `LegalForm`'s own doc
-      // comment in ward-model.ts).
+      const created = referred.movements.at(-1)!;
+      // 2026-08-23 product-owner correction: a raised Form 1A carries no legal deadline. The
+      // `toEqual` below is exact, so an extra `dueAt` key would already fail it — but the
+      // explicit assertion that follows names the intent, so a later reader cannot read the
+      // absence as an oversight in the object literal.
+      expect(created.legalForm).toEqual({
+        code: "1A",
+        label: "Referral for examination",
+        kind: "examination",
+      });
       expect(created.legalForm?.dueAt).toBeUndefined();
-      // The 1A/3B invariant's other half: a movement on 1A never carries an examination.
+      expect(created.formedAt).toBe(NOW);
+      // Kept from the branch: the 1A/3B invariant's other half — a movement on 1A never carries
+      // an examination.
       expect(created.examination).toBeUndefined();
 
-      // R79, adopted from the diverged branch (`2c9c56e24`) and adapted: asserting the 1A exists
-      // is weaker than I5's actual claim, which is that the form is EXAMINABLE. `RECORD_EXAMINATION`
-      // refuses unless `legalForm?.code === "1A"`, so driving the round trip here is what proves
-      // the created form is the real thing rather than a shaped object that merely looks like one.
-      const examined = wardFlowReducer(state, {
+      // R79: asserting the 1A exists is weaker than I5's actual claim, which is that the form is
+      // EXAMINABLE. `RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`, so driving the
+      // round trip here is what proves the created form is the real thing rather than a shaped
+      // object that merely looks like one.
+      const examined = wardFlowReducer(referred, {
         type: "RECORD_EXAMINATION",
         role: "ed",
         now: NOW + 1,
@@ -328,11 +340,13 @@ describe("new referrals", () => {
         outcome: "inpatient_order",
       });
       expect(examined.rejections).toEqual([]);
-      const afterExamination = examined.movements.find((candidate) => candidate.id === created.id)!;
+      const afterExamination = movement(examined, created.id);
       expect(afterExamination.legalForm?.code).toBe("3B");
+      // Kept from the branch: the 3B's own absence of a deadline is pinned explicitly here too,
+      // not merely left uncontradicted.
       expect(afterExamination.legalForm?.dueAt).toBeUndefined();
-    }
-  });
+    },
+  );
 });
 
 describe("purity", () => {
@@ -363,9 +377,10 @@ describe("examination", () => {
     const target = movement(next, "WF-001");
     expect(target.examination).toEqual({ at: NOW, outcome: "inpatient_order" });
     expect(target.legalForm?.code).toBe("3B");
-    // Task 6A: the Mental Health Act imposes no post-examination deadline, so the reducer-
-    // produced 3B must carry no dueAt at all — pinned as an explicit absence, not merely no
-    // longer contradicted by a stale expected value.
+    // Task 6A: the clinician settled that the post-examination clock is elapsed ED wait,
+    // counting up, never a countdown — so no post-examination deadline is recorded for a 3B, and
+    // the reducer-produced 3B must carry no dueAt at all. Pinned as an explicit absence, not
+    // merely no longer contradicted by a stale expected value.
     expect(target.legalForm?.dueAt).toBeUndefined();
   });
 

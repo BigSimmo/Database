@@ -18,12 +18,8 @@ describe("Therapy global-site convergence", () => {
   });
 
   it("supports Therapy records through the account favourite contract", () => {
-    expect(read("src/components/account-data-provider.tsx")).toContain(
-      '"service" | "form" | "differential" | "therapy"',
-    );
-    expect(read("src/app/api/account/favourites/route.ts")).toContain(
-      'z.enum(["service", "form", "differential", "therapy"])',
-    );
+    expect(read("src/lib/favourites-contract.ts")).toContain('z.enum(["service", "form", "differential", "therapy"])');
+    expect(read("src/app/api/account/favourites/route.ts")).toContain("favouriteItemReferenceShape");
     expect(read("supabase/migrations/20260814150000_add_therapy_favourites.sql")).toContain(
       "'differential', 'therapy'",
     );
