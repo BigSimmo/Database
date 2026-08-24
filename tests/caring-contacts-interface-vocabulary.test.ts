@@ -141,7 +141,7 @@ describe("caring-contacts interface vocabulary (B3)", () => {
       expect(offences.length).toBeGreaterThan(0);
       expect(offences.some((offence) => offence.includes("campaign"))).toBe(true);
     } finally {
-      rmSync(fixtureDir, { recursive: true, force: true });
+      rmSync(fixtureDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
