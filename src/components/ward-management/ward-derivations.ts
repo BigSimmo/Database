@@ -113,6 +113,11 @@ export function isOpen(movement: Movement): boolean {
 export function destinationNoLongerLawful(movement: Movement, units: Unit[]): Unit | undefined {
   if (!isOpen(movement)) return undefined;
   if (!requiresAuthorisedDestination(movement.legalStatus)) return undefined;
+  // Redundant by behaviour, kept for readability: the `find` below would return `undefined` for an
+  // undefined id anyway, so removing this line is behaviour-preserving and no test can observe it.
+  // Recorded rather than deleted so a future reader does not mistake it for load-bearing — and
+  // recorded rather than left silent because mutating it is the one mutation in this function that
+  // does not kill its test, which is a property of the line, not a gap in the test.
   if (movement.acceptedUnitId === undefined) return undefined;
   const unit = units.find((candidate) => candidate.id === movement.acceptedUnitId);
   if (unit === undefined) return undefined;
