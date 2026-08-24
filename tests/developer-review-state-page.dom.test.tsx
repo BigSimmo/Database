@@ -13,6 +13,23 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
 }));
 
+vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/developer-area/repo-awareness-snapshot")>();
+  return { ...actual, loadRepoAwarenessSnapshot: vi.fn(actual.loadRepoAwarenessSnapshot) };  it("renders a clear empty state instead of an empty review list", () => {
+    vi.mocked(loadRepoAwarenessSnapshot).mockReturnValue({
+      ...snapshot,
+      review_state: { ...snapshot.review_state, records: [], counts: { records: 0, refs: 0 } },
+    });
+
+    render(<DeveloperReviewStatePage />);
+
+    expect(screen.getByTestId("developer-review-state-empty")).toHaveTextContent(
+      "No immutable review records are committed.",
+    );
+    expect(screen.queryByTestId("developer-review-state-records")).not.toBeInTheDocument();
+  });
+});
+
 const snapshot = loadRepoAwarenessSnapshot();
 
 describe("developer review state page", () => {
@@ -22,7 +39,7 @@ describe("developer review state page", () => {
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/Repository/);
   });
 
-  it("shows records and distinct refs as separate readable values", () => {
+  it("shows records and distinct recorded refs as separate readable values", () => {
     render(<DeveloperReviewStatePage />);
     expect(screen.getByTestId("developer-review-state-count-records-value")).toHaveTextContent(
       String(snapshot.review_state.counts.records),
@@ -30,6 +47,7 @@ describe("developer review state page", () => {
     expect(screen.getByTestId("developer-review-state-count-refs-value")).toHaveTextContent(
       String(snapshot.review_state.counts.refs),
     );
+    expect(screen.getByText("distinct recorded refs")).toBeInTheDocument();
   });
 
   it("states what the page does not show, so a reader cannot infer live pull-request state", () => {
