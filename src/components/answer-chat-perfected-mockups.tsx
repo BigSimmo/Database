@@ -477,8 +477,9 @@ function DrawerPanel({
   // panel remounts per source) so keyboard and screen-reader users land
   // inside it instead of staying on the now-covered trigger behind it.
   const dialogRef = useRef<HTMLDivElement>(null);
+  const initialFocusRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    dialogRef.current?.focus();
+    initialFocusRef.current?.focus();
   }, []);
 
   // The backdrop is not focusable, so keyboard events must be observed on
@@ -556,6 +557,7 @@ function DrawerPanel({
         {/* One chrome row: which source you are on, and the way out. */}
         <div style={{ paddingBottom: 6 }} className="flex items-center gap-1 px-2 pt-2">
           <button
+            ref={initialFocusRef}
             type="button"
             onClick={() => step(-1)}
             aria-label="Previous source"
