@@ -393,11 +393,13 @@ rendered heading of the empty state.
 
 One Critical, one Important, three Minors. All addressed.
 
-| SHA          | What                                                                    |
-| ------------ | ----------------------------------------------------------------------- |
-| `6a51a29c6`  | C1 and its M5 extension — the predicate moved into the sealed domain    |
-| `4f6b72285`  | I2, M6, M7                                                              |
-| _(this one)_ | This report section                                                     |
+| SHA          | What                                                                          |
+| ------------ | ----------------------------------------------------------------------------- |
+| `6a51a29c6`  | C1 and its M5 extension — the predicate moved into the sealed domain          |
+| `4f6b72285`  | I2, M6, M7                                                                    |
+| `baf709d41`  | The coordinator's own commit, recording both owner decisions and this section |
+| `7e6da48b8`  | The mobile number, per the owner's reversal of my Concern 4                   |
+| _(this one)_ | The addendum below, and this corrected table                                  |
 
 ## C1 — the schedule summary told the reader a cancelled plan would still be sent
 
@@ -491,7 +493,7 @@ That I wrote the true version in my report and the false version in the comment 
 this finding, not a mitigation: the comment is what the next implementer reads.
 
 **Corrected the comment, not the disclosure.** It now lists which suite names which screen, states
-plainly that being in the array carries no proof by itself, and says what the array *is*
+plainly that being in the array carries no proof by itself, and says what the array _is_
 load-bearing for — the offline screens gate. It also records that parameterising the blocks is filed
 as its own work, and why the service-stop block needs deliberate handling.
 
@@ -532,15 +534,15 @@ with `git diff --stat` as a separate step before any test was run; never chained
 
 | #     | Mutation                                                                       | Covering test          | Verdict                                                             |
 | ----- | ------------------------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------- |
-| R1-M1 | overview: revert to the suppressed-only predicate the review rejected          | patient-overview.dom   | **RED** `3 failed \| 20 passed (23)`                                 |
+| R1-M1 | overview: revert to the suppressed-only predicate the review rejected          | patient-overview.dom   | **RED** `3 failed \| 20 passed (23)`                                |
 | R1-M2 | model: classify `cancelled` as still to send                                   | patient-overview.dom   | **NO SUMMARY LINE — and that is the catch, not a miss** (see below) |
-| R1-M3 | model: classify `missed` as still to send                                      | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                 |
-| R1-M4 | repository: count a still-to-send contact as already sent                      | patient-overview.dom   | **RED** `4 failed \| 19 passed (23)`                                 |
-| R1-M5 | overview: explain only suppression, leaving a cancelled row bare (the M5 half) | patient-overview.dom   | **RED** `3 failed \| 20 passed (23)`                                 |
-| R1-M6 | overview: claim a still-running plan ended when a message is cancelled         | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                 |
-| R1-M7 | overview: restore the future-tense sentence for a plan with nothing to send    | patient-overview.dom   | **RED** `2 failed \| 21 passed (23)`                                 |
-| R1-M8 | directory: link the row at a wrong-but-well-formed patient route (M6's pin)    | patients-directory.dom | **RED** `1 failed \| 31 passed (32)`                                 |
-| R1-M9 | page: let `?plan=` fall through to the chooser with one plan (M7's pin)        | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                 |
+| R1-M3 | model: classify `missed` as still to send                                      | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                |
+| R1-M4 | repository: count a still-to-send contact as already sent                      | patient-overview.dom   | **RED** `4 failed \| 19 passed (23)`                                |
+| R1-M5 | overview: explain only suppression, leaving a cancelled row bare (the M5 half) | patient-overview.dom   | **RED** `3 failed \| 20 passed (23)`                                |
+| R1-M6 | overview: claim a still-running plan ended when a message is cancelled         | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                |
+| R1-M7 | overview: restore the future-tense sentence for a plan with nothing to send    | patient-overview.dom   | **RED** `2 failed \| 21 passed (23)`                                |
+| R1-M8 | directory: link the row at a wrong-but-well-formed patient route (M6's pin)    | patients-directory.dom | **RED** `1 failed \| 31 passed (32)`                                |
+| R1-M9 | page: let `?plan=` fall through to the chooser with one plan (M7's pin)        | patient-overview.dom   | **RED** `1 failed \| 22 passed (23)`                                |
 
 **R1-M2 needs its own sentence, because "no summary line" normally means a gate did not run and here
 it means something better.** I reproduced it in isolation rather than assuming. Classifying
@@ -555,3 +557,92 @@ is a stronger outcome than a red test. It is recorded as what it is rather than 
 "no summary line" and "the gate proved something" must never be allowed to look alike in a ledger.
 R1-M3 is the control: `missed` is not in `TERMINAL_CONTACT_STATES`, so that mutation loads cleanly
 and is caught by an ordinary red test rather than by the guard.
+
+## Addition to round 1 — the mobile number is shown (owner decision)
+
+My Concern 4 withheld the patient's mobile number and flagged the choice rather than deciding it
+silently. The reviewer recommended leaving it hidden; **the owner overruled that and it is now
+shown.** Commit `7e6da48b8`. (That SHA was written from memory in the first draft of this
+section and was wrong; it is read from `git log` here. A commit id is evidence, and evidence
+is not recalled.)
+
+**I checked for a guard before building it, as instructed, and none objects.** Two things in the
+tree look like they might and do not:
+
+- `audit.ts`'s `AU_MOBILE_NUMBER_PATTERN` and `assertAuditEventFreeOfPatientData` bind **audit
+  events** — they stop a number reaching the trail. Nothing on this path writes one to an event; the
+  episode read records `{ view, episode, <planId> }` and no field of it can carry a number.
+- `caring-contact-mockups.dom.test.tsx`'s "prohibition on echoing a patient mobile number" binds
+  **patient-visible message copy** — the outgoing SMS and the automated reply. A clinician screen is
+  not that surface.
+
+No de-identification guard, no snapshot, and no static scan over number-shaped strings applies to
+components. So there was nothing to work around and nothing to report back as a conflict.
+
+**What was built, against each requirement:**
+
+- **On the identity strip, beside the name.** It sits immediately under the synthetic identifier,
+  inside the same identity section as the heading — not in a detail row further down.
+- **From the `Episode` already in hand.** No read was added and none widened. The module note now
+  states that the licence does not travel: `listPatientNames`'s two-field return type structurally
+  cannot carry a number, and no other surface calls `getEpisode`.
+- **The cleared case says which it is.** A retention clearance blanks the field, so a blank prints
+  `Mobile number: no number held for this episode` rather than an empty-looking gap. The no-name
+  notice was also corrected — it now says no number is held either, since the clearance empties both
+  and the notice previously described only the name.
+- **Labelled synthetic in place**, in the screen's own voice: `— invented, and nothing in this
+workspace is ever sent to it`. Checked against `CARING_CONTACTS_PROHIBITED_LANGUAGE`; the wording
+  avoids it, and the full suite's vocabulary scan passes.
+- **Text, never a `tel:` link**, and not a control, so no tap floor applies. Design tokens only; no
+  hex.
+
+**Coverage:** three tests — the number renders for a plan that holds one and carries its synthetic
+label; a cleared plan says "no number held" and does not render the number; and nothing on the page
+is a `tel:` link.
+
+## Not this round
+
+The owner has approved storing the first-contact reason, which closes Ruling 96's gap. It needs a
+column, a migration and both stores, and is its own task. **I have not started it**, and the round-1
+text above still describes the gap as it stands in this branch.
+
+## Gates — round 1
+
+Every gate below actually ran and printed its own summary. Two lock refusals happened and neither is
+reported as a result.
+
+| Gate                | Result                                                                    |
+| ------------------- | ------------------------------------------------------------------------- |
+| `npm run test`      | `Tests  10019 passed \| 74 skipped (10093)` (830 files passed, 3 skipped) |
+| `npm run typecheck` | exit 0, `[gate-receipts] recorded a pass for "typecheck:internal"`        |
+| `npm run lint`      | exit 0, `--max-warnings 0`, `recorded a pass for "lint:internal"`         |
+| `prettier --check`  | clean on every changed file                                               |
+
+**Two lock refusals, handled rather than reported as outcomes.** The first was mine: a foreground
+`npm run test` exceeded a tool timeout, the wrapper was detached but its vitest child kept running
+and kept the lease, and my next run was refused with `Another Database heavyweight command is
+active`. I confirmed the PID was genuinely alive (and had a live vitest child, 467 MB and growing)
+before touching anything, then terminated **my own** orphaned run — releasing my lease, not forcing
+past somebody else's — and the retry acquired cleanly.
+
+The second was another worktree's: `npm run typecheck` returned
+`DATABASE_HEAVY_RUN_ADMISSION_BUSY`, naming `D:\Worktrees\Database\care-plan-impl` running
+Playwright. I retried on a 60-second interval and it passed on the fourth attempt. Nothing was
+forced. Worth noting for the ledger: that refusal is emitted with the command's output piped, so
+`echo "TYPECHECK-EXIT:$?"` after a pipe reported **0** for a gate that never ran — the exit-code
+masking trap. The retry loop captures the output and inspects the real exit code instead.
+
+## Mutation ledger — round 1, the mobile-number addition
+
+| #       | Mutation                                                               | Covering test        | Verdict                                                                                                         |
+| ------- | ---------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| R1-M10  | overview: always print "no number held", never the number              | patient-overview.dom | **RED** `1 failed \| 24 passed (25)`                                                                            |
+| R1-M11  | overview: mislabel the number's row as "Cultural identity"             | patient-overview.dom | **RED** `2 failed \| 23 passed (25)`                                                                            |
+| R1-M12  | overview: replace the synthetic label with "ready to receive messages" | patient-overview.dom | **ANCHOR NEVER MATCHED** — Prettier had reflowed the JSX after I wrote the mutation against the pre-format text |
+| R1-M12b | the same mutation, re-anchored against the formatted source            | patient-overview.dom | **RED** `1 failed \| 24 passed (25)`                                                                            |
+
+**R1-M12 is recorded rather than quietly replaced by R1-M12b**, because the run it produced is the
+dangerous kind: the anchor did not match, the tree was therefore unmutated, and the suite printed
+`Tests 25 passed (25)`. Read carelessly that is a green line under a mutation heading — a
+mutation "surviving" a gate it was never in. The presence check (`git diff --stat`, run as its own
+step) is what separated the two, and it is why that check exists.
