@@ -108,7 +108,7 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | 6. Authoring, approval, withdrawal | **complete, review clean** | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
 | 7. ED presentations, amendments    | **complete, review clean** | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                               |
 | 8. Personal Safety Plan, print     | **complete, review clean** | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                               |
-| 9. Patient Plan, transform, print  | **complete, review clean** | `73d004095..7d8dba4e6` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed      |
+| 9. Patient Plan, transform, print  | **complete, review clean** | `73d004095..7f19e1a1b` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed      |
 | 10–11                              | not started                | —                      | —                                                                                                               |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
