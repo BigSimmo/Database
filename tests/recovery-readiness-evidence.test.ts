@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,7 +14,7 @@ import {
   recoveryReadinessDigest,
   type RecoveryReadinessEvidence,
 } from "@/lib/recovery-readiness-evidence";
-import { runRecoveryReadinessEvidenceCli } from "../scripts/verify-recovery-readiness-evidence";
+import { readBoundedUtf8File, runRecoveryReadinessEvidenceCli } from "../scripts/verify-recovery-readiness-evidence";
 
 const now = new Date("2026-08-24T12:00:00.000Z");
 const projectRef = "offline-project-ref";
@@ -384,6 +388,23 @@ describe("activation and rollback receipts", () => {
 });
 
 describe("recovery readiness evidence CLI", () => {
+  function operationManifest(recoveryEvidenceSha256: string, overrides: Record<string, unknown> = {}) {
+    return {
+      version: 1,
+      operation: "stage",
+      targetProjectRef: projectRef,
+      planPath: "shadow-plan.json",
+      reportOrReceiptPath: null,
+      recoveryEvidencePath: "recovery-evidence.json",
+      recoveryEvidenceSha256,
+      expectedDocumentCount: 2,
+      confirmationSha256: "f".repeat(64),
+      authorizedAt: "2026-08-24T11:30:00.000Z",
+      expiresAt: "2026-08-24T12:30:00.000Z",
+      ...overrides,
+    };
+  }
+
   it("emits only a bounded content-safe summary and redacts rejected artifact values", () => {
     const stdout: string[] = [];
     const stderr: string[] = [];
@@ -435,5 +456,170 @@ describe("recovery readiness evidence CLI", () => {
     );
     expect(oversizedCode).toBe(1);
     expect(stderr.at(-1)).toBe("FAIL: recovery readiness evidence rejected.");
+  });
+
+  it("strictly validates a Task 7 operation manifest and exact recovery artifact bytes", () => {
+    const directory = mkdtempSync(join(tmpdir(), "recovery-manifest-test-"));
+    try {
+      const evidencePath = join(directory, "recovery-evidence.json");
+      const manifestPath = join(directory, "operation.json");
+      const evidenceBytes = Buffer.from(JSON.stringify(evidenceInput()), "utf8");
+      const evidenceSha256 = createHash("sha256").update(evidenceBytes).digest("hex");
+      writeFileSync(evidencePath, evidenceBytes);
+      writeFileSync(manifestPath, JSON.stringify(operationManifest(evidenceSha256)), "utf8");
+      const stdout: string[] = [];
+      const stderr: string[] = [];
+
+      expect(
+        runRecoveryReadinessEvidenceCli(["--operation-manifest", manifestPath], {
+          cwd: () => directory,
+          now: () => now,
+          stdout: (line) => stdout.push(line),
+          stderr: (line) => stderr.push(line),
+        }),
+      ).toBe(0);
+      expect(JSON.parse(stdout.join(""))).toMatchObject({
+        status: "pass",
+        operation: "document_generation",
+        manifestOperation: "stage",
+        evidenceDigest: evidenceInput().digest,
+      });
+      expect(stdout.join("\n")).not.toContain(directory);
+      expect(stdout.join("\n")).not.toContain("recovery-evidence.json");
+
+      const rejected = [
+        operationManifest(evidenceSha256, { extraProviderField: "PRIVATE-MANIFEST-CONTENT" }),
+        operationManifest(evidenceSha256, { operation: "destroy" }),
+        operationManifest(evidenceSha256, { targetProjectRef: "different-project" }),
+        operationManifest(evidenceSha256, { recoveryEvidenceSha256: "0".repeat(64) }),
+        operationManifest(evidenceSha256, { authorizedAt: "2026-08-24T12:00:01.000Z" }),
+        operationManifest(evidenceSha256, { expiresAt: "2026-08-24T11:59:59.000Z" }),
+        operationManifest(evidenceSha256, { recoveryEvidencePath: "../recovery-evidence.json" }),
+      ];
+      for (const invalidManifest of rejected) {
+        writeFileSync(manifestPath, JSON.stringify(invalidManifest), "utf8");
+        expect(
+          runRecoveryReadinessEvidenceCli(["--operation-manifest", manifestPath], {
+            cwd: () => directory,
+            now: () => now,
+            stdout: (line) => stdout.push(line),
+            stderr: (line) => stderr.push(line),
+          }),
+        ).toBe(1);
+      }
+      expect([...stdout, ...stderr].join("\n")).not.toContain("PRIVATE-MANIFEST-CONTENT");
+      expect(stderr.at(-1)).toBe("FAIL: recovery readiness evidence rejected.");
+      expect(
+        runRecoveryReadinessEvidenceCli(
+          [
+            "--operation-manifest",
+            manifestPath,
+            "--file",
+            evidencePath,
+            "--operation",
+            "document_generation",
+            "--project-ref",
+            projectRef,
+          ],
+          {
+            cwd: () => directory,
+            now: () => now,
+            stdout: (line) => stdout.push(line),
+            stderr: (line) => stderr.push(line),
+          },
+        ),
+      ).toBe(1);
+
+      writeFileSync(manifestPath, Buffer.alloc(65_537, 0x20));
+      expect(
+        runRecoveryReadinessEvidenceCli(["--operation-manifest", manifestPath], {
+          cwd: () => directory,
+          now: () => now,
+          stdout: (line) => stdout.push(line),
+          stderr: (line) => stderr.push(line),
+        }),
+      ).toBe(1);
+      writeFileSync(manifestPath, Buffer.from([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xe2, 0x82]));
+      expect(
+        runRecoveryReadinessEvidenceCli(["--operation-manifest", manifestPath], {
+          cwd: () => directory,
+          now: () => now,
+          stdout: (line) => stdout.push(line),
+          stderr: (line) => stderr.push(line),
+        }),
+      ).toBe(1);
+      expect([...stdout, ...stderr].join("\n")).not.toContain(manifestPath);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps rollback manifest validation promotion-bound when general readiness has expired", () => {
+    const directory = mkdtempSync(join(tmpdir(), "recovery-rollback-manifest-test-"));
+    try {
+      const evidencePath = join(directory, "recovery-evidence.json");
+      const receiptPath = join(directory, "promotion-receipt.json");
+      const manifestPath = join(directory, "operation.json");
+      const evidence = parsedEvidence({ validUntil: "2026-08-24T11:59:59.000Z" });
+      const expiredEvidence = JSON.stringify(evidence);
+      const evidenceBytes = Buffer.from(expiredEvidence, "utf8");
+      const activationReceipt = createActivationReceipt(
+        {
+          promotionId: "document-generation:rollback-manifest-proof",
+          activatedAt: "2026-08-24T11:50:00.000Z",
+          resource: {
+            kind: "document_generation",
+            documentId: "document-42",
+            generationId: "generation-current",
+            generationDigest: "b".repeat(64),
+            previousGenerationId: "generation-previous",
+            previousGenerationDigest: "c".repeat(64),
+          },
+          evidence,
+          expectedProjectRef: projectRef,
+        },
+        { now: () => new Date("2026-08-24T11:50:00.000Z") },
+      );
+      const receiptBytes = Buffer.from(JSON.stringify(activationReceipt), "utf8");
+      writeFileSync(evidencePath, evidenceBytes);
+      writeFileSync(receiptPath, receiptBytes);
+      writeFileSync(
+        manifestPath,
+        JSON.stringify(
+          operationManifest(createHash("sha256").update(evidenceBytes).digest("hex"), {
+            operation: "rollback",
+            reportOrReceiptPath: "promotion-receipt.json",
+            confirmationSha256: createHash("sha256").update(receiptBytes).digest("hex"),
+          }),
+        ),
+        "utf8",
+      );
+
+      expect(
+        runRecoveryReadinessEvidenceCli(["--operation-manifest", manifestPath], {
+          cwd: () => directory,
+          now: () => now,
+          stdout: () => undefined,
+          stderr: () => undefined,
+        }),
+      ).toBe(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("physically bounds default file reads and fatally rejects invalid or truncated UTF-8", () => {
+    const directory = mkdtempSync(join(tmpdir(), "recovery-bounded-reader-test-"));
+    try {
+      const oversizedPath = join(directory, "oversized.json");
+      const invalidUtf8Path = join(directory, "invalid-utf8.json");
+      writeFileSync(oversizedPath, Buffer.alloc(65_537, 0x20));
+      writeFileSync(invalidUtf8Path, Buffer.from([0x7b, 0x22, 0x78, 0x22, 0x3a, 0x22, 0xe2, 0x82]));
+
+      expect(() => readBoundedUtf8File(oversizedPath)).toThrow(/too large/i);
+      expect(() => readBoundedUtf8File(invalidUtf8Path)).toThrow(/utf-?8/i);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

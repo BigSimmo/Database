@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (271 files) and the `package.json` script surface (267 entries),
+Curated map of `scripts/` (272 files) and the `package.json` script surface (267 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -76,7 +76,8 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 
 `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`,
 `recover-ingestion-queue.ts`, `cleanup-abandoned-reindex-generations.ts`,
-`ingestion-autopilot.ts`, `backfill-smart-index.ts`.
+`ingestion-autopilot.ts`, `backfill-smart-index.ts`,
+`verify-recovery-readiness-evidence.ts` (strict bounded offline recovery-evidence and operation-manifest validation).
 
 ## Document intelligence & governance [live]
 
