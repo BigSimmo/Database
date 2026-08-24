@@ -460,20 +460,48 @@ function DrawerPanel({
     dialogRef.current?.focus();
   }, []);
 
-  // Overlay is not focusable and opening a source leaves focus on the trigger,
-  // so React onKeyDown on this subtree never fires. Listen on window instead,
-  // matching the calculator sheet and production Sheet.
+  // The backdrop is not focusable, so keyboard events must be observed on
+  // window. Scope them to the drawer that owns focus, then keep Tab inside it.
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      const dialog = dialogRef.current;
+      if (!dialog || !dialog.contains(document.activeElement)) return;
+
+      const controls = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])',
+        ),
+      );
+      if (event.key === "Tab") {
+        if (controls.length === 0) {
+          event.preventDefault();
+          dialog.focus();
+          return;
+        }
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
+          event.preventDefault();
+          first.focus();
+        }
+        return;
+      }
+
       if (event.key === "ArrowRight") {
+        event.preventDefault();
         const next = SOURCES[(position + 1 + SOURCES.length) % SOURCES.length];
         onSelect(next.id);
-      }
-      if (event.key === "ArrowLeft") {
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
         const next = SOURCES[(position - 1 + SOURCES.length) % SOURCES.length];
         onSelect(next.id);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
       }
-      if (event.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -490,6 +518,7 @@ function DrawerPanel({
       <div
         ref={dialogRef}
         role="dialog"
+        aria-modal="true"
         aria-label={`Source ${source.index} of ${SOURCES.length}`}
         tabIndex={-1}
         className={cn(
