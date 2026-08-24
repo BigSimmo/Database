@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { generationFailureDetailToken } from "@/lib/rag/rag-generation-failure-diagnostics";
-import { answerLatencyMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
+import { answerLatencyMetadata, scoreExplanationLogMetadata } from "@/lib/rag/rag-answer-telemetry-metadata";
 import { assertRetrievalRows, buildDocumentSummaryResults } from "@/lib/rag/rag-row-contracts";
 import { answerInstructions } from "@/lib/rag/rag-answer-instructions";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
@@ -1281,32 +1281,6 @@ async function logRagQuery(row: RagQueryInsert) {
   void insertRagQuery(row).catch(() => undefined);
 }
 
-/** Score explanation log metadata. */
-function scoreExplanationLogMetadata(scoreExplanations: NonNullable<RagAnswer["scoreExplanations"]>) {
-  return {
-    score_explanation_count: scoreExplanations.length,
-    top_cited_score_explanations: scoreExplanations.slice(0, 8).map((entry) => ({
-      chunk_id: entry.chunk_id,
-      document_id: entry.document_id,
-      final_score: entry.finalScore,
-      vector_score: entry.score_explanation?.vectorScore ?? null,
-      text_rank: entry.score_explanation?.textRank ?? null,
-      weighted_hybrid_score: entry.score_explanation?.weightedHybridScore ?? null,
-      rrf_score: entry.score_explanation?.rrfScore ?? null,
-      memory_boost: entry.score_explanation?.memoryBoost ?? null,
-      title_boost: entry.score_explanation?.titleBoost ?? null,
-      metadata_boost: entry.score_explanation?.metadataBoost ?? null,
-      lexical_coverage_score: entry.score_explanation?.lexicalCoverageScore ?? null,
-      metadata_match_score: entry.score_explanation?.metadataMatchScore ?? null,
-      section_title_match_boost: entry.score_explanation?.sectionTitleMatchBoost ?? null,
-      freshness_recency_boost: entry.score_explanation?.freshnessRecencyBoost ?? null,
-      clinical_signal_boost: entry.score_explanation?.clinicalSignalBoost ?? null,
-      penalty: entry.score_explanation?.penalty ?? null,
-      final_rank: entry.score_explanation?.finalRank ?? null,
-    })),
-  };
-}
-
 /** Decide text fast path. */
 export function decideTextFastPath(
   query: string,
@@ -1716,11 +1690,27 @@ export async function searchChunksWithTelemetry(
   const cacheOutcome = classifySearchCacheOutcome(isSearchCacheEnabled(args), Boolean(cached), sharedCached);
   if (cacheOutcome !== "skip") recordCacheLookup(cacheOutcome === "hit");
 
+  const dispatchSearchCacheWrite = (
+    args: SearchChunksArgs,
+    results: SearchResult[],
+    telemetry: SearchTelemetry,
+    queryVariants: string[],
+    indexingVersionAtRetrievalStart?: string | null,
+  ) => {
+    void setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart }).catch(
+      () => undefined,
+    );
+  };
+
   if (cached) return finishSearch(searchTiming, cached);
   if (sharedCached?.kind === "hit") {
-    await setCachedSearch(args, sharedCached.results, sharedCached.telemetry, queryVariants, {
+    dispatchSearchCacheWrite(
+      args,
+      sharedCached.results,
+      sharedCached.telemetry,
+      queryVariants,
       indexingVersionAtRetrievalStart,
-    });
+    );
     return finishSearch(searchTiming, { results: sharedCached.results, telemetry: sharedCached.telemetry });
   }
   if (sharedCached?.kind === "miss") {
@@ -1766,7 +1756,7 @@ export async function searchChunksWithTelemetry(
         openAiApiKeyPresent: Boolean(env.OPENAI_API_KEY),
       })
     ) {
-      await setCachedSearch(args, [], telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, [], telemetry, queryVariants, indexingVersionAtRetrievalStart);
     }
     return finishSearch(searchTiming, { results: [] as SearchResult[], telemetry });
   }
@@ -1842,7 +1832,7 @@ export async function searchChunksWithTelemetry(
       telemetry.retrieval_strategy = "text_fast_path";
       textFastResults = await applySemanticRerankOnce(textFastResults);
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, textFastResults, telemetry, queryVariants, indexingVersionAtRetrievalStart);
       return finishSearch(searchTiming, { results: textFastResults, telemetry });
     }
 
@@ -1891,7 +1881,7 @@ export async function searchChunksWithTelemetry(
       telemetry.retrieval_strategy = "text_fast_path";
       textFastResults = await applySemanticRerankOnce(textFastResults);
       recordSearchScoreTelemetry(telemetry, textFastResults);
-      await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, textFastResults, telemetry, queryVariants, indexingVersionAtRetrievalStart);
       return finishSearch(searchTiming, { results: textFastResults, telemetry });
     }
   }
@@ -2010,9 +2000,13 @@ export async function searchChunksWithTelemetry(
         telemetry.retrieval_strategy = "document_lookup_fast_path";
         documentLookupResults = await applySemanticRerankOnce(documentLookupResults);
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
-        await setCachedSearch(args, documentLookupResults, telemetry, queryVariants, {
+        dispatchSearchCacheWrite(
+          args,
+          documentLookupResults,
+          telemetry,
+          queryVariants,
           indexingVersionAtRetrievalStart,
-        });
+        );
         return finishSearch(searchTiming, { results: documentLookupResults, telemetry });
       }
       textFastResults = mergeSearchResults(documentLookupResults, textFastResults);
@@ -2038,7 +2032,7 @@ export async function searchChunksWithTelemetry(
       telemetry.retrieval_strategy = coverageGate.strategy;
       const semanticResults = await applySemanticRerankOnce(coverageGateResults);
       recordSearchScoreTelemetry(telemetry, semanticResults);
-      await setCachedSearch(args, semanticResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      dispatchSearchCacheWrite(args, semanticResults, telemetry, queryVariants, indexingVersionAtRetrievalStart);
       return finishSearch(searchTiming, { results: semanticResults, telemetry });
     }
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
@@ -2242,7 +2236,7 @@ export async function searchChunksWithTelemetry(
     telemetry.retrieval_strategy = "hybrid";
     results = await applySemanticRerankOnce(results);
     recordSearchScoreTelemetry(telemetry, results);
-    await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+    dispatchSearchCacheWrite(args, results, telemetry, queryVariants, indexingVersionAtRetrievalStart);
     return finishSearch(searchTiming, { results, telemetry });
   }
 
@@ -2331,7 +2325,7 @@ export async function searchChunksWithTelemetry(
   telemetry.retrieval_strategy = "vector_fallback";
   results = await applySemanticRerankOnce(results);
   recordSearchScoreTelemetry(telemetry, results);
-  await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+  dispatchSearchCacheWrite(args, results, telemetry, queryVariants, indexingVersionAtRetrievalStart);
   return finishSearch(searchTiming, { results, telemetry });
 }
 

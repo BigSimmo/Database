@@ -20,7 +20,8 @@ import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 import { useTcBindings } from "./bindings";
 import { cardPreviewText, prioritiseTherapyTags, summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { controlPressed, favouritePressed, heroCard, therapyBtn } from "./controls";
+import { controlPressed, favouritePressed, heroCard } from "./controls";
+import { InteractiveRow } from "@/components/ui/interactive-row";
 import { Eyebrow, IconTile, StatusBadge, TagRow } from "./ui";
 import { useTherapyFavourite } from "./use-therapy-favourite";
 
@@ -241,16 +242,7 @@ export function TherapyListItem({
   trailing?: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      className={cn(
-        therapyBtn,
-        cardSurface,
-        "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 px-4 py-3.5 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]",
-      )}
-      onClick={onClick}
-      aria-current={active ? "true" : undefined}
-    >
+    <InteractiveRow variant="card" active={active} onClick={onClick} className="gap-3.5 px-4 py-3.5">
       <IconTile icon={Scale} size={38} variant={active ? "accent" : "soft"} />
       <span className="min-w-0 flex-1">
         <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">{therapy.name}</span>
@@ -271,6 +263,6 @@ export function TherapyListItem({
         strokeWidth={1.8}
         className="flex-none text-[color:var(--decoration-soft)]"
       />
-    </button>
+    </InteractiveRow>
   );
 }
