@@ -207,6 +207,9 @@ export function nextWorkspaceOverlayCommitToken(): string {
 }
 
 let staged: StagedWorkspaceOverlayCommit | null = null;
+// Claiming a commit must be synchronous: two clicks can both arrive before the
+// browser finishes the history traversal that closes the overlay.
+const consumedCommitTokens = new Set<string>();
 const listeners = new Set<() => void>();
 
 function announce() {
@@ -223,6 +226,8 @@ function announce() {
  * would correctly, and wrongly, describe.
  */
 export function stageWorkspaceOverlayCommit(token: string, commit: WorkspaceOverlayCommit) {
+  if (staged !== null) consumedCommitTokens.delete(staged.token);
+  consumedCommitTokens.delete(token);
   staged = { token, commit };
   announce();
 }
@@ -239,8 +244,21 @@ export function stageWorkspaceOverlayCommit(token: string, commit: WorkspaceOver
  */
 export function clearStagedWorkspaceOverlayCommit() {
   if (staged === null) return;
+  consumedCommitTokens.delete(staged.token);
   staged = null;
   announce();
+}
+
+/**
+ * Claims the staged commit for a history entry exactly once without clearing the
+ * slot before its close traversal completes. Keeping the slot until reconciliation
+ * avoids flashing a refusal in the still-visible overlay; the consumed token makes
+ * a second activation a no-op.
+ */
+export function consumeWorkspaceOverlayCommit(token: string | null): WorkspaceOverlayCommit | null {
+  if (token === null || staged === null || staged.token !== token || consumedCommitTokens.has(token)) return null;
+  consumedCommitTokens.add(token);
+  return staged.commit;
 }
 
 export function subscribeToStagedWorkspaceOverlayCommit(onStoreChange: () => void) {
