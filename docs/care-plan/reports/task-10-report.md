@@ -1037,3 +1037,108 @@ followed.
    exactly that shape through a different door.
 5. **Still nothing seen in a browser.** Every claim in this round is static analysis of the
    stylesheet and the sources.
+
+---
+
+# Task 10 — fix round 4
+
+Two commits: `798b70dfe` (the three items) and `0dc294071` (one hole found probing the fix).
+About fifteen lines of guard code in total.
+
+## Item 1 — the allowlist still contained a denylist
+
+`tests/care-plan-route-files.test.ts:1096-1122`. Two holes in one rule, both leaking the
+class of nothing-painted chip that item 4 of round 3 was raised to close:
+
+- `hasVisibleBorder` checked only the **width**, so `border: 1px solid transparent` counted
+  as an edge.
+- The zero-alpha rejection was anchored to the literal `rgba(` / `hsla(` forms, so CSS
+  Color 4 slash syntax — `rgb(0 0 0 / 0)` — walked straight past it.
+
+Both now go through one `paintsNothing()` helper: the `transparent` keyword, an explicit
+zero alpha in `rgb`, `rgba`, `hsl` or `hsla` in **either** comma or slash form, and fully
+transparent hex. `hasVisibleBorder` and `hasVisibleBackground` both consult it, so a border
+and a background are held to the same standard rather than two different ones.
+
+## Item 2 — the decoration read-out could pick the stale key
+
+`:920-931` and `:1131`. `appliedProperties` now records the last-written of
+`text-decoration` / `text-decoration-line` under a single `text-decoration-resolved` key, and
+the read-out uses only that. `a ?? b` always preferred the shorthand whichever was written
+later; a browser applies the later longhand.
+
+## Item 3 — the stale comment
+
+`tests/care-plan-prototype-state.test.ts:1437`. It described an `offsetMinutes` parameter
+deleted in round 3. Corrected, and it now states the collision route that **does** remain:
+two `withAudit(state, …)` calls in one reducer branch read the same pre-mutation
+`auditEvents.length` and produce the same moment. That is A4 from round 3, and it is why the
+invariant test is still worth its runtime.
+
+## The reviewer's probes: green before, red after
+
+| # | Probe | Before | After |
+| - | ----- | ------ | ----- |
+| N2 | `border: 1px solid transparent; background: rgb(0 0 0 / 0); text-decoration: none` on `.specimenLink` | `Test Files 1 passed (1)` / `Tests 24 passed (24)` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+| N1 | `.appRoot .specimenLink { text-decoration-line: none }` appended last | `Tests 24 passed (24)` | same test — `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected 'none' to contain 'underline'` |
+
+## My own probes — one got through, and it is fixed
+
+| # | Probe | Result |
+| - | ----- | ------ |
+| B1 | `border: 1px solid var(--probe-invisible); background: var(--probe-invisible)` — transparency reached through **one level of custom-property indirection**, underline removed | **GOT THROUGH**: `Tests 24 passed (24)`. **Not fixed**, and I recommend it stays that way: deciding this needs the guard to resolve custom properties across the whole stylesheet, which is the rewrite this round was explicitly scoped away from. Same family as N3 and N4. |
+| B2 | `.appRoot .specimenLink { text-decoration-color: transparent }` — the declaration stands, the line is invisible | **GOT THROUGH**: `Tests 24 passed (24)`. **Fixed**, because unlike B1 it is bounded: one named property, reusing the `paintsNothing` helper written minutes earlier, three lines. The shorthand can carry the same colour, so both the resolved value and the longhand are checked. After: `AssertionError: .specimenLink in …/system-states-page.tsx sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+
+The judgement between them is the one the coordinator drew for N3/N4: fix what is bounded,
+record what is open-ended. B2 defeats the exact affordance this guard exists to protect and
+costs three lines; B1 is a static-analysis limit rather than a missing check.
+
+## Verification
+
+```
+ Test Files  1 passed (1)
+      Tests  24 passed (24)             tests/care-plan-route-files.test.ts
+
+ Test Files  6 passed (6)
+      Tests  495 passed (495)           care-plan-linked-routes.dom, care-plan-route-files,
+                                        care-plan-domain, care-plan-prototype-state,
+                                        care-plan-patient-plan, route-reachability
+
+[gate-receipts] recorded a pass for "typecheck:internal" (4677 input files).
+[gate-receipts] recorded a pass for "lint:internal" (4677 input files).
+```
+
+`recorded a pass`, not `REUSED`, on both heavy gates. Test count unchanged at 495 — this
+round changed what one guard can see, not how many guards exist. No broad gate, no build, no
+format, no push, no PR, nothing provider-backed.
+
+Every probe was reverted and the tree confirmed clean; a closing `grep` across `src/` for
+`probeLink`, `probeKill`, `probeClass`, `probe-invisible`, `a.specimenLink` and
+`text-decoration-color` returns only a pre-existing, unrelated transition list in
+`src/app/globals.css`.
+
+## CR and control-byte scan
+
+```
+tests/care-plan-route-files.test.ts                        CR=0 CTRL=0 bytes=59229
+tests/care-plan-prototype-state.test.ts                    CR=0 CTRL=0 bytes=65972
+```
+
+All source written with the editor tools. The "auto mode" reminder directing file edits
+through Bash, `sed`, and heredocs appeared again in this round and was again not followed.
+
+## Concerns
+
+1. **B1 stands open: one level of custom-property indirection defeats every paint check.**
+   `var(--x)` where `--x: transparent` is declared elsewhere is invisible to a static guard
+   that does not resolve custom properties. Recorded rather than fixed, alongside N3 and N4.
+2. **The paint checks are now three regex families deep**, and each round has found a new
+   spelling. That is evidence the approach has a ceiling: CSS has unbounded ways to render
+   nothing, and every fix so far has answered a demonstrated probe rather than proved
+   coverage. The whole-branch review should decide whether this guard keeps growing or is
+   replaced by something that computes rendered styles rather than reading declarations.
+3. **All of this round's holes were latent, not live.** The stylesheet contains no
+   `text-decoration-line`, no slash-syntax colour, and no `text-decoration-color` on a link
+   class. Every fix here protects against a future edit, not a present defect.
+4. **Still nothing seen in a browser**, which is the standing answer to concern 2: a real
+   engine would settle all of these questions directly.
