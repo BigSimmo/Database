@@ -123,17 +123,21 @@ describe("ClinicalDashboard merge-artifact guards", () => {
 
   it("centres idle phone homes in leftover main space instead of a nested 100dvh floor", () => {
     // The canvas is nested inside padded #main-content. A 100dvh-12.5rem floor
-    // double-counted overlay chrome and manufactured a scrollbar. flex-1 is
-    // valid here because #main-content is itself max-sm:flex max-sm:flex-col
-    // on compact homes, so the child can stretch in the remaining pane.
+    // double-counted overlay chrome and manufactured a scrollbar. Grow without
+    // shrink fills leftover pane space; `flex-1` (`1 1 0%`) would still collapse
+    // around a taller sibling in the standalone PWA scrollport.
     expect(clinicalDashboardSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
     expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-col");
-    expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
+    expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col");
     expect(clinicalDashboardSource).toContain("max-sm:items-center max-sm:justify-center");
-    // Nested min-h-0 + flex-1 inside #main-content lets the home column shrink
-    // around extra content (PWA scroll-runway, late notices) instead of
-    // overflowing the standalone main scrollport.
+    expect(clinicalDashboardSource).not.toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
     expect(clinicalDashboardSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
+  });
+
+  it("keeps the appended phone scroll runway from shrinking in a flex main", () => {
+    const helper = readFileSync(resolve(process.cwd(), "tests/helpers/phone-scroll.ts"), "utf8");
+    expect(helper).toContain('filler.style.minHeight = "1600px"');
+    expect(helper).toContain('filler.style.flexShrink = "0"');
   });
 
   it("never hand-authors -webkit-backdrop-filter declarations", () => {

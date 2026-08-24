@@ -3506,10 +3506,10 @@ function ClinicalDashboardContent({
                 // chrome and manufactured a scrollbar.
                 compactMobileModeHome &&
                   // Grow to fill leftover <main> space so the canvas can centre.
-                  // Do not add min-h-0 here: in standalone PWA, #main-content is
-                  // the bounded scrollport, and min-h-0 lets this column shrink
-                  // around a taller sibling instead of overflowing into scroll.
-                  "max-sm:flex max-sm:flex-1 max-sm:flex-col max-sm:space-y-0 max-sm:px-0 max-sm:py-0",
+                  // `flex-1` (`1 1 0%`) still shrinks. Keep grow without shrink so
+                  // a taller sibling (PWA scroll runway, late notices) overflows
+                  // the standalone #main-content scrollport instead of collapsing.
+                  "max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col max-sm:space-y-0 max-sm:px-0 max-sm:py-0",
                 searchMode === "answer"
                   ? compactMobileModeHome
                     ? "sm:pb-4"
@@ -3547,7 +3547,7 @@ function ClinicalDashboardContent({
                       // chrome). A nested 100dvh floor double-counted that pad
                       // and sank the cluster with a scrollbar. One flex column
                       // on phones; sm+ keeps the grid floor for tablet/desktop.
-                      "max-sm:flex max-sm:flex-1 max-sm:flex-col max-sm:items-center max-sm:justify-center sm:min-h-[calc(100dvh-11rem)]"
+                      "max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col max-sm:items-center max-sm:justify-center sm:min-h-[calc(100dvh-11rem)]"
                     : // A rendered answer is content-sized and top-aligned on phones:
                       // it must NOT inherit the viewport-height floor (that floor exists
                       // to give the centred home block room). With the floor, a short
