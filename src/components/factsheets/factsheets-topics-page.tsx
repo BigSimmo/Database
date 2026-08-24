@@ -34,7 +34,12 @@ export function FactsheetsTopicsPage({
         </p>
       </header>
 
-      <FactsheetsTopicsBrowse groups={groups} selectedTopic={selectedTopic} previewLimit={previewLimit} />
+      <FactsheetsTopicsBrowse
+        key={selectedTopic ?? "all"}
+        groups={groups}
+        selectedTopic={selectedTopic}
+        previewLimit={previewLimit}
+      />
 
       <aside className="mt-5 flex gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden="true" />

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { FactsheetListRow } from "@/components/factsheets/factsheet-list-row";
 import {
@@ -30,10 +30,6 @@ export function FactsheetsTopicsBrowse({
 }) {
   const [openTopic, setOpenTopic] = useState<FactsheetCategory | undefined>(selectedTopic);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    setOpenTopic(selectedTopic);
-  }, [selectedTopic]);
 
   return (
     <ul
