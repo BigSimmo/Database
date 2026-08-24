@@ -1152,3 +1152,5 @@ re-review should verdict that as well as the code.
    names", and `repository.ts`'s `getEpisode` equivalence). True today; both decay.
 5. Concern 2 stands: a row still cannot distinguish "de-identified" from "your role may not see
    names", and the notice only makes that inference sound at the page level.
+
+**Task 6 dispatched**, BASE `fa7f8ac98d12ef7c9c2a632101100712972483af`. Brief: `task-6-brief.md`.

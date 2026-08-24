@@ -1,0 +1,266 @@
+import dynamic from "next/dynamic";
+import { notFound } from "next/navigation";
+
+import {
+  PatientOverview,
+  type PatientOverviewView,
+} from "@/components/caring-contacts/workspace/patient-overview";
+import { CARING_CONTACTS_PLAN_QUERY_PARAM } from "@/lib/caring-contacts-routes";
+import { auditedRead } from "@/lib/caring-contacts-server/handler";
+import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { caringContactsStore } from "@/lib/caring-contacts-server/store";
+import type { Episode } from "@/lib/caring-contacts/episode";
+import { planId as toPlanId } from "@/lib/caring-contacts/ids";
+import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
+import {
+  READ_ACTIONS,
+  type PatientNameProjection,
+  type PlanRecord,
+} from "@/lib/caring-contacts/repository";
+import type { ServiceState } from "@/lib/caring-contacts/service-state";
+
+/**
+ * The workspace's lazy route boundary (Ruling 13). Same spelling and same reason as
+ * `src/app/caring-contacts/page.tsx` and the patients directory beside this file: nothing outside
+ * this route segment imports the workspace, and dynamically importing the shell keeps the Client
+ * Components beneath it out of the Clinical KB dashboard's chunks. See the Today page's module
+ * note for the argument in full; one copy of it is the source of truth and two copies would drift.
+ */
+const CaringContactsShell = dynamic(() =>
+  import("@/components/caring-contacts/workspace/shell").then((module) => module.CaringContactsShell),
+);
+
+/**
+ * One patient's episode -- the screen a clinician reaches from a row of the caseload, and the ONE
+ * screen in this workspace that may call `getEpisode`.
+ *
+ * THE FIRST DYNAMIC ROUTE IN THIS WORKSPACE, AND THIS IS NEXT 16
+ * -------------------------------------------------------------
+ * `params` is a PROMISE, exactly as `searchParams` already is, and is awaited before use --
+ * `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md` is the
+ * contract, not any recollection of Next 14, where it was a plain object. Awaiting either makes
+ * the route dynamic, which is already true here (the role cookie does the same) and is correct: a
+ * cached copy of a patient's episode would outlive the episode.
+ *
+ * WHY THE ROUTE IS KEYED BY PATIENT AND EVERY READ BY PLAN (Ruling 97)
+ * -------------------------------------------------------------------
+ * `getEpisode` takes a plan id. The URL carries a patient id. Those do not resolve to one another,
+ * and inventing an oracle that made them would be the wrong fix: one patient can honestly hold two
+ * episodes -- `repository.ts` says so, and `markRetentionCleared` clears detail PER PLAN, so two
+ * plans for one patient can legitimately differ in what they still hold.
+ *
+ * So the patient's plans are resolved by filtering `listPlans`, which is team-scoped for free and
+ * is the read Task 5 already established, rather than by adding a patient-keyed lookup that would
+ * answer for an id the caller supplied. From there:
+ *
+ *   * zero plans is an honest empty state, never `notFound()`. The actor may legitimately have
+ *     reached a patient whose plan is on another team, and the answer must not distinguish that
+ *     from "no plan exists" -- `getPlan` deliberately gives one answer for both, and this screen
+ *     does not become the one that tells them apart;
+ *   * exactly one plan renders;
+ *   * more than one, with no plan named in the URL, ASKS. A screen that silently picked would show
+ *     one plan's schedule under a heading carrying this patient's name;
+ *   * `?plan=<planId>` names one, and is validated against the plans this actor could already list
+ *     for this patient before anything is read with it. A plan id that does not belong to this
+ *     patient and this team is not an error worth reporting in detail -- it is simply not a plan
+ *     this actor may see, so it is ignored and the screen asks.
+ *
+ * `getEpisode` is called ONCE, for ONE plan, and only after that rule has picked the plan. The
+ * chooser takes its name from `listPatientNames` (Ruling 91) instead: choosing between two plans
+ * needs a name to recognise the person by, and `getEpisode` would release the mobile number, the
+ * identifiers and the cultural identity to answer that.
+ *
+ * EVERY READ IS AUDITED, AND NONE OF THEM IS HTTP
+ * ----------------------------------------------
+ * The same shape the patients directory uses, for the same reasons: this is a Server Component and
+ * reads the store directly rather than calling this app's own API over HTTP, and EVERY read goes
+ * through `auditedRead` with the same access identity that read already carries on the API side --
+ * `{ administrative, serviceState, "service" }`, `{ search, plan, "all" }` and
+ * `{ search, patientName, "all" }` are all `plans/route.ts` and the directory's, unchanged.
+ *
+ * The episode read is the one this screen adds, and it has NO API-side twin to copy: no route
+ * under `src/app/api/caring-contacts/` reads an episode. Its identity is
+ * `{ view, episode, <planId> }` -- `"view"` because a single named object is being looked at
+ * rather than a collection searched, `"episode"` because `AccessedObjectType` already carries that
+ * member for exactly this read, and the plan id as the object id because that is the object
+ * released. The question the trail must be able to answer here is "who read this patient's
+ * record, and when", and it is asked of a specific episode rather than of a list.
+ *
+ * Every bad outcome fails closed and reaches `error.tsx`, which says nothing was sent and nothing
+ * was changed. No read on this page has an honest fallback: an episode rendered beside a
+ * service-state read that failed would claim sending is running during an incident, and a plan
+ * rendered from a failed read of its own contents would claim a schedule that was never read.
+ *
+ * A DENIED EPISODE IS NOT A FAILED ONE
+ * -----------------------------------
+ * `getEpisode` answers `null` for a plan that does not exist, for another team's plan, AND for an
+ * actor whose role does not cover the read -- deliberately indistinguishable, so nobody can probe
+ * for a record they may not see. `auditedRead` therefore records `denied`, which is a legitimate
+ * outcome here rather than a fault: this page has ALREADY established, from `listPlans`, that the
+ * plan exists and is this team's. So a null release is the capability, and the capability is a
+ * fact about the ACTOR that `canPerformCaringContactAction` answers with certainty. The read is
+ * still made and still recorded -- a denied read belongs on the trail -- and the answer to the
+ * capability question is what lets the screen say which fact it is rather than guess.
+ */
+export default async function CaringContactsPatientOverviewPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ patientId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  if (!isCaringContactsDemoEnabled()) notFound();
+  const actor = await resolveDemoActor();
+  const store = await caringContactsStore();
+  const { patientId } = await params;
+  const requestedPlanId = readRequestedPlanId(await searchParams);
+
+  // "service" names the one service-wide record, matching the object id the API route records
+  // against -- the access trail needs one stable identifier for it, not a per-caller one.
+  const serviceStateRead = await auditedRead<ServiceState>(
+    store,
+    actor,
+    { kind: "administrative", objectType: "serviceState", objectId: "service" },
+    () => store.getServiceState({ actor }),
+  );
+  if (serviceStateRead.outcome === "failed") {
+    throw serviceStateRead.error instanceof Error
+      ? serviceStateRead.error
+      : new Error("Failed to read the service state.");
+  }
+  if (!serviceStateRead.recorded) {
+    throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+  }
+  if (serviceStateRead.released === null) {
+    throw new Error("caring-contacts service state read returned no record.");
+  }
+  const serviceState = serviceStateRead.released;
+
+  // `"all"` is the object id a collection read names -- the actor's own team scopes what comes
+  // back, so there is no single object to name. Identical to `plans/route.ts`'s `GET`.
+  const plansRead = await auditedRead<PlanRecord[]>(
+    store,
+    actor,
+    { kind: "search", objectType: "plan", objectId: "all" },
+    () => store.listPlans({ actor }),
+  );
+  if (plansRead.outcome === "failed") {
+    throw plansRead.error instanceof Error ? plansRead.error : new Error("Failed to read this team's plans.");
+  }
+  if (!plansRead.recorded) {
+    throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+  }
+  // `== null` for the reason the directory's guard records: `auditedRead` treats null OR UNDEFINED
+  // as denied while typing `released` as `T | null`, so a `=== null` guard would let a
+  // contract-breaking `undefined` through to fail somewhere less legible. `listPlans` returns an
+  // array for every actor, empty where nothing is visible, so this is unreachable under the
+  // contract and stated correctly anyway -- a branch that cannot run is still read.
+  if (plansRead.released == null) {
+    throw new Error("caring-contacts plans read returned no list.");
+  }
+
+  const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
+  const plansForPatient = plansRead.released.filter((record) => record.patientId === patientId);
+
+  const view = await resolveView();
+
+  return (
+    <CaringContactsShell
+      title="Patient"
+      description="One patient's caring-contact episode: who they are, which plan is running, what has happened on it, and what is still to come. Every patient, number and message in this workspace is invented; nothing here is ever sent to a real number."
+      serviceState={serviceState}
+    >
+      <PatientOverview patientId={patientId} view={view} />
+    </CaringContactsShell>
+  );
+
+  async function resolveView(): Promise<PatientOverviewView> {
+    // The capability is decided from the ACTOR, never inferred from an empty list. `listPlans`
+    // answers an actor without `viewReferral` with `[]`, exactly as it answers a patient this team
+    // holds no plan for, so a screen that only counted rows would tell an auditor there is no plan
+    // -- a false statement about a clinical record, and the defect Ruling 92 closed for the
+    // caseload.
+    if (!mayViewPlans) return { kind: "not-permitted" };
+    if (plansForPatient.length === 0) return { kind: "no-plan" };
+
+    const named =
+      requestedPlanId === null
+        ? null
+        : (plansForPatient.find((record) => record.plan.id === requestedPlanId) ?? null);
+    const chosen = plansForPatient.length === 1 ? plansForPatient[0] : named;
+
+    if (chosen === null) {
+      // The chooser's name comes from the narrow read (Ruling 91), and it is read ONLY here: the
+      // episode branch below already has the name, and making both reads would release a patient's
+      // name twice on one render for one screen's worth of use.
+      const namesRead = await auditedRead<PatientNameProjection[]>(
+        store,
+        actor,
+        { kind: "search", objectType: "patientName", objectId: "all" },
+        () => store.listPatientNames({ actor }),
+      );
+      if (namesRead.outcome === "failed") {
+        throw namesRead.error instanceof Error
+          ? namesRead.error
+          : new Error("Failed to read this team's patient names.");
+      }
+      if (!namesRead.recorded) {
+        throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+      }
+      if (namesRead.released == null) {
+        throw new Error("caring-contacts patient names read returned no list.");
+      }
+      return { kind: "choose", plans: plansForPatient, patientNames: namesRead.released };
+    }
+
+    // ONE call, for ONE plan, and only now that the plan is settled.
+    const episodeRead = await auditedRead<Episode>(
+      store,
+      actor,
+      { kind: "view", objectType: "episode", objectId: chosen.plan.id },
+      () => store.getEpisode(toPlanId(chosen.plan.id), { actor }),
+    );
+    if (episodeRead.outcome === "failed") {
+      throw episodeRead.error instanceof Error
+        ? episodeRead.error
+        : new Error("Failed to read this patient's episode.");
+    }
+    if (!episodeRead.recorded) {
+      throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+    }
+    // A null release is `denied`, and here that is the CAPABILITY rather than a fault -- see the
+    // module note. The plan and its schedule still render; the person does not, and the notice
+    // says which of the two facts that is rather than leaving a nameless record unexplained.
+    const mayViewEpisode = canPerformCaringContactAction(actor, READ_ACTIONS.episode, {
+      teamId: actor.teamId,
+    }).allowed;
+    if (episodeRead.released == null && mayViewEpisode) {
+      // The read was permitted and the plan was listed a moment ago, so nothing legitimate returns
+      // null here. Failing closed rather than rendering a nameless record that would read exactly
+      // like a role restriction.
+      throw new Error("caring-contacts episode read released nothing for a plan this actor may read.");
+    }
+
+    return {
+      kind: "episode",
+      record: chosen,
+      episode: episodeRead.released,
+      otherPlanCount: plansForPatient.length - 1,
+    };
+  }
+}
+
+/**
+ * The plan id the URL names, or null.
+ *
+ * A repeated `?plan=a&plan=b` arrives as an array and names no single plan, so it is treated as
+ * naming none rather than as an error: a mistyped URL must fall back to asking, never fail the
+ * render. Nothing is validated about the VALUE here beyond its shape -- whether it is a plan this
+ * actor may see is settled above, against the plans this actor could already list.
+ */
+function readRequestedPlanId(searchParams: Readonly<Record<string, string | string[] | undefined>>): string | null {
+  const raw = searchParams[CARING_CONTACTS_PLAN_QUERY_PARAM];
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed === "" ? null : trimmed;
+}

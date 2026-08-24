@@ -22,7 +22,7 @@ import {
   parsePatientsDirectoryFilter,
   patientsDirectoryHref,
 } from "@/components/caring-contacts/workspace/patients-directory";
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
 import type { PlanState } from "@/lib/caring-contacts/model";
 import type { PatientNameProjection, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
@@ -341,7 +341,13 @@ describe("Patients directory - rows", () => {
     expect(screen.queryByRole("group", { name: "Suppressed" })).toBeNull();
   });
 
-  it("offers the row's detail control as an unavailable control, never a link into a route with no page", () => {
+  // Ruling 99, Task 6. This control was an `UnavailableDestination` while
+  // `/caring-contacts/patients/[patientId]` did not exist -- Ruling 52: an unbuilt destination is
+  // an unavailable control with a stated reason, never a link into a route that would 404. That
+  // screen now exists, so the assertion inverts with it: the control must be a real `<Link>` at
+  // the patient route, and it must still be NAMED by the identifier, which is the only thing
+  // distinguishing one row's control from the next to a screen reader.
+  it("offers the row's detail control as a Link to the patient overview, named by the identifier", () => {
     render(
       <PatientsDirectory
         mayViewPatientNames
@@ -352,15 +358,13 @@ describe("Patients directory - rows", () => {
       />,
     );
 
-    const control = screen.getByRole("button", { name: /patient-plan-1/i });
-    expect(control).toHaveAttribute("aria-disabled", "true");
-    expect(control).toHaveAttribute("type", "button");
-    expect(control).toHaveAttribute("title", expect.stringContaining("coming soon"));
-    // Native `disabled` would remove the tab stop, so the stated reason could never be reached.
-    expect(control).not.toHaveAttribute("disabled");
-    // And nothing on this screen links into the not-yet-built detail routes...
+    const control = screen.getByRole("link", { name: /patient-plan-1/i });
+    expect(control).toHaveAttribute("href", "/caring-contacts/patients/patient-plan-1");
+    // The route module builds it -- never a path literal assembled in the component.
+    expect(control).toHaveAttribute("href", patientRoute("patient-plan-1"));
+    // Nothing here reaches the PLAN detail route, whose page Task 7 builds...
     for (const link of screen.getAllByRole("link")) {
-      expect(link.getAttribute("href") ?? "").not.toMatch(/\/caring-contacts\/(patients\/[^?]|plans\/)/);
+      expect(link.getAttribute("href") ?? "").not.toMatch(/\/caring-contacts\/plans\//);
       // ...nor reaches an internal route by a raw anchor. `data-internal-link` is the marker the
       // shell test uses to tell a `<Link>` from an `<a href="/…">`, which render identically.
       expect(link.getAttribute("data-internal-link"), `${link.getAttribute("href")} is not a <Link>`).toBe("true");
@@ -504,7 +508,7 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     expect(within(row).getByText(/Synthetic identifier: patient-plan-1/)).toBeInTheDocument();
     // And the control is still named by the identifier, which is what distinguishes one row's
     // control from the next to a screen reader.
-    expect(screen.getByRole("button", { name: /patient-plan-1/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /patient-plan-1/i })).toBeInTheDocument();
   });
 
   it("falls back to the synthetic identifier, and labels it as one, when no name came back", () => {

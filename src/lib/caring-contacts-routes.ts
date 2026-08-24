@@ -43,6 +43,23 @@ export function patientRoute(patientId: string): string {
   return `${CARING_CONTACTS_ROUTES.patients}/${encodeURIComponent(patientId)}`;
 }
 
+/**
+ * The query parameter the patient overview accepts to name WHICH of a patient's plans to open.
+ *
+ * Declared here rather than in the page, because the builder below and the page's own parser must
+ * agree on the name and a second copy of the string is how they would stop agreeing. Ruling 97:
+ * one patient can honestly hold two episodes, the overview never picks between them, and this is
+ * how the clinician's choice travels — in the URL, so the chooser needs no client state at all.
+ */
+export const CARING_CONTACTS_PLAN_QUERY_PARAM = "plan" as const;
+
+/** One patient's overview, scoped to one named plan. The page still validates that the plan is
+ * this patient's and this team's before it reads anything with it. */
+export function patientPlanRoute(patientId: string, planId: string): string {
+  const params = new URLSearchParams({ [CARING_CONTACTS_PLAN_QUERY_PARAM]: planId });
+  return `${patientRoute(patientId)}?${params.toString()}`;
+}
+
 export function planRoute(planId: string): string {
   return `${CARING_CONTACTS_BASE}/plans/${encodeURIComponent(planId)}`;
 }

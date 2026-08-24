@@ -1,14 +1,13 @@
 import { EyeOff, Search } from "lucide-react";
 import Link from "next/link";
 
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_ROUTES, patientRoute } from "@/lib/caring-contacts-routes";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import type { PlanState } from "@/lib/caring-contacts/model";
 import type { PatientNameProjection, PlanRecord } from "@/lib/caring-contacts/repository";
 
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
-import { UnavailableDestination } from "./unavailable-destination";
 
 /**
  * The team's caseload, as a list of PLANS rather than of people.
@@ -63,22 +62,28 @@ import { UnavailableDestination } from "./unavailable-destination";
  * filter is a set of `<Link>`s that change the URL, the identifier search is an ordinary
  * `method="get"` form, and the page -- a Server Component -- reads `searchParams` and filters
  * before rendering. Nothing on this screen needs JavaScript to work, and it adds NO client
- * component the workspace did not already ship: the only one it renders is `UnavailableDestination`,
- * and the shell mounts `WorkspaceOverlays` (with `OverlayHost` beneath it) into every screen's tree
- * regardless.
+ * component the workspace did not already ship: since Task 6 wired the row's detail control as a
+ * `<Link>`, this screen renders none of its own at all, and the shell mounts `WorkspaceOverlays`
+ * (with `OverlayHost` beneath it) into every screen's tree regardless.
  *
  * Ruling 94: that is the whole claim, and it is deliberately not a count. This paragraph twice
  * carried a tally of the workspace's client components — "one", then "five" — and both were wrong,
  * the second within the same round it corrected the first. The property that matters is the one
  * stated above and it is checkable per screen: THIS screen adds none.
  *
- * Why the row's detail control is not a link
- * -----------------------------------------
- * `patientRoute()` and `planRoute()` in `@/lib/caring-contacts-routes` are the hrefs these controls
- * take once Tasks 6-7 build those pages. Until then Ruling 52 applies exactly as it does in the
- * shell's navigation: an unbuilt destination is an unavailable control with a stated reason, never
- * a link into a route that would 404. Swapping the control for a `<Link href={patientRoute(...)}>`
- * is the whole of that later change.
+ * Why the row's detail control IS a link
+ * -------------------------------------
+ * It was not one until Task 6. Ruling 52 held it as an unavailable control with a stated reason
+ * while `/caring-contacts/patients/[patientId]` did not exist, because an unbuilt destination is
+ * never a link into a route that would 404, and Ruling 89 requires the link and the screen to land
+ * together. That screen now exists, so the control is `<Link href={patientRoute(...)}>` and this
+ * paragraph no longer describes a future.
+ *
+ * It stays keyed by PATIENT rather than by this row's plan, and that is a decision rather than an
+ * accident. The control says "patient record", and the destination is the patient's record: where
+ * a patient holds two plans, it lands on the overview's chooser and the clinician picks, which is
+ * exactly what Ruling 97 requires of a patient-keyed route. `planRoute()` is still the href for a
+ * plan-keyed control, and Task 7 builds the screen it points at.
  *
  * Three empty lists, three different facts
  * ---------------------------------------
@@ -554,19 +559,13 @@ function PatientRow({ record, name }: { record: PlanRecord; name: string | null 
           </p>
         </div>
         {/*
-          `label` is a destination NOUN, not an instruction. `UnavailableDestination` builds its
-          screen-reader note as "<label> is not built yet.", so a verb phrase there produced
-          "Open patient-plan-1 is not built yet." The visible text carries the identifier so that
-          one row's control is still distinguishable from the next.
+          The visible text carries the identifier so that one row's control is still
+          distinguishable from the next -- a screen reader listing this page's links otherwise
+          reads "Patient record" as many times as there are rows, with nothing to tell them apart.
         */}
-        <UnavailableDestination
-          id={`patient-row-${record.plan.id}`}
-          label={`The patient record for ${record.patientId}`}
-          reason="Every contact in this plan, what has been sent, and the decisions still waiting."
-          className={rowActionClass}
-        >
+        <Link href={patientRoute(record.patientId)} data-internal-link="true" className={rowActionClass}>
           <span className="truncate">Patient record &mdash; {record.patientId}</span>
-        </UnavailableDestination>
+        </Link>
       </div>
 
       {/*
