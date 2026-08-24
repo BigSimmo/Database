@@ -68,6 +68,7 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 | IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | **done** (PR-A)      |
 | ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob now travels on `transform` (`translate-x-4`), tokenised duration, reduced-motion opt-out                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | **done** (motion)    |
 | Chip                         | final `appearance`/size API, removable label contract, tap target and full-value title                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | **done**             |
+| ChoiceChip                   | compact multi-select choice with explicit pressed, unavailable and focus states; visual inset does not shrink its 48px hit target                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | **done**             |
 | TextField/SearchField/Select | all three closed, and the row was stale when re-measured 2026-08-08: each folds onto `FormField`, which renders `hint` AND `error` unconditionally and merges `aria-describedby` caller → hint → error; each takes an external `id` and a `ref`. Landed in PR 13, not the PR 7 the row pointed at                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | **done**             |
 | Checkbox/RadioGroup          | all four closed. Two rows were stale when re-measured on 2026-08-08: ids already sanitise through `optionId`, and the group already carries `hint`/`error`/`describedBy`. Raw dimensions moved to `size-5`/`h-0.5` (`size-4.5` retired by `check:icon-scale`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | **done**             |
 | Citation/CitationList        | required interactive handler, stable-id list keys and static-span labelling (`aria-label` on a role-less span was dropped, losing the currency phrase on print) are resolved; route/source modes remain                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | follow-on            |
@@ -691,6 +692,16 @@ that does not inflate the chip · truncated labels need a full-value path · cat
 come from the frozen `--tone-*` set only (SPEC §3). **Open defects → PR.** 20px remove
 target, optional `removeLabel`, generic fallback name → PR 4.
 
+### 9.5a `ChoiceChip`
+
+**Purpose.** A compact, independently selectable choice within a wrapping set. Use it
+for multi-select filters and patient attributes; use `SegmentedControl` when exactly one
+option must be active. **Rules.** State is exposed with `aria-pressed` · the visible
+rounded rectangle is inset within a minimum 48px target · selected state uses the soft
+accent surface, border and inset shadow rather than a full saturated fill · unavailable
+choices remain focusable with `aria-disabled` when explanatory text is attached ·
+motion and forced-colour treatments remain explicit. **Open defects → PR.** none.
+
 ### 9.6 `TextField` / `SearchField` / `Select`
 
 **Disposition.** All three fold onto the shared `FormField` shell (§4) in PR 7 — the
@@ -961,9 +972,9 @@ tests to run.
 
 ## Generated maturity snapshot
 
-Registered public components: 54
-Components with a valid design-sync preview: 54
-Components with product imports: 34
+Registered public components: 55
+Components with a valid design-sync preview: 55
+Components with product imports: 35
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -977,6 +988,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
 | `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ConfirmDialog`          | layout   | yes   | yes                | no                    | yes            | no                 |               0 |

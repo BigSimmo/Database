@@ -394,8 +394,10 @@ export function ToggleSwitch({
   "aria-label": ariaLabel,
 }: ToggleSwitchProps) {
   const track = cn(
-    "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
-    enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
+    "relative inline-flex h-6 w-10 shrink-0 rounded-full border shadow-[var(--shadow-inset)] transition",
+    enabled
+      ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]"
+      : "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)]",
     className,
   );
   const knob = (
@@ -404,7 +406,7 @@ export function ToggleSwitch({
       className={cn(
         // Gate 9: the knob travels on `transform`, never on `left`/`right`. Track is w-10
         // (40px) with a 16px knob inset 4px each side, so the throw is 40-4-4-16 = 16px.
-        "absolute top-1 left-1 h-4 w-4 rounded-full bg-[color:var(--surface)] shadow-sm",
+        "absolute top-1 left-1 h-4 w-4 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm",
         "transition-transform duration-[var(--duration-base)] motion-reduce:transition-none",
         enabled ? "translate-x-4" : "translate-x-0",
       )}
@@ -421,7 +423,7 @@ export function ToggleSwitch({
         disabled={disabled}
         onClick={onToggle}
         className={cn(
-          "inline-grid min-h-tap min-w-tap shrink-0 place-items-center rounded-full",
+          "inline-grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           controlDisabled,
         )}

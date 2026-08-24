@@ -64,6 +64,76 @@ function appearanceClasses(appearance: ChipAppearance) {
   return INFORMATION[appearance.tone ?? "neutral"];
 }
 
+export type ChoiceChipProps = {
+  children: ReactNode;
+  pressed: boolean;
+  onPressedChange: (pressed: boolean) => void;
+  size?: ChipSize;
+  icon?: LucideIcon;
+  /** Optional category/status treatment for specialised tag families. */
+  appearance?: ChipAppearance;
+  disabled?: boolean;
+  ariaDisabled?: boolean;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+  title?: string;
+  testId?: string;
+  /** Layout only: width, shrink/grow, alignment and wrapping. */
+  className?: string;
+};
+
+/** Compact many-of-many selection. Use SegmentedControl for one-of-many choices. */
+export function ChoiceChip({
+  children,
+  pressed,
+  onPressedChange,
+  size = "standard",
+  icon: Icon,
+  appearance,
+  className,
+  disabled,
+  ariaDisabled,
+  ariaLabel,
+  ariaDescribedBy,
+  title,
+  testId,
+}: ChoiceChipProps) {
+  const unavailable = disabled || ariaDisabled;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-disabled={ariaDisabled || undefined}
+      aria-pressed={pressed}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
+      title={title}
+      data-testid={testId}
+      data-choice-chip="true"
+      data-size={size}
+      onClick={() => {
+        if (!unavailable) onPressedChange(!pressed);
+      }}
+      className={cn(
+        "relative inline-flex min-h-tap max-w-full items-center justify-center gap-1.5 rounded-lg border font-semibold leading-none shadow-[var(--shadow-inset)] transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        size === "compact" ? "px-2.5 text-2xs" : "px-3 text-xs",
+        appearance
+          ? appearanceClasses(appearance)
+          : pressed
+            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+            : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+        pressed && "font-bold forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]",
+        unavailable &&
+          "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+        className,
+      )}
+    >
+      {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
+      {typeof children === "string" ? <span className="min-w-0 truncate">{children}</span> : children}
+    </button>
+  );
+}
+
 function dotClasses(appearance: ChipAppearance) {
   if (appearance.kind === "status") {
     if (appearance.tone === "success") return "bg-[color:var(--success)]";

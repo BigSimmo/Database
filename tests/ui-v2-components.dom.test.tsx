@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AnswerFooter, DoseLine } from "@/components/ui/answer-card";
 import { Button } from "@/components/ui/button";
 import { Citation, CitationList } from "@/components/ui/citation";
-import { Chip } from "@/components/ui/chip";
+import { Chip, ChoiceChip } from "@/components/ui/chip";
 import { Checkbox, RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Disclosure } from "@/components/ui/disclosure";
@@ -210,6 +210,49 @@ describe("Chip", () => {
     });
     expect(remove).toHaveClass("min-h-5", "h-full", "w-8");
     expect(remove).not.toHaveClass("max-w-full");
+  });
+});
+
+describe("ChoiceChip", () => {
+  it("exposes pressed state and reports the requested next state", async () => {
+    const onPressedChange = vi.fn();
+    const { rerender } = render(
+      <ChoiceChip pressed={false} onPressedChange={onPressedChange} testId="allergy-chip">
+        Penicillin
+      </ChoiceChip>,
+    );
+
+    const chip = screen.getByRole("button", { name: "Penicillin" });
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+    expect(chip).toHaveClass("min-h-tap", "rounded-lg");
+    expect(chip).toHaveAttribute("data-choice-chip", "true");
+    await userEvent.click(chip);
+    expect(onPressedChange).toHaveBeenCalledWith(true);
+
+    rerender(
+      <ChoiceChip pressed onPressedChange={onPressedChange} testId="allergy-chip">
+        Penicillin
+      </ChoiceChip>,
+    );
+    expect(screen.getByRole("button", { name: "Penicillin" })).not.toHaveClass("ring-1");
+  });
+
+  it("keeps an explained dead end focusable without activating it", async () => {
+    const onPressedChange = vi.fn();
+    render(
+      <>
+        <p id="no-matches">No matches with your current filters.</p>
+        <ChoiceChip pressed={false} onPressedChange={onPressedChange} ariaDisabled ariaDescribedBy="no-matches">
+          Archived
+        </ChoiceChip>
+      </>,
+    );
+
+    const chip = screen.getByRole("button", { name: "Archived" });
+    expect(chip).toHaveAttribute("aria-disabled", "true");
+    expect(chip).not.toBeDisabled();
+    await userEvent.click(chip);
+    expect(onPressedChange).not.toHaveBeenCalled();
   });
 });
 
@@ -484,6 +527,18 @@ describe("SegmentedControl", () => {
 
     expect(screen.getByRole("radiogroup", { name: "Answer style" })).toHaveClass("flex-wrap");
     for (const radio of screen.getAllByRole("radio")) expect(radio).toHaveClass("flex-none");
+  });
+
+  it("uses a compact soft inset selection instead of a full capsule", () => {
+    render(<Harness />);
+
+    const group = screen.getByRole("radiogroup", { name: "Answer style" });
+    const selected = screen.getByRole("radio", { name: "Brief" });
+    expect(group).toHaveClass("rounded-xl");
+    expect(group).not.toHaveClass("rounded-2xl", "p-1");
+    expect(selected).toHaveClass("min-h-tap", "rounded-lg");
+    expect(selected).not.toHaveClass("rounded-full");
+    expect(selected.querySelector("[aria-hidden='true']")).toHaveClass("absolute", "inset-1", "rounded-lg");
   });
 });
 
