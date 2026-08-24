@@ -829,3 +829,119 @@ describe("arrival capacity floor", () => {
     expect(after.empty.value).toBe(0);
   });
 });
+
+describe("urgency and legal status changes (Task 2)", () => {
+  it("records an urgency change with who made it, from both permitted roles", () => {
+    const seeded = seedWardFlowState();
+    const target = seeded.movements.find((candidate) => candidate.urgency !== 1)!;
+    const after = wardFlowReducer(seeded, {
+      type: "CHANGE_URGENCY",
+      role: "coordinator",
+      now: NOW,
+      movementId: target.id,
+      urgency: 1,
+      reason: "reassessed",
+    });
+    const updated = after.movements.find((candidate) => candidate.id === target.id)!;
+    expect(updated.urgency).toBe(1);
+    expect(updated.urgencyChanges).toHaveLength(1);
+    expect(updated.urgencyChanges[0]).toMatchObject({
+      from: target.urgency,
+      to: 1,
+      by: "coordinator",
+      reason: "reassessed",
+    });
+    expect(after.rejections).toHaveLength(0);
+
+    const fromEd = wardFlowReducer(seeded, {
+      type: "CHANGE_URGENCY",
+      role: "ed",
+      now: NOW,
+      movementId: target.id,
+      urgency: 1,
+      reason: "reassessed",
+    });
+    expect(fromEd.rejections).toHaveLength(0);
+  });
+
+  it("refuses an urgency change from a role that may not make one", () => {
+    const seeded = seedWardFlowState();
+    const target = seeded.movements[0];
+    const after = wardFlowReducer(seeded, {
+      type: "CHANGE_URGENCY",
+      role: "officer",
+      now: NOW,
+      movementId: target.id,
+      urgency: 1,
+      reason: "reassessed",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.movements.find((candidate) => candidate.id === target.id)!.urgency).toBe(target.urgency);
+  });
+
+  it("records a legal status change and never re-sorts or un-accepts the patient", () => {
+    const seeded = seedWardFlowState();
+
+    // The brief's literal precondition (legalStatus === "Voluntary" && acceptedUnitId !==
+    // undefined) is satisfied by three fixture movements — WF-007, WF-008 and WF-015 — but the
+    // first two are both CLOSED (WF-007 "arrived", WF-008 "did_not_proceed") and sort earlier in
+    // fixture array order than WF-015, the only OPEN one. A naive `.find()` over just those two
+    // fields would therefore resolve to a closed movement, exercising the closed-movement
+    // rejection path rather than the success path this test is about — a trap in the fixture's
+    // own ordering, not a defect in the reducer. Constructed explicitly instead, from a real open
+    // Voluntary movement (WF-002) with `acceptedUnitId` set directly, so the outcome never
+    // depends on which movement the fixture happens to put first.
+    const base = seeded.movements.find((candidate) => candidate.id === "WF-002")!;
+    const withAcceptedUnit = { ...base, legalStatus: "Voluntary" as const, acceptedUnitId: "fsh-older-adult" };
+    const seededWithAcceptedVoluntary = {
+      ...seeded,
+      movements: seeded.movements.map((candidate) =>
+        candidate.id === withAcceptedUnit.id ? withAcceptedUnit : candidate,
+      ),
+    };
+
+    const after = wardFlowReducer(seededWithAcceptedVoluntary, {
+      type: "CHANGE_LEGAL_STATUS",
+      role: "ed",
+      now: NOW,
+      movementId: withAcceptedUnit.id,
+      legalStatus: "Involuntary inpatient",
+      reason: "recorded_by_treating_team",
+    });
+    const updated = after.movements.find((candidate) => candidate.id === withAcceptedUnit.id)!;
+    expect(updated.legalStatus).toBe("Involuntary inpatient");
+    expect(updated.statusChanges).toHaveLength(1);
+    expect(updated.statusChanges[0]).toMatchObject({
+      from: "Voluntary",
+      to: "Involuntary inpatient",
+      by: "ed",
+    });
+    // Nothing auto-allocates: the accepted unit, the stage and the referrals are untouched.
+    expect(updated.acceptedUnitId).toBe(withAcceptedUnit.acceptedUnitId);
+    expect(updated.stage).toBe(withAcceptedUnit.stage);
+    expect(updated.referredUnitIds).toEqual(withAcceptedUnit.referredUnitIds);
+  });
+
+  it("refuses both changes on a closed movement, naming the closure reason", () => {
+    const seeded = seedWardFlowState();
+    const target = seeded.movements[0];
+    const closed = {
+      ...seeded,
+      movements: seeded.movements.map((candidate) =>
+        candidate.id === target.id
+          ? { ...candidate, closure: { at: NOW, outcome: "arrived" as const, reason: "arrived at unit" } }
+          : candidate,
+      ),
+    };
+    const after = wardFlowReducer(closed, {
+      type: "CHANGE_URGENCY",
+      role: "coordinator",
+      now: NOW,
+      movementId: target.id,
+      urgency: 1,
+      reason: "reassessed",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("arrived at unit");
+  });
+});

@@ -16,7 +16,11 @@ import {
   minutesUntil,
   type Instant,
 } from "@/components/ward-management/ward-clock";
-import { eligibility, type EligibilityVerdict } from "@/components/ward-management/ward-eligibility";
+import {
+  eligibility,
+  requiresAuthorisedDestination,
+  type EligibilityVerdict,
+} from "@/components/ward-management/ward-eligibility";
 import {
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
@@ -97,6 +101,22 @@ export function elapsedLabel(movement: Movement, now: Instant) {
  */
 export function isOpen(movement: Movement): boolean {
   return !movement.closure && movement.stage !== "arrived";
+}
+
+/**
+ * A movement whose CURRENT legal status requires an authorised destination, but whose already
+ * accepted unit is not authorised. This is a real situation created by a mid-flight status
+ * change, and it is surfaced as an exception for a human to resolve. It NEVER re-sorts,
+ * re-suggests or un-accepts the patient: nothing in this prototype auto-allocates, and that
+ * rule does not bend because the trigger was a status change.
+ */
+export function destinationNoLongerLawful(movement: Movement, units: Unit[]): Unit | undefined {
+  if (!isOpen(movement)) return undefined;
+  if (!requiresAuthorisedDestination(movement.legalStatus)) return undefined;
+  if (movement.acceptedUnitId === undefined) return undefined;
+  const unit = units.find((candidate) => candidate.id === movement.acceptedUnitId);
+  if (unit === undefined) return undefined;
+  return unit.authorised ? undefined : unit;
 }
 
 /**
@@ -349,8 +369,26 @@ export type InboxItem = {
  * legitimately carries a deadline falls due. This is the coordinator's work list, not a report:
  * every qualifying movement gets its own row.
  */
-export function buildActionInbox(movements: Movement[], now: Instant): InboxItem[] {
+export function buildActionInbox(movements: Movement[], now: Instant, units: Unit[]): InboxItem[] {
   const items: InboxItem[] = [];
+
+  // A legal status change can make an already-accepted destination unlawful — see
+  // `destinationNoLongerLawful`'s own doc comment. This never re-sorts or un-accepts the
+  // patient; it only surfaces the fact for a human, exactly like every other category here.
+  const noLongerLawful = movements
+    .map((movement) => ({ movement, unit: destinationNoLongerLawful(movement, units) }))
+    .filter((entry): entry is { movement: Movement; unit: Unit } => entry.unit !== undefined);
+  for (const { movement, unit } of noLongerLawful) {
+    items.push({
+      id: `destination-unlawful-${movement.id}`,
+      tone: "danger",
+      icon: CircleAlert,
+      title: "Accepted destination no longer lawful",
+      detail: `${movement.id} · ${unit.name} is not authorised under the Mental Health Act for ${movement.legalStatus}`,
+      owner: movement.owner,
+      movementId: movement.id,
+    });
+  }
 
   // A form with no `dueAt` is never breached and contributes nothing here; `undefined` must never
   // reach `clockState`'s arithmetic. As of the 2026-08-23 product-owner correction that is every

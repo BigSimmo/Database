@@ -1,4 +1,5 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
+import type { LegalStatusChangeReason, UrgencyChangeReason } from "@/components/ward-management/ward-change-reasons";
 
 export type HealthService = "North Metro" | "South Metro" | "East Metro" | "WACHS" | "Private";
 export type Cohort = "Adult" | "Older adult";
@@ -155,6 +156,18 @@ export type StatusChange = {
   from: LegalStatus;
   to: LegalStatus;
   by: string;
+  reason: LegalStatusChangeReason;
+};
+
+/** The urgency-tier counterpart of `StatusChange` — same shape, same discipline: who made the
+ *  change, when, and a reason chosen from a fixed list rather than typed (see
+ *  `ward-change-reasons.ts`'s own doc comment for why). */
+export type UrgencyChange = {
+  at: Instant;
+  from: 1 | 2 | 3;
+  to: 1 | 2 | 3;
+  by: string;
+  reason: UrgencyChangeReason;
 };
 
 export type TransportJob = {
@@ -188,6 +201,9 @@ export type Movement = {
   legalStatus: LegalStatus;
   legalForm?: LegalForm;
   statusChanges: StatusChange[];
+  /** Urgency-tier changes, in the order they were made. Empty for a movement whose urgency has
+   *  never changed since it was raised. */
+  urgencyChanges: UrgencyChange[];
   stage: MovementStage;
   owner: string;
   /** Units currently holding a live referral. Never longer than PARALLEL_REFERRAL_CAP. */

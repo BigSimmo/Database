@@ -3,6 +3,10 @@ import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
+import {
+  LEGAL_STATUS_CHANGE_REASONS,
+  URGENCY_CHANGE_REASONS,
+} from "../src/components/ward-management/ward-change-reasons";
 import { EVENT_ROLE, type WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import {
   seedWardFlowState,
@@ -359,6 +363,15 @@ function scanWardFiles(): ScannedFile[] {
 /** Every event type in the union, taken from the role table so a new variant cannot be forgotten. */
 const ALL_EVENT_TYPES = Object.keys(EVENT_ROLE) as WardFlowEvent["type"][];
 
+/** Every `LegalStatus` value, hand-listed — `ward-model.ts` exports the type but no runtime list
+ *  of its members, the same reason `ed-screen.tsx` keeps its own `LEGAL_STATUS_OPTIONS`. */
+const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
+  "Voluntary",
+  "Referred for psychiatric examination",
+  "Detained awaiting examination",
+  "Involuntary inpatient",
+];
+
 /**
  * Candidate events of one type, generated against the CURRENT state rather than hard-coded, so a
  * fixture change cannot silently make the traversal untestable. Every candidate carries the role
@@ -366,7 +379,11 @@ const ALL_EVENT_TYPES = Object.keys(EVENT_ROLE) as WardFlowEvent["type"][];
  * event proves nothing about what the reducer body does.
  */
 function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now: number): WardFlowEvent[] {
-  const role = EVENT_ROLE[type];
+  // `EVENT_ROLE[type]` is a non-empty list of permitted roles (widened this task, spec D2); any
+  // one of them is refused by the role check identically to any other, so the first is enough to
+  // get past the gate and exercise the reducer body — the coverage this sweep is checking never
+  // depends on which of two permitted roles raised the event.
+  const role = EVENT_ROLE[type][0];
   const movementIds = state.movements.map((movement) => movement.id);
   const unitIds = state.units.map((unit) => unit.id);
   const pairs = movementIds.flatMap((movementId) => unitIds.map((unitId) => ({ movementId, unitId })));
@@ -444,6 +461,31 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
         triedUnitIds: unitIds.slice(0, 1),
         contact: "State-wide bed coordination line",
       }));
+    case "CHANGE_URGENCY":
+      // One candidate per urgency tier — the same precedent SET_SCENARIO sets below — so the
+      // sweep cannot silently leave two of the three tiers untested.
+      return movementIds.flatMap((movementId) =>
+        ([1, 2, 3] as const).map((urgency) => ({
+          type,
+          role,
+          now,
+          movementId,
+          urgency,
+          reason: URGENCY_CHANGE_REASONS[0],
+        })),
+      );
+    case "CHANGE_LEGAL_STATUS":
+      // One candidate per legal status, for the same reason.
+      return movementIds.flatMap((movementId) =>
+        LEGAL_STATUS_OPTIONS.map((legalStatus) => ({
+          type,
+          role,
+          now,
+          movementId,
+          legalStatus,
+          reason: LEGAL_STATUS_CHANGE_REASONS[0],
+        })),
+      );
     case "ADVANCE_CLOCK":
       return [{ type, role, now, minutes: 30 }];
     case "RESET_SCENARIO":
@@ -468,6 +510,8 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
   "PATIENT_COLLECTED",
   "PATIENT_ARRIVED",
   "RECORD_ESCALATION",
+  "CHANGE_URGENCY",
+  "CHANGE_LEGAL_STATUS",
 ]);
 
 /**
@@ -790,7 +834,7 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     for (const scenario of WARD_SCENARIOS) {
       const setScenario = wardFlowReducer(seedWardFlowState(), {
         type: "SET_SCENARIO",
-        role: EVENT_ROLE.SET_SCENARIO,
+        role: EVENT_ROLE.SET_SCENARIO[0],
         now: NOW_ANCHOR,
         scenario,
       });

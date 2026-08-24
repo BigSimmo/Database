@@ -36,6 +36,7 @@ function movement(overrides: Partial<Movement> = {}): Movement {
     specialling: false,
     legalStatus: "Voluntary",
     statusChanges: [],
+    urgencyChanges: [],
     stage: "destination_review",
     owner: "Flow coordinator",
     referredUnitIds: [],

@@ -1,4 +1,4 @@
-import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
+import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
@@ -117,9 +117,13 @@ function nextReferralId(sequence: number): string {
 
 export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): WardFlowState {
   // 1. Role check first, before the event's payload is inspected at all.
-  const requiredRole: WardFlowRole = EVENT_ROLE[event.type];
-  if (requiredRole !== event.role) {
-    return reject(state, event, `${event.type} requires role ${requiredRole}, but was raised by role ${event.role}`);
+  const permittedRoles = EVENT_ROLE[event.type];
+  if (!permittedRoles.includes(event.role)) {
+    return reject(
+      state,
+      event,
+      `${event.type} requires role ${permittedRoles.join(" or ")}, but was raised by role ${event.role}`,
+    );
   }
 
   switch (event.type) {
@@ -166,6 +170,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // own source and must not become mutable state hanging off a movement.
         legalForm: chosenForm === undefined ? undefined : { ...chosenForm },
         statusChanges: [],
+        urgencyChanges: [],
         stage: "placement_requested",
         owner: department.name,
         referredUnitIds: [],
@@ -529,6 +534,48 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updated: Movement = {
         ...movement,
         escalation: { at: event.now, triedUnitIds: [...event.triedUnitIds], contact: event.contact },
+      };
+      return replaceMovement(state, movement.id, updated);
+    }
+
+    case "CHANGE_URGENCY": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot change urgency for a closed movement (${movement.closure.reason})`);
+      }
+      // Nothing auto-allocates. This records who changed the tier, when and why; it never
+      // re-sorts, re-suggests, un-accepts or re-refers the patient — that rule does not bend
+      // because the trigger was a status change (Global Constraint 3, spec D2).
+      const updated: Movement = {
+        ...movement,
+        urgency: event.urgency,
+        urgencyChanges: [
+          ...movement.urgencyChanges,
+          { at: event.now, from: movement.urgency, to: event.urgency, by: event.role, reason: event.reason },
+        ],
+      };
+      return replaceMovement(state, movement.id, updated);
+    }
+
+    case "CHANGE_LEGAL_STATUS": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot change legal status for a closed movement (${movement.closure.reason})`);
+      }
+      // A legal status change can make an already-accepted destination unlawful — see
+      // `destinationNoLongerLawful` in ward-derivations.ts, which surfaces that as an exception
+      // for a human. This handler NEVER reacts to that itself: it records the change and nothing
+      // else. `stage`, `acceptedUnitId`, `referredUnitIds`, `declines`, `transport`, `legalForm`
+      // and `bedHeldUntil` are all untouched.
+      const updated: Movement = {
+        ...movement,
+        legalStatus: event.legalStatus,
+        statusChanges: [
+          ...movement.statusChanges,
+          { at: event.now, from: movement.legalStatus, to: event.legalStatus, by: event.role, reason: event.reason },
+        ],
       };
       return replaceMovement(state, movement.id, updated);
     }

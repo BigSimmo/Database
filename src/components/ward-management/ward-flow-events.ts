@@ -1,4 +1,5 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
+import type { LegalStatusChangeReason, UrgencyChangeReason } from "@/components/ward-management/ward-change-reasons";
 import type { Cohort, DeclineReason, LegalStatus, Security, Sex } from "@/components/ward-management/ward-model";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -87,27 +88,50 @@ export type WardFlowEvent =
     }
   | { type: "ADVANCE_CLOCK"; role: WardFlowRole; now: Instant; minutes: number }
   | { type: "RESET_SCENARIO"; role: WardFlowRole; now: Instant }
-  | { type: "SET_SCENARIO"; role: WardFlowRole; now: Instant; scenario: WardScenario };
+  | { type: "SET_SCENARIO"; role: WardFlowRole; now: Instant; scenario: WardScenario }
+  | {
+      type: "CHANGE_URGENCY";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      urgency: 1 | 2 | 3;
+      reason: UrgencyChangeReason;
+    }
+  | {
+      type: "CHANGE_LEGAL_STATUS";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      legalStatus: LegalStatus;
+      reason: LegalStatusChangeReason;
+    };
 
 /**
  * One table, read by the reducer's role check, rather than a `switch` repeated at every call
  * site. Adding an event here without an entry is a compile error, which is the point.
+ *
+ * Widened from one role per event to a non-empty list of permitted roles (this task, spec D2).
+ * `CHANGE_URGENCY` and `CHANGE_LEGAL_STATUS` are the first events with more than one — both a
+ * coordinator and the referring ED clinician may record either change — and Task 3's events need
+ * the same shape, so the table is widened here rather than special-cased per event.
  */
-export const EVENT_ROLE: Record<WardFlowEvent["type"], WardFlowRole> = {
-  RAISE_REFERRAL: "ed",
-  RECORD_EXAMINATION: "ed",
-  REFER_TO_UNITS: "coordinator",
-  ACCEPT_IN_PRINCIPLE: "ward",
-  HOLD_BED: "ward",
-  DECLINE: "ward",
-  HANDOVER_READY: "ed",
-  TRANSPORT_ACCEPTED: "officer",
-  TRANSPORT_EN_ROUTE: "officer",
-  PATIENT_COLLECTED: "officer",
-  PATIENT_ARRIVED: "officer",
-  CONFIRM_CAPACITY: "ward",
-  RECORD_ESCALATION: "coordinator",
-  ADVANCE_CLOCK: "demo",
-  RESET_SCENARIO: "demo",
-  SET_SCENARIO: "demo",
+export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> = {
+  RAISE_REFERRAL: ["ed"],
+  RECORD_EXAMINATION: ["ed"],
+  REFER_TO_UNITS: ["coordinator"],
+  ACCEPT_IN_PRINCIPLE: ["ward"],
+  HOLD_BED: ["ward"],
+  DECLINE: ["ward"],
+  HANDOVER_READY: ["ed"],
+  TRANSPORT_ACCEPTED: ["officer"],
+  TRANSPORT_EN_ROUTE: ["officer"],
+  PATIENT_COLLECTED: ["officer"],
+  PATIENT_ARRIVED: ["officer"],
+  CONFIRM_CAPACITY: ["ward"],
+  RECORD_ESCALATION: ["coordinator"],
+  ADVANCE_CLOCK: ["demo"],
+  RESET_SCENARIO: ["demo"],
+  SET_SCENARIO: ["demo"],
+  CHANGE_URGENCY: ["coordinator", "ed"],
+  CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
 };

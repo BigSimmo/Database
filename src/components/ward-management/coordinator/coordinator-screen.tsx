@@ -142,7 +142,7 @@ export function CoordinatorScreen() {
   // on a live work list. Latent on today's fixture — no closed movement currently qualifies for
   // any of the three categories — but it is precisely the shape of Phase 1's "48 open movements"
   // defect, which was also a closed record counted as live.
-  const actionInbox = useMemo(() => buildActionInbox(movements.filter(isOpen), now), [movements, now]);
+  const actionInbox = useMemo(() => buildActionInbox(movements.filter(isOpen), now, units), [movements, now, units]);
 
   return (
     <div className={styles.screen} data-testid="ward-coordinator">

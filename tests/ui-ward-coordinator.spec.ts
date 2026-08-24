@@ -163,7 +163,7 @@ test.describe("Ward Flow coordinator screen", () => {
     // Whole-branch review Minor 6: the drawer is scoped to OPEN movements, so the independent
     // count here must be too — computing it over all 48 records would agree with a screen that
     // wrongly listed a closed patient's breached deadline.
-    const expectedCount = buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR).length;
+    const expectedCount = buildActionInbox(wardMovements.filter(isOpen), NOW_ANCHOR, allUnits()).length;
     expect(expectedCount).toBeGreaterThan(1);
     await expect(items).toHaveCount(expectedCount);
     await expect(toggle).toContainText(String(expectedCount));

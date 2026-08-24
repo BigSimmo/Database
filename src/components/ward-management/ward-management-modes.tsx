@@ -484,10 +484,10 @@ function MovementsView() {
 }
 
 function ExceptionsView() {
-  const { movements, now } = useWardFlow();
+  const { movements, units, now } = useWardFlow();
   // Whole-branch review Minor 6: same open-movement scoping as the coordinator screen — a closed
   // record must never appear on a live exception work list.
-  const items = buildActionInbox(movements.filter(isOpen), now);
+  const items = buildActionInbox(movements.filter(isOpen), now, units);
   // Task 8 review (Minor 7): `tone === "danger"` also matches the parallel-referral-cap
   // category, which is a capacity dead end, not a passed deadline — counting it under a label
   // that says "overdue" overstated the true breach count by one once Ruling 1 started emitting
