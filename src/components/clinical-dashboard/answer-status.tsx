@@ -13,9 +13,11 @@ import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { ShowAllChip } from "@/components/show-all-chip";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import type { AppModeId } from "@/lib/app-modes";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import {
   answerLoading,
   copyButton,
@@ -86,6 +88,16 @@ export function SharedHomeEmptyState({
       headingLevel={2}
       stabilizePhoneCopy
       desktopComposerSlotId={desktopComposerSlotId}
+      heroAction={
+        modeId === "calculators" ? (
+          <ShowAllChip
+            href={consolidatedModeSearchPath("calculators")}
+            icon={appModeIcons.calculators}
+            ariaLabel="Show all calculators"
+            testId="calculators-show-all"
+          />
+        ) : undefined
+      }
       actionsLabel={sharedHomeEmptyState.starterActionsLabel}
       actions={[]}
       footer={

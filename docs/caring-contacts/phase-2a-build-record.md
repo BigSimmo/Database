@@ -2666,3 +2666,200 @@ failure as a regression, run the other way.
 **Also still unrun, and still recorded as unrun:** the condensed bar's 1440px pin mutation and its
 dark-mode colour mutation. Both were blocked on the browser gate; the gate is now available, so the
 next session can run them.
+
+# Session 5 — 2026-08-24 — closing work, and the branch turned out to be merged
+
+Working copy `D:\Repos\Database\.claude\worktrees\browser-test-gate-handoff-d5c1db`, on `main` at
+`6299857df`. Dependencies came from `node scripts/setup-codex-worktree.mjs`, which found every
+`package-lock.json` on this machine byte-identical and reused `D:\Repos\Database`'s `node_modules` in
+seconds rather than the 15-58 minutes `npm ci` costs here. Worth knowing before anyone budgets an hour
+for a fresh worktree again.
+
+Ruling: [67] This session appends to THIS tracked file rather than opening a `.superpowers/sdd/`
+ledger, even though it is running the subagent-driven-development method which asks for one.
+— Why: the programme already ruled that the SDD workspace is a GENERATED MIRROR and never a source,
+after the original git-ignored workspace was destroyed on 2026-08-21 and took the only copy of a
+session ledger with it. A second ledger in git-ignored scratch would recreate exactly that loss, and
+two ledgers disagreeing is worse than one that is occasionally terse. — Cost if wrong: the SDD
+scripts' `progress.md` conventions are not used, so a future controller resuming by those conventions
+finds no ledger where the skill says to look. That is why this ruling is written here, where that
+controller is told to read first.
+
+## The finding that reframes everything below: Phase 2A ALREADY MERGED
+
+The handoff, the ledger and the continuation prompt all named branch `claude/suicide-contact-mockup-b5aaa0`
+as the source of truth and told the next session to build a worktree from it. **That is stale.** Verified
+before any work was done:
+
+- `e4cbe8d3a` on `main` is "Claude/suicide contact mockup b5aaa0 (#2279)", dated 2026-08-23 — a squash
+  merge of the whole phase. `main` has advanced 18 commits since.
+- Every caring-contacts path on `main` matches the old branch tip `cf03f99a4`. `git diff origin/main
+claude/suicide-contact-mockup-b5aaa0` over `src/lib/caring-contacts`, `caring-contacts/` and
+  `tests/ui-caring-contacts-workspace.spec.ts` is EMPTY; `docs/caring-contacts/` differs by two lines in
+  one archive file; `src/components/caring-contacts/` differs only where **`main` is newer** — the
+  design-system consolidation replaced a shadow literal with a token, swapped a local `SectionHeading`
+  for the shared one, and added a `focusTimerRef` teardown the branch never had.
+- No local remote-tracking ref for that branch survives, which is what a deleted PR branch looks like
+  after a prune. Not verified against GitHub — that needs approval and buys nothing here.
+
+So the branch is retired and `main` is the source of truth. The whole "push after every task /
+`SKIP_STATIC_GUARD=1`" apparatus in the older records was correct for its moment and is now noise. The
+records have been corrected in place rather than deleted, because the _reasoning_ about durability and
+about measuring a moving tree still holds — and holds harder on `main`, which far more sessions touch.
+
+**The general lesson, and it is the same shape as the idempotency-table one:** a handoff document
+describes where work _was_, and no part of it updates when the work moves. Four documents agreed with
+each other and all four were wrong together, because they were written in one session and copied from
+one another. **Agreement between records that share an ancestor is not corroboration.** Check the claim
+against git, not against the other records.
+
+## Closing item 1 — the browser gate is GREEN, and the residual failure was load
+
+Re-run against `main` content, via the repository runner, whole log kept to a file and not tailed:
+
+```
+Running 32 tests using 1 worker
+  ok 30 [chromium] > ui-caring-contacts-workspace.spec.ts:822:9 > caring-contacts service stop, stated on
+     every screen > pins the condensed bar under the header once the banner has gone at 1440px (898ms)
+  32 passed (55.5s)
+EXIT=0
+```
+
+341-line log, no `ECONNRESET` anywhere in it. **The exact test that failed on 2026-08-23 ran and passed.**
+The disposition recorded then — "unresolved, re-run it on a quiet machine" — therefore resolves to
+**load, not a defect**, and the condensed bar's fix round is closed on that count. Note also that the
+count is **32**, not the 33 the continuation prompt predicted; the prompt has been corrected.
+
+Two corrections to how that failure was read, both worth more than the incident:
+
+- **The machine was NOT quiet for this run** — 73 `node` processes and 23 Claude processes were live. A
+  pass under load is _stronger_ evidence than a pass on a quiet machine, not weaker, because load is the
+  very hypothesis being tested. Waiting for quiet would have bought less and cost hours.
+- **`:822` was never the failing line.** Playwright reports a failure at the test's DECLARATION line, and
+  822 is the `test(...)` line. The `apiRequestContext.post: read ECONNRESET` came from
+  `arrangeServiceStop`'s setup POST at line **672**, before a single pin assertion executed. The previous
+  session's honest worry — "it is precisely the assertion the fix round strengthened, so the one test most
+  likely to be genuinely wrong is the one that failed" — could not have been true as stated: a dropped
+  HTTP connection during arrange cannot be caused by wrong geometry in an assertion that never ran. That
+  did not make the re-run unnecessary, and running it was still right — the difference between narrowing
+  a hypothesis and confirming one. But **read which line the runner is actually naming before inferring
+  what a failure means.**
+
+## Closing item 2 — the condensed bar's mutation proofs
+
+### Mutation A — the 1440px pin assertion IS reachable and DOES discriminate
+
+`top-full` -> `top-0` on the condensed bar's className, one line, nothing else touched. The bar then
+sits at the header's top edge instead of hanging off its bottom, which is precisely the "buried behind
+the header" defect the pin exists to prevent.
+
+Result: **13 failed, 19 passed** (against 32/0 unmutated). The failure at 1440px, verbatim:
+
+```
+12) ui-caring-contacts-workspace.spec.ts:822:9 > pins the condensed bar under the header ... at 1440px
+    Error: the condensed bar is behind the header at 1440px
+    expect(received).toBeGreaterThanOrEqual(expected)
+    Expected: >= 64
+    Received:    0
+    > 877 |  expect(geometry.barBox!.top, `the condensed bar is behind the header at ${width}px`)
+```
+
+Three things make this a proof rather than a red light:
+
+- **It is the pin assertion itself that failed** — line 877 — not an earlier one standing in for it.
+- **The two assertions before it passed first**: the round-1 guard at 869 (`the banner is still on
+screen ... nothing about the handover is being measured`) and `the condensed bar did not appear` at 874. So the pin is REACHED, which is exactly what round 1's degenerate version was not.
+- **The mutation moved a value the assertion reads**: `barBox.top` went 64 -> 0. A mutation that leaves
+  every asserted value unchanged proves nothing however red the suite goes, and three proposed proofs
+  on this branch already failed that test.
+
+The other twelve failures are honest collateral, not scope creep: the six `keeps the stop stated exactly
+once at every scroll position` cases and the forced-colours case all read the bar's on-screen position,
+and an unpinned bar changes it. Worth stating explicitly so a later reader does not treat thirteen
+failures from a one-line change as evidence the mutation was too broad.
+
+### THE TRAP, and it is the most valuable thing in this section
+
+The first attempt at mutation B was written to swap the danger tokens for theme-invariant literals. Its
+anchor, `bg-[color:var(--danger-bg)]`, appears **twice** in the file — once on the full banner and once
+on the condensed bar. A uniqueness assertion caught it and refused to edit:
+
+```
+AssertionError: mutation B anchor not unique for bg-[color:var(--danger-bg)]: 2
+```
+
+But the surrounding script was not written to stop there, and it **ran the whole browser gate anyway,
+on a completely unmutated tree**. That run reported:
+
+```
+32 passed (52.7s)
+EXIT=0
+```
+
+**Read that the way it would have been read without the abort line: a mutation applied, the suite still
+green, therefore the dark-mode assertion cannot fail and the test is worthless.** The conclusion would
+have been exactly backwards, it would have been recorded against a test that is in fact fine, and the
+"evidence" would have been a genuine 32-passed gate run — the strongest-looking kind.
+
+This is the same family as the two traps already recorded here — `npx playwright test` exiting 0 having
+run nothing, and the EPERM lock failure that produces no summary line — but it is worse than either,
+because there is no missing output to notice. The gate really ran, really passed, and really measured
+the unmutated code.
+
+**The rule, and it is now a standing one for this programme: a mutation proof has TWO results, not one.
+Prove the mutation is in the tree before believing anything the gate says about it.** Concretely: assert
+the anchor is unique, assert the replacement is present after writing, print `git diff` of the mutated
+file into the same log as the gate output, and refuse to launch the gate at all if any of that fails.
+The corrected script does all four, which is why its log opens with the applied-mutation line and the
+diff before a single test runs.
+
+A quieter lesson sits underneath it. The uniqueness assertion was cheap insurance added almost as an
+afterthought, and it is the only reason this was caught. **Guard the mutation, not just the assertion**
+— the thing being manipulated is as capable of silent failure as the thing being tested.
+
+### Mutation B — the dark-mode colour assertion IS falsifiable, and reddens ONLY itself
+
+The corrected mutation swaps the condensed bar's `--danger-bg` / `--danger-text` for fixed literals
+carrying the light theme's own values, so the bar renders identically in both schemes. This is exactly
+the mutation the test's own comment names: "swapping `--danger-text` for a token whose value is
+identical in both themes reddens this and would have sailed through the old assertion."
+
+No theme-invariant token exists to swap in — every colour token in `globals.css` that is defined before
+the dark block is also redefined inside it. That is a good property of the design system and it is why
+the mutation uses literals; recorded so nobody later reads the literals as sloppiness.
+
+Anchoring had to be precise, because `bg-[color:var(--danger-bg)]` matches the full banner too. The
+unique anchors are the longer runs `bg-[color:var(--danger-bg)] px-4 py-2 text-sm font-semibold` and
+`text-sm font-semibold text-[color:var(--danger-text)] data-[full-banner-out-of-view=true]:flex`, each
+appearing exactly once, and the script asserts that count before writing.
+
+Result: **1 failed, 31 passed.** The single failure, verbatim:
+
+```
+31) ui-caring-contacts-workspace.spec.ts:913:7 > re-resolves the condensed bar's own colours in dark
+    Error: the condensed bar's ink did not change in dark
+    expect(received).not.toBe(expected)
+    Expected: not "rgb(163, 25, 15)"
+    > 931 |  expect(dark.colour, "the condensed bar's ink did not change in dark").not.toBe(light.colour)
+```
+
+Everything a proof needs is in those four lines:
+
+- **Exactly one test reddened**, and it is the intended one. Mutation A's thirteen failures were honest
+  collateral from moving the bar; this one changes only colour, and only the colour assertion notices.
+  A mutation whose blast radius matches its intent is itself evidence the assertion is measuring what
+  it claims.
+- **The failing assertion is the scheme-comparison at line 931**, not the `display !== "none"` guard at
+  924 — which passed first, so the assertion is reached.
+- **`Expected: not "rgb(163, 25, 15)"` is the literal the mutation injected.** The failure is
+  attributable to the mutation by value, not merely by timing.
+
+The `surface` assertion on the next line never ran, because `expect` throws on the first failure. That
+is not a gap: the test is proven able to fail, which is the claim. Proving the second assertion
+independently would need its own mutation, and nothing depends on it that the first does not already
+establish.
+
+### Both closing proofs are now run, and the earlier "unrun" record is discharged
+
+The final review recorded these two as **unrun, not passed**, and blocked on the browser gate. The gate
+is green, both are run, and both discriminate. The condensed pinned safety bar's fix round is closed.

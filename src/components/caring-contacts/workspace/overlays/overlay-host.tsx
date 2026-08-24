@@ -13,6 +13,7 @@ import {
 import { Sheet } from "@/components/ui/sheet";
 
 import { widthStateFor } from "../width-state";
+import type { OverlayCommitRefusal } from "./overlay-commits";
 import {
   overlayDefinition,
   type OverlayDesktopModality,
@@ -49,6 +50,33 @@ export type OverlayHostProps = {
   onCommit: (definition: WorkspaceOverlayDefinition) => void;
   /** A named permission/connectivity refusal, or null. Never the safety-stop record, or any part of it. */
   blockReason: string | null;
+  /**
+   * Why this overlay's decision cannot be carried out, and how far that reaches — or null.
+   *
+   * REQUIRED, and required for the reason Ruling 87 gives: the host renders a decision control for
+   * every row, and the moment a control in the workspace can raise one, a confirm that records
+   * nothing is a control advertising an action the system does not perform. Making this a required
+   * prop means a caller that has not answered the question does not compile.
+   *
+   * The SCOPE is Ruling 90, and it is the half that took a correction. The 24 rows are not one kind
+   * of thing: eight carry `mutatesState: false` and their controls are exits rather than
+   * confirmations — "Sign in again", "Back to personalisation", "Close this detail". A refusal
+   * meaning "nothing can be recorded here" is not a statement that can be made about a control whose
+   * whole action is to leave, so it carries `recording-rows-only` and is withheld from those rows.
+   * A refusal a screen stated itself carries `every-row`: it meant this row, whatever the row does.
+   *
+   * Two things separate it from `blockReason` above, and neither is stylistic:
+   *
+   *  - Its `reason` is a SENTENCE, already in plain words, not a named key. Ruling 61's wording map
+   *    exists because `blockReason` is an identifier a screen must not be allowed to invent copy
+   *    from; this value IS the copy, written where it is passed, so there is nothing to map.
+   *  - It can reach a read-only row, where `blockReason` deliberately cannot. A permission refusal
+   *    leaves a read-only overlay usable because there is nothing to permit; a decision a screen has
+   *    declared unbuilt is unbuilt whatever the row does.
+   *
+   * Never the safety-stop record, or any part of it — the same boundary the prop above states.
+   */
+  commitRefusal: OverlayCommitRefusal | null;
 };
 
 type OverlayModality = OverlayPhoneModality | OverlayDesktopModality;
@@ -218,6 +246,7 @@ type OverlayBodyProps = {
   /** Rendered as the overlay's own heading when the surface carries no Sheet header. */
   headingId: string | null;
   blockReason: string | null;
+  commitRefusal: OverlayCommitRefusal | null;
   checkpointOpen: boolean;
   /**
    * Stamps the shared Sheet's `data-sheet-autofocus` hook on the action control.
@@ -245,6 +274,7 @@ function OverlayBody({
   modality,
   headingId,
   blockReason,
+  commitRefusal,
   checkpointOpen,
   autoFocusAction,
   onActivate,
@@ -255,7 +285,27 @@ function OverlayBody({
   // other way. `mutatesState` is read from the table, never re-decided here.
   // Resolved once, here, so the plain-words lookup runs only for an overlay that
   // is actually refused — a read-only overlay never reaches Ruling 61's throw.
-  const refusal = blockReason !== null && definition.mutatesState ? blockReasonWording(blockReason) : null;
+  //
+  //
+  // The commit refusal is applied by its own scope (Ruling 90). `every-row` is a
+  // screen's own statement and holds regardless; `recording-rows-only` means
+  // "nothing can be recorded here", which is not a claim about a row that records
+  // nothing — those eight rows' controls are exits, and refusing an exit both
+  // contradicts Rule 9 above and, on the two `recovery-only` rows, leaves a person
+  // inside an overlay they cannot dismiss with nothing to do at all.
+  //
+  // A named refusal takes precedence over a commit refusal when both apply. Both
+  // sentences are true, and the named one is about the person reading it — what
+  // they may do — where the other is about what the interface has been built to
+  // record. The more useful of two true statements wins.
+  const commitRefusalApplies =
+    commitRefusal !== null && (commitRefusal.scope === "every-row" || definition.mutatesState);
+  const refusal =
+    blockReason !== null && definition.mutatesState
+      ? blockReasonWording(blockReason)
+      : commitRefusalApplies
+        ? commitRefusal.reason
+        : null;
   const blocked = refusal !== null;
   const reasonId = `caring-contacts-overlay-${definition.id}-reason`;
   return (
@@ -360,7 +410,7 @@ function StatusBannerSurface({ children }: { children: ReactNode }) {
   );
 }
 
-export function OverlayHost({ openOverlayId, onClose, onCommit, blockReason }: OverlayHostProps) {
+export function OverlayHost({ openOverlayId, onClose, onCommit, blockReason, commitRefusal }: OverlayHostProps) {
   const viewportWidth = useViewportWidth();
   const [checkpoint, setCheckpoint] = useState<{ id: string } | null>(null);
   /**
@@ -440,6 +490,7 @@ export function OverlayHost({ openOverlayId, onClose, onCommit, blockReason }: O
       // the shared component's own fallback to find.
       autoFocusAction={modality !== "status-banner" && !dismissible}
       blockReason={blockReason}
+      commitRefusal={commitRefusal}
       checkpointOpen={checkpointOpen}
       onActivate={activate}
     />
