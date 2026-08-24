@@ -188,12 +188,13 @@ describe("ModeNav item contract", () => {
     expect(modeNavSource).not.toMatch(/onClick\?:/);
   });
 
-  it("gives Therapy the four shared workspace destinations in declared order", () => {
+  it("gives Therapy the five shared workspace destinations in declared order", () => {
     expect(modeSecondaryNavigationEntries("therapy-compass").map((entry) => entry.id)).toEqual([
       "search",
       "recommend",
       "compare",
       "pathways",
+      "review",
     ]);
   });
 
@@ -304,7 +305,7 @@ describe("ModeNav density coverage", () => {
     // Therapy now uses the shared registry and deliberately exposes only the
     // four workspace destinations. Record-owned outputs require a selected
     // therapy and therefore stay off the global mode bar.
-    expect(covered.get("therapy-compass")).toBe(4);
+    expect(covered.get("therapy-compass")).toBe(5);
   });
 
   it("keeps each mode's declared destination count in step with the registry", () => {
@@ -323,8 +324,8 @@ describe("ModeNav density coverage", () => {
       expect(MODE_NAV_DENSITY_PROFILES).toContain(profile);
       expect(coveredProfiles.get(modeId), `${modeId} browser profile`).toBe(profile);
     }
-    expect(coveredProfiles.get("therapy-compass")).toBe("balanced-four");
-    expect(registryModeNavSource).toContain('"therapy-compass": "balanced-four"');
+    expect(coveredProfiles.get("therapy-compass")).toBe("extended");
+    expect(registryModeNavSource).toContain('"therapy-compass": "extended"');
   });
 });
 
