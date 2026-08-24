@@ -134,6 +134,55 @@ describe("caring-contact migrations", () => {
     expect(projection.map((row) => row.column_name)).toContain("cultural_identity");
   });
 
+  it("holds the moved-first-contact reason nullable, undefaulted, and bounded", async () => {
+    // Migration 0005. Three properties, each of which would be a real defect if it were otherwise:
+    //
+    //   * NULLABLE and UNDEFAULTED, because plans created before this column existed hold no reason
+    //     and no placeholder was written into them. A default would make a fabricated sentence
+    //     indistinguishable from one a clinician typed, on a clinical record.
+    //   * BOUNDED, so unbounded free text cannot reach the column by a route that bypassed the
+    //     domain's own refusal. The number here is the backstop for
+    //     `FIRST_CONTACT_REASON_MAX_LENGTH`; the enforcement lives in schedule.ts, where the
+    //     refusal can be named.
+    //   * BLANK REFUSED, because the domain trims and writes null when nothing was required, so ''
+    //     can only ever be a caller's bug.
+    const { rows: column } = await pool.query<{ is_nullable: string; column_default: string | null }>(
+      `select is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'plans'
+         and column_name = 'first_contact_reason'`,
+    );
+    expect(column).toHaveLength(1);
+    expect(column[0].is_nullable).toBe("YES");
+    expect(column[0].column_default).toBeNull();
+
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-REASON", patientId: "PATIENT-REASON" });
+
+    const setReason = async (value: string) =>
+      runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId: TEAM_NORTH,
+          actorId: "ACTOR-NORTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: "PLAN-REASON",
+          outcome: "allowed",
+          idempotencyKey: `reason-${value.length}`,
+        });
+        await client.query("update caring_contacts.plans set first_contact_reason = $1 where id = $2", [
+          value,
+          "PLAN-REASON",
+        ]);
+      });
+
+    // Positive control: an ordinary reason is accepted, so the two refusals below are the check
+    // constraint acting rather than the update never reaching the table.
+    await expect(setReason("Patient asked to wait until she is home from her sister's.")).resolves.toBeUndefined();
+
+    await expect(setReason("x".repeat(501))).rejects.toThrow(/plans_first_contact_reason_shape/);
+    await expect(setReason("   ")).rejects.toThrow(/plans_first_contact_reason_shape/);
+  });
+
   it("enables and forces row-level security on every patient-bearing table", async () => {
     const { rows } = await pool.query<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(
       `select c.relname, c.relrowsecurity, c.relforcerowsecurity

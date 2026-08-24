@@ -42,9 +42,9 @@ export type Episode = {
    * does not carry it, which is what makes a de-identified episode free of it.
    *
    * Null carries no single cause and must never be rendered as one. The date may never have been
-   * moved, the plan may predate the field existing, or a retention clearance may have removed it;
-   * a surface that can tell those apart says which, and one that cannot says only that no reason
-   * is held.
+   * moved, the plan may predate the field existing, or the clearance that de-identifies an ended
+   * episode may have removed it; a surface that can tell those apart says which, and one that
+   * cannot says only that no reason is held.
    */
   firstContactReason: string | null;
   planDates: EpisodePlanDates;

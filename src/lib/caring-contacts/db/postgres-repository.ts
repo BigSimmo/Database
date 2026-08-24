@@ -2088,10 +2088,11 @@ export function createPostgresRepository(
           // string ../repository fixes for both stores; cultural identity lives in its own
           // projection and is DELETED, because that table holds nothing but the identity itself.
           //
-          // `first_contact_reason` is the fifth (Ruling 105). It is not on ../retention's list,
-          // because that list names what identifies a patient and this names a scheduling decision
-          // -- but the VALUE is free text a clinician wrote about this patient, so leaving it would
-          // keep identifying prose in a record this write reports as de-identified. Every value
+          // `first_contact_reason` is the fifth of them, under Ruling [105]. It is absent from
+          // ../retention's own list, because that list names what identifies a patient while this
+          // names a scheduling decision -- but the VALUE is free text a clinician wrote about this
+          // patient, so leaving it would keep identifying prose in a record this write reports as
+          // de-identified. Every value
           // comes from `CLEARED_PATIENT_DETAIL` rather than being spelled out here, so the two
           // stores clear to one shape; the column list beside it is what no type can check, which
           // is why the shared contract suite asserts this reason is gone from BOTH stores.
