@@ -13,7 +13,7 @@ import { cn } from "@/components/ui-primitives";
 import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 
 import { useTcBindings } from "../bindings";
-import { therapyBtn } from "../controls";
+import { InteractiveRow } from "@/components/ui/interactive-row";
 import { parseSteps, summarise } from "../data/select";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
@@ -146,16 +146,7 @@ export function BriefScreen() {
                   {briefTherapies.map((x) => {
                     const active = x.slug === t.slug;
                     return (
-                      <button
-                        key={x.slug}
-                        type="button"
-                        className={cn(
-                          therapyBtn,
-                          "transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left aria-[current=true]:border-[color:var(--clinical-accent-border)] aria-[current=true]:border-l-[3px] aria-[current=true]:border-l-[color:var(--clinical-accent)] aria-[current=true]:bg-[color:var(--clinical-accent-soft)]",
-                        )}
-                        onClick={() => b.select(x.slug)}
-                        aria-current={active ? "true" : undefined}
-                      >
+                      <InteractiveRow key={x.slug} variant="card" active={active} onClick={() => b.select(x.slug)}>
                         <span className="flex-1 min-w-0">
                           <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
                             {x.name}
@@ -174,7 +165,7 @@ export function BriefScreen() {
                               : "flex-none text-[color:var(--warning-text)]"
                           }
                         />
-                      </button>
+                      </InteractiveRow>
                     );
                   })}
                 </div>
