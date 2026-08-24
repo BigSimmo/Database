@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "37fdb906-b528-4011-81ca-9303256ec927",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#KZJD4Q",
+    "outcome": "Activated zero-cost review coverage levers: added path_filters in .coderabbit.yaml to skip documentation and bookkeeping PRs, and documented bookkeeping-only PR prevention in docs/codex-review-protocol.md.",
+    "baseRowFingerprint": "fb1eb767f2cd5635b2e8a5372f3229c8613b38ecb232f60382135154e6bb6f20"
+  }
+}

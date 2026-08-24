@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 115,
+    "pending": 119,
     "resolved": 376
   },
   "queue": [
@@ -930,6 +930,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "3648add6-bf2b-4733-a651-ec2d8ffa9f35",
+      "action": "done",
+      "summary": "#71NT23: Configured mobile-webkit and mobile-pwa-standalone projects in playwright.config.ts with Mobile Safari emulation and standalone PWA display mode settings.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "36b358f7-0fa8-46ab-9b72-585c7d2ceca9",
       "action": "done",
       "summary": "#2TAQDC: Resolved with both recommended safeguards. docs/search-chrome-behaviour.md now documents the Next streaming/hydration interval in which #main-content may be absent and limits body:has(#main-content...) geometry consumers to elements that cannot mount during that interval. tests/pwa-lifecycle.dom.test.tsx inventories the exact existing hero-scoped PWA selectors and rejects any unallowlisted consumer; its injected .future-overlay control proves the invariant fails for a new selector. The matcher was corrected after focused proof exposed opening-brace normalization, then the combined focused run passed 3 files and 26 tests on 2026-08-23.",
@@ -939,6 +945,12 @@
       "request_id": "37748e25-67b8-4c1d-b8b6-4fc2943a9b44",
       "action": "done",
       "summary": "#BSBE9B: Resolved 2026-08-23 by truthfully versioning the existing hard-table corpus as docling-lab-fixtures.v2 (manifest.v2.json) while retaining 36 synthetic fixtures and 10 hostile files. The table_heavy set contains actual unruled, colSpan-merged, and rotated-header geometry; representative tables for each shape now carry number, number/unit, and comparator assertions whose strings exist only in that table. validateLabManifest fails closed if a shape, real span, table binding, or scoped exactness coverage disappears. The benchmark still imports the existing legacy extractor read-only; src/lib/extractors/document.ts, worker/python/extract_pdf_assets.py, worker/python/requirements.txt, and both lab dependency files remain byte-identical to origin/main. Evidence: focused Vitest 23/23 passed; npm run check:docling-lab passed (36 fixtures, 10 hostile, 6 canaries); mutation probes for all three shapes and prose leakage passed. No worker, Supabase, provider, lock regeneration, or aggregate snapshot change. The full owner-dispatched v2 benchmark remains deliberately unrun, and documentation continues to block any table-quality promotion until that separate evidence is recorded.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "37fdb906-b528-4011-81ca-9303256ec927",
+      "action": "done",
+      "summary": "#KZJD4Q: Activated zero-cost review coverage levers: added path_filters in .coderabbit.yaml to skip documentation and bookkeeping PRs, and documented bookkeeping-only PR prevention in docs/codex-review-protocol.md.",
       "created_at": "2026-08-23"
     },
     {
@@ -1044,9 +1056,21 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "561c9187-f8c7-4381-ad31-528b408c0669",
+      "action": "done",
+      "summary": "#JZM7RM: Harmonized and documented automated PR review fixer governance in docs/agents-guide.md; established repository GitHub workflow as authoritative responder with deduplication markers and client watcher throttling.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "578aabb2-ba72-4de2-b163-d66e57a4ad1c",
       "action": "cancel",
       "summary": "Cancel request fda95495-3d07-41e3-a9b9-0c9c1d999087: Final adversarial review found the update wording claimed unconditional all-source rollback. The corrected transaction deliberately preserves non-cooperating concurrent source bytes while restoring generated assets, so this immutable update must be cancelled and replaced with exact conditional-rollback wording.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "5794387a-496b-4c9b-ab66-f710369697cd",
+      "action": "done",
+      "summary": "#099: Eliminated duplicate server auth round-trips via proxy claims header forwarding (x-proxy-auth-user) with anti-spoofing stripping; batched anonymous dual-quota rate limit deny cache checks; converted 8 setCachedSearch calls to concurrent non-blocking execution with upfront synchronous result cloning.",
       "created_at": "2026-08-23"
     },
     {
