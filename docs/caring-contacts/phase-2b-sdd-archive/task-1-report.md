@@ -15,7 +15,8 @@ original sections was altered; the component itself was reviewed and called spec
 1. `c0f84112f` — feat(caring-contacts): add the shared EmptyState component (Phase 2B Task 1).
    The original build, described in "What was built" through "A real catch from the
    interface-vocabulary guard" below. At this point the component and its exports were named
-   `EmptyState`, in the file `src/components/caring-contacts/workspace/empty-state.tsx`.
+   `ListEmptyState`, in the file `src/components/caring-contacts/workspace/list-empty-state.tsx`
+   (both renamed from `EmptyState` / `empty-state.tsx` in fix round 1, per Ruling 88).
 2. `191761fc6` — fix(caring-contacts): Task 1 fix round 1 -- rename collision, accessible group,
    mutation-proof correction. Renamed the component to `ListEmptyState` (file now
    `src/components/caring-contacts/workspace/list-empty-state.tsx`), added the accessible

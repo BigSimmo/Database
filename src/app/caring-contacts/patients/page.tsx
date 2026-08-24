@@ -1,13 +1,11 @@
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
-import {
-  PatientsDirectory,
-  parsePatientsDirectoryFilter,
-} from "@/components/caring-contacts/workspace/patients-directory";
+import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
+import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
@@ -70,11 +68,11 @@ const CaringContactsShell = dynamic(() =>
  * question the store asked, and hands the answer to the directory as `mayViewPlans` so the empty
  * list can say which of the two facts it is.
  *
- * FILTERING IS A URL
- * -----------------
- * `searchParams` is a promise in Next 16 and is awaited before use. Reading it makes the route
- * dynamic, which is already true here -- the role cookie does the same -- and is correct: a cached
- * copy of a caseload would outlive the caseload.
+ * ONLY NON-IDENTIFYING STATE IS A URL
+ * -----------------------------------
+ * `searchParams` is a promise in Next 16 and is awaited before use. The page reads only plan state;
+ * patient-name search stays inside the directory's client boundary so patient information never
+ * enters browser history or request logs. The role cookie already makes this route dynamic.
  */
 export default async function CaringContactsPatientsPage({
   searchParams,

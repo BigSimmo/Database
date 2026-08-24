@@ -1,27 +1,25 @@
 // tests/caring-contacts-patients-directory.dom.test.tsx
 //
-// The Patients directory body (Task 5), tested as the pure Server Component it is: it is handed
-// the records the page already read and decides only what to SHOW.
+// The Patients directory body (Task 5), handed the narrowed records the page already read and
+// deciding only what to show. Its client boundary keeps patient-name search out of URLs.
 //
 // The assertions that matter are about honesty rather than layout:
 //   * an empty caseload and a caseload hidden by a filter are DIFFERENT facts, and the two
 //     `ListEmptyState` kinds are not interchangeable (Task 1's whole reason for existing);
 //   * a role that may not view plans at all must not be told the team has no patients;
-//   * a directory releases no patient-identifying detail -- `getEpisode` is the only read that
-//     releases a name or a mobile number, and this screen never calls it;
+//   * the directory receives the separate names-only projection and never the wider `Episode`;
 //   * a row's detail control is an UNAVAILABLE control with a stated reason, not a link into a
 //     route that does not exist yet (Ruling 52).
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import {
-  PatientsDirectory,
-  parsePatientsDirectoryFilter,
-  patientsDirectoryHref,
-} from "@/components/caring-contacts/workspace/patients-directory";
+import { patientsDirectoryHref } from "@/components/caring-contacts/workspace/patients-directory-client";
+import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
 import type { PlanState } from "@/lib/caring-contacts/model";
+import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
 import type { PatientNameProjection, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
 const TEAM = teamId("demo-team");
@@ -117,9 +115,9 @@ describe("Patients directory - the two empty states are not interchangeable", ()
 
   it("a caseload hidden by the identifier search names the search text as the reason", () => {
     const records = [planRecord({ id: "plan-1", state: "active" })];
-    const filter = parsePatientsDirectoryFilter({ q: "nothing-matches-this" });
 
-    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={filter} mayViewPlans />);
+    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "nothing-matches-this" } });
 
     const empty = screen.getByRole("group", { name: /no patients match/i });
     expect(empty.textContent ?? "").toContain("nothing-matches-this");
@@ -351,30 +349,23 @@ describe("Patients directory - rows", () => {
   });
 });
 
-describe("Patients directory - the filter is a URL, not a client boundary", () => {
+describe("Patients directory - only non-identifying state enters the URL", () => {
   it("parses a known plan state and ignores an unknown one rather than failing the render", () => {
     expect(parsePatientsDirectoryFilter({ state: "paused" }).state).toBe("paused");
     expect(parsePatientsDirectoryFilter({ state: "not-a-state" }).state).toBe("all");
     expect(parsePatientsDirectoryFilter({ state: ["active", "paused"] }).state).toBe("all");
   });
 
-  it("trims the search text and treats a blank search as no search", () => {
-    expect(parsePatientsDirectoryFilter({ q: "  plan-1  " }).query).toBe("plan-1");
-    expect(parsePatientsDirectoryFilter({ q: "   " }).query).toBe("");
-    expect(parsePatientsDirectoryFilter({}).query).toBe("");
+  it("ignores a legacy query parameter rather than passing patient text into the directory", () => {
+    expect(parsePatientsDirectoryFilter({ q: "Jordan Nguyen", state: "active" })).toEqual({ state: "active" });
   });
 
-  it("builds every filter href from the route module, carrying the other filter with it", () => {
-    expect(patientsDirectoryHref({ state: "all", query: "" })).toBe(CARING_CONTACTS_ROUTES.patients);
-    expect(patientsDirectoryHref({ state: "active", query: "" })).toBe(
-      `${CARING_CONTACTS_ROUTES.patients}?state=active`,
-    );
-    const both = patientsDirectoryHref({ state: "active", query: "plan 1" });
-    expect(both.startsWith(`${CARING_CONTACTS_ROUTES.patients}?`)).toBe(true);
-    expect(new URL(both, "https://example.invalid").searchParams.get("q")).toBe("plan 1");
+  it("builds every filter href from the route module with state and no patient search text", () => {
+    expect(patientsDirectoryHref({ state: "all" })).toBe(CARING_CONTACTS_ROUTES.patients);
+    expect(patientsDirectoryHref({ state: "active" })).toBe(`${CARING_CONTACTS_ROUTES.patients}?state=active`);
   });
 
-  it("filters by plan state without any client component in the tree", () => {
+  it("filters by plan state from the validated URL state", () => {
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "paused" })];
 
     render(
@@ -392,19 +383,13 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
   it("matches the identifier search case-insensitively against the patient and plan identifiers", () => {
     // Unchanged by the names projection: an identifier search still works with no name in play.
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
-    render(
-      <PatientsDirectory
-        patientNames={NO_NAMES}
-        records={records}
-        filter={parsePatientsDirectoryFilter({ q: "PLAN-2" })}
-        mayViewPlans
-      />,
-    );
+    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "PLAN-2" } });
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "patient-plan-2" })).toBeInTheDocument();
   });
 
-  it("submits the search as an ordinary GET form, so the filter needs no JavaScript", () => {
+  it("never exposes the patient-name search as a GET form or URL parameter", () => {
     const { container } = render(
       <PatientsDirectory
         patientNames={NO_NAMES}
@@ -413,12 +398,10 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
         mayViewPlans
       />,
     );
-    const form = container.querySelector("form");
-    expect(form).not.toBeNull();
-    expect(form).toHaveAttribute("method", "get");
-    expect(form).toHaveAttribute("action", CARING_CONTACTS_ROUTES.patients);
-    // The state filter rides along in a hidden field, so searching cannot silently widen it.
-    expect(form?.querySelector('input[type="hidden"][name="state"]')).toHaveValue("active");
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Jordan Nguyen" } });
+    expect(container.querySelector("form")).toBeNull();
+    expect(screen.getByRole("searchbox")).not.toHaveAttribute("name");
+    for (const link of screen.getAllByRole("link")) expect(link.getAttribute("href")).not.toContain("Jordan");
   });
 
   it("marks the current state filter, so the screen and the URL cannot disagree", () => {
@@ -436,6 +419,29 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
 });
 
 describe("Patients directory - the names-only projection (Ruling 91)", () => {
+  it("crosses the client boundary with only the rendered, searched or pre-derived row fields", () => {
+    const element = PatientsDirectory({
+      patientNames: [name("plan-1", "Jordan Nguyen")],
+      records: [planRecord({ id: "plan-1", state: "active" })],
+      filter: ALL,
+      mayViewPlans: true,
+    }) as ReactElement<{ rows: readonly Record<string, unknown>[] }>;
+
+    expect(Object.keys(element.props.rows[0] ?? {}).sort()).toEqual(
+      [
+        "absorbedContactCount",
+        "dischargeDay",
+        "otherSuppressedContactCount",
+        "patientId",
+        "patientName",
+        "planId",
+        "referralId",
+        "scheduledContactCount",
+        "state",
+      ].sort(),
+    );
+  });
+
   it("heads the row with the patient's name, and keeps the synthetic identifier beside it", () => {
     const records = [planRecord({ id: "plan-1", state: "active" })];
 
@@ -495,24 +501,30 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     expect(screen.getByText("Synthetic patient identifier")).toBeInTheDocument();
   });
 
-  it("matches the search against the name as well as the identifiers, still without client state", () => {
+  it("matches the trimmed local search against the name as well as the identifiers", () => {
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
     const names = [name("plan-1", "Jordan Nguyen"), name("plan-2", "Alex Whitlock")];
 
-    const { container } = render(
-      <PatientsDirectory
-        patientNames={names}
-        records={records}
-        filter={parsePatientsDirectoryFilter({ q: "nguyen" })}
-        mayViewPlans
-      />,
-    );
+    render(<PatientsDirectory patientNames={names} records={records} filter={ALL} mayViewPlans />);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "  nguyen  " } });
 
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Jordan Nguyen" })).toBeInTheDocument();
-    // The whole filter is still the URL: an ordinary GET form and a server render, no controlled
-    // input and no client boundary. Ruling 13.
-    expect(container.querySelector("form")).toHaveAttribute("method", "get");
+  });
+
+  it("treats whitespace-only local search as no search", () => {
+    render(
+      <PatientsDirectory
+        patientNames={[name("plan-1", "Jordan Nguyen")]}
+        records={[planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "   " } });
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /clear search/i })).toBeNull();
   });
 
   it("finds no row by a name it does not hold, when the names read released nothing", () => {
@@ -522,10 +534,11 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
       <PatientsDirectory
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "active" })]}
-        filter={parsePatientsDirectoryFilter({ q: "Jordan" })}
+        filter={ALL}
         mayViewPlans
       />,
     );
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Jordan" } });
 
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(screen.getByRole("group", { name: /no patients match/i })).toBeInTheDocument();

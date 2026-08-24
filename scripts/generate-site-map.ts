@@ -57,7 +57,7 @@ const consolidatedRedirectTargets = Object.fromEntries(
 );
 
 /*
- * The four `<mode>/search` routes with no browse view. Conditional, not absolute:
+ * The `<mode>/search` routes with no browse view. Conditional, not absolute:
  * they forward only when the query is empty, and render results otherwise — so
  * they are described rather than listed as plain redirects.
  */
@@ -89,8 +89,10 @@ const routeDescriptions: Record<string, string> = {
   "/caring-contacts":
     "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
   "/caring-contacts/patients":
-    "The team's caring-contact caseload: one row per plan, filtered by plan state or synthetic identifier through the URL. Carries no patient-identifying detail.",
+    "The team's permission-scoped caring-contact caseload: one row per plan with a separately authorised patient-name projection. Plan state is URL-driven; name and synthetic-identifier search stays in browser memory so identifying text never enters the URL.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
+  "/calculators/search":
+    "Browsable calculator catalogue and scored results. An empty query lists every calculator; a submitted query narrows the same list.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",
   "/dictionary/browse":
@@ -500,7 +502,8 @@ function renderModePageIndex() {
       mode: "Calculators",
       home: appModeHomeHref("calculators"),
       search: appModeHomeHref("calculators", { query: "PHQ-9", focus: true, run: true }),
-      detail: "`/calculators/search` scored results; an empty query forwards back to the shared home.",
+      detail:
+        "`/calculators/search` is the browsable calculator catalogue and scored-results surface; an empty query lists every calculator.",
     },
     {
       mode: "Factsheets",

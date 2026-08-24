@@ -136,26 +136,26 @@ describe("consolidated mode home redirects", () => {
   });
 
   /*
-   * An unsubmitted `/calculators/search` has nothing to show: its component
-   * falls back to the mode home, which the page consolidation retired. Resolved
-   * in the proxy so it is a 307 rather than the streamed meta refresh a
-   * page-level redirect would emit.
+   * `/calculators/search` is a browse catalogue on an empty query — the Tools
+   * `/tools` analogue — so the proxy must leave it alone. Differentials still
+   * has no browse view and forwards home.
    */
-  it("forwards an unsubmitted mode search to the shared home", () => {
+  it("leaves an unsubmitted calculators search on the catalogue", () => {
     const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
 
-    expect(search("/calculators/search")).toBe("/?mode=calculators");
-    expect(search("/calculators/search", "q=+++")).toBe("/?mode=calculators");
+    expect(search("/calculators/search")).toBeNull();
+    expect(search("/calculators/search", "q=+++")).toBeNull();
+    expect(search("/calculators/search", "q=%20&run=1&focus=1")).toBeNull();
   });
 
   /*
-   * Calculators and differentials search have no browse view: empty visits
-   * forward home. Formulation and specifiers keep their empty `/search` as the
-   * catalogue (`tests/ui-phone-scroll-routes.spec.ts` pins formulation).
-   * Factsheets, Dictionary and Therapy stay off this map because mode nav links
-   * them with no query.
+   * Differentials search has no browse view: empty visits forward home.
+   * Formulation and specifiers keep their empty `/search` as the catalogue
+   * (`tests/ui-phone-scroll-routes.spec.ts` pins formulation). Factsheets,
+   * Dictionary and Therapy stay off this map because mode nav links them with
+   * no query. Calculators now browses in place on an empty query.
    */
-  it("forwards empty differentials search to the shared home, like calculators", () => {
+  it("forwards empty differentials search to the shared home", () => {
     const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
 
     expect(search("/differentials/search")).toBe("/?mode=differentials");
@@ -177,10 +177,6 @@ describe("consolidated mode home redirects", () => {
       "/?focus=1&queryMode=compare_guidance&mode=differentials",
     );
     expect(
-      search("/calculators/search", "q=%20&run=1&focus=1&queryMode=compare_guidance&scope.medications=lithium"),
-    ).toBe("/?focus=1&queryMode=compare_guidance&scope.medications=lithium&mode=calculators");
-
-    expect(
       unsubmittedModeSearchTargetForSearchParams("/differentials/search", {
         run: "1",
         focus: "1",
@@ -193,6 +189,7 @@ describe("consolidated mode home redirects", () => {
     const search = (pathname: string, query = "") => unsubmittedModeSearchTarget(pathname, new URLSearchParams(query));
 
     for (const pathname of [
+      "/calculators/search",
       "/formulation/search",
       "/specifiers/search",
       "/factsheets/search",

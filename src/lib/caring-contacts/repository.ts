@@ -270,7 +270,7 @@ export type PlanRecord = {
   contacts: readonly StoredContact[];
 };
 
-/** What the datastore holds. The patient detail is released only through `getEpisode`. */
+/** What the datastore holds. Full detail is released only by `getEpisode`; `listPatientNames` releases the name alone. */
 export type StoredPlan = PlanRecord & { patientDetail: EpisodePatientDetail };
 
 /**

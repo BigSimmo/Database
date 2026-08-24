@@ -84,9 +84,9 @@ stores run — not in either store's own file.
   deliberately does not guess _which_ cause applies; the screen is not told.
 - An empty name (what both stores write for a cleared one) is treated as "no name held", never as a
   name, and never as a blank heading.
-- **Search matches the name as well as the three identifiers**, and stays entirely server-side: still
-  an ordinary `method="get"` form, still no client state, still a URL. The screen adds no client
-  component. Ruling 13 is untouched.
+- **Search matches the name as well as the three identifiers** inside the directory's narrow client
+  boundary. A final PR privacy review replaced the original GET search because it put patient names
+  into browser history and request logs; plan state remains the only URL-driven filter.
 - The page performs a **third audited read** with its own access identity,
   `{ search, patientDirectory, "names" }`, deliberately not folded into the plans read: this is the
   one read on the page that releases patient identity, and a trail that recorded it as part of a plan
@@ -169,10 +169,8 @@ acquisition failure, not a result. The M11 typecheck evidence above was then tak
    one and `api/caring-contacts/referrals`'s `GET`, which uses the same type with `objectId: "all"`.
    They are distinguishable by `objectId` (`"names"` vs `"all"`) but not by action name. If the trail
    is ever queried by action name alone, that will read as one surface.
-4. **Search now matches a name, and the search term still never reaches the audit trail** — the
-   `objectId` is the literal `"names"`, and `ACCESS_OBJECT_ID_PATTERN` would reject a name anyway.
-   Worth restating because the search box's reach grew this round while the recorded identifier did
-   not, and that is the correct relationship rather than an oversight.
+4. **Search matches a name, but the term reaches neither the URL nor the audit trail** — it remains
+   local browser state, while the access event's `objectId` is the literal `"names"`.
 5. **`markRetentionCleared` empties the name and the row falls back silently.** That is right, and it
    means a de-identified episode's row looks exactly like Task 5's row did. Nothing regressed; it is
    simply not visible on the screen that anything was cleared.
