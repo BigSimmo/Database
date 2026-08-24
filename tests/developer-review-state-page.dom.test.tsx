@@ -15,19 +15,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/developer-area/repo-awareness-snapshot")>();
-  return { ...actual, loadRepoAwarenessSnapshot: vi.fn(actual.loadRepoAwarenessSnapshot) };  it("renders a clear empty state instead of an empty review list", () => {
-    vi.mocked(loadRepoAwarenessSnapshot).mockReturnValue({
-      ...snapshot,
-      review_state: { ...snapshot.review_state, records: [], counts: { records: 0, refs: 0 } },
-    });
-
-    render(<DeveloperReviewStatePage />);
-
-    expect(screen.getByTestId("developer-review-state-empty")).toHaveTextContent(
-      "No immutable review records are committed.",
-    );
-    expect(screen.queryByTestId("developer-review-state-records")).not.toBeInTheDocument();
-  });
+  return { ...actual, loadRepoAwarenessSnapshot: vi.fn(actual.loadRepoAwarenessSnapshot) };
 });
 
 const snapshot = loadRepoAwarenessSnapshot();
@@ -88,4 +76,18 @@ describe("developer review state page", () => {
     expect(longestRecord.outcome.length).toBeGreaterThan(40);
     expect(rows[longestIndex]).toHaveTextContent(longestRecord.outcome);
   });
+  it("renders a clear empty state instead of an empty review list", () => {
+    vi.mocked(loadRepoAwarenessSnapshot).mockReturnValue({
+      ...snapshot,
+      review_state: { ...snapshot.review_state, records: [], counts: { records: 0, refs: 0 } },
+    });
+
+    render(<DeveloperReviewStatePage />);
+
+    expect(screen.getByTestId("developer-review-state-empty")).toHaveTextContent(
+      "No immutable review records are committed.",
+    );
+    expect(screen.queryByTestId("developer-review-state-records")).not.toBeInTheDocument();
+  });
+
 });
