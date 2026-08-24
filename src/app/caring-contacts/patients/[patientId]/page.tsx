@@ -1,10 +1,7 @@
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
-import {
-  PatientOverview,
-  type PatientOverviewView,
-} from "@/components/caring-contacts/workspace/patient-overview";
+import { PatientOverview, type PatientOverviewView } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_PLAN_QUERY_PARAM } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
@@ -12,11 +9,7 @@ import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Episode } from "@/lib/caring-contacts/episode";
 import { planId as toPlanId } from "@/lib/caring-contacts/ids";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
-import {
-  READ_ACTIONS,
-  type PatientNameProjection,
-  type PlanRecord,
-} from "@/lib/caring-contacts/repository";
+import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 /**
@@ -184,9 +177,7 @@ export default async function CaringContactsPatientOverviewPage({
     if (plansForPatient.length === 0) return { kind: "no-plan" };
 
     const named =
-      requestedPlanId === null
-        ? null
-        : (plansForPatient.find((record) => record.plan.id === requestedPlanId) ?? null);
+      requestedPlanId === null ? null : (plansForPatient.find((record) => record.plan.id === requestedPlanId) ?? null);
     const chosen = plansForPatient.length === 1 ? plansForPatient[0] : named;
 
     if (chosen === null) {

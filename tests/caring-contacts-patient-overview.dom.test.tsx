@@ -458,10 +458,7 @@ describe("the patient overview - a contact suppressed by a later transition stil
 
   it("subtracts it from the count, and explains it as the cause this screen does not hold", () => {
     render(
-      <PatientOverview
-        patientId={PATIENT}
-        view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }}
-      />,
+      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
     );
 
     expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(

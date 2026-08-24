@@ -281,7 +281,11 @@ function PlanChooser({
           const name = nameByPlan.get(record.plan.id) ?? null;
           return (
             <li key={record.plan.id} className="min-w-0">
-              <Link href={patientPlanRoute(patientId, record.plan.id)} data-internal-link="true" className={rowLinkClass}>
+              <Link
+                href={patientPlanRoute(patientId, record.plan.id)}
+                data-internal-link="true"
+                className={rowLinkClass}
+              >
                 <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
                   Plan {record.plan.id}
                 </span>
