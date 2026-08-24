@@ -3565,3 +3565,340 @@ describe("Care Plan Patient Plan", () => {
     expect(paper.textContent ?? "").not.toContain("Go through it with them");
   });
 });
+
+// --- Task 10: worklists, directory, governance, history, specimens -------------
+
+/**
+ * A journey that can also name a specimen scenario, which `renderJourney` above
+ * deliberately cannot: the provider is seeded from the same query the surface
+ * reads, so `?scenario=offline` degrades the reducer rather than only the
+ * rendering.
+ */
+function renderScenarioJourney(pathname: string, query = "") {
+  const navigate = vi.fn();
+  const view = (at: string, q: string) => (
+    <CarePlanPrototypeProvider scenario={scenarioFromQuery(q)}>
+      <CarePlanRouteSurface pathname={at} query={q} navigate={navigate} />
+    </CarePlanPrototypeProvider>
+  );
+  const { rerender } = render(view(pathname, query));
+  return { navigate, goTo: (at: string, q = "") => rerender(view(at, q)) };
+}
+
+/** Tab labels carry a trailing count, which is presentation rather than name. */
+function queueTabNames(): string[] {
+  return screen.getAllByRole("tab").map((tab) => (tab.textContent ?? "").replace(/\d+$/, ""));
+}
+
+async function openQueue(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+  return screen.getByTestId("care-plan-review-queue");
+}
+
+describe("Care Plan Reviews worklists", () => {
+  it("offers exactly the four approved queues, in the approved order", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    expect(queueTabNames()).toEqual([
+      "Awaiting Approval",
+      "Review Suggested",
+      "Contact Verification",
+      "Identification Review",
+    ]);
+  });
+
+  it("lists the version awaiting a decision with its reason, source, owner, and route to decide", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    const queue = await openQueue(user, "Awaiting Approval");
+    const entries = within(queue).getAllByRole("listitem");
+    expect(entries).toHaveLength(1);
+
+    const entry = entries[0];
+    expect(within(entry).getByRole("heading", { level: 3 })).toHaveTextContent(
+      "Mira Example — Management Plan version 2",
+    );
+    expect(entry).toHaveTextContent(/Reason for this version/);
+    expect(entry).toHaveTextContent(/Submitted by Morgan Sample/);
+    expect(entry).toHaveTextContent(/Plan owner/);
+    expect(within(entry).getByRole("link", { name: "Compare and decide on Mira Example's version 2" })).toHaveAttribute(
+      "href",
+      carePlanRoute.managementPlanReview("SYN-PATIENT-002"),
+    );
+    expect(within(entry).getByRole("link", { name: "Open Mira Example" })).toHaveAttribute(
+      "href",
+      carePlanRoute.patient("SYN-PATIENT-002"),
+    );
+  });
+
+  // Worklists, not dashboards. Oldest actionable first, and never ranked by how
+  // unwell anybody is.
+  it("orders every queue oldest-actionable-first rather than by severity", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+
+    const suggested = await openQueue(user, "Review Suggested");
+    expect(
+      within(suggested)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Mira Example — Plan-use feedback", "Rowan Sample — ED Presentation outcome"]);
+
+    const contact = await openQueue(user, "Contact Verification");
+    expect(
+      within(contact)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Wandoo District CMHT", "Coastal Plains Older Adult CMHT"]);
+
+    const identification = await openQueue(user, "Identification Review");
+    expect(
+      within(identification)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Evelyn Demo", "Jordan Test"]);
+  });
+
+  /**
+   * The list is written to be worked, not to rate the people it names.
+   *
+   * The rating check is scoped to the rendered entries rather than the whole
+   * page, because the page's own explanation legitimately uses the word
+   * "severity" to say what the screen does not do — and a body-wide match would
+   * then be a test of the disclaimer rather than of the worklist.
+   */
+  it("carries no severity ranking, score, or stigmatising label on any queue entry", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    expect(document.body.textContent ?? "").not.toMatch(/frequent flyer|high utilis|high utiliz|problem patient/i);
+
+    for (const name of ["Awaiting Approval", "Review Suggested", "Contact Verification", "Identification Review"]) {
+      const queue = await openQueue(user, name);
+      expect(queue.textContent ?? "", `${name} must not rate anybody`).not.toMatch(
+        /severity|risk score|priority \d|triage category|rank/i,
+      );
+    }
+  });
+
+  it("records what was decided about a Review Trigger, and changes no plan", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Review Suggested");
+
+    await user.click(screen.getByRole("button", { name: "Record what was decided for Mira Example" }));
+    const sheet = screen.getByRole("dialog", { name: "Record what was decided" });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /What the team decided/ }),
+      "Discussed at the weekly meeting. The assessment order still stands and the plan is unchanged.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Record the decision" }));
+
+    expect(screen.getByTestId("care-plan-reviews-outcome")).toHaveTextContent(
+      "Review Trigger resolved. No plan was changed.",
+    );
+    const queue = screen.getByTestId("care-plan-review-queue");
+    expect(
+      within(queue)
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Rowan Sample — ED Presentation outcome"]);
+  });
+
+  it("refuses to resolve a Review Trigger with no account of what was decided", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Review Suggested");
+
+    await user.click(screen.getByRole("button", { name: "Record what was decided for Mira Example" }));
+    const sheet = screen.getByRole("dialog", { name: "Record what was decided" });
+    await user.click(within(sheet).getByRole("button", { name: "Record the decision" }));
+
+    expect(within(sheet).getByRole("alert")).toHaveTextContent(
+      /needs an account of what was decided|Nothing was changed/i,
+    );
+    // The trigger is still in the queue: a refusal changes nothing.
+    expect(within(screen.getByTestId("care-plan-review-queue")).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("records that team contact details were checked without claiming the team is available", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    const queue = await openQueue(user, "Contact Verification");
+    expect(queue).toHaveTextContent(/Checking the details is not a guarantee that the service is available/i);
+
+    await user.click(screen.getByRole("button", { name: "Record that Wandoo District CMHT details were checked" }));
+    expect(screen.getByTestId("care-plan-reviews-outcome")).toHaveTextContent(
+      /details recorded as checked. That says the details were checked, not that the service is available/i,
+    );
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Coastal Plains Older Adult CMHT"]);
+  });
+
+  // Interaction modelling: the role explains why an action is offered. It
+  // authenticates nobody, and the reducer rechecks either way.
+  it("states why a queue action is unavailable to the signed-in clinician instead of hiding it", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    const queue = await openQueue(user, "Contact Verification");
+    const blocked = within(queue).getByTestId("care-plan-review-queue-blocked");
+    expect(blocked).toHaveTextContent(/Dr Casey Example is signed in with the emergency department clinician role/);
+
+    const action = screen.getByRole("button", { name: "Record that Wandoo District CMHT details were checked" });
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).not.toHaveAttribute("disabled");
+    expect(action.getAttribute("aria-describedby")).toBe(blocked.id);
+
+    await user.click(action);
+    expect(screen.queryByTestId("care-plan-reviews-outcome")).toBeNull();
+  });
+});
+
+describe("Care Plan Identification Review workflow", () => {
+  it("closes a referral with one recorded decision and a reason, and creates no plan", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Identification Review");
+
+    await user.click(screen.getByRole("button", { name: "Record the Identification Review decision for Jordan Test" }));
+    const sheet = screen.getByRole("dialog", { name: "Record the Identification Review decision" });
+    expect(
+      within(sheet)
+        .getAllByRole("radio")
+        .map((radio) => radio.getAttribute("value")),
+    ).toEqual(["proceed_to_plan", "not_needed_now", "revisit_later"]);
+    expect(within(sheet).getByRole("radio", { name: "Proceed to a plan" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Not needed at this stage" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Revisit later" })).toBeInTheDocument();
+
+    await user.click(within(sheet).getByRole("radio", { name: "Proceed to a plan" }));
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /Why the team decided this/ }),
+      "The team agreed a plan would help, and Jordan wants one written with him.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Close this Identification Review" }));
+
+    expect(screen.getByTestId("care-plan-reviews-outcome")).toHaveTextContent(
+      "Identification Review closed. Nothing was created; starting a Management Plan draft is a separate decision.",
+    );
+
+    // The referral leaves the queue, and the offer to start a draft is a link
+    // the reader chooses, never a plan the closure created.
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Evelyn Demo"]);
+    expect(screen.getByRole("link", { name: "Start a Management Plan draft for Jordan Test" })).toHaveAttribute(
+      "href",
+      carePlanRoute.managementPlanEdit("SYN-PATIENT-003"),
+    );
+  });
+
+  it("refuses to close an Identification Review with no reason", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    await signInAs(user, LIAISON);
+    await openQueue(user, "Identification Review");
+    await user.click(screen.getByRole("button", { name: "Record the Identification Review decision for Jordan Test" }));
+    const sheet = screen.getByRole("dialog", { name: "Record the Identification Review decision" });
+    await user.click(within(sheet).getByRole("radio", { name: "Revisit later" }));
+    await user.click(within(sheet).getByRole("button", { name: "Close this Identification Review" }));
+
+    expect(within(sheet).getByRole("alert")).toHaveTextContent(/needs a short reason/i);
+    expect(within(screen.getByTestId("care-plan-review-queue")).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  /**
+   * The one screen in the product where sorting by attendance is allowed, and
+   * the one screen where the sentence that counts decide nothing has to be.
+   */
+  it("offers the count sort only here, with the statement that counts decide nothing beside it", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    const queue = await openQueue(user, "Identification Review");
+
+    const sort = within(queue).getByRole("combobox", { name: "Sort this worklist" });
+    expect(Array.from(sort.querySelectorAll("option")).map((option) => option.textContent)).toEqual([
+      "Oldest referral first",
+      "Most ED Presentations in the last 12 months first",
+    ]);
+    expect(queue).toHaveTextContent(
+      /Counts describe what happened\. They do not determine eligibility for a Management Plan\./,
+    );
+
+    await user.selectOptions(sort, "presentation-count");
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Jordan Test", "Evelyn Demo"]);
+  });
+
+  it("offers the count sort on no other queue", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(CARE_PLAN_ROUTES.reviews);
+    for (const name of ["Awaiting Approval", "Review Suggested", "Contact Verification"]) {
+      const queue = await openQueue(user, name);
+      expect(within(queue).queryByRole("combobox", { name: /sort/i })).toBeNull();
+      expect(within(queue).queryAllByRole("button", { name: /sort|rank|most|highest|busiest/i })).toEqual([]);
+    }
+  });
+
+  it("refers a person for Identification Review without creating a plan or applying eligibility", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.patient("SYN-PATIENT-005"));
+
+    await user.click(screen.getByRole("button", { name: "Refer Alex Fiction for Identification Review" }));
+    const sheet = screen.getByRole("dialog", { name: "Refer for Identification Review" });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /Reason for multidisciplinary review/ }),
+      "Coordinate continuity across services.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Add to Identification Review" }));
+
+    expect(screen.getByTestId("care-plan-outcome")).toHaveTextContent(
+      "Alex was referred for Identification Review. No plan was created, and being referred decides nothing.",
+    );
+    // No plan, no eligibility, no label.
+    expect(screen.getByText("No Current Plan")).toBeInTheDocument();
+    expect(screen.queryByText(/eligible|high risk|frequent flyer/i)).toBeNull();
+
+    goTo(CARE_PLAN_ROUTES.reviews);
+    await openQueue(user, "Identification Review");
+    expect(
+      within(screen.getByTestId("care-plan-review-queue"))
+        .getAllByRole("heading", { level: 3 })
+        .map((node) => node.textContent),
+    ).toEqual(["Evelyn Demo", "Jordan Test", "Alex Fiction"]);
+  });
+
+  it("refuses a manual referral with no stated reason, because the reason is the whole referral", async () => {
+    const user = userEvent.setup();
+    renderScenarioJourney(carePlanRoute.patient("SYN-PATIENT-005"));
+    await user.click(screen.getByRole("button", { name: "Refer Alex Fiction for Identification Review" }));
+    const sheet = screen.getByRole("dialog", { name: "Refer for Identification Review" });
+    await user.click(within(sheet).getByRole("button", { name: "Add to Identification Review" }));
+
+    expect(within(sheet).getByRole("alert")).toHaveTextContent(/needs a stated reason/i);
+    expect(screen.queryByTestId("care-plan-outcome")).toBeNull();
+  });
+
+  // The fixtures already hold an open referral for Jordan, so the second one is
+  // refused rather than stacked.
+  it("says plainly when a referral is already open rather than adding a second", () => {
+    renderScenarioJourney(CARE_PLAN_ROUTES.patients, "scenario=no-current-plan");
+    const action = screen.getByRole("button", { name: "Refer Jordan Test for Identification Review" });
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).not.toHaveAttribute("disabled");
+    const reason = screen.getByTestId("care-plan-referral-blocked");
+    expect(reason).toHaveTextContent(/An Identification Review for Jordan is already open/);
+    expect(action.getAttribute("aria-describedby")).toBe(reason.id);
+    expect(screen.getByText("No Current Plan")).toBeInTheDocument();
+  });
+});

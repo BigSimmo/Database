@@ -10,6 +10,7 @@ import { ManagementPlanFormSurface } from "./management-plan-form";
 import { ManagementPlanPrintSurface } from "./management-plan-print";
 import { ManagementPlanSurface } from "./management-plan-read";
 import { ManagementPlanReviewSurface } from "./management-plan-review";
+import { GovernanceSurface, ReviewsSurface, TeamSurface } from "./operations-pages";
 import { PatientPlanFormSurface } from "./patient-plan-form";
 import { PatientPlanPrintSurface, PatientPlanSurface } from "./patient-plan-pages";
 import { PresentationFormSurface } from "./presentation-form";
@@ -417,6 +418,12 @@ export function CarePlanRouteSurface({ pathname, query = "", navigate }: CarePla
         <SafetyPlanFormSurface patientId={patientId} scenario={scenario} navigate={navigate} />
       ) : route.key === ROUTE_DEFINITIONS.safetyPlanPrint.key ? (
         <SafetyPlanPrintSurface patientId={patientId} scenario={scenario} />
+      ) : route.key === ROUTE_DEFINITIONS.reviews.key ? (
+        <ReviewsSurface />
+      ) : route.key === ROUTE_DEFINITIONS.team.key ? (
+        <TeamSurface />
+      ) : route.key === ROUTE_DEFINITIONS.governance.key ? (
+        <GovernanceSurface />
       ) : (
         <RoutePurposeSurface purpose={route.purpose} />
       )}
