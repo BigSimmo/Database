@@ -713,10 +713,12 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         // nothing, because it cannot enumerate this team's plans. A read gated on
         // `viewPatientRecord` alone would hand this role every name the team holds -- a widening,
         // from a change whose whole purpose is narrowing.
-        expect(canPerformCaringContactAction(AUDITOR_A, READ_ACTIONS.patientName, { teamId: AUDITOR_A.teamId }))
-          .toEqual({ allowed: true });
-        expect(canPerformCaringContactAction(AUDITOR_A, READ_ACTIONS.plan, { teamId: AUDITOR_A.teamId }).allowed)
-          .toBe(false);
+        expect(
+          canPerformCaringContactAction(AUDITOR_A, READ_ACTIONS.patientName, { teamId: AUDITOR_A.teamId }),
+        ).toEqual({ allowed: true });
+        expect(canPerformCaringContactAction(AUDITOR_A, READ_ACTIONS.plan, { teamId: AUDITOR_A.teamId }).allowed).toBe(
+          false,
+        );
         expect(PATIENT_NAME_READ_ACTIONS).toContain(READ_ACTIONS.plan);
 
         expect(await store.listPatientNames({ actor: AUDITOR_A })).toEqual([]);
