@@ -225,3 +225,51 @@ to every allowlist, ignore list and exemption this plan will add.
 
 Task C: fix round 1/5 (7 addressed, 0 open by the implementer's account; commits `9a4cf055c`..`a865d6aa9`).
 Scoped re-review dispatched.
+
+### Task C scoped re-review — ALL SEVEN ADDRESSED, no new Critical or Important
+
+The re-reviewer re-derived every claim by executing the regexes and re-running the B3 scan against the
+real tree rather than reading the report's assertions. Verified independently of my own check: the
+inverted pattern refuses all six leaked phrasings plus `lead score`, and exempts all five job titles;
+the A1 marker catches the relabelled, reordered and bare-number shapes; B3's new pass finds
+`inbox`/`campaign` in a fixture written as bare JSX text with no quotes anywhere, and finds 0 in the
+real tree across 15 files.
+
+**Two mechanism-level checks worth keeping, because both are the kind that a test-level check would
+have passed over:**
+
+- **The A1/patient-mobile double report is benign, and for a reason.** The patient-mobile check is
+  independent of `syntheticFictionalContactsAcknowledged`, which gates only the fictional check. So a
+  caller that acknowledges synthetic contacts silences the noisy code and keeps the safety-critical
+  one. The changed expectation is a tightening — the original assertion survives with a second true
+  code beside it, in the order the validator actually pushes them.
+- **The global-regex handling is correct**, which is easy to get wrong: the prohibited-language regex
+  stays non-global for `.test()`, and the `g` copy is used only with `matchAll`, which never advances
+  the original's `lastIndex`. A shared global regex with `.test()` would have skipped every second
+  match.
+
+**Mutation proofs judged genuine, 5 of 5, and B2's is two-directional as asked**: reverting to the
+allowlist makes `lead nurturing` valid and reddens the refusal test; widening to a bare `\bleads?\b`
+makes `the incident lead` invalid and reddens the exemption test. Those bracket the behaviour from
+opposite sides rather than being two views of one assertion, which is what "prove it discriminates"
+actually requires.
+
+**Deferred minors — pointed at the final whole-branch review, not fixed now:**
+
+1. **New Minor 8 — the job-title exemption requires WHITESPACE adjacency, but this domain writes
+   `team-lead`** (`contact-rescheduling.ts`, `repository.ts`, and the mockup overlay copy). Inert
+   today: those files are outside B3's two scan roots, neither approved message contains "lead", and
+   the validator has no production callers. Conservative direction. One-character fix (`[\s-]`) if
+   ever needed. The verb sense (`can lead to relief`) is also refused and I would NOT change that
+   without the owner — refusing it is defensible in a safety vocabulary.
+2. `stripCommentsAndClassNameValues` strips `//` and `/* */` inside string literals too; a future URL
+   literal would blank the rest of its line. Narrow, because the quoted pass still covers quoted text.
+3. The raw-prose pass scans identifiers and JSX attribute names, not only prose. Zero hits today;
+   fail-closed, so acceptable.
+4. `scanRootForProhibitedLanguage` is now used only by fixture tests while the real-tree test inlines
+   its own walk — two code paths that must stay in step.
+5. The A1 marker matches literal number strings, so `+61491570158` or `0491 570 158` still evade.
+6. Minor 7's floor is aggregate across both roots, so one root emptying would still pass.
+
+Task C: fix round 1/5 (7 addressed, 0 open; commits `9a4cf055c`..`a865d6aa9`).
+**Task C: COMPLETE (commits `ac87293f2`..`a865d6aa9`, review clean, 6 minors deferred).**
