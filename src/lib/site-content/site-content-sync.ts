@@ -11,6 +11,7 @@ import { canCarryForwardRegistryEmbedding } from "@/lib/site-content/adapters/re
 
 export type SiteContentSyncSourceRecord = {
   record: SiteContentRecord;
+  renderPayload?: unknown;
   targetPublicationId?: string;
   documentId: string;
   chunkId: string;
@@ -33,6 +34,7 @@ export type SiteContentSyncPlanItem = {
   governanceFingerprint?: string;
   lineageFingerprint?: string;
   publicMetadataFingerprint?: string;
+  renderPayload?: unknown;
 };
 
 export type ExistingSiteContentReleaseRecord = {
@@ -55,6 +57,7 @@ export type ExistingSiteContentReleaseRecord = {
 
 export type SiteContentSyncPlan = {
   version: "site-content-sync-plan-v1";
+  releaseId: string;
   planDigest: string;
   releaseDigest: string;
   dynamicStateDigest: string;
@@ -62,6 +65,7 @@ export type SiteContentSyncPlan = {
   generationId: string;
   registryVersion: string;
   staticManifestDigest: string;
+  reconciliationPlanDigest: string | null;
   embedding: { model: string; dimensions: number; fingerprint: string };
   added: SiteContentSyncPlanItem[];
   changed: SiteContentSyncPlanItem[];
@@ -79,6 +83,7 @@ export type SiteContentSyncInput = {
   targetChangeEpoch: string;
   generationId: string;
   embedding: { model: string; dimensions: number; fingerprint: string };
+  reconciliationPlanDigest?: string | null;
   actorId?: string;
   leaseToken?: string;
 };
@@ -113,7 +118,7 @@ function assertExactStaticPopulation(
   }
 }
 
-function sourceDigestProjection(entry: SiteContentSyncSourceRecord, embedding: SiteContentSyncInput["embedding"]) {
+function publicPopulationDigestProjection(entry: SiteContentSyncSourceRecord) {
   return {
     logicalId: entry.record.logicalId,
     documentId: entry.documentId,
@@ -123,11 +128,25 @@ function sourceDigestProjection(entry: SiteContentSyncSourceRecord, embedding: S
     governanceFingerprint: entry.governanceFingerprint,
     lineageFingerprint: entry.lineageFingerprint,
     publicMetadataFingerprint: entry.publicMetadataFingerprint,
+    tombstone: false,
+  };
+}
+
+function releaseDigestProjection(entry: SiteContentSyncSourceRecord, embedding: SiteContentSyncInput["embedding"]) {
+  return {
+    ...publicPopulationDigestProjection(entry),
     embeddingModel: embedding.model,
     embeddingDimensions: embedding.dimensions,
     embeddingFingerprint: embedding.fingerprint,
-    tombstone: false,
   };
+}
+
+function uuidFromDigest(digest: string) {
+  const hex = digest.slice(0, 32).split("");
+  hex[12] = "5";
+  hex[16] = "8";
+  const value = hex.join("");
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
 }
 
 function planItem(
@@ -147,6 +166,7 @@ function planItem(
     governanceFingerprint: source.governanceFingerprint,
     lineageFingerprint: source.lineageFingerprint,
     publicMetadataFingerprint: source.publicMetadataFingerprint,
+    ...(source.renderPayload !== undefined ? { renderPayload: source.renderPayload } : {}),
   };
 }
 
@@ -235,17 +255,18 @@ export function planSiteContentSync(input: SiteContentSyncInput): SiteContentSyn
     documentId: entry.documentId,
     chunkId: entry.chunkId,
     targetPublicationId: entry.targetPublicationId,
+    publicationFingerprint: entry.publicationFingerprint,
     contentHash: entry.contentHash,
     governanceFingerprint: entry.governanceFingerprint,
     lineageFingerprint: entry.lineageFingerprint,
     publicMetadataFingerprint: entry.publicMetadataFingerprint,
   }));
-  const dynamicProjection = sorted(input.dynamicRecords).map((entry) => sourceDigestProjection(entry, input.embedding));
+  const dynamicProjection = sorted(input.dynamicRecords).map(publicPopulationDigestProjection);
   const dynamicStateDigest = siteContentValueHash({
     version: "site-content-dynamic-state-v1",
     records: dynamicProjection,
   });
-  const releaseProjection = population.map((entry) => sourceDigestProjection(entry, input.embedding));
+  const releaseProjection = population.map((entry) => releaseDigestProjection(entry, input.embedding));
   const releaseDigest = siteContentValueHash({
     version: "site-content-release-digest-v1",
     registryVersion: input.registryVersion,
@@ -274,6 +295,7 @@ export function planSiteContentSync(input: SiteContentSyncInput): SiteContentSyn
     generationId: input.generationId,
     registryVersion: input.registryVersion,
     staticManifestDigest: manifest.staticManifestDigest,
+    reconciliationPlanDigest: input.reconciliationPlanDigest ?? null,
     embedding: input.embedding,
     added,
     changed,
@@ -281,9 +303,18 @@ export function planSiteContentSync(input: SiteContentSyncInput): SiteContentSyn
     tombstones,
     counts,
   };
+  const releaseId = uuidFromDigest(
+    siteContentValueHash({
+      version: "site-content-release-instance-v1",
+      releaseDigest,
+      targetChangeEpoch: input.targetChangeEpoch,
+      generationId: input.generationId,
+    }),
+  );
+  const contentAddressedPlan = { ...governedPlan, releaseId };
   return {
-    ...governedPlan,
-    planDigest: siteContentValueHash({ domain: "site-content-sync-plan-v1", ...governedPlan }),
+    ...contentAddressedPlan,
+    planDigest: siteContentValueHash({ domain: "site-content-sync-plan-v1", ...contentAddressedPlan }),
   };
 }
 
@@ -318,6 +349,17 @@ export async function runSiteContentSync(
   let embeddings = new Map<string, number[]>();
   if (requiresEmbedding.length > 0) {
     if (!(await adapters.heartbeat(lease))) throw new Error("SITE_CONTENT_LEASE_STALE");
+    let periodicHeartbeatFailed = false;
+    const heartbeatTimer = setInterval(() => {
+      void adapters
+        .heartbeat(lease)
+        .then((alive) => {
+          if (!alive) periodicHeartbeatFailed = true;
+        })
+        .catch(() => {
+          periodicHeartbeatFailed = true;
+        });
+    }, 30_000);
     try {
       embeddings = await adapters.embed(requiresEmbedding);
     } catch {
@@ -328,9 +370,12 @@ export async function runSiteContentSync(
         count: requiresEmbedding.length,
       });
       throw new Error("SITE_CONTENT_EMBEDDING_FAILED");
+    } finally {
+      clearInterval(heartbeatTimer);
     }
+    if (periodicHeartbeatFailed || !(await adapters.heartbeat(lease))) throw new Error("SITE_CONTENT_LEASE_STALE");
   }
-  const staged = [...changed, ...plan.tombstones].map((entry) => {
+  const staged = [...changed, ...plan.unchanged, ...plan.tombstones].map((entry) => {
     const embedding = entry.reuseEmbedding ? entry.embedding : embeddings.get(entry.logicalId);
     if (!entry.tombstone && !embedding) throw new Error("SITE_CONTENT_EMBEDDING_MISSING");
     return { ...entry, ...(embedding ? { embedding } : {}) };

@@ -12,7 +12,9 @@ type ClaimedEvent = {
   lease_generation: number;
 };
 
-const MAX_BATCH = 20;
+// One claim per invocation prevents an unstarted item from aging behind slow
+// provider work. Horizontal concurrency is still bounded by the scheduler.
+const MAX_BATCH = 1;
 const MAX_PLAN_RECORDS = 5000;
 const LEASE_SECONDS = 120;
 
@@ -37,6 +39,7 @@ type PlanItem = {
 
 type SyncPlan = {
   version: "site-content-sync-plan-v1";
+  releaseId: string;
   planDigest: string;
   releaseDigest: string;
   dynamicStateDigest: string;
@@ -44,6 +47,7 @@ type SyncPlan = {
   generationId: string;
   registryVersion: string;
   staticManifestDigest: string;
+  reconciliationPlanDigest: string | null;
   embedding: { model: string; dimensions: number; fingerprint: string };
   added: PlanItem[];
   changed: PlanItem[];
@@ -52,18 +56,13 @@ type SyncPlan = {
   counts: { total: number; tombstones: number };
 };
 
-function releaseIdFromDigest(digest: string) {
-  if (!/^[0-9a-f]{64}$/.test(digest)) throw new Error("SITE_CONTENT_PLAN_INVALID");
-  const hex = `${digest.slice(0, 12)}4${digest.slice(13, 16)}8${digest.slice(17, 32)}`;
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
 function parsePlan(value: unknown): SyncPlan {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("SITE_CONTENT_PLAN_INVALID");
   const plan = value as SyncPlan;
   const groups = [plan.added, plan.changed, plan.unchanged, plan.tombstones];
   if (
     plan.version !== "site-content-sync-plan-v1" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(plan.releaseId) ||
     !/^[0-9a-f]{64}$/.test(plan.planDigest) ||
     !/^[0-9a-f]{64}$/.test(plan.releaseDigest) ||
     !groups.every(Array.isArray) ||
@@ -165,7 +164,28 @@ async function processEvent(supabase: ReturnType<typeof createClient>, event: Cl
       fixedLog("SITE_CONTENT_LEASE_LOST", event);
       return "lease_lost" as const;
     }
-    embeddings = await embedChangedRecords(plan, records);
+    let heartbeatFailed = false;
+    const providerHeartbeatTimer = setInterval(
+      () => {
+        void heartbeat()
+          .then((result) => {
+            if (result.error || result.data !== true) heartbeatFailed = true;
+          })
+          .catch(() => {
+            heartbeatFailed = true;
+          });
+      },
+      Math.floor((LEASE_SECONDS * 1000) / 3),
+    );
+    try {
+      embeddings = await embedChangedRecords(plan, records);
+    } finally {
+      clearInterval(providerHeartbeatTimer);
+    }
+    if (heartbeatFailed) {
+      fixedLog("SITE_CONTENT_LEASE_LOST", event);
+      return "lease_lost" as const;
+    }
     const stageHeartbeat = await heartbeat();
     if (stageHeartbeat.error || stageHeartbeat.data !== true) {
       fixedLog("SITE_CONTENT_LEASE_LOST", event);
@@ -208,8 +228,7 @@ async function processEvent(supabase: ReturnType<typeof createClient>, event: Cl
     p_lease_generation: event.lease_generation,
     p_stage: {
       ...plan,
-      releaseId: releaseIdFromDigest(plan.releaseDigest),
-      mustPassChecks: true,
+      releaseId: plan.releaseId,
       records: stagedRecords,
     },
   });
@@ -234,8 +253,8 @@ Deno.serve(async (request: Request) => {
         auth: { persistSession: false, autoRefreshToken: false },
       },
     );
-    const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "10");
-    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(MAX_BATCH, Math.trunc(requestedLimit))) : 10;
+    const requestedLimit = Number(new URL(request.url).searchParams.get("limit") ?? "1");
+    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(MAX_BATCH, Math.trunc(requestedLimit))) : 1;
     const workerId = crypto.randomUUID();
     const claim = await supabase.rpc("claim_site_content_sync_events", {
       p_worker_id: workerId,

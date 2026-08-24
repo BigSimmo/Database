@@ -1,12 +1,251 @@
 import "server-only";
 
 import {
+  rowToDifferentialRecord,
+  rowToPresentationWorkflow,
+  type DifferentialRecordRow,
+} from "@/lib/differential-records";
+import { rowToMedicationRecord, type MedicationRecordRow } from "@/lib/medication-records";
+import {
+  clinicalRegistryRecordToCorpusEntry,
+  differentialRecordToCorpusEntry,
+  medicationRecordToCorpusEntry,
+} from "@/lib/registry-corpus";
+import { type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
+import { mergeRegistryRecordWithDefault } from "@/lib/registry-seed";
+import {
   assertRecoveryReadinessForOperation,
   parseActivationReceipt,
   parseRollbackReceipt,
   type ActivationReceipt,
   type RecoveryReadinessEvidence,
 } from "@/lib/recovery-readiness-evidence";
+import { registryEntryToSiteContentRecord } from "@/lib/site-content/adapters/registry";
+import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
+
+export type DynamicSiteContentKind = "service" | "form" | "medication" | "differential" | "presentation";
+
+// Explicit public field vocabulary for every nested public render type. Unknown
+// keys are omitted recursively, so an owner/editor/private-document identifier
+// cannot become public merely because it is nested below an otherwise public
+// JSON column.
+const publicKeys = new Set([
+  "accent",
+  "action",
+  "acuity_flags",
+  "actSections",
+  "after",
+  "aliases",
+  "age_groups",
+  "age",
+  "archiveGeneratedAt",
+  "authorises",
+  "authority",
+  "availability",
+  "before",
+  "bedside-question",
+  "bestUse",
+  "body",
+  "candidates",
+  "catalogPayload",
+  "catalogueLabel",
+  "category",
+  "catchments",
+  "class",
+  "clinicalHinge",
+  "clock",
+  "cls",
+  "comparison",
+  "confidence",
+  "contacts",
+  "copies",
+  "cost",
+  "criteria",
+  "currentPresentation",
+  "destination",
+  "detail",
+  "doesNotAuthorise",
+  "documentTitle",
+  "documentationStem",
+  "eligibility",
+  "factors",
+  "fileName",
+  "flag",
+  "form",
+  "gt",
+  "hepatic",
+  "highestUrgencyNote",
+  "housing_flags",
+  "id",
+  "immediateActions",
+  "immediate-action",
+  "indexedAt",
+  "indexedClock",
+  "indexedTerms",
+  "investigations",
+  "involved",
+  "items",
+  "key",
+  "kind",
+  "label",
+  "lastUpdated",
+  "legalNote",
+  "likelihood",
+  "localPdfBytes",
+  "localPdfPath",
+  "localPdfSha256",
+  "locallyVerified",
+  "location",
+  "lt",
+  "maker",
+  "match",
+  "mimics-overlap",
+  "must-not-miss",
+  "name",
+  "navigatorQuery",
+  "note",
+  "notes",
+  "officialPdfPasswordProtected",
+  "officialPdfUrl",
+  "officialRegisterUrl",
+  "officialTitleCheckedAt",
+  "parallel",
+  "pages",
+  "patient",
+  "practicePearls",
+  "preUseChecks",
+  "primaryContact",
+  "priorityFacts",
+  "published",
+  "purpose",
+  "quick",
+  "referral",
+  "referralInfo",
+  "related",
+  "reviewChecklist",
+  "reviewStatus",
+  "reviewed",
+  "riskLevel",
+  "route",
+  "rows",
+  "safetyPearl",
+  "safetySnapshot",
+  "schedule",
+  "scopeLabel",
+  "scr",
+  "searchTerms",
+  "setting_flags",
+  "section",
+  "sectionCue",
+  "sections",
+  "selected",
+  "selectedCount",
+  "severity",
+  "slug",
+  "source",
+  "sourceFacts",
+  "sourceNote",
+  "sourceStatus",
+  "sourceTitle",
+  "substance_flags",
+  "stats",
+  "status",
+  "statusChips",
+  "subclass",
+  "subtitle",
+  "summary",
+  "summaryCards",
+  "tag",
+  "tags",
+  "threshold",
+  "timings",
+  "title",
+  "titleAliases",
+  "tone",
+  "totalCount",
+  "traps",
+  "type",
+  "url",
+  "val",
+  "value",
+  "verification",
+  "what-argues-against",
+  "why-it-fits",
+  "version",
+]);
+
+function publicValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(publicValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key, child]) => publicKeys.has(key) && child !== undefined)
+      .map(([key, child]) => [key, publicValue(child)]),
+  );
+}
+
+function recordIdentity(kind: DynamicSiteContentKind, slug: string) {
+  if (kind === "service") return `services:${slug}`;
+  if (kind === "form") return `forms:${slug}`;
+  if (kind === "medication") return `medications:${slug}`;
+  return `differentials:${kind === "presentation" ? "presentation" : "diagnosis"}:${slug}`;
+}
+
+export function canonicalDynamicSiteContentProjection(
+  kind: DynamicSiteContentKind,
+  row: RegistryRecordRow | MedicationRecordRow | DifferentialRecordRow,
+): { record: SiteContentRecord; renderPayload: Record<string, unknown> } {
+  if (kind === "service" || kind === "form") {
+    const typedRow = row as RegistryRecordRow;
+    if (typedRow.kind !== kind) throw new Error("Registry source kind does not match the publication command.");
+    const render = mergeRegistryRecordWithDefault(kind as RegistryRecordKind, typedRow);
+    const logicalId = recordIdentity(kind, render.slug);
+    const entry = clinicalRegistryRecordToCorpusEntry(render, kind, {
+      ownerId: null,
+      recordId: logicalId,
+      sourceStatus: typedRow.source_status,
+      validationStatus: typedRow.validation_status,
+    });
+    return {
+      record: registryEntryToSiteContentRecord(entry, { logicalId, sourceLineage: [] }),
+      renderPayload: publicValue(render) as Record<string, unknown>,
+    };
+  }
+  if (kind === "medication") {
+    const typedRow = row as MedicationRecordRow;
+    const render = rowToMedicationRecord(typedRow);
+    const logicalId = recordIdentity(kind, render.slug);
+    const entry = medicationRecordToCorpusEntry(render, {
+      ownerId: null,
+      recordId: logicalId,
+      sourceStatus: typedRow.source_status,
+      validationStatus: typedRow.validation_status,
+    });
+    return {
+      record: registryEntryToSiteContentRecord(entry, { logicalId, sourceLineage: [] }),
+      renderPayload: publicValue(render) as Record<string, unknown>,
+    };
+  }
+  const typedRow = row as DifferentialRecordRow;
+  const expectedKind = kind === "presentation" ? "presentation" : "diagnosis";
+  if (typedRow.kind !== expectedKind)
+    throw new Error("Differential source kind does not match the publication command.");
+  const render =
+    kind === "presentation"
+      ? ({ kind, value: rowToPresentationWorkflow(typedRow) } as const)
+      : ({ kind, value: rowToDifferentialRecord(typedRow) } as const);
+  const logicalId = recordIdentity(kind, render.kind === "presentation" ? render.value.id : render.value.slug);
+  const entry = differentialRecordToCorpusEntry(render.value, expectedKind, {
+    ownerId: null,
+    recordId: logicalId,
+    sourceStatus: typedRow.source_status,
+    validationStatus: typedRow.validation_status,
+  });
+  return {
+    record: registryEntryToSiteContentRecord(entry, { logicalId, sourceLineage: [] }),
+    renderPayload: publicValue(render.value) as Record<string, unknown>,
+  };
+}
 
 const privateKeys = new Set([
   "actor",
@@ -25,6 +264,16 @@ function isPrivateKey(key: string) {
 
 type RpcClient = {
   rpc: unknown;
+  from?: (table: string) => {
+    select: (columns: string) => {
+      eq: (
+        column: string,
+        value: string,
+      ) => {
+        single: () => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+      };
+    };
+  };
 };
 
 async function callRpc(client: RpcClient, name: string, args: Record<string, unknown>) {
@@ -50,13 +299,13 @@ function publicProjection(value: unknown): unknown {
 }
 
 export async function readCanonicalSiteContentRecords<T>(input: {
-  supabase: RpcClient;
+  supabase: unknown;
   kind: string;
   slug: string | null;
   seeds: readonly T[];
   mapRecord?: (record: Record<string, unknown>) => T;
 }): Promise<{ records: T[]; source: "canonical_public" | "seed_uninitialized"; snapshot: unknown | null }> {
-  const { data, error } = await callRpc(input.supabase, "read_site_content_public_records", {
+  const { data, error } = await callRpc(input.supabase as RpcClient, "read_site_content_public_records", {
     p_kind: input.kind,
     p_slug: input.slug,
   });
@@ -99,6 +348,18 @@ export async function publishSiteContentCommand(input: {
   actorId: string;
   command: SiteContentPublicationCommand;
 }) {
+  if (!input.supabase.from) throw new Error("Site-content source reader is unavailable.");
+  const sourceTable =
+    input.command.kind === "service" || input.command.kind === "form"
+      ? "clinical_registry_records"
+      : input.command.kind === "medication"
+        ? "medication_records"
+        : "differential_records";
+  const sourceResult = await input.supabase.from(sourceTable).select("*").eq("id", input.command.sourceRowId).single();
+  if (sourceResult.error || !sourceResult.data || typeof sourceResult.data !== "object") {
+    throw new Error(`Site-content source read failed: ${sourceResult.error?.message ?? "not found"}`);
+  }
+  const canonical = canonicalDynamicSiteContentProjection(input.command.kind, sourceResult.data as never);
   const rpcName = input.command.action === "publish" ? "publish_site_content_record" : "retire_site_content_record";
   const { data, error } = await callRpc(input.supabase, rpcName, {
     p_kind: input.command.kind,
@@ -107,9 +368,24 @@ export async function publishSiteContentCommand(input: {
     p_expected_change_epoch: input.command.expectedChangeEpoch,
     p_reconciliation_plan_digest: input.command.reconciliationPlanDigest ?? null,
     p_published_by: input.actorId,
+    p_record: canonical.record,
+    p_render_payload: canonical.renderPayload,
   });
   if (error) throw new Error(`Site-content publication command failed: ${error.message}`);
-  return data;
+  if (!Array.isArray(data) || data.length !== 1 || !data[0] || typeof data[0] !== "object") {
+    throw new Error("Site-content publication command failed: invalid RPC response.");
+  }
+  const result = data[0] as Record<string, unknown>;
+  if (result.outcome === "conflict") {
+    return {
+      outcome: "conflict" as const,
+      reason: typeof result.conflict_code === "string" ? result.conflict_code : "stale_or_noop",
+    };
+  }
+  if (result.outcome !== "applied") {
+    throw new Error("Site-content publication command failed: invalid RPC outcome.");
+  }
+  return { outcome: "applied" as const, result };
 }
 
 export async function activateSiteContentRelease(input: {

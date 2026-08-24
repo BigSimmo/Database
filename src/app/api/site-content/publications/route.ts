@@ -38,10 +38,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid site-content publication command." }, { status: 400 });
     }
     const result = await publishSiteContentCommand({
-      supabase,
+      supabase: supabase as never,
       actorId: administrator.id,
       command: parsed.data,
     });
+    if (result.outcome === "conflict") {
+      return NextResponse.json(
+        { error: "Site-content publication conflict or no-op." },
+        { status: 409, headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
     return NextResponse.json({ result }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

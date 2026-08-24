@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-24T01:48:07.395Z",
+  "generated_at": "2026-08-24T03:03:22.837Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "4ea610d4615d95957e89e7d90ee63b32548475520b0072b7c691e731a8738250",
-  "replay_seconds": 24,
+  "schema_sha256": "afe008d1ff82f84e303fb8856b064041978880b8465c9f723b97a3259d4e7c63",
+  "replay_seconds": 16,
   "snapshot": {
     "views": [
       {
@@ -4335,6 +4335,14 @@
             "generated": ""
           },
           {
+            "name": "head_change_epoch",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
             "name": "kind",
             "type": "text",
             "default": null,
@@ -4517,6 +4525,30 @@
         "name": "site_content_reconciliation_plans",
         "columns": [
           {
+            "name": "batch_count",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "batch_size",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "counts",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
             "name": "dispositions",
             "type": "jsonb",
             "default": null,
@@ -4558,6 +4590,14 @@
           },
           {
             "name": "trusted_snapshot_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "version",
             "type": "text",
             "default": null,
             "identity": "",
@@ -4683,6 +4723,14 @@
             "generated": ""
           },
           {
+            "name": "embedding_value_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "governance_fingerprint",
             "type": "text",
             "default": null,
@@ -4755,11 +4803,27 @@
             "generated": ""
           },
           {
+            "name": "record",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "release_id",
             "type": "uuid",
             "default": null,
             "identity": "",
             "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "render_payload",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": false,
             "generated": ""
           },
           {
@@ -4814,6 +4878,22 @@
             "generated": ""
           },
           {
+            "name": "expected_added_count",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "expected_changed_count",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
             "name": "expected_record_count",
             "type": "integer",
             "default": null,
@@ -4823,6 +4903,14 @@
           },
           {
             "name": "expected_tombstone_count",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "expected_unchanged_count",
             "type": "integer",
             "default": null,
             "identity": "",
@@ -4854,8 +4942,24 @@
             "generated": ""
           },
           {
+            "name": "plan_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
             "name": "previous_release_id",
             "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "reconciliation_plan_digest",
+            "type": "text",
             "default": null,
             "identity": "",
             "not_null": false,
@@ -4939,6 +5043,14 @@
           {
             "name": "plan_digest",
             "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "release_id",
+            "type": "uuid",
             "default": null,
             "identity": "",
             "not_null": true,
@@ -5044,6 +5156,14 @@
             "generated": ""
           },
           {
+            "name": "superseded_by_event_sequence",
+            "type": "bigint",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "target_change_epoch",
             "type": "bigint",
             "default": null,
@@ -5057,6 +5177,14 @@
             "default": null,
             "identity": "",
             "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "terminal_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
             "generated": ""
           },
           {
@@ -5114,6 +5242,14 @@
             "name": "initialized",
             "type": "boolean",
             "default": "false",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "served_change_epoch",
+            "type": "bigint",
+            "default": "0",
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -6820,6 +6956,12 @@
         "def_hash": "b903d27f63dbf779e23539cac18d3317"
       },
       {
+        "def": "CREATE INDEX site_content_sync_events_reclaim_idx ON public.site_content_sync_events USING btree (lease_expires_at, event_sequence) WHERE (state = 'processing'::text)",
+        "name": "site_content_sync_events_reclaim_idx",
+        "table": "site_content_sync_events",
+        "def_hash": "dde438b67f78b1f0db307d97c416c3ec"
+      },
+      {
         "def": "CREATE INDEX site_content_sync_events_target_idx ON public.site_content_sync_events USING btree (target_change_epoch, logical_id, state)",
         "name": "site_content_sync_events_target_idx",
         "table": "site_content_sync_events",
@@ -7615,7 +7757,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "af880322bb63ddd991a817e43b29f8e9",
+        "def_hash": "6e93c56cf45ef6db8e1491097c318aa8",
         "signature": "public.activate_site_content_release(uuid,text,bigint,text,jsonb)"
       },
       {
@@ -7671,7 +7813,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "d402c54b5b113fdb8903fe7ed3114477",
+        "def_hash": "b1e81ed18dd93e4c4f794538193019a7",
         "signature": "public.claim_site_content_sync_events(uuid,integer,integer)"
       },
       {
@@ -7906,7 +8048,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "dd76ee4c5fc0a53637db7c94ea06c455",
+        "def_hash": "8233737f57aee60bdba67aa086a7accf",
         "signature": "public.guard_site_content_receipt_shape(jsonb,text,uuid,text)"
       },
       {
@@ -8194,8 +8336,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b9b4730b08136e61071b688f89359a00",
-        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,uuid)"
+        "def_hash": "4ec1035a057587cab7f376021ab4c812",
+        "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,uuid,jsonb,jsonb)"
       },
       {
         "acl": [
@@ -8236,7 +8378,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b8b6466a773db2d77682c8dcf32d963b",
+        "def_hash": "d859f55fd448c86a92c59ed6407cb175",
         "signature": "public.read_site_content_public_records(text,text)"
       },
       {
@@ -8252,15 +8394,15 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "75e06d26d45fd24fe5654d4a717e7c40",
-        "signature": "public.record_site_content_reconciliation_plan(text,text,jsonb,integer,uuid)"
+        "def_hash": "a85c9e95c3854e429f3912a9ef8f4235",
+        "signature": "public.record_site_content_reconciliation_plan(jsonb,uuid)"
       },
       {
         "acl": [
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "4ba2334a923a844cda1d03442c1a1e23",
+        "def_hash": "b75c4ddef22cc3ad1370d1d9dfe4c4c5",
         "signature": "public.record_site_content_sync_event_plan(bigint,bigint,text,jsonb)"
       },
       {
@@ -8340,8 +8482,8 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "56f0af2deb4f8780c039acf3431ce28a",
-        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,uuid)"
+        "def_hash": "56bd4c073415519612e9fe5a8e8b804f",
+        "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,uuid,jsonb,jsonb)"
       },
       {
         "acl": [
@@ -8372,7 +8514,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "50b7ebfc6f8ea1b27e3eb9808ae58db4",
+        "def_hash": "9582fa4f6ba426d6f922b04daac5f09f",
         "signature": "public.rollback_site_content_release(uuid,uuid,text,jsonb)"
       },
       {
@@ -8443,6 +8585,13 @@
         "acl": [
           "postgres=X/postgres"
         ],
+        "def_hash": "6b0bdc14b06aa40976b362126ed60361",
+        "signature": "public.site_content_canonical_json(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
         "def_hash": "e8d21d83454d06df83652280559f4092",
         "signature": "public.site_content_canonical_text(text)"
       },
@@ -8450,15 +8599,57 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "34bdf46e07cd5c714f884a25b60485ca",
-        "signature": "public.site_content_source_projection(text,uuid)"
+        "def_hash": "3a489ad6324b7de0fb808a755bfa3f73",
+        "signature": "public.site_content_dynamic_state_digest(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "ab82e9a0e8a19b8dd69bac213582d18a",
+        "signature": "public.site_content_json_sha256(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "225469a377f0699b4b93caf57f10e5aa",
+        "signature": "public.site_content_provider_free_checks_pass(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "6c7925593741d83cc99913a8fd3d7ab6",
+        "signature": "public.site_content_public_json_allowlist(jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "891198594ae0c041445356b0366de7a0",
+        "signature": "public.site_content_release_digest(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "94ddaa6051775d0e77c8165b02dce6c6",
+        "signature": "public.site_content_release_id(text,bigint,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "108412c90b2cce4c53da3119fd325945",
+        "signature": "public.site_content_source_projection(text,uuid,jsonb,jsonb)"
       },
       {
         "acl": [
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "94d5e5541284594c0bcff6d745ef32e4",
+        "def_hash": "88c3abd63013af9f78898614657a8def",
         "signature": "public.stage_site_content_sync_event(bigint,uuid,uuid,bigint,jsonb)"
       },
       {
@@ -9293,6 +9484,11 @@
         "table": "site_content_public_records"
       },
       {
+        "def": "CHECK ((head_change_epoch > 0))",
+        "name": "site_content_public_records_head_change_epoch_check",
+        "table": "site_content_public_records"
+      },
+      {
         "def": "CHECK ((kind = ANY (ARRAY['service'::text, 'form'::text, 'medication'::text, 'differential'::text, 'presentation'::text])))",
         "name": "site_content_public_records_kind_check",
         "table": "site_content_public_records"
@@ -9348,6 +9544,21 @@
         "table": "site_content_publications"
       },
       {
+        "def": "CHECK (((batch_count > 0) AND (batch_count <= 5000)))",
+        "name": "site_content_reconciliation_plans_batch_count_check",
+        "table": "site_content_reconciliation_plans"
+      },
+      {
+        "def": "CHECK (((batch_size >= 1) AND (batch_size <= 500)))",
+        "name": "site_content_reconciliation_plans_batch_size_check",
+        "table": "site_content_reconciliation_plans"
+      },
+      {
+        "def": "CHECK ((jsonb_typeof(counts) = 'object'::text))",
+        "name": "site_content_reconciliation_plans_counts_check",
+        "table": "site_content_reconciliation_plans"
+      },
+      {
         "def": "CHECK ((jsonb_typeof(dispositions) = 'array'::text))",
         "name": "site_content_reconciliation_plans_dispositions_check",
         "table": "site_content_reconciliation_plans"
@@ -9370,6 +9581,11 @@
       {
         "def": "CHECK ((trusted_snapshot_digest ~ '^[0-9a-f]{64}$'::text))",
         "name": "site_content_reconciliation_plans_trusted_snapshot_digest_check",
+        "table": "site_content_reconciliation_plans"
+      },
+      {
+        "def": "CHECK ((version = 'site-content-reconciliation-plan-v1'::text))",
+        "name": "site_content_reconciliation_plans_version_check",
         "table": "site_content_reconciliation_plans"
       },
       {
@@ -9413,6 +9629,11 @@
         "table": "site_content_release_records"
       },
       {
+        "def": "CHECK ((((target_publication_id IS NULL) AND (record IS NULL) AND (render_payload IS NULL)) OR ((target_publication_id IS NOT NULL) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text))))",
+        "name": "site_content_release_records_check1",
+        "table": "site_content_release_records"
+      },
+      {
         "def": "CHECK ((content_hash ~ '^[0-9a-f]{64}$'::text))",
         "name": "site_content_release_records_content_hash_check",
         "table": "site_content_release_records"
@@ -9420,6 +9641,11 @@
       {
         "def": "CHECK ((embedding_dimensions > 0))",
         "name": "site_content_release_records_embedding_dimensions_check",
+        "table": "site_content_release_records"
+      },
+      {
+        "def": "CHECK (((embedding_value_digest IS NULL) OR (embedding_value_digest ~ '^[0-9a-f]{64}$'::text)))",
+        "name": "site_content_release_records_embedding_value_digest_check",
         "table": "site_content_release_records"
       },
       {
@@ -9453,6 +9679,16 @@
         "table": "site_content_releases"
       },
       {
+        "def": "CHECK ((expected_added_count >= 0))",
+        "name": "site_content_releases_expected_added_count_check",
+        "table": "site_content_releases"
+      },
+      {
+        "def": "CHECK ((expected_changed_count >= 0))",
+        "name": "site_content_releases_expected_changed_count_check",
+        "table": "site_content_releases"
+      },
+      {
         "def": "CHECK ((expected_record_count >= 0))",
         "name": "site_content_releases_expected_record_count_check",
         "table": "site_content_releases"
@@ -9463,13 +9699,28 @@
         "table": "site_content_releases"
       },
       {
+        "def": "CHECK ((expected_unchanged_count >= 0))",
+        "name": "site_content_releases_expected_unchanged_count_check",
+        "table": "site_content_releases"
+      },
+      {
         "def": "PRIMARY KEY (id)",
         "name": "site_content_releases_pkey",
         "table": "site_content_releases"
       },
       {
+        "def": "CHECK ((plan_digest ~ '^[0-9a-f]{64}$'::text))",
+        "name": "site_content_releases_plan_digest_check",
+        "table": "site_content_releases"
+      },
+      {
         "def": "FOREIGN KEY (previous_release_id) REFERENCES public.site_content_releases(id)",
         "name": "site_content_releases_previous_release_id_fkey",
+        "table": "site_content_releases"
+      },
+      {
+        "def": "FOREIGN KEY (reconciliation_plan_digest) REFERENCES public.site_content_reconciliation_plans(plan_digest)",
+        "name": "site_content_releases_reconciliation_plan_digest_fkey",
         "table": "site_content_releases"
       },
       {
@@ -9558,8 +9809,13 @@
         "table": "site_content_sync_events"
       },
       {
-        "def": "CHECK ((state = ANY (ARRAY['pending'::text, 'processing'::text, 'retry_pending'::text, 'ready'::text, 'completed'::text, 'quarantined'::text])))",
+        "def": "CHECK ((state = ANY (ARRAY['pending'::text, 'processing'::text, 'retry_pending'::text, 'ready'::text, 'completed'::text, 'quarantined'::text, 'superseded'::text])))",
         "name": "site_content_sync_events_state_check",
+        "table": "site_content_sync_events"
+      },
+      {
+        "def": "FOREIGN KEY (superseded_by_event_sequence) REFERENCES public.site_content_sync_events(event_sequence)",
+        "name": "site_content_sync_events_superseded_by_event_sequence_fkey",
         "table": "site_content_sync_events"
       },
       {
@@ -9585,6 +9841,11 @@
       {
         "def": "CHECK ((change_epoch >= 0))",
         "name": "site_content_sync_state_change_epoch_check",
+        "table": "site_content_sync_state"
+      },
+      {
+        "def": "CHECK (((served_change_epoch >= 0) AND (served_change_epoch <= change_epoch)))",
+        "name": "site_content_sync_state_check",
         "table": "site_content_sync_state"
       },
       {

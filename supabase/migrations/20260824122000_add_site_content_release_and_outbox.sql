@@ -24,9 +24,13 @@ create table public.site_content_publications (
 
 create table public.site_content_reconciliation_plans (
   plan_digest text primary key check (plan_digest ~ '^[0-9a-f]{64}$'),
+  version text not null check (version = 'site-content-reconciliation-plan-v1'),
   trusted_snapshot_digest text not null check (trusted_snapshot_digest ~ '^[0-9a-f]{64}$'),
   dispositions jsonb not null check (jsonb_typeof(dispositions) = 'array'),
   expected_record_count integer not null check (expected_record_count > 0 and expected_record_count <= 5000),
+  batch_size integer not null check (batch_size between 1 and 500),
+  batch_count integer not null check (batch_count > 0 and batch_count <= 5000),
+  counts jsonb not null check (jsonb_typeof(counts) = 'object'),
   reviewed_by uuid not null,
   reviewed_at timestamptz not null default pg_catalog.clock_timestamp()
 );
@@ -36,6 +40,7 @@ create table public.site_content_public_records (
   kind text not null check (kind in ('service', 'form', 'medication', 'differential', 'presentation')),
   slug text not null,
   current_publication_id uuid not null,
+  head_change_epoch bigint not null check (head_change_epoch > 0),
   retired boolean not null default false,
   pending_event_sequence bigint,
   updated_at timestamptz not null default pg_catalog.clock_timestamp(),
@@ -47,6 +52,7 @@ create table public.site_content_public_records (
 create table public.site_content_sync_state (
   singleton boolean primary key default true check (singleton),
   change_epoch bigint not null default 0 check (change_epoch >= 0),
+  served_change_epoch bigint not null default 0 check (served_change_epoch >= 0 and served_change_epoch <= change_epoch),
   active_release_id uuid,
   active_release_digest text,
   initialized boolean not null default false,
@@ -62,13 +68,15 @@ create table public.site_content_sync_events (
   target_publication_id uuid not null,
   target_change_epoch bigint not null check (target_change_epoch > 0),
   state text not null default 'pending'
-    check (state in ('pending', 'processing', 'retry_pending', 'ready', 'completed', 'quarantined')),
+    check (state in ('pending', 'processing', 'retry_pending', 'ready', 'completed', 'quarantined', 'superseded')),
   attempt_count integer not null default 0 check (attempt_count between 0 and 5),
   next_attempt_at timestamptz not null default pg_catalog.clock_timestamp(),
   worker_id uuid,
   lease_token uuid,
   lease_generation bigint not null default 0 check (lease_generation >= 0),
   lease_expires_at timestamptz,
+  superseded_by_event_sequence bigint references public.site_content_sync_events(event_sequence),
+  terminal_at timestamptz,
   last_error_code text,
   created_at timestamptz not null default pg_catalog.clock_timestamp(),
   updated_at timestamptz not null default pg_catalog.clock_timestamp(),
@@ -96,6 +104,7 @@ create table public.site_content_sync_event_plans (
   plan_digest text not null check (plan_digest ~ '^[0-9a-f]{64}$'),
   target_change_epoch bigint not null check (target_change_epoch > 0),
   plan jsonb not null check (jsonb_typeof(plan) = 'object'),
+  release_id uuid not null,
   created_at timestamptz not null default pg_catalog.clock_timestamp(),
   unique (event_sequence, plan_digest)
 );
@@ -110,6 +119,11 @@ create table public.site_content_releases (
   dynamic_state_digest text not null check (dynamic_state_digest ~ '^[0-9a-f]{64}$'),
   release_digest text not null check (release_digest ~ '^[0-9a-f]{64}$'),
   generation_id text not null,
+  plan_digest text not null check (plan_digest ~ '^[0-9a-f]{64}$'),
+  reconciliation_plan_digest text references public.site_content_reconciliation_plans(plan_digest),
+  expected_added_count integer not null check (expected_added_count >= 0),
+  expected_changed_count integer not null check (expected_changed_count >= 0),
+  expected_unchanged_count integer not null check (expected_unchanged_count >= 0),
   expected_record_count integer not null check (expected_record_count >= 0),
   expected_tombstone_count integer not null check (expected_tombstone_count >= 0),
   must_pass_checks boolean not null default false,
@@ -117,6 +131,29 @@ create table public.site_content_releases (
   activated_at timestamptz,
   unique (release_digest, target_change_epoch)
 );
+
+-- The retained epoch-zero predecessor gives the first P05 activation an
+-- exact non-null previous release identity. It contains no canonical rows;
+-- initialized=false continues to route reads to the reviewed P03 seed set.
+insert into public.site_content_releases(
+  id, state, target_change_epoch, previous_release_id, registry_version,
+  static_manifest_digest, dynamic_state_digest, release_digest, generation_id,
+  plan_digest, reconciliation_plan_digest, expected_added_count,
+  expected_changed_count, expected_unchanged_count, expected_record_count,
+  expected_tombstone_count, must_pass_checks
+) values (
+  '5ee32388-b546-5b46-8723-b2912ea93d6a', 'active', 0, null,
+  'site-content-bootstrap-v1', repeat('0', 64),
+  '78448dcabf3e218a69877b0bd97bc28a3522460fde591ede7fcbc8c23ab7e769',
+  'f04b8186562b31bb6cda6527082aa9e694ceea761dabeea04d67fb2664669dfb',
+  'bootstrap', 'eba9df3da23d058eca56f969f95d21cf89e6c3843dcf2b2c942a10dc37769a20',
+  null, 0, 0, 0, 0, 0, true
+);
+
+update public.site_content_sync_state set
+  active_release_id = '5ee32388-b546-5b46-8723-b2912ea93d6a',
+  active_release_digest = 'f04b8186562b31bb6cda6527082aa9e694ceea761dabeea04d67fb2664669dfb'
+where singleton;
 
 alter table public.site_content_sync_state
   add constraint site_content_sync_state_active_release_fkey
@@ -137,7 +174,10 @@ create table public.site_content_release_records (
   embedding_model text not null,
   embedding_dimensions integer not null check (embedding_dimensions > 0),
   embedding_fingerprint text not null,
+  embedding_value_digest text check (embedding_value_digest is null or embedding_value_digest ~ '^[0-9a-f]{64}$'),
   embedding extensions.vector(1536),
+  record jsonb,
+  render_payload jsonb,
   tombstone boolean not null default false,
   public_visible boolean not null default true,
   created_at timestamptz not null default pg_catalog.clock_timestamp(),
@@ -145,6 +185,8 @@ create table public.site_content_release_records (
   unique (release_id, logical_document_id),
   unique (release_id, logical_chunk_id),
   check ((tombstone and embedding is null and not public_visible) or (not tombstone and public_visible)),
+  check ((target_publication_id is null and record is null and render_payload is null) or
+    (target_publication_id is not null and jsonb_typeof(record) = 'object' and jsonb_typeof(render_payload) = 'object')),
   foreign key (target_publication_id, logical_id)
     references public.site_content_publications(id, logical_id)
 );
@@ -162,6 +204,9 @@ create table public.site_content_release_receipts (
 create index site_content_sync_events_claim_idx
   on public.site_content_sync_events(state, next_attempt_at, event_sequence)
   where state in ('pending', 'retry_pending');
+create index site_content_sync_events_reclaim_idx
+  on public.site_content_sync_events(lease_expires_at, event_sequence)
+  where state = 'processing';
 create index site_content_sync_events_target_idx
   on public.site_content_sync_events(target_change_epoch, logical_id, state);
 create index site_content_release_records_public_idx
@@ -214,9 +259,90 @@ as $$
   where line <> '';
 $$;
 
+create or replace function public.site_content_canonical_json(p_value jsonb)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_result text;
+begin
+  if p_value is null then return 'null'; end if;
+  if jsonb_typeof(p_value) = 'object' then
+    select '{' || coalesce(string_agg(to_jsonb(entry.key)::text || ':' ||
+      public.site_content_canonical_json(entry.value), ',' order by entry.key collate "C"), '') || '}'
+    into v_result from jsonb_each(p_value) entry;
+    return v_result;
+  end if;
+  if jsonb_typeof(p_value) = 'array' then
+    select '[' || coalesce(string_agg(public.site_content_canonical_json(entry.value), ',' order by entry.ordinal), '') || ']'
+    into v_result from jsonb_array_elements(p_value) with ordinality entry(value, ordinal);
+    return v_result;
+  end if;
+  return p_value::text;
+end;
+$$;
+
+create or replace function public.site_content_json_sha256(p_value jsonb)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select encode(extensions.digest(convert_to(public.site_content_canonical_json(p_value), 'UTF8'), 'sha256'), 'hex');
+$$;
+
+create or replace function public.site_content_public_json_allowlist(p_value jsonb)
+returns jsonb
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_result jsonb;
+  v_allowed constant text[] := array[
+    'accent','action','acuity_flags','actSections','after','age','aliases','age_groups','archiveGeneratedAt','authorises','authority','availability','before','bedside-question','bestUse','body','candidates',
+    'catalogPayload','catalogueLabel','category','catchments','class','clinicalHinge','clock','cls','comparison','confidence',
+    'contacts','copies','cost','criteria','currentPresentation','destination','detail','doesNotAuthorise','documentationStem','documentTitle','eligibility',
+    'factors','fileName','flag','form','gt','hepatic','highestUrgencyNote','housing_flags','id','immediate-action','immediateActions','indexedAt','indexedClock',
+    'indexedTerms','investigations','involved','items','key','kind','label','lastUpdated','legalNote','likelihood',
+    'localPdfBytes','localPdfPath','localPdfSha256','locallyVerified','location','lt','maker','match','mimics-overlap','must-not-miss','name','navigatorQuery',
+    'note','notes','officialPdfPasswordProtected','officialPdfUrl','officialRegisterUrl','officialTitleCheckedAt',
+    'parallel','pages','patient','practicePearls','preUseChecks','primaryContact','priorityFacts','published','purpose',
+    'quick','referral','referralInfo','related','reviewChecklist','reviewStatus','reviewed','riskLevel','route','rows',
+    'safetyPearl','safetySnapshot','schedule','scopeLabel','scr','searchTerms','section','sectionCue','sections','selected','setting_flags',
+    'selectedCount','severity','slug','source','sourceFacts','sourceNote','sourceStatus','sourceTitle','stats','status',
+    'statusChips','subclass','subtitle','substance_flags','summary','summaryCards','tag','tags','threshold','timings','title','titleAliases',
+    'tone','totalCount','traps','type','url','val','value','verification','version','what-argues-against','why-it-fits'
+  ];
+begin
+  if p_value is null then return 'null'::jsonb; end if;
+  if jsonb_typeof(p_value) = 'array' then
+    select coalesce(jsonb_agg(public.site_content_public_json_allowlist(entry.value) order by entry.ordinal), '[]'::jsonb)
+    into v_result from jsonb_array_elements(p_value) with ordinality entry(value, ordinal);
+    return v_result;
+  end if;
+  if jsonb_typeof(p_value) = 'object' then
+    select coalesce(jsonb_object_agg(entry.key, public.site_content_public_json_allowlist(entry.value)
+      order by entry.key collate "C"), '{}'::jsonb)
+    into v_result from jsonb_each(p_value) entry where entry.key = any(v_allowed);
+    return v_result;
+  end if;
+  return p_value;
+end;
+$$;
+
+-- Canonical content is produced server-side by the exact P03 owners
+-- clinicalRegistryRecordToCorpusEntry, medicationRecordToCorpusEntry and
+-- differentialRecordToCorpusEntry after public registry baseline merging.
+-- This transaction re-locks the selected legacy row/version and independently
+-- validates the canonical hashes and recursive public allowlist before insert.
 create or replace function public.site_content_source_projection(
   p_kind text,
-  p_source_row_id uuid
+  p_source_row_id uuid,
+  p_record jsonb,
+  p_render_payload jsonb
 )
 returns table (
   source_table text,
@@ -236,97 +362,55 @@ declare
   v_domain text;
   v_route text;
   v_source_role text;
-  v_title text;
-  v_body text;
-  v_content_hash text;
-  v_publication_version text;
 begin
   if p_kind in ('service', 'form') then
-    select to_jsonb(r) into strict v_row
-    from public.clinical_registry_records r
-    where r.id = p_source_row_id and r.kind = p_kind
-    for update;
+    select to_jsonb(r) into strict v_row from public.clinical_registry_records r
+    where r.id = p_source_row_id and r.kind = p_kind for update;
     source_table := 'clinical_registry_records';
     v_domain := case p_kind when 'service' then 'services' else 'forms' end;
     v_route := case p_kind when 'service' then '/services/' else '/forms/' end || (v_row->>'slug');
     v_source_role := case p_kind when 'service' then 'service_directory' else 'form_reference' end;
   elsif p_kind = 'medication' then
-    select to_jsonb(r) into strict v_row
-    from public.medication_records r
-    where r.id = p_source_row_id
-    for update;
-    source_table := 'medication_records';
-    v_domain := 'medications';
-    v_route := '/medications/' || (v_row->>'slug');
-    v_source_role := 'clinical_reference';
+    select to_jsonb(r) into strict v_row from public.medication_records r
+    where r.id = p_source_row_id for update;
+    source_table := 'medication_records'; v_domain := 'medications';
+    v_route := '/medications/' || (v_row->>'slug'); v_source_role := 'clinical_reference';
   elsif p_kind in ('differential', 'presentation') then
-    select to_jsonb(r) into strict v_row
-    from public.differential_records r
-    where r.id = p_source_row_id
-      and r.kind = case p_kind when 'presentation' then 'presentation' else 'diagnosis' end
+    select to_jsonb(r) into strict v_row from public.differential_records r
+    where r.id = p_source_row_id and r.kind = case p_kind when 'presentation' then 'presentation' else 'diagnosis' end
     for update;
-    source_table := 'differential_records';
-    v_domain := 'differentials';
+    source_table := 'differential_records'; v_domain := 'differentials';
     v_route := '/differentials/' || case p_kind when 'presentation' then 'presentations/' else 'diagnoses/' end || (v_row->>'slug');
     v_source_role := 'clinical_reference';
   else
     raise exception using errcode = '22023', message = 'site_content_kind_invalid';
   end if;
-
   source_owner_id := (v_row->>'owner_id')::uuid;
   source_version := to_char((v_row->>'updated_at')::timestamptz at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
   slug := v_row->>'slug';
   logical_id := v_domain || ':' || case when p_kind in ('differential', 'presentation') then
     case p_kind when 'presentation' then 'presentation:' else 'diagnosis:' end else '' end || slug;
-  if p_kind = 'medication' then
-    v_title := public.site_content_canonical_text(v_row->>'name');
-    v_body := public.site_content_canonical_text(pg_catalog.concat_ws(E'\n',
-      v_row->>'name', v_row->>'class', v_row->>'subclass', v_row->>'category', v_row->>'schedule',
-      v_row->>'stats', v_row->>'sections', v_row->>'quick'));
-  elsif p_kind in ('differential', 'presentation') then
-    v_title := public.site_content_canonical_text(v_row->>'title');
-    v_body := public.site_content_canonical_text(pg_catalog.concat_ws(E'\n',
-      v_row->>'title', v_row->>'subtitle', v_row->>'clinical_hinge', v_row->>'tags',
-      v_row->>'payload', v_row->>'source'));
-  else
-    v_title := public.site_content_canonical_text(v_row->>'title');
-    v_body := public.site_content_canonical_text(pg_catalog.concat_ws(E'\n',
-      v_row->>'title', v_row->>'subtitle', v_row->>'eligibility', v_row->>'cost', v_row->>'referral',
-      v_row->>'location', v_row->>'best_use', v_row->>'tags', v_row->>'status_chips', v_row->>'contacts',
-      v_row->>'summary_cards', v_row->>'referral_info', v_row->>'criteria', v_row->>'source'));
+  if jsonb_typeof(p_record) <> 'object' or jsonb_typeof(p_render_payload) <> 'object'
+    or p_render_payload is distinct from public.site_content_public_json_allowlist(p_render_payload)
+    or p_record - array['version','logicalId','producerClass','domain','route','title','body','sourceRole','access',
+      'validationStatus','sourceStatus','publicationVersion','sourceLineage','contentHash'] <> '{}'::jsonb
+    or (select count(*) from jsonb_object_keys(p_record)) <> 14
+    or p_record->>'version' <> 'site-content-record-v1'
+    or p_record->>'logicalId' <> logical_id or p_record->>'domain' <> v_domain or p_record->>'route' <> v_route
+    or p_record->>'producerClass' <> 'dynamic_registry' or p_record->>'sourceRole' <> v_source_role
+    or p_record->>'access' <> 'public' or p_record->'sourceLineage' <> '[]'::jsonb
+    or p_record->>'sourceStatus' is distinct from v_row->>'source_status'
+    or p_record->>'validationStatus' is distinct from v_row->>'validation_status'
+    or p_record->>'title' <> public.site_content_canonical_text(p_record->>'title')
+    or p_record->>'body' <> public.site_content_canonical_text(p_record->>'body')
+    or p_record->>'contentHash' <> public.site_content_json_sha256(jsonb_build_object(
+      'title', p_record->>'title', 'body', p_record->>'body'))
+    or p_record->>'publicationVersion' <> public.site_content_json_sha256(p_record - array['contentHash','publicationVersion'])
+    then raise exception using errcode = '22023', message = 'site_content_canonical_projection_invalid';
   end if;
-  v_content_hash := encode(extensions.digest(convert_to(
-    '{"body":' || to_jsonb(v_body)::text || ',"title":' || to_jsonb(v_title)::text || '}', 'UTF8'), 'sha256'), 'hex');
-  v_publication_version := encode(extensions.digest(convert_to(
-    '{"access":"public","body":' || to_jsonb(v_body)::text ||
-    ',"domain":' || to_jsonb(v_domain)::text || ',"logicalId":' || to_jsonb(logical_id)::text ||
-    ',"producerClass":"dynamic_registry","route":' || to_jsonb(v_route)::text ||
-    ',"sourceLineage":[],"sourceRole":' || to_jsonb(v_source_role)::text ||
-    ',"sourceStatus":' || to_jsonb(coalesce(v_row->>'source_status', 'unknown'))::text ||
-    ',"title":' || to_jsonb(v_title)::text || ',"validationStatus":' ||
-    to_jsonb(coalesce(v_row->>'validation_status', 'unverified'))::text ||
-    ',"version":"site-content-record-v1"}', 'UTF8'), 'sha256'), 'hex');
-  record := jsonb_build_object(
-    'version', 'site-content-record-v1',
-    'logicalId', logical_id,
-    'producerClass', 'dynamic_registry',
-    'domain', v_domain,
-    'route', v_route,
-    'title', v_title,
-    'body', v_body,
-    'sourceRole', v_source_role,
-    'access', 'public',
-    'validationStatus', coalesce(v_row->>'validation_status', 'unverified'),
-    'sourceStatus', coalesce(v_row->>'source_status', 'unknown'),
-    'publicationVersion', v_publication_version,
-    'sourceLineage', '[]'::jsonb,
-    'contentHash', v_content_hash
-  );
-  render_payload := v_row - array['id', 'owner_id', 'created_at', 'updated_at'];
-  return next;
-exception
-  when no_data_found then
-    raise exception using errcode = 'P0002', message = 'site_content_source_not_found';
+  record := p_record; render_payload := p_render_payload; return next;
+exception when no_data_found then
+  raise exception using errcode = 'P0002', message = 'site_content_source_not_found';
 end;
 $$;
 
@@ -342,11 +426,11 @@ set search_path = ''
 as $$
 declare
   v_id text;
+  v_expected text;
+  v_fields jsonb;
 begin
-  if jsonb_typeof(p_receipt) <> 'object'
-    or p_receipt->>'version' <> (case p_kind when 'activation' then 'activation-receipt-v1' else 'rollback-receipt-v1' end)
-    or p_receipt->>'operation' <> 'site_release'
-    or coalesce(p_receipt->>'projectRef', '') = '' then
+  if jsonb_typeof(p_receipt) <> 'object' or p_receipt->>'operation' <> 'site_release'
+    or p_receipt->>'projectRef' !~ '^[a-z0-9][a-z0-9_-]{2,63}$' then
     raise exception using errcode = '22023', message = 'site_content_receipt_invalid';
   end if;
   v_id := p_receipt->>'receiptId';
@@ -354,27 +438,54 @@ begin
     raise exception using errcode = '22023', message = 'site_content_receipt_id_invalid';
   end if;
   if p_kind = 'activation' then
-    if p_receipt->>'recoveryReadinessDigest' is distinct from p_recovery_digest
+    if p_receipt - array['version','receiptId','promotionId','projectRef','operation','recoveryReadinessDigest','activatedAt','resource'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(p_receipt)) <> 8
+      or p_receipt->>'version' <> 'activation-receipt-v1'
+      or p_receipt->>'promotionId' not like 'site-release:%'
+      or p_receipt->>'recoveryReadinessDigest' is distinct from p_recovery_digest
+      or p_receipt->>'activatedAt' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+      or (p_receipt->>'activatedAt')::timestamptz > pg_catalog.clock_timestamp()
       or p_receipt#>>'{resource,kind}' <> 'site_release'
-      or p_receipt#>>'{resource,siteReleaseId}' is distinct from p_release_id::text then
+      or p_receipt#>>'{resource,siteReleaseId}' is distinct from p_release_id::text
+      or (p_receipt->'resource') - array['kind','siteReleaseId','siteReleaseDigest','previousSiteReleaseId','previousSiteReleaseDigest'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(p_receipt->'resource')) <> 5 then
       raise exception using errcode = '22023', message = 'site_content_activation_receipt_mismatch';
     end if;
-  elsif p_receipt->>'method' <> 'retained_previous'
-    or p_receipt->>'requiresReconstruction' <> 'false'
-    or p_receipt->>'outcome' <> 'succeeded'
-    or p_receipt#>>'{target,kind}' <> 'site_release'
-    or p_receipt#>>'{target,siteReleaseId}' is distinct from p_release_id::text then
-    raise exception using errcode = '22023', message = 'site_content_rollback_receipt_mismatch';
+    v_fields := p_receipt - 'receiptId';
+    v_expected := 'sha256:' || encode(extensions.digest(convert_to(
+      'activation-receipt-identity-v1' || E'\n' || public.site_content_canonical_json(v_fields), 'UTF8'), 'sha256'), 'hex');
+  elsif p_kind = 'rollback' then
+    if p_receipt - array['version','receiptId','activationReceiptId','promotionId','projectRef','operation','rolledBackAt','method','requiresReconstruction','outcome','target'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(p_receipt)) <> 11
+      or p_receipt->>'version' <> 'rollback-receipt-v1'
+      or p_receipt->>'activationReceiptId' !~ '^sha256:[0-9a-f]{64}$'
+      or p_receipt->>'promotionId' not like 'site-release:%'
+      or p_receipt->>'rolledBackAt' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+      or (p_receipt->>'rolledBackAt')::timestamptz > pg_catalog.clock_timestamp()
+      or p_receipt->>'method' <> 'retained_previous'
+      or p_receipt->>'requiresReconstruction' <> 'false'
+      or p_receipt->>'outcome' <> 'succeeded'
+      or p_receipt#>>'{target,kind}' <> 'site_release'
+      or p_receipt#>>'{target,siteReleaseId}' is distinct from p_release_id::text
+      or (p_receipt->'target') - array['kind','siteReleaseId','siteReleaseDigest'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(p_receipt->'target')) <> 3 then
+      raise exception using errcode = '22023', message = 'site_content_rollback_receipt_mismatch';
+    end if;
+    v_fields := p_receipt - 'receiptId';
+    v_expected := 'sha256:' || encode(extensions.digest(convert_to(
+      'rollback-receipt-identity-v1' || E'\n' || public.site_content_canonical_json(v_fields), 'UTF8'), 'sha256'), 'hex');
+  else
+    raise exception using errcode = '22023', message = 'site_content_receipt_kind_invalid';
+  end if;
+  if v_id is distinct from v_expected then
+    raise exception using errcode = '22023', message = 'site_content_receipt_identity_invalid';
   end if;
   return v_id;
 end;
 $$;
 
 create or replace function public.record_site_content_reconciliation_plan(
-  p_plan_digest text,
-  p_trusted_snapshot_digest text,
-  p_dispositions jsonb,
-  p_expected_record_count integer,
+  p_plan jsonb,
   p_reviewed_by uuid
 )
 returns boolean
@@ -382,19 +493,93 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_dispositions jsonb := p_plan->'dispositions';
+  v_expected integer := (p_plan->>'expectedRecordCount')::integer;
+  v_item jsonb;
+  v_live_count integer;
 begin
-  if jsonb_typeof(p_dispositions) <> 'array'
-    or jsonb_array_length(p_dispositions) <> p_expected_record_count
-    or jsonb_path_exists(p_dispositions, '$[*] ? (@.disposition == "divergent_requires_administrator_review")')
-    or not jsonb_path_exists(p_dispositions, '$[*] ? (@.logicalId.type() == "string")') then
+  if jsonb_typeof(p_plan) <> 'object'
+    or p_plan - array['version','planDigest','trustedSnapshotDigest','expectedRecordCount','batchSize','batchCount','counts','dispositions'] <> '{}'::jsonb
+    or (select count(*) from jsonb_object_keys(p_plan)) <> 8
+    or p_plan->>'version' <> 'site-content-reconciliation-plan-v1'
+    or jsonb_typeof(v_dispositions) <> 'array'
+    or v_expected < 1 or v_expected > 5000
+    or jsonb_array_length(v_dispositions) <> v_expected
+    or (p_plan->>'batchSize')::integer not between 1 and 500
+    or (p_plan->>'batchCount')::integer <> ceil(v_expected::numeric / (p_plan->>'batchSize')::integer)::integer
+    or p_plan->>'planDigest' is distinct from public.site_content_json_sha256(p_plan - 'planDigest')
+    or p_plan->>'trustedSnapshotDigest' is distinct from public.site_content_json_sha256(jsonb_build_object(
+      'version', 'site-content-trusted-snapshot-v1', 'records', v_dispositions))
+    or (p_plan#>>'{counts,total}')::integer <> v_expected
+    or (p_plan#>>'{counts,adopt}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
+    or (p_plan#>>'{counts,retire}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'retire')
+    or (p_plan#>>'{counts,identicalDuplicate}')::integer <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'identical_duplicate')
+    or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
+      <> (select count(*) from jsonb_array_elements(v_dispositions) item where item->>'disposition' = 'adopt')
+    or (select count(distinct ((item->>'sourceKind') || ':' || (item->>'sourceRowId')))
+      from jsonb_array_elements(v_dispositions) item) <> v_expected
+    or v_dispositions is distinct from (
+      select jsonb_agg(item order by item->>'logicalId' collate "C") from jsonb_array_elements(v_dispositions) item)
+    then
     raise exception using errcode = '22023', message = 'site_content_reconciliation_unresolved';
   end if;
+  for v_item in select value from jsonb_array_elements(v_dispositions) loop
+    if v_item - array['logicalId','disposition','sourceKind','sourceRowId','sourceVersion','contentHash',
+        'publicationVersion','trustedPublicRecordId','trustedRoute','trustedGovernanceHash'] <> '{}'::jsonb
+      or (select count(*) from jsonb_object_keys(v_item)) <> 10
+      or v_item->>'logicalId' !~ '^[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._:-]*$'
+      or v_item->>'disposition' not in ('adopt','retire','identical_duplicate')
+      or v_item->>'sourceKind' not in ('service','form','medication','differential','presentation')
+      or v_item->>'sourceRowId' !~ '^[0-9a-f-]{36}$'
+      or v_item->>'sourceVersion' !~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+      or v_item->>'contentHash' !~ '^[0-9a-f]{64}$'
+      or v_item->>'publicationVersion' !~ '^[0-9a-f]{64}$'
+      or v_item->>'trustedGovernanceHash' !~ '^[0-9a-f]{64}$'
+      then raise exception using errcode = '22023', message = 'site_content_reconciliation_item_invalid';
+    end if;
+  end loop;
+  select count(*) into v_live_count from (
+    select 'service'::text as source_kind, id, to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') source_version
+      from public.clinical_registry_records where kind = 'service'
+    union all select 'form', id, to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+      from public.clinical_registry_records where kind = 'form'
+    union all select 'medication', id, to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from public.medication_records
+    union all select case kind when 'presentation' then 'presentation' else 'differential' end, id,
+      to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from public.differential_records
+  ) live;
+  if v_live_count <> v_expected or exists (
+    select 1 from (
+      select 'service'::text source_kind, id, to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') source_version
+        from public.clinical_registry_records where kind = 'service'
+      union all select 'form', id, to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from public.clinical_registry_records where kind = 'form'
+      union all select 'medication', id, to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from public.medication_records
+      union all select case kind when 'presentation' then 'presentation' else 'differential' end, id,
+        to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') from public.differential_records
+    ) live left join jsonb_array_elements(v_dispositions) item
+      on item->>'sourceKind' = live.source_kind and item->>'sourceRowId' = live.id::text
+        and item->>'sourceVersion' = live.source_version
+    where item is null
+  ) then raise exception using errcode = '22023', message = 'site_content_reconciliation_population_mismatch'; end if;
   insert into public.site_content_reconciliation_plans(
-    plan_digest, trusted_snapshot_digest, dispositions, expected_record_count, reviewed_by
+    plan_digest, version, trusted_snapshot_digest, dispositions, expected_record_count,
+    batch_size, batch_count, counts, reviewed_by
   ) values (
-    p_plan_digest, p_trusted_snapshot_digest, p_dispositions, p_expected_record_count, p_reviewed_by
+    p_plan->>'planDigest', p_plan->>'version', p_plan->>'trustedSnapshotDigest', v_dispositions, v_expected,
+    (p_plan->>'batchSize')::integer, (p_plan->>'batchCount')::integer, p_plan->'counts', p_reviewed_by
   ) on conflict (plan_digest) do nothing;
-  return found;
+  return exists (
+    select 1 from public.site_content_reconciliation_plans rp
+    where rp.plan_digest = p_plan->>'planDigest'
+      and rp.version = p_plan->>'version'
+      and rp.trusted_snapshot_digest = p_plan->>'trustedSnapshotDigest'
+      and rp.dispositions = v_dispositions
+      and rp.expected_record_count = v_expected
+      and rp.batch_size = (p_plan->>'batchSize')::integer
+      and rp.batch_count = (p_plan->>'batchCount')::integer
+      and rp.counts = p_plan->'counts'
+      and rp.reviewed_by = p_reviewed_by
+  );
 end;
 $$;
 
@@ -404,9 +589,11 @@ create or replace function public.publish_site_content_record(
   p_expected_source_version text,
   p_expected_change_epoch bigint,
   p_reconciliation_plan_digest text,
-  p_published_by uuid
+  p_published_by uuid,
+  p_record jsonb,
+  p_render_payload jsonb
 )
-returns table (logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
+returns table (outcome text, conflict_code text, logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
 language plpgsql
 security definer
 set search_path = ''
@@ -421,22 +608,44 @@ begin
   perform pg_catalog.pg_advisory_xact_lock(93206431);
   select * into strict v_state from public.site_content_sync_state where singleton for update;
   if v_state.change_epoch is distinct from p_expected_change_epoch then
-    return;
+    outcome := 'conflict'; conflict_code := 'stale_change_epoch'; return next; return;
   end if;
 
-  select * into strict v_source from public.site_content_source_projection(p_kind, p_source_row_id);
+  select * into strict v_source from public.site_content_source_projection(
+    p_kind, p_source_row_id, p_record, p_render_payload);
   if v_source.source_version is distinct from p_expected_source_version then
-    return;
+    outcome := 'conflict'; conflict_code := 'stale_source_version'; return next; return;
   end if;
   select * into v_existing
   from public.site_content_public_records h
   where h.logical_id = v_source.logical_id
   for update;
-  if not found then
+  if v_existing.logical_id is not null and not v_existing.retired and exists (
+    select 1 from public.site_content_publications p
+    where p.id = v_existing.current_publication_id
+      and p.source_row_id = p_source_row_id
+      and p.source_version = v_source.source_version
+  ) then
+    outcome := 'conflict'; conflict_code := 'already_published'; return next; return;
+  end if;
+  if v_existing.logical_id is null and not v_state.initialized then
     if p_reconciliation_plan_digest is null or not exists (
       select 1 from public.site_content_reconciliation_plans p
       where p.plan_digest = p_reconciliation_plan_digest
-        and jsonb_path_exists(p.dispositions, '$[*] ? (@.logicalId == $logical && @.disposition != "divergent_requires_administrator_review")', jsonb_build_object('logical', v_source.logical_id))
+        and exists (
+          select 1 from jsonb_array_elements(p.dispositions) item
+          where item->>'logicalId' = v_source.logical_id and item->>'disposition' = 'adopt'
+            and item->>'sourceKind' = p_kind
+            and item->>'sourceRowId' = p_source_row_id::text
+            and item->>'sourceVersion' = v_source.source_version
+            and item->>'contentHash' = v_source.record->>'contentHash'
+            and item->>'publicationVersion' = v_source.record->>'publicationVersion'
+            and item->>'trustedPublicRecordId' = v_source.logical_id
+            and item->>'trustedRoute' = v_source.record->>'route'
+            and item->>'trustedGovernanceHash' = public.site_content_json_sha256(jsonb_build_object(
+              'access', v_source.record->>'access', 'validationStatus', v_source.record->>'validationStatus',
+              'sourceStatus', v_source.record->>'sourceStatus'))
+        )
     ) then
       raise exception using errcode = '55000', message = 'site_content_reconciliation_required';
     end if;
@@ -451,17 +660,25 @@ begin
     p_reconciliation_plan_digest, v_source.record, v_source.render_payload, false
   );
   change_epoch := v_state.change_epoch + 1;
-  insert into public.site_content_public_records(logical_id, kind, slug, current_publication_id, retired)
-  values (v_source.logical_id, p_kind, v_source.slug, v_publication_id, false)
-  on conflict (logical_id) do update set
+  insert into public.site_content_public_records(logical_id, kind, slug, current_publication_id, head_change_epoch, retired)
+  values (v_source.logical_id, p_kind, v_source.slug, v_publication_id, change_epoch, false)
+  on conflict on constraint site_content_public_records_pkey do update set
     current_publication_id = excluded.current_publication_id,
     kind = excluded.kind,
     slug = excluded.slug,
+    head_change_epoch = excluded.head_change_epoch,
     retired = false,
     updated_at = pg_catalog.clock_timestamp();
   insert into public.site_content_sync_events(logical_id, target_publication_id, target_change_epoch)
   values (v_source.logical_id, v_publication_id, change_epoch)
   returning site_content_sync_events.event_sequence into v_event_sequence;
+  update public.site_content_sync_events e set state = 'superseded', worker_id = null, lease_token = null,
+    lease_expires_at = null, superseded_by_event_sequence = v_event_sequence,
+    terminal_at = pg_catalog.clock_timestamp(), updated_at = pg_catalog.clock_timestamp()
+  where e.event_sequence <> v_event_sequence and e.target_change_epoch < change_epoch
+    and e.state in ('pending', 'retry_pending', 'processing', 'ready');
+  update public.site_content_releases set state = 'abandoned'
+  where state = 'candidate' and target_change_epoch < change_epoch;
   update public.site_content_public_records
   set pending_event_sequence = v_event_sequence, updated_at = pg_catalog.clock_timestamp()
   where site_content_public_records.logical_id = v_source.logical_id;
@@ -471,6 +688,7 @@ begin
   logical_id := v_source.logical_id;
   publication_id := v_publication_id;
   event_sequence := v_event_sequence;
+  outcome := 'applied'; conflict_code := null;
   return next;
 end;
 $$;
@@ -481,9 +699,11 @@ create or replace function public.retire_site_content_record(
   p_expected_source_version text,
   p_expected_change_epoch bigint,
   p_reconciliation_plan_digest text,
-  p_published_by uuid
+  p_published_by uuid,
+  p_record jsonb,
+  p_render_payload jsonb
 )
-returns table (logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
+returns table (outcome text, conflict_code text, logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
 language plpgsql
 security definer
 set search_path = ''
@@ -497,11 +717,17 @@ declare
 begin
   perform pg_catalog.pg_advisory_xact_lock(93206431);
   select * into strict v_state from public.site_content_sync_state where singleton for update;
-  if v_state.change_epoch is distinct from p_expected_change_epoch then return; end if;
-  select * into strict v_source from public.site_content_source_projection(p_kind, p_source_row_id);
-  if v_source.source_version is distinct from p_expected_source_version then return; end if;
+  if v_state.change_epoch is distinct from p_expected_change_epoch then
+    outcome := 'conflict'; conflict_code := 'stale_change_epoch'; return next; return;
+  end if;
+  select * into strict v_source from public.site_content_source_projection(
+    p_kind, p_source_row_id, p_record, p_render_payload);
+  if v_source.source_version is distinct from p_expected_source_version then
+    outcome := 'conflict'; conflict_code := 'stale_source_version'; return next; return;
+  end if;
   select * into v_head from public.site_content_public_records where site_content_public_records.logical_id = v_source.logical_id for update;
-  if not found or v_head.retired then return; end if;
+  if not found then outcome := 'conflict'; conflict_code := 'missing_publication'; return next; return; end if;
+  if v_head.retired then outcome := 'conflict'; conflict_code := 'already_retired'; return next; return; end if;
   insert into public.site_content_publications(
     id, logical_id, kind, slug, source_table, source_row_id, source_owner_id,
     source_version, published_by, reconciliation_plan_digest, record, render_payload, retired
@@ -512,16 +738,25 @@ begin
   );
   change_epoch := v_state.change_epoch + 1;
   update public.site_content_public_records set current_publication_id = v_publication_id, retired = true,
-    updated_at = pg_catalog.clock_timestamp() where site_content_public_records.logical_id = v_source.logical_id;
+    head_change_epoch = change_epoch, updated_at = pg_catalog.clock_timestamp()
+  where site_content_public_records.logical_id = v_source.logical_id;
   insert into public.site_content_sync_events(logical_id, target_publication_id, target_change_epoch)
   values (v_source.logical_id, v_publication_id, change_epoch)
   returning site_content_sync_events.event_sequence into v_event_sequence;
+  update public.site_content_sync_events e set state = 'superseded', worker_id = null, lease_token = null,
+    lease_expires_at = null, superseded_by_event_sequence = v_event_sequence,
+    terminal_at = pg_catalog.clock_timestamp(), updated_at = pg_catalog.clock_timestamp()
+  where e.event_sequence <> v_event_sequence and e.target_change_epoch < change_epoch
+    and e.state in ('pending', 'retry_pending', 'processing', 'ready');
+  update public.site_content_releases set state = 'abandoned'
+  where state = 'candidate' and target_change_epoch < change_epoch;
   update public.site_content_public_records set pending_event_sequence = v_event_sequence
   where site_content_public_records.logical_id = v_source.logical_id;
   update public.site_content_sync_state set change_epoch = v_state.change_epoch + 1, updated_at = pg_catalog.clock_timestamp() where singleton;
   logical_id := v_source.logical_id;
   publication_id := v_publication_id;
   event_sequence := v_event_sequence;
+  outcome := 'applied'; conflict_code := null;
   return next;
 end;
 $$;
@@ -539,53 +774,45 @@ as $$
   with state as (
     select s.* from public.site_content_sync_state s where s.singleton
   ), requested as (
-    select h.logical_id, h.current_publication_id, h.retired, h.pending_event_sequence
-    from public.site_content_public_records h
-    where h.kind = p_kind and (p_slug is null or h.slug = p_slug)
+    select rr.logical_id, rr.record, rr.render_payload
+    from state s
+    join public.site_content_release_records rr on rr.release_id = s.active_release_id
+    join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
+    where p.kind = p_kind and (p_slug is null or p.slug = p_slug)
+      and rr.public_visible and not rr.tombstone
   ), safe_requested as (
     select r.*
     from requested r
     cross join state s
-    where not r.retired
-      and (
-        not s.initialized
-        or (
-          s.active_release_id is not null
-          and (
-            p_slug is not null
-            or not exists (
-              select 1 from public.site_content_sync_events pending
-              where pending.state <> 'completed'
-            )
-          )
-          and not exists (
-            select 1 from public.site_content_sync_events e
-            where e.logical_id = r.logical_id
-              and e.state <> 'completed'
-          )
-          and exists (
-            select 1 from public.site_content_release_records rr
-            where rr.release_id = s.active_release_id
-              and rr.logical_id = r.logical_id
-              and rr.target_publication_id = r.current_publication_id
-              and rr.public_visible
-              and not rr.tombstone
-          )
-        )
+    where s.initialized and s.active_release_id is not null
+      and not exists (
+        select 1 from public.site_content_public_records h
+        left join public.site_content_sync_events e on e.event_sequence = h.pending_event_sequence
+        where h.head_change_epoch > s.served_change_epoch
+          and (p_slug is null or h.logical_id = r.logical_id)
+          and e.event_sequence is not null
+          and e.target_change_epoch = h.head_change_epoch
+          and e.state in ('pending', 'retry_pending', 'processing', 'ready')
       )
   )
   select s.initialized,
-    case when s.initialized then p.record else null end,
-    case when s.initialized then p.render_payload else null end,
+    case when s.initialized then r.record else null end,
+    case when s.initialized then r.render_payload else null end,
     jsonb_build_object(
       'releaseId', s.active_release_id,
       'staticManifestDigest', rel.static_manifest_digest,
       'dynamicStateDigest', rel.dynamic_state_digest,
       'releaseDigest', s.active_release_digest,
-      'changeEpoch', s.change_epoch::text,
+      'changeEpoch', rel.target_change_epoch::text,
       'state', case
         when not s.initialized then 'unavailable'
-        when exists (select 1 from public.site_content_sync_events e where e.state <> 'completed') then 'updating'
+        when exists (
+          select 1 from public.site_content_public_records h
+          join public.site_content_sync_events e on e.event_sequence = h.pending_event_sequence
+          where h.head_change_epoch > s.served_change_epoch
+            and e.target_change_epoch = h.head_change_epoch
+            and e.state in ('pending', 'retry_pending', 'processing', 'ready')
+        ) then 'updating'
         when s.active_release_id is null then 'unavailable'
         else 'current'
       end
@@ -593,7 +820,7 @@ as $$
   from state s
   left join public.site_content_releases rel on rel.id = s.active_release_id
   left join safe_requested r on true
-  left join public.site_content_publications p on p.id = r.current_publication_id;
+  ;
 $$;
 
 create or replace function public.claim_site_content_sync_events(
@@ -610,12 +837,18 @@ begin
   if p_limit < 1 or p_limit > 50 or p_lease_seconds < 10 or p_lease_seconds > 900 then
     raise exception using errcode = '22023', message = 'site_content_claim_bounds_invalid';
   end if;
+  update public.site_content_sync_events e set state = 'quarantined', worker_id = null, lease_token = null,
+    lease_expires_at = null, terminal_at = pg_catalog.clock_timestamp(), last_error_code = 'lease_expired',
+    updated_at = pg_catalog.clock_timestamp()
+  where e.state = 'processing' and e.lease_expires_at <= pg_catalog.clock_timestamp()
+    and e.attempt_count >= 5;
   return query
   with claimable as (
     select e.event_sequence
     from public.site_content_sync_events e
-    where e.state in ('pending', 'retry_pending')
-      and e.next_attempt_at <= pg_catalog.clock_timestamp()
+    where ((e.state in ('pending', 'retry_pending') and e.next_attempt_at <= pg_catalog.clock_timestamp())
+      or (e.state = 'processing' and e.lease_expires_at <= pg_catalog.clock_timestamp()
+        and e.attempt_count < 5))
       and exists (
         select 1 from public.site_content_sync_event_plans ep
         where ep.event_sequence = e.event_sequence
@@ -679,18 +912,34 @@ set search_path = ''
 as $$
 declare
   v_event public.site_content_sync_events%rowtype;
+  v_records jsonb;
+  v_total integer;
 begin
+  v_records := (p_plan->'added') || (p_plan->'changed') || (p_plan->'unchanged') || (p_plan->'tombstones');
+  v_total := jsonb_array_length(p_plan->'added') + jsonb_array_length(p_plan->'changed')
+    + jsonb_array_length(p_plan->'unchanged') + jsonb_array_length(p_plan->'tombstones');
   if p_plan_digest !~ '^[0-9a-f]{64}$'
     or jsonb_typeof(p_plan) <> 'object'
     or p_plan->>'version' <> 'site-content-sync-plan-v1'
     or p_plan->>'planDigest' is distinct from p_plan_digest
+    or p_plan_digest is distinct from public.site_content_json_sha256(
+      jsonb_build_object('domain', 'site-content-sync-plan-v1') || (p_plan - 'planDigest'))
+    or p_plan->>'releaseId' !~ '^[0-9a-f-]{36}$'
     or (p_plan->>'targetChangeEpoch')::bigint is distinct from p_expected_change_epoch
     or jsonb_typeof(p_plan->'added') <> 'array'
     or jsonb_typeof(p_plan->'changed') <> 'array'
     or jsonb_typeof(p_plan->'unchanged') <> 'array'
     or jsonb_typeof(p_plan->'tombstones') <> 'array'
-    or (jsonb_array_length(p_plan->'added') + jsonb_array_length(p_plan->'changed')
-      + jsonb_array_length(p_plan->'unchanged') + jsonb_array_length(p_plan->'tombstones')) > 5000 then
+    or v_total > 5000
+    or (p_plan#>>'{counts,added}')::integer <> jsonb_array_length(p_plan->'added')
+    or (p_plan#>>'{counts,changed}')::integer <> jsonb_array_length(p_plan->'changed')
+    or (p_plan#>>'{counts,unchanged}')::integer <> jsonb_array_length(p_plan->'unchanged')
+    or (p_plan#>>'{counts,tombstones}')::integer <> jsonb_array_length(p_plan->'tombstones')
+    or (p_plan#>>'{counts,total}')::integer <> v_total
+    or (select count(distinct item->>'logicalId') from jsonb_array_elements(v_records) item) <> v_total
+    or (p_plan->>'reconciliationPlanDigest' is not null and not exists (
+      select 1 from public.site_content_reconciliation_plans rp
+      where rp.plan_digest = p_plan->>'reconciliationPlanDigest')) then
     return false;
   end if;
   perform pg_catalog.pg_advisory_xact_lock(93206431);
@@ -705,8 +954,8 @@ begin
       where item->>'logicalId' = v_event.logical_id
         and item->>'targetPublicationId' = v_event.target_publication_id::text
     ) then return false; end if;
-  insert into public.site_content_sync_event_plans(event_sequence, plan_digest, target_change_epoch, plan)
-  values (p_event_sequence, p_plan_digest, p_expected_change_epoch, p_plan)
+  insert into public.site_content_sync_event_plans(event_sequence, plan_digest, target_change_epoch, plan, release_id)
+  values (p_event_sequence, p_plan_digest, p_expected_change_epoch, p_plan, (p_plan->>'releaseId')::uuid)
   on conflict (event_sequence) do nothing;
   return found or exists (
     select 1 from public.site_content_sync_event_plans ep
@@ -736,6 +985,104 @@ as $$
     and e.lease_token = p_lease_token
     and e.lease_generation = p_lease_generation
     and e.lease_expires_at > pg_catalog.clock_timestamp();
+$$;
+
+create or replace function public.site_content_release_id(
+  p_release_digest text,
+  p_target_change_epoch bigint,
+  p_generation_id text
+)
+returns uuid
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_hash text;
+  v_value text;
+begin
+  v_hash := public.site_content_json_sha256(jsonb_build_object(
+    'version', 'site-content-release-instance-v1',
+    'releaseDigest', p_release_digest,
+    'targetChangeEpoch', p_target_change_epoch::text,
+    'generationId', p_generation_id));
+  v_value := substr(v_hash, 1, 12) || '5' || substr(v_hash, 14, 3) || '8' || substr(v_hash, 18, 15);
+  return (substr(v_value,1,8) || '-' || substr(v_value,9,4) || '-' || substr(v_value,13,4) || '-' ||
+    substr(v_value,17,4) || '-' || substr(v_value,21,12))::uuid;
+end;
+$$;
+
+create or replace function public.site_content_dynamic_state_digest(p_release_id uuid)
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select public.site_content_json_sha256(jsonb_build_object(
+    'version', 'site-content-dynamic-state-v1',
+    'records', coalesce(jsonb_agg(jsonb_build_object(
+      'logicalId', rr.logical_id,
+      'documentId', rr.logical_document_id::text,
+      'chunkId', rr.logical_chunk_id::text,
+      'publicationVersion', rr.publication_fingerprint,
+      'contentHash', rr.content_hash,
+      'governanceFingerprint', rr.governance_fingerprint,
+      'lineageFingerprint', rr.lineage_fingerprint,
+      'publicMetadataFingerprint', rr.public_metadata_fingerprint,
+      'tombstone', false
+    ) order by rr.logical_id collate "C") filter (where rr.target_publication_id is not null and not rr.tombstone), '[]'::jsonb)
+  )) from public.site_content_release_records rr where rr.release_id = p_release_id;
+$$;
+
+create or replace function public.site_content_release_digest(p_release_id uuid)
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select public.site_content_json_sha256(jsonb_build_object(
+    'version', 'site-content-release-digest-v1',
+    'registryVersion', r.registry_version,
+    'staticManifestDigest', r.static_manifest_digest,
+    'dynamicStateDigest', public.site_content_dynamic_state_digest(r.id),
+    'records', coalesce((select jsonb_agg(jsonb_build_object(
+      'logicalId', rr.logical_id,
+      'documentId', rr.logical_document_id::text,
+      'chunkId', rr.logical_chunk_id::text,
+      'publicationVersion', rr.publication_fingerprint,
+      'contentHash', rr.content_hash,
+      'governanceFingerprint', rr.governance_fingerprint,
+      'lineageFingerprint', rr.lineage_fingerprint,
+      'publicMetadataFingerprint', rr.public_metadata_fingerprint,
+      'tombstone', false,
+      'embeddingModel', rr.embedding_model,
+      'embeddingDimensions', rr.embedding_dimensions,
+      'embeddingFingerprint', rr.embedding_fingerprint
+    ) order by rr.logical_id collate "C") from public.site_content_release_records rr
+      where rr.release_id = r.id and not rr.tombstone), '[]'::jsonb),
+    'tombstones', coalesce((select jsonb_agg(jsonb_build_object(
+      'logicalId', rr.logical_id, 'documentId', rr.logical_document_id::text,
+      'chunkId', rr.logical_chunk_id::text, 'tombstone', true
+    ) order by rr.logical_id collate "C") from public.site_content_release_records rr
+      where rr.release_id = r.id and rr.tombstone), '[]'::jsonb)
+  )) from public.site_content_releases r where r.id = p_release_id;
+$$;
+
+create or replace function public.site_content_provider_free_checks_pass(p_release_id uuid)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select not exists (
+    select 1 from public.site_content_release_records rr
+    where rr.release_id = p_release_id and (
+      (not rr.tombstone and (rr.embedding is null or extensions.vector_dims(rr.embedding) <> rr.embedding_dimensions
+        or rr.normalized_text = '' or not rr.public_visible))
+      or (rr.tombstone and (rr.embedding is not null or rr.public_visible))
+      or rr.governance_fingerprint = '' or rr.lineage_fingerprint = '' or rr.public_metadata_fingerprint = ''
+    )
+  );
 $$;
 
 create or replace function public.stage_site_content_sync_event(
@@ -775,22 +1122,29 @@ begin
     or v_state.change_epoch is distinct from (p_stage->>'targetChangeEpoch')::bigint
     or v_plan.plan_digest is distinct from p_stage->>'planDigest'
     or v_plan.target_change_epoch is distinct from v_event.target_change_epoch
-    or v_plan.plan->>'releaseDigest' is distinct from p_stage->>'releaseDigest' then
+    or v_plan.plan->>'releaseDigest' is distinct from p_stage->>'releaseDigest'
+    or p_stage->>'releaseId' is distinct from public.site_content_release_id(
+      p_stage->>'releaseDigest', (p_stage->>'targetChangeEpoch')::bigint, p_stage->>'generationId')::text
+    or (p_stage - 'records') is distinct from v_plan.plan then
     return false;
   end if;
   insert into public.site_content_releases(
     id, state, target_change_epoch, previous_release_id, registry_version, static_manifest_digest,
-    dynamic_state_digest, release_digest, generation_id, expected_record_count,
+    dynamic_state_digest, release_digest, generation_id, plan_digest, reconciliation_plan_digest,
+    expected_added_count, expected_changed_count, expected_unchanged_count, expected_record_count,
     expected_tombstone_count, must_pass_checks
   ) values (
     v_release_id, 'candidate', (p_stage->>'targetChangeEpoch')::bigint, v_state.active_release_id,
     p_stage->>'registryVersion', p_stage->>'staticManifestDigest', p_stage->>'dynamicStateDigest',
-    p_stage->>'releaseDigest', p_stage->>'generationId', (p_stage#>>'{counts,total}')::integer,
-    (p_stage#>>'{counts,tombstones}')::integer, coalesce((p_stage->>'mustPassChecks')::boolean, false)
+    p_stage->>'releaseDigest', p_stage->>'generationId', p_stage->>'planDigest',
+    nullif(p_stage->>'reconciliationPlanDigest', ''), (p_stage#>>'{counts,added}')::integer,
+    (p_stage#>>'{counts,changed}')::integer, (p_stage#>>'{counts,unchanged}')::integer,
+    (p_stage#>>'{counts,total}')::integer, (p_stage#>>'{counts,tombstones}')::integer, false
   ) on conflict (id) do nothing;
   select * into strict v_release from public.site_content_releases r where r.id = v_release_id for update;
   if v_release.release_digest is distinct from p_stage->>'releaseDigest'
     or v_release.target_change_epoch is distinct from (p_stage->>'targetChangeEpoch')::bigint
+    or v_release.plan_digest is distinct from p_stage->>'planDigest'
     or v_release.state <> 'candidate' then
     raise exception using errcode = '23514', message = 'site_content_release_identity_mismatch';
   end if;
@@ -809,12 +1163,15 @@ begin
     or v_state.change_epoch is distinct from (p_stage->>'targetChangeEpoch')::bigint
     or v_plan.plan_digest is distinct from p_stage->>'planDigest'
     or v_plan.target_change_epoch is distinct from v_event.target_change_epoch
-    or v_plan.plan->>'releaseDigest' is distinct from p_stage->>'releaseDigest' then
+    or v_plan.plan->>'releaseDigest' is distinct from p_stage->>'releaseDigest'
+    or (p_stage - 'records') is distinct from v_plan.plan then
     raise exception using errcode = '40001', message = 'site_content_stage_stale';
   end if;
   if jsonb_typeof(p_stage->'records') <> 'array'
     or p_stage->'counts' is distinct from v_plan.plan->'counts'
     or jsonb_array_length(p_stage->'records') is distinct from (p_stage#>>'{counts,total}')::integer
+    or (select count(distinct staged->>'logicalId') from jsonb_array_elements(p_stage->'records') staged)
+      is distinct from (p_stage#>>'{counts,total}')::integer
     or exists (
       select 1
       from jsonb_array_elements(p_stage->'records') staged
@@ -833,6 +1190,14 @@ begin
           and coalesce(planned->>'governanceFingerprint', '') = coalesce(staged->>'governanceFingerprint', '')
           and coalesce(planned->>'lineageFingerprint', '') = coalesce(staged->>'lineageFingerprint', '')
           and coalesce(planned->>'publicMetadataFingerprint', '') = coalesce(staged->>'publicMetadataFingerprint', '')
+          and coalesce(planned->>'normalizedText', '') = coalesce(staged->>'normalizedText', '')
+          and coalesce(planned->>'reuseEmbedding', 'false') = coalesce(staged->>'reuseEmbedding', 'false')
+          and coalesce(planned->'renderPayload', 'null'::jsonb) = coalesce(staged->'renderPayload', 'null'::jsonb)
+          and staged->>'embeddingModel' = p_stage#>>'{embedding,model}'
+          and (staged->>'embeddingDimensions')::integer = (p_stage#>>'{embedding,dimensions}')::integer
+          and staged->>'embeddingFingerprint' = p_stage#>>'{embedding,fingerprint}'
+          and (coalesce((planned->>'reuseEmbedding')::boolean, false) = false
+            or planned->'embedding' = staged->'embedding')
           and coalesce((planned->>'tombstone')::boolean, false) = coalesce((staged->>'tombstone')::boolean, false)
       )
     ) then
@@ -843,7 +1208,7 @@ begin
       release_id, logical_id, target_publication_id, logical_document_id, logical_chunk_id,
       normalized_text, content_hash, publication_fingerprint, governance_fingerprint,
       lineage_fingerprint, public_metadata_fingerprint, embedding_model, embedding_dimensions,
-      embedding_fingerprint, embedding, tombstone, public_visible
+      embedding_fingerprint, embedding_value_digest, embedding, record, render_payload, tombstone, public_visible
     ) values (
       v_release_id, v_record->>'logicalId', nullif(v_record->>'targetPublicationId', '')::uuid,
       (v_record->>'documentId')::uuid, (v_record->>'chunkId')::uuid,
@@ -851,11 +1216,41 @@ begin
       v_record->>'governanceFingerprint', v_record->>'lineageFingerprint',
       v_record->>'publicMetadataFingerprint', v_record->>'embeddingModel',
       (v_record->>'embeddingDimensions')::integer, v_record->>'embeddingFingerprint',
+      case when v_record ? 'embedding' then encode(extensions.digest(convert_to(
+        ((v_record->>'embedding')::extensions.vector)::text, 'UTF8'), 'sha256'), 'hex') else null end,
       case when v_record ? 'embedding' then (v_record->>'embedding')::extensions.vector else null end,
+      (select p.record from public.site_content_publications p
+        where p.id = nullif(v_record->>'targetPublicationId', '')::uuid and p.logical_id = v_record->>'logicalId'),
+      (select p.render_payload from public.site_content_publications p
+        where p.id = nullif(v_record->>'targetPublicationId', '')::uuid and p.logical_id = v_record->>'logicalId'),
       coalesce((v_record->>'tombstone')::boolean, false),
       not coalesce((v_record->>'tombstone')::boolean, false)
     ) on conflict (release_id, logical_id) do nothing;
   end loop;
+  if (select count(*) from public.site_content_release_records rr where rr.release_id = v_release_id)
+      is distinct from (p_stage#>>'{counts,total}')::integer then
+    raise exception using errcode = '23514', message = 'site_content_stage_population_mismatch';
+  end if;
+  if exists (
+    select 1 from public.site_content_release_records rr
+    join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
+    where rr.release_id = v_release_id and not rr.tombstone and (
+      rr.normalized_text is distinct from p.record->>'body'
+      or rr.content_hash is distinct from p.record->>'contentHash'
+      or rr.publication_fingerprint is distinct from p.record->>'publicationVersion'
+      or rr.governance_fingerprint is distinct from public.site_content_json_sha256(jsonb_build_object(
+        'access', p.record->>'access', 'validationStatus', p.record->>'validationStatus',
+        'sourceStatus', p.record->>'sourceStatus'))
+      or rr.lineage_fingerprint is distinct from public.site_content_json_sha256(p.record->'sourceLineage')
+      or rr.public_metadata_fingerprint is distinct from public.site_content_json_sha256(jsonb_build_object(
+        'route', p.record->>'route', 'title', p.record->>'title', 'sourceRole', p.record->>'sourceRole'))
+      or rr.render_payload is distinct from p.render_payload
+      or extensions.vector_dims(rr.embedding) <> rr.embedding_dimensions
+    )
+  ) or not public.site_content_provider_free_checks_pass(v_release_id) then
+    raise exception using errcode = '23514', message = 'site_content_stage_authoritative_check_failed';
+  end if;
+  update public.site_content_releases set must_pass_checks = true where id = v_release_id;
   update public.site_content_sync_events set state = 'ready', worker_id = null, lease_token = null,
     lease_expires_at = null, updated_at = pg_catalog.clock_timestamp()
   where event_sequence = p_event_sequence;
@@ -924,6 +1319,9 @@ begin
     or v_release.target_change_epoch is distinct from p_expected_change_epoch
     or v_state.change_epoch is distinct from p_expected_change_epoch
     or not v_release.must_pass_checks
+    or not public.site_content_provider_free_checks_pass(p_release_id)
+    or public.site_content_dynamic_state_digest(p_release_id) is distinct from v_release.dynamic_state_digest
+    or public.site_content_release_digest(p_release_id) is distinct from v_release.release_digest
     or p_activation_receipt#>>'{resource,siteReleaseDigest}' is distinct from v_release.release_digest
     or p_activation_receipt#>>'{resource,previousSiteReleaseId}' is distinct from coalesce(v_release.previous_release_id::text, '')
     or p_activation_receipt#>>'{resource,previousSiteReleaseDigest}' is distinct from coalesce(v_state.active_release_digest, '')
@@ -935,14 +1333,73 @@ begin
     where rr.release_id = p_release_id order by rr.logical_id for update;
   if (select count(*) from public.site_content_release_records rr where rr.release_id = p_release_id) <> v_release.expected_record_count
     or (select count(*) from public.site_content_release_records rr where rr.release_id = p_release_id and rr.tombstone) <> v_release.expected_tombstone_count
-    or exists (select 1 from public.site_content_release_records rr where rr.release_id = p_release_id and not rr.tombstone and (rr.embedding is null or not rr.public_visible))
+    or (select jsonb_array_length(ep.plan->'added') from public.site_content_sync_event_plans ep where ep.plan_digest = v_release.plan_digest limit 1) <> v_release.expected_added_count
+    or (select jsonb_array_length(ep.plan->'changed') from public.site_content_sync_event_plans ep where ep.plan_digest = v_release.plan_digest limit 1) <> v_release.expected_changed_count
+    or (select jsonb_array_length(ep.plan->'unchanged') from public.site_content_sync_event_plans ep where ep.plan_digest = v_release.plan_digest limit 1) <> v_release.expected_unchanged_count
+    or exists (select 1 from public.site_content_release_records rr where rr.release_id = p_release_id and not rr.tombstone and
+      (rr.embedding is null or extensions.vector_dims(rr.embedding) <> rr.embedding_dimensions
+        or rr.embedding_value_digest is distinct from encode(extensions.digest(convert_to(rr.embedding::text, 'UTF8'), 'sha256'), 'hex')
+        or not rr.public_visible))
     or exists (select 1 from public.site_content_sync_events e where e.target_change_epoch = p_expected_change_epoch and e.state <> 'ready')
     or exists (
       select 1 from public.site_content_public_records h
       left join public.site_content_release_records rr on rr.release_id = p_release_id and rr.logical_id = h.logical_id
       where rr.logical_id is null or rr.target_publication_id is distinct from h.current_publication_id
         or rr.governance_fingerprint = '' or rr.lineage_fingerprint = ''
+    ) or exists (
+      select 1 from public.site_content_release_records rr
+      where rr.release_id = p_release_id and rr.target_publication_id is not null and not rr.tombstone
+        and not exists (select 1 from public.site_content_public_records h
+          where h.logical_id = rr.logical_id and h.current_publication_id = rr.target_publication_id)
     ) then return false; end if;
+  if not v_state.initialized and (
+    v_release.reconciliation_plan_digest is null
+    or not exists (
+      select 1 from public.site_content_reconciliation_plans rp
+      where rp.plan_digest = v_release.reconciliation_plan_digest
+        and (select count(*) from jsonb_array_elements(rp.dispositions) item where item->>'disposition' = 'adopt') =
+          (select count(*) from public.site_content_public_records)
+        and not exists (
+          select 1 from jsonb_array_elements(rp.dispositions) item
+          where item->>'disposition' = 'adopt' and not exists (
+            select 1 from public.site_content_public_records h
+            join public.site_content_publications p on p.id = h.current_publication_id
+            join public.site_content_release_records rr on rr.release_id = p_release_id and rr.logical_id = h.logical_id
+            where h.logical_id = item->>'logicalId'
+              and p.reconciliation_plan_digest = rp.plan_digest
+              and p.source_row_id::text = item->>'sourceRowId'
+              and p.source_version = item->>'sourceVersion'
+              and p.record->>'contentHash' = item->>'contentHash'
+              and p.record->>'publicationVersion' = item->>'publicationVersion'
+              and item->>'trustedPublicRecordId' = h.logical_id
+              and item->>'trustedRoute' = p.record->>'route'
+              and item->>'trustedGovernanceHash' = public.site_content_json_sha256(jsonb_build_object(
+                'access', p.record->>'access', 'validationStatus', p.record->>'validationStatus',
+                'sourceStatus', p.record->>'sourceStatus'))
+              and rr.target_publication_id = p.id
+              and exists (
+                select 1 from (
+                  select 'service'::text source_kind, id,
+                    to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') source_version
+                    from public.clinical_registry_records where kind = 'service'
+                  union all select 'form', id,
+                    to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                    from public.clinical_registry_records where kind = 'form'
+                  union all select 'medication', id,
+                    to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                    from public.medication_records
+                  union all select case kind when 'presentation' then 'presentation' else 'differential' end, id,
+                    to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                    from public.differential_records
+                ) live
+                where live.source_kind = item->>'sourceKind'
+                  and live.id::text = item->>'sourceRowId'
+                  and live.source_version = item->>'sourceVersion'
+              )
+          )
+        )
+    )
+  ) then return false; end if;
   v_receipt_id := public.guard_site_content_receipt_shape(p_activation_receipt, 'activation', p_release_id, p_recovery_digest);
   insert into public.site_content_release_receipts(receipt_id, release_id, receipt_kind, recovery_readiness_digest, receipt)
   values (v_receipt_id, p_release_id, 'activation', p_recovery_digest, p_activation_receipt);
@@ -952,6 +1409,7 @@ begin
   update public.site_content_releases set state = 'active', activated_at = pg_catalog.clock_timestamp() where id = p_release_id;
   update public.site_content_sync_state set active_release_id = p_release_id,
     active_release_digest = p_expected_release_digest, initialized = true,
+    served_change_epoch = p_expected_change_epoch,
     updated_at = pg_catalog.clock_timestamp() where singleton;
   update public.site_content_sync_events e set state = 'completed', updated_at = pg_catalog.clock_timestamp()
   where e.target_change_epoch = p_expected_change_epoch and e.state = 'ready'
@@ -963,8 +1421,9 @@ begin
   update public.site_content_public_records h set pending_event_sequence = null,
     updated_at = pg_catalog.clock_timestamp()
   where exists (
-    select 1 from public.site_content_sync_events e
-    where e.event_sequence = h.pending_event_sequence and e.state = 'completed'
+    select 1 from public.site_content_release_records rr
+    where rr.release_id = p_release_id and rr.logical_id = h.logical_id
+      and rr.target_publication_id = h.current_publication_id
   );
   return true;
 end;
@@ -1005,6 +1464,9 @@ begin
     or p_rollback_receipt->>'promotionId' is distinct from v_activation.receipt->>'promotionId'
     or p_rollback_receipt->>'projectRef' is distinct from v_activation.receipt->>'projectRef'
     or p_rollback_receipt->>'operation' is distinct from 'site_release'
+    or v_activation.recovery_readiness_digest is distinct from p_recovery_digest
+    or (p_rollback_receipt->>'rolledBackAt')::timestamptz <
+      (v_activation.receipt->>'activatedAt')::timestamptz
     or p_rollback_receipt#>>'{target,siteReleaseId}' is distinct from p_target_release_id::text
     or p_rollback_receipt#>>'{target,siteReleaseDigest}' is distinct from v_target.release_digest then return false; end if;
   perform 1 from public.site_content_release_records rr
@@ -1016,7 +1478,10 @@ begin
   update public.site_content_releases set state = 'rolled_back' where id = p_expected_active_release_id;
   update public.site_content_releases set state = 'active' where id = p_target_release_id;
   update public.site_content_sync_state set active_release_id = p_target_release_id,
-    active_release_digest = v_target.release_digest, updated_at = pg_catalog.clock_timestamp()
+    active_release_digest = v_target.release_digest,
+    initialized = v_target.target_change_epoch > 0,
+    served_change_epoch = v_target.target_change_epoch,
+    updated_at = pg_catalog.clock_timestamp()
   where singleton and active_release_id = p_expected_active_release_id;
   return found;
 end;
@@ -1058,18 +1523,25 @@ alter default privileges for role postgres in schema public revoke execute on fu
 
 revoke all on function public.guard_site_content_immutable_row() from public, anon, authenticated, service_role;
 revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role;
-revoke all on function public.site_content_source_projection(text, uuid) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_canonical_json(jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_json_sha256(jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_public_json_allowlist(jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_source_projection(text, uuid, jsonb, jsonb) from public, anon, authenticated, service_role;
 revoke all on function public.guard_site_content_receipt_shape(jsonb, text, uuid, text) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_release_id(text, bigint, text) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_dynamic_state_digest(uuid) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_release_digest(uuid) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_provider_free_checks_pass(uuid) from public, anon, authenticated, service_role;
 
 revoke all on function public.read_site_content_public_records(text, text) from public;
 grant execute on function public.read_site_content_public_records(text, text) to anon, authenticated, service_role;
 
-revoke all on function public.record_site_content_reconciliation_plan(text, text, jsonb, integer, uuid) from public, anon, authenticated;
-grant execute on function public.record_site_content_reconciliation_plan(text, text, jsonb, integer, uuid) to service_role;
-revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid) from public, anon, authenticated;
-grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid) to service_role;
-revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid) from public, anon, authenticated;
-grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid) to service_role;
+revoke all on function public.record_site_content_reconciliation_plan(jsonb, uuid) from public, anon, authenticated;
+grant execute on function public.record_site_content_reconciliation_plan(jsonb, uuid) to service_role;
+revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) to service_role;
+revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) from public, anon, authenticated;
+grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) to service_role;
 revoke all on function public.claim_site_content_sync_events(uuid, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_site_content_sync_events(uuid, integer, integer) to service_role;
 revoke all on function public.heartbeat_site_content_sync_event(bigint, uuid, uuid, bigint, integer) from public, anon, authenticated;
@@ -1098,16 +1570,23 @@ alter table public.site_content_release_records owner to postgres;
 alter table public.site_content_release_receipts owner to postgres;
 alter function public.guard_site_content_immutable_row() owner to postgres;
 alter function public.site_content_canonical_text(text) owner to postgres;
-alter function public.site_content_source_projection(text, uuid) owner to postgres;
+alter function public.site_content_canonical_json(jsonb) owner to postgres;
+alter function public.site_content_json_sha256(jsonb) owner to postgres;
+alter function public.site_content_public_json_allowlist(jsonb) owner to postgres;
+alter function public.site_content_source_projection(text, uuid, jsonb, jsonb) owner to postgres;
 alter function public.guard_site_content_receipt_shape(jsonb, text, uuid, text) owner to postgres;
-alter function public.record_site_content_reconciliation_plan(text, text, jsonb, integer, uuid) owner to postgres;
-alter function public.publish_site_content_record(text, uuid, text, bigint, text, uuid) owner to postgres;
-alter function public.retire_site_content_record(text, uuid, text, bigint, text, uuid) owner to postgres;
+alter function public.record_site_content_reconciliation_plan(jsonb, uuid) owner to postgres;
+alter function public.publish_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) owner to postgres;
+alter function public.retire_site_content_record(text, uuid, text, bigint, text, uuid, jsonb, jsonb) owner to postgres;
 alter function public.read_site_content_public_records(text, text) owner to postgres;
 alter function public.claim_site_content_sync_events(uuid, integer, integer) owner to postgres;
 alter function public.heartbeat_site_content_sync_event(bigint, uuid, uuid, bigint, integer) owner to postgres;
 alter function public.record_site_content_sync_event_plan(bigint, bigint, text, jsonb) owner to postgres;
 alter function public.read_site_content_sync_event_plan(bigint, uuid, uuid, bigint) owner to postgres;
+alter function public.site_content_release_id(text, bigint, text) owner to postgres;
+alter function public.site_content_dynamic_state_digest(uuid) owner to postgres;
+alter function public.site_content_release_digest(uuid) owner to postgres;
+alter function public.site_content_provider_free_checks_pass(uuid) owner to postgres;
 alter function public.stage_site_content_sync_event(bigint, uuid, uuid, bigint, jsonb) owner to postgres;
 alter function public.fail_site_content_sync_event(bigint, uuid, uuid, bigint, text) owner to postgres;
 alter function public.activate_site_content_release(uuid, text, bigint, text, jsonb) owner to postgres;

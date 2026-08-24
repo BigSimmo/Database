@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { createSiteContentRecord, buildStaticSiteContentManifest } from "@/lib/site-content/site-content-manifest";
 import { planSiteContentSync, type SiteContentSyncSourceRecord } from "@/lib/site-content/site-content-sync";
@@ -144,5 +147,65 @@ describe("site-content synchronization planning", () => {
     expect(planSiteContentSync(input([base])).releaseDigest).not.toBe(
       planSiteContentSync(input([lineage])).releaseDigest,
     );
+  });
+
+  it("keeps the dynamic population digest embedding-free while release identity remains embedding-bound", () => {
+    const source = sourceRecord("medications:alpha", "Alpha medication");
+    const first = planSiteContentSync(input([source]));
+    const second = planSiteContentSync({
+      ...input([source]),
+      embedding: { model: "text-embedding-4", dimensions: 3072, fingerprint: "model-v2" },
+    });
+
+    expect(first.dynamicStateDigest).toBe(second.dynamicStateDigest);
+    expect(first.releaseDigest).not.toBe(second.releaseDigest);
+  });
+
+  it("uses a distinct deterministic physical release id for byte-identical later epochs", () => {
+    const source = sourceRecord("medications:alpha", "Alpha medication");
+    const first = planSiteContentSync(input([source]));
+    const repeated = planSiteContentSync({ ...input([source]), targetChangeEpoch: "8", generationId: "generation-8" });
+    const firstReleaseId = (first as typeof first & { releaseId?: string }).releaseId;
+    const repeatedReleaseId = (repeated as typeof repeated & { releaseId?: string }).releaseId;
+
+    expect(first.releaseDigest).toBe(repeated.releaseDigest);
+    expect(firstReleaseId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(repeatedReleaseId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(firstReleaseId).not.toBe(repeatedReleaseId);
+    expect(planSiteContentSync(input([source]))).toMatchObject({ releaseId: firstReleaseId });
+  });
+
+  it("does not create --out before every guarded write authorization succeeds", () => {
+    const directory = mkdtempSync(join(tmpdir(), "site-content-write-guard-"));
+    const output = join(directory, "plan.json");
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          "scripts/run-tsx.mjs",
+          "scripts/sync-site-content-corpus.ts",
+          "--manifest",
+          "tests/fixtures/site-content/static-manifest-baseline.json",
+          "--dynamic",
+          "tests/fixtures/site-content/dynamic-empty.json",
+          "--write",
+          "--project-ref",
+          "project-ref",
+          "--expected-state-digest",
+          "0".repeat(64),
+          "--recovery-evidence",
+          "tests/fixtures/site-content/dynamic-empty.json",
+          "--out",
+          output,
+        ],
+        { encoding: "utf8" },
+      );
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/confirm-project-ref|guarded write authorization/i);
+      expect(existsSync(output)).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

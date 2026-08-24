@@ -1,11 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
-import { runSiteContentSync, type SiteContentSyncPlan } from "@/lib/site-content/site-content-sync";
+import {
+  runSiteContentSync,
+  type SiteContentSyncPlan,
+  type SiteContentSyncPlanItem,
+} from "@/lib/site-content/site-content-sync";
 
 function plan(): SiteContentSyncPlan {
   return {
     version: "site-content-sync-plan-v1",
+    releaseId: "11111111-1111-5111-8111-111111111111",
     planDigest: "a".repeat(64),
     releaseDigest: "b".repeat(64),
     dynamicStateDigest: "c".repeat(64),
@@ -13,13 +18,16 @@ function plan(): SiteContentSyncPlan {
     generationId: "generation-4",
     registryVersion: "site-content-registry-v1",
     staticManifestDigest: "d".repeat(64),
+    reconciliationPlanDigest: null,
     embedding: { model: "model", dimensions: 2, fingerprint: "model-v1" },
     added: [{ logicalId: "medications:added", normalizedText: "Added", reuseEmbedding: false }],
     changed: [
       { logicalId: "medications:changed", normalizedText: "Changed", reuseEmbedding: false },
       { logicalId: "medications:metadata", normalizedText: "Same", reuseEmbedding: true, embedding: [0.1, 0.2] },
     ],
-    unchanged: [{ logicalId: "medications:unchanged", normalizedText: "Same", reuseEmbedding: true }],
+    unchanged: [
+      { logicalId: "medications:unchanged", normalizedText: "Same", reuseEmbedding: true, embedding: [0.5, 0.6] },
+    ],
     tombstones: [{ logicalId: "medications:retired", normalizedText: "", reuseEmbedding: false, tombstone: true }],
     counts: { added: 1, changed: 2, unchanged: 1, tombstones: 1, total: 5 },
   };
@@ -30,16 +38,19 @@ describe("site-content synchronization worker", () => {
     const source = readFileSync("supabase/functions/site-content-sync/index.ts", "utf8");
     const config = readFileSync("supabase/config.toml", "utf8");
     expect(config).toMatch(/\[functions\.site-content-sync\]\s+verify_jwt = true/);
-    expect(source).toContain("const MAX_BATCH = 20");
+    expect(source).toContain("const MAX_BATCH = 1");
     expect(source).toContain("read_site_content_sync_event_plan");
     expect(source).toContain("record.reuseEmbedding");
     expect(source).toContain("heartbeat_site_content_sync_event");
+    expect(source).toContain("setInterval");
+    expect(source).toContain("releaseId: plan.releaseId");
+    expect(source).not.toContain("mustPassChecks: true");
     expect(source).toContain("p_lease_generation");
     expect(source).not.toMatch(/console\.(?:log|error)\([^\n]*(?:normalizedText|embedding|actor|owner)/);
     expect(source).not.toContain("cron.schedule");
   });
 
-  it("embeds only added/text-changed rows, heartbeats, and stages one idempotent batch", async () => {
+  it("embeds only added/text-changed rows, heartbeats during provider work, and stages the complete population", async () => {
     const embed = vi.fn(
       async () =>
         new Map([
@@ -48,7 +59,7 @@ describe("site-content synchronization worker", () => {
         ]),
     );
     const heartbeat = vi.fn(async () => true);
-    const stage = vi.fn(async () => true);
+    const stage = vi.fn(async (_syncPlan: SiteContentSyncPlan, _records: SiteContentSyncPlanItem[]) => true);
     const fail = vi.fn(async () => true);
 
     const result = await runSiteContentSync(
@@ -61,10 +72,18 @@ describe("site-content synchronization worker", () => {
       { logicalId: "medications:added", text: "Added" },
       { logicalId: "medications:changed", text: "Changed" },
     ]);
-    expect(heartbeat).toHaveBeenCalledTimes(1);
+    expect(heartbeat.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(stage).toHaveBeenCalledTimes(1);
+    const staged = stage.mock.calls[0]?.[1] as Array<{ logicalId: string }> | undefined;
+    expect(staged?.map((record) => record.logicalId)).toEqual([
+      "medications:added",
+      "medications:changed",
+      "medications:metadata",
+      "medications:unchanged",
+      "medications:retired",
+    ]);
     expect(fail).not.toHaveBeenCalled();
-    expect(result).toEqual({ embeddedCount: 2, stagedCount: 4, tombstoneCount: 1 });
+    expect(result).toEqual({ embeddedCount: 2, stagedCount: 5, tombstoneCount: 1 });
   });
 
   it("records a fixed provider failure code without logging content or actor identity", async () => {

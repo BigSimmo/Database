@@ -14,6 +14,13 @@ import {
   validateStaticSiteContentManifest,
 } from "../src/lib/site-content/site-content-manifest";
 import { SITE_CONTENT_REGISTRY_VERSION } from "../src/lib/site-content/site-content-registry";
+import {
+  assertRecoveryReadinessForOperation,
+  parseRecoveryReadinessEvidence,
+} from "../src/lib/recovery-readiness-evidence";
+
+const SHA256 = /^[0-9a-f]{64}$/;
+const PROJECT_REF = /^[a-z0-9][a-z0-9_-]{2,63}$/;
 
 type Options = {
   manifest?: string;
@@ -23,45 +30,68 @@ type Options = {
   dryRun: boolean;
   write: boolean;
   projectRef?: string;
+  confirmProjectRef?: string;
   expectedStateDigest?: string;
+  expectedPlanDigest?: string;
+  expectedReconciliationDigest?: string;
   recoveryEvidence?: string;
+  providerAuthorization?: string;
+  eventSequence?: string;
 };
+
+const valueOptions = new Map<string, keyof Options>([
+  ["--manifest", "manifest"],
+  ["--dynamic", "dynamic"],
+  ["--reconciliation", "reconciliation"],
+  ["--out", "out"],
+  ["--project-ref", "projectRef"],
+  ["--confirm-project-ref", "confirmProjectRef"],
+  ["--expected-state-digest", "expectedStateDigest"],
+  ["--expected-plan-digest", "expectedPlanDigest"],
+  ["--expected-reconciliation-digest", "expectedReconciliationDigest"],
+  ["--recovery-evidence", "recoveryEvidence"],
+  ["--provider-authorization", "providerAuthorization"],
+  ["--event-sequence", "eventSequence"],
+]);
 
 function parseArgs(argv: readonly string[]): Options {
   const options: Options = { dryRun: false, write: false };
+  const seen = new Set<string>();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
+    if (!token || seen.has(token)) throw new Error("Site-content CLI arguments must be unique.");
+    seen.add(token);
     if (token === "--dry-run") options.dryRun = true;
     else if (token === "--write") options.write = true;
-    else if (
-      [
-        "--manifest",
-        "--dynamic",
-        "--reconciliation",
-        "--out",
-        "--project-ref",
-        "--expected-state-digest",
-        "--recovery-evidence",
-      ].includes(token ?? "")
-    ) {
+    else {
+      const key = valueOptions.get(token);
+      if (!key) throw new Error(`Unknown argument: ${token}`);
       const value = argv[++index];
-      if (!value || value.startsWith("--")) throw new Error(`${token} requires a value.`);
-      const key = {
-        "--manifest": "manifest",
-        "--dynamic": "dynamic",
-        "--reconciliation": "reconciliation",
-        "--out": "out",
-        "--project-ref": "projectRef",
-        "--expected-state-digest": "expectedStateDigest",
-        "--recovery-evidence": "recoveryEvidence",
-      }[token!] as keyof Options;
+      if (!value || value.startsWith("--") || /[\u0000-\u001f\u007f]/.test(value)) {
+        throw new Error(`${token} requires a safe value.`);
+      }
       (options as Record<string, unknown>)[key] = value;
-    } else throw new Error(`Unknown argument: ${token}`);
+    }
   }
   if (!options.manifest || !options.dynamic) throw new Error("--manifest and --dynamic are required.");
-  if (!options.write) options.dryRun = true;
-  if (options.write && (!options.projectRef || !options.expectedStateDigest || !options.recoveryEvidence)) {
-    throw new Error("--write requires --project-ref, --expected-state-digest, and --recovery-evidence.");
+  if (options.write === options.dryRun) {
+    if (options.write) throw new Error("--write and --dry-run are mutually exclusive.");
+    options.dryRun = true;
+  }
+  if (options.write) {
+    const required: Array<[keyof Options, string]> = [
+      ["projectRef", "--project-ref"],
+      ["confirmProjectRef", "--confirm-project-ref"],
+      ["expectedStateDigest", "--expected-state-digest"],
+      ["expectedPlanDigest", "--expected-plan-digest"],
+      ["expectedReconciliationDigest", "--expected-reconciliation-digest"],
+      ["reconciliation", "--reconciliation"],
+      ["recoveryEvidence", "--recovery-evidence"],
+      ["providerAuthorization", "--provider-authorization"],
+      ["eventSequence", "--event-sequence"],
+    ];
+    const missing = required.filter(([key]) => !options[key]).map(([, flag]) => flag);
+    if (missing.length) throw new Error(`Guarded write authorization requires ${missing.join(", ")}.`);
   }
   return options;
 }
@@ -110,30 +140,166 @@ type DynamicInput = {
 function assertDynamicInput(value: unknown): asserts value is DynamicInput {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Dynamic input must be an object.");
   const input = value as Record<string, unknown>;
+  const expected = [
+    "embedding",
+    "existingReleaseRecords",
+    "generationId",
+    "initialAdoption",
+    "records",
+    "targetChangeEpoch",
+    "version",
+  ].sort();
   if (
+    JSON.stringify(Object.keys(input).sort()) !== JSON.stringify(expected) ||
     input.version !== "site-content-dynamic-input-v1" ||
     !Array.isArray(input.records) ||
     !Array.isArray(input.existingReleaseRecords)
   ) {
-    throw new Error("Dynamic input has an invalid version or population shape.");
+    throw new Error("Dynamic input has an invalid version or exact population shape.");
   }
 }
 
-function main() {
+type ReconciliationInput = {
+  version: "site-content-reconciliation-plan-v1";
+  planDigest: string;
+  trustedSnapshotDigest: string;
+  expectedRecordCount: number;
+  batchSize: number;
+  batchCount: number;
+  counts: { adopt: number; retire: number; identicalDuplicate: number; total: number };
+  dispositions: Array<Record<string, unknown>>;
+};
+
+function assertReconciliationInput(value: unknown): asserts value is ReconciliationInput {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Reviewed reconciliation plan is invalid.");
+  const plan = value as Record<string, unknown>;
+  const expectedKeys = [
+    "batchCount",
+    "batchSize",
+    "counts",
+    "dispositions",
+    "expectedRecordCount",
+    "planDigest",
+    "trustedSnapshotDigest",
+    "version",
+  ].sort();
+  if (
+    JSON.stringify(Object.keys(plan).sort()) !== JSON.stringify(expectedKeys) ||
+    plan.version !== "site-content-reconciliation-plan-v1" ||
+    typeof plan.planDigest !== "string" ||
+    !SHA256.test(plan.planDigest) ||
+    typeof plan.trustedSnapshotDigest !== "string" ||
+    !SHA256.test(plan.trustedSnapshotDigest) ||
+    !Number.isInteger(plan.expectedRecordCount) ||
+    !Number.isInteger(plan.batchSize) ||
+    !Number.isInteger(plan.batchCount) ||
+    !Array.isArray(plan.dispositions) ||
+    !plan.counts ||
+    typeof plan.counts !== "object"
+  ) {
+    throw new Error("Reviewed reconciliation plan is invalid.");
+  }
+  const dispositions = plan.dispositions as Array<Record<string, unknown>>;
+  const batchSize = Number(plan.batchSize);
+  const logicalIds = dispositions.map((item) => item.logicalId);
+  const sourceIds = dispositions.map((item) => `${String(item.sourceKind)}:${String(item.sourceRowId)}`);
+  const allowed = new Set(["adopt", "retire", "identical_duplicate"]);
+  const dispositionKeys = [
+    "contentHash",
+    "disposition",
+    "logicalId",
+    "publicationVersion",
+    "sourceKind",
+    "sourceRowId",
+    "sourceVersion",
+    "trustedGovernanceHash",
+    "trustedPublicRecordId",
+    "trustedRoute",
+  ].sort();
+  const counts = plan.counts as Record<string, unknown>;
+  if (
+    dispositions.length !== plan.expectedRecordCount ||
+    new Set(logicalIds).size !== dispositions.length ||
+    new Set(sourceIds).size !== dispositions.length ||
+    logicalIds.some((logicalId, index) => index > 0 && String(logicalIds[index - 1]) >= String(logicalId)) ||
+    batchSize < 1 ||
+    batchSize > 500 ||
+    plan.batchCount !== Math.ceil(plan.expectedRecordCount / batchSize) ||
+    JSON.stringify(Object.keys(counts).sort()) !==
+      JSON.stringify(["adopt", "identicalDuplicate", "retire", "total"].sort()) ||
+    counts.total !== dispositions.length ||
+    counts.adopt !== dispositions.filter((item) => item.disposition === "adopt").length ||
+    counts.retire !== dispositions.filter((item) => item.disposition === "retire").length ||
+    counts.identicalDuplicate !== dispositions.filter((item) => item.disposition === "identical_duplicate").length ||
+    dispositions.some(
+      (item) =>
+        !item ||
+        typeof item !== "object" ||
+        JSON.stringify(Object.keys(item).sort()) !== JSON.stringify(dispositionKeys) ||
+        typeof item.logicalId !== "string" ||
+        typeof item.disposition !== "string" ||
+        !allowed.has(item.disposition) ||
+        !["service", "form", "medication", "differential", "presentation"].includes(String(item.sourceKind)) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(String(item.sourceRowId)) ||
+        typeof item.sourceVersion !== "string" ||
+        !SHA256.test(String(item.contentHash)) ||
+        !SHA256.test(String(item.publicationVersion)) ||
+        !SHA256.test(String(item.trustedGovernanceHash)) ||
+        typeof item.trustedPublicRecordId !== "string" ||
+        typeof item.trustedRoute !== "string",
+    )
+  ) {
+    throw new Error("Reviewed reconciliation plan is not an exact unique population.");
+  }
+  if (
+    plan.trustedSnapshotDigest !==
+    siteContentValueHash({ version: "site-content-trusted-snapshot-v1", records: dispositions })
+  ) {
+    throw new Error("Reviewed reconciliation trusted snapshot digest does not match its exact population.");
+  }
+  const governed = { ...plan };
+  delete governed.planDigest;
+  if (plan.planDigest !== siteContentValueHash(governed)) {
+    throw new Error("Reviewed reconciliation plan digest does not match its immutable fields.");
+  }
+}
+
+function assertProviderAuthorization(value: unknown, projectRef: string, planDigest: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Provider authorization is invalid.");
+  const receipt = value as Record<string, unknown>;
+  const exactKeys = ["authorizedAt", "expiresAt", "operation", "planDigest", "projectRef", "version"].sort();
+  if (
+    JSON.stringify(Object.keys(receipt).sort()) !== JSON.stringify(exactKeys) ||
+    receipt.version !== "provider-authorization-v1" ||
+    receipt.operation !== "site_content_sync_handoff" ||
+    receipt.projectRef !== projectRef ||
+    receipt.planDigest !== planDigest ||
+    typeof receipt.authorizedAt !== "string" ||
+    typeof receipt.expiresAt !== "string" ||
+    Date.parse(receipt.authorizedAt) > Date.now() ||
+    Date.parse(receipt.expiresAt) <= Date.now()
+  ) {
+    throw new Error("Provider authorization is invalid, expired, or mismatched.");
+  }
+}
+
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   const manifest = validateStaticSiteContentManifest(json(options.manifest!), {
     expectedRegistryVersion: SITE_CONTENT_REGISTRY_VERSION,
   });
   const dynamic = json(options.dynamic!);
   assertDynamicInput(dynamic);
+  let reconciliation: ReconciliationInput | null = null;
   if (dynamic.initialAdoption && !options.reconciliation) {
     throw new Error("Initial adoption requires --reconciliation <reviewed-plan.json>.");
   }
   if (options.reconciliation) {
-    const reconciliation = json(options.reconciliation);
-    if (!reconciliation || typeof reconciliation !== "object" || !("planDigest" in reconciliation)) {
-      throw new Error("Reviewed reconciliation plan is invalid.");
-    }
+    const candidate = json(options.reconciliation);
+    assertReconciliationInput(candidate);
+    reconciliation = candidate;
   }
   const staticRecords = allSiteContentRecords
     .filter((record) => record.producerClass === "static_repository")
@@ -148,24 +314,83 @@ function main() {
     targetChangeEpoch: dynamic.targetChangeEpoch,
     generationId: dynamic.generationId,
     embedding: dynamic.embedding,
+    reconciliationPlanDigest: reconciliation?.planDigest ?? null,
   });
-  if (options.expectedStateDigest && options.expectedStateDigest !== plan.dynamicStateDigest) {
-    throw new Error("Expected state digest does not match the deterministic plan.");
-  }
   const summary = {
     version: plan.version,
-    dryRun: true,
+    dryRun: !options.write,
     planDigest: plan.planDigest,
     releaseDigest: plan.releaseDigest,
     dynamicStateDigest: plan.dynamicStateDigest,
+    currentStateDigest: siteContentValueHash({
+      version: "site-content-current-release-state-v1",
+      records: [...dynamic.existingReleaseRecords].sort((left, right) =>
+        compareCanonicalSiteContentIdentifiers(left.logicalId, right.logicalId),
+      ),
+    }),
     targetChangeEpoch: plan.targetChangeEpoch,
     counts: plan.counts,
   };
+
+  if (options.write) {
+    if (!PROJECT_REF.test(options.projectRef!) || options.confirmProjectRef !== options.projectRef) {
+      throw new Error("Exact --confirm-project-ref must match --project-ref.");
+    }
+    if (!SHA256.test(options.expectedStateDigest!) || options.expectedStateDigest !== summary.currentStateDigest) {
+      throw new Error("Expected current-state digest does not match the deterministic plan.");
+    }
+    if (!SHA256.test(options.expectedPlanDigest!) || options.expectedPlanDigest !== plan.planDigest) {
+      throw new Error("Expected plan digest does not match the deterministic plan.");
+    }
+    if (
+      !reconciliation ||
+      options.expectedReconciliationDigest !== reconciliation.planDigest ||
+      plan.reconciliationPlanDigest !== reconciliation.planDigest
+    ) {
+      throw new Error("Exact reconciliation digest does not match the durable handoff.");
+    }
+    const evidence = parseRecoveryReadinessEvidence(json(options.recoveryEvidence!));
+    assertRecoveryReadinessForOperation(evidence, "site_release", options.projectRef!);
+    assertProviderAuthorization(json(options.providerAuthorization!), options.projectRef!, plan.planDigest);
+
+    // Provider/environment-bearing modules and values are loaded only after
+    // local content, target, reconciliation and recovery authorization passes.
+    const { requireProviderTestPermission } = await import("./test-environment.mjs");
+    requireProviderTestPermission({ ALLOW_PROVIDER_TESTS: process.env.ALLOW_PROVIDER_TESTS });
+    const { checkSupabaseProjectConfig, formatSupabaseProjectCheck } = await import("../src/lib/supabase/project");
+    const projectCheck = checkSupabaseProjectConfig(
+      {
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
+        SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+        SUPABASE_STAGING_PROJECT_REF: process.env.SUPABASE_STAGING_PROJECT_REF,
+        SUPABASE_STAGING_PROJECT_NAME: process.env.SUPABASE_STAGING_PROJECT_NAME,
+      },
+      { requireMetadata: true },
+    );
+    if (
+      projectCheck.status !== "ready" ||
+      projectCheck.expected.ref !== options.projectRef ||
+      projectCheck.observed.configuredRef !== options.projectRef
+    ) {
+      throw new Error(
+        `Configured Supabase project does not match the confirmed target: ${formatSupabaseProjectCheck(projectCheck)}`,
+      );
+    }
+    const eventSequence = Number(options.eventSequence);
+    if (!Number.isSafeInteger(eventSequence) || eventSequence < 1) throw new Error("Event sequence is invalid.");
+    const { createAdminClient } = await import("../src/lib/supabase/admin");
+    const { data, error } = await createAdminClient().rpc("record_site_content_sync_event_plan", {
+      p_event_sequence: eventSequence,
+      p_expected_change_epoch: Number(plan.targetChangeEpoch),
+      p_plan_digest: plan.planDigest,
+      p_plan: plan,
+    });
+    if (error || data !== true) throw new Error("Durable site-content plan/event handoff was rejected.");
+  }
+
   if (options.out) writeFileSync(resolve(options.out), `${JSON.stringify({ summary, plan }, null, 2)}\n`, "utf8");
   process.stdout.write(`${JSON.stringify(summary)}\n`);
-  if (options.write) {
-    throw new Error("Source-only Task 3 does not execute the provider-gated write path.");
-  }
 }
 
-main();
+void main();
