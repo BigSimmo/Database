@@ -364,9 +364,11 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
       if (cells.length !== 6) {
         throw new Error(`${file}: expected 6 columns in the review record row, found ${cells.length}.`);
       }
-      const [date, ref, head, scope, outcome, checks] = cells;
-      // `head` is kept verbatim. Older records carry abbreviated SHAs, and
-      // rejecting them would drop real reviews from the panel.
+      const [date, ref, rawHead, scope, outcome, checks] = cells;
+      // Match the canonical ledger parser: legacy table rows sometimes wrap
+      // SHAs in Markdown code spans. Strip that presentation syntax while
+      // preserving abbreviated and full SHAs.
+      const head = rawHead.replaceAll("`", "");
       return { date, ref, head, scope, outcome, checks };
     })
     // Newest first, then ref, head and scope. That is NOT guaranteed to be a

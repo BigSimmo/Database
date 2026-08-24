@@ -351,6 +351,14 @@ describe("buildReviewStateSection", () => {
     expect(buildReviewStateSection([abbreviated]).records[0].head).toBe("1a2b3c4");
   });
 
+  it("normalises Markdown code spans around legacy heads", () => {
+    const codeSpanned = {
+      file: "docs/branch-review-ledger.md",
+      line: "| 2026-01-02 | r | `0d47141fc030684299dcb265e3d853c93b9e2a91` | s | o | c |",
+    };
+    expect(buildReviewStateSection([codeSpanned]).records[0].head).toBe("0d47141fc030684299dcb265e3d853c93b9e2a91");
+  });
+
   it("names the file when a record carries no parsable row", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "review-records-empty-"));
     try {
