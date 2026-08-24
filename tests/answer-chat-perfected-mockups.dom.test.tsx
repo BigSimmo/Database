@@ -16,7 +16,7 @@ describe("answer-chat perfected mockup drawer", () => {
   it("moves focus into the drawer, traps it, and restores the opening mark", async () => {
     render(<AnswerChatPerfectedMockupsPage />);
     const opener = openAnswerSource();
-    const drawer = screen.getByRole("dialog", { name: /Source 1 of 3/i });
+    const drawer = screen.getAllByRole("dialog", { name: /Source 1 of 3/i })[0];
 
     expect(drawer).toContainElement(document.activeElement);
 
