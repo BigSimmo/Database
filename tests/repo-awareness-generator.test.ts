@@ -10,8 +10,11 @@ import {
   buildReviewStateSection,
   buildRoutesSection,
   buildTestHealthSection,
+  generate,
+  readCapturedRevision,
   readFlakeLedger,
   readReviewRecordRows,
+  SNAPSHOT_VERSION,
   type SiteMapInput,
 } from "../scripts/generate-repo-awareness-snapshot";
 
@@ -330,5 +333,45 @@ describe("the real review record corpus", () => {
       expect(record.scope.length).toBeGreaterThan(0);
       expect(record.outcome.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("generate", () => {
+  it("assembles all four sections under the declared version", () => {
+    const snapshot = generate();
+    expect(snapshot.version).toBe(SNAPSHOT_VERSION);
+    expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
+    expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
+    expect(snapshot.review_state.counts.records).toBeGreaterThan(400);
+    expect(snapshot.test_health.counts.quarantined).toBeGreaterThanOrEqual(0);
+  });
+
+  it("records the revision of the last commit that touched its own inputs", () => {
+    const snapshot = generate();
+    expect(snapshot.captured_revision?.sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(Number.isNaN(new Date(snapshot.captured_revision!.committed_at).getTime())).toBe(false);
+  });
+
+  it("fails loudly outside a git repository instead of writing a null revision", () => {
+    // Spec §8.2 asks for a no-git proof. Ruling R5 changed what the right
+    // behaviour IS — this generator runs only from `npm run docs:update`, so a
+    // git-less environment is a broken invocation, not a case to degrade for.
+    // Phase 1's silent `null` is exactly what this must not do.
+    const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
+    try {
+      expect(() => readCapturedRevision({ cwd: outside })).toThrow(/Could not read the repository revision from git/);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("carries no field derived from the current time", () => {
+    // Byte-determinism is what makes the staleness gate trustworthy. A
+    // `generated_at` would change the file on every run and fail the gate on an
+    // unchanged repository, which trains people to ignore it.
+    const first = JSON.stringify(generate());
+    const second = JSON.stringify(generate());
+    expect(first).toBe(second);
+    expect(first).not.toMatch(/generated_at/);
   });
 });
