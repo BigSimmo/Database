@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { EyeOff, Search } from "lucide-react";
 import Link from "next/link";
 
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
@@ -32,6 +32,29 @@ import { UnavailableDestination } from "./unavailable-destination";
  * thing left to head a row with when no name comes back -- which happens for a plan a retention
  * clearance has already de-identified, and for a role that may list plans without holding
  * `viewPatientRecord`. The row never claims a name it was not given.
+ *
+ * THE TWO CAUSES OF A NAMELESS ROW ARE NOT SYMMETRIC, and the screen says the one it knows
+ * ----------------------------------------------------------------------------------------
+ * Per row, nothing here can tell a de-identified episode from a role restriction: both arrive as an
+ * absent entry, and guessing between them would be a claim the data does not support.
+ *
+ * But "your role may not see names" is not a per-row fact at all. It is a fact about the ACTOR,
+ * known with certainty and known globally, from the same one-line capability call the page already
+ * makes for `mayViewPlans`. So it is stated ONCE, above the list, and every fallback row on that
+ * render is explained without any inference. What is left is then unambiguous rather than merely
+ * unexplained: a nameless row on a page that printed no such notice was de-identified.
+ *
+ * The distinction is clinical, not cosmetic. One is "ask for access"; the other is a fact about the
+ * record, and no access will bring the name back.
+ *
+ * NO ROLE REACHES THE NOTICE TODAY, and it is written anyway. It needs a role holding `viewReferral`
+ * WITHOUT `viewPatientRecord`, and `permissions.ts` currently grants those two such that every role
+ * that can list plans can also see names -- the grant runs the other way round, which is exactly why
+ * `PATIENT_NAME_READ_ACTIONS` is a conjunction. So this is an unreachable branch, pinned by a
+ * component test that passes the prop directly, on the same principle as this page's null-release
+ * guard: a branch that cannot run today is still read, is still copied by the next screen, and is
+ * one grant edit away from running. Nothing infers it from an empty list, so it cannot fire wrongly
+ * while it waits.
  *
  * Why the filter is a URL and not a client boundary
  * ------------------------------------------------
@@ -227,9 +250,22 @@ export type PatientsDirectoryProps = {
   filter: PatientsDirectoryFilter;
   /** False when the acting role does not include viewing plans -- see the module note. */
   mayViewPlans: boolean;
+  /**
+   * False when the acting role does not hold `viewPatientRecord`, decided by the page from the
+   * actor rather than inferred here from an empty `patientNames`. Those two are NOT the same
+   * question: a coordinator whose team holds only de-identified episodes also receives no names,
+   * and telling that clinician their role is the reason would be false.
+   */
+  mayViewPatientNames: boolean;
 };
 
-export function PatientsDirectory({ records, patientNames, filter, mayViewPlans }: PatientsDirectoryProps) {
+export function PatientsDirectory({
+  records,
+  patientNames,
+  filter,
+  mayViewPlans,
+  mayViewPatientNames,
+}: PatientsDirectoryProps) {
   // A cleared plan's name is the empty string both stores write for a removed one, so it is dropped
   // here rather than at each row: an empty name is "no name held", never a name, and every reader
   // below asks the same map the same way.
@@ -294,8 +330,15 @@ export function PatientsDirectory({ records, patientNames, filter, mayViewPlans 
             className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center"
           >
             <div className="relative min-w-0 sm:max-w-sm sm:flex-1">
+              {/*
+                The control must not advertise something it cannot do. With no names released, a
+                name search matches nothing on every row, so the label and the placeholder offer
+                only what the search can actually find.
+              */}
               <label htmlFor={searchInputId} className="sr-only">
-                Search by name, or by synthetic patient, plan or referral identifier
+                {mayViewPatientNames
+                  ? "Search by name, or by synthetic patient, plan or referral identifier"
+                  : "Search by synthetic patient, plan or referral identifier"}
               </label>
               <Search
                 aria-hidden="true"
@@ -307,7 +350,7 @@ export function PatientsDirectory({ records, patientNames, filter, mayViewPlans 
                 name="q"
                 defaultValue={filter.query}
                 autoComplete="off"
-                placeholder="Name or synthetic ID"
+                placeholder={mayViewPatientNames ? "Name or synthetic ID" : "Synthetic identifier"}
                 className={fieldClass}
               />
             </div>
@@ -316,6 +359,12 @@ export function PatientsDirectory({ records, patientNames, filter, mayViewPlans 
               Search
             </button>
           </form>
+
+          {mayViewPatientNames ? null : (
+            <div className="mt-4 min-w-0">
+              <NamesNotShownNotice />
+            </div>
+          )}
 
           {visible.length > 0 ? (
             <p className="mt-4 text-sm text-[color:var(--text-muted)]">
@@ -338,6 +387,46 @@ export function PatientsDirectory({ records, patientNames, filter, mayViewPlans 
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Stated once, above the list, when the acting role does not hold `viewPatientRecord`.
+ *
+ * Local to this screen rather than a shared component, deliberately: it is the first surface in the
+ * workspace that needs it, and one use is not a pattern. If a second screen needs the same notice it
+ * should move to `workspace/` then, with both call sites visible to whoever generalises it.
+ *
+ * Not `AutomatedState`: that component is for a state the SYSTEM reached on its own -- suppressed,
+ * paused, blocked -- and its `state` prop is documented as a closed transport or plan term. A role
+ * restriction is neither. It borrows the same why/what-changes-it shape, because spec 4.4's reason
+ * for that shape applies just as much here, and takes its accessible name from the string it
+ * renders rather than an id, so this screen still ships no client component (Ruling 13).
+ */
+function NamesNotShownNotice() {
+  const heading = "Names are not shown in this role";
+  return (
+    <div
+      role="note"
+      aria-label={heading}
+      className="flex min-w-0 flex-col gap-1 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
+    >
+      <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
+        <EyeOff aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="min-w-0">{heading}</span>
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">Why: </span>
+        Viewing a patient record is not part of the role you are acting in, so every row below is headed by the
+        patient&rsquo;s synthetic identifier rather than their name. This says nothing about whether a name is held for
+        any of them.
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">What changes it: </span>
+        Nothing on this screen, and there is no control for it anywhere in this workspace yet. The role this
+        demonstration acts in is set outside the interface; a coordinator sees the names.
+      </p>
+    </div>
   );
 }
 

@@ -7,8 +7,11 @@
 //   * an empty caseload and a caseload hidden by a filter are DIFFERENT facts, and the two
 //     `ListEmptyState` kinds are not interchangeable (Task 1's whole reason for existing);
 //   * a role that may not view plans at all must not be told the team has no patients;
-//   * a directory releases no patient-identifying detail -- `getEpisode` is the only read that
-//     releases a name or a mobile number, and this screen never calls it;
+//   * a directory releases the patient's NAME and no other identifying detail -- the name comes
+//     from `listPatientNames`, whose type holds nothing else, and `getEpisode` (the only read that
+//     releases a mobile number, an identifier list or a cultural identity) is never called here;
+//   * a role that may not see names is TOLD so once, above the list, rather than left to wonder why
+//     every row is headed by an identifier;
 //   * a row's detail control is an UNAVAILABLE control with a stated reason, not a link into a
 //     route that does not exist yet (Ruling 52).
 import { render, screen, within } from "@testing-library/react";
@@ -78,7 +81,9 @@ function name(planIdText: string, patientName: string): PatientNameProjection {
 
 describe("Patients directory - the two empty states are not interchangeable", () => {
   it("an empty caseload renders the no-data kind, which states how a first patient arrives", () => {
-    const { container } = render(<PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans />);
+    const { container } = render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans />,
+    );
 
     const empty = screen.getByRole("group", { name: /no patients yet/i });
     expect(empty).toBeInTheDocument();
@@ -93,7 +98,7 @@ describe("Patients directory - the two empty states are not interchangeable", ()
     const filter = parsePatientsDirectoryFilter({ state: "paused" });
 
     const { container } = render(
-      <PatientsDirectory patientNames={NO_NAMES} records={records} filter={filter} mayViewPlans />,
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={filter} mayViewPlans />,
     );
 
     const empty = screen.getByRole("group", { name: /no patients match/i });
@@ -119,7 +124,9 @@ describe("Patients directory - the two empty states are not interchangeable", ()
     const records = [planRecord({ id: "plan-1", state: "active" })];
     const filter = parsePatientsDirectoryFilter({ q: "nothing-matches-this" });
 
-    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={filter} mayViewPlans />);
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={filter} mayViewPlans />,
+    );
 
     const empty = screen.getByRole("group", { name: /no patients match/i });
     expect(empty.textContent ?? "").toContain("nothing-matches-this");
@@ -127,7 +134,7 @@ describe("Patients directory - the two empty states are not interchangeable", ()
 
   it("a role that may not view plans is never told the team has no patients", () => {
     const { container } = render(
-      <PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
     );
 
     expect(container.textContent ?? "").not.toContain("No patients yet");
@@ -145,7 +152,9 @@ describe("Patients directory - the two empty states are not interchangeable", ()
   // which role you are acting in", and no role switcher exists anywhere in this workspace's
   // interface. Spec 4.4 requires a remedy that can be REACHED, so the content is pinned here.
   it("states a remedy that exists, and never names a control the workspace does not have", () => {
-    render(<PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />);
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
+    );
     const empty = screen.getByRole("group", { name: /not visible in this role/i });
     const text = empty.textContent ?? "";
 
@@ -159,13 +168,14 @@ describe("Patients directory - the two empty states are not interchangeable", ()
     // Ruling 92: the words were honest under `"filtered"`, the TYPE and the ICON were not.
     // `"filtered"` selects `SearchX`; this case must not.
     const restricted = render(
-      <PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
     );
     const restrictedIcon = restricted.container.querySelector("[role='group'] svg")?.getAttribute("class") ?? "";
     restricted.unmount();
 
     const filtered = render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "active" })]}
         filter={parsePatientsDirectoryFilter({ state: "paused" })}
@@ -180,7 +190,9 @@ describe("Patients directory - the two empty states are not interchangeable", ()
   });
 
   it("hides the filter controls entirely for a role that may not view plans", () => {
-    render(<PatientsDirectory patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />);
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={[]} filter={ALL} mayViewPlans={false} />,
+    );
     expect(screen.queryByRole("link", { name: "Active" })).toBeNull();
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
@@ -194,7 +206,9 @@ describe("Patients directory - rows", () => {
       planRecord({ id: "plan-3", state: "completed" }),
     ];
 
-    render(<PatientsDirectory patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />);
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />,
+    );
 
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByRole("heading", { name: "patient-plan-1" })).toBeInTheDocument();
@@ -204,6 +218,7 @@ describe("Patients directory - rows", () => {
   it("states each plan's state in words, not by colour alone", () => {
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "paused" })]}
         filter={ALL}
@@ -221,7 +236,15 @@ describe("Patients directory - rows", () => {
       contacts: [contact(1), contact(2, { absorbed: true })],
     });
 
-    render(<PatientsDirectory patientNames={NO_NAMES} records={[withAbsorbed]} filter={ALL} mayViewPlans />);
+    render(
+      <PatientsDirectory
+        mayViewPatientNames
+        patientNames={NO_NAMES}
+        records={[withAbsorbed]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
 
     const automated = screen.getByRole("group", { name: "Suppressed" });
     expect(within(automated).getByText(/Why:/)).toBeInTheDocument();
@@ -240,7 +263,9 @@ describe("Patients directory - rows", () => {
       contacts: [contact(1), contact(2, { suppressed: true })],
     });
 
-    render(<PatientsDirectory patientNames={NO_NAMES} records={[record]} filter={ALL} mayViewPlans />);
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={[record]} filter={ALL} mayViewPlans />,
+    );
 
     const automated = screen.getByRole("group", { name: "Suppressed" });
     expect(within(automated).getByText(/Why:/)).toBeInTheDocument();
@@ -263,7 +288,15 @@ describe("Patients directory - rows", () => {
       contacts: [contact(1), contact(2, { suppressed: true }), contact(3, { absorbed: true })],
     });
 
-    render(<PatientsDirectory patientNames={NO_NAMES} records={[plain, withSuppressed]} filter={ALL} mayViewPlans />);
+    render(
+      <PatientsDirectory
+        mayViewPatientNames
+        patientNames={NO_NAMES}
+        records={[plain, withSuppressed]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
 
     const [first, second] = screen.getAllByRole("listitem");
     expect(first.textContent ?? "").toContain("2 messages in the schedule");
@@ -281,7 +314,9 @@ describe("Patients directory - rows", () => {
       contacts: [contact(1), contact(2, { absorbed: true }), contact(3, { suppressed: true })],
     });
 
-    render(<PatientsDirectory patientNames={NO_NAMES} records={[record]} filter={ALL} mayViewPlans />);
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={[record]} filter={ALL} mayViewPlans />,
+    );
 
     const automated = screen.getByRole("group", { name: "Suppressed" });
     const text = automated.textContent ?? "";
@@ -296,6 +331,7 @@ describe("Patients directory - rows", () => {
   it("says nothing about suppression when the system suppressed nothing", () => {
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "active" })]}
         filter={ALL}
@@ -308,6 +344,7 @@ describe("Patients directory - rows", () => {
   it("offers the row's detail control as an unavailable control, never a link into a route with no page", () => {
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "active" })]}
         filter={ALL}
@@ -334,6 +371,7 @@ describe("Patients directory - rows", () => {
     const records = [planRecord({ id: "plan-1", state: "active" })];
     const { container } = render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={[name("plan-1", "Jordan Nguyen")]}
         records={records}
         filter={ALL}
@@ -347,7 +385,10 @@ describe("Patients directory - rows", () => {
     // `PlanRecord` carries no identifying detail by construction and `PatientNameProjection` has
     // two fields, so the other three fields `getEpisode` releases have nowhere to come from. This
     // pins that the screen does not invent a place to put one either.
-    expect(container.textContent ?? "").not.toMatch(/mobile|cultural/i);
+    // "patient name" is back in the alternation (review M-6). The screen renders the name itself
+    // but never that literal phrase as a label, so dropping it bought nothing and lost a guard
+    // against a future row growing a "Patient name:" field label beside a widened read.
+    expect(container.textContent ?? "").not.toMatch(/mobile|patient name|cultural/i);
   });
 });
 
@@ -379,6 +420,7 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
 
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={records}
         filter={parsePatientsDirectoryFilter({ state: "paused" })}
@@ -394,6 +436,7 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
     const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={records}
         filter={parsePatientsDirectoryFilter({ q: "PLAN-2" })}
@@ -407,6 +450,7 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
   it("submits the search as an ordinary GET form, so the filter needs no JavaScript", () => {
     const { container } = render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[]}
         filter={parsePatientsDirectoryFilter({ state: "active" })}
@@ -424,6 +468,7 @@ describe("Patients directory - the filter is a URL, not a client boundary", () =
   it("marks the current state filter, so the screen and the URL cannot disagree", () => {
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[]}
         filter={parsePatientsDirectoryFilter({ state: "paused" })}
@@ -441,6 +486,7 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
 
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={[name("plan-1", "Jordan Nguyen")]}
         records={records}
         filter={ALL}
@@ -467,6 +513,7 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     // identifier as though it were a name.
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "active" })]}
         filter={ALL}
@@ -484,6 +531,7 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     // empty heading and no identifier at all -- a row naming nobody.
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={[name("plan-1", "")]}
         records={[planRecord({ id: "plan-1", state: "active" })]}
         filter={ALL}
@@ -501,6 +549,7 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
 
     const { container } = render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={names}
         records={records}
         filter={parsePatientsDirectoryFilter({ q: "nguyen" })}
@@ -520,6 +569,7 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
     // searching for one must find nothing, not everything.
     render(
       <PatientsDirectory
+        mayViewPatientNames
         patientNames={NO_NAMES}
         records={[planRecord({ id: "plan-1", state: "active" })]}
         filter={parsePatientsDirectoryFilter({ q: "Jordan" })}
@@ -529,5 +579,105 @@ describe("Patients directory - the names-only projection (Ruling 91)", () => {
 
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(screen.getByRole("group", { name: /no patients match/i })).toBeInTheDocument();
+  });
+});
+
+describe("Patients directory - a role that may not see names is told once, not per row", () => {
+  const records = [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "active" })];
+
+  it("states the role restriction once above the list, with a reason and a remedy", () => {
+    render(
+      <PatientsDirectory
+        mayViewPatientNames={false}
+        patientNames={NO_NAMES}
+        records={records}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+
+    const notice = screen.getByRole("note", { name: /names are not shown in this role/i });
+    expect(within(notice).getByText(/Why:/)).toBeInTheDocument();
+    expect(within(notice).getByText(/What changes it:/)).toBeInTheDocument();
+    // ONCE, not per row: two rows, one notice.
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getAllByRole("note")).toHaveLength(1);
+    // Reachable as text, never only as a hover title -- spec 4.4.
+    expect(notice.querySelector("[title]")).toBeNull();
+    // And it must not claim anything about whether names are held, which it cannot know.
+    expect(notice.textContent ?? "").toMatch(/says nothing about\s+whether a name is held/i);
+  });
+
+  it("never prints the notice for a role that may see names, so a nameless row means de-identified", () => {
+    // This is the whole point of stating the actor-level fact: with no notice on the page, the only
+    // remaining cause of a nameless row is a retention clearance. A notice printed here would make
+    // that inference false.
+    render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />,
+    );
+
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
+  it("offers a name search only when names are released, so the control cannot promise what it cannot find", () => {
+    const withNames = render(
+      <PatientsDirectory mayViewPatientNames patientNames={NO_NAMES} records={records} filter={ALL} mayViewPlans />,
+    );
+    expect(
+      screen.getByLabelText(/Search by name, or by synthetic patient, plan or referral identifier/i),
+    ).toBeInTheDocument();
+    expect(withNames.container.querySelector("input[type='search']")).toHaveAttribute(
+      "placeholder",
+      "Name or synthetic ID",
+    );
+    withNames.unmount();
+
+    const withoutNames = render(
+      <PatientsDirectory
+        mayViewPatientNames={false}
+        patientNames={NO_NAMES}
+        records={records}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    expect(screen.getByLabelText(/^Search by synthetic patient, plan or referral identifier$/i)).toBeInTheDocument();
+    expect(withoutNames.container.querySelector("input[type='search']")).toHaveAttribute(
+      "placeholder",
+      "Synthetic identifier",
+    );
+  });
+
+  // Review M-5: the row's eyebrow label had only its dangerous direction pinned. Collapsing it to
+  // always-"Synthetic patient identifier" left the suite green even with a name rendered above it --
+  // a row that reads "Synthetic patient identifier / Jordan Nguyen" is a mislabelled name, which is
+  // the same class of defect as an unlabelled one. Both branches are read here.
+  it("labels the heading for what it is, in both directions", () => {
+    const named = render(
+      <PatientsDirectory
+        mayViewPatientNames
+        patientNames={[name("plan-1", "Jordan Nguyen")]}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    const namedRow = screen.getAllByRole("listitem")[0];
+    expect(within(namedRow).getByText("Patient")).toBeInTheDocument();
+    expect(within(namedRow).queryByText("Synthetic patient identifier")).toBeNull();
+    named.unmount();
+
+    render(
+      <PatientsDirectory
+        mayViewPatientNames
+        patientNames={NO_NAMES}
+        records={[planRecord({ id: "plan-1", state: "active" })]}
+        filter={ALL}
+        mayViewPlans
+      />,
+    );
+    const fallbackRow = screen.getAllByRole("listitem")[0];
+    expect(within(fallbackRow).getByText("Synthetic patient identifier")).toBeInTheDocument();
+    expect(within(fallbackRow).queryByText("Patient")).toBeNull();
   });
 });

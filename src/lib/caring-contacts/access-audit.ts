@@ -46,6 +46,19 @@ export type AccessedObjectType =
   | "auditTrail"
   | "report"
   | "patientDirectory"
+  /**
+   * A read of patients' NAMES and nothing else -- `listPatientNames` (Ruling 91).
+   *
+   * Its own member rather than a reuse of `patientDirectory`, and the choice is forced rather than
+   * stylistic: the trail's query surface (`api/caring-contacts/access-trail`) filters on
+   * `objectType` and offers NO `objectId` filter, so a read recorded as `patientDirectory` with a
+   * distinguishing `objectId` can be picked out by eye but cannot be ASKED for. "Who read patients'
+   * names, and when" is precisely the question the separate read exists to make answerable, and
+   * `patientDirectory` already carries two referral reads -- so sharing it would have returned name
+   * reads mixed with referral searches and no way to separate them server-side. This is Ruling 46's
+   * own instruction followed: add a member rather than overload an existing one.
+   */
+  | "patientName"
   | "notificationPreferences"
   | "trainingRecord"
   | "pathwayVersion"

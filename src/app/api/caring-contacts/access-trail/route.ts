@@ -35,6 +35,7 @@ const querySchema = z
         "auditTrail",
         "report",
         "patientDirectory",
+        "patientName",
         "notificationPreferences",
         "trainingRecord",
         "pathwayVersion",

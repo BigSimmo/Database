@@ -203,10 +203,17 @@ export const PATHWAY_VERSION_READ_ACTIONS: readonly CaringContactAction[] = Obje
  * `READ_ACTIONS.patientName` is the capability Ruling 95 names, and it is not the whole rule. The
  * projection ENUMERATES the team's plans, so it must release a name only for a plan the actor could
  * have listed for themselves -- the same "scoped through the plan" rule `listContacts` follows.
- * Without `READ_ACTIONS.plan` alongside it the read would be a WIDENING rather than a narrowing:
- * the auditor role holds `viewPatientRecord` but not `viewReferral`, so it answers `[]` to
- * `listPlans` and `null` to `getEpisode` and can obtain no patient's name by any route today. A
- * names read gated on `viewPatientRecord` alone would hand that role every name the team holds.
+ *
+ * The property the conjunction preserves, stated rather than illustrated: `viewPatientRecord` is
+ * granted MORE WIDELY than plan visibility is, so it cannot decide a plan-enumerating read on its
+ * own. Only the roles holding BOTH can list plans at all, and those are exactly the roles that can
+ * already reach a name through `getEpisode`; every role holding `viewPatientRecord` WITHOUT
+ * `viewReferral` can obtain no patient's name by any route today -- `listPlans` answers `[]` and
+ * `getEpisode` answers `null`. Gating this read on `viewPatientRecord` alone would hand each of
+ * them every name their team holds, which is a WIDENING produced by a change whose whole purpose is
+ * to narrow. As `permissions.ts` stands the second set is `auditor`, `clinicalProgrammeLead` and
+ * `livedExperienceRepresentative`; the rule above is what holds if a sixth role is added tomorrow,
+ * and it is the rule that should be checked rather than the membership.
  *
  * This decides the SCOPE of the read, not its capability, so it re-opens nothing: no action is
  * minted, and the name still travels on `viewPatientRecord` exactly as ruled.

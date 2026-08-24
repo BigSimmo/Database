@@ -152,7 +152,7 @@ describe("the /caring-contacts/patients page - reads", () => {
     );
   });
 
-  it("never reads the episode - the one read that releases a name, a mobile number or an identifier", async () => {
+  it("never reads the episode - the only read that releases a mobile number or an identifier", async () => {
     const { store } = inMemoryStoreWithSpy();
     const getEpisode = vi.spyOn(store, "getEpisode");
     vi.spyOn(store, "listPlans").mockResolvedValue([planRecord("plan-1")]);
@@ -261,13 +261,16 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
 
     await renderPage();
 
-    // Its own row. This is the one read on this page that releases patient identity, and a trail
-    // that recorded it as part of a plan search could not answer "who read patients' names".
+    // Its own row AND its own object type. This is the read on this page that releases patient
+    // identity, and the trail must be able to ANSWER "who read patients' names, and when" -- not
+    // merely to contain it. Review I-3: `patientDirectory` already carries two referral reads and
+    // the trail's query surface filters on `objectType` with no `objectId` filter, so sharing that
+    // type would have made the answer visible by eye and impossible to ask for.
     expect(recorded()).toContainEqual(
       expect.objectContaining({
         kind: "search",
-        objectType: "patientDirectory",
-        objectId: "names",
+        objectType: "patientName",
+        objectId: "all",
         outcome: "allowed",
         actorId: demoActorForRole("coordinator").id,
       }),
@@ -292,6 +295,22 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
     expect(getEpisode).not.toHaveBeenCalled();
   });
 
+  it("decides the role notice from the ACTOR, and a coordinator with no names released gets none", async () => {
+    // The wiring, at the page level: a coordinator holds `viewPatientRecord`, so even with the names
+    // read returning nothing the screen must NOT claim a role restriction -- that team's episodes
+    // are simply de-identified, or it holds none. Inferring the notice from an empty list would put
+    // a false explanation in front of a clinician who does have access.
+    const { store } = inMemoryStoreWithSpy("coordinator");
+    vi.spyOn(store, "listPlans").mockResolvedValue([planRecord("plan-1")]);
+    vi.spyOn(store, "listPatientNames").mockResolvedValue([]);
+
+    await renderPage();
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: "patient-plan-1" })).toBeInTheDocument();
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
   it("throws rather than rendering when the names read itself fails, and still records the attempt", async () => {
     const { store, recorded } = inMemoryStoreWithSpy();
     vi.spyOn(store, "listPatientNames").mockRejectedValue(new Error("names store unreachable"));
@@ -299,7 +318,7 @@ describe("the /caring-contacts/patients page - the names-only projection (Ruling
     const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
 
     await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("names store unreachable");
-    expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "patientDirectory", outcome: "failed" }));
+    expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "patientName", outcome: "failed" }));
   });
 
   it("throws rather than rendering a caseload from a names answer that was never given", async () => {

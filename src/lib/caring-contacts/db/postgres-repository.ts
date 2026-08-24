@@ -2135,9 +2135,17 @@ export function createPostgresRepository(
      * row-level security applies and the migration role's policy bypass does not. A query issued
      * outside it would read EVERY team's names and fail no test that is not looking for it.
      *
-     * The select names two columns rather than reusing `PLAN_COLUMNS`, so the mobile number and the
-     * identifier list are never fetched into this process in the first place -- the narrowing is in
-     * the query, not only in the mapping afterwards.
+     * The select names two columns rather than reusing `PLAN_COLUMNS`, so THIS READ never fetches
+     * the mobile number or the identifier list into the process at all -- its narrowing is in the
+     * query, not only in the mapping afterwards.
+     *
+     * Read that as a claim about this method, NOT about the page. `PLAN_COLUMNS` includes
+     * `patient_mobile_number` and `patient_identifiers`, and `listPlans` selects it verbatim, so the
+     * Patients directory still pulls both for its whole caseload on every render and discards them
+     * in `toPlanRecord`. What the projection changes is what is RELEASED, which is the substance:
+     * nothing outside this file can obtain those fields through it. Narrowing `listPlans`' own
+     * column list is a real privacy improvement on a hot path and is tracked separately, because it
+     * deserves its own review rather than riding along with a names read.
      */
     async listPatientNames(context: ReadContext) {
       if (!mayReadAllOwnTeam(context, PATIENT_NAME_READ_ACTIONS)) return [];

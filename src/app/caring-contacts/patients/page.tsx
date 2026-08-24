@@ -27,29 +27,39 @@ const CaringContactsShell = dynamic(() =>
  * The team's caseload -- the first real screen of Phase 2B, and the shape every later list screen
  * copies.
  *
- * THREE AUDITED READS, no HTTP
- * ----------------------------
+ * EVERY READ IS AUDITED, AND NONE OF THEM IS HTTP
+ * ----------------------------------------------
  * `GET /api/caring-contacts/plans` already lists the team's plans, but this page is a Server
  * Component and reads the store directly, exactly as the Today page does. Going over HTTP from a
  * render would add a network hop, a second copy of the failure handling, and an access trail that
  * recorded the server calling itself.
  *
- * Both reads go through `auditedRead`, the same wrapper `readHandler` is built on, with the SAME
- * access identity each read already has on the API side, so the trail does not grow a second
- * vocabulary for the same read:
+ * EVERY read on this page goes through `auditedRead`, the same wrapper `readHandler` is built on,
+ * with the SAME access identity each read already has on the API side, so the trail does not grow a
+ * second vocabulary for the same read.
+ *
+ * Ruling 94, and this comment is the demonstration: it used to open "TWO AUDITED READS" and say
+ * "both reads", and when a third arrived the headline was corrected while the two sentences that
+ * depended on it were not -- three bullets under a "both", in the same block as the fixed count.
+ * The sentences above state the property instead, so adding a fourth read cannot make them false.
+ * The bullets below are a list of what is read, not a tally of how many:
  *
  *   * the service state -- `{ administrative, serviceState, "service" }`, because the safety
  *     banner is required on every screen (Ruling 56) and must be a state that was actually read;
  *   * the plans -- `{ search, plan, "all" }`, matching `plans/route.ts`'s `GET` exactly;
- *   * the patient names -- `{ search, patientDirectory, "names" }`. Its own row, deliberately, and
- *     not folded into the plans read: this is the one read on this page that releases patient
- *     identity, and an access trail that recorded it as part of a plan search could not later
- *     answer "who read patients' names, and when". Ruling 46 exists for that reason.
+ *   * the patient names -- `{ search, patientName, "all" }`. Its own row AND its own object type,
+ *     both deliberately: this is the read on this page that releases patient identity, and the
+ *     question the trail must be able to answer is "who read patients' names, and when". Folding it
+ *     into the plans read would lose it entirely; recording it as `patientDirectory` would not,
+ *     because that type already carries two referral reads and the trail's query surface filters on
+ *     `objectType` with no `objectId` filter at all -- the answer would be visible by eye and
+ *     unaskable. Ruling 46 says to add a member rather than overload one, and that is what
+ *     `access-audit.ts` now does.
  *
  * Every bad outcome fails closed and reaches `error.tsx`, which says nothing was sent and nothing
- * was changed. There is no honest fallback for either read: a caseload rendered beside a
+ * was changed. NO read on this page has an honest fallback -- a caseload rendered beside a
  * service-state read that failed would claim sending is running during an incident, and a caseload
- * rendered from a failed plans read would claim a caseload that was never read.
+ * rendered from a failed read of its own contents would claim a caseload that was never read.
  *
  * AN EMPTY LIST IS NOT A MISSING RESOURCE
  * --------------------------------------
@@ -155,7 +165,7 @@ export default async function CaringContactsPatientsPage({
   const namesRead = await auditedRead<PatientNameProjection[]>(
     store,
     actor,
-    { kind: "search", objectType: "patientDirectory", objectId: "names" },
+    { kind: "search", objectType: "patientName", objectId: "all" },
     () => store.listPatientNames({ actor }),
   );
   if (namesRead.outcome === "failed") {
@@ -173,6 +183,15 @@ export default async function CaringContactsPatientsPage({
   const patientNames = namesRead.released;
 
   const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
+  // The same one-line question, asked of the name capability. A role restriction is a fact about
+  // the ACTOR -- known here with certainty, for every row at once -- whereas a de-identified episode
+  // is a fact about one record. The directory can state the first and must not guess the second, so
+  // it is decided here rather than inferred there from an empty `patientNames`: a coordinator whose
+  // team holds only cleared episodes also receives no names, and telling that clinician their role
+  // was the reason would be false.
+  const mayViewPatientNames = canPerformCaringContactAction(actor, READ_ACTIONS.patientName, {
+    teamId: actor.teamId,
+  }).allowed;
 
   return (
     <CaringContactsShell
@@ -180,7 +199,13 @@ export default async function CaringContactsPatientsPage({
       description="Every patient this team holds a caring-contact plan for, and where each plan has got to. Every patient, number and message in this workspace is invented; nothing here is ever sent to a real number."
       serviceState={serviceState}
     >
-      <PatientsDirectory records={records} patientNames={patientNames} filter={filter} mayViewPlans={mayViewPlans} />
+      <PatientsDirectory
+        records={records}
+        patientNames={patientNames}
+        filter={filter}
+        mayViewPlans={mayViewPlans}
+        mayViewPatientNames={mayViewPatientNames}
+      />
     </CaringContactsShell>
   );
 }
