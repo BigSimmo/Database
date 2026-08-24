@@ -62,7 +62,7 @@ describe("search / field focus is quiet and shell-owned", () => {
 
     expect(primitives).toMatch(/export const searchShell\s*=\s*"search-shell /);
     expect(primitives).toMatch(/export const searchShellInput\s*=\s*"search-shell-input /);
-    expect(primitives).toMatch(/export const chatComposerInput\s*=\s*"chat-composer-input search-shell-input"/);
+    expect(primitives).toMatch(/export const chatComposerInput\s*=\s*"chat-composer-input"/);
   });
 
   it("uses the search-shell pair on the compare catalog picker", () => {
