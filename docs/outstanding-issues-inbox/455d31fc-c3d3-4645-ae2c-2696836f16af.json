@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "455d31fc-c3d3-4645-ae2c-2696836f16af",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Form 12A displays a false Password protected warning although its committed PDF is readable",
+    "detail": "Measured on 2026-08-24: public/forms-pdf/form-12a.pdf has no /Encrypt marker, while data/forms-pdf-manifest.json records passwordProtected true and the form page renders a warning from that flag. Before changing any data manifest, identify its canonical source and supported generation path; if none exists, introduce a measured manifest-generation or validation workflow that derives the flag from committed PDF bytes, then regenerate the manifest and make the form test assert the generated contract. This changes a clinician-facing statement and requires Clinical Governance Preflight.",
+    "source": "Direct inspection of public/forms-pdf/form-12a.pdf; data/forms-pdf-manifest.json; src/lib/form-catalog.ts; src/components/forms/form-detail-page.tsx; tests/forms.test.ts",
+    "issueUlid": "01M0SJN53J9P4XAEZPV9XDFPMC"
+  }
+}

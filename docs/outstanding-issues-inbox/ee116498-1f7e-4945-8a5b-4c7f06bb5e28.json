@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ee116498-1f7e-4945-8a5b-4c7f06bb5e28",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Forms mode: 33 password-protected forms retain generic Clock, Authority, and Criteria prose",
+    "detail": "The 33 forms other than Form 12A with generic maker and threshold prose remain blocked because their approved-form instruction text is unavailable in password-protected PDFs. Obtain readable approved-form instruction text or an equivalent authoritative extract before writing form-level prose. Do not infer these clinical assertions from Act sections alone. Form 12A is excluded because its PDF is readable and its clock is already form-specific.",
+    "source": "data/forms-catalog.json; data/forms-pdf-manifest.json; public/forms-pdf; direct measurement 2026-08-24",
+    "issueUlid": "01M0SJN554W1B9RPTB2KPKS35N"
+  }
+}

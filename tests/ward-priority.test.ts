@@ -138,6 +138,56 @@ describe("operational score", () => {
     expect(factors.find((factor) => factor.label === "Statutory timing")).toBeUndefined();
   });
 
+  it("awards Bed need confirmed points when an examination outcome is recorded as inpatient_order", () => {
+    const base = movementById("WF-001");
+    const confirmed: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "inpatient_order" } };
+    const { factors } = operationalScore(confirmed, NOW_ANCHOR);
+    const factor = factors.find((factor) => factor.label === "Bed need confirmed");
+    expect(factor).toBeDefined();
+    expect(factor?.points).toBe(25);
+  });
+
+  it("does not award Bed need confirmed points for any other examination outcome, or no examination at all", () => {
+    const base = movementById("WF-001");
+    expect(base.examination).toBeUndefined();
+    expect(operationalScore(base, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed")).toBeUndefined();
+
+    const communityOrder: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "community_order" } };
+    expect(
+      operationalScore(communityOrder, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed"),
+    ).toBeUndefined();
+
+    const revoked: Movement = { ...base, examination: { at: NOW_ANCHOR - 30, outcome: "revoked" } };
+    expect(operationalScore(revoked, NOW_ANCHOR).factors.find((f) => f.label === "Bed need confirmed")).toBeUndefined();
+  });
+
+  it("ranks a movement with a confirmed bed need above an otherwise-identical unassessed one — the clinician's rule that review precedes referral", () => {
+    const base = movementById("WF-001");
+    const unassessed: Movement = { ...base, legalForm: undefined, examination: undefined };
+    const confirmed: Movement = {
+      ...unassessed,
+      examination: { at: NOW_ANCHOR - 30, outcome: "inpatient_order" },
+    };
+    expect(operationalScore(confirmed, NOW_ANCHOR).score).toBeGreaterThan(
+      operationalScore(unassessed, NOW_ANCHOR).score,
+    );
+  });
+
+  it("awards no Statutory timing points to a legal form with no dueAt", () => {
+    // Task 6A: a Form 3B honestly carries no dueAt — the clinician, asked directly, settled that
+    // the post-examination clock is elapsed ED wait counting up, not a countdown, so this model
+    // records no deadline for a 3B. This must never score as breached, critical or due — the
+    // patient's priority rides on "Time waiting" alone, which is precisely the clinician's rule,
+    // and this must never gain a compensating bonus for being detained instead.
+    const base = movementById("WF-003");
+    const noDeadline: Movement = {
+      ...base,
+      legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention" },
+    };
+    const { factors } = operationalScore(noDeadline, NOW_ANCHOR);
+    expect(factors.find((factor) => factor.label === "Statutory timing")).toBeUndefined();
+  });
+
   it("explains itself — every point scored is attributed to a named factor", () => {
     for (const movement of wardMovements) {
       const { score, factors } = operationalScore(movement, NOW_ANCHOR);
