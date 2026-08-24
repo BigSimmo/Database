@@ -265,6 +265,12 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // that module or type; and it toggles one attribute on an element the server rendered from
   // the note-free facts type, so the bar's wording never enters the client module graph.
   "service-stop-scroll-watcher.tsx",
+  // Patient-name filtering must remain out of GET URLs and request logs, so this directory island
+  // owns only the local search input. Its server wrapper converts plans and names into an explicit
+  // scalar DTO first; the exact-key regression test proves no raw plan, contact schedule or service
+  // state crosses the boundary. The companion graph check below proves this module and everything
+  // it imports never name the service-state module or type.
+  "patients-directory-client.tsx",
 ];
 
 /**
