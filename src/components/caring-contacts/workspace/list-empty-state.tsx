@@ -6,6 +6,17 @@ import type { ReactNode } from "react";
  * list screens (patients, schedule, templates, team) that would otherwise each
  * invent their own.
  *
+ * Named `ListEmptyState`, not the shorter `EmptyState`: `src/components/ui-primitives.tsx`
+ * already exports a registered design-system primitive called `EmptyState`, used across 43
+ * files. The bare name would have been a real collision, not merely a stylistic one —
+ * `scripts/generate-design-system-adoption.mjs` credits a component with test coverage by
+ * matching `\bName\b` against raw test-file TEXT, with no import-path awareness, so a test
+ * file that used the bare name (even for this unrelated component) would have been recorded
+ * as proof coverage for the *other* `EmptyState` in the generated adoption manifest — a false
+ * claim about what that primitive's tests actually exercise. `ListEmptyState` does not match
+ * `\bEmptyState\b` (the character before "EmptyState" is not a word boundary), so it cannot
+ * recreate that false attribution.
+ *
  * There are exactly two reasons a list can be empty, and they read as opposite
  * facts to a clinician, so the component refuses to blur them into one shape:
  *
@@ -20,38 +31,52 @@ import type { ReactNode } from "react";
  *
  * The `"filtered"` branch reuses `AutomatedState`'s "Why: … / What changes it:
  * …" wording shape, so a clinician learns one pattern across the workspace —
- * but this is its own component. Ruling 81: `EmptyState` does not render
+ * but this is its own component. Ruling 81: `ListEmptyState` does not render
  * `AutomatedState` internally. The two have different triggers (the system
  * acting on its own, versus a user's own filter or simply nothing existing
  * yet) and `AutomatedState`'s `CircleAlert` icon and state-name `aria-label`
  * are both wrong for "no patients yet", so this component carries its own
- * icon pair and never labels itself as a named state.
+ * icon pair and never labels itself with the word "state".
+ *
+ * It DOES reuse `AutomatedState`'s accessible grouping, though — Ruling 81 forbade rendering
+ * `AutomatedState`, not reusing the structure that makes its reason and remedy reachable
+ * together. `automated-state.tsx` wraps its three pieces in `role="group"` with an
+ * `aria-label`, so that a screen reader that reaches the state has entered a named group and
+ * finds the reason and the remedy without hunting for them elsewhere on the page. This
+ * component has the identical shape for `"filtered"` (heading, "Why:", "What changes it:"),
+ * so it gets the same wrapper — applied to the WHOLE component rather than only the
+ * `"filtered"` branch, so a `"no-data"` instance is an equally well-named group and a
+ * clinician learns one grouping pattern for this component regardless of kind, not two.
  *
  * A Server Component with no hooks, deliberately (Ruling 13): every one of the
  * four list screens renders this on first paint, so a hook here would put a
- * client boundary under all four instead of none. The optional `action` is
- * therefore never built from raw `onClick`/`href` props — it is a fully-formed
- * node the caller already built (a `<Link>`, a form-submit button, or an
- * `UnavailableDestination`), the same way `ServiceStateBanner` — also a Server
- * Component — hosts `UnavailableDestination` as a child without becoming a
- * Client Component itself. If a caller wants an action that is not yet
- * available, `UnavailableDestination` is still the tool for that; this
+ * client boundary under all four instead of none. The group above is named by
+ * `aria-label={heading}` rather than `aria-labelledby`, the same `useId`-avoiding
+ * technique `automated-state.tsx` already proves safe, for the same reason:
+ * `aria-labelledby` needs an id, an id needs `useId`, and `useId` is a hook.
+ *
+ * The optional `action` is never built from raw `onClick`/`href` props — it is
+ * a fully-formed node the caller already built (a `<Link>`, a form-submit
+ * button, or an `UnavailableDestination`), the same way `ServiceStateBanner` —
+ * also a Server Component — hosts `UnavailableDestination` as a child without
+ * becoming a Client Component itself. If a caller wants an action that is not
+ * yet available, `UnavailableDestination` is still the tool for that; this
  * component does not build a second disabled-control pattern to compete with
  * it.
  */
-export type EmptyStateAction = ReactNode;
+export type ListEmptyStateAction = ReactNode;
 
-export type EmptyStateNoDataProps = {
+export type ListEmptyStateNoDataProps = {
   kind: "no-data";
   /** Sentence-case heading naming what is empty, e.g. "No patients yet". */
   heading: string;
   /** Plain-words statement that the list is genuinely empty, and how a first record arrives. */
   explanation: string;
   /** At most one already-built control — a `<Link>`, a form-submit button, or an `UnavailableDestination`. */
-  action?: EmptyStateAction;
+  action?: ListEmptyStateAction;
 };
 
-export type EmptyStateFilteredProps = {
+export type ListEmptyStateFilteredProps = {
   kind: "filtered";
   /** Sentence-case heading naming what the filter hid, e.g. "No patients match". */
   heading: string;
@@ -60,19 +85,23 @@ export type EmptyStateFilteredProps = {
   /** Plain-words statement of what would change it — clear the filter, widen the search. */
   changedBy: string;
   /** At most one already-built control — a `<Link>`, a form-submit button, or an `UnavailableDestination`. */
-  action?: EmptyStateAction;
+  action?: ListEmptyStateAction;
 };
 
-export type EmptyStateProps = EmptyStateNoDataProps | EmptyStateFilteredProps;
+export type ListEmptyStateProps = ListEmptyStateNoDataProps | ListEmptyStateFilteredProps;
 
-export function EmptyState(props: EmptyStateProps) {
+export function ListEmptyState(props: ListEmptyStateProps) {
   // Two different icons, not one reused across both kinds: the icon is part of
   // what states the difference wordlessly, matching the "words and an icon,
   // never colour alone" rule this file inherits from `automated-state.tsx`.
   const Icon = props.kind === "no-data" ? FolderOpen : SearchX;
 
   return (
-    <div className="flex min-w-0 flex-col items-start gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-6 forced-colors:border-[CanvasText]">
+    <div
+      role="group"
+      aria-label={props.heading}
+      className="flex min-w-0 flex-col items-start gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-6 forced-colors:border-[CanvasText]"
+    >
       <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
         <Icon aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="min-w-0">{props.heading}</span>

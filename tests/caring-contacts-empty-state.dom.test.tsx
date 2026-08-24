@@ -1,12 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { EmptyState } from "@/components/caring-contacts/workspace/empty-state";
+import { ListEmptyState } from "@/components/caring-contacts/workspace/list-empty-state";
 
-describe("EmptyState — no-data", () => {
+describe("ListEmptyState — no-data", () => {
   it("renders the heading and the explanation, and no Why/What-changes-it pair", () => {
     const { container } = render(
-      <EmptyState kind="no-data" heading="No patients yet" explanation="Add the first patient to get started." />,
+      <ListEmptyState
+        kind="no-data"
+        heading="No patients yet"
+        explanation="Add the first patient to get started."
+      />,
     );
     expect(screen.getByText("No patients yet")).toBeInTheDocument();
     expect(screen.getByText("Add the first patient to get started.")).toBeInTheDocument();
@@ -17,13 +21,15 @@ describe("EmptyState — no-data", () => {
   });
 
   it("renders no action when none is given", () => {
-    const { container } = render(<EmptyState kind="no-data" heading="No patients yet" explanation="Nothing here." />);
+    const { container } = render(
+      <ListEmptyState kind="no-data" heading="No patients yet" explanation="Nothing here." />,
+    );
     expect(container.querySelector("a, button")).toBeNull();
   });
 
   it("renders the given action, and it is genuinely actionable", () => {
     render(
-      <EmptyState
+      <ListEmptyState
         kind="no-data"
         heading="No patients yet"
         explanation="Add the first patient to get started."
@@ -33,15 +39,21 @@ describe("EmptyState — no-data", () => {
     const action = screen.getByRole("link", { name: "Add a patient" });
     expect(action).toHaveAttribute("href", "/caring-contacts/patients/new");
   });
+
+  it("names the whole state with a role=group, the same way automated-state.tsx does", () => {
+    render(<ListEmptyState kind="no-data" heading="No patients yet" explanation="Nothing here." />);
+    const region = screen.getByRole("group", { name: "No patients yet" });
+    expect(region).toHaveTextContent("Nothing here.");
+  });
 });
 
-describe("EmptyState — filtered", () => {
+describe("ListEmptyState — filtered", () => {
   it("renders both the reason and the remedy in the page, never in a title alone", () => {
     // Mirrors how tests/caring-contacts-explained-automation.dom.test.tsx proves
     // AutomatedState's reason and remedy are not tooltip-only: nothing here may
     // be reachable only by hovering a `title`.
     const { container } = render(
-      <EmptyState
+      <ListEmptyState
         kind="filtered"
         heading="No patients match"
         because="The status filter is set to Discharged this week."
@@ -65,11 +77,11 @@ describe("EmptyState — filtered", () => {
     // call left to whoever writes the next list screen.
     const omittedBecause = (
       // @ts-expect-error "filtered" requires `because` — it cannot be left out.
-      <EmptyState kind="filtered" heading="No patients match" changedBy="Clear the status filter." />
+      <ListEmptyState kind="filtered" heading="No patients match" changedBy="Clear the status filter." />
     );
     const omittedChangedBy = (
       // @ts-expect-error "filtered" requires `changedBy` — it cannot be left out.
-      <EmptyState kind="filtered" heading="No patients match" because="The status filter hides everyone." />
+      <ListEmptyState kind="filtered" heading="No patients match" because="The status filter hides everyone." />
     );
     expect(omittedBecause).toBeTruthy();
     expect(omittedChangedBy).toBeTruthy();
@@ -77,7 +89,7 @@ describe("EmptyState — filtered", () => {
 
   it("renders the given action, and it is genuinely actionable", () => {
     render(
-      <EmptyState
+      <ListEmptyState
         kind="filtered"
         heading="No patients match"
         because="The status filter is set to Discharged this week."
@@ -88,13 +100,31 @@ describe("EmptyState — filtered", () => {
     const action = screen.getByRole("link", { name: "Clear filter" });
     expect(action).toHaveAttribute("href", "/caring-contacts/patients");
   });
+
+  it("groups the heading, the reason and the remedy under one role=group named by the heading", () => {
+    // Ruling 81 forbade rendering AutomatedState, not reusing the accessible
+    // structure that makes AutomatedState's reason and remedy reachable
+    // together: a screen reader that reaches this named group finds "Why:"
+    // and "What changes it:" without hunting elsewhere on the page.
+    render(
+      <ListEmptyState
+        kind="filtered"
+        heading="No patients match"
+        because="The status filter is set to Discharged this week."
+        changedBy="Clear the status filter to see the rest of the caseload."
+      />,
+    );
+    const region = screen.getByRole("group", { name: "No patients match" });
+    expect(region).toHaveTextContent("The status filter is set to Discharged this week.");
+    expect(region).toHaveTextContent("Clear the status filter to see the rest of the caseload.");
+  });
 });
 
-describe("EmptyState — rendering", () => {
+describe("ListEmptyState — rendering", () => {
   it("renders correctly inside a 320px-wide container", () => {
     const { container } = render(
       <div style={{ width: "320px" }}>
-        <EmptyState
+        <ListEmptyState
           kind="filtered"
           heading="No patients match"
           because="The status filter is set to Discharged this week, which happens to be a fairly long sentence."
@@ -118,14 +148,18 @@ describe("EmptyState — rendering", () => {
     // What this DOM test can and does prove is that the override class this
     // repo's forced-colors contract depends on is actually present in the
     // rendered markup, not merely written somewhere in the source.
-    const { container } = render(<EmptyState kind="no-data" heading="No patients yet" explanation="Nothing here." />);
+    const { container } = render(
+      <ListEmptyState kind="no-data" heading="No patients yet" explanation="Nothing here." />,
+    );
     const region = container.firstElementChild;
     expect(region).not.toBeNull();
     expect(region!.className).toContain("forced-colors:border-[CanvasText]");
   });
 
   it("never carries the state by colour alone: the icon is decorative and the words are the state", () => {
-    const { container } = render(<EmptyState kind="no-data" heading="No patients yet" explanation="Nothing here." />);
+    const { container } = render(
+      <ListEmptyState kind="no-data" heading="No patients yet" explanation="Nothing here." />,
+    );
     const icons = container.querySelectorAll("svg");
     expect(icons, "no-data renders no icon").toHaveLength(1);
     for (const icon of icons) {
