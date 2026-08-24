@@ -154,7 +154,7 @@ export function FactsheetsTopicsBrowse({
             <section key={category} aria-labelledby={headingId} data-testid={headingId} className="scroll-mt-20">
               <header className="mb-3 flex items-center gap-3">
                 <span
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl"
                   style={{ backgroundColor: theme.soft, color: theme.accent }}
                 >
                   {categoryGlyph(identity.icon, "h-5 w-5")}
