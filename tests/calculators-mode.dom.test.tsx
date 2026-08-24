@@ -70,27 +70,15 @@ describe("calculator mode routing", () => {
     expect(navigation.redirect).toHaveBeenLastCalledWith("/calculators/search?q=PHQ-9&run=1&mode=calculators");
   });
 
-  it("renders results only once a non-empty search is submitted", async () => {
+  it("renders the catalogue on an empty query and results when a search is submitted", async () => {
     navigation.redirect.mockClear();
-    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_REDIRECT");
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
+    const browse = await CalculatorsSearchRoute({ searchParams: Promise.resolve({}) });
+    expect(browse.type).toBe(CalculatorsSearchPage);
+    expect(browse.props.initialQuery).toBe("");
 
-    await expect(CalculatorsSearchRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) })).rejects.toThrow(
-      "NEXT_REDIRECT",
-    );
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/?mode=calculators");
-
-    await expect(
-      CalculatorsSearchRoute({
-        searchParams: Promise.resolve({
-          run: "1",
-          q: "  ",
-          focus: "1",
-          queryMode: "compare_guidance",
-        }),
-      }),
-    ).rejects.toThrow("NEXT_REDIRECT");
-    expect(navigation.redirect).toHaveBeenLastCalledWith("/?focus=1&queryMode=compare_guidance&mode=calculators");
+    const whitespace = await CalculatorsSearchRoute({ searchParams: Promise.resolve({ run: "1", q: "  " }) });
+    expect(whitespace.type).toBe(CalculatorsSearchPage);
+    expect(whitespace.props.initialQuery).toBe("");
 
     const results = await CalculatorsSearchRoute({
       searchParams: Promise.resolve({ run: "1", q: " depression " }),
@@ -130,6 +118,13 @@ describe("calculator mode routing", () => {
     expect(
       screen.getByText("Validated psychiatry scores with the indication, items, and next actions in one place."),
     ).toBeInTheDocument();
+
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveAttribute("aria-label", "Show all calculators");
+    expect(showAll).toHaveClass("min-h-tap");
+    expect(showAll).toHaveTextContent("Show all");
+    expect(screen.getByTestId("calculators-show-all-well")).toBeInTheDocument();
   });
 });
 
@@ -188,6 +183,17 @@ describe("calculator filter predicates", () => {
 });
 
 describe("calculator results surface", () => {
+  it("lists the catalogue and Show all chip when the query is empty", () => {
+    render(<CalculatorsSearchPage />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "All" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(`${calculators.length} calculators`);
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveAttribute("aria-label", "Show all calculators");
+    expect(showAll).toHaveClass("min-h-tap");
+  });
+
   it("uses the shared results band and filter sheet without a page-owned composer", async () => {
     const user = userEvent.setup();
     const { container } = render(<CalculatorsSearchPage initialQuery="depression" />);
@@ -195,6 +201,9 @@ describe("calculator results surface", () => {
     expect(screen.getByRole("heading", { level: 1, name: "depression" })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("2 calculators");
     expect(container.querySelector('[data-testid="calculators-phone-dock"]')).toBeNull();
+    const showAll = screen.getByTestId("calculators-show-all");
+    expect(showAll).toHaveAttribute("href", "/calculators/search");
+    expect(showAll).toHaveClass("min-h-tap");
 
     await user.click(screen.getByTestId("calculators-filter-trigger-phone"));
     const sheet = screen.getByTestId("calculators-filter-sheet");

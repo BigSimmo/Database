@@ -14,20 +14,31 @@ writing anything.
 
 ═══ WHERE THE WORK IS ═══
 Repository:  D:\Repos\Database            (remote: github.com/BigSimmo/Database)
-Branch:      claude/suicide-contact-mockup-b5aaa0  — PUSHED. origin holds it. That is the source of truth.
+Branch:      main. PHASE 2A HAS ALREADY MERGED. Verified 2026-08-24: the whole phase went in as
+             e4cbe8d3a, "Claude/suicide contact mockup b5aaa0 (#2279)", on 2026-08-23. Every
+             caring-contacts path on main matches the old branch tip cf03f99a4 except where later
+             main work is newer. The old feature branch claude/suicide-contact-mockup-b5aaa0 is
+             RETIRED — do not work on it, do not push it, do not resurrect it.
 
-THE BRANCH IS SHARED. It is not yours alone. On 2026-08-22 commit c3ef20c3f landed on it from a clone
-that is NOT on this machine (this repo's branch reflog never held it), while a session was mid-task.
-So: `git fetch` BEFORE every push, not after a rejection; never force-push it; and treat any full-suite
-result taken while another agent is editing as a hypothesis, not a result. A phantom failure and a
-phantom pass are equally possible — see "the phantom failures" in the build record.
+MEASUREMENT DISCIPLINE CARRIES OVER, AND MATTERS MORE ON main. The retired branch was shared: on
+2026-08-22 commit c3ef20c3f landed on it from a clone not on this machine, mid-task, and invented both
+a phantom failure and a phantom green. main is touched by many more sessions than that branch ever was.
+So: record the exact commit any full-suite or browser result was taken against, re-run a single file
+alone against a named commit before believing a failure, and treat green under concurrency as worth no
+more than red under concurrency. See "the phantom failures" in the build record.
 
-FIRST ACTION — make yourself a working copy. Do NOT assume one already exists:
+FIRST ACTION — make yourself a working copy off main. Do NOT assume one already exists:
     cd D:\Repos\Database
     git fetch origin
-    git worktree add D:\Worktrees\Database\<a-fresh-name> claude/suicide-contact-mockup-b5aaa0
-Then confirm you are where you think you are: `git rev-parse --abbrev-ref HEAD` must print
-claude/suicide-contact-mockup-b5aaa0.
+    git worktree add D:\Worktrees\Database\<a-fresh-name> -b claude/<your-task> origin/main
+Then confirm you are where you think you are: `git rev-parse --abbrev-ref HEAD` must print your new
+branch, and `git log --oneline -1` must show a commit at or after e4cbe8d3a.
+
+DEPENDENCIES ARE FREE IF A COMPLETE INSTALL EXISTS. `npm ci` is 15-58 minutes here, but every
+package-lock.json on this machine was byte-identical on 2026-08-24, so
+`node scripts/setup-codex-worktree.mjs` reused D:\Repos\Database's node_modules in seconds and
+reported "PASS: worktree dependencies match package-lock.json." Run that FIRST, before reaching for
+npm ci. Check with `--dry-run` if you want to see what it would do.
 
 WORKING DIRECTORIES ON THIS MACHINE DO NOT SURVIVE. On 2026-08-21 four were destroyed by another
 process — under .claude\worktrees\ AND under D:\Worktrees\, one of them holding this exact work, and
@@ -76,22 +87,37 @@ idempotency table. Rulings now run to 66.
 
 OPEN, in the order I would take them:
 
-  1. THE BROWSER GATE WAS RUNNING WHEN THE SESSION ENDED, and its result is unknown. Re-run it:
-         npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium
-     Redirect the whole log to a file; do NOT pipe it through `tail`, which destroys the per-failure
-     detail. NEVER invoke `npx playwright test` directly — the repo refuses it with an `Error:` line
-     and EXIT CODE 0, so it looks like a pass and ran nothing. Expect 33 tests.
-  2. TWO MUTATION PROOFS ARE UNRUN and are recorded as unrun, not as passed — the condensed bar's
-     pin assertion at 1440px, and its dark-mode colour assertion. Both were blocked on the browser
-     gate. Run them once (1) is green, or the bar's fix round is not closed.
-  3. THE SEVEN COPY ITEMS await the owner. Recommendations are already written and given to him.
+  1. DONE 2026-08-24 — THE BROWSER GATE IS GREEN ON main. `32 passed (55.5s)`, exit 0, no
+     ECONNRESET anywhere in a 341-line log. The one test that failed on 2026-08-23 —
+     `:822 pins the condensed bar under the header once the banner has gone at 1440px` — ran and
+     passed in 898ms. So the residual failure was load, not a defect, and the condensed bar's fix
+     round IS closed on that count. Two things made the earlier reading harder than it needed to be
+     and are worth keeping: Playwright reports a failure at the test's DECLARATION line, so
+     `:822` named the `test(...)` line and not the failing statement — the ECONNRESET was actually
+     in `arrangeServiceStop`'s setup POST at line 672, before any pin assertion ran, which is why a
+     transport error could never have been the pin being wrong. And `npm run test:e2e` is still the
+     only correct invocation: `npx playwright test` refuses with an `Error:` line and EXIT CODE 0,
+     so it reads as a pass having run nothing. Redirect the whole log to a file; never pipe a gate
+     through `tail`. Expect 32 tests, not 33.
+  2. DONE 2026-08-24 — BOTH MUTATION PROOFS RUN, and both discriminate. Pin (`top-full` -> `top-0`):
+     13 failed / 19 passed, failing at line 877 on `barBox.top` 64 -> 0 with the two preceding
+     assertions passing first, so the 1440px pin is REACHED. Dark colours (danger tokens -> fixed
+     literals): exactly 1 failed / 31 passed, at line 931, naming the injected literal — no
+     collateral at all. The condensed bar's fix round is CLOSED.
+     Read the build record's account of the near-miss before writing your own mutation proof: the
+     first colour mutation silently failed to apply and its gate reported `32 passed`, exit 0.
+  3. THE COPY DECISIONS await the owner. `docs/caring-contacts/copy-decisions-recommended.md`
+     (new, 2026-08-24) carries a recommendation, a reason and a cost-if-wrong for each. Note the
+     count: this prompt and the ledger both said SEVEN, but `copy-review.md` actually raises
+     THIRTEEN — nine clinical or policy, four pure engineering. The seven was an undercount.
+     Do not change patient-visible wording until he has answered.
   4. PHASE 2B has no plan yet. The owner's stated order: patients and their plans -> schedule and
      what's due -> message templates -> team, workload and coverage.
-  5. An `/issues capture` sweep has NOT been run. Deferred items currently survive only in the build
-     record: the accidental same-team serialisation; postgres-repository.ts at ~2,080 lines; four
-     bare foreign keys onto plans/contacts; the prohibited-language gate covering only the 24 overlay
-     rows; the frozen matrix's ambiguous "Recovery action only" wording; Ruling 60's 640-767px band;
-     `connection-unavailable` and `permission-unavailable` having no runtime caller.
+  5. DONE 2026-08-24 — the `/issues capture` sweep ran. All seven deferred items are now immutable
+     request files under `docs/outstanding-issues-inbox/`, so they no longer survive only in the
+     build record. They reach `docs/outstanding-issues.md` when someone runs
+     `npm run issues:reconcile` from a serialized fresh-base branch; until then they are queued,
+     not filed.
 
 THE AUTHORITIES, if the brief sends you there or a conflict arises
   - docs/superpowers/plans/2026-08-19-caring-contact-phase-2a-foundations.md
@@ -105,19 +131,16 @@ THE AUTHORITIES, if the brief sends you there or a conflict arises
        changes against most training data. Reading beats reasoning; more thinking does not repair a
        wrong prior.
 
-THE CODE TASK 11b TOUCHES — three files, all large; let a subagent read them
-  - tests/helpers/caring-contacts-repository-contract.ts   receives the moved tests — do this FIRST
-  - tests/caring-contacts-repository.test.ts               loses the moved tests
-  - src/lib/caring-contacts/db/postgres-repository.ts      the ~22 missing methods
-  Reference for intended behaviour (read as specification, do NOT copy its structure):
-  - src/lib/caring-contacts/in-memory-repository.ts
+THE STORAGE LAYER — Task 11b finished this; the map is here because Phase 2B extends it
   - src/lib/caring-contacts/repository.ts                  the interface: 38 methods
-  Also relevant:
-  - tests/caring-contacts-postgres-repository.test.ts      carries temporary scaffolding 11b removes
+  - src/lib/caring-contacts/in-memory-repository.ts        implements all 38
+  - src/lib/caring-contacts/db/postgres-repository.ts      implements all 38; ~2,080 lines
+  - tests/helpers/caring-contacts-repository-contract.ts   the SHARED contract BOTH stores run.
+                                                           New behaviour goes HERE, not in one store's
+                                                           own file, or the two stores drift.
   - tests/helpers/caring-contacts-postgres.ts              harness; CARING_CONTACTS_DATA_TABLES is a
                                                            hand-maintained truncation list every new
                                                            table must join
-  - tests/caring-contacts-retention.test.ts                the one known-red test; Ruling 26, Step 0b
 
 THE SEALED DOMAIN — src/lib/caring-contacts/ (27 modules). The store PERSISTS decisions; it must
 never re-derive a rule a module already owns, even if the answer matches today:
@@ -162,19 +185,20 @@ THE SCRATCH WORKSPACE — generated, never a source
        record instead. The original was git-ignored, was destroyed, and took the only copy of the
        session ledger with it. That is why it is now regenerable.
 
-═══ STATE — nothing is outstanding ═══
-Tasks 1-10 and Task 11a are COMPLETE and reviewed. Task 11a went through three fix rounds; Rulings
-27-34 are implemented and verified. The caring-contact database suite is at 96 passed, and its three
-newest tests are proven falsifiable by deliberate mutation, not merely green.
+═══ STATE — all 19 tasks built; NOTHING is knowingly red ═══
+Every Phase 2A task is complete and reviewed, both checkpoints passed, the final whole-branch review
+ran, and its findings were fixed through Ruling 65. Rulings run to 66.
 
-Two failures are EXPECTED and must NOT be "fixed" by weakening anything:
-  - `npm run typecheck` is RED on src/lib/caring-contacts/db/postgres-repository.ts. The interface
-    declares 38 methods, the in-memory store implements 38, Postgres implements 16 — a gap of 22.
-    Task 11b closes it, and restoring typecheck is the task's headline deliverable. Do NOT narrow the
-    interface and do NOT stub methods: a stub that satisfies the compiler while failing at runtime
-    turns a visible failure into a hidden one.
-  - `npm run test` has exactly one failure, tests/caring-contacts-retention.test.ts. Ruling 26
-    specifies the fix and it is Step 0b of your brief.
+THE TWO EXPECTED FAILURES THIS SECTION USED TO NAME ARE BOTH GONE, and neither was fixed by
+weakening anything — that matters, because a green tree reached by softening an assertion is worse
+than the red one it replaced:
+  - `npm run typecheck` was RED on db/postgres-repository.ts, a 22-method gap against the
+    38-method interface. Task 11b implemented all 22. Green.
+  - `npm run test` had exactly one failure, tests/caring-contacts-retention.test.ts. Ruling 26's
+    fix landed as Step 0b of Task 11b. Green, and the retention suite went 23 -> 24 tests.
+So a red typecheck or a red retention test is now a REGRESSION, not the documented baseline. If you
+meet one, do not reach for `SKIP_STATIC_GUARD=1` — that override existed only while the red above
+was expected.
 
 ═══ WHAT THIS IS ═══
 A suicide-prevention caring-contacts workspace: patients discharged from hospital receive a fixed
@@ -249,7 +273,11 @@ Sonnet 5 at medium-high for ordinary implementer work. Opus 5 at high for: migra
 security, Tasks 17-18 (the 24-overlay modality contract), anything displaying delivery or clinical
 state, and the final whole-branch review.
 
-═══ STOP AFTER Checkpoint 2. Do not start Task 12. ═══
+═══ WHERE TO STOP ═══
+Phase 2A is finished, so there is no task boundary left to stop at. Stop instead when the closing
+items above are done, and DO NOT begin building Phase 2B screens: 2B needs its own written plan and
+the owner's copy decisions first, and starting it early is how the wording gets settled by an
+implementer instead of by him.
 
 ═══ TELL ME AT THE END ═══
 What was built, what you decided on my behalf and what each costs if wrong, and anything you could not

@@ -52,11 +52,20 @@ export type GovernedMessageInput = {
   messageType: MessageType;
   /** The recipient's own mobile number, if known, so it can be checked for leakage into the text. */
   patientMobileNumber?: string;
+  /**
+   * Explicit, greppable acknowledgement that a reserved fictional contact detail (see
+   * message-rules.ts's `fictionalContactMarkerPattern`) in `text` is known to be synthetic.
+   * Ruling 79 (item A1, 2026-08-24): defaults to false/absent, which means the message is
+   * REFUSED whenever it matches that pattern. There is deliberately no way to silence the check
+   * other than passing this flag at the call site.
+   */
+  syntheticFictionalContactsAcknowledged?: boolean;
 };
 
 export type MessageValidationIssue =
   | { code: "exceeds-two-segments"; septets: number; segments: number }
   | { code: "prohibited-term"; term: string }
+  | { code: "fictional-contact-detail-present" }
   | { code: "first-message-missing-support-information" }
   | { code: "closing-message-missing-ending-statement" }
   | { code: "closing-message-missing-support-information" }
@@ -81,9 +90,20 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
 
   const lowerText = text.toLowerCase();
   for (const term of rules.prohibitedTerms) {
-    if (lowerText.includes(term.toLowerCase())) {
+    // B2: a term with a pattern override (today, only "lead") is matched by that pattern instead
+    // of plain substring inclusion. Every other term's behaviour is unchanged.
+    const override = rules.prohibitedTermPatternOverrides[term];
+    const matched = override ? override.test(text) : lowerText.includes(term.toLowerCase());
+    if (matched) {
       issues.push({ code: "prohibited-term", term });
     }
+  }
+
+  // Ruling 79 (item A1): always reported when the marker pattern matches, unless explicitly
+  // acknowledged at the call site. See message-rules.ts's `fictionalContactMarkerPattern` doc
+  // comment for why this is a pattern (label OR number) rather than a single string.
+  if (!input.syntheticFictionalContactsAcknowledged && rules.fictionalContactMarkerPattern.test(text)) {
+    issues.push({ code: "fictional-contact-detail-present" });
   }
 
   if (input.messageType === "first") {
@@ -116,4 +136,36 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
   }
 
   return issues.length === 0 ? { valid: true } : { valid: false, issues };
+}
+
+export type ClosingMessageBodyIssue = { code: "closing-message-body-not-authored" };
+
+export type ClosingMessageBodyResolution = { ok: true; body: string } | { ok: false; issue: ClosingMessageBodyIssue };
+
+/**
+ * Resolves the outgoing text for a `closing` contact (item A4, 2026-08-24).
+ *
+ * No closing message has ever been written -- final wording is a clinical decision the owner has
+ * deferred to a lived-experience representative, not an implementation gap. A plan reaching its
+ * end today has nothing to send, and the only acceptable response to that is a loud, identifiable
+ * refusal: never an empty string, never a silent fall-back to some other message's text, and never
+ * a silently skipped contact. This is the refusal only -- it drafts no closing-message wording of
+ * its own, deliberately, because an implementer doing so would be the exact failure this exists to
+ * prevent. This is distinct from `closing-message-missing-ending-statement`: that code means a body
+ * exists but is wrong; this one means no body exists to check at all.
+ *
+ * No existing seam resolves a contact's message body anywhere in this domain today (checked
+ * schedule.ts, simulation.ts, repository.ts, model.ts) -- `PlannedContact` carries a `messageType`
+ * but no body content, and nothing yet supplies one. This function is the mechanism a future
+ * sender must call once that seam is built; it is not itself wired into the schedule or the
+ * simulation driver, because doing so would require inventing where an authored closing body comes
+ * from, which is exactly the decision this task defers.
+ */
+export function resolveClosingContactMessageBody(
+  authoredClosingBody: string | undefined,
+): ClosingMessageBodyResolution {
+  if (!authoredClosingBody || authoredClosingBody.trim().length === 0) {
+    return { ok: false, issue: { code: "closing-message-body-not-authored" } };
+  }
+  return { ok: true, body: authoredClosingBody };
 }
