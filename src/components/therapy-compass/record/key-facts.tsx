@@ -6,6 +6,7 @@ import { useState } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 
+import { therapyBtn } from "../controls";
 import { ProseBlock } from "../prose";
 import type { Therapy } from "../data/types";
 import { therapyKeyFactCards, type TherapyKeyFactCard, type TherapyKeyFactId } from "./key-fact-cards";
@@ -68,7 +69,7 @@ function FactCard({ card, onOpen }: { card: TherapyKeyFactCard; onOpen?: () => v
         type="button"
         onClick={onOpen}
         aria-haspopup="dialog"
-        className="flex min-h-12 min-w-0 flex-1 flex-col rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className={cn(therapyBtn, "flex min-h-12 min-w-0 flex-1 flex-col rounded-md text-left")}
         aria-label={`${card.label}: ${card.face}. Open detail.`}
       >
         {header}
