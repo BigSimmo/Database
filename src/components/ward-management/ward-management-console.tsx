@@ -313,9 +313,15 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <h2>Legal and forms</h2>
             <p>{patient.legalStatus}</p>
             <p>
-              {patient.legalForm
-                ? legalFormReadinessLine(patient.legalForm)
-                : "No Mental Health Act transport form required"}
+              {/* Until 2026-08-24 the absent case here named the Mental Health Act and asserted
+                  that no transport form was needed — wrong twice over. It claimed what the Act
+                  demands of this patient, which this prototype cannot verify in either direction,
+                  and it named a transport instrument inside the legal panel, which reads
+                  `patient.legalForm`. It is also the DEFAULT rendering now that the clinician
+                  picks the form and the picker starts at none, so it was the most-shown legal
+                  claim on this route. Same wording as the readiness line 28 lines above: state
+                  what the record holds. */}
+              {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form recorded"}
             </p>
           </section>
         ) : null}

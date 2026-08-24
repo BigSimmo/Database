@@ -820,22 +820,47 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
 
   it("records provenance for every exported declaration in the model files that writes a number down", () => {
     const modelPath = `${WARD_DIR}/ward-model.ts`;
-    // Extended 2026-08-24 to `ward-legal-forms.ts`. The selectable-form list was declared in
-    // `ward-model.ts` first and had to move out of it (the ED-access-target quarantine in
-    // tests/ward-flow-single-source.test.ts fired, correctly), so the provenance scan follows the
-    // declarations rather than staying pointed at one filename and leaving a hole where a
-    // fabricated figure could be declared beside the forms it belongs to.
     const formsPath = `${WARD_DIR}/ward-legal-forms.ts`;
-    const allExported = [...exportedNamesInFile(modelPath), ...exportedNamesInFile(formsPath)];
-    const numericExported = [...exportedNamesInFile(modelPath, true), ...exportedNamesInFile(formsPath, true)];
+    const registerPath = "src/lib/form-register.ts";
 
-    // Non-vacuity for the extension: the second file really is being read, not silently skipped.
-    expect(exportedNamesInFile(formsPath), "exportedNamesInFile read nothing from ward-legal-forms.ts").toContain(
-      "SELECTABLE_LEGAL_FORMS",
-    );
-    // …and the list itself writes no number down, so it is not merely allowlisted into silence.
+    /**
+     * Every module that may hold Mental Health Act content reachable from the ward surfaces. The
+     * rule follows the DECLARATIONS, not a filename, and it has had to move twice:
+     *
+     *  - `ward-legal-forms.ts` was added when the selectable-form list left `ward-model.ts` (the
+     *    ED-access-target quarantine in tests/ward-flow-single-source.test.ts fired, correctly);
+     *  - `src/lib/form-register.ts` was added when the official-title register was split out of
+     *    `form-catalog.ts` so a client bundle could read a title without its JSON. That split put
+     *    a ward-reachable module holding Act content OUTSIDE `WARD_DIR`, where nothing scanned
+     *    it: `export const FORM_1A_REFERRAL_EXPIRY_MINUTES = 7 * 24 * 60;` appended there left
+     *    this file and ward-flow-single-source green at 18 passed.
+     *
+     * Titles are what the register legitimately holds. A numeric duration constant is not, and
+     * this is the check that says so. A new module of this kind belongs on this list on the day
+     * it is created.
+     */
+    const PROVENANCE_SCANNED_FILES = [modelPath, formsPath, registerPath];
+
+    const allExported = PROVENANCE_SCANNED_FILES.flatMap((path) => exportedNamesInFile(path));
+    const numericExported = PROVENANCE_SCANNED_FILES.flatMap((path) => exportedNamesInFile(path, true));
+
+    // Non-vacuity per file: each one is really being read, not silently skipped — a mistyped path
+    // would otherwise contribute nothing and this whole scan would narrow without failing.
+    for (const [path, sentinel] of [
+      [modelPath, "MOVEMENT_STAGES"],
+      [formsPath, "SELECTABLE_LEGAL_FORMS"],
+      [registerPath, "formTitleForCode"],
+    ] as const) {
+      expect(exportedNamesInFile(path), `exportedNamesInFile read nothing from ${path}`).toContain(sentinel);
+    }
+
+    // …and neither of the two non-numeric sentinels is itself flagged, so they are not merely
+    // allowlisted into silence.
     expect(exportedNamesInFile(formsPath, true), "SELECTABLE_LEGAL_FORMS writes a number down").not.toContain(
       "SELECTABLE_LEGAL_FORMS",
+    );
+    expect(exportedNamesInFile(registerPath, true), "formTitleForCode writes a number down").not.toContain(
+      "formTitleForCode",
     );
 
     // Non-vacuity 1: the AST really read the file, and really distinguishes declarations that
@@ -843,7 +868,6 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     // string arrays and must be excluded; the two numeric constants must be included. If the
     // containment rule ever matched nothing, the offender list below would be empty for the wrong
     // reason, and these assertions are what catch that.
-    expect(allExported, "exportedNamesInFile read nothing from ward-model.ts").toContain("MOVEMENT_STAGES");
     expect(numericExported, "MOVEMENT_STAGES is an array of strings").not.toContain("MOVEMENT_STAGES");
     expect(numericExported, "DECLINE_REASONS is an array of strings").not.toContain("DECLINE_REASONS");
     expect(numericExported).toContain("ED_ACCESS_TARGET_MINUTES");
@@ -1052,16 +1076,33 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     }
 
     // Fix wave 1, item 2 — the same overreach in a second place, and this one was on the DEFAULT
-    // path once the picker started defaulting to no form: three renderers printed "No legal form
+    // path once the picker started defaulting to no form: renderers printed "No legal form
     // required", which asserts what the Mental Health Act REQUIRES of this patient. "Recorded"
     // reports what the record holds, which is all this prototype can verify. Scanned across every
-    // ward file, not just the two renderers above, because the wording was duplicated in three.
+    // ward file, not just the renderers above, because the wording was duplicated across several.
+    //
+    // **BROADENED 2026-08-24, and the narrowness was itself the defect.** This matched the exact
+    // string `legal form required`: case-sensitive, and requiring the word "legal". Two surfaces
+    // stood while it read green — `ward-management-console.tsx`'s "No Mental Health Act transport
+    // form required" (28 lines below a line this same change had already fixed, on the production
+    // patient route, and the DEFAULT rendering for every referral raised with the picker left
+    // alone) and `officer-screen.tsx`'s `<dt>Legal form required</dt>`, whose value had been
+    // corrected to "No transport form recorded" while its own label still said "required".
+    // Lower-casing and dropping the "legal" requirement is what sees both.
+    //
+    // STATED LIMIT: unlike the two literal checks above, this is a RAW TEXT scan, so a comment
+    // that quotes the rejected wording trips it exactly as a live string would. That is the
+    // fail-safe direction — a false positive costs a rewording, a false negative shipped the
+    // claim — and it is why the comments at both fixed sites describe the old wording rather
+    // than quoting it. Do not "fix" this by matching AST string literals only: a JSX text node
+    // and a `<dt>` label are both claims, and the sibling deadline check above already shows how
+    // easily a literal-only scan misses one.
     const wardFilesScanned = scanWardFiles();
     expect(wardFilesScanned.length, "no ward file was scanned").toBeGreaterThan(0);
     const requiredOffenders = wardFilesScanned
-      .filter((file) => readFileSync(file.path, "utf8").includes("legal form required"))
+      .filter((file) => readFileSync(file.path, "utf8").toLowerCase().includes("form required"))
       .map((file) => file.path);
-    expect(requiredOffenders, "a ward surface claims a legal form is or is not REQUIRED").toEqual([]);
+    expect(requiredOffenders, "a ward surface claims a form is or is not REQUIRED").toEqual([]);
 
     // Non-vacuity: the replacement wording really is present, so the check above cannot pass by
     // the whole phrase having been deleted rather than corrected.

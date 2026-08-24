@@ -7,8 +7,10 @@ import { formTitleForCode } from "@/lib/form-register";
  * **Why this is its own module rather than part of `ward-model.ts`.** `ward-model.ts` declares
  * `ED_ACCESS_TARGET_MINUTES` — the departmental access target, a performance measure that has
  * already been mistaken for a legal deadline once. `tests/ward-flow-single-source.test.ts` keeps
- * the two quarantined: no file that spells out a `{code, label, kind}` legal-form literal may
- * also reference that constant. Declaring the list beside the constant tripped that guard, which
+ * the two quarantined: no file that spells out a `{code, kind}` legal-form literal may also
+ * reference that constant. (That predicate was `{code, label, kind}` until this same change
+ * deleted `LegalForm.label`; it was re-pointed to the two fields a populated form still carries,
+ * which matches a strict superset of what it did before.) Declaring the list beside the constant tripped that guard, which
  * was the guard doing its job, so the list moved rather than the guard being relaxed.
  */
 

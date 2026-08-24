@@ -187,7 +187,12 @@ export function OfficerScreen() {
                       <dd>{destinationLabel}</dd>
                     </div>
                     <div className={styles.jobDetailRow}>
-                      <dt>Legal form required</dt>
+                      {/* Until 2026-08-24 this label asserted a legal requirement. Its VALUE was
+                          corrected to "No transport form recorded" in the same change that left
+                          the label behind — a field label is a claim too. This names the field the
+                          record holds (`TransportJob.formRequired`) and asserts nothing about what
+                          the Act demands. */}
+                      <dt>Transport form</dt>
                       <dd>{formRequiredLabel(transport)}</dd>
                     </div>
                     <div className={styles.jobDetailRow}>
