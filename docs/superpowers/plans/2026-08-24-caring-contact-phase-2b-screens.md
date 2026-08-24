@@ -97,7 +97,7 @@ each resolves **to the spec**:
 | #   | The mockup shows                                             | The spec requires                                             | Lands in         |
 | --- | ------------------------------------------------------------ | ------------------------------------------------------------- | ---------------- |
 | 1   | The old first-contact-date control                           | §2.3 — the coordinator sets the first contact date            | Group 1, Task 6  |
-| 2   | "replies are not received, stored, analysed or monitored"    | §2.1 — the automated non-monitored response copy               | Group 3, Task 11 |
+| 2   | "replies are not received, stored, analysed or monitored"    | §2.1 — the automated non-monitored response copy               | Group 3, Task 16 |
 | 3   | No distinct closing message type at month 12                 | §2.2 — the pathway ends with a closing message                 | Groups 1 and 2   |
 | 4   | Ten sendable contacts                                        | Phase 1 decision 1 — **nine** sendable contacts                | Groups 1 and 2   |
 
@@ -227,6 +227,30 @@ src/components/caring-contacts/workspace/
   overlay-trigger.tsx              NEW  Group 0
   patients/…  schedule/…  templates/…  team/…    NEW per group
 ```
+
+---
+
+## Task C — The owner's approved copy changes (batched, ahead of Group 0)
+
+Approved 2026-08-24; see `docs/caring-contacts/copy-decisions-recommended.md` for each item's
+reasoning. Six edits, two modules, one dispatch (Ruling 76). **Every change cites its item number and
+carries its own covering test.**
+
+| Item | Change                                                                                   | Module              |
+| ---- | ---------------------------------------------------------------------------------------- | ------------------- |
+| A1   | Refuse any governed message whose text still contains "Fictional"                        | `message-policy.ts` |
+| A2   | Narrow the storage promise in the automated reply to who is not reading                   | `message-copy.ts`   |
+| A3   | Say nobody reads it AND that something automatic comes back                               | `message-copy.ts`   |
+| A4   | Refuse loudly when a final message is required but has no body — **refusal only, no wording** | `message-policy.ts` |
+| B2   | Narrow the "lead" prohibition to the commercial sense                                     | `message-policy.ts` |
+| B3   | Extend the prohibited-word scan to interface strings                                      | new static test     |
+
+**A9 is deliberately NOT in this task** — approved in principle, blocked on a real crisis number
+existing. See Ruling 77. Do not add Lifeline by deleting some other sentence.
+
+**The length ceiling is the trap here.** Message A is 252 characters — two SMS segments, roughly nine
+characters from rejection. A2 and A3 both change the reply message (Message B, 218 characters), which
+has more room, but any edit must re-run the segment count and assert it, not assume it.
 
 ---
 
