@@ -69,10 +69,13 @@ const NOW_ANCHOR_ALLOWLIST = new Set([
  *   - `ward-movements.ts` (the movement fixture) calls `allUnits()` to build its own synthetic
  *     unit-name lookups at module load — a fixture-to-fixture read at data-authoring time, never
  *     a live surface a user's screen renders from.
- *   - `ward-flow-reducer.ts`'s `seedWardFlowState` calls `structuredClone(allUnits())` exactly
- *     once — the single legitimate place the reducer's live `state.units` is ever initialised
- *     FROM the frozen fixture. Every later read of unit state anywhere in the app must come from
- *     that live `state.units` (via the provider's `units`), never from `ward-sites.ts` again.
+ *   - `ward-scenarios.ts`'s `scenarioUnits` calls `structuredClone(allUnits())` exactly once —
+ *     the single legitimate place ANY live state is ever initialised FROM the frozen fixture, for
+ *     either scenario. Ward Flow Phase 4 Task 1 moved this read here from `ward-flow-reducer.ts`:
+ *     `seedWardFlowState` no longer touches `allUnits()` itself, it calls `scenarioUnits(scenario)`,
+ *     so `ward-flow-reducer.ts` has left this list and `ward-scenarios.ts` has taken its place.
+ *     Every later read of unit state anywhere in the app must come from that live `state.units`
+ *     (via the provider's `units`), never from `ward-sites.ts` again.
  * `ward-derivations.ts` is no longer on this list (final-fix-wave R70): its own explicitly
  * deprecated `eligibleCandidates(movement, now, limit)` wrapper — kept only because
  * `tests/ward-flow-contracts.test.ts` called it with the pre-fix three-argument shape while a
@@ -88,7 +91,7 @@ const NOW_ANCHOR_ALLOWLIST = new Set([
 const UNITS_FIXTURE_ALLOWLIST = new Set([
   "src/components/ward-management/ward-sites.ts",
   "src/components/ward-management/ward-movements.ts",
-  "src/components/ward-management/ward-flow-reducer.ts",
+  "src/components/ward-management/ward-scenarios.ts",
 ]);
 
 /**

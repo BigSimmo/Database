@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { formatInstant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { WARD_SCENARIOS, scenarioLabels } from "@/components/ward-management/ward-scenarios";
 
 import styles from "./ward-demo-controls.module.css";
 
@@ -37,7 +38,7 @@ import styles from "./ward-demo-controls.module.css";
  * `*BlockedReason` guard: raised with `role: "demo"`, the reducer can never refuse either.
  */
 export function WardDemoControls() {
-  const { now, dispatch } = useWardFlow();
+  const { now, scenario, dispatch } = useWardFlow();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -68,6 +69,10 @@ export function WardDemoControls() {
   function reset() {
     dispatch({ type: "RESET_SCENARIO", role: "demo", now });
     setOpen(false);
+  }
+
+  function selectScenario(next: (typeof WARD_SCENARIOS)[number]) {
+    dispatch({ type: "SET_SCENARIO", role: "demo", now, scenario: next });
   }
 
   return (
@@ -113,6 +118,21 @@ export function WardDemoControls() {
             >
               +1 hour
             </button>
+          </div>
+          <div className={styles.scenarioRow} role="group" aria-label="Demo scenario">
+            {WARD_SCENARIOS.map((candidate) => (
+              <button
+                type="button"
+                role="menuitem"
+                key={candidate}
+                data-testid={`ward-demo-scenario-${candidate}`}
+                className={styles.scenarioButton}
+                aria-pressed={scenario === candidate}
+                onClick={() => selectScenario(candidate)}
+              >
+                {scenarioLabels[candidate]}
+              </button>
+            ))}
           </div>
           <div className={styles.resetRow}>
             <button

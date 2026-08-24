@@ -18,6 +18,7 @@ import type { WardFlowEvent } from "@/components/ward-management/ward-flow-event
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
 import type { Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
 /**
  * The screens never see the raw reducer state or the clock's internal offsets — they see the
@@ -40,6 +41,10 @@ type WardFlowContextValue = {
   units: Unit[];
   rejections: Rejection[];
   now: Instant;
+  /** Which synthetic night is seeded — `ward-scenarios.ts`'s `WardScenario` — so a UI surface
+   *  (`ward-demo-controls.tsx`'s scenario switch) can mark the active one without guessing it
+   *  from `units` itself. */
+  scenario: WardScenario;
   dispatch: Dispatch<WardFlowEvent>;
   focusMovementId: string | undefined;
   setFocusMovementId: Dispatch<SetStateAction<string | undefined>>;
@@ -108,11 +113,12 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       units: state.units,
       rejections: state.rejections,
       now,
+      scenario: state.scenario,
       dispatch,
       focusMovementId,
       setFocusMovementId,
     }),
-    [state.movements, state.units, state.rejections, now, dispatch, focusMovementId],
+    [state.movements, state.units, state.rejections, now, state.scenario, dispatch, focusMovementId],
   );
 
   return <WardFlowContext.Provider value={value}>{children}</WardFlowContext.Provider>;

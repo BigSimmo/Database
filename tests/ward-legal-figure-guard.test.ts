@@ -12,6 +12,7 @@ import {
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import { DECLINE_REASONS, type LegalForm, type LegalStatus } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
+import { WARD_SCENARIOS } from "../src/components/ward-management/ward-scenarios";
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 /**
@@ -447,6 +448,10 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       return [{ type, role, now, minutes: 30 }];
     case "RESET_SCENARIO":
       return [{ type, role, now }];
+    case "SET_SCENARIO":
+      // Both scenarios, like RAISE_REFERRAL's real domain values above — not one hard-coded
+      // choice that would leave the other half of `WARD_SCENARIOS` untested.
+      return WARD_SCENARIOS.map((scenario) => ({ type, role, now, scenario }));
   }
 }
 
@@ -568,9 +573,10 @@ function driveEveryEventAgainst(
     const pivot = round % ALL_EVENT_TYPES.length;
     const order = [...ALL_EVENT_TYPES.slice(pivot), ...ALL_EVENT_TYPES.slice(0, pivot)];
     for (const type of order) {
-      // RESET_SCENARIO would discard the movement the sweep is building; it is exercised on its
-      // own below, where the invariant is checked against the reset state directly.
-      if (type === "RESET_SCENARIO") continue;
+      // RESET_SCENARIO and SET_SCENARIO would both discard the movement the sweep is building —
+      // seedWardFlowState() replaces `state.movements` wholesale either way. Both are exercised on
+      // their own below, where the invariant is checked against the resulting state directly.
+      if (type === "RESET_SCENARIO" || type === "SET_SCENARIO") continue;
       const result = applyFirstAccepted(type, state, now, code);
       if (!result) continue;
       accepted.add(type);
@@ -764,7 +770,7 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     // code-targetable, but must still be exercised and must still leave the invariant intact.
     for (const [code, accepted] of coverage) {
       const unscoped = ALL_EVENT_TYPES.filter(
-        (type) => !MOVEMENT_TARGETED_EVENTS.has(type) && type !== "RESET_SCENARIO",
+        (type) => !MOVEMENT_TARGETED_EVENTS.has(type) && type !== "RESET_SCENARIO" && type !== "SET_SCENARIO",
       );
       expect(
         unscoped.filter((type) => !accepted.has(type)),
@@ -777,6 +783,20 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
     const reset = applyFirstAccepted("RESET_SCENARIO", seedWardFlowState(), NOW_ANCHOR);
     expect(reset, "RESET_SCENARIO was never accepted").toBeDefined();
     offenders.push(...offendingFormsIn(reset!.applied, "RESET_SCENARIO"));
+
+    // SET_SCENARIO on its own, same reason as RESET_SCENARIO above — and against BOTH scenarios,
+    // since `candidateEvents` offers one candidate per entry in `WARD_SCENARIOS` and this loop must
+    // not silently exercise only the first one it is handed.
+    for (const scenario of WARD_SCENARIOS) {
+      const setScenario = wardFlowReducer(seedWardFlowState(), {
+        type: "SET_SCENARIO",
+        role: EVENT_ROLE.SET_SCENARIO,
+        now: NOW_ANCHOR,
+        scenario,
+      });
+      expect(setScenario.rejections, `SET_SCENARIO to ${scenario} was refused`).toEqual([]);
+      offenders.push(...offendingFormsIn(setScenario, `SET_SCENARIO(${scenario})`));
+    }
 
     expect(offenders).toEqual([]);
   });

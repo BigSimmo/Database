@@ -1,5 +1,6 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import type { Cohort, DeclineReason, LegalStatus, Security, Sex } from "@/components/ward-management/ward-model";
+import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
 /**
  * Who may raise an event. `demo` is the jump-forward / reset control on the coordinator screen —
@@ -85,7 +86,8 @@ export type WardFlowEvent =
       contact: string;
     }
   | { type: "ADVANCE_CLOCK"; role: WardFlowRole; now: Instant; minutes: number }
-  | { type: "RESET_SCENARIO"; role: WardFlowRole; now: Instant };
+  | { type: "RESET_SCENARIO"; role: WardFlowRole; now: Instant }
+  | { type: "SET_SCENARIO"; role: WardFlowRole; now: Instant; scenario: WardScenario };
 
 /**
  * One table, read by the reducer's role check, rather than a `switch` repeated at every call
@@ -107,4 +109,5 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], WardFlowRole> = {
   RECORD_ESCALATION: "coordinator",
   ADVANCE_CLOCK: "demo",
   RESET_SCENARIO: "demo",
+  SET_SCENARIO: "demo",
 };

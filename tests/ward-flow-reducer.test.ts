@@ -724,6 +724,44 @@ describe("demo controls", () => {
   });
 });
 
+describe("scenario selection", () => {
+  it("replaces the units with the scarce night's, leaving movement ids unchanged", () => {
+    const state = seeded();
+    expect(state.scenario).toBe("standard");
+    const standardMovementIds = state.movements.map((candidate) => candidate.id);
+
+    const next = wardFlowReducer(state, { type: "SET_SCENARIO", role: "demo", now: NOW, scenario: "scarce" });
+
+    expect(next.scenario).toBe("scarce");
+    expect(next.movements.map((candidate) => candidate.id)).toEqual(standardMovementIds);
+    // The scarce night's units are strictly tighter, not merely different — every unit's
+    // allocatable count moves to 0 or 1 and specialling capacity moves to 0 (`ward-scenarios.ts`).
+    expect(next.units.every((unit) => unit.allocatable.value <= 1 && unit.speciallingCapacity === 0)).toBe(true);
+    expect(next.units).not.toEqual(state.units);
+  });
+
+  it("refuses SET_SCENARIO raised by a role other than demo", () => {
+    const next = wardFlowReducer(seeded(), {
+      type: "SET_SCENARIO",
+      role: "ward",
+      now: NOW,
+      scenario: "scarce",
+    } as never);
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0].reason).toMatch(/role/i);
+    expect(next.scenario).toBe("standard");
+  });
+
+  it("returns to the standard night on RESET_SCENARIO after SET_SCENARIO — reset is never scenario-sticky", () => {
+    let state = seeded();
+    state = wardFlowReducer(state, { type: "SET_SCENARIO", role: "demo", now: NOW, scenario: "scarce" });
+    expect(state.scenario).toBe("scarce");
+
+    const reset = wardFlowReducer(state, { type: "RESET_SCENARIO", role: "demo", now: NOW });
+    expect(reset.scenario).toBe("standard");
+  });
+});
+
 describe("arrival capacity floor", () => {
   it("refuses an arrival once the unit's physically empty beds are exhausted", () => {
     // A ward can CONFIRM_CAPACITY an allocatable count above what is physically empty — nothing

@@ -3,7 +3,8 @@ import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
-import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
+import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 
 /**
  * Stages `REFER_TO_UNITS` accepts, exported so a UI surface can pre-check referability and gate
@@ -31,16 +32,24 @@ export type WardFlowState = {
   clockOffsetMinutes: number;
   /** Deterministic id source for referrals raised through RAISE_REFERRAL. No Math.random(). */
   referralSequence: number;
+  /** Which synthetic night is seeded — `ward-scenarios.ts`'s operational-numbers-only variants. */
+  scenario: WardScenario;
 };
 
-/** Deep-copies the frozen fixture so tests (and later, screens) never alias or mutate it. */
-export function seedWardFlowState(): WardFlowState {
+/**
+ * Deep-copies the frozen fixture so tests (and later, screens) never alias or mutate it.
+ * Defaults to the standard night so `RESET_SCENARIO` (which calls this with no argument) always
+ * returns to the standard night rather than staying on whichever scenario was active — an
+ * explicit product-owner decision, not an oversight.
+ */
+export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlowState {
   return {
     movements: structuredClone(wardMovements),
-    units: structuredClone(allUnits()),
+    units: scenarioUnits(scenario),
     rejections: [],
     clockOffsetMinutes: 0,
     referralSequence: 0,
+    scenario,
   };
 }
 
@@ -53,6 +62,7 @@ function subjectId(event: WardFlowEvent): string {
       return event.unitId;
     case "ADVANCE_CLOCK":
     case "RESET_SCENARIO":
+    case "SET_SCENARIO":
       return "none";
     default:
       return event.movementId;
@@ -115,6 +125,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
   switch (event.type) {
     case "RESET_SCENARIO":
       return seedWardFlowState();
+
+    case "SET_SCENARIO":
+      return seedWardFlowState(event.scenario);
 
     case "ADVANCE_CLOCK":
       return { ...state, clockOffsetMinutes: state.clockOffsetMinutes + event.minutes };
