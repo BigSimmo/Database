@@ -322,3 +322,40 @@ you what it looked at. Three times here I turned "X was not confirmed wired" or 
 difference" into "X does not exist", and each time the thing existed. **Before a brief says "build
 this", open the file and look.** The cost of not doing so is not a wasted task — it is a SECOND
 implementation of something that already works, sitting beside the first, both maintained.
+
+## Ruling 87 — Task 3 cannot ship a trigger without the commit contract
+
+Verified in the code before writing Task 3's brief, applying the lesson from Rulings 84-86.
+
+**What already exists:** `workspace-overlays.tsx` is already a Client Component, and
+`openWorkspaceOverlay(id)` is already exported and covered by DOM tests. It pushes
+`?overlay=<id>` onto history so Back closes the overlay. So Task 3 is NOT "build an overlay
+opening mechanism" — that is built. What is missing is a small client-side control a Server
+Component screen can render to call it.
+
+**What reading it also exposed, and this is the part that matters.** `WorkspaceOverlays`'
+`commit` callback currently **closes the overlay and records nothing**, with an honest comment
+saying so: the screens that raise these overlays and the stores their decisions are written to
+are later tasks, and "nothing in the workspace opens an overlay yet, so no control in the
+interface currently advertises an action this does not perform."
+
+**That last clause is load-bearing, and Task 3 is precisely what would break it.** The moment a
+screen can open an overlay, its confirm button becomes a control that advertises an action the
+system does not perform — which is exactly what this repository's button-wiring gate exists to
+forbid, and what the "Language and region" defect of 2026-07-21 was. The overlays are currently
+safe only because they are unreachable.
+
+Ruling: [87] Task 3 delivers the trigger **and** the commit contract together. The trigger
+component must **require** a commit handler from its caller — not default it to a no-op, and not
+accept an optional one. A screen must be unable to open an overlay it has not wired. Where an
+overlay's action genuinely is not built yet, the caller passes an explicit unavailable-state
+handler in the shape `unavailable-destination.tsx` already uses (`aria-disabled`, an inert
+handler, a stated reason), so the control still says what it is. — Why: splitting them would
+ship, for the length of one task, an interface whose confirm buttons do nothing — and a later
+task would have to find every one of them. Requiring the handler at the type level means the
+compiler finds them instead. — Cost if wrong: Task 3 is larger than the plan sized it, and the
+first screen to use it carries more wiring than "open a panel". That is the honest cost of the
+overlays being decision surfaces rather than dialogs.
+
+**The general shape, worth keeping:** a mechanism that is safe only because nothing reaches it is
+not safe, it is unreached. Before making something reachable, check what its arrival makes true.

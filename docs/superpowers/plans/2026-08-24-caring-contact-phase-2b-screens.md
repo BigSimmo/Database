@@ -267,10 +267,16 @@ the first list route's brief — a contract test pinning that **an empty list is
 array, never a 404**, because `auditedRead` maps a null release to `denied` / `not-found` and an empty
 array must never be mistaken for that.
 
-**Task 3 — The overlay trigger.** One component/hook that opens an overlay by id through the existing
-History-API mechanism in `workspace-overlays.tsx`, so a screen wires a control to an overlay without
-re-implementing deep-link handling. Contract test: a trigger for a nonexistent overlay id fails loudly
-rather than opening nothing.
+**Task 3 — The overlay trigger AND the commit contract (Ruling 87).** `openWorkspaceOverlay(id)`
+already exists, is exported, and is DOM-tested — this task does not rebuild it. It delivers the small
+Client Component a Server Component screen renders to call it, **and** the commit contract, together.
+The trigger must **require** a commit handler, never default it to a no-op: `WorkspaceOverlays`'
+`commit` currently closes and records nothing, which is safe only while no screen can open an overlay.
+Making them reachable without that requirement would ship confirm buttons that advertise an action the
+system does not perform — the exact defect the button-wiring gate forbids. Where an action genuinely is
+not built, the caller passes an explicit unavailable handler in `unavailable-destination.tsx`'s shape.
+Contract tests: a trigger for a nonexistent overlay id fails loudly; a screen cannot compile if it
+opens an overlay without supplying a commit handler.
 
 **Task 4 — The Patients destination becomes real.** `shell.tsx` gains the `href`, the route file exists
 and renders the empty state, `npm run sitemap:update` runs, `docs/codebase-index.md` gains its entry,
