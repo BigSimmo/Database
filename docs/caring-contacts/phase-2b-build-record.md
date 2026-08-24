@@ -99,4 +99,24 @@ and survive the worktree itself.
 
 ---
 
+**Ruling [79] — A1 is implemented as an acknowledged validator issue, not as a prohibited term.**
+— Why: the owner approved "refuse any message still containing the word Fictional", but BOTH approved
+patient messages contain `Fictional Support Line` today, so adding it to `prohibitedTerms` makes every
+existing message invalid and the check would have to be disabled to ship. A disabled check is worse
+than no check. Instead `validateGovernedMessage` gains a `fictional-contact-detail-present` issue and
+`GovernedMessageInput` gains an explicit `syntheticFictionalContactsAcknowledged` flag; the prototype's
+callers pass it, so the acknowledgement is greppable and attached to each call site. The day a real
+send path is built, someone must consciously pass a flag whose name says it is synthetic, or remove
+the fictional numbers. — Cost if wrong: more machinery than a one-line string check, and one more
+field on a widely used input type. The alternative was a check that could not coexist with the
+messages it guards.
+
+**Ruling [80] — A3's "something automatic comes back" goes ONLY in the reply message, not in the
+first message.** — Why: Message A measures 252 septets against a two-segment ceiling — about nine
+characters of headroom — and the addition does not fit. Message B has room and is where a patient who
+has just replied actually reads. Measured with the repository's own `calculateGsm7`, not estimated:
+Message A 252, current Message B 218, proposed Message B **210**, all two segments and GSM-7 valid.
+— Cost if wrong: a patient reading only the first message is not told an automatic reply exists. They
+learn it the moment they reply, which is the only moment it matters.
+
 ## Task progress
