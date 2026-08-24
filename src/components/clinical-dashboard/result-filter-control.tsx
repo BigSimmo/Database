@@ -4,7 +4,7 @@ import { Check, ChevronDown, Funnel, Search, X } from "lucide-react";
 import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
-import { cn } from "@/components/ui-primitives";
+import { cn, searchShell } from "@/components/ui-primitives";
 
 /**
  * The phone filter idiom, shared.
@@ -1072,7 +1072,7 @@ export function ResultFilterSheet({
             <label htmlFor={findFieldId} className="sr-only">
               Find a filter
             </label>
-            <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]">
+            <div className={cn(searchShell, "min-w-0 bg-[color:var(--surface)] px-2.5")}>
               <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
               <input
                 id={findFieldId}
@@ -1081,7 +1081,7 @@ export function ResultFilterSheet({
                 onChange={(event) => setNeedle(event.target.value)}
                 placeholder="Find a filter…"
                 data-testid={`${testId}-find`}
-                className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-10"
+                className="search-shell-input min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-10"
               />
               {needle ? (
                 <button
