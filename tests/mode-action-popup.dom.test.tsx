@@ -13,6 +13,7 @@ import {
   modeActionItemsFor,
   type ModeActionModeOption,
 } from "@/components/clinical-dashboard/mode-action-popup";
+import { factsheetsTopicsHref } from "@/lib/app-modes";
 
 const modeOptions: ModeActionModeOption[] = [
   { id: "documents", label: "Documents", icon: Search },
@@ -231,6 +232,7 @@ describe("ModeActionPopup state transitions", () => {
       path.join(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
       "utf8",
     );
-    expect(source).toMatch(/if \(actionId === "factsheets-browse"\) \{\s*router\.push\("\/factsheets\/topics"\);/);
+    expect(factsheetsTopicsHref).toBe("/factsheets/topics");
+    expect(source).toMatch(/if \(actionId === "factsheets-browse"\) \{\s*router\.push\(factsheetsTopicsHref\);/);
   });
 });
