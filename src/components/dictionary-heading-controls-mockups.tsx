@@ -60,7 +60,14 @@ function usePageState({
   const termCount = searching ? (empty ? 0 : QUERY_TERMS) : TERM_COUNT;
   const abbrCount = searching ? (empty ? 0 : QUERY_ABBRS) : ABBR_COUNT;
   const count = scope === "abbr" ? abbrCount : termCount;
-  const noun = scope === "abbr" ? (count === 1 ? "abbreviation" : "abbreviations") : count === 1 ? "term" : "terms";
+  const noun =
+    scope === "abbr"
+      ? Number(count) === 1
+        ? "abbreviation"
+        : "abbreviations"
+      : Number(count) === 1
+        ? "term"
+        : "terms";
   return {
     scope,
     setScope,
