@@ -150,6 +150,10 @@ describe("ward movements", () => {
     }
   });
 
+  // A fifth expectation here used to require a legal form with a `dueAt` in the past — removed
+  // 2026-08-23, along with `NOW_ANCHOR`'s only use in this file, because no `LegalForm` in this
+  // model carries a `dueAt` any longer (see `LegalForm`'s own doc comment in ward-model.ts):
+  // that state is no longer one this fixture is meant to express.
   it("includes the states the old fixture could not express", () => {
     expect(wardMovements.some((movement) => movement.stage === "accepted_awaiting_bed")).toBe(true);
     expect(wardMovements.some((movement) => movement.declines.length >= 3)).toBe(true);

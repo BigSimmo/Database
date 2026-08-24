@@ -30,6 +30,7 @@ import {
   InlineNotice,
   panel,
   PanelHeading,
+  searchShellInput,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
@@ -1627,6 +1628,7 @@ export function DocumentViewer({
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
             }}
             className={cn(
+              "search-shell",
               glassOverlaySurface,
               "phone-footer-layer document-viewer-composer floating-composer-edge dashboard-composer-edge z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none sm:fixed",
               composerScrollHidden
@@ -1650,7 +1652,10 @@ export function DocumentViewer({
                 value={sourceSearch}
                 onChange={(event) => setSourceSearch(event.target.value)}
                 placeholder="Search within this document..."
-                className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)]"
+                className={cn(
+                  searchShellInput,
+                  "min-h-tap px-2 text-base font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)]",
+                )}
               />
             </label>
             <button

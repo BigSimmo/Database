@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { clockState } from "../src/components/ward-management/ward-clock";
 import {
   buildActionInbox,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   restrictionNotice,
   transportLeg,
 } from "../src/components/ward-management/ward-derivations";
@@ -240,8 +240,9 @@ describe("buildActionInbox", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  // Task 6A: WF-003 is a real fixture Form 3B, which now honestly carries no dueAt (the Mental
-  // Health Act imposes no post-examination deadline). It must never surface a "legal-WF-003"
+  // Task 6A: WF-003 is a real fixture Form 3B, which honestly carries no dueAt — the clinician,
+  // asked directly, settled that the post-examination clock is elapsed ED wait counting up, not a
+  // countdown, so this model records no deadline for a 3B. It must never surface a "legal-WF-003"
   // inbox item, however long it has been open — a form with no deadline is never breached.
   it("never lists a legal-timing item for a movement whose form has no dueAt", () => {
     const movement = wardMovements.find((candidate) => candidate.id === "WF-003");
@@ -253,11 +254,20 @@ describe("buildActionInbox", () => {
   });
 });
 
-describe("eligibleCandidates", () => {
-  it("evaluates candidates against the caller's live unit state", () => {
+describe("eligibleCandidatesAmong", () => {
+  /**
+   * R79, adopted from the diverged branch (`5ae4fbf43`) and adapted to this side's signature —
+   * theirs called `eligibleCandidates(movement, now, limit, units)`, which no longer exists here.
+   * Whole-branch review Critical 1 at unit level: this side proves the same property in Playwright
+   * (`ui-ward-roles.spec.ts`, "live capacity"), but a vitest assertion is sharper and cheaper, so
+   * both are kept. The mutation that kills it is reverting `eligibleCandidatesAmong` to read
+   * `allUnits()` internally — then the exhausted copy is never consulted and the second
+   * expectation reads `true`.
+   */
+  it("evaluates candidates against the caller's live unit state, not the frozen fixture", () => {
     const movement = wardMovements.find((candidate) => candidate.id === "WF-001")!;
     const liveUnits = allUnits();
-    const original = eligibleCandidates(movement, NOW_ANCHOR, Number.POSITIVE_INFINITY, liveUnits).find(
+    const original = eligibleCandidatesAmong(movement, liveUnits, NOW_ANCHOR, Number.POSITIVE_INFINITY).find(
       (candidate) => candidate.unit.id === "rph-adult-secure",
     );
     expect(original?.verdict.eligible).toBe(true);
@@ -265,7 +275,7 @@ describe("eligibleCandidates", () => {
     const exhaustedUnits = liveUnits.map((unit) =>
       unit.id === "rph-adult-secure" ? { ...unit, allocatable: { ...unit.allocatable, value: 0 } } : unit,
     );
-    const exhausted = eligibleCandidates(movement, NOW_ANCHOR, Number.POSITIVE_INFINITY, exhaustedUnits).find(
+    const exhausted = eligibleCandidatesAmong(movement, exhaustedUnits, NOW_ANCHOR, Number.POSITIVE_INFINITY).find(
       (candidate) => candidate.unit.id === "rph-adult-secure",
     );
     expect(exhausted?.verdict.eligible).toBe(false);
@@ -280,7 +290,7 @@ describe("eligibleCandidates", () => {
   // version (reorder-then-truncate) turns this red — see the task report for the captured output.
   //
   // The "expected" set below is deliberately reimplemented from `allUnits()`/`eligibility()`
-  // directly, never derived by calling `eligibleCandidates(..., Infinity)` — an Infinity call
+  // directly, never derived by calling `eligibleCandidatesAmong(..., Infinity)` — an Infinity call
   // still runs the function's OWN second (restriction-reorder) pass over the whole cohort, which
   // would make the oracle circular: re-sorting that already-reordered array by eligibility alone
   // does not recover the raw `allUnits()`-order tie-break, so slicing it would silently compare
@@ -298,7 +308,7 @@ describe("eligibleCandidates", () => {
         .sort((a, b) => Number(b.verdict.eligible) - Number(a.verdict.eligible))
         .slice(0, CAP);
 
-      const capped = eligibleCandidates(movement, NOW_ANCHOR, CAP);
+      const capped = eligibleCandidatesAmong(movement, allUnits(), NOW_ANCHOR, CAP);
       const cappedIds = new Set(capped.map((candidate) => candidate.unit.id));
       const expectedIds = new Set(eligibleFirstOnly.map((candidate) => candidate.unit.id));
       expect(cappedIds, `${movement.id}: top-${CAP} membership must match the eligible-first cut`).toEqual(expectedIds);

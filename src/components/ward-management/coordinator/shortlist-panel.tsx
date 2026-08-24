@@ -8,7 +8,7 @@ import {
   candidateReason,
   destinationUnit,
   elapsedLabel,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   referralBlockedReason,
   restrictionNotice,
   unitCapacity,
@@ -16,9 +16,8 @@ import {
 import { eligibility, type GateResult } from "@/components/ward-management/ward-eligibility";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
-import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { operationalScore } from "@/components/ward-management/ward-priority";
-import { allEmergencyDepartments, unitById } from "@/components/ward-management/ward-sites";
+import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import styles from "./coordinator.module.css";
@@ -26,6 +25,7 @@ import styles from "./coordinator.module.css";
 type ShortlistPanelProps = {
   movement: Movement | undefined;
   now: Instant;
+  units: Unit[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
   dispatch: Dispatch<WardFlowEvent>;
@@ -102,11 +102,10 @@ function legalFormLine(movement: Movement, now: Instant) {
  * driven by something other than the gate's own `pass` boolean. Every icon below reads directly
  * off `gate.pass`; nothing else is permitted to decide it (see the report's red/green proof).
  */
-export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
-  const { units } = useWardFlow();
+export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
   const shortlist = useMemo(
-    () => (movement ? eligibleCandidates(movement, now, PARALLEL_REFERRAL_CAP, units) : []),
-    [movement, now, units],
+    () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
+    [movement, units, now],
   );
 
   // The unit whose gates this panel currently explains. A selection carried over from another
@@ -118,10 +117,14 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   //
   // Whole-branch review Critical 2: this default is ORIENTATION ONLY. It may never be the thing
   // Refer acts on — see `canRefer` below.
+  //
+  // Whole-branch review Critical 1: resolved from the live `units` the provider hands back —
+  // never `unitById`, which reads the frozen fixture and would still call this ward "Eligible
+  // now" after it confirmed zero allocatable beds on its own screen.
   const activeUnit = useMemo(() => {
-    if (selectedUnitId) return unitById(selectedUnitId);
+    if (selectedUnitId) return units.find((unit) => unit.id === selectedUnitId);
     return shortlist[0]?.unit;
-  }, [selectedUnitId, shortlist]);
+  }, [selectedUnitId, shortlist, units]);
 
   const activeVerdict = useMemo(() => {
     if (!movement || !activeUnit) return undefined;
@@ -145,6 +148,11 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   // shown) — a coordinator can refer to up to three wards at once, but the diagram and the gate
   // list can only ever explain one at a time.
   const [referTargets, setReferTargets] = useState<string[]>([]);
+  // Whole-branch review I2 (spec §11): the escalation form's own open/typed-contact state — never
+  // the recorded fact itself, which lives on `movement.escalation` and is read fresh on every
+  // render, the same discipline `overrideSucceeded` already holds to for the override record.
+  const [escalationOpen, setEscalationOpen] = useState(false);
+  const [escalationContact, setEscalationContact] = useState("");
 
   // A confirmation, an open override form, or a referral selection all belong to the movement
   // they were made against — moving to a different movement must never leave a stale "Referred"
@@ -158,6 +166,8 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     setOverrideOpen(false);
     setOverrideReason("");
     setReferTargets([]);
+    setEscalationOpen(false);
+    setEscalationContact("");
   }
 
   if (!movement) {
@@ -167,9 +177,10 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   }
 
   // TypeScript's narrowing of `movement` above does not reach into the `handleRefer` /
-  // `handleOverrideSubmit` closures defined further down, so this plain string is what they
-  // close over instead of re-checking `movement` themselves.
+  // `handleOverrideSubmit` / `submitEscalation` closures defined further down, so these plain
+  // values are what they close over instead of re-checking `movement` themselves.
   const movementId = movement.id;
+  const declinedUnitIds = movement.declines.map((decline) => decline.unitId);
 
   const originEd = allEmergencyDepartments().find((ed) => ed.id === movement.originEdId);
   // Neutral "currently at" language, never framed as an authorisation requirement — authorisation
@@ -178,8 +189,11 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     ? `Currently at ${originEd.siteCode} — ${originEd.name}`
     : "Currently at an unresolved department";
 
-  // A form with no `dueAt` (Task 6A: a Form 3B honestly carries none) is never breached —
-  // `undefined` must never reach `clockState`'s arithmetic.
+  // A form with no `dueAt` is never breached — `undefined` must never reach `clockState`'s
+  // arithmetic. As of the 2026-08-23 product-owner correction, neither a Form 1A nor a Form 3B
+  // carries one any longer (Task 6A first established this for 3B; see `LegalForm`'s doc
+  // comment in ward-model.ts) — only the transport/transfer forms (4A/4C) still do, and none of
+  // those are due in the past on today's fixture, so `legalBreached` is false today.
   const legalDueAt = movement.legalForm?.dueAt;
   const legalBreached = legalDueAt !== undefined && clockState(legalDueAt, now) === "breached";
 
@@ -192,9 +206,9 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
   // one — is offered instead, and only ever labelled "Suggested destination": a computed
   // suggestion must never sit unlabelled in the destination slot, and an ineligible candidate must
   // never be presented as a suggestion at all (review Important 3).
-  const acceptedUnit = movement.acceptedUnitId ? unitById(movement.acceptedUnitId) : undefined;
-  const referredUnits = movement.referredUnitIds.map((id) => ({ id, unit: unitById(id) }));
-  const recordedDestination = destinationUnit(movement);
+  const acceptedUnit = movement.acceptedUnitId ? units.find((unit) => unit.id === movement.acceptedUnitId) : undefined;
+  const referredUnits = movement.referredUnitIds.map((id) => ({ id, unit: units.find((unit) => unit.id === id) }));
+  const recordedDestination = destinationUnit(movement, units);
   const hasRecordedReferral =
     recordedDestination !== undefined || Boolean(movement.acceptedUnitId) || movement.referredUnitIds.length > 0;
   const topEligible = shortlist.find((candidate) => candidate.verdict.eligible);
@@ -278,6 +292,38 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     setOverrideReason("");
   }
 
+  /**
+   * Whole-branch review I2 (spec §11). `RECORD_ESCALATION`'s own reducer branch
+   * (`ward-flow-reducer.ts`) carries no precondition beyond the role check — it stamps
+   * `escalation` on any movement that resolves — so unlike Refer/Override this control never
+   * needs a `*BlockedReason` guard: nothing here can be refused. `triedUnitIds` is never typed by
+   * a human — it is `movement.declines`, the units genuinely referred to and declined, exactly
+   * what the "Declines" section immediately above already renders (each with its own real reason
+   * — the shortlist's own "what was tried, why each failed"). Deliberately NOT the panel's
+   * `shortlist` candidate list: that is capped at `PARALLEL_REFERRAL_CAP` and is a theoretical
+   * eligibility scan, not a record of what was actually attempted — using it would let a
+   * genuinely untried unit (never referred, only eligibility-checked) be named as "tried".
+   * WF-009's own pre-authored fixture escalation (`ward-movements.ts`) uses exactly this shape:
+   * its five `triedUnitIds` are its five `declines`, unit for unit. Only `contact` (a role or
+   * service, never a person — synthetic data only, the same rule every other free-text field in
+   * this prototype follows) is typed.
+   */
+  function submitEscalation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const contact = escalationContact.trim();
+    if (contact.length === 0) return;
+    dispatch({
+      type: "RECORD_ESCALATION",
+      role: "coordinator",
+      now,
+      movementId,
+      triedUnitIds: declinedUnitIds,
+      contact,
+    });
+    setEscalationOpen(false);
+    setEscalationContact("");
+  }
+
   // Structurally incapable of claiming an override succeeded when it did not: this checks the
   // movement's OWN post-dispatch `referredUnitIds` — read fresh on every render from the live
   // provider — not a flag captured once at click time. Override is not stage-gated (see the
@@ -290,7 +336,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
     overrideRecord.unitIds.length > 0 &&
     overrideRecord.unitIds.every((id) => movement.referredUnitIds.includes(id));
   const overrideRecordUnits = overrideRecord
-    ? overrideRecord.unitIds.map((id) => unitById(id)?.name ?? "an unresolved unit")
+    ? overrideRecord.unitIds.map((id) => units.find((unit) => unit.id === id)?.name ?? "an unresolved unit")
     : [];
 
   return (
@@ -323,14 +369,17 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
                 to PARALLEL_REFERRAL_CAP live referrals at once, and each is a fact a coordinator
                 acts on (review Minor 6: a hidden parallel referral is exactly the trust failure
                 the cap and this record exist to prevent). "Parallel referral" is the label Task
-                5's Refer action uses everywhere this fact is surfaced. */}
+                5's Refer action uses everywhere this fact is surfaced. Whole-branch review M3:
+                `data-testid` here (never present before) is what lets a test assert the real
+                COUNT of these badges — the journey's own "Three live referrals" comment used to
+                sit over an assertion one badge alone could satisfy. */}
             {referredUnits.map(({ id, unit }) =>
               unit ? (
-                <span key={id} className={styles.shortlistReferredBadge}>
+                <span key={id} data-testid="ward-shortlist-referred-badge" className={styles.shortlistReferredBadge}>
                   Parallel referral: {unit.name}
                 </span>
               ) : (
-                <span key={id} className={styles.shortlistUnresolvedBadge}>
+                <span key={id} data-testid="ward-shortlist-referred-badge" className={styles.shortlistUnresolvedBadge}>
                   Parallel referral to an unresolved unit.
                 </span>
               ),
@@ -369,8 +418,9 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
       <section aria-label="Candidate units">
         {/* Whole-branch review Critical 1: this list was headed "Nearest candidates", a proximity
             claim the model cannot support — `Unit` has no distance, geo, locality or catchment
-            field, and `eligibleCandidates` filters on cohort and sorts eligible-first, breaking
-            ties on `allUnits()` array order. WF-018, sitting in SCGH's own emergency department,
+            field, and `eligibleCandidatesAmong` filters on cohort and sorts eligible-first,
+            breaking ties on the live `units` array's own order. WF-018, sitting in SCGH's own
+            emergency department,
             was shown RPH Older Adult above SCGH Older Adult under that heading. The subtitle
             states the real ordering rather than leaving the reader to assume one. */}
         <h4 className={styles.shortlistSectionHeading}>Candidates</h4>
@@ -502,7 +552,7 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
         ) : (
           <ul className={styles.shortlistDeclineList}>
             {movement.declines.map((decline, index) => {
-              const unit = unitById(decline.unitId);
+              const unit = units.find((candidate) => candidate.id === decline.unitId);
               return (
                 <li
                   key={`${decline.unitId}-${index}`}
@@ -520,6 +570,66 @@ export function ShortlistPanel({ movement, now, selectedUnitId, onSelectUnit, di
             })}
           </ul>
         )}
+      </section>
+
+      {/* Whole-branch review I2 (spec §11): moved into Phase 3 from Phase 4 on the reasoning
+          that "a phase that only proves the loop which succeeds has not proved the loop." The
+          shortlist above already renders what was tried (every candidate row) and why each
+          failed (`candidateReason` on each one); this section adds the two facts nothing else on
+          screen records: that the network really was exhausted, stamped on the movement, and who
+          is being contacted next. Rendered whenever a recorded escalation exists (a persistent
+          fact, never a toast), and the control to record a new one only while there genuinely is
+          no eligible destination — the same `topEligible === undefined` condition the header
+          above already uses for "No eligible destination found yet." */}
+      <section aria-label="Escalation">
+        <h4 className={styles.shortlistSectionHeading}>Escalation</h4>
+        {movement.escalation ? (
+          <p className={styles.shortlistEscalationRecord} data-testid="ward-shortlist-escalation-record">
+            {`Escalated at ${formatInstant(movement.escalation.at)} — tried ${movement.escalation.triedUnitIds.length} unit${movement.escalation.triedUnitIds.length === 1 ? "" : "s"} — contact: "${movement.escalation.contact}".`}
+          </p>
+        ) : null}
+        {topEligible === undefined ? (
+          <>
+            {!movement.escalation ? (
+              <p className={styles.shortlistSectionNote}>
+                No eligible destination is currently available for {movement.id}. Record what was tried and who is being
+                contacted next.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              data-testid="ward-shortlist-escalation-toggle"
+              aria-expanded={escalationOpen}
+              className={styles.shortlistOverrideButton}
+              onClick={() => setEscalationOpen((open) => !open)}
+            >
+              {movement.escalation ? "Update escalation" : "Record escalation"}
+            </button>
+            {escalationOpen ? (
+              <form className={styles.shortlistOverrideForm} onSubmit={submitEscalation}>
+                <label className={styles.shortlistOverrideLabel} htmlFor="ward-shortlist-escalation-contact">
+                  Role or service being contacted next — a role or service only, never a person&apos;s name (synthetic
+                  data only)
+                </label>
+                <textarea
+                  id="ward-shortlist-escalation-contact"
+                  required
+                  data-testid="ward-shortlist-escalation-contact"
+                  className={styles.shortlistOverrideTextarea}
+                  value={escalationContact}
+                  onChange={(event) => setEscalationContact(event.target.value)}
+                />
+                <button
+                  type="submit"
+                  data-testid="ward-shortlist-escalation-submit"
+                  className={styles.shortlistOverrideSubmit}
+                >
+                  Record escalation
+                </button>
+              </form>
+            ) : null}
+          </>
+        ) : null}
       </section>
 
       <details className={styles.shortlistScoreDetails}>

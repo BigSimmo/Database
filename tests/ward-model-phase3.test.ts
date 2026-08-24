@@ -77,6 +77,15 @@ describe("Phase 3 model additions", () => {
     // inspects and assert there is a real, non-trivial number of them — so a future edit that
     // empties withdrawnReferrals/escalation back out of the fixture turns this test red
     // instead of leaving it vacuously green.
+    //
+    // Was `toBeGreaterThanOrEqual(3)` — the whole-branch review's fix for C2/I6
+    // (`ward-movements.ts`'s WF-018) removed a `withdrawnReferrals` entry that named a referral
+    // never actually raised (`ACCEPT_IN_PRINCIPLE` is the only reducer branch that ever writes
+    // `withdrawnReferrals`, and WF-018 had no `acceptedUnitId` to pair it with — see
+    // `tests/ward-flow-contracts.test.ts`'s new fixture-coherence invariants). The 3-count
+    // threshold happened to be calibrated against that phantom entry: today's honest count is 2
+    // (WF-006's real withdrawal plus WF-009's escalation contact) — still real and non-trivial,
+    // just one fewer than a threshold that was quietly propped up by a fabricated record.
     const inspected: string[] = [];
     for (const movement of wardMovements.filter(isOpen)) {
       for (const withdrawn of movement.withdrawnReferrals) {
@@ -86,7 +95,7 @@ describe("Phase 3 model additions", () => {
         inspected.push(movement.escalation.contact);
       }
     }
-    expect(inspected.length).toBeGreaterThanOrEqual(3);
+    expect(inspected.length).toBeGreaterThanOrEqual(2);
     for (const text of inspected) {
       expect(text).not.toMatch(forbidden);
     }
