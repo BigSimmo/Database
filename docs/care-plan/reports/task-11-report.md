@@ -348,6 +348,39 @@ derives eleven. Recorded for the whole-branch review.
 | `npx eslint <7 changed source and test files> --max-warnings 0` | Exit 0, no output                                                                                                                    |
 | `npx prettier --check` on every changed file                    | `All matched files use Prettier code style!`                                                                                         |
 | Browser suite, first run that acquired a lease                  | `3 failed` / `1 skipped` / `27 passed (2.0m)` — all three failures faults in the new assertions, none in the product                 |
+| Browser suite, second run                                       | `2 failed` / `1 skipped` / `28 passed (1.9m)` — both failures mine again, and one of them surfaced a real product finding            |
+
+### A new product finding: `confirmed Not recorded` on the clinician's card, and on paper
+
+Writing a Personal Safety Plan version through the interface and making it current — which
+no fixture does, because every fixture version is already `confirmed` — makes the Current
+Plan card read:
+
+> `Personal Safety Plan — Current version 2, confirmed Not recorded`
+
+`make-safety-plan-current` (`prototype-state.ts:1431`) sets `confirmedAt` **only** when
+`patientConfirmation === "confirmed"`. Every other confirmation state the product
+deliberately supports — discussed but not confirmed, declined, unavailable, none recorded —
+leaves it `null`, and four surfaces render `confirmed ${formatPerthDate(null)}`, which is
+`confirmed Not recorded`:
+
+- `management-plan-read.tsx:425` — the clinician's Current Plan card
+- `management-plan-review.tsx:105` — the approval comparison
+- `patient-workspace.tsx:107` — the patient overview
+- **`management-plan-print.tsx:137` — the printed clinician summary, which is paper**
+
+It is broken English and it is clinically ambiguous: a reader cannot tell "this person did
+not confirm it" from "it was confirmed and we lost the date". The reducer knows the
+difference — `patientConfirmation` carries it — and the summary line throws it away. It is
+the same family as `My reasons for living — Not recorded`, one surface along, and it only
+appears once somebody writes a version in a session, which is what a demonstration does.
+
+**Reported, not fixed.** Decision D1 in the ledger — a recorded **user** decision, not a
+ruling — gives the safety-plan confirmation timestamp its own task after Task 11, and this
+is the exact line that task rewrites. Fixing it here would do that task's work in the wrong
+round and would foreclose the choice the user has reserved. The browser journey therefore
+asserts the version linkage updates and deliberately does **not** assert the `confirmed …`
+text, so nothing here bakes the current wording in as acceptable.
 
 ### The three browser failures, and why none of them was a defect
 

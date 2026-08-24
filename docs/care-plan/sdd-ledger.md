@@ -1312,6 +1312,24 @@ because it double-announced against the focus move that fix depends on.
   this task that changes where focus containment lives, and with `css: false` no committed test
   can see its overlay, backdrop or focus trap.
 
+**Task 11 fix round 1** — found by driving the interface, recorded rather than fixed.
+
+- **`confirmed Not recorded` reaches the clinician's card and the printed summary.**
+  `make-safety-plan-current` (`prototype-state.ts:1431`) sets `confirmedAt` only when
+  `patientConfirmation === "confirmed"`, so every other supported state — discussed but not
+  confirmed, declined, unavailable, none recorded — leaves it `null`, and four surfaces render
+  `Current version N, confirmed Not recorded`: `management-plan-read.tsx:425`,
+  `management-plan-review.tsx:105`, `patient-workspace.tsx:107`, and — on paper —
+  `management-plan-print.tsx:137`. Broken English, and it cannot distinguish "this person did
+  not confirm it" from "confirmed, date lost", although `patientConfirmation` knows which. No
+  fixture reaches it; writing a version in a session does, which is what a demonstration does.
+  **Left for D1's task**, which rewrites this exact line and is the user's to direct. The Task 11
+  browser journey asserts the version linkage and deliberately does not assert this wording, so
+  nothing pins the current phrasing as acceptable.
+- **Returning a submitted version navigates the senior clinician to the draft form.** Correct
+  behaviour to record rather than a defect, but the person who just handed a version back is not
+  its author, and the destination is the authoring surface. Worth a design look.
+
 **Task 8** — recorded rather than fixed.
 
 - A failed print leaves **no trace at all** (Ruling 46). A later task should decide whether an
