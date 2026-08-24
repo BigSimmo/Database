@@ -120,3 +120,29 @@ Message A 252, current Message B 218, proposed Message B **210**, all two segmen
 learn it the moment they reply, which is the only moment it matters.
 
 ## Task progress
+
+Task C: dispatched (sonnet), base `ac87293f2`. Returned **DONE_WITH_CONCERNS** at `9a4cf055c`, seven
+commits. Full suite `Tests 2 failed | 9778 passed | 74 skipped (9854)`; typecheck and lint clean.
+
+**The two failures are NOT this diff, and I verified that myself rather than accepting the report.**
+They are `tests/gate-receipts.test.ts` > "gate receipts — file modes", both failing inside
+`chmodSync(..., 0o755)`. Run alone: `Tests 2 failed | 32 passed (34)`. The diff does not touch that
+file, touches nothing filesystem-related, and the failing group is specifically about **file modes** —
+which this workstation cannot represent, being a Windows ReFS Dev Drive with `core.fileMode=false`.
+Environmental, and now a known third local failure alongside the session-start-hook and
+worker-observability ones.
+
+**Implementer concern 1, confirmed and consequential: `validateGovernedMessage` has ZERO production
+callers.** The brief told it to "update the prototype's existing callers" to pass the new
+acknowledgement flag; there are none. `grep -rn validateGovernedMessage src/ worker/` returns only its
+own definition. That is coherent — nothing is ever sent, so nothing validates — but it means the A1
+guard protects a path that does not exist yet. **The owner should not read "the validator refuses an
+unacknowledged fictional number" as "the system refuses it".** Captured to the issues inbox as P2.
+
+**Implementer concern 3, out of scope and captured:** `tests/helpers/caring-contacts-prohibited-language.ts`
+carries the same `\bleads?\b` job-title collision for interface copy that B2 just fixed for messages.
+Captured as P3. The implementer reported it rather than fixing it, which is what the brief asked for.
+
+Task C: task review dispatched (opus), with four named questions — B2's narrowing of what is now
+permitted, whether A1's derived marker tracks the owner's intent, whether an unwired A4 refusal
+achieves the approved outcome, and whether B3's scan can actually fail.
