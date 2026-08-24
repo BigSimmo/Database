@@ -90,7 +90,11 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
 
   const lowerText = text.toLowerCase();
   for (const term of rules.prohibitedTerms) {
-    if (lowerText.includes(term.toLowerCase())) {
+    // B2: a term with a pattern override (today, only "lead") is matched by that pattern instead
+    // of plain substring inclusion. Every other term's behaviour is unchanged.
+    const override = rules.prohibitedTermPatternOverrides[term];
+    const matched = override ? override.test(text) : lowerText.includes(term.toLowerCase());
+    if (matched) {
       issues.push({ code: "prohibited-term", term });
     }
   }

@@ -26,11 +26,29 @@ export type ProvisionalMessageRules = {
    * explicitly acknowledges the number is synthetic. See task-c-brief.md, "A1".
    */
   fictionalContactMarker: string;
+  /**
+   * Per-term overrides for how a `prohibitedTerms` entry is matched, keyed by the exact term
+   * string. A term with no entry here keeps the default plain-substring match. B2 (2026-08-24):
+   * "lead" is the only entry -- `lowerText.includes("lead")` also matched the ordinary English
+   * "the incident lead" / "the clinical programme lead" (job titles in the service-stop wording),
+   * so it is narrowed to a word-boundary, commercial-specific form instead. This is deliberately
+   * NOT extended to the rest of the list: several other terms are multi-word phrases whose
+   * substring behaviour is intentional. See task-c-brief.md, "B2".
+   */
+  prohibitedTermPatternOverrides: Readonly<Partial<Record<string, RegExp>>>;
   /** States that the message is the last one the recipient will receive. */
   closingStatement: string;
 };
 
 const CRISIS_SUPPORT_CONTACT = "Fictional Support Line: +61 491 570 158";
+
+// B2: matches "lead"/"leads" only in a commercial/marketing form -- a marketing-word modifier
+// ("sales lead", "a new lead", "a qualified lead") or a marketing-word companion ("lead
+// generation", "lead conversion", "lead capture"). A bare "\blead\b" is not enough on its own:
+// "the incident lead" and "the clinical programme lead" contain "lead" as a whole word too, so
+// word-boundary matching alone does not distinguish the job title from the commercial sense.
+const COMMERCIAL_LEAD_PATTERN =
+  /\b(?:sales|marketing|qualified|hot|warm|cold|potential|prospective|new)\s+leads?\b|\bleads?\s+(?:generation|conversion|scoring?|capture|list|pipeline)\b/i;
 
 export const PROVISIONAL_MESSAGE_RULES: ProvisionalMessageRules = Object.freeze({
   maxSegments: 2,
@@ -52,5 +70,8 @@ export const PROVISIONAL_MESSAGE_RULES: ProvisionalMessageRules = Object.freeze(
   // Derived from crisisSupportContact rather than hard-coded a second time, so the marker can
   // never say something the crisis contact itself does not.
   fictionalContactMarker: CRISIS_SUPPORT_CONTACT.split(":")[0],
+  prohibitedTermPatternOverrides: Object.freeze({
+    lead: COMMERCIAL_LEAD_PATTERN,
+  }),
   closingStatement: "This is the final message in this programme",
 });

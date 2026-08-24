@@ -188,6 +188,69 @@ describe("rule 3b: fictional-contact-detail-present", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Rule 3c — B2 (2026-08-24): "lead" is narrowed to its commercial sense only
+//
+// `lowerText.includes("lead")` also matches the ordinary English "the incident lead" and "the
+// clinical programme lead" -- job titles that appear in the service-stop wording -- which would
+// reject a message for using a word correctly. Only this one term is narrowed; every other
+// prohibited term keeps its deliberate substring behaviour (several are multi-word phrases whose
+// substring matching is intentional). See docs/caring-contacts/phase-2b-sdd-archive/
+// task-c-brief.md, "B2".
+// ---------------------------------------------------------------------------
+
+describe('rule 3c: "lead" is narrowed to its commercial sense (B2)', () => {
+  it("accepts job titles that happen to contain the word 'lead'", () => {
+    for (const text of [
+      "Please contact the incident lead for an update.",
+      "This was escalated to the clinical programme lead.",
+    ]) {
+      expect(validateGovernedMessage({ text, messageType: "standard" })).toEqual({ valid: true });
+    }
+  });
+
+  it("still rejects the commercial sense of 'lead'", () => {
+    for (const text of [
+      "Following up on your sales lead from last week.",
+      "This campaign generated 50 new leads.",
+      "Our lead generation numbers are up this quarter.",
+    ]) {
+      const result = validateGovernedMessage({ text, messageType: "standard" });
+      expect(result.valid).toBe(false);
+      if (result.valid) throw new Error("unreachable");
+      expect(result.issues).toContainEqual({ code: "prohibited-term", term: "lead" });
+    }
+  });
+
+  it("leaves every OTHER prohibited term's substring behaviour exactly as it was", () => {
+    // One case per term (excluding "lead", covered above), because narrowing one term is
+    // precisely the change most likely to quietly widen what the rest of the list allows.
+    const exampleTextByTerm: Record<string, string> = {
+      "high risk": "This patient is at high risk today.",
+      // "safe" as a substring of "unsafe" -- proves substring matching, not word-boundary matching.
+      safe: "The unsafe practice was flagged.",
+      "engagement score": "Your engagement score has changed.",
+      campaign: "Part of a campaign this month.",
+      // "conversion" as a substring of "reconversion" -- same proof.
+      conversion: "The reconversion rate improved.",
+      "best match": "This is the best match available.",
+      inbox: "Check your inbox for updates.",
+      conversation: "Let's have a conversation about this.",
+    };
+    for (const term of rules.prohibitedTerms) {
+      if (term === "lead") continue; // deliberately narrowed above -- not part of this proof
+      const text = exampleTextByTerm[term];
+      if (text === undefined) {
+        throw new Error(`no example text seeded for prohibited term ${JSON.stringify(term)} in this test`);
+      }
+      const result = validateGovernedMessage({ text, messageType: "standard" });
+      expect(result.valid).toBe(false);
+      if (result.valid) throw new Error("unreachable");
+      expect(result.issues).toContainEqual({ code: "prohibited-term", term });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Rule 4 — a first message must carry full support information
 // ---------------------------------------------------------------------------
 
