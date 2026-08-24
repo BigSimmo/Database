@@ -3,6 +3,7 @@
 import {
   BookOpenText,
   BookMarked,
+  ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
   ListChecks,
@@ -53,6 +54,7 @@ export const registryModeNavDensityProfiles = {
  */
 const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   search: Search,
+  review: ClipboardCheck,
   diagnoses: Stethoscope,
   presentations: ClipboardList,
   compare: GitCompareArrows,
