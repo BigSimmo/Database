@@ -386,12 +386,20 @@ visible reasons and a human confirms or overrides.
   `LegalForm`/`dueAt` — a police-attendance flag, and each movement's single outstanding item; a
   raise-referral form (`RAISE_REFERRAL`), a record-examination form (`RECORD_EXAMINATION`), and
   the mark-handover-ready control (`HANDOVER_READY`) that is the only producer of a transport job;
-  statewide capacity shown read-only)
+  statewide capacity shown read-only), `handover/handover-page.tsx` (Phase 4 Task 4: the shift
+  handover — `/ward-management/handover`; four fixed, product-owner-approved sections in a fixed
+  order (longest waits, beds held, in transit, placement gone wrong) built by `ward-derivations.ts`'s
+  `handoverSnapshot`; read once from `useWardFlow()` inside a `useState` initialiser so the page is
+  frozen at the moment it is opened and never re-derives on the 30-second clock tick; every section
+  renders an explicit "None" line rather than hiding itself when empty; a Print button calls
+  `window.print()`, styled by `handover.module.css`'s own `@media print` block)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)
 - **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`,
-  `tests/ui-ward-coordinator.spec.ts`, `tests/ui-ward-roles.spec.ts`
+  `tests/ui-ward-coordinator.spec.ts`, `tests/ui-ward-roles.spec.ts`, `tests/ward-handover.test.ts`
+  (`handoverSnapshot`), `tests/ward-handover.dom.test.tsx` (the freeze and every section's empty
+  state)
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 

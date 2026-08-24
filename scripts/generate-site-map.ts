@@ -158,6 +158,7 @@ const routeDescriptions: Record<string, string> = {
   "/ward-management/ed/[edId]": "Synthetic emergency-department role screen for one origin department.",
   "/ward-management/exceptions": "Patient flow exceptions, delays, and escalation alerts.",
   "/ward-management/governance": "Ward coordination governance, compliance, and audit log.",
+  "/ward-management/handover": "Synthetic, point-in-time, printable shift handover, frozen at the moment it is opened.",
   "/ward-management/movements": "Scheduled and completed patient transfers and bed movements.",
   "/ward-management/network": "Psychiatric bed network status and regional catchment map.",
   "/ward-management/patients/[patientId]": "Synthetic patient placement and transfer trajectory detail.",

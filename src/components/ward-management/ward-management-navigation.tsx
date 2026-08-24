@@ -7,6 +7,7 @@ import {
   BedSingle,
   Building2,
   CircleAlert,
+  ClipboardList,
   FileCheck2,
   HeartPulse,
   LayoutDashboard,
@@ -163,6 +164,20 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
           className={shellStyles.railLink}
         >
           <Siren aria-hidden="true" />
+        </Link>
+        {/* Task 4: `/ward-management/handover` — same shape as the Officer and Emergency
+            department links immediately above and for the exact same reason (see the Officer
+            link's own comment): a raw `<Link>` with a literal string `href`, never `RailLink`,
+            because `RailLink` passes its `href` through as a destructured prop, which reads as a
+            plain `Identifier` to `tests/route-reachability.test.ts`'s AST scan and would leave
+            this route invisible to it. It also sits outside the eight-link `WardModeNavigation`
+            strip on purpose — that nav's own Playwright spec asserts an exact count of 8 links,
+            so a ninth entry there would break it, exactly as the Officer link's comment already
+            explains. "Handover" collides with no other accessible name in this rail or in
+            `WardModeNavigation` as a substring, so Playwright's default substring accessible-name
+            match cannot resolve it to more than one element. */}
+        <Link href="/ward-management/handover" aria-label="Handover" title="Handover" className={shellStyles.railLink}>
+          <ClipboardList aria-hidden="true" />
         </Link>
         <RailLink href="/?mode=answer" label="Favourites">
           <HeartPulse aria-hidden="true" />

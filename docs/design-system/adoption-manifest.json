@@ -3451,6 +3451,7 @@
         "src/app/ward-management/ed/[edId]/page.tsx",
         "src/app/ward-management/exceptions/page.tsx",
         "src/app/ward-management/governance/page.tsx",
+        "src/app/ward-management/handover/page.tsx",
         "src/app/ward-management/movements/page.tsx",
         "src/app/ward-management/network/page.tsx",
         "src/app/ward-management/page.tsx",
@@ -3546,6 +3547,16 @@
           "sanctionedPatternsPresent": ["WardModeWorkspace"]
         },
         {
+          "file": "src/app/ward-management/handover/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
           "file": "src/app/ward-management/movements/page.tsx",
           "exists": true,
           "imports": [],
@@ -3637,6 +3648,16 @@
         },
         {
           "file": "src/components/ward-management/ed/ed-screen.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ClinicalRail"]
+        },
+        {
+          "file": "src/components/ward-management/handover/handover-page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4035,6 +4056,7 @@
       "src/app/ward-management/ed/[edId]/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
+      "src/app/ward-management/handover/page.tsx",
       "src/app/ward-management/movements/page.tsx",
       "src/app/ward-management/network/page.tsx",
       "src/app/ward-management/page.tsx",
@@ -4116,6 +4138,7 @@
       "src/app/ward-management/ed/[edId]/page.tsx",
       "src/app/ward-management/exceptions/page.tsx",
       "src/app/ward-management/governance/page.tsx",
+      "src/app/ward-management/handover/page.tsx",
       "src/app/ward-management/movements/page.tsx",
       "src/app/ward-management/network/page.tsx",
       "src/app/ward-management/page.tsx",
@@ -4131,7 +4154,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 93,
+    "inheritedCkbV2RootCount": 95,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 17,
     "declaredV2SurfaceCount": 17
@@ -4140,8 +4163,8 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 34,
-    "rootCount": 94,
-    "productionRouteCount": 79,
-    "nextUiEntryCount": 140
+    "rootCount": 96,
+    "productionRouteCount": 80,
+    "nextUiEntryCount": 141
   }
 }

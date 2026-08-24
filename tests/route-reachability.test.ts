@@ -635,6 +635,18 @@ describe("route reachability", () => {
     ).toEqual([]);
   });
 
+  // Task 4 (Ward Flow shift handover): the generic orphan sweep above already covers this route,
+  // but it covers every static route at once and a failure there does not name which route
+  // regressed. This is the same assertion, narrowed to the one route this task added, so a
+  // future edit that drops the rail link (or the page itself) fails with an unambiguous message
+  // rather than only showing up buried in a combined orphan list.
+  it("/ward-management/handover is linked from the clinical rail", () => {
+    const route = staticPageRoutes.find((entry) => entry.route === "/ward-management/handover");
+    expect(route, "/ward-management/handover must exist as a static page route").toBeDefined();
+    if (!route) return;
+    expect(isReachable(route.route, route.file)).toBe(true);
+  });
+
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));
     for (const route of REACHABILITY_ALLOWLIST.keys()) {

@@ -480,6 +480,79 @@ export function buildActionInbox(movements: Movement[], now: Instant, units: Uni
   return items;
 }
 
+/**
+ * Task 4 (spec item 1): the shift handover — a point-in-time, printable summary a coordinator
+ * hands to the incoming coordinator, built from four fixed sections in a product-owner-approved
+ * order. This function is a pure derivation, exactly like every other one in this module — `now`
+ * arrives as a parameter, nothing here reads the wall clock — but the FREEZE that makes it a
+ * handover rather than a live view is the caller's responsibility, not this function's: a page
+ * must call this exactly once, in a `useState` initialiser, so what a coordinator reads never
+ * changes under them while the shift clock keeps ticking in the background. Calling this
+ * function itself is always safe and always pure; only the page can break the freeze.
+ *
+ * Every section is scoped to OPEN movements (`isOpen`) — a shift handover is about the live
+ * caseload being handed over, not movements that have already arrived or otherwise closed.
+ *
+ * `longestWaits` carries every open movement, ranked by wait, with deliberately NO threshold:
+ * measured against the real fixture at NOW_ANCHOR, zero of the open movements are past the
+ * 24-hour departmental access target, so a breach-led ranking would render this section empty.
+ * Ranking by wait alone always has something to hand over.
+ *
+ * `placementGoneWrong` names exactly two situations, neither of them a legal claim:
+ * - `"escalated"` — the movement carries a recorded `escalation`: a human already declared the
+ *   referral network exhausted and rang the state bed coordination desk.
+ * - `"declined_by_all"` — the movement has a decline on record and nothing still pending
+ *   (`referredUnitIds` empty, `declines` non-empty). `ward-flow-reducer.ts`'s own `case
+ *   "DECLINE"` only ever removes a unit from `referredUnitIds` in the same update that adds the
+ *   matching `declines` entry, so this condition is exactly "every unit this movement was ever
+ *   referred to has since said no, and none of them are still deciding".
+ * A movement can satisfy both at once; the escalation check runs first, so it is listed once,
+ * as `"escalated"`, never twice.
+ */
+export type HandoverSnapshot = {
+  frozenAt: Instant;
+  longestWaits: { movement: Movement; unit: Unit | undefined }[];
+  heldBeds: { movement: Movement; unit: Unit | undefined; expired: boolean }[];
+  inTransit: { movement: Movement; leg: TransportLeg | "Cancelled" | undefined }[];
+  placementGoneWrong: { movement: Movement; kind: "escalated" | "declined_by_all" }[];
+};
+
+export function handoverSnapshot(movements: Movement[], units: Unit[], now: Instant): HandoverSnapshot {
+  const open = movements.filter(isOpen);
+
+  const longestWaits = [...open]
+    .sort((a, b) => now - b.openedAt - (now - a.openedAt))
+    .map((movement) => ({ movement, unit: destinationUnit(movement, units) }));
+
+  const heldBeds = open
+    .filter((movement) => movement.bedHeldUntil !== undefined)
+    .map((movement) => {
+      const bedHeldUntil = movement.bedHeldUntil as Instant;
+      return { movement, unit: destinationUnit(movement, units), expired: bedHeldUntil <= now };
+    });
+
+  const inTransit = open
+    .filter((movement) => movement.transport !== undefined)
+    .map((movement) => ({ movement, leg: transportLeg(movement.transport) }));
+
+  const escalated = open
+    .filter((movement) => movement.escalation !== undefined)
+    .map((movement) => ({ movement, kind: "escalated" as const }));
+  const escalatedIds = new Set(escalated.map((entry) => entry.movement.id));
+  const declinedByAll = open
+    .filter((movement) => !escalatedIds.has(movement.id))
+    .filter((movement) => movement.referredUnitIds.length === 0 && movement.declines.length > 0)
+    .map((movement) => ({ movement, kind: "declined_by_all" as const }));
+
+  return {
+    frozenAt: now,
+    longestWaits,
+    heldBeds,
+    inTransit,
+    placementGoneWrong: [...escalated, ...declinedByAll],
+  };
+}
+
 /** A real, per-movement audit trail built from actual fields — never generic flavour text. */
 export function movementTimeline(movement: Movement) {
   const events: Array<{ at: Instant; label: string }> = [{ at: movement.openedAt, label: "Movement opened" }];
