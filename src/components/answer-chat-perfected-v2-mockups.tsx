@@ -1384,17 +1384,17 @@ const RECONCILE: Array<[string, string, string]> = [
   [
     "Table aside",
     "`table-specific-answer-layout` gives tables their own column on wide screens today.",
-    "The design folds tables into a chip in the drawer, which removes that column. A real removal — decide it, do not let it happen quietly.",
+    "Settled: the column goes. Tables fold into a chip in the drawer, so a table travels with the page it came from and the answer keeps one reading column. Accepted cost — a table can no longer be read beside the answer on a large screen.",
   ],
   [
     "compactCitations",
     "The preference shrinks a capsule this design deletes.",
-    "Retargeted at the rail: collapse to one chip that expands. The pinned invariant — the missing-source warning is never hidden — still holds, because the notice and any worded mark sit outside the rail.",
+    "Settled: kept, retargeted at the rail — collapse to one chip that expands. The pinned invariant — the missing-source warning is never hidden — still holds, because the notice and any worded mark sit outside the rail.",
   ],
   [
     "Clinical notes sheet",
-    "Folded away with nothing obviously carrying its content.",
-    "Its three tabs are Essentials, Actions and Safety. Actions and Safety already have homes; confirm Essentials is duplicated before it goes.",
+    "Folded away. Essentials was the tab nothing obviously carried.",
+    "Settled: it goes — audited first, not assumed. Essentials' structured-support rows are the headed sections themselves, its monitoring and medication items are the prose, and its comparison table is each document's best quote, which the drawer pages through. No content is lost; two at-a-glance views are, and the threshold list is the one to re-check on real answers before the old surface is deleted.",
   ],
   [
     "Answer feedback",
@@ -1637,7 +1637,7 @@ export function AnswerChatPerfectedV2MockupsPage() {
             </DetailCard>
             <DetailCard
               title="compactCitations, retargeted"
-              body="The preference shrinks a capsule this design deletes. Pointed at the rail it still means something: collapsed to one chip that expands, while the notice and any worded mark stay visible — which is the invariant its test pins."
+              body="Settled: kept rather than retired. The preference shrinks a capsule this design deletes; pointed at the rail it still means something — collapsed to one chip that expands, while the notice and any worded mark stay visible, which is the invariant its test pins."
             >
               <div className="space-y-2">
                 <V2Rail pool={THREE_SOURCES} activeId={null} onOpen={() => undefined} compact />
@@ -1651,7 +1651,7 @@ export function AnswerChatPerfectedV2MockupsPage() {
         <Panel
           step="Six"
           title="What this collides with"
-          intro="Five things the design touches that already have owners or recorded decisions. None is a reason not to build it; all five need a sentence in the PR rather than being discovered at review."
+          intro="Five things the design touches that already have owners or recorded decisions. Three were open questions for the owner and are now settled — recorded here with their reasoning so nobody reopens them while building. All five still want a sentence in the PR rather than being discovered at review."
         >
           <div className="overflow-x-auto">
             <table className="w-full min-w-[40rem] border-collapse text-left">

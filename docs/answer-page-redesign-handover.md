@@ -69,7 +69,7 @@ The live answer surface opens four separate panels from one answer:
 | Today                             | Where                                               | Becomes                                                                                                           |
 | --------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Sources capsule → popover / sheet | `answer-content.tsx` `NaturalLanguageAnswer`        | The source rail + the single-source drawer                                                                        |
-| Clinical notes sheet              | `answer-result-surface.tsx`                         | Folded into the drawer's per-source content, or dropped                                                           |
+| Clinical notes sheet              | `answer-result-surface.tsx`                         | **Goes** (settled 2026-08-24). Its content is carried by the prose, the drawer and the rail — audited in §10a     |
 | Evidence sheet (6 tabs)           | `answer-result-surface.tsx` → `evidence-panels.tsx` | The drawer. A table on a cited page becomes a chip inside that source                                             |
 | Safety findings sheet             | `answer-result-surface.tsx`                         | Stays a distinct surface — safety findings are answer-level, not per-source. Do **not** fold this into the drawer |
 
@@ -196,7 +196,7 @@ the earlier margin-plus-padding read as a word space. Hover and focus paint
 - **One colour, always.** Document staleness is not encoded in the mark. It is a
   property of the document, and two hues inside running prose make the eye stop
   twice. Status lives on the rail card and in the drawer. _(This is the one design
-  decision the owner may still reverse — see §10.)_
+  decision the owner might have reversed; **settled 2026-08-24 — one colour stays.** See §10.)_
 - **Touch target — the v1 figures are wrong; use these.** An absolutely positioned
   transparent child that must not change the line box, at `inset -7px -10px -8px -10px`
   and **split across a cluster** (outer edges reach 10px, interior edges 2px).
@@ -415,24 +415,63 @@ requirement — it costs a branch in the render path that has to be removed late
 
 ---
 
-## 10. Open decisions for the owner
+## 10. Decisions — settled by the owner, 2026-08-24
 
-_Recommendations for all three are drawn in `/mockups/answer-chat-perfected-v2`; decide
-against the frames rather than against the prose._
+All four are settled. They were judged against the frames in
+`/mockups/answer-chat-perfected-v2`, which already draws each one the way it was decided.
+**Do not reopen these while building.** The reasoning is kept alongside the verdict so a
+later reader can see why, rather than re-deriving it.
 
-1. **Status in the mark.** The design deliberately keeps every mark one colour and
-   puts document staleness on the rail card and in the drawer. If a claim resting on
-   an out-of-date document should say so at the point of the claim, that is a one-line
-   change in the mark component — but decide before PR 2, not after.
-2. **What happens to `compactCitations`.** The preference currently shrinks the
-   sources capsule. The capsule is going. Either retarget it at the rail or retire it.
-   _Recommendation (drawn in v2): retarget._ Compact collapses the rail to one
-   `Sources · 3` chip that expands. The invariant `tests/answer-preferences.dom.test.tsx`
-   pins — the missing-source warning is never hidden in compact mode — then still means
-   something, because the verification notice and any worded mark sit outside the rail.
-3. **Clinical notes.** The design folds the clinical-notes sheet away. Confirm nothing
-   in it is relied on before it goes; it is the one removed surface with content not
-   obviously duplicated elsewhere.
+1. **Status in the mark — NO. Every mark stays one colour.** Document staleness is a
+   property of the document, not of the claim, and two hues inside running prose make the
+   eye stop twice at reading speed. Status is carried where there is room to say it in
+   words: the rail card's tinted badge and the drawer's metadata line. This also keeps the
+   mark legible in forced-colors, where a second hue would not survive (§4).
+2. **`compactCitations` — KEEP, retargeted at the rail.** Compact collapses the rail to a
+   single `Sources · 3` chip that expands on tap. The preference therefore keeps meaning
+   something instead of silently becoming a no-op when the capsule goes. The invariant
+   `tests/answer-preferences.dom.test.tsx` pins — the missing-source warning is never
+   hidden in compact mode — still holds, because the verification notice, the source-only
+   disclosure and any worded mark all sit outside the rail.
+3. **The table aside — GOES. Tables fold into the drawer.** The wide-screen
+   `table-specific-answer-layout` column is removed; a table on a cited page becomes a chip
+   inside that source. The accepted cost is that a table can no longer be read side by side
+   with the answer on a large screen — it is one tap away instead. Stated so the removal is
+   deliberate; see §12.5.
+4. **The clinical-notes sheet — GOES.** Audited before the decision was recorded rather
+   than after; the audit is §10a. Nothing in it is lost, but two at-a-glance views are, and
+   one of those is worth re-checking before the old surface is actually deleted.
+
+### 10a. Clinical-notes Essentials audit (2026-08-24)
+
+The Essentials tab is the only removed surface whose content was not obviously duplicated,
+so it was traced rather than assumed. It draws five section ids
+(`clinicalNotesTabMeta`, `evidence-panels.tsx`), all built by
+`buildClinicalOutputSections` (`src/lib/ward-output.ts`):
+
+| Essentials piece            | Built from                                                                                          | Where it lives in the new design                                                   |
+| --------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `support-map`               | `buildStructuredSupportTable` — `[clinical area, section body]` rows straight from `answerSections` | **The prose.** These are the headed sections the design renders with run-in labels |
+| `monitoring` / `medication` | `parsedLines` — the answer prose plus `sectionDisplayLines`                                         | **The prose**                                                                      |
+| `comparison`                | `buildSourceComparisonTable` — one row per document, that document's `best_quote`                   | **The drawer**, one source at a time via the pager                                 |
+| `thresholds` items          | prose plus `quoteCards` text, filtered by `hasThresholdSignal`                                      | The prose, and quote text in the drawer passage                                    |
+| `thresholds` tables         | `buildThresholdTables` — promoted `visualEvidence` cards                                            | The drawer's table chip, on the cited page                                         |
+
+**No content is lost. Two at-a-glance views are.** Every item traces back to the prose, the
+sections, the quotes or the visual evidence — all of which the new surface shows. What goes
+is the _scan_: "every threshold in one list", and "each document's key detail stacked side
+by side". Both become paged or per-source.
+
+Two things the builder should know:
+
+- `buildSourceComparisonTable` fires whenever the answer draws on **three or more
+  documents**, not only on comparison questions. That stacked view is common, not an edge
+  case, so expect its absence to be noticed.
+- **The threshold list is the one worth re-checking.** Collecting doses and cut-offs into a
+  single scan is the most clinically load-bearing thing Essentials does, and the new design
+  has no equivalent. It is not a blocker — every value is on screen or one tap away — but
+  re-check it against real answers once the rail and drawer ship, **before** the old surface
+  is deleted in the separate PR §8 already stages.
 
 ## 11. Related records
 
@@ -500,11 +539,16 @@ Both were raised against PR #2356 and both were verified in the code before bein
   and promising the number is stable would reintroduce, in the streaming path, the exact
   wrong-page attribution the design forbids everywhere else.
 
-### 12.5 The table aside is an unacknowledged removal
+### 12.5 The table aside — raised as an unacknowledged removal, now decided
 
 `data-testid="table-specific-answer-layout"` gives tables their own column on `lg:` today
 (`answer-result-surface.tsx`). Folding tables into a chip inside the drawer removes that
-column. That is a real change to a shipped layout: state it in the PR body and decide it,
-rather than discovering it at review.
+column — a real change to a shipped layout, raised here because the design was making it
+silently.
+
+**Settled 2026-08-24: the column goes.** The table travels with the page it came from, and
+the answer keeps one reading column. The accepted cost is that a table can no longer be read
+side by side with the answer on a large screen. Still state it in the PR body — a reviewer
+seeing the aside disappear deserves the sentence.
 
 ---
