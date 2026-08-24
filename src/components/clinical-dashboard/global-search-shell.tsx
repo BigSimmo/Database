@@ -483,8 +483,7 @@ function GlobalStandaloneSearchShellBody({
   // `/tools` owns its catalogue controls rather than a shared composer. Keep
   // the sidebar's cross-guide search usable by returning to Answer first.
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
-  const heroOwnsPhoneComposer =
-    (isStandaloneModeHome && mobileHomeComposerPlacement === "hero") || isDictionaryCatalogue;
+  const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
   // Idle empty homes already have the search composer; Ask / Dictate appear
   // once the draft has text or a search has been submitted. Therapy never
   // mounts this rail — query-gated remounts were flickering the microphone.
@@ -496,6 +495,8 @@ function GlobalStandaloneSearchShellBody({
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
+  // Dictionary catalogue keeps the usual compact phone dock; sm+ still
+  // portals into the in-page slot under mode nav (`desktopHomeComposerSlotId`).
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue;
   // Most standalone mode homes keep the in-flow hero pill at every width. Tools
   // deliberately has no shared composer. Document viewer routes own their own
@@ -976,7 +977,11 @@ function GlobalStandaloneSearchShellBody({
               }
               // Most standalone homes keep the in-flow hero pill at every width.
               // Tools suppresses the shared composer at every breakpoint.
-              heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
+              // Dictionary catalogue uses the usual compact phone dock; sm+
+              // still portals into the in-page slot under mode nav.
+              heroComposerBreakpoint={
+                mobileHomeComposerPlacement === "footer" || isDictionaryCatalogue ? "sm-up" : "all"
+              }
               // Phones: #main-content owns vertical scroll, so hide-on-scroll
               // collapses the top bar to hand space back to content.
               // Tablet and desktop portal search into normal page flow. The outer

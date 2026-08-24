@@ -159,7 +159,10 @@ describe("mobile composer reserve contract", () => {
     const shell = source("src/components/clinical-dashboard/global-search-shell.tsx");
     expect(shell).toContain("isDictionaryCataloguePath(pathname)");
     expect(shell).toMatch(
-      /const heroOwnsPhoneComposer =\s*\(isStandaloneModeHome && mobileHomeComposerPlacement === "hero"\) \|\| isDictionaryCatalogue;/,
+      /const heroOwnsPhoneComposer =\s*isStandaloneModeHome && mobileHomeComposerPlacement === "hero";/,
+    );
+    expect(shell).toMatch(
+      /heroComposerBreakpoint=\{\s*mobileHomeComposerPlacement === "footer" \|\| isDictionaryCatalogue \? "sm-up" : "all"\s*\}/,
     );
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toMatch(

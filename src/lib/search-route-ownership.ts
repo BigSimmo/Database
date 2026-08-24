@@ -53,13 +53,13 @@ export function isStandaloneModeHomePath(pathname: string): boolean {
 }
 
 /**
- * Dictionary catalogue owns an in-flow shared composer at every width (under
- * mode nav, above the Filter band). Pathname-only so a submitted `?q=` cannot
- * flip the shell onto the phone bottom dock the way `isStandaloneModeHome`
- * would if this path were listed as a mode home.
+ * Dictionary catalogue owns the desktop in-flow composer slot (under mode
+ * nav, above the Filter band). Phones keep the usual compact bottom dock.
+ * Pathname-only so a submitted `?q=` cannot move the desktop composer into
+ * the generic page slot above mode nav.
  *
  * `/dictionary/browse` redirects onto `/dictionary/search`; keep both so the
- * brief pre-redirect frame cannot paint a dock.
+ * brief pre-redirect frame cannot paint the wrong slot.
  */
 export function isDictionaryCataloguePath(pathname: string): boolean {
   return pathname === "/dictionary/search" || pathname === "/dictionary/browse";

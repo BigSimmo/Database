@@ -119,9 +119,9 @@ function catalogueNoun(scope: DictionaryCatalogueScope, count: number) {
  * only as a redirect for existing links.
  *
  * The Filter band is always on this page (count, optional query, Filter). Compact
- * Terms / Abbreviations and A–Z sit under that band. The shared composer portals
- * into this page at the top (under mode nav, above the Filter band) at every
- * width — there is no phone bottom dock. Do not add a second search field —
+ * Terms / Abbreviations and A–Z sit under that band. From `sm` up, the shared
+ * composer portals into this page under mode nav and above the Filter band.
+ * Phones keep the usual compact bottom dock. Do not add a second search field —
  * `docs/search-chrome-behaviour.md`'s one-composer-per-page rule is a hard
  * constraint with committed tests behind it.
  */
@@ -381,7 +381,7 @@ export function DictionaryCataloguePage() {
           id={modeHomeDesktopComposerSlotId}
           data-testid="dictionary-catalogue-composer"
           data-composer-reserve={modeHomeComposerReservePendingValue}
-          className="mode-home-composer-slot mx-auto block w-full max-w-[76rem] min-w-0 px-4 pt-3 sm:px-6 sm:pt-4 min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+          className="mode-home-composer-slot mx-auto hidden w-full max-w-[76rem] min-w-0 px-4 pt-3 sm:block sm:px-6 sm:pt-4 sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
         />
         <h1 className="sr-only">Dictionary catalogue</h1>
         {/* The original Filter band stays on browse and search. Compact Terms /

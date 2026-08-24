@@ -295,14 +295,9 @@ describe("shared-search route ownership", () => {
     expect(homeTemplateSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
     expect(homeTemplateSource).not.toContain("mode-home-composer-slot hidden");
 
-    // Bespoke mode homes (favourites and tools) and the dictionary catalogue
-    // satisfy Chrome Invariant 15 with pending reserve & min-h tokens
-    for (const bespokeSource of [
-      favouritesPageSource,
-      favouritesHubSource,
-      toolsPageSource,
-      dictionaryCatalogueSource,
-    ]) {
+    // Bespoke mode homes (favourites and tools) satisfy Chrome Invariant 15
+    // with pending reserve & min-h tokens at every width.
+    for (const bespokeSource of [favouritesPageSource, favouritesHubSource, toolsPageSource]) {
       expect(bespokeSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
       expect(bespokeSource).toContain(
         "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
@@ -313,7 +308,19 @@ describe("shared-search route ownership", () => {
       expect(bespokeSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
       expect(bespokeSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
     }
+    // Dictionary catalogue portals the shared composer from sm up only. Phones
+    // keep the usual compact dock, so this slot is hidden and must not reserve
+    // the phone hero height.
     expect(dictionaryCatalogueSource).toContain('data-testid="dictionary-catalogue-composer"');
+    expect(dictionaryCatalogueSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
+    expect(dictionaryCatalogueSource).toContain("mx-auto hidden w-full");
+    expect(dictionaryCatalogueSource).toContain("sm:block");
+    expect(dictionaryCatalogueSource).toContain(
+      "sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]",
+    );
+    expect(dictionaryCatalogueSource).not.toContain(
+      "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
+    );
     expect(dictionaryCatalogueSource).not.toContain("Clinical terms");
     expect(dictionaryCatalogueSource).not.toContain("Clinical dictionary");
 
