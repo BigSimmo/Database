@@ -259,9 +259,20 @@ test.describe("caring-contacts patients directory", () => {
     await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
     const response = await page.goto(PATIENTS_ROUTE, { waitUntil: "load" });
 
-    // The empty-list contract observed over HTTP rather than inferred from a
+    // The empty-list contract observed end to end rather than inferred from a
     // render: `listPlans` returning `[]` is a permitted read that released
-    // something, so this is 200 and never the 404 a denied read would produce.
+    // something, so this screen is served rather than refused.
+    //
+    // READ THE NEXT PARAGRAPH BEFORE TRIMMING THIS TEST TO THE STATUS LINE.
+    // The status check is NOT what catches a `notFound()` here, and measuring
+    // that was the point of running the mutation rather than assuming: with
+    // `if (records.length === 0) notFound()` added to the page, this route still
+    // answered **200**, because it is dynamic and streams under `loading.tsx`'s
+    // Suspense boundary — the headers are flushed before the render reaches
+    // `notFound()`, so the refusal arrives as CONTENT, not as a status code. The
+    // three content assertions below are the load-bearing ones; the status line
+    // is kept because it still catches a refusal made before the stream opens
+    // (the production demo lock, or the route failing to resolve at all).
     expect(response?.status(), "the patients route did not serve a page").toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: "Patients" })).toBeVisible();
 
