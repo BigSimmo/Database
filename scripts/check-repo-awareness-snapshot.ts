@@ -24,7 +24,10 @@ const COMPARED_CONTENT_KEYS = ["routes", "documentation", "test_health", "review
 
 export function compareSnapshots(committed: unknown, regenerated: RepoAwarenessSnapshot): string[] {
   const differences: string[] = [];
-  const record = (committed ?? {}) as Partial<RepoAwarenessSnapshot> & Record<string, unknown>;
+  const record =
+    committed !== null && typeof committed === "object" && !Array.isArray(committed)
+      ? (committed as Partial<RepoAwarenessSnapshot> & Record<string, unknown>)
+      : {};
 
   if (record.version !== regenerated.version) {
     differences.push(`version: committed ${String(record.version)} vs regenerated ${regenerated.version}`);
