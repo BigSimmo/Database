@@ -798,20 +798,12 @@ breakpoint, sheet wiring).
 
 ## Clinical Ask composer chrome
 
-Services, Forms, Differentials, Formulation, DSM, and Specifiers may mount the
-Ask / Dictate rail above the shared composer once the draft has text or a
-search is submitted. Therapy never does.
+Clinical Ask remains a backend mode, but no search composer mounts an Ask /
+Dictate rail. `GlobalSearchShell` and `ClinicalDashboard` expose ordinary
+search only and reserve no extra phone-dock space for Clinical Ask controls.
 
-`clinicalAskComposerChromeEnabled` in
-`src/components/clinical-dashboard/use-clinical-ask-shell-state.ts` is the
-single gate. `therapy-compass` stays a Clinical Ask backend mode, but both
-`GlobalSearchShell` and `ClinicalDashboard` refuse the rail and the extra dock
-reserve on the shared Therapy home (`/?mode=therapy-compass`) and on
-`/therapy-compass/*` results. Query-gated remounts of that rail were flickering
-the microphone on Therapy.
-
-Coverage: `tests/clinical-ask-composer-chrome.test.ts`,
-`tests/ui-clinical-ask.spec.ts`.
+Coverage: `tests/clinical-ask-provider-contract.test.ts`,
+`tests/master-search-header.dom.test.tsx`, `tests/ui-clinical-ask.spec.ts`.
 
 ## Change checklist
 
