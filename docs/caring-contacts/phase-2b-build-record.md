@@ -772,3 +772,60 @@ so `listPlans` returns `[]` and "No patients yet" would be a lie) — a third `"
 be right, but it touches a Group 0 component; and the prohibited vocabulary now bites ordinary English
 (`\bleads?\b` matches "team lead", `\bsafe\b` is banned outright), which the Team screen will hit
 immediately.
+
+### Task 5 review — spec ✅, quality NOT approved: 1 Critical, 4 Important, 5 Minor
+
+The twelve mutation proofs were all traced to the assertion reading the mutated value and judged real,
+including a self-corrected one (M4 → M4b) recorded rather than quietly re-run — the opposite of the
+two misreported mutations earlier in this programme. Reads are clean: `getEpisode` is absent and
+pinned by a spy, and `PlanRecord` excludes `patientDetail` structurally, with the in-memory store
+projecting through `toPlanRecord` rather than returning the stored object, so nothing rides along.
+Filtering is genuinely server-side — both filters are navigations, no new client boundary.
+
+**C-1 is worse than the implementer reported, and it found it itself.** The design-system contract
+declares the `caring-contacts-workspace` surface with **all five** proof categories — dark,
+forced-colours, compact-320, print, browser — as `passed`, evidenced solely by
+`tests/ui-caring-contacts-workspace.spec.ts`. That spec pins `WORKSPACE_ROUTE = "/caring-contacts"`
+and every `page.goto` in 952 lines uses it. It has never loaded `/caring-contacts/patients`.
+
+Three things make this Critical rather than untidy:
+
+- **The spec's own header states the rule this breaks**: "a proof pointer at a suite that never visits
+  this route is a red gate that has been silenced." The change made that sentence untrue about the
+  file it is written in.
+- **No honest weaker declaration exists.** The generator fails any v2 surface whose proof category is
+  not `passed`, so "declare it more quietly" is unavailable, and a separate surface would be forced to
+  `passed` too. The generator also cannot detect the problem — evidence paths are checked for being
+  tracked files, never for relevance to the route.
+- **The remedy is bigger than a `goto`.** Four of the five are accessibility-mode claims, so honesty
+  requires the dark / forced-colours / 320px / print coverage to run against the new route as well.
+
+**Which family:** unambiguously Ruling 88's — a **false** attribution — not the true-attribution case
+kept in Task 3. Fix, do not keep. Credit where due: the implementer found it, described it accurately,
+and refused to edit a spec it could not run.
+
+**Ruling [92] — `ListEmptyState` gains a third kind, `"not-permitted"`.** — Why: an auditor cannot view
+plans, so `listPlans` returns `[]`; `"no-data"` would say "No patients yet", which is a lie, so the
+implementer used `"filtered"` — whose own documentation says records exist, and whose icon selection
+renders a struck-through magnifying glass **on a screen where no search was performed**, in a component
+whose comment says the icon "is part of what states the difference wordlessly". The screen's words are
+honest; the type and the icon are not. `ListEmptyState` has exactly ONE consumer today, so this is the
+cheapest it will ever be, and Schedule, Templates and Team will each meet the same role case and copy
+whatever Patients did. — Cost if wrong: a fourth kind later, and a union that is one member wider than
+strictly needed. Against that: leaving it reintroduces at the type level exactly the blur the component
+was built to refuse.
+
+**Ruling [93] — the role-restricted remedy must say what is true, and there is no role switcher.**
+The screen currently says "What changes it: The role switcher changes which role you are acting in."
+I verified it myself: `CARING_CONTACTS_ROLE_COOKIE` appears exactly once in `src/`, its own
+declaration in `session.ts`, and nothing writes it — `resolveDemoActor` silently defaults to
+coordinator. Spec §4.4 requires a **reachable** remedy, and **naming a control that does not exist is
+worse than naming none**, because a clinician will hunt for it. The covering test asserts the
+_presence_ of "What changes it:" and never that its content is real, so this whole class is invisible
+to the gate. — Cost if wrong: if a switcher is built later the wording needs revisiting, which is a
+one-line edit at the moment someone is already in the file.
+
+**The lesson C-1 and Ruling 93 share.** Both are false statements that passed every gate, because the
+gates check **shape** rather than **truth**: the generator checks an evidence path is a tracked file,
+never that the suite visits the route; the empty-state test checks a remedy is present, never that it
+exists. **A gate that checks a claim is well-formed will certify a well-formed lie.**
