@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e69b9dca-057d-48b4-8c7b-793faa3fd0df",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Forms mode: 34 forms still show boilerplate Clock/Authority/Criteria prose because the approved-form instruction text is locked in password-protected PDFs",
+    "detail": "SCOPE BOUNDARY DELIBERATELY LEFT OPEN BY PR #2314 (merged 2026-08-23, commit 1ed7753), which rolled the Form 1A priority-facts treatment out to all 54 forms. What #2314 DID deliver: every form now resolves its cited Mental Health Act 2014 (WA) sections through data/mha-2014-sections.json (79 curated summaries, each hash-pinned to the verbatim statutory text via sourceTextSha256, Act version 02-b0-01 as at 2025-09-25), so all 54 forms carry an 'Authority under the Act' card with tappable section chips and zero remain on the Source-status placeholder. Verified by direct count against the merged tree, not by trusting the merge notice. WHAT IS STILL OPEN: the three PROSE cards (Clock/review, Made by/authority, Criteria/threshold) still read as generic boilerplate on the 34 forms whose data/forms-catalog.json rows were never hand-written - e.g. Form 4C still says 'Check timing, expiry and review requirements in the source.' Writing a form-level answer to 'who may complete this form and on what threshold' is an inference across several Act sections PLUS the approved form's own instruction block, which is roughly 102 clinical assertions no reviewer could check against a source. WHY IT IS BLOCKED: the official WA form PDFs are password-protected and unreadable, and sourceFacts.timings is NOT a usable clock fallback - for 4C and 10D it is the same boilerplate sentence split on commas, so it is not an independent source. NEXT: obtain readable approved-form instruction text (owner to source the unprotected PDFs or an equivalent authoritative extract), then write per-form clock/authority/criteria prose in the same drafted-then-reviewed model the Act summaries use. STOP: do not synthesise this prose from the Act sections alone - that fabricates a form-level clinical claim with no checkable source, which is exactly what the Act-section approach was designed to avoid.",
+    "source": "PR #2314 (merged 2026-08-23, 1ed7753); plan 'Apply the Form 1A treatment to every forms page' explicit scope boundary; data/forms-catalog.json",
+    "issueUlid": "01M0QW1K65ZP7CX48DJXR6QG9E"
+  }
+}

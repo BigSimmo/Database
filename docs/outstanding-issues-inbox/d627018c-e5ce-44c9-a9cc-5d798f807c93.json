@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
+  "createdOn": "2026-08-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Form 12A shows a false 'Password protected' warning: its PDF is not encrypted at all, and both the manifest and a test pin the wrong fact",
+    "detail": "MEASURED 2026-08-24 against every PDF in public/forms-pdf/ using pypdf 6.16.2 and PyMuPDF 1.28.0. Of 51 form PDFs, 50 are genuinely encrypted and refuse an empty user password (PdfReader.decrypt('') returns 0, fitz authenticate('') returns 0), so they cannot be read without the real password. ONE IS NOT: public/forms-pdf/form-12a.pdf has is_encrypted False and extracts cleanly - 3566 characters from page 1, opening 'November 2015 / CHIEF PSYCHIATRIST OF WESTERN AUSTRALIA / WA MENTAL HEALTH ACT 2014 ... SECTIONS: 275 / FORM 12A - NOMINATION OF NOMINATED PERSON'. THE DEFECT: data/forms-pdf-manifest.json records passwordProtected true for all 51 assets including 12A. src/lib/form-catalog.ts:385 copies that flag to officialPdfPasswordProtected, and src/components/forms/form-detail-page.tsx:847-859 renders it as a WARNING-toned badge reading 'Password protected'. So the Form 12A page tells a clinician the PDF is locked when it opens normally - a false statement on a clinical surface, and the badge tone actively discourages a download that would have worked. tests/forms.test.ts:170 asserts officialPdfPasswordProtected is true for every downloadable form, so the test currently pins the wrong fact and would block the correction. NEXT (small, and deliberately NOT bundled into an unrelated PR): set passwordProtected false for the 12A asset in data/forms-pdf-manifest.json, and change the forms test from a blanket expect(...).toBe(true) to an assertion that the flag matches the manifest, so a future re-fetch that changes a form's protection cannot silently drift again. Ideally add a check that measures encryption from the committed PDF bytes rather than trusting a hand-maintained flag - the manifest has no generator script, so nothing currently verifies it. This needs a Clinical Governance Preflight because it changes what a clinician is told about a form. RELATED: this was found while confirming the blocker on the boilerplate Clock/Authority/Criteria prose follow-up; that blocker is now CONFIRMED BY MEASUREMENT rather than assumed - 50 of 51 PDFs are genuinely unreadable, so the approved-form instruction text really is unavailable, and 12A alone does not change that.",
+    "source": "Direct measurement 2026-08-24 over public/forms-pdf/*.pdf (pypdf 6.16.2, PyMuPDF 1.28.0); data/forms-pdf-manifest.json; src/lib/form-catalog.ts:385; src/components/forms/form-detail-page.tsx:847-859; tests/forms.test.ts:170",
+    "issueUlid": "01M0S0XZFR39QM7EBKMKX1FQ0K"
+  }
+}

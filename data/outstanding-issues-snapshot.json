@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 119,
+    "pending": 128,
     "resolved": 376
   },
   "queue": [
@@ -870,6 +870,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "1c9ca9cc-cc96-45f4-acd4-9f034834890b",
+      "action": "add",
+      "summary": "Form 12A retains generic Authority and Criteria prose despite having a readable approved PDF",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "1ec9957a-532d-4425-8352-6851e64ef54f",
       "action": "done",
       "summary": "#47M1XD: Closed 2026-08-23 from the two read-only production observation windows already recorded in the row and docs/audit/live-drift-forensics-2026-08.md Phase 5. The restored trigram indexes retained the same OIDs and stayed at idx_scan=0 and idx_tup_read=0 while serving GIN/HNSW indexes advanced under live traffic; database-wide stats_reset remained null. The proposed before/after ANALYZE experiment is non-discriminating because the four relevant tables were already analyzed with n_mod_since_analyze=0. Operational attribution is therefore corrected: check planner statistics first during a recurrence, do not attribute the 2026-08-14 recovery to the unused trigram pair, and do not drop the repo-defined indexes. No new production query or mutation was run for this closure.",
@@ -978,6 +984,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "421ff6e8-4cb3-4456-b918-d71218b973d5",
+      "action": "cancel",
+      "summary": "Cancel request e7909949-2a75-44fc-92b0-b978f08546c6: Mitigated by PR #2327: the clinical-decision hold now runs before routing with no override, so these surfaces cannot receive unattended Codex repair.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "423d5a24-569d-4988-83c8-2a9e64d52ddb",
       "action": "add",
       "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
@@ -988,6 +1000,12 @@
       "action": "add",
       "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "455d31fc-c3d3-4645-ae2c-2696836f16af",
+      "action": "add",
+      "summary": "Form 12A displays a false Password protected warning although its committed PDF is readable",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "462215d6-4847-42c9-88e6-43354cc96723",
@@ -1212,6 +1230,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "978a9fa0-a206-4a8e-be82-f98c13e80ccf",
+      "action": "cancel",
+      "summary": "Cancel request d627018c-e5ce-44c9-a9cc-5d798f807c93: Correction: the queued repair must identify or establish the canonical manifest generation path before changing a data manifest; direct manifest editing is not an approved implementation path.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "9dd3e06a-ec5c-439e-bdf5-f092d59706cd",
       "action": "done",
       "summary": "#XCAX01: Resolved 2026-08-23 for the repository fleet-sweep surfaces only. scripts/clean-worktree.mjs and scripts/worktree-inventory.mjs are now permanently report-only across CLI, exported, and programmatic paths: any remove/apply-shaped option is rejected before adapters; Git is confined to an exact read-only allowlist with optional locks and lazy fetch suppressed, and prune is permitted only as --dry-run -v; inspection and Windows reparse-boundary uncertainty fail closed; liveness is tri-state and absence remains unknown; explicit-root inventory has no removal API and immutable mutation counts stay zero. For worktree tooling, verify:preflight invokes only worktrees:report -- --self-test rather than inspecting the fleet. Synthetic proof: tests/clean-worktree.test.ts plus tests/worktree-inventory.test.ts, 46/46 passed, plus both pure self-tests and git diff --check. No live fleet report, cleanup, prune, or file/ref/object/registration/worktree/directory removal occurred. This closure does not change or claim to remove guard-push.mjs's separate exact temporary-worktree lifecycle. Exact-path fleet cleanup remains deferred under #6GW95D.",
@@ -1386,6 +1410,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
+      "action": "add",
+      "summary": "Form 12A shows a false 'Password protected' warning: its PDF is not encrypted at all, and both the manifest and a test pin the wrong fact",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
       "action": "add",
       "summary": "Caring Contacts: the desktop session gate renders as a 1392x170 letterbox, not a gate",
@@ -1422,6 +1452,18 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "e69b9dca-057d-48b4-8c7b-793faa3fd0df",
+      "action": "add",
+      "summary": "Forms mode: 34 forms still show boilerplate Clock/Authority/Criteria prose because the approved-form instruction text is locked in password-protected PDFs",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "e7909949-2a75-44fc-92b0-b978f08546c6",
+      "action": "add",
+      "summary": "The Codex auto-resolve workflow reversed an explicit owner decision on a clinical surface without approval, and no gate distinguishes a bot finding from a decision already made",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "e9890b31-a1cd-4390-a0c2-186e8e724639",
       "action": "done",
       "summary": "#VV83VA: Documented the Windows process-spawn diagnostic in docs/testing.md: PowerShell and cmd-compatible Measure-Command node --version probes distinguish host-wide multi-second spawn starvation from gh, Git, or repository faults; the response is to close stale sessions or reboot, with an explicit prohibition on changing Windows security settings. docs:check-links and docs:check-scripts passed.",
@@ -1440,6 +1482,12 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "ee116498-1f7e-4945-8a5b-4c7f06bb5e28",
+      "action": "add",
+      "summary": "Forms mode: 33 password-protected forms retain generic Clock, Authority, and Criteria prose",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "f2cbf1f2-e5cb-4a05-a73e-e3c740fae534",
       "action": "cancel",
       "summary": "Cancel request 4e1ffb03-9151-4c88-a414-659a804b6a42: Superseded by f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1, the replacement #K9XD5N done request queued on this branch. Both close the same DegradedNotice CLS row against the same baseRowFingerprint.",
@@ -1450,6 +1498,12 @@
       "action": "done",
       "summary": "#K9XD5N: Resolved: Implemented stable layout container for DegradedNotice / offline notices preventing hero section layout shift (~0.16 CLS) on / during online/offline state transitions.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "f6768be1-9aeb-4374-afa1-9529718efada",
+      "action": "cancel",
+      "summary": "Cancel request e69b9dca-057d-48b4-8c7b-793faa3fd0df: Correction: Form 12A is readable and has a fixed clock; its generic maker and threshold need a separate follow-up, while the password-protected-PDF blocker applies to the other 33 generic maker-and-threshold forms.",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
