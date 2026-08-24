@@ -433,10 +433,27 @@ function SourceDrawer({
   onClose: () => void;
   wide: boolean;
 }) {
+  // Some comparison frames intentionally open a drawer on first render. Do
+  // not steal page focus for those static specimens; later user opens and
+  // paging transitions should still enter the dialog.
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    hasMountedRef.current = true;
+  }, []);
+
   if (openId === null) return null;
   // Keyed on the source: the panel's own transient state (an open menu)
   // belongs to that source and is discarded when you move to another.
-  return <DrawerPanel key={openId} openId={openId} onSelect={onSelect} onClose={onClose} wide={wide} />;
+  return (
+    <DrawerPanel
+      key={openId}
+      openId={openId}
+      onSelect={onSelect}
+      onClose={onClose}
+      wide={wide}
+      autoFocus={hasMountedRef.current}
+    />
+  );
 }
 
 function DrawerPanel({
@@ -444,11 +461,13 @@ function DrawerPanel({
   onSelect,
   onClose,
   wide,
+  autoFocus,
 }: {
   openId: string;
   onSelect: (id: string) => void;
   onClose: () => void;
   wide: boolean;
+  autoFocus: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const source = sourceById(openId);
@@ -458,14 +477,14 @@ function DrawerPanel({
     onSelect(next.id);
   };
 
-  // Move focus into the dialog on open (and on each paged source, since the
-  // panel remounts per source) so keyboard and screen-reader users land
-  // inside it instead of staying on the now-covered trigger behind it.
+  // User-opened (and paged) drawers move focus into the dialog. Comparison
+  // specimens that start open stay out of the tab sequence until the reader
+  // chooses to enter them.
   const dialogRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    initialFocusRef.current?.focus();
-  }, []);
+    if (autoFocus) initialFocusRef.current?.focus();
+  }, [autoFocus]);
 
   // The backdrop is not focusable, so keyboard events must be observed on
   // window. Scope them to the drawer that owns focus, then keep Tab inside it.
