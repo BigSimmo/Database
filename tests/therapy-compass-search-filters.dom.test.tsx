@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -50,6 +50,18 @@ vi.mock("@/components/therapy-compass/bindings", () => ({
     toggleBriefOnly,
     clearSearch,
     clearSearchFilters,
+    isInCompare: () => false,
+    open: vi.fn(),
+    openSheet: vi.fn(),
+    toggleCompare: vi.fn(),
+  }),
+}));
+
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({
+    isAuthenticated: false,
+    isSaved: () => false,
+    setFavourite: vi.fn(),
   }),
 }));
 
@@ -182,5 +194,43 @@ describe("therapy-compass search filter contract adoption", () => {
 
     await user.click(screen.getByTestId("therapy-filter-trigger-phone"));
     expect(screen.queryByTestId("therapy-filter-panel-clear")).not.toBeInTheDocument();
+  });
+
+  it("visually identifies only the first ranked result as the best match", () => {
+    bindingsState.query = "anxiety";
+    bindingsState.queryMatches = [therapy()];
+    bindingsState.searchResults = [
+      therapy({ slug: "first", name: "First ranked therapy" }),
+      therapy({ slug: "second", name: "Second ranked therapy" }),
+    ];
+
+    render(<SearchScreen />);
+
+    const cards = document.querySelectorAll("[data-therapy-result-card]");
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveAttribute("data-therapy-result-featured");
+    expect(cards[1]).not.toHaveAttribute("data-therapy-result-featured");
+    expect(within(cards[0] as HTMLElement).getByText("Best match")).toBeInTheDocument();
+    expect(within(cards[1] as HTMLElement).queryByText("Best match")).not.toBeInTheDocument();
+  });
+
+  it("does not imply a best match when the unqueried catalogue is alphabetical", () => {
+    bindingsState.searchResults = [therapy({ slug: "first" })];
+
+    render(<SearchScreen />);
+
+    expect(document.querySelector("[data-therapy-result-featured]")).toBeNull();
+    expect(screen.queryByText("Best match")).not.toBeInTheDocument();
+  });
+
+  it("does not imply a best match for a punctuation-only query", () => {
+    bindingsState.query = "!!!";
+    bindingsState.queryMatches = [therapy({ slug: "first" }), therapy({ slug: "second" })];
+    bindingsState.searchResults = [therapy({ slug: "first" }), therapy({ slug: "second" })];
+
+    render(<SearchScreen />);
+
+    expect(document.querySelector("[data-therapy-result-featured]")).toBeNull();
+    expect(screen.queryByText("Best match")).not.toBeInTheDocument();
   });
 });
