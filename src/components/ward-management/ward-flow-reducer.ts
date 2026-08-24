@@ -1,5 +1,5 @@
 import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
-import { FORM_1A_REFERRAL_EXPIRY_MINUTES, PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
+import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
 import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
@@ -142,7 +142,6 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
               code: "1A",
               label: "Referral for examination",
               kind: "examination",
-              dueAt: event.now + FORM_1A_REFERRAL_EXPIRY_MINUTES,
             }
           : undefined,
         statusChanges: [],

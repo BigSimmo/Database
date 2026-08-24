@@ -44,6 +44,12 @@ describe("emergency department pressure", () => {
     }
   });
 
+  // Fix wave 1, finding 2. This test derives its expectation from the real fixture, where the
+  // count is now zero for every row — so on its own it can no longer fail: hard-wiring
+  // `breaching: 0` in ward-pressure.ts passes it, and passes the two zero-expecting breach tests
+  // below as well. It is kept because "the row agrees with the fixture" is still worth pinning,
+  // but the positive proof it used to carry has been restored as its own test underneath, using
+  // an injected movement rather than fixture data.
   it("counts a breach only where a legal deadline has actually passed", () => {
     for (const row of edPressure(NOW_ANCHOR)) {
       const breaching = wardMovements.filter(
@@ -55,6 +61,38 @@ describe("emergency department pressure", () => {
       ).length;
       expect(row.breaching).toBe(breaching);
     }
+  });
+
+  /**
+   * Fix wave 1, finding 2 — the restored positive proof that `breaching` can ever be non-zero.
+   *
+   * `edPressure(now, movements)` takes an explicit array, so this injects its own movement rather
+   * than depending on the fixture: after the 2026-08-23 correction no fixture movement carries a
+   * past-due deadline, and a suite in which every breach expectation is zero cannot distinguish a
+   * working counter from `breaching: 0`.
+   *
+   * The carrier is a Form **4A** ("Transport order"), which is about moving a person and is
+   * unrelated to the examination timeline this project's fabrications were about. `- 45` is
+   * arbitrary test scaffolding chosen to sit in the past; it is NOT a Mental Health Act figure
+   * and nothing derives it from one.
+   */
+  it("counts a movement whose deadline has passed — the counter is not hard-wired to zero", () => {
+    const breachedMovement = movementFrom({
+      id: "TEST-past-due-transport",
+      originEdId: "sjgm-ed",
+      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 45 },
+    });
+    const rows = edPressure(NOW_ANCHOR, [breachedMovement]);
+
+    const row = rows.find((candidate) => candidate.ed.id === "sjgm-ed");
+    expect(row, "sjgm-ed must be reported").toBeDefined();
+    expect(row?.breaching).toBe(1);
+
+    // Every other department must read zero from the same call, so a counter that returned a
+    // constant 1, or counted movements regardless of department, fails here too.
+    const others = rows.filter((candidate) => candidate.ed.id !== "sjgm-ed");
+    expect(others.length, "the fixture must contain more than one department").toBeGreaterThan(0);
+    expect(others.map((candidate) => candidate.breaching)).toEqual(others.map(() => 0));
   });
 
   it("sorts worst first — breaching, then longest wait, then volume", () => {
@@ -145,7 +183,7 @@ describe("emergency department pressure", () => {
       movementFrom({
         id: "TEST-due-now",
         originEdId: "sjgm-ed",
-        legalForm: { code: "1A", label: "Referral for examination", kind: "examination", dueAt: NOW_ANCHOR },
+        legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR },
       }),
     ];
     const rows = edPressure(NOW_ANCHOR, movements);
@@ -153,9 +191,10 @@ describe("emergency department pressure", () => {
     expect(row?.breaching).toBe(0);
   });
 
-  // Task 6A: a Form 3B honestly carries no dueAt at all (the Mental Health Act imposes no
-  // post-examination deadline) — a form in that state must never reach `clockState`'s
-  // arithmetic and must never be counted as breaching, however long the patient has waited.
+  // Task 6A: a Form 3B carries no dueAt at all — the clinician settled that the
+  // post-examination clock counts up, so none is recorded. A form in that state must never reach
+  // `clockState`'s arithmetic and must never be counted as breaching, however long the patient
+  // has waited.
   it("never counts a legal form with no dueAt as breaching, however old the movement", () => {
     const movements: Movement[] = [
       movementFrom({

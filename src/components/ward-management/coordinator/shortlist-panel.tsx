@@ -67,17 +67,23 @@ function capacityLine(unit: Unit) {
 }
 
 /**
- * Task 6A: a Form 3B honestly carries no `dueAt` — the Mental Health Act imposes no
- * post-examination deadline (clinician-confirmed). For that case this states the form and the
- * real elapsed ED time via the existing `elapsedLabel` (never a new formatter), worded as time
- * IN the department rather than time left against anything, so it can never be misread as a
- * statutory countdown the way a bare number next to a form code could be.
+ * Neither a Form 1A nor a Form 3B carries a `dueAt` in this model (see `LegalForm`'s own doc
+ * comment in ward-model.ts). For that case this states the form and the real elapsed ED time via
+ * the existing `elapsedLabel` (never a new formatter), worded as time IN the department rather
+ * than time left against anything, so it can never be misread as a statutory countdown the way a
+ * bare number next to a form code could be.
+ *
+ * The wording is deliberately "no deadline recorded", not "no statutory deadline". It reports
+ * what THIS RECORD holds, which is all we can verify. "No statutory deadline" asserts what the
+ * Mental Health Act requires, and that is a legal claim this prototype is not entitled to make in
+ * either direction — asserting an absence is the same overreach as asserting the seven-day figure
+ * that was deleted on 2026-08-23.
  */
 function legalFormLine(movement: Movement, now: Instant) {
   if (!movement.legalForm) return "No legal form recorded for this movement";
   const named = `Form ${movement.legalForm.code} (${movement.legalForm.label})`;
   if (movement.legalForm.dueAt === undefined) {
-    return `${named} — no statutory deadline; ${elapsedLabel(movement, now)} in the emergency department`;
+    return `${named} — no deadline recorded; ${elapsedLabel(movement, now)} in the emergency department`;
   }
   const remaining = minutesUntil(movement.legalForm.dueAt, now);
   return remaining < 0
