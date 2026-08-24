@@ -130,10 +130,12 @@ describe("Caring Contact governance contracts", () => {
     expect(EXACT_MESSAGE_GSM7).toEqual({ invalidCharacters: [], segments: 2, septets: 252, valid: true });
     // The automated reply (production-build spec §2.1) is patient-visible too, so it carries the same
     // two-segment ceiling and the same prohibition on echoing a patient mobile number.
+    // 218 -> 210 septets, owner-approved 2026-08-24 (items A2 + A3, see
+    // docs/caring-contacts/phase-2b-sdd-archive/task-c-brief.md).
     expect(calculateGsm7(AUTOMATED_REPLY_RESPONSE)).toEqual({
       invalidCharacters: [],
       segments: 2,
-      septets: 218,
+      septets: 210,
       valid: true,
     });
     expect(AUTOMATED_REPLY_RESPONSE).toContain(FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine);

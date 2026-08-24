@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+import { ShowAllChip } from "@/components/show-all-chip";
 import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 
 import {
   calculators,
@@ -683,7 +685,15 @@ export function CalculatorsSearchPageMockup() {
           </div>
         }
         summary={
-          <ResultsHeaderBand count={results.length} query={query.trim()} density={density} onDensity={setDensity} />
+          <div className="grid gap-3">
+            <ShowAllChip
+              href={consolidatedModeSearchPath("calculators")}
+              icon={Calculator}
+              ariaLabel="Show all calculators"
+              testId="calculators-show-all"
+            />
+            <ResultsHeaderBand count={results.length} query={query.trim()} density={density} onDensity={setDensity} />
+          </div>
         }
         sidebar={
           <>

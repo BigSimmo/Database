@@ -17,7 +17,9 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { ShowAllChip } from "@/components/show-all-chip";
 import { chatComposerInput, chatComposerShell, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
+import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 
 import {
   calculators,
@@ -254,6 +256,13 @@ export function CalculatorSearchHome({
   return (
     <main className="mx-auto grid w-full max-w-5xl content-start gap-5 px-4 pb-40 pt-[clamp(1.5rem,5vh,3rem)] text-[color:var(--text)] sm:px-6 lg:px-8">
       <CalculatorMockupHero />
+
+      <ShowAllChip
+        href={consolidatedModeSearchPath("calculators")}
+        icon={Calculator}
+        ariaLabel="Show all calculators"
+        testId="calculators-show-all"
+      />
 
       <form
         role="search"
