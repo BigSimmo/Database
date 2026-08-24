@@ -8,7 +8,8 @@ import { cn, eyebrowText, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
 
 import { useTcBindings } from "../bindings";
-import { controlPressed, therapyBtn } from "../controls";
+import { interactiveRowBase } from "@/components/ui/interactive-row";
+import { controlPressed } from "../controls";
 import { RECOMMEND_CONSTRAINT_GROUPS, RECOMMEND_CONSTRAINTS } from "../data/select";
 import { ResultCard } from "../therapy-card";
 import { EmptyState, LoadingState } from "../ui";
@@ -80,7 +81,7 @@ export function RecommendScreen() {
                         key={constraint.key}
                         type="button"
                         className={cn(
-                          therapyBtn,
+                          interactiveRowBase,
                           controlPressed,
                           "inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
                           "aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)] aria-pressed:font-semibold aria-pressed:text-[color:var(--clinical-accent-hover)]",

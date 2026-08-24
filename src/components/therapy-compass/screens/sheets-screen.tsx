@@ -14,7 +14,7 @@ import { therapyRecordHref } from "@/lib/therapy-compass-navigation";
 import { useTcBindings } from "../bindings";
 import { parseSteps, searchTherapies } from "../data/select";
 import { LoadingState } from "../ui";
-import { therapyBtn } from "../controls";
+import { InteractiveRow, interactiveRowBase } from "@/components/ui/interactive-row";
 import { TherapyRecordNavHeader } from "../therapy-record-nav-header";
 import { TherapySaveNotice } from "../record/save-notice";
 import { useTherapyFavourite } from "../use-therapy-favourite";
@@ -96,7 +96,7 @@ export function SheetsScreen() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    className={`${therapyBtn} ${b.chipAbout}`}
+                    className={cn(interactiveRowBase, b.chipAbout)}
                     onClick={b.toggleAbout}
                     aria-pressed={b.secAbout}
                   >
@@ -104,7 +104,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={`${therapyBtn} ${b.chipSteps}`}
+                    className={cn(interactiveRowBase, b.chipSteps)}
                     onClick={b.toggleSteps}
                     aria-pressed={b.secSteps}
                   >
@@ -112,7 +112,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={`${therapyBtn} ${b.chipPractice}`}
+                    className={cn(interactiveRowBase, b.chipPractice)}
                     onClick={b.togglePractice}
                     aria-pressed={b.secPractice}
                   >
@@ -120,7 +120,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={`${therapyBtn} ${b.chipCoping}`}
+                    className={cn(interactiveRowBase, b.chipCoping)}
                     onClick={b.toggleCoping}
                     aria-pressed={b.secCoping}
                   >
@@ -128,7 +128,7 @@ export function SheetsScreen() {
                   </button>
                   <button
                     type="button"
-                    className={`${therapyBtn} ${b.chipContacts}`}
+                    className={cn(interactiveRowBase, b.chipContacts)}
                     onClick={b.toggleContacts}
                     aria-pressed={b.secContacts}
                   >
@@ -338,9 +338,9 @@ function TherapyPicker() {
 
   return (
     <div className="relative">
-      <button
+      <InteractiveRow
         type="button"
-        className={`${therapyBtn} flex items-center justify-between w-full h-[46px] py-0 px-3.5 border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer`}
+        className="flex items-center justify-between w-full h-[46px] py-0 px-3.5 border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
@@ -356,7 +356,7 @@ function TherapyPicker() {
           strokeWidth={1.8}
           className="text-[color:var(--decoration-soft)] flex-none"
         />
-      </button>
+      </InteractiveRow>
       {open ? (
         <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
           <label className="relative flex items-center p-2 border-b border-[color:var(--border)]">
@@ -377,18 +377,17 @@ function TherapyPicker() {
           </label>
           <div className="max-h-[260px] overflow-auto">
             {matches.map((t) => (
-              <button
+              <InteractiveRow
                 key={t.slug}
-                type="button"
-                className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] block w-full py-2.5 px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer text-sm-minus font-semibold text-[color:var(--text-heading)]`}
+                variant="table-row"
                 onClick={() => {
                   b.select(t.slug);
                   setOpen(false);
                   setQ("");
                 }}
               >
-                {t.name}
-              </button>
+                <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
+              </InteractiveRow>
             ))}
           </div>
         </div>

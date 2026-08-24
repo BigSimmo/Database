@@ -1,5 +1,6 @@
 import { cardSurface, focusRing } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
+import { interactiveRowBase } from "@/components/ui/interactive-row";
 
 /**
  * Therapy control recipes — token-backed Tailwind only (Clinical White / Sky Graphite).
@@ -24,6 +25,7 @@ import { cn } from "@/components/ui-primitives";
  * change to the focus contract had to find this file too.
  */
 export const therapyBtn = cn(
+  interactiveRowBase,
   "cursor-pointer font-[inherit] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-quick)]",
   "hover:not-aria-disabled:enabled:-translate-y-px active:not-aria-disabled:enabled:translate-y-px",
   "disabled:cursor-not-allowed disabled:opacity-55",
