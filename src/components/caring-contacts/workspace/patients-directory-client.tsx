@@ -139,14 +139,16 @@ const rowActionClass =
   "inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] sm:shrink-0";
 
 export type PatientsDirectoryClientProps = {
-  /** The complete allowlisted row projection prepared by the server wrapper. */
+  /** The allowlisted row projection for the selected non-identifying state. */
   rows: readonly PatientsDirectoryRow[];
+  /** Non-identifying total used only to explain filtering without serializing other rows. */
+  totalPlanCount: number;
   filter: PatientsDirectoryFilter;
   /** False when the acting role does not include viewing plans -- see the module note. */
   mayViewPlans: boolean;
 };
 
-export function PatientsDirectoryClient({ rows, filter, mayViewPlans }: PatientsDirectoryClientProps) {
+export function PatientsDirectoryClient({ rows, totalPlanCount, filter, mayViewPlans }: PatientsDirectoryClientProps) {
   const [rawQuery, setRawQuery] = useState("");
   const query = rawQuery.trim();
   const visible = mayViewPlans ? rows.filter((row) => matchesFilter(row, filter, query)) : [];
@@ -221,7 +223,7 @@ export function PatientsDirectoryClient({ rows, filter, mayViewPlans }: Patients
 
           {visible.length > 0 ? (
             <p className="mt-4 text-sm text-[color:var(--text-muted)]">
-              Showing {plural(visible.length, "plan", "plans")} of {plural(rows.length, "plan", "plans")} this team
+              Showing {plural(visible.length, "plan", "plans")} of {plural(totalPlanCount, "plan", "plans")} this team
               holds.
             </p>
           ) : null}
@@ -237,7 +239,7 @@ export function PatientsDirectoryClient({ rows, filter, mayViewPlans }: Patients
       ) : (
         <div className="mt-5 min-w-0">
           <DirectoryEmptyState
-            rows={rows}
+            totalPlanCount={totalPlanCount}
             filter={filter}
             query={query}
             filtering={filtering}
@@ -251,14 +253,14 @@ export function PatientsDirectoryClient({ rows, filter, mayViewPlans }: Patients
 }
 
 function DirectoryEmptyState({
-  rows,
+  totalPlanCount,
   filter,
   query,
   filtering,
   mayViewPlans,
   clearSearch,
 }: {
-  rows: readonly PatientsDirectoryRow[];
+  totalPlanCount: number;
   filter: PatientsDirectoryFilter;
   query: string;
   filtering: boolean;
@@ -276,7 +278,7 @@ function DirectoryEmptyState({
     );
   }
 
-  if (rows.length === 0) {
+  if (totalPlanCount === 0) {
     return (
       <ListEmptyState
         kind="no-data"
@@ -291,8 +293,8 @@ function DirectoryEmptyState({
       <ListEmptyState
         kind="filtered"
         heading="No patients match"
-        because={hiddenBecause(rows.length, filter, query)}
-        changedBy={`Clearing the filter shows all ${plural(rows.length, "plan", "plans")} this team holds.`}
+        because={hiddenBecause(totalPlanCount, filter, query)}
+        changedBy={`Clearing the filter shows all ${plural(totalPlanCount, "plan", "plans")} this team holds.`}
         action={
           filter.state === "all" ? (
             <button type="button" className={submitClass} onClick={clearSearch}>

@@ -15,6 +15,7 @@ import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { patientsDirectoryHref } from "@/components/caring-contacts/workspace/patients-directory-client";
+import type { PatientsDirectoryRow } from "@/components/caring-contacts/workspace/patients-directory-row";
 import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { contactId, pathwayVersionId, patientId, planId, referralId, teamId } from "@/lib/caring-contacts/ids";
@@ -419,6 +420,18 @@ describe("Patients directory - only non-identifying state enters the URL", () =>
 });
 
 describe("Patients directory - the names-only projection (Ruling 91)", () => {
+  it("filters identifying rows before the client boundary", () => {
+    const element = PatientsDirectory({
+      patientNames: [name("plan-1", "Jordan Nguyen"), name("plan-2", "Alex Whitlock")],
+      records: [planRecord({ id: "plan-1", state: "active" }), planRecord({ id: "plan-2", state: "paused" })],
+      filter: parsePatientsDirectoryFilter({ state: "paused" }),
+      mayViewPlans: true,
+    }) as ReactElement<{ rows: readonly PatientsDirectoryRow[]; totalPlanCount: number }>;
+
+    expect(element.props.totalPlanCount).toBe(2);
+    expect(element.props.rows.map((row) => row.patientName)).toEqual(["Alex Whitlock"]);
+  });
+
   it("crosses the client boundary with only the rendered, searched or pre-derived row fields", () => {
     const element = PatientsDirectory({
       patientNames: [name("plan-1", "Jordan Nguyen")],

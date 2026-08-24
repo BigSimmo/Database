@@ -27,7 +27,9 @@ export function PatientsDirectory({ records, patientNames, filter, mayViewPlans 
   const nameByPlan = new Map(
     patientNames.filter((entry) => entry.patientName !== "").map((entry) => [entry.planId, entry.patientName]),
   );
-  const rows: PatientsDirectoryRow[] = records.map((record) => {
+  const filteredRecords =
+    filter.state === "all" ? records : records.filter((record) => record.plan.state === filter.state);
+  const rows: PatientsDirectoryRow[] = filteredRecords.map((record) => {
     const suppressedContactCount = record.contacts.filter((stored) => stored.contact.state === "suppressed").length;
     const absorbedContactCount = record.contacts.filter(
       (stored) => stored.planned.suppressed?.reason === "absorbedByFirstContact",
@@ -46,5 +48,7 @@ export function PatientsDirectory({ records, patientNames, filter, mayViewPlans 
     };
   });
 
-  return <PatientsDirectoryClient rows={rows} filter={filter} mayViewPlans={mayViewPlans} />;
+  return (
+    <PatientsDirectoryClient rows={rows} totalPlanCount={records.length} filter={filter} mayViewPlans={mayViewPlans} />
+  );
 }
