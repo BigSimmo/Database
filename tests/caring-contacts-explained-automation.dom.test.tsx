@@ -411,7 +411,7 @@ function serviceStateReferences(source: string, fileName: string) {
     /* setParentNodes */ false,
     fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
-  let module = false;
+  let moduleReference = false;
   let identifier = false;
 
   const visit = (node: ts.Node): void => {
@@ -422,19 +422,19 @@ function serviceStateReferences(source: string, fileName: string) {
       ts.isStringLiteral(node.moduleSpecifier) &&
       node.moduleSpecifier.text.includes("service-state")
     ) {
-      module = true;
+      moduleReference = true;
     }
     if (
       ts.isCallExpression(node) &&
       node.expression.kind === ts.SyntaxKind.ImportKeyword &&
       node.arguments.some((argument) => ts.isStringLiteral(argument) && argument.text.includes("service-state"))
     ) {
-      module = true;
+      moduleReference = true;
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
-  return { module, identifier };
+  return { module: moduleReference, identifier };
 }
 
 describe("the service-state path stays on the server", () => {
