@@ -503,15 +503,11 @@ test.describe("previously uncovered production routes", () => {
         await expect(currentPage.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
       },
       async (currentPage) => {
-        const selects = currentPage.locator("select");
-        const before = await selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value));
         const swap = currentPage.getByRole("button", { name: "Swap compared specifiers" });
         await expect(swap).toBeEnabled();
         await waitForReactEventHandler(swap);
         await swap.click();
-        await expect
-          .poll(() => selects.evaluateAll((items) => items.map((item) => (item as HTMLSelectElement).value)))
-          .toEqual([before[1], before[0]]);
+        await expect(currentPage).toHaveURL(/\/specifiers\/compare\?a=with-anxious-distress&b=with-mixed-features$/);
       },
     );
   });
