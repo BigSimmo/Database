@@ -128,13 +128,48 @@ const printPaper = (page: Page) => page.locator("[data-print-output]");
 async function gotoRoute(page: Page, route: string, heading?: string) {
   await page.goto(route, { waitUntil: "domcontentloaded" });
   // The shell's synthetic marker is the first thing every route paints, so it
-  // doubles as the "this route actually rendered" signal. A dev-server route
-  // compiles on first visit, hence the generous ceiling.
+  // doubles as the "this route actually rendered" signal.
   await expect(page.getByTestId("care-plan-synthetic-marker")).toHaveText(SYNTHETIC_MARKER, { timeout: 45_000 });
+
+  // Rendered is not the same as interactive, and this suite is the first thing
+  // able to tell the difference. Every control is server-rendered, so a click
+  // that lands before hydration changes the DOM and is then thrown away when
+  // React reconciles — which looks in a report exactly like a control that does
+  // not work. Wait for a React root to be attached before touching anything.
+  await page.waitForFunction(
+    () =>
+      Object.keys(document).some((key) => key.startsWith("__reactContainer")) ||
+      Object.keys(document.body).some((key) => key.startsWith("__react")) ||
+      (document.body.firstElementChild !== null &&
+        Object.keys(document.body.firstElementChild).some((key) => key.startsWith("__react"))),
+    undefined,
+    { timeout: 45_000 },
+  );
+
   if (heading !== undefined) {
     await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
   }
 }
+
+/**
+ * Choose a different synthetic clinician, and prove the choice took.
+ *
+ * Retried as a block on purpose. The control is server-rendered, so a
+ * `selectOption` that lands a frame before hydration sets the native value,
+ * React never sees the event, and the next reconcile puts the previous
+ * clinician back — silently. Asserting the identity block after the change is
+ * what makes that visible instead of surfacing minutes later as "the role
+ * switcher does not work".
+ */
+async function switchRole(page: Page, optionLabel: string, expectedName: string) {
+  await expect(async () => {
+    await page.getByLabel("Prototype role").selectOption({ label: optionLabel });
+    await expect(page.getByTestId("care-plan-active-user")).toContainText(expectedName, { timeout: 3_000 });
+  }).toPass({ timeout: 30_000 });
+}
+
+const SENIOR = ["Dr Taylor Fiction — Named senior clinician", "Dr Taylor Fiction"] as const;
+const LIAISON = ["Morgan Sample — Emergency department mental health liaison clinician", "Morgan Sample"] as const;
 
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
@@ -191,15 +226,24 @@ const sameColour = (a: Rgba, b: Rgba) => a.r === b.r && a.g === b.g && a.b === b
  *
  * Deliberately not `[class*="queueAction"]`: that substring also matches the
  * `queueActions` wrapper, and a guard that silently measures the wrong element
- * is the failure mode this whole file exists to replace. Matching a class token
- * that *ends* with `__<name>` can only hit the intended class, and the helper
- * throws rather than degrading when the class is absent from the page.
+ * is the failure mode this whole file exists to replace. The name has to sit in
+ * the token on its own, between `_`/`-` boundaries, so `queueActions` can never
+ * answer for `queueAction`.
+ *
+ * Both build shapes are matched on purpose. `next dev` emits
+ * `care-plan-module__<hash>__<name>` and a production build emits
+ * `care-plan_<name>__<hash>`, and this suite runs against the production build —
+ * an `endsWith("__" + name)` test passes in dev and finds nothing in the very
+ * build the gate actually measures.
+ *
+ * It throws rather than degrading when the class is absent from the page.
  */
 async function moduleClassSelector(page: Page, name: string): Promise<string> {
   const token = await page.evaluate((wanted) => {
+    const boundary = new RegExp(`(^|[-_])${wanted}([-_]|$)`);
     for (const element of document.querySelectorAll<HTMLElement>("[class]")) {
       for (const candidate of element.classList) {
-        if (candidate.endsWith(`__${wanted}`)) return candidate;
+        if (boundary.test(candidate)) return candidate;
       }
     }
     return null;
@@ -369,6 +413,22 @@ async function expectPinnedBoundaryAbovePlanContent(page: Page) {
     clipping.scrollHeight - clipping.clientHeight,
     "the pinned safety boundary's content is taller than the box painting it, so it is clipped",
   ).toBeLessThanOrEqual(1);
+}
+
+/**
+ * Write something into every section of the open Patient Plan draft.
+ *
+ * `locator.all()` does not wait, so the wait for the first field is the whole
+ * point: without it a fill loop that runs one frame early silently writes
+ * nothing at all and the test fails four minutes later on a control that is
+ * still, correctly, unavailable.
+ */
+async function fillEverySection(page: Page) {
+  const fields = page.locator("form textarea");
+  await expect(fields.first()).toBeVisible();
+  for (const field of await fields.all()) {
+    await field.fill("We wrote this together at the bedside, in your words.");
+  }
 }
 
 // --- Journeys ---------------------------------------------------------------
@@ -605,18 +665,25 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await gotoRoute(page, routes.reviews, "Reviews");
 
     // The named senior clinician is the only role that may decide.
-    await page.getByLabel("Prototype role").selectOption({ label: "Dr Taylor Fiction — Named senior clinician" });
+    await switchRole(page, ...SENIOR);
     await page.getByRole("link", { name: "Compare and decide on Mira Example's version 2" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Review submitted version" })).toBeVisible();
 
-    // Return for changes, then approve on the second pass.
-    await page.getByRole("button", { name: /^Return version 2 for changes/ }).click();
-    await page.getByLabel("What needs to change").fill("Add the after-hours arrangement the team agreed on Tuesday.");
+    // Returning a version needs a reason, so the author knows what to change.
     await page.getByRole("button", { name: "Return for changes" }).click();
+    const returnSheet = page.getByRole("dialog", { name: "Return version 2 for changes" });
+    await expect(returnSheet).toBeVisible();
+    await page.getByLabel("What needs to change").fill("Add the after-hours arrangement the team agreed on Tuesday.");
+    await returnSheet.getByRole("button", { name: "Return for changes" }).click();
     await expect(page.getByTestId("care-plan-review-outcome")).toContainText(/returned/i);
 
-    await gotoRoute(page, `${patientPath("SYN-PATIENT-002")}/management-plan`, "Management Plan");
+    // The Current Plan is untouched by any of it. Reached by clicking, because
+    // a reload would reset the prototype and make this assertion vacuous.
+    await page.getByRole("link", { name: "Back to the Management Plan" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Management Plan" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Current Plan" })).toBeVisible();
+    await expect(page.getByTestId("care-plan-current-plan-metadata")).toContainText("Current version 1");
+    await expect(page.getByText("Awaiting Approval")).toHaveCount(0);
   });
 
   /**
@@ -651,9 +718,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     const reason = page.getByTestId("care-plan-patient-plan-approve-unavailable");
     await expect(reason).toContainText(/cannot be approved while/i);
 
-    for (const field of await page.locator("form textarea").all()) {
-      await field.fill("We wrote this together at the bedside, in your words.");
-    }
+    await fillEverySection(page);
     await expect(page.getByRole("button", { name: "Approve patient copy" })).not.toHaveAttribute(
       "aria-disabled",
       "true",
@@ -684,9 +749,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
 
     await page.getByRole("button", { name: "Create the patient copy" }).click();
     await page.getByRole("link", { name: /Continue draft version|Write a new copy with this person/ }).click();
-    for (const field of await page.locator("form textarea").all()) {
-      await field.fill("We wrote this together at the bedside, in your words.");
-    }
+    await fillEverySection(page);
     await page.getByRole("button", { name: "Approve patient copy" }).click();
     await expect(page.getByTestId("care-plan-patient-plan-version")).toBeVisible();
     await expect(page.getByTestId("care-plan-patient-plan-stale")).toHaveCount(0);
@@ -694,7 +757,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // Approve the version already awaiting approval, as the named senior
     // clinician. Every step from here is a client-side navigation: a full
     // reload would reset the prototype, which is the documented boundary.
-    await page.getByLabel("Prototype role").selectOption({ label: "Dr Taylor Fiction — Named senior clinician" });
+    await switchRole(page, ...SENIOR);
     await desktopRail(page).getByRole("link", { name: "Reviews" }).click();
     await page.getByRole("link", { name: "Compare and decide on Mira Example's version 2" }).click();
     await page.getByRole("button", { name: "Approve version 2" }).click();
@@ -710,7 +773,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
 
     // Marked, fully readable, not regenerated, not hidden, not withdrawn.
     await expect(page.getByTestId("care-plan-patient-plan-stale")).toContainText(/needs updating/i);
-    await expect(page.getByTestId("care-plan-patient-plan-content")).toBeVisible();
+    await expect(page.getByTestId("care-plan-patient-plan-sections")).toBeVisible();
     await expect(page.getByTestId("care-plan-patient-plan-version")).toContainText("Version 1");
   });
 
@@ -723,6 +786,13 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
 
     await page.getByRole("button", { name: "Start a new version" }).click();
     await expect(page.getByTestId("care-plan-safety-form-surface")).toBeVisible();
+
+    // A new version starts from the words already agreed, so the person's own
+    // seven sections arrive filled. What it cannot inherit is how *this*
+    // version came about, which is required and blocks making it current.
+    await page
+      .getByLabel("How this version was written")
+      .fill("Written with Rowan in the quiet room, and read back to them before it was saved.");
     await page.getByRole("button", { name: "Make current Personal Safety Plan" }).click();
 
     const confirm = page.getByRole("dialog", { name: /Make version \d+ the current Personal Safety Plan/ });
@@ -741,6 +811,9 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
     await gotoRoute(page, routes.reviews, "Reviews");
+    // Worklists belong to the liaison, community and senior roles; the default
+    // emergency physician is correctly offered nothing to resolve here.
+    await switchRole(page, ...LIAISON);
     await page.getByRole("tab", { name: /^Review Suggested/ }).click();
 
     const resolve = page.getByRole("button", { name: /^Record what was decided for / }).first();
@@ -758,6 +831,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
     await gotoRoute(page, routes.reviews, "Reviews");
+    await switchRole(page, ...LIAISON);
     await page.getByRole("tab", { name: /^Contact Verification/ }).click();
 
     await expect(page.getByText(/not a guarantee that the service is available/i).first()).toBeVisible();
@@ -781,7 +855,13 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await page.getByLabel("Was the Current Plan available?").selectOption({ label: "Available" });
     await page.getByLabel("Was the Current Plan used?").selectOption({ label: "Used" });
     await page.getByLabel("Was the plan helpful?").selectOption({ label: "Did not help" });
-    await page.getByLabel("Suggest a plan review").check();
+    // Clicked through its label rather than `check()`. The shared checkbox
+    // primitive hides the native input under a decorative box that owns the
+    // pointer events, so a click aimed at the input itself is intercepted — a
+    // repository-wide shape, not a Care Plan defect, and the label is how a
+    // reader activates it anyway.
+    await page.locator('label[for="care-plan-presentation-form-suggestReview"]').click();
+    await expect(page.getByLabel("Suggest a plan review")).toBeChecked();
     await page
       .getByLabel("Why is review suggested?")
       .fill("The quiet room was not available and the agreed approach did not fit.");
@@ -852,6 +932,8 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     test.setTimeout(180_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
     await gotoRoute(page, routes.managementPlan, "Management Plan");
+    // Recording a formal review belongs to the named senior clinician.
+    await switchRole(page, ...SENIOR);
 
     const trigger = page.getByRole("button", { name: "Record a formal review" });
     await expect(trigger).toBeVisible();
@@ -1049,8 +1131,13 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // The state is carried by a word, not only by a tint.
     await expect(page.getByText("Awaiting Approval").first()).toBeVisible();
 
-    await gotoRoute(page, `${routes.patient}?scenario=withdrawn-plan`, "Patient overview");
-    await expect(page.getByText(/withdraw/i).first()).toBeVisible();
+    // Evelyn Demo's plan is withdrawn in the fixtures themselves, so this is the
+    // state as a reader meets it rather than a specimen lens over somebody who
+    // still has a Current Plan. A withdrawn plan must never look like a person
+    // who never had one.
+    await gotoRoute(page, patientPath("SYN-PATIENT-004"), "Patient overview");
+    await expect(page.getByTestId("care-plan-withdrawn-notice")).toBeVisible();
+    await expect(page.getByTestId("care-plan-withdrawn-notice")).toContainText(/withdrawn on/i);
 
     await page.emulateMedia({ forcedColors: "none" });
   });
