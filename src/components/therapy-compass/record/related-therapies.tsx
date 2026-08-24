@@ -4,10 +4,10 @@ import { ChevronRight } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
+import { InteractiveRow } from "@/components/ui/interactive-row";
 
 import { cardPreviewText } from "../data/select";
 import type { RelatedTherapy } from "../data/related";
-import { therapyBtn } from "../controls";
 
 /**
  * Nearest neighbours, each carrying the reason it is here.
@@ -37,14 +37,7 @@ export function RelatedTherapies({ related, onOpen }: { related: RelatedTherapy[
       <ul className="m-0 list-none p-0">
         {related.map(({ therapy, reason }) => (
           <li key={therapy.slug} className="border-b border-[color:var(--border)] last:border-b-0">
-            <button
-              type="button"
-              onClick={() => onOpen(therapy.slug)}
-              className={cn(
-                therapyBtn,
-                "flex min-h-tap w-full items-center gap-3 border-0 bg-transparent px-4 py-3 text-left transition-colors hover:bg-[color:var(--surface-subtle)] sm:px-5",
-              )}
-            >
+            <InteractiveRow variant="subtle" onClick={() => onOpen(therapy.slug)} className="gap-3 px-4 py-3 sm:px-5">
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{therapy.name}</span>
@@ -60,7 +53,7 @@ export function RelatedTherapies({ related, onOpen }: { related: RelatedTherapy[
                 </span>
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
-            </button>
+            </InteractiveRow>
           </li>
         ))}
       </ul>
