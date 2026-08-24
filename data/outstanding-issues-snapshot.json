@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 112,
+    "pending": 113,
     "resolved": 376
   },
   "queue": [
@@ -1030,6 +1030,12 @@
       "action": "add",
       "summary": "Squash-merged governance manifests reference an unreachable intermediate reviewedCommit",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "52f27b86-e6e7-4e9e-a66b-01a01962ad82",
+      "action": "cancel",
+      "summary": "Cancel request 122cc83b-a1f7-4f03-bb2d-d9eec84cb35f: Snapshot conflict reduction remains unimplemented: pending inbox records are still committed into the generated snapshot, so concurrent ledger work can conflict or fail stale-snapshot checks.",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "531c3f7f-baab-4a11-9882-b60cfdabe31c",
