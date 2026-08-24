@@ -598,6 +598,18 @@ describe("Codex Cloud environment contract", () => {
     expect(result.stderr).not.toContain(secret);
   });
 
+  it("rejects the legacy Codex trigger token at the raw environment boundary", () => {
+    const secret = "never-print-legacy-trigger-token";
+    const result = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, NODE_ENV: "test", CODEX_TRIGGER_TOKEN: secret },
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("CODEX_TRIGGER_TOKEN");
+    expect(result.stderr).not.toContain(secret);
+  });
+
   it("name-scopes the documented OPENAI_BASE_URL launcher defect separately from unexpected leaks", () => {
     const known = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
       cwd: repoRoot,
