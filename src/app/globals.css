@@ -983,9 +983,44 @@ select,
 }
 
 :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
+  /* Hairline on the field edge, not an inset accent rectangle. The previous
+     inset offset plus solid `--focus` read as a default browser ring and, on
+     transparent inputs nested in a rounded search shell, drew a sharp box
+     around the text while the icon sat outside it. */
   box-shadow: var(--shadow-inset);
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
+  outline: 1px solid color-mix(in srgb, var(--clinical-accent) 32%, var(--border-strong));
+  outline-offset: 0;
+}
+
+/* Standalone field recipe (`fieldControl`). Tailwind `outline-none` loses to
+   the unlayered rule above; this is the real owner. Focus is a quiet border
+   shift — no second outline. */
+input.field-control:focus-visible,
+textarea.field-control:focus-visible,
+select.field-control:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
+}
+
+input.field-control[aria-invalid="true"]:focus-visible,
+textarea.field-control[aria-invalid="true"]:focus-visible,
+select.field-control[aria-invalid="true"]:focus-visible {
+  border-color: var(--danger);
+}
+
+/* Nested search: the rounded shell owns focus. Inner `outline-none` utilities
+   cannot suppress the shared field rule, which is why compare / filter /
+   catalogue pickers grew a bright rectangle around the text. Border only —
+   do not replace resting elevation on tools / calculator / document pills,
+   the same failure the composer comment forbids. */
+.search-shell:focus-within {
+  border-color: color-mix(in srgb, var(--clinical-accent) 34%, var(--border-strong));
+}
+
+.search-shell-input:focus,
+.search-shell-input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 button,
@@ -1648,7 +1683,7 @@ summary::-webkit-details-marker {
   }
 
   .answer-footer-search-pill:focus-within {
-    border-color: var(--clinical-accent);
+    border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
       0 8px 20px rgb(16 24 40 / 8%),
@@ -1657,7 +1692,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-pill-open {
-  border-color: color-mix(in srgb, var(--clinical-accent) 46%, var(--border-strong));
+  border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--clinical-accent) 10%, transparent),
     0 8px 20px rgb(16 24 40 / 8%),
@@ -1809,17 +1844,14 @@ summary::-webkit-details-marker {
   box-shadow: var(--shadow-soft);
 }
 
-/* One focus owner, same as every other control. The retired `--shadow-focus`
-   token painted a 3px accent halo ON TOP of the accent border swap below — the
-   companion ring the shared `:focus-visible` treatment near the top of this file
-   exists to prevent (`#261`). The resting `--shadow-soft` elevation is
-   deliberately not overridden here: `--shadow-focus` carried it as its second
-   layer, so leaving box-shadow alone keeps the pill seated at exactly the same
-   height focused as at rest, and the outline is the only thing that changes. */
+/* One focus owner. The retired `--shadow-focus` token painted a 3px accent
+   halo ON TOP of the accent border swap — the companion ring `#261` forbids.
+   Focus is a quiet border shift; resting `--shadow-soft` stays so the pill
+   does not jump height. A second outline here is what made the composer look
+   like a default browser ring. */
 .chat-composer-shell-delta:focus-within {
-  border-color: var(--clinical-accent);
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
+  outline: none;
 }
 
 .chat-composer-input {
@@ -4876,6 +4908,29 @@ html.theme-transitioning *:after {
   .clinical-ask-workspace button,
   .clinical-ask-action-rail button {
     border: 1px solid CanvasText;
+  }
+
+  /* Quiet default-mode focus is a border shift / color-mix outline. Forced
+     colors remaps `--focus` to Highlight; restore that ring so keyboard users
+     do not lose the only system-color affordance. Nested search inputs stay
+     outline-none — their rounded shell (or composer pill) owns the ring. */
+  .search-shell:focus-within,
+  .chat-composer-shell-delta:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible,
+  input.field-control:focus-visible,
+  textarea.field-control:focus-visible,
+  select.field-control:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .search-shell-input:focus,
+  .search-shell-input:focus-visible {
+    outline: none;
   }
 }
 

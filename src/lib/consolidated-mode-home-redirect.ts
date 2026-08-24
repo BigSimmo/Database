@@ -150,15 +150,18 @@ export function consolidatedModeHomeTargetForSearchParams(
 /**
  * `<mode>/search` routes that have no browse view of their own.
  *
- * `/calculators/search` and `/differentials/search`: their idle bodies were the
- * retired tile homes, so an unsubmitted visit has nothing useful to show.
- * Redirecting them home is correct. Calculators coverage is
- * `tests/calculators-mode.dom.test.tsx`; differentials is this module's own
- * unsubmitted-search cases.
+ * `/differentials/search`: its idle body was the retired tile home, so an
+ * unsubmitted visit has nothing useful to show. Redirecting it home is
+ * correct. Coverage is this module's own unsubmitted-search cases.
  *
- * `/formulation/search` and `/specifiers/search` are deliberately NOT here:
- * their components render a real browsable catalogue on an empty query — the
- * same content `/formulation` and `/specifiers` held as a long list, relocated
+ * `/calculators/search` is deliberately NOT here: an empty query now renders
+ * the browsable calculator catalogue (the Tools `/tools` analogue), so Show
+ * all on the shared Calculators home can land here. That is pinned by
+ * `tests/calculators-mode.dom.test.tsx`.
+ *
+ * `/formulation/search` and `/specifiers/search` are also absent: their
+ * components render a real browsable catalogue on an empty query — the same
+ * content `/formulation` and `/specifiers` held as a long list, relocated
  * here rather than duplicated. That is pinned by
  * `tests/ui-phone-scroll-routes.spec.ts` ("phone scroll stays smooth on
  * /formulation/search"), which navigates there with no query and asserts the
@@ -171,7 +174,6 @@ export function consolidatedModeHomeTargetForSearchParams(
  * surfaces too — redirecting them would break the tab that points at them.
  */
 const modeSearchRoutesWithoutBrowseView = {
-  "/calculators/search": "calculators",
   "/differentials/search": "differentials",
 } as const satisfies Record<string, AppModeId>;
 
@@ -203,9 +205,9 @@ export function unsubmittedModeSearchTarget(pathname: string, search: URLSearchP
 
 /**
  * The same decision as `unsubmittedModeSearchTarget`, for a page's own
- * `searchParams`. The `/calculators/search` and `/differentials/search`
- * backstops must not hardcode `/?mode=<id>` — that drops navigation context
- * (`focus`, `queryMode`, scope filters) the proxy would have kept.
+ * `searchParams`. The `/differentials/search` backstop must not hardcode
+ * `/?mode=<id>` — that drops navigation context (`focus`, `queryMode`, scope
+ * filters) the proxy would have kept.
  */
 export function unsubmittedModeSearchTargetForSearchParams(
   pathname: string,

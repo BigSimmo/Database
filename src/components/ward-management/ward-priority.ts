@@ -25,6 +25,12 @@ function hasActiveBlocker(blocker: string): boolean {
  * Deliberately blind to `movement.urgency`. Urgency is the clinician's judgement and orders the
  * queue on its own; folding it in here produced a number labelled "not clinical severity" that
  * partly was, which is why the previous score was deleted rather than migrated.
+ *
+ * Also deliberately blind to `movement.examination`. Whether a patient has been reviewed does not
+ * score here at all: on the product owner's 2026-08-24 instruction, priority is urgency and
+ * waiting time alone, and being unreviewed neither costs points nor blocks a bed request. The
+ * examination record itself is untouched — it is still captured and still displayed; it simply has
+ * no effect on the queue. Do not reintroduce it here in any weight, and do not substitute a proxy.
  */
 export function operationalScore(movement: Movement, now: Instant): { score: number; factors: ScoreFactor[] } {
   const factors: ScoreFactor[] = [];
@@ -66,38 +72,6 @@ export function operationalScore(movement: Movement, now: Instant): { score: num
             : `Form ${legalForm.code} due in ${remaining} min`,
       });
     }
-  }
-
-  // The clinician's own words, put to him directly: a patient "needs review before they are
-  // referred for a bed as they may not need a bed." An examination whose outcome is recorded as
-  // `inpatient_order` is the model's only operational evidence that a bed is genuinely needed,
-  // as opposed to referred on before anyone has looked. This deliberately does not gate
-  // REFER_TO_UNITS on that evidence — measured against the fixture, only 2 of 17 open movements
-  // at a referable stage carry an examination with this outcome, and 23 further open movements
-  // already past that stage carry no examination at all, so gating would make most of the
-  // fixture unreachable. That larger question belongs to the product owner. This factor instead
-  // rewards the evidence inside the existing tier-relative score, same as every other factor
-  // here.
-  //
-  // This is an operational fact about this movement — "this department has recorded evidence a
-  // bed is needed" — not a clinical judgement, so it is named and worded accordingly (see this
-  // function's own doc comment on why a prior score was deleted rather than migrated for
-  // exactly this ambiguity). 25 points sits between the "critical" (20) and "breached" (30)
-  // statutory-timing tiers above: stronger signal than an as-yet-unbreached legal timer, but
-  // this is not a deadline and must not be inflated to read like one.
-  //
-  // KNOWN GAP, surfaced rather than papered over: 21 of the fixture's 41 open movements are
-  // voluntary and carry no `legalForm` at all, so they never receive a Mental Health Act
-  // examination and can never earn this factor — even though in reality a voluntary patient is
-  // just as much reviewed before a bed is sought. The model has no way to evidence that review.
-  // This factor therefore only rewards detained-and-examined patients; it is not a general
-  // "has been reviewed" signal, and no proxy has been invented to cover voluntary patients.
-  if (movement.examination?.outcome === "inpatient_order") {
-    factors.push({
-      label: "Bed need confirmed",
-      points: 25,
-      detail: "Examination outcome: inpatient order — bed confirmed as needed",
-    });
   }
 
   if (movement.declines.length > 0) {

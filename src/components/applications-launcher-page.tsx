@@ -20,6 +20,7 @@ import { cardInteractive, cardSelected, cardSelectedDanger, focusRing } from "@/
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero } from "@/components/mode-home-template";
+import { ShowAllChip } from "@/components/show-all-chip";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
@@ -29,7 +30,7 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { SegmentedControl } from "@/components/ui/segmented-control";
-import { cn, EmptyState, eyebrowText } from "@/components/ui-primitives";
+import { cn, EmptyState, eyebrowText, searchShellInput } from "@/components/ui-primitives";
 import { Chip, type ChipStatusTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
 import { TOOL_AREA_LABEL, toolIdentity } from "@/lib/category-identity";
@@ -225,7 +226,7 @@ function ToolSearch({
         // read the tap knob rather than a copy of its value — a literal here
         // overlaps the input (or undersizes the submit control) the moment
         // `--spacing-tap` moves.
-        "grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        "search-shell grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
         className,
       )}
     >
@@ -239,7 +240,10 @@ function ToolSearch({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={copy.searchPlaceholder}
-          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus:outline-none"
+          className={cn(
+            searchShellInput,
+            "w-full text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)]",
+          )}
         />
       </label>
       <button
@@ -831,18 +835,13 @@ export function ApplicationsLauncherWorkspace({
           headingLevel={1}
         />
 
-        <Link
+        <ShowAllChip
           href="/tools"
-          aria-label="Show all tools"
-          data-testid="tools-show-all"
-          className={cn(
-            "inline-flex min-h-tap items-center justify-center gap-2 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--clinical-accent-soft)] sm:text-sm lg:min-h-9",
-            focusRing,
-          )}
-        >
-          <Grid2X2 className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" strokeWidth={1.75} aria-hidden="true" />
-          {copy.showAllLabel}
-        </Link>
+          icon={Grid2X2}
+          label={copy.showAllLabel}
+          ariaLabel="Show all tools"
+          testId="tools-show-all"
+        />
 
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot
