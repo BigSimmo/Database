@@ -990,3 +990,51 @@ part that matters and is being built now.
 **Stated plainly because it is a narrowing of my own words to the owner:** I said "permission-checked
 separately", and separately means its own method and its own check, not a new capability. If he meant
 a new permission tier, this is the sentence that will let him say so.
+
+## Task 5b — the names-only projection, and the implementer improved on my ruling
+
+Returned complete at `c6cd1ede8`. Full suite **`Tests 9985 passed | 74 skipped (10059)`, zero
+failures**; Postgres suite `Tests 182 passed (182)`; typecheck and lint recorded passes. Twelve
+mutation attempts itemised, eleven red, one (M7) not red — fixed and re-run red as M7b, with the
+failed attempt kept in the table. No aggregate total claimed, per Ruling 94's shape.
+
+**Ruling [95] is REFINED, and the refinement is the implementer's.** I ruled the read reuse the
+existing `viewPatientRecord` rather than mint a capability. It honoured that — no new capability
+exists — and then found the hole my ruling left open:
+
+`READ_ACTIONS.plan` is `"viewReferral"`, and that is what gates listing plans at all. The **auditor**
+holds `viewPatientRecord` but NOT `viewReferral`. So on `viewPatientRecord` alone, `listPatientNames`
+would have handed the auditor **an enumeration of every patient name in the team** — obtainable by no
+route that exists today. **A change whose entire purpose is narrowing would have widened auditor
+access.**
+
+`PATIENT_NAME_READ_ACTIONS` is therefore an ALL-of list, `[READ_ACTIONS.plan,
+READ_ACTIONS.patientName]`, and the reasoning is not arbitrary: the projection **enumerates** the
+team's plans, so it must release a name only for a plan the actor could already see. The in-memory
+implementation filters by exactly `listPlans`' predicate and then by the name capability on top, so
+the result is always a subset of the plans that actor can already list. It also builds the returned
+objects rather than deriving them from the stored plan, "so no widening can ride along by accident:
+there is no spread of `patientDetail` to forget to narrow."
+
+**What I take from this about ruling.** My ruling answered the question I had asked myself — "does
+this need a new capability?" — and was correct on it. It did not ask the adjacent question: "what
+does the capability I am reusing already grant, to whom?" A ruling scoped to the question that
+prompted it can be right and still leave a hole, and the implementer nearest the code is the one
+positioned to see it. **Rulings should be written to be improvable, and an implementer that says "you
+may want to overrule this" should be read as doing its job rather than hedging.** Upheld as built.
+
+**A STALE STANDING INSTRUCTION, corrected — and it was mine.** I have been telling every subagent to
+"expect exactly 2 failures in `tests/gate-receipts.test.ts`". Those failures are **gone**: the merge
+from origin brought `cbde6ecbb` "Make the gate-receipt tests environment-explicit so they pass under
+CI", and the file now runs `Tests 34 passed (34)`. This implementer noticed the prediction did not
+match reality and said so.
+
+The hazard is not the wasted sentence, it is the direction it points: **an instruction to expect a
+named failure tells a reader to look past a file that can once again fail for real.** A standing
+"known noise" note is a licence to ignore, and it must expire the moment the noise does. Removed from
+the briefs and corrected in durable memory.
+
+**Two concerns carried to review rather than settled here:** a row cannot distinguish "de-identified"
+from "your role may not see names" — it states the kind of thing the heading is and claims nothing
+more, which is conservative but may not be enough; and `patientDirectory` now names two different
+reads in the access trail, distinguishable by `objectId` but not by action name.
