@@ -221,6 +221,15 @@ describe("developer-area header (x-developer-area)", () => {
   });
 });
 
+describe("static compatibility redirects", () => {
+  it("forwards retired constellation deep-links to the network destination", async () => {
+    const response = await proxy(requestFor("/ward-management/constellation"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/ward-management/network");
+  });
+});
+
 describe("document-source fallback redirects", () => {
   const demoId = "11111111-1111-4111-8111-111111111111";
 

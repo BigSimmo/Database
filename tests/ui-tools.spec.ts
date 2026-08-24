@@ -80,7 +80,7 @@ function waitForDifferentialCatalogQuery(page: Page, query: string) {
 }
 
 async function submitDifferentialSearch(page: Page, query: string) {
-  const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+  const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible').first();
   const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
 
   // Own the fill here rather than leaving it to callers. The server-rendered
@@ -1897,7 +1897,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     const heroSearch = sharedHome.getByTestId("global-search-input");
     await expect(heroSearch).toBeVisible();
-    await expect(heroSearch).toHaveAttribute("placeholder", "Ask or search a presentation");
+    await expect(heroSearch).toHaveAttribute("placeholder", "Ask or search a presentation...");
 
     // The hero heading sits above the composer, and the composer stays in the
     // upper two thirds — the same geometry contract every mode home is held to.
@@ -2345,7 +2345,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
+    const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await expect(input).toHaveCount(1, { timeout: 15_000 });
     await expect(submit).toHaveCount(1, { timeout: 15_000 });
