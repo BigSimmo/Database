@@ -480,20 +480,20 @@ named six. A total that outruns its itemisation is the weakest form of the probl
 programme keeps catching, so here is every attempt, including the two that were skipped or measured
 nothing.
 
-| # | Mutation | File | Result |
-| --- | --- | --- | --- |
-| 1 | I-3: restore "The role switcher changes which role you are acting in" | directory | **red**, 1 failed — "states a remedy that exists…" |
-| 2 | I-5: the role case falls back to `kind="filtered"` | directory | **red**, 1 failed — "uses the not-permitted kind…" |
-| 3 | I-5: `"not-permitted"` reuses `SearchX` | `list-empty-state.tsx` | **red**, 2 failed — the component suite and the screen suite |
-| 4 | I-4: restore `plansRead.released ?? []` | page | **NOT RED** — 56 passed. The gap. |
-| 5 | I-4 retried, after adding the covering test | page | **red**, 1 failed |
-| 6 | M-8: count `planned.suppressed` instead of `contact.state` | directory | **red**, 1 failed — "explains a contact suppressed by the transition…" |
-| 7 | M-9: strip `data-internal-link` from the row control | directory | **SKIPPED** — my anchor string did not match the file |
-| 8 | M-9: strip it from the empty state's remedy link | directory | **NOT RED** — 21 passed. The second gap. |
-| 9 | M-9 retried, after closing the gap | directory | **red**, 1 failed |
-| 10 | M-9: strip it from the filter chips | directory | **red**, 1 failed |
-| 11 | M-6: raise the floor from `>= 5` to `>= 99` | shell test | **red** — but see the note below |
-| 12 | M-7: `readHandler` treats an empty array as denied | `handler.ts` | **red**, 1 failed |
+| #   | Mutation                                                              | File                   | Result                                                                 |
+| --- | --------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------- |
+| 1   | I-3: restore "The role switcher changes which role you are acting in" | directory              | **red**, 1 failed — "states a remedy that exists…"                     |
+| 2   | I-5: the role case falls back to `kind="filtered"`                    | directory              | **red**, 1 failed — "uses the not-permitted kind…"                     |
+| 3   | I-5: `"not-permitted"` reuses `SearchX`                               | `list-empty-state.tsx` | **red**, 2 failed — the component suite and the screen suite           |
+| 4   | I-4: restore `plansRead.released ?? []`                               | page                   | **NOT RED** — 56 passed. The gap.                                      |
+| 5   | I-4 retried, after adding the covering test                           | page                   | **red**, 1 failed                                                      |
+| 6   | M-8: count `planned.suppressed` instead of `contact.state`            | directory              | **red**, 1 failed — "explains a contact suppressed by the transition…" |
+| 7   | M-9: strip `data-internal-link` from the row control                  | directory              | **SKIPPED** — my anchor string did not match the file                  |
+| 8   | M-9: strip it from the empty state's remedy link                      | directory              | **NOT RED** — 21 passed. The second gap.                               |
+| 9   | M-9 retried, after closing the gap                                    | directory              | **red**, 1 failed                                                      |
+| 10  | M-9: strip it from the filter chips                                   | directory              | **red**, 1 failed                                                      |
+| 11  | M-6: raise the floor from `>= 5` to `>= 99`                           | shell test             | **red** — but see the note below                                       |
+| 12  | M-7: `readHandler` treats an empty array as denied                    | `handler.ts`           | **red**, 1 failed                                                      |
 
 Plus three browser mutations, tabled above.
 
@@ -516,3 +516,118 @@ finds nothing exits non-zero, and chaining would have skipped the run and report
    the thing keeping the adoption contract's proof claim true, but nothing enforces it: a Task 6
    screen added to the surface and not to that list recreates C-1 exactly. A static check that every
    route in the surface's `routes` appears in that spec would close it, and I did not build one.
+
+---
+
+# Fix round 2
+
+All six items taken. Head `5e0dba3f5` plus this report. Not pushed, no pull request.
+
+## Ruling 94 — the count is dropped, not corrected
+
+You are right that "five" was wrong, and right about why: I scoped it to
+`src/components/caring-contacts/workspace/**` without saying so, and "in total" foreclosed exactly
+the scoping I had silently applied. `src/app/caring-contacts/error.tsx` is a Client Component
+because Next requires error boundaries to be, it sits inside the workspace by the same paragraph's
+own definition, and it pulls `src/components/route-error-boundary.tsx` into the route's client
+bundle.
+
+So no number replaces it. All three sites now state the property that does not decay — **nothing
+outside the `/caring-contacts` route segment imports this workspace**, so the dashboard references
+no chunk exclusive to it however many files the directory grows — plus the one claim that is
+checkable per screen and was always the real point: **this screen adds no client component of its
+own.**
+
+`unavailable-destination.tsx` carries the history in full, because it is where both wrong counts
+were written and where the next person will copy from.
+
+## The mutation ledger — itemised, and one entry relabelled
+
+The round-1 section now lists every attempt in a table rather than giving a total. The two you
+could not account for were real and are named: **I-5's `SearchX` reuse** in `list-empty-state.tsx`
+(red, 2 failed — the component suite and the screen suite), and **M-8's `planned.suppressed`
+count** (red, 1 failed). Two further entries were missing from the total as well: the M-9 mutation
+whose anchor never matched the file, and the first M-9 attempt that did not go red.
+
+**M-6's `>= 5` → `>= 99` is relabelled.** You are right that it mutates the test's own threshold, so
+it shows the assertion executes and nothing more; the exact count two lines above it carries the
+real weight. It is still listed, but as what it is.
+
+## N-1 — `== null`
+
+Fixed, with a comment saying why a loose equality is correct in that one place: `auditedRead`
+denies on null **or undefined** while `AuditedReadResult` types `released` as `T | null`, so the
+compiler cannot see the gap and my pinning test mocked `null` specifically. The `undefined` case is
+now its own test. Mutation R2-1 narrows the guard back to `=== null` and that test goes red.
+
+## N-2 — both causes, counted and explained
+
+`hasAbsorbedContact` became `absorbedContactCount`, and the row now derives its reason from the two
+counts rather than branching on whether an absorbed contact exists. A plan carrying one absorbed
+Week-1 message and one later `suppress` transition states both causes and **both remedies**, which
+is the part that made this worth fixing rather than merely tidying: absorption is undone by choosing
+a different first-contact date, and a transition-suppressed contact is terminal. Mutation R2-2
+restores the unconditional branch and the new test goes red.
+
+## N-3 — the clinician-facing count is pinned
+
+Two mutations, from both sides, because a single one would not have caught both directions of the
+change: R2-3 subtracts only the absorbed contacts (the pre-round-1 definition) and R2-4 subtracts
+nothing at all. Both go red on the same new test.
+
+You are right that this is the same shape as my own I-4 finding: a value changed definition and
+nothing read it.
+
+## Minor — the dark-mode proof now reads this screen
+
+`shellColours()` reads the rail, the `h1` and the synthetic marker, all identical on both routes, so
+the test would have earned the `dark` category for the Patients route while inspecting only the
+shell. A new `emptyStateColours()` reads the empty-state panel's own surface, border and ink, none
+of them drawn by the shell.
+
+Proved with a browser mutation: hardcoding the panel's `bg-[color:var(--surface-subtle)]` to a hex
+value fails with `the empty state's surface did not change in dark`, `Expected: not "rgb(244, 244,
+245)"`. Before this change that mutation passed.
+
+## Gates
+
+```
+npm run test        →  Tests  2 failed | 9863 passed | 74 skipped (9939)
+                       Test Files  1 failed | 815 passed | 3 skipped (819)
+npm run typecheck   →  [gate-receipts] recorded a pass for "typecheck:internal" (5228 input files)
+npm run lint        →  [gate-receipts] recorded a pass for "lint:internal" (5228 input files)
+npm run test:e2e -- tests/ui-caring-contacts-workspace.spec.ts --project=chromium
+                    →  38 passed (1.1m), exit 0
+npx prettier --check <every file changed since bb03d00b5>
+                    →  clean
+```
+
+The two failures are the known Windows `chmodSync` file-mode pair in `tests/gate-receipts.test.ts`,
+and nothing else. Typecheck and lint are fresh runs, not reused receipts. No gate failed to take a
+lock and none was skipped.
+
+### Round-2 mutation ledger
+
+| #    | Mutation                                                | Result                                                                           |
+| ---- | ------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| R2-1 | narrow the null guard back to `=== null`                | **red**, 1 failed — "throws the same way when the store answers undefined"       |
+| R2-2 | absorption wins unconditionally again                   | **red**, 1 failed — "accounts for both causes…"                                  |
+| R2-3 | subtract only absorbed contacts from the rendered count | **red**, 1 failed — "states how many messages remain…"                           |
+| R2-4 | subtract nothing from the rendered count                | **red**, 1 failed — same test, opposite direction                                |
+| B4   | hardcode the empty state's surface to a hex value       | **red** (browser), 1 failed — "the empty state's surface did not change in dark" |
+
+Five attempts, five reds, none skipped, none measuring something other than what it claimed.
+Presence proved with `;` in every case.
+
+## Deferred, as instructed
+
+Not touched this round: the `session/route.ts:43` comment naming the same non-existent switcher;
+`data-internal-link` being a self-asserted marker rather than structural proof of a `<Link>`; and
+`PATIENTS_ROUTE` being built from a literal rather than imported from `caring-contacts-routes.ts`.
+
+## Still open from round 1
+
+`WORKSPACE_SCREENS` is a list a future screen must be added to, and nothing enforces it. A Task 6
+screen added to the adoption surface's `routes` but not to that list recreates C-1 exactly. A static
+check comparing the two would close it; I did not build one, and it is the one thread I would pick
+up first.
