@@ -60,7 +60,8 @@ Authority must come from registered publisher codes or compatible canonical publ
 
 ## Mode-aware Clinical Ask governance
 
-Clinical Ask serves seven exhaustive clinician-reference modes: Services, Forms, Differentials, Formulation,
+Clinical Ask is currently dormant with no user-visible composer entry point. If reactivated, it serves seven
+exhaustive clinician-reference modes: Services, Forms, Differentials, Formulation,
 DSM-5 Diagnosis, Specifiers, and Therapy. Every request uses the same deterministic Evidence Ladder: local
 Catalogue first, authorised owner-scoped Indexed evidence second, and an allowlisted External Authority only when
 there is a deterministic evidence gap, unresolved conflict, stale material, or a `needs_review` source. An unsupported
