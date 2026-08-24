@@ -201,6 +201,11 @@ test("merges search and browse into one catalogue with a measured phone header",
   ).toBeVisible();
   await expect(page.getByTestId("dictionary-letter-chip")).toBeVisible();
 
+  for (const scopeButton of await page.getByTestId("dictionary-scope-toggle").getByRole("button").all()) {
+    expect((await scopeButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
+  }
+  expect((await page.getByTestId("dictionary-letter-chip").boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
+
   const resultControls = await page.evaluate(() => {
     const ribbon = document.querySelector('[data-testid="search-query-ribbon"]');
     const box = (testId: string) => ribbon?.querySelector(`[data-testid="${testId}"]`)?.getBoundingClientRect() ?? null;
