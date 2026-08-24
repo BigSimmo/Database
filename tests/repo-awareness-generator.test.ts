@@ -389,7 +389,10 @@ describe("the real review record corpus", () => {
     for (const record of section.records) {
       expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(record.ref.length).toBeGreaterThan(0);
-      expect(record.head).toMatch(/^[0-9a-f]{7,40}$/);
+      // Frozen pre-contract rows include descriptive placeholder heads. The
+      // ledger guard permits those historical rows but enforces SHAs for new
+      // immutable records, so this projection only promises a populated cell.
+      expect(record.head.length).toBeGreaterThan(0);
       expect(record.checks).not.toMatch(/\\\|/);
       expect(record.scope.length).toBeGreaterThan(0);
       expect(record.outcome.length).toBeGreaterThan(0);
