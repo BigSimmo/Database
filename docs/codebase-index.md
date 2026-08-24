@@ -75,6 +75,7 @@ Smaller top-level directories that are easy to miss:
 | Shared mode-home route group (`/(search-app)`)                                                                                                                                                 | `src/app/(search-app)/`                                                                   |
 | Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                                            | `src/app/(search-app)/` shared shell group                                                |
 | `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                                         | `src/app/caring-contacts/`                                                                |
+| `/caring-contacts/patients` (the team's caseload: one row per plan, URL-driven state/identifier filter, no patient-identifying detail)                                                          | `src/app/caring-contacts/patients/page.tsx`                                               |
 | `/applications`                                                                                                                                                                                | `src/app/applications/route.ts`                                                           |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                   | `src/app/(search-app)/differentials/`                                                     |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                 | `src/app/(search-app)/dsm/`                                                               |
@@ -205,6 +206,14 @@ repositories. `src/lib/caring-contacts-server/` is the server-side seam for the 
 and optional separate database connection. It must fail closed in production and must never
 connect to the Clinical KB Supabase project. The standalone `src/app/caring-contacts/` workspace
 is noindex, visibly marked synthetic, and has a single inbound entry from the Tools catalogue.
+
+Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
+destination set: a destination carries an `href` only once its page exists, and every other one
+renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
+(Today) and `/caring-contacts/patients` (the caseload) are the two built so far. Screens are
+Server Components that read the store through `auditedRead` rather than over HTTP, using the same
+access identity the matching API route records; filtering is carried in the URL and read by the
+Server Component, so the workspace ships one client component in total.
 
 ---
 

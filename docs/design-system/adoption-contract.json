@@ -547,7 +547,7 @@
     {
       "id": "caring-contacts-workspace",
       "disposition": "owned",
-      "routes": ["src/app/caring-contacts/page.tsx"],
+      "routes": ["src/app/caring-contacts/page.tsx", "src/app/caring-contacts/patients/page.tsx"],
       "routeRoots": true,
       "roots": [],
       "permittedComponentFamilies": [],

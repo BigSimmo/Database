@@ -88,6 +88,8 @@ const routeDescriptions: Record<string, string> = {
   "/applications": "Legacy application launcher redirect to Tools.",
   "/caring-contacts":
     "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
+  "/caring-contacts/patients":
+    "The team's caring-contact caseload: one row per plan, filtered by plan state or synthetic identifier through the URL. Carries no patient-identifying detail.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",
