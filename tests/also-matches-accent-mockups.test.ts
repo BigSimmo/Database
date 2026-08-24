@@ -11,6 +11,8 @@ describe("also-matches accent mockups", () => {
     expect(source).toContain("cardAccentEdge");
     expect(source).toContain("border-l-[3px] border-l-[color:var(--cat-accent)]");
     expect(source).toContain("bg-[color:var(--cat-soft)]");
+    expect(source).toContain('phone ? "grid-cols-1"');
+    expect(source).toContain('data-testid="also-matches-chosen-chip"');
   });
 
   it("keeps identity on category tokens, not clinical-state colour", () => {
