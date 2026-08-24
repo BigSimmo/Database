@@ -100,6 +100,44 @@ const INTENT_EVENT_HEADING: Partial<Record<AuditEventType, string>> = {
   patient_plan_print_intent_opened: "The Patient Plan print view was opened",
 };
 
+/**
+ * Who a record-derived moment is attributed to, resolved from the audit event
+ * that wrote it.
+ *
+ * Several records keep the *when* of an action without keeping the *who*: the
+ * timestamp is a field on the record, and the clinician is only ever named in
+ * the audit stream. Neither route into this chronology reaches those events —
+ * some carry `patientId: null`, and none is one of the five intent kinds — so
+ * building the entry from the record alone attributed it to nobody, which
+ * denies evidence the session is holding. That is the overclaiming defect this
+ * prototype guards against, inverted, and it reads to a later clinician as
+ * nobody having owned the action.
+ *
+ * Resolving it here is a lookup for one field. It does **not** widen the intent
+ * filter: no audit event becomes an entry, and nothing is counted twice.
+ *
+ * Matching on the timestamp is exact rather than approximate because every one
+ * of these reducers derives the record's date and the event's `occurredAt` from
+ * the same pre-mutation state. That exactness is what makes a repeated action
+ * attribute to whoever performed the most recent one, rather than to the first.
+ *
+ * `null` means the record does not name anybody — which every caller must say
+ * as a statement about the record, never as a claim that no clinician was
+ * involved.
+ */
+function actorFromAudit(
+  state: CarePlanPrototypeState,
+  type: AuditEventType,
+  objectId: string,
+  occurredAt: string,
+): SyntheticId | null {
+  return (
+    state.auditEvents.find(
+      (event) => event.type === type && event.objectId === objectId && event.occurredAt === occurredAt,
+    )?.actorId ?? null
+  );
+}
+
 function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryEntry[] {
   const entries: HistoryEntry[] = [];
 
@@ -125,7 +163,13 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
         heading: `Management Plan version ${version.version} submitted for approval`,
         detail:
           "A submitted version is read-only while a named senior clinician compares it. It is not a plan in use, and the Current Plan was unaffected.",
-        actorId: version.authorId,
+        // Not `version.authorId`, which this line used to claim.
+        // `submit-management-draft` is gated on the role alone, never on
+        // authorship, so any clinician carrying the capability may submit
+        // somebody else's draft — and the line then named the wrong person as
+        // having submitted it. A wrong name is worse than a missing one.
+        actorId: actorFromAudit(state, "management_version_submitted", version.id, version.submittedAt),
+        unattributed: "The record does not name who submitted it",
       });
     }
     if (version.approvedAt !== null) {
@@ -156,7 +200,17 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
         heading: `Management Plan version ${version.version} shown to ${patient.preferredName}`,
         detail:
           "This records that the plan was gone through with this person. It is not a Patient Plan, and it is not their agreement to it.",
-        actorId: null,
+        // Not `version.authorId`: the person who wrote the plan and the person
+        // who sat down and went through it are two different clinicians doing
+        // two different things, and inferring one from the other would invent
+        // an attribution the record does not hold.
+        actorId: actorFromAudit(
+          state,
+          "management_plan_shared_with_patient",
+          version.id,
+          version.sharedWithPatientAt,
+        ),
+        unattributed: "The record does not name who went through it with them",
       });
     }
   }
@@ -198,7 +252,12 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
         source === null
           ? "The Management Plan Version it was written from is not in this session."
           : `Written from Management Plan version ${source.version}. Anything the conversion could not put into ${patient.preferredName}'s own words was left as a gap for a person to write.`,
-      actorId: null,
+      // The conversion is offline and deterministic, but a clinician ran it,
+      // and `patient_plan_draft_created` names them. Attributing it to the
+      // person is right: the entry records who produced this version, not
+      // which code did the converting.
+      actorId: actorFromAudit(state, "patient_plan_draft_created", version.id, version.createdAt),
+      unattributed: "The record does not name who produced this version",
     });
     if (version.approvedAt !== null) {
       entries.push({
@@ -236,32 +295,9 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
 
   const cmht = state.cmhtContacts.find(({ id }) => id === patient.cmhtId) ?? null;
   if (cmht !== null) {
-    /**
-     * `verify-cmht-contact` writes a `cmht_contact_verified` event that **does**
-     * carry the clinician who checked the details, but neither route into this
-     * chronology reaches it: the event has `patientId: null`, and it is not one
-     * of the five intent kinds. Attributing the line to nobody therefore denied
-     * evidence the session was holding — the same overclaiming defect this
-     * prototype guards against, inverted.
-     *
-     * So it is resolved directly, by the team and by the moment on display,
-     * rather than by widening the intent filter. Matching on the timestamp is
-     * exact rather than approximate because the reducer derives the contact's
-     * `verifiedAt` and the event's `occurredAt` from the same pre-mutation
-     * state — and it is what makes a second check attribute to whoever made
-     * the second check.
-     *
-     * A fixture-seeded team carries a checked date with no such event, and then
-     * the record genuinely does not name anybody. That is not the same claim as
-     * no clinician having been involved, so it does not borrow that sentence.
-     */
-    const verifiedBy =
-      state.auditEvents.find(
-        (event) =>
-          event.type === "cmht_contact_verified" &&
-          event.objectId === cmht.id &&
-          event.occurredAt === cmht.verifiedAt,
-      )?.actorId ?? null;
+    // A fixture-seeded team carries a checked date and no event, and then the
+    // record genuinely does not name anybody.
+    const verifiedBy = actorFromAudit(state, "cmht_contact_verified", cmht.id, cmht.verifiedAt);
 
     entries.push({
       id: `${cmht.id}-verification`,

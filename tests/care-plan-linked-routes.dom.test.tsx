@@ -3990,6 +3990,98 @@ describe("Care Plan combined History", () => {
   });
 
   /**
+   * The same defect on the sibling entries, found by auditing the builder after
+   * the contact-verification one was fixed.
+   *
+   * This one is the worst of the set, because it did not merely decline to name
+   * somebody — it named the **wrong** person. The line was built from
+   * `version.authorId`, but `submit-management-draft` is gated on the role
+   * alone and never on authorship, so any clinician carrying the capability may
+   * submit a draft somebody else wrote. Alex's draft is Morgan Sample's, and a
+   * senior submitting it was recorded as Morgan having submitted it.
+   */
+  it("names the clinician who submitted a version, not the one who wrote it", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.managementPlanEdit("SYN-PATIENT-005"));
+    await signInAs(user, SENIOR);
+    await user.click(screen.getByRole("button", { name: /Submit for senior approval/i }));
+    const dialog = screen.getByRole("dialog", { name: /Submit version 1 for senior approval/i });
+    await user.click(within(dialog).getByRole("button", { name: /Submit for approval/i }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-005"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /submitted for approval/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Dr Taylor Fiction/);
+    // The author. Naming her here would be an inference the record does not hold.
+    expect(attribution).not.toMatch(/Morgan Sample/);
+  });
+
+  it("names the clinician who went through the plan with the person", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    await user.click(screen.getByRole("button", { name: /Record that this plan has been shown/i }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-002"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /shown to Mira/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Dr Casey Example/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  it("says a fixture sharing record does not name who went through it, rather than that nobody did", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /shown to Rowan/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who went through it with them/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  it("says a fixture submission does not name who submitted it, rather than naming the author", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /submitted for approval/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who submitted it/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  it("names the clinician who produced a Patient Plan version", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: "Create the patient copy" }));
+
+    goTo(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Patient Plan version 1 written/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/Dr Casey Example/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
+  /**
    * The other half of the same rule. A fixture-seeded team carries a checked
    * date and no event, and the honest sentence is that the record does not name
    * anybody — not that no clinician was involved, which is a claim about the
