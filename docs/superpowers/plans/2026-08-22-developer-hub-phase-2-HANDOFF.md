@@ -3,9 +3,10 @@
 Companion to the plan (`2026-08-22-developer-hub-phase-2.md`) and the approved spec
 (`docs/superpowers/specs/2026-08-22-developer-hub-phase-2-design.md`).
 
-**Rewritten 2026-08-24 at completion.** All 13 tasks are built, each individually reviewed, the whole
-branch reviewed once more, and all five acceptance gates pass. The earlier version of this file was
-written mid-flight at Task 5; everything below supersedes it.
+**Rewritten 2026-08-24 at completion.** All 13 tasks are built, each individually reviewed, and the whole
+branch reviewed once more. Four acceptance gates passed outright; `npm run verify:pr-local` has the
+known environment-specific file-mode failures detailed below. The earlier version of this file was written
+mid-flight at Task 5; everything below supersedes it.
 
 ---
 
