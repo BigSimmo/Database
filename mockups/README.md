@@ -30,11 +30,11 @@ Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header
 Three phone homes at [`/mockups/calculators-show-all`](../src/app/mockups/calculators-show-all/page.tsx). The page is
 the Tools launcher with Calculators copy. Only the **Show all** chip changes.
 
-| Style           | Chip                                                                |
-| --------------- | ------------------------------------------------------------------- |
-| 01 Recommended  | Soft fill + 28px surface well, 36px capsule, 48px tap (implemented) |
-| 02 Soft capsule | Option 2 polished — whisper fill, no well, optical `pl-3.5 pr-4`    |
-| 03 Quiet well   | Option 3 polished — well only, no pill fill                         |
+| Style           | Chip                                                             |
+| --------------- | ---------------------------------------------------------------- |
+| 01 Recommended  | Soft 14% accent tint + hairline well, 36px capsule, 48px tap     |
+| 02 Soft capsule | Option 2 polished — whisper fill, no well, optical `pl-3.5 pr-4` |
+| 03 Quiet well   | Option 3 polished — well only, no pill fill                      |
 
 Shared mockup chrome is suppressed because each frame draws its own top bar and composer.
 

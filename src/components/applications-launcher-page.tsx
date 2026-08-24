@@ -840,10 +840,10 @@ export function ApplicationsLauncherWorkspace({
             focusRing,
           )}
         >
-          <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--clinical-accent-soft)] pl-1 pr-3 text-xs font-semibold tracking-[-0.01em] transition group-hover:bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_82%,var(--clinical-accent))] sm:text-sm">
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:color-mix(in_srgb,var(--clinical-accent)_14%,var(--surface))] pl-1 pr-3 text-xs font-semibold tracking-[-0.01em] transition group-hover:bg-[color:color-mix(in_srgb,var(--clinical-accent)_20%,var(--surface))] sm:text-sm">
             <span
               data-testid="tools-show-all-well"
-              className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--surface)]"
+              className="grid size-7 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
             >
               <Grid2X2 className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
             </span>

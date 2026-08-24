@@ -25,7 +25,7 @@ const shortcuts = calculators.slice(0, 8).map((calc) => ({
 }));
 
 const styles: Array<{ id: ButtonStyle; number: string; name: string; note: string }> = [
-  { id: "recommended", number: "01", name: "Recommended", note: "Soft fill + 28px well · 36px capsule · 48px tap" },
+  { id: "recommended", number: "01", name: "Recommended", note: "Soft tint + hairline well · 36px capsule · 48px tap" },
   { id: "soft", number: "02", name: "Soft capsule", note: "Option 2 polished · no well · optical padding" },
   { id: "quiet", number: "03", name: "Quiet well", note: "Option 3 polished · well only · no pill fill" },
 ];
@@ -48,8 +48,8 @@ function ShowAllButton({ style, pressed, onPress }: { style: ButtonStyle; presse
       >
         <span
           className={cn(
-            "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[color:var(--clinical-accent-soft)] pl-3.5 pr-4 text-xs font-semibold tracking-[-0.01em]",
-            pressed && "bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_78%,var(--clinical-accent))]",
+            "inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[color:color-mix(in_srgb,var(--clinical-accent)_14%,var(--surface))] pl-3.5 pr-4 text-xs font-semibold tracking-[-0.01em]",
+            pressed && "bg-[color:color-mix(in_srgb,var(--clinical-accent)_22%,var(--surface))]",
           )}
         >
           <Calculator className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
@@ -98,11 +98,11 @@ function ShowAllButton({ style, pressed, onPress }: { style: ButtonStyle; presse
     >
       <span
         className={cn(
-          "inline-flex h-9 items-center gap-1.5 rounded-full bg-[color:var(--clinical-accent-soft)] pl-1 pr-3 text-xs font-semibold tracking-[-0.01em]",
-          pressed && "bg-[color:color-mix(in_srgb,var(--clinical-accent-soft)_78%,var(--clinical-accent))]",
+          "inline-flex h-9 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:color-mix(in_srgb,var(--clinical-accent)_14%,var(--surface))] pl-1 pr-3 text-xs font-semibold tracking-[-0.01em]",
+          pressed && "bg-[color:color-mix(in_srgb,var(--clinical-accent)_22%,var(--surface))]",
         )}
       >
-        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[color:var(--surface)]">
+        <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
           <Calculator className="size-icon-sm" strokeWidth={1.75} aria-hidden="true" />
         </span>
         {label}
