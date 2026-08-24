@@ -506,7 +506,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("factsheets"),
       search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
       detail:
-        "`/factsheets/topics` organises the library by category; `/factsheets/search` is the query-and-filter surface; `/factsheets/[slug]` records.",
+        "`/factsheets/search` is the query-and-filter surface; `/factsheets/topics` organises the library by category; `/factsheets/[slug]` records.",
     },
     {
       mode: "Dictionary",
