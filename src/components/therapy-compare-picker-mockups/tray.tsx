@@ -81,6 +81,7 @@ function TrayPhone() {
           <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-28">
             {results.map((therapy) => {
               const held = set.selected.includes(therapy.slug);
+              const blocked = !held && set.full;
               return (
                 <li
                   key={therapy.slug}
@@ -96,15 +97,15 @@ function TrayPhone() {
                     type="button"
                     onClick={() => {
                       if (held) set.remove(therapy.slug);
-                      else if (!set.full) set.add(therapy.slug);
+                      else if (!blocked) set.add(therapy.slug);
                     }}
                     aria-pressed={held}
-                    aria-disabled={!held && set.full ? true : undefined}
-                    title={!held && set.full ? `Tray full — remove one to add ${therapy.short}` : undefined}
+                    aria-disabled={blocked || undefined}
+                    title={blocked ? `Tray full — remove one to add ${therapy.short}` : undefined}
                     aria-label={
                       held
                         ? `Remove ${therapy.short} from the compare tray`
-                        : set.full
+                        : blocked
                           ? `Cannot add ${therapy.short} — the compare tray already holds ${MAX_COMPARE}`
                           : `Add ${therapy.short} to the compare tray`
                     }
@@ -113,9 +114,14 @@ function TrayPhone() {
                       focusRing,
                       held
                         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]"
-                        : "border-[color:var(--border-strong)] text-[color:var(--clinical-accent)]",
+                        : blocked
+                          ? "border-[color:var(--border)] text-[color:var(--text-muted)]"
+                          : "border-[color:var(--border-strong)] text-[color:var(--clinical-accent)]",
                     )}
-                    style={!held && set.full ? { opacity: 0.4 } : undefined}
+                    // Not `opacity-40`: production only ever uses that utility
+                    // behind `disabled:`, so the bare class is never emitted for
+                    // a mockup-only source and the row renders at full strength.
+                    style={blocked ? { opacity: 0.4 } : undefined}
                   >
                     {held ? (
                       <Check aria-hidden="true" className="h-4 w-4" />
