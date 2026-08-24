@@ -1,8 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import DeveloperReviewStatePage from "@/app/mockups/development/review-state/page";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
+
+// PanelPageShell's back control is a ContextualBackLink, which calls
+// next/navigation's useRouter for its history-aware click handler. Outside an
+// app-router tree that throws "invariant expected app router to be mounted",
+// so every render here needs the router mocked, same as the hub page test.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/mockups/development/review-state",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+}));
 
 const snapshot = loadRepoAwarenessSnapshot();
 

@@ -244,7 +244,7 @@ describe("buildTestHealthSection", () => {
       writeFileSync(bad, JSON.stringify({ $comment: "no flakes key" }), "utf8");
       expect(() => readFlakeLedger(bad)).toThrow(/flake-ledger\.json: expected a "flakes" array/);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
     }
   });
 });
@@ -313,7 +313,7 @@ describe("buildReviewStateSection", () => {
       writeFileSync(path.join(dir, "fff.record.md"), "# not a table row\n", "utf8");
       expect(() => readReviewRecordRows(dir)).toThrow(/fff\.record\.md: no review record row found/);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
     }
   });
 });
@@ -387,7 +387,7 @@ describe("generate", () => {
       expect(revision.sha).toBe(inputSha);
       expect(revision.sha).not.toBe(headSha);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
     }
   });
 
@@ -400,7 +400,7 @@ describe("generate", () => {
     try {
       expect(() => readCapturedRevision({ cwd: outside })).toThrow(/Could not read the repository revision from git/);
     } finally {
-      rmSync(outside, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true, maxRetries: 5 });
     }
   });
 

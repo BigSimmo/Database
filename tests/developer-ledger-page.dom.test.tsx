@@ -4,6 +4,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import DeveloperLedgerPage from "@/app/mockups/development/ledger/page";
 import { loadLedgerSnapshot, openItemsByPriority } from "@/lib/developer-area/ledger-snapshot";
 
+// PanelPageShell's back control is a ContextualBackLink, which calls
+// next/navigation's useRouter for its history-aware click handler. Outside an
+// app-router tree that throws "invariant expected app router to be mounted",
+// so every render here needs the router mocked, same as the hub page test.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/mockups/development/ledger",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+}));
+
 /**
  * Overrides ride on top of the *real* committed snapshot, following
  * `tests/developer-hub-page.dom.test.tsx`: a state the live ledger does not

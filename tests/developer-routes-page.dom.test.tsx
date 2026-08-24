@@ -4,6 +4,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import DeveloperRoutesPage from "@/app/mockups/development/routes/page";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
 
+// PanelPageShell's back control is a ContextualBackLink, which calls
+// next/navigation's useRouter for its history-aware click handler. Outside an
+// app-router tree that throws "invariant expected app router to be mounted",
+// so every render here needs the router mocked, same as the hub page test.
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/mockups/development/routes",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+}));
+
 /**
  * Overrides ride on top of the *real* committed snapshot, following
  * `tests/developer-ledger-page.dom.test.tsx`'s `acuityOverride` pattern: the
