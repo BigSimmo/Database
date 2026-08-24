@@ -893,12 +893,30 @@ describe("Care Plan synthetic, memory-only boundary", () => {
      * Conditional rules are excluded: a declaration that only applies under a
      * media query cannot be what makes a link readable in the ordinary case.
      */
+    /**
+     * A selector that targets this class in its **resting** state.
+     *
+     * Exact equality on `.appRoot .x` was not enough: an adversarial probe
+     * written against this very repair got a regression past it with a later,
+     * higher-specificity `.appRoot a.specimenLink { text-decoration: none }`,
+     * which removes the underline in a browser and was invisible here. An
+     * optional element name is therefore allowed.
+     *
+     * `:hover`, `[aria-current]` and descendant contexts are deliberately not
+     * matched — those are states, and a link must read as a link before anyone
+     * points at it.
+     */
+    function targetsClass(selector: string, className: string): boolean {
+      return new RegExp(`^\\.appRoot [a-z]*\\.${className.replace(/\$/g, "\\$")}$`).test(selector);
+    }
+
     function appliedProperties(classes: readonly string[]): Map<string, string> {
-      const wanted = new Set(classes.map((className) => `.appRoot .${className}`));
       const applied = new Map<string, string>();
       for (const rule of rules) {
         if (rule.conditional) continue;
-        if (!rule.selectors.some((selector) => wanted.has(selector))) continue;
+        if (!rule.selectors.some((selector) => classes.some((className) => targetsClass(selector, className)))) {
+          continue;
+        }
         for (const [property, value] of rule.declarations) applied.set(property, value);
       }
       return applied;
@@ -907,7 +925,7 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     /** Rename detection only, so an at-rule-only definition still counts as a
      *  rule existing. */
     function matchesAnyRule(className: string): boolean {
-      return rules.some((rule) => rule.selectors.includes(`.appRoot .${className}`));
+      return rules.some((rule) => rule.selectors.some((selector) => targetsClass(selector, className)));
     }
 
     /** The `<nav>` spans of one source, so a link's own position decides whether
@@ -1091,6 +1109,10 @@ describe("Care Plan synthetic, memory-only boundary", () => {
         // an explicit zero alpha, however it is spelled
         if (/^(?:rgba|hsla)\([^)]*[,/]\s*(?:0|0?\.0+|0%)\s*\)$/.test(value)) return false;
         if (/^#(?:[0-9a-f]{6}00|[0-9a-f]{3}0)$/.test(value)) return false;
+        // a custom property whose own fallback paints nothing is not proof of
+        // paint — found by probing this repair with
+        // `background: var(--nothing-at-all, transparent)`
+        if (/^var\([^)]*,\s*(?:transparent|none)\s*\)$/.test(value)) return false;
         // and then it must actually name a paint
         return /var\(|^#[0-9a-f]{3,8}$|rgba?\(|hsla?\(|\bcanvas\b|\bbuttonface\b|\bhighlight\b/.test(value);
       };
