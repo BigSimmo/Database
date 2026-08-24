@@ -18,7 +18,7 @@ describe("answer-chat perfected mockup drawer", () => {
     const opener = openAnswerSource();
     const drawer = screen.getAllByRole("dialog", { name: /Source 1 of 3/i })[0];
 
-    expect(drawer).toContainElement(document.activeElement);
+    expect(drawer).toContainElement(document.activeElement as HTMLElement);
 
     const controls = within(drawer).getAllByRole("button");
     const first = controls[0];
