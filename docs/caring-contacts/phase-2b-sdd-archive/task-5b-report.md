@@ -1,9 +1,15 @@
 # Task 5b report — the names-only patient projection
 
 **Branch** `claude/browser-test-gate-handoff-d5c1db`, base `e3d1fa6f3`.
-**Commits** `85fb6db90` (storage contract + both stores + shared contract suite),
+
+**Commits** — `85fb6db90` (storage contract + both stores + shared contract suite),
 `3450ebcb8` (the Patients directory and its page consuming it),
-`897a49fa0` (one test assertion tightened after mutation M7 exposed it — see the ledger).
+`897a49fa0` (one test assertion tightened after mutation M7 exposed it),
+`c6cd1ede8` (this report), `6f2a9d3ae` (**review round 1**: I-1, I-2, I-3, the role notice, and
+the four minors).
+
+**Review round 1 is addressed in `6f2a9d3ae`.** The two findings the coordinator weighted heaviest
+came back clean and are unchanged. What follows records what moved.
 
 Status: **complete**. Both stores implement the read, the shared contract holds them to it, the
 directory names its rows from it, and `getEpisode` is still never called from this screen with its
@@ -142,7 +148,8 @@ Pasted lines, not exit codes.
 
 **`tests/gate-receipts.test.ts` did NOT fail here.** The brief predicted exactly 2 environmental
 failures in it (file modes, `chmodSync`); the full run came back with zero failures across 831 files.
-Reported as observed rather than as expected.
+Confirmed since: they were fixed upstream and that file passes 34 of 34. Any failure there is real
+and is no longer to be waved through as environmental.
 
 **One lock refusal, retried rather than reported as red.** A `typecheck` during the mutation pass
 returned `DATABASE_HEAVY_RUN_ADMISSION_BUSY` (owner: another worktree running Playwright). That is an
@@ -154,21 +161,22 @@ acquisition failure, not a result. The M11 typecheck evidence above was then tak
 
 ## Concerns
 
-1. **The extra `viewReferral` requirement is a judgement call inside Ruling 95's territory** (see
-   above). It is the one decision in this task that could reasonably be sent back. It is narrow, it
-   is documented at the constant, and reversing it is a one-line change — but it would then hand the
-   auditor role an enumeration of every patient name in the team, which I do not believe is what the
-   ruling bought.
+1. ~~**The extra `viewReferral` requirement is a judgement call inside Ruling 95's territory.**~~
+   **Settled at review** — and it protects more than I claimed. **Three** roles hold
+   `viewPatientRecord` without `viewReferral` (auditor, `clinicalProgrammeLead`,
+   `livedExperienceRepresentative`), not one. The ALL-of list releases names to exactly the set that
+   could already obtain them through `getEpisode`. The note now states that as a property rather
+   than citing the auditor alone (M-8).
 2. **The row cannot say _why_ it has no name.** "This episode was de-identified" and "your role may
    not see names" arrive at the screen identically — an absent entry. Saying which would require the
    page to compare `listPlans`'s length against `listPatientNames`'s and infer, which is a claim the
    data does not support per row. The row therefore states which kind of thing the heading is and
    nothing more. If a clinician ever needs the distinction, it needs a deliberate answer rather than
    an inference.
-3. **`patientDirectory` as the access-trail object type is now used by two different reads** — this
-   one and `api/caring-contacts/referrals`'s `GET`, which uses the same type with `objectId: "all"`.
-   They are distinguishable by `objectId` (`"names"` vs `"all"`) but not by action name. If the trail
-   is ever queried by action name alone, that will read as one surface.
+3. ~~**`patientDirectory` is now used by two different reads.**~~ **Fixed in `6f2a9d3ae`** — and it
+   was worse than I wrote: the trail has no `objectId` filter at all, so the reads were not merely
+   indistinguishable by action name, they were **unaskable**. Name reads now carry their own
+   `AccessedObjectType`.
 4. **Search now matches a name, and the search term still never reaches the audit trail** — the
    `objectId` is the literal `"names"`, and `ACCESS_OBJECT_ID_PATTERN` would reject a name anyway.
    Worth restating because the search box's reach grew this round while the recorded identifier did
@@ -176,6 +184,20 @@ acquisition failure, not a result. The M11 typecheck evidence above was then tak
 5. **`markRetentionCleared` empties the name and the row falls back silently.** That is right, and it
    means a de-identified episode's row looks exactly like Task 5's row did. Nothing regressed; it is
    simply not visible on the screen that anything was cleared.
+
+6. **The role notice is unreachable through every role that exists.** It is correct, tested and
+   documented as unreachable — but it is untested against a real actor, because no real actor can
+   produce it. If a role holding `viewReferral` without `viewPatientRecord` is ever added, the notice
+   starts firing on that role's first render with no further work, which is the intent; until then it
+   is a branch kept honest by a component test alone.
+
+7. **Patient names now travel in the URL** — recorded by the coordinator as a known residual for the
+   owner, not a defect, and repeated here so it is in one place: search matches names and the form is
+   a GET, so `?q=Nguyen` reaches the address bar, history, any `Referer` and any access log. Before
+   this round only synthetic identifiers went there. There was no compliant alternative — the brief
+   mandates server-side filtering, Ruling 13 forbids client state, and the approved design requires
+   name search. The audit trail itself is unaffected: the recorded `objectId` is the literal `"all"`,
+   and `ACCESS_OBJECT_ID_PATTERN` would reject a name anyway.
 
 ## `tests/ui-caring-contacts-workspace.spec.ts` — yes, this could affect it, in two specific places
 
@@ -186,12 +208,111 @@ I did not run it (you own that gate). Where I would look:
   holds one, and each row gains one extra `<p>`. A locator matching a row **by its heading text**
   will need the name. Locators keyed on the **detail control** are safe — its accessible name and its
   visible text are byte-identical to before.
-- **The search box.** Its `sr-only` label changed from _"Search by synthetic patient, plan or referral
+- **The search box.** For a role that sees names — which is every role that can reach this screen
+  at all — the `sr-only` label changed from _"Search by synthetic patient, plan or referral
   identifier"_ to _"Search by name, or by synthetic patient, plan or referral identifier"_, and the
   placeholder from `"Synthetic identifier"` to `"Name or synthetic ID"`. A `getByLabel`/
-  `getByPlaceholder` locator on either will miss.
+  `getByPlaceholder` locator on either will miss. (Both revert to the old strings for a role without
+  `viewPatientRecord`, which no role reaching this screen currently is.)
 
 Also relevant: the C-1 finding from the Task 5 review — that this spec has never visited
 `/caring-contacts/patients` at all. If that is still true at the head you run, the spec will pass
 without exercising any of the above, and a green result should not be read as coverage of this
 change.
+
+---
+
+## Review round 1 — what changed (`6f2a9d3ae`)
+
+### I-2 — the tally is gone, not corrected (Ruling 94)
+
+The finding is exact and the diagnosis was worse than "an incomplete edit": `page.tsx` opened
+`TWO AUDITED READS`, and the round that added a third **corrected the headline and left the two
+sentences that depended on it** — "**Both** reads go through `auditedRead`" above three bullets, and
+"no honest fallback for **either** read" enumerating two of three. Two false statements in the same
+comment block as the number that had just been fixed. That is Ruling 94 demonstrating itself inside
+the diff that cited it, which is the most useful place it could have happened.
+
+Fixed by removing the count from the prose entirely rather than raising it:
+
+- `EVERY READ IS AUDITED, AND NONE OF THEM IS HTTP` as the heading;
+- "**EVERY** read on this page goes through `auditedRead`";
+- "**NO** read on this page has an honest fallback".
+
+A fourth read cannot falsify any of those. The bullets remain as a list of _what_ is read — a list,
+not a tally — and the comment now carries a short note recording why, so the next person to add a
+read sees the trap rather than repeating it.
+
+### I-1 — the strongest sentence is qualified to what it covers
+
+Correct, and the qualification matters because the sentence would have been read as being about the
+page. `PLAN_COLUMNS` carries `patient_mobile_number` and `patient_identifiers`, `listPlans` selects
+it verbatim, so the directory already pulls both for the whole caseload on every render and discards
+them in `toPlanRecord`. The comment now says the narrowing is a claim about **this method**, states
+the `listPlans` fact plainly next to it, and records that narrowing `listPlans`' own column list is
+tracked separately. Not attempted here.
+
+### I-3 — a dedicated object type, chosen over an `objectId` filter, and the reason is in the code
+
+Concern 3 was understated: the trail's query schema accepts `objectType` and offers **no `objectId`
+filter at all**, so `patientDirectory` + `objectId: "names"` was recoverable by eye and **not
+askable** — while that type already carries two referral reads.
+
+**Chosen: a new `AccessedObjectType` member, `"patientName"`**, with the page recording
+`{ search, patientName, "all" }`. Reasons, all of them in the code at `access-audit.ts`:
+
+- It is Ruling 46's own instruction — _add a member here rather than reaching for a catch-all_ — and
+  the type's existing comment says exactly that.
+- The trail's `objectType` filter is a plain equality on the event field in both stores, so a new
+  member is askable the moment it exists. Nothing else had to change but the route's enum.
+- Adding an `objectId` filter would have widened a **query surface that deliberately refuses to
+  accept free text**, to solve a problem a type member solves without touching it.
+- `objectId` reverts to the collection convention `"all"`, matching every other collection read.
+
+### The role notice — added, and it is currently an unreachable branch
+
+You were right that the page already knows the answer, and right that the two causes are not
+symmetric. Implemented as described: one `role="note"` region above the list, decided from
+`canPerformCaringContactAction(actor, READ_ACTIONS.patientName, …)` — never inferred from an empty
+`patientNames`, because a coordinator whose team holds only de-identified episodes also receives no
+names, and telling that clinician their role was the reason would be false. Mutation M13 pins that
+distinction at both the component and the page level.
+
+Two things worth your attention:
+
+- **The search box drops its name-search offer in that role.** With no names released a name search
+  matches nothing on every row, and a control must not advertise what it cannot do. Label and
+  placeholder branch; both directions pinned (M15).
+- **No role reaches the notice today.** It needs a role holding `viewReferral` _without_
+  `viewPatientRecord`, and the grants run the other way round — which is the very asymmetry that
+  makes `PATIENT_NAME_READ_ACTIONS` a conjunction. So it is an unreachable branch, written and
+  pinned on the same principle as this page's null-release guard: still read, still copied by the
+  next screen, one grant edit from running. Stated at the branch rather than left to be discovered.
+
+### Minors
+
+- **M-5** — both directions of the row's eyebrow label are now read. The hole was real and is the
+  same shape as M7: a row reading "Synthetic patient identifier / Jordan Nguyen" is a _mislabelled_
+  name, which is the same class of defect as an unlabelled one. Mutation M12 added.
+- **M-6** — `patient name` restored to the alternation. It cost nothing and guards a future row
+  growing a "Patient name:" field label beside a widened read.
+- **M-7** — reworded. `getEpisode` is now "the only read that releases a mobile number or an
+  identifier"; the file header was carrying the same stale claim and was corrected with it.
+- **M-8** — the note states the **property** (`viewPatientRecord` is granted more widely than plan
+  visibility, so it cannot decide a plan-enumerating read alone) and then names the three roles as
+  the current membership, explicitly flagged as the thing that will change rather than the thing to
+  check.
+
+### Mutation ledger, round 1
+
+Same discipline: applied with an editor, proved present with `git diff`, test run as its own
+command, reverted after.
+
+| #   | Mutation                                                                 | File                     | Covering test                                                  | Result                                                                                                          |
+| --- | ------------------------------------------------------------------------ | ------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| M12 | eyebrow label collapsed to always-`"Synthetic patient identifier"`       | `patients-directory.tsx` | DOM: _"labels the heading for what it is, in both directions"_ | **RED** — `Unable to find an element with the text: Patient`. (This is the mutation that was green before M-5.) |
+| M13 | notice inferred from `nameByPlan.size` instead of the actor's capability | `patients-directory.tsx` | DOM ×2 + page DOM ×1                                           | **RED** ×3 — including _"a coordinator with no names released gets none"_, which is the false-explanation case. |
+| M14 | object type reverted to `{ patientDirectory, "names" }`                  | `patients/page.tsx`      | page DOM ×2                                                    | **RED** ×2.                                                                                                     |
+| M15 | placeholder fixed to `"Name or synthetic ID"` in both roles              | `patients-directory.tsx` | DOM: _"offers a name search only when names are released"_     | **RED**.                                                                                                        |
+
+No attempt in this round failed to match its anchor, and none was green.
