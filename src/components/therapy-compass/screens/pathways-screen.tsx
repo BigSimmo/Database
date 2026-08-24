@@ -66,10 +66,10 @@ export function PathwaysScreen() {
         meta={
           <>
             <Chip appearance={{ kind: "information", tone: "accent" }} icon={Waypoints}>
-              {b.pathways.length} pathways
+              {b.pathways.length} {b.pathways.length === 1 ? "pathway" : "pathways"}
             </Chip>
             <Chip appearance={{ kind: "information", tone: "inset" }} icon={ListChecks}>
-              {linkedStepCount} linked steps
+              {linkedStepCount} {linkedStepCount === 1 ? "linked step" : "linked steps"}
             </Chip>
           </>
         }
