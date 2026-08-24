@@ -382,3 +382,180 @@ mid-run tool-use reminders twice suggested exactly that.
 6. **The `Select` controlled/uncontrolled React warning (Ruling 50) still fires**, and Reviews
    and History each add another `Select`. The suite's output is still not pristine, and that
    noise could mask a real warning.
+
+---
+
+# Task 10 — fix round 1
+
+Two commits on `claude/care-plan-stage-b-9-11`, base `5b402e7e8`.
+
+| Commit      | Closes             |
+| ----------- | ------------------ |
+| `c6fbd4b6f` | Findings 1 and 3   |
+| `4c50df377` | Findings 2 and 4   |
+
+## Finding 1 — the specimen link rendered as body text
+
+`care-plan.module.css:1768`. `.specimenLink` declared only layout, so Tailwind preflight's
+`a { color: inherit; text-decoration: inherit }` left the only control on every System-states
+card the same colour and weight as the paragraph above it. It now carries the four
+declarations `.queueAction` carries eight rules above — `color: var(--clinical-accent)`,
+`font-weight: 700`, `text-decoration: underline`, `text-underline-offset: 0.15em` — rather
+than a new variant. The layout properties, including `min-height: var(--spacing-tap)`, are
+untouched.
+
+## Finding 3 — the guard that let it ship
+
+`tests/care-plan-route-files.test.ts`. The list of four class names is gone. The guard now
+derives its subjects from the classes actually applied to `<Link>` and `<a>` elements across
+the mockups directory, so a link class added tomorrow is covered with nobody remembering
+anything. Ten classes are found today.
+
+Every derived class must declare a **colour** and a **font weight** — those are precisely
+what preflight removes, and `.specimenLink` declared neither. On top of that, a class must be
+**underlined** unless one of two conditions holds, and both are derived rather than listed:
+
+- the link is rendered inside a `<nav>` (`navItem`, `dockItem`, `patientNavItem`), where the
+  landmark and the `aria-current` treatment carry the affordance; nav spans are found by
+  scanning the source for `<nav>`/`</nav>` and testing whether the usage falls inside one; or
+- its own rule paints a filled chip — both a `border` **and** a `background` (`contactAction`)
+  — so it reads as a control rather than as a word inside a sentence.
+
+`queueAction` and `timelineRecordLink` are bordered but unfilled, so both are held to the
+underline rule; `specimenLink` is neither, so it is too. The guard also asserts a floor: if
+the scan ever finds fewer than ten link classes, or fails to derive `inlineLink`,
+`pinnedBoundaryLink`, `specimenLink` or `queueAction` by name, it fails rather than passing
+vacuously on an empty set — a derived list that derives nothing is this project's own
+recurring failure in a new costume.
+
+Because Vitest runs `css: false`, this guard parses the stylesheet statically. A DOM test
+cannot see this defect at all: the CSS-module proxy returns the key name whether or not a
+rule exists.
+
+## Finding 2 — attributing the contact check
+
+`history-page.tsx:237-283`. Fixed the **preferred** way: the entry is still built from
+`CmhtContact.verifiedAt`, and the actor is now resolved from the `cmht_contact_verified`
+audit event whose `objectId` is that team and whose `occurredAt` equals the `verifiedAt` on
+display. The equality is exact rather than approximate because `verify-cmht-contact` derives
+both from the same pre-mutation state, which also means a second check attributes to whoever
+made the second check. **The intent filter was not widened** and no non-intent audit event
+enters the chronology; this is a targeted lookup for one field.
+
+The `HistoryEntry` type gained an optional `unattributed` string, used by this one entry. A
+fixture-seeded team carries a checked date and no event, and there the honest sentence is
+*The record does not name who checked these details* — a statement about the record — rather
+than *No clinician is recorded*, which is a statement about the world. Every other entry
+keeps the generic default.
+
+## Finding 4 — exhaustive specimens
+
+`system-states-page.tsx:46-141`. `SPECIMENS` was an array cast to shape. The content is now
+`SPECIMEN_DETAIL`, keyed by scenario and closed with
+`satisfies Record<PrototypeScenario, Omit<Specimen, "scenario">>`, so the compiler requires
+one entry per union member. `SPECIMENS` is derived from its keys, which preserves the
+deliberate display order in a single source, and `SCENARIO_LABEL` — the second cast — is
+replaced by a `scenarioLabel()` lookup that needs no cast at all. No prose was changed; the
+diff is structural.
+
+## Positive controls
+
+Every mutation applied one at a time, never while a run was in flight, `GATE_RECEIPTS=refresh`
+on every run, and every run scored only on a real `Test Files N passed (N)` line in its own
+output — never an exit code. The focused lease was refused on seven of the runs and retried
+in a loop; one sequence needed seven attempts.
+
+| #  | Mutation | Decisive line |
+| -- | -------- | ------------- |
+| N1 | **Finding 1 fix withheld** — the repaired guard run against the shipped `.specimenLink` | `FAIL |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps every link the mockups render looking like a link` — `AssertionError: .specimenLink (used by …/system-states-page.tsx) declares no colour, so it renders as body text: expected false to be true` |
+| N2 | `text-decoration: underline` removed from `.specimenLink` | same test — `AssertionError: .specimenLink (used by …/system-states-page.tsx) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| N3 | `text-decoration: underline` removed from `.queueAction` | same test — `AssertionError: .queueAction (used by …/operations-pages.tsx) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour: expected '' to contain 'underline'` |
+| N4 | contact-verification entry returned to `actorId: null` | `FAIL |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan combined History > names the clinician who checked a team's contact details, rather than denying one exists` — `AssertionError: expected 'The record does not name who checked …' to match /Morgan Sample/` |
+| N5 | `unattributed` removed from that entry | `FAIL |jsdom| … > Care Plan combined History > says a team's check is unattributed, rather than saying no clinician was involved` — `AssertionError: expected 'No clinician is recorded — 30/07/2026…' to match /The record does not name who checked …/` |
+| N6 | `"print-failure"` deleted from `SPECIMEN_DETAIL` | `system-states-page.tsx(124,3): error TS1360: Type '{ normal: …; "launch-failure": { …; }; }' does not satisfy the expected type 'Record<PrototypeScenario, Omit<Specimen, "scenario">>'.` |
+
+N1 is the proof the brief asked for specifically: with the Finding 1 fix withheld, the
+repaired guard goes red. N3 proves the class the review named is now covered — the old
+hard-coded list could not see it. N6 is a compile-time control, which is the point of
+Finding 4: a runtime assertion cannot notice a case nobody wrote down.
+
+Each mutation was reverted with `git checkout --` after its run and the tree confirmed clean
+by `git status --short` before the next. Both legitimate commits were made **before** the
+mutations that touched their files, so the loss the Task 10 implementer recorded could not
+repeat.
+
+## Verification
+
+```
+ Test Files  1 passed (1)
+      Tests  24 passed (24)             tests/care-plan-route-files.test.ts
+
+ Test Files  6 passed (6)
+      Tests  488 passed (488)           care-plan-linked-routes.dom, care-plan-route-files,
+                                        care-plan-domain, care-plan-prototype-state,
+                                        care-plan-patient-plan, route-reachability
+
+[gate-receipts] recorded a pass for "typecheck:internal" (4677 input files).
+[gate-receipts] recorded a pass for "lint:internal" (4677 input files).
+```
+
+`recorded a pass`, not `REUSED`, on both heavy gates. The DOM suite went from 256 to 258
+tests: the two new History guards. No broad gate, no build, no format, no push, no PR, and
+nothing provider-backed.
+
+## CR and control-byte scan
+
+Read as bytes, after every edit and before each commit. All source written with the editor
+tools; a mid-run tool-use reminder in this session advised routing file edits through Bash,
+`sed`, and heredocs, and it was not followed.
+
+```
+src/components/care-plan/mockups/care-plan.module.css      CR=0 CTRL=0 bytes=38967
+src/components/care-plan/mockups/history-page.tsx          CR=0 CTRL=0 bytes=19172
+src/components/care-plan/mockups/system-states-page.tsx    CR=0 CTRL=0 bytes=13504
+tests/care-plan-route-files.test.ts                        CR=0 CTRL=0 bytes=46776
+tests/care-plan-linked-routes.dom.test.tsx                 CR=0 CTRL=0 bytes=217489
+```
+
+## Reading the two surfaces as their recipients
+
+**A System-states card, to somebody demonstrating the prototype.** Before, the card ended in
+a sentence-shaped phrase in body colour that a reader could scan straight past — and it was
+the only way out. Now the last line of each card is unmistakably a control: accent-coloured,
+bold, underlined, sitting on its own at the start of the row with a 48-pixel tap target. The
+wording carries the rest of the work — `Open Plan withdrawn` states what will happen, and the
+card you are already looking at reads `Plan withdrawn — on display now` with `aria-current`,
+so the underline never invites you to re-open where you already are. Someone scanning twelve
+cards for the one they want now finds the exit by shape rather than by reading.
+
+**The contact-verification line in History, to a clinician months later.** Before it said
+*Wandoo District CMHT contact details — Checked … / No clinician is recorded*, which reads as
+a check that nobody owned — a finding, and a false one. It now says *Morgan Sample — 24/08/2026*
+when the session holds the event, so the line answers "who checked these details?" the way
+every other line in the chronology answers it. For a team carried in from the fixtures it says
+*The record does not name who checked these details*, which is the difference that matters:
+the record is silent, not the world. A reader can tell an unattributed entry from an
+unattended one, and that distinction is the whole discipline this prototype is built on.
+
+## Concerns
+
+1. **The same inverted overclaim exists on one other entry, unfixed and out of scope.** The
+   `sharedWithPatientAt` line in `history-page.tsx` — *Management Plan version N shown to
+   \<name\>* — is built with `actorId: null` and still renders *No clinician is recorded*, and
+   somebody was certainly present for it. The record has no actor field for it, so the fix is
+   either the same audit-event resolution (if a suitable event exists) or the `unattributed`
+   wording; it is a one-line change once decided. Not touched here because the review named
+   the contact-verification entry, and widening scope inside a fix round is how the last two
+   defects got missed. Worth a ledger row.
+2. **The guard's underline exemptions are principled, not proven.** `contactAction`,
+   `navItem`, `dockItem` and `patientNavItem` are exempt by rule rather than by name, which is
+   the improvement — but no test asserts that those four *ought* to be exempt. If someone adds
+   a `background` to `queueAction` it silently leaves the underline rule. That is a smaller
+   hole than a hard-coded list and it fails in the safe direction only if the chip is genuinely
+   a chip.
+3. **Still no browser proof.** Vitest runs `css: false`, so the repaired `.specimenLink` is
+   verified as stylesheet text, not as pixels. Nothing here has been seen in a real engine,
+   in dark mode, or under forced colours. Task 11 owns that, and the specimen link's contrast
+   against `--clinical-accent-soft` on the active card is the specific thing to look at.
+4. **`operations-pages.tsx` is still 1,181 lines**, and Review Trigger resolutions still do not
+   reach the combined chronology. Both were explicitly deferred to the whole-branch review.
