@@ -77,6 +77,10 @@ describe("isQuarantineExpired", () => {
   it("does not claim expiry for an unparseable date", () => {
     expect(isQuarantineExpired({ ...entry, expires: "not-a-date" }, NOW)).toBe(false);
   });
+
+  it("does not normalize a calendar-invalid expiry date", () => {
+    expect(isQuarantineExpired({ ...entry, expires: "2026-02-30" }, NOW)).toBe(false);
+  });
 });
 
 describe("documentsBySection", () => {
