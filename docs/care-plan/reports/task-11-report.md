@@ -246,6 +246,30 @@ a tenth spelling none of my four probes covered,
 fail-closed unparseable branch. That is the right direction and it is how the reviewer found
 Important 2 below.
 
+## The honest headline of this round
+
+**Five of my own assertions failed the first time they were really executed, across two runs,
+and not one of them was a product defect.** Three in run A, two in run B. Every one was a
+claim I had written about a renderer I had never watched render: two `innerText`-versus-
+`textContent` mismatches, a pixel floor I guessed at (I predicted 272, the element measures
+238), a return path I assumed landed on the read view when it lands on the draft, and a
+whole-block text comparison that read a legitimate cross-reference update as the plan itself
+moving.
+
+That is worth stating plainly rather than filing under teething trouble, because it is the
+**same fault as the Critical I was dispatched to fix**, found in my own work. A test named for
+work it does not do and a test asserting text nobody has ever seen on screen fail in the same
+way: both are confident claims about a surface the author never loaded. The static reading
+that produced them cannot tell a true assertion from a plausible one — only execution can, and
+until this round nothing here had ever been executed.
+
+It is also the strongest argument this branch contains for why Task 11 had to exist at all.
+Ten tasks of unit and DOM tests passed throughout, and the prototype still shipped three real
+wiring defects — an unreachable Patient Plan, two reading dead ends — that only a browser
+found. My own suite then repeated the pattern one level up. The lesson is not "write more
+tests"; it is that **an unexecuted test is a hypothesis, and this round is what it costs to
+discover that five at a time.**
+
 ## Critical — a test named for work it does not do
 
 Two cases claimed work they did not perform, and the report listed one of them as delivered.
@@ -465,8 +489,11 @@ files modified in this worktree that **I did not touch** — `management-plan-pr
 `prototype-ui.tsx` and `care-plan-linked-routes.dom.test.tsx`. A concurrent session is editing
 this checkout, and the diff shows it adding a `safetyPlanStatusLine()` helper to
 `prototype-ui.tsx` — that is, implementing the `confirmed Not recorded` finding this report
-raises and leaves for decision D1. Its work was left untouched: not committed, not reverted,
-not run against. Only my own two report files were staged by explicit path. **Any suite result
+raises and leaves for decision D1. **The coordinator has since confirmed this is a sibling
+agent it dispatched, building D1 — the separate recorded moment for when a patient's part was
+written — and not an unrelated intruder.** That was not knowable from inside this session, and
+the handling would be the same either way. Its work was left untouched: not committed, not
+reverted, not run against. Only my own two report files were staged by explicit path. **Any suite result
 produced in this worktree from now on measures that session's in-progress edits mixed with
 mine, and must not be attributed to this branch's committed state.**
 
