@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowUp,
   Check,
@@ -437,15 +437,27 @@ function DrawerPanel({
     onSelect(next.id);
   };
 
+  // Overlay is not focusable and opening a source leaves focus on the trigger,
+  // so React onKeyDown on this subtree never fires. Listen on window instead,
+  // matching the calculator sheet and production Sheet.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "ArrowRight") {
+        const next = SOURCES[(position + 1 + SOURCES.length) % SOURCES.length];
+        onSelect(next.id);
+      }
+      if (event.key === "ArrowLeft") {
+        const next = SOURCES[(position - 1 + SOURCES.length) % SOURCES.length];
+        onSelect(next.id);
+      }
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [position, onSelect, onClose]);
+
   return (
-    <div
-      className="absolute inset-0 z-20 flex flex-col justify-end"
-      onKeyDown={(event) => {
-        if (event.key === "ArrowRight") step(1);
-        if (event.key === "ArrowLeft") step(-1);
-        if (event.key === "Escape") onClose();
-      }}
-    >
+    <div className="absolute inset-0 z-20 flex flex-col justify-end">
       <button
         type="button"
         aria-label="Close source"
