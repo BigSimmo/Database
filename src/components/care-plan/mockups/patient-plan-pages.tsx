@@ -210,11 +210,12 @@ function StaleNotice({ version, patient }: { version: PatientPlanVersion; patien
  * what is on it will still be true, and a document that disowns itself is worse
  * than useless to somebody holding it in a waiting room.
  */
-function PrintedStaleBanner({ patient }: { patient: Patient }) {
+function PrintedStaleBanner() {
   return (
     <p data-testid="care-plan-patient-plan-paper-stale" className={styles.patientPlanPaperStale}>
-      <strong>Some of this may have changed.</strong>{" "}
-      {`Your team has updated the plan this copy was written from, so parts of it may be out of date. It is still yours to keep, and most of it will still be right. Bring it with you and ask someone on your team to go through it with you, and they can write you a new one.`}
+      <strong>Some of this may have changed.</strong> Your team has updated the plan this copy was written from, so
+      parts of it may be out of date. It is still yours to keep, and most of it will still be right. Bring it with you
+      and ask someone on your team to go through it with you, and they can write you a new one.
     </p>
   );
 }
@@ -587,7 +588,7 @@ export function PatientPlanPrintSurface({
             and bring it with you if you can. If something in it stops fitting, tell someone on your team so you can
             write it again together.
           </p>
-          {stale ? <PrintedStaleBanner patient={patient} /> : null}
+          {stale ? <PrintedStaleBanner /> : null}
         </PrintSection>
 
         <PatientPlanSections sections={version.sections} gaps="omit" />
