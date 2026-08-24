@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
-import { FORM_1A_REFERRAL_EXPIRY_MINUTES } from "../src/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
@@ -282,12 +281,16 @@ describe("new referrals", () => {
         },
       });
       const created = referred.movements.at(-1)!;
+      // 2026-08-23 product-owner correction: a raised Form 1A carries no legal deadline. The
+      // `toEqual` below is exact, so an extra `dueAt` key would already fail it — but the
+      // explicit assertion that follows names the intent, so a later reader cannot read the
+      // absence as an oversight in the object literal.
       expect(created.legalForm).toEqual({
         code: "1A",
         label: "Referral for examination",
         kind: "examination",
-        dueAt: NOW + FORM_1A_REFERRAL_EXPIRY_MINUTES,
       });
+      expect(created.legalForm?.dueAt).toBeUndefined();
       expect(created.formedAt).toBe(NOW);
 
       const examined = wardFlowReducer(referred, {
@@ -331,9 +334,10 @@ describe("examination", () => {
     const target = movement(next, "WF-001");
     expect(target.examination).toEqual({ at: NOW, outcome: "inpatient_order" });
     expect(target.legalForm?.code).toBe("3B");
-    // Task 6A: the Mental Health Act imposes no post-examination deadline, so the reducer-
-    // produced 3B must carry no dueAt at all — pinned as an explicit absence, not merely no
-    // longer contradicted by a stale expected value.
+    // Task 6A: the clinician settled that the post-examination clock is elapsed ED wait,
+    // counting up, never a countdown — so no post-examination deadline is recorded for a 3B, and
+    // the reducer-produced 3B must carry no dueAt at all. Pinned as an explicit absence, not
+    // merely no longer contradicted by a stale expected value.
     expect(target.legalForm?.dueAt).toBeUndefined();
   });
 
