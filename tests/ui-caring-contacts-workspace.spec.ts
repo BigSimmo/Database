@@ -29,26 +29,51 @@ const WORKSPACE_ROUTE = "/caring-contacts";
 const PATIENTS_ROUTE = `${WORKSPACE_ROUTE}/patients`;
 
 /**
+ * The synthetic patient the overview is visited as.
+ *
+ * A dynamic route needs a real id, and the honest answer to "what does the demo store seed" is
+ * NOTHING: `caringContactsStore()` falls back to `createInMemoryRepository`, which starts with no
+ * plans at all, and the isolated Playwright server writes none. So there is no seeded id to pin,
+ * and this value is not pretending to be one -- it is a well-formed synthetic identifier that
+ * exercises the route's zero-plans path, which is the only path this server can reach.
+ *
+ * That makes it stable rather than rotten: the page renders the same empty state for ANY id here,
+ * and its `h1` is "Patient" either way, so nothing about this constant can drift out from under
+ * the assertions below. If the workspace ever seeds a demo caseload, this should become one of the
+ * seeded ids so the proofs run against a populated screen instead.
+ */
+const PATIENT_OVERVIEW_SYNTHETIC_ID = "SYN-PATIENT-001";
+const PATIENT_OVERVIEW_ROUTE = `${PATIENTS_ROUTE}/${PATIENT_OVERVIEW_SYNTHETIC_ID}`;
+
+/**
  * Every production screen this workspace serves, with the `h1` it must render.
  *
  * The header above states the rule this list exists to keep true: the adoption
  * contract names this file as the sole evidence for all five proof categories of
  * the `caring-contacts-workspace` surface, and a proof pointer at a suite that
  * never visits a route is a red gate that has been silenced. Phase 2B Task 5
- * added `/caring-contacts/patients` to that surface, so the accessibility-mode
- * proofs below run against BOTH screens rather than against Today alone. A
- * screen added to that surface without being added here is the same silenced
- * gate wearing a newer date.
+ * added `/caring-contacts/patients` to that surface and Task 6 added
+ * `/caring-contacts/patients/[patientId]`, so the accessibility-mode proofs
+ * below run against every screen on the surface rather than against Today
+ * alone. A screen added to that surface without being added here is the same
+ * silenced gate wearing a newer date.
+ *
+ * That used to be policy held by people. `tests/caring-contacts-workspace-screens.test.ts`
+ * now holds it instead: it resolves the route expressions in this array against
+ * the workspace's production page routes and fails offline when one is missing,
+ * so the omission goes red rather than passing by never visiting the route.
  */
 const WORKSPACE_SCREENS = [
   { name: "Today", route: WORKSPACE_ROUTE, heading: "Today" },
   { name: "Patients", route: PATIENTS_ROUTE, heading: "Patients" },
+  { name: "Patient overview", route: PATIENT_OVERVIEW_ROUTE, heading: "Patient" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
 
 const TODAY_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[0];
 const PATIENTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[1];
+const PATIENT_OVERVIEW_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[2];
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -119,9 +144,14 @@ function markerBorder(page: Page) {
  * nothing about anything this screen draws. The empty state sits on `--surface-subtle` with its
  * own border and muted ink, none of which the shell contributes.
  */
-function emptyStateColours(page: Page) {
-  return page.evaluate(() => {
-    const group = document.querySelector("[role='group'][aria-label='No patients yet']");
+/**
+ * `label` defaults to the caseload's empty state, so every call written before it existed reads
+ * exactly as it did. The patient overview has its own empty state with its own heading, and a
+ * second copy of this function would be one more place for the dark-mode assertion to drift.
+ */
+function emptyStateColours(page: Page, label = "No patients yet") {
+  return page.evaluate((emptyStateLabel) => {
+    const group = document.querySelector(`[role='group'][aria-label='${emptyStateLabel}']`);
     if (!group) throw new Error("the empty state is missing");
     const style = getComputedStyle(group);
     const heading = group.querySelector("p");
@@ -131,7 +161,7 @@ function emptyStateColours(page: Page) {
       border: style.borderTopColor,
       ink: getComputedStyle(heading).color,
     };
-  });
+  }, label);
 }
 
 function shellColours(page: Page) {
@@ -402,6 +432,120 @@ test.describe("caring-contacts patients directory", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "Patients" })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe(PATIENTS_ROUTE);
+  });
+});
+
+/**
+ * The patient overview (`/caring-contacts/patients/[patientId]`), Phase 2B Task 6.
+ *
+ * WHAT THIS SERVER CAN AND CANNOT REACH. The isolated Playwright server runs the in-memory store,
+ * which seeds no plans, so every one of these tests exercises the ZERO-PLAN path. That is not a
+ * thin proof: it is the branch that must never become a 404 (the actor may legitimately have
+ * reached a patient whose plan is on another team, and this screen must not tell those apart), it
+ * renders this screen's own empty state rather than shell chrome, and it is the state a clinician
+ * reaches by mistyping a URL. The populated paths -- the schedule, the suppressed entry, the plan
+ * chooser -- are proved in `tests/caring-contacts-patient-overview.dom.test.tsx` against the real
+ * store, because nothing in this browser can create a plan.
+ *
+ * For the same reason the caseload row that links here CANNOT be clicked in this server: with no
+ * plans there is no row. That inbound link is proved statically instead, by
+ * `tests/route-reachability.test.ts`'s dynamic-family assertion and the directory's own DOM test.
+ */
+test.describe("caring-contacts patient overview", () => {
+  test("serves the screen and states, in words, that this team holds no plan for the patient", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(PATIENT_OVERVIEW_SCREEN.route, { waitUntil: "load" });
+
+    expect(response?.status(), "the patient overview route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: PATIENT_OVERVIEW_SCREEN.heading })).toBeVisible();
+
+    const empty = page.getByRole("group", { name: "No plan for this patient" });
+    await expect(empty).toBeVisible();
+    // The answer must not distinguish "no plan exists" from "the plan is another team's".
+    await expect(empty).toContainText("another team");
+    // A dead end is not an empty state: the remedy is a real control, and it goes somewhere.
+    await expect(empty.getByRole("link", { name: /Back to this team/ })).toBeVisible();
+  });
+
+  test("holds the frozen layout at 320px, the narrowest reviewed width", async ({ page }) => {
+    await openWorkspace(page, 320, VIEWPORT_HEIGHT, PATIENT_OVERVIEW_SCREEN);
+
+    expect(await documentOverflow(page), "horizontal document overflow at 320px").toBeLessThanOrEqual(2);
+    expect(await displayedWidthStates(page), "width state at 320px").toEqual([widthStateFor(320)]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+
+    // The empty state's remedy is a production tap target at the width where a thumb is the only
+    // pointer. A control narrowed to the generic 44px guidance fails here, which is the point.
+    const back = page.getByRole("link", { name: /Back to this team/ });
+    await expect(back).toBeVisible();
+    const box = await back.boundingBox();
+    expect(box?.height ?? 0, "the empty state's remedy is under the production tap floor").toBeGreaterThanOrEqual(48);
+  });
+
+  test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
+    const label = "No plan for this patient";
+
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENT_OVERVIEW_SCREEN);
+    await expect(page.getByRole("group", { name: label })).toBeVisible();
+    const light = await shellColours(page);
+    const lightEmpty = await emptyStateColours(page, label);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENT_OVERVIEW_SCREEN);
+    await expect(page.getByRole("group", { name: label })).toBeVisible();
+    const dark = await shellColours(page);
+    const darkEmpty = await emptyStateColours(page, label);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
+
+    // The shell chrome above is identical on every route, so on its own it would claim the
+    // category on a screen it had not inspected. These read this screen's own surface.
+    expect(darkEmpty.surface, "the empty state's surface did not change in dark").not.toBe(lightEmpty.surface);
+    expect(darkEmpty.border, "the empty state's border did not change in dark").not.toBe(lightEmpty.border);
+    expect(darkEmpty.ink, "the empty state's ink did not change in dark").not.toBe(lightEmpty.ink);
+    for (const value of Object.values(darkEmpty)) {
+      expect(value, "a dark colour on the empty state resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+  });
+
+  test("keeps its statement in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, PATIENT_OVERVIEW_SCREEN);
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    const empty = page.getByRole("group", { name: "No plan for this patient" });
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText("another team");
+
+    // Forced colours drop the panel's author background, leaving the border as the only thing
+    // separating this statement from the page around it.
+    const border = await page.evaluate(() => {
+      const group = document.querySelector("[role='group'][aria-label='No plan for this patient']");
+      if (!group) throw new Error("the empty state is missing");
+      const style = getComputedStyle(group);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    });
+    expect(Number.parseFloat(border.width), "the empty state has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the empty state border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
+
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+  });
+
+  test("prints with the synthetic marker and its statement still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, PATIENT_OVERVIEW_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: PATIENT_OVERVIEW_SCREEN.heading })).toBeVisible();
+    // A printed patient screen that has lost the statement of why it is empty reads as a record
+    // that holds nothing, with no reason given.
+    await expect(page.getByRole("group", { name: "No plan for this patient" })).toBeVisible();
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
   });
 });
 

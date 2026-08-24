@@ -549,6 +549,26 @@ for (const key of workspaceHrefKeys) {
   builderTargets.add(pathOnly(href));
 }
 
+/**
+ * The Caring Contacts workspace's DYNAMIC page families, and the href builder each is reached by.
+ *
+ * `staticPageRoutes` below drops every route containing `[`, so the orphan guard that covers the
+ * rest of the workspace does not see these at all -- a dynamic detail page could ship with no
+ * inbound link anywhere and this file would stay green. That exemption is right for the app's
+ * older `[slug]` families, whose targets come from live or seeded data and whose interpolated
+ * hrefs cannot be pattern-matched usefully. It is not right here: this workspace reaches every
+ * destination through a named builder in `caring-contacts-routes.ts`, so "is it linked" is a
+ * question that CAN be answered statically, by finding a `<Link href={<builder>(...)}>` in a
+ * non-mockup source file.
+ *
+ * Registering a family here is deliberately mandatory rather than optional -- the assertion below
+ * fails on an unregistered one, so a new dynamic workspace route cannot be added without either
+ * naming its builder or consciously deciding not to.
+ */
+const CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS: ReadonlyMap<string, string> = new Map([
+  ["/caring-contacts/patients/[patientId]", "patientRoute"],
+]);
+
 /** A route is reachable if a builder emits it, or a non-mockup source file links to it. */
 function isReachable(route: string, selfFile: string) {
   if (builderTargets.has(route)) return true;
@@ -664,6 +684,46 @@ describe("route reachability", () => {
       `Orphan page route(s) with no inbound <Link>/router.push/redirect. Wire them into nav ` +
         `(sidebar/launcher/mode home/search), or add to REACHABILITY_ALLOWLIST with a reason: ${orphans.join(", ")}`,
     ).toEqual([]);
+  });
+
+  it("links every dynamic Caring Contacts page family from real in-app navigation", () => {
+    const families = collectSiteMapData()
+      .pageRoutes.map((route) => route.route)
+      .filter((route) => route.startsWith("/caring-contacts/") && route.includes("["));
+
+    // Fail loudly rather than vacuously: an empty list here would pass this test while proving
+    // nothing, which is exactly the silenced gate the workspace's own specs warn about.
+    expect(families.length, "no dynamic Caring Contacts page families were found - update this test").toBeGreaterThan(
+      0,
+    );
+
+    const routesModule = "src/lib/caring-contacts-routes.ts";
+    const sources = sourceFiles
+      .filter((file) => file.rel !== routesModule)
+      .map((file) => ({ rel: file.rel, text: readFileSync(path.join(repoRoot, file.rel), "utf8") }));
+    const routesModuleSource = readFileSync(path.join(repoRoot, routesModule), "utf8");
+
+    for (const route of families) {
+      const builder = CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS.get(route);
+      expect(
+        builder,
+        `${route} is a dynamic Caring Contacts page with no registered href builder. Add it to ` +
+          "CARING_CONTACTS_DYNAMIC_ROUTE_BUILDERS with the builder that reaches it.",
+      ).toBeDefined();
+      expect(
+        routesModuleSource.includes(`export function ${builder}(`),
+        `${routesModule} exports no ${builder}(), so ${route} is registered against a builder that does not exist`,
+      ).toBe(true);
+
+      const linking = sources
+        .filter((file) => new RegExp(`<Link[^>]*href=\\{${builder}\\(`, "s").test(file.text))
+        .map((file) => file.rel);
+      expect(
+        linking,
+        `Orphan dynamic page route ${route}: no non-mockup source renders <Link href={${builder}(...)}>. ` +
+          "Wire it into real navigation (a caseload row, a launcher, a search result).",
+      ).not.toEqual([]);
+    }
   });
 
   it("reachability allowlist has no stale entries", () => {

@@ -76,6 +76,7 @@ Smaller top-level directories that are easy to miss:
 | Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                                            | `src/app/(search-app)/` shared shell group                                                |
 | `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                                         | `src/app/caring-contacts/`                                                                |
 | `/caring-contacts/patients` (the team's caseload: one row per plan, URL-driven state/identifier filter, no patient-identifying detail)                                                         | `src/app/caring-contacts/patients/page.tsx`                                               |
+| `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                    | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                   |
 | `/applications`                                                                                                                                                                                | `src/app/applications/route.ts`                                                           |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                   | `src/app/(search-app)/differentials/`                                                     |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                 | `src/app/(search-app)/dsm/`                                                               |
@@ -210,10 +211,19 @@ is noindex, visibly marked synthetic, and has a single inbound entry from the To
 Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
 destination set: a destination carries an `href` only once its page exists, and every other one
 renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
-(Today) and `/caring-contacts/patients` (the caseload) are the two built so far. Screens are
+(Today), `/caring-contacts/patients` (the caseload) and `/caring-contacts/patients/[patientId]`
+(one patient's episode) are what is built so far. Screens are
 Server Components that read the store through `auditedRead` rather than over HTTP, using the same
-access identity the matching API route records; filtering is carried in the URL and read by the
-Server Component, so a new screen adds no client boundary of its own. Ruling 94: do not restate
+access identity the matching API route records; filtering and, on the patient overview, the choice
+of which plan to open are carried in the URL and read by the
+Server Component, so a new screen adds no client boundary of its own.
+
+The patient overview is the only screen permitted to call `getEpisode`, which is the one read that
+releases a patient's name, mobile number, identifiers and cultural identity together. Every other
+screen is built to avoid it: the caseload uses `listPatientNames`, the names-only projection
+(Ruling 91). The overview calls it once, for one plan, and only after Ruling 97's rule has settled
+which plan — the route is keyed by patient, the reads are keyed by plan, and one patient can
+honestly hold two episodes, so the screen presents them and never picks. Ruling 94: do not restate
 that as a count of client components — this paragraph has carried two such counts and both were
 wrong. What holds Ruling 13 is the module boundary, which does not decay as files are added:
 nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue

@@ -214,7 +214,11 @@ export default async function CaringContactsPatientOverviewPage({
     }
 
     // ONE call, for ONE plan, and only now that the plan is settled.
-    const episodeRead = await auditedRead<Episode>(
+    // `Episode | null`, not `Episode`: `getEpisode` answers null for a plan that does not exist,
+    // for another team's plan, AND for a role that may not read one, and `auditedRead` turns that
+    // release into the `denied` outcome. Typing the read as non-nullable would be a claim the
+    // contract does not make.
+    const episodeRead = await auditedRead<Episode | null>(
       store,
       actor,
       { kind: "view", objectType: "episode", objectId: chosen.plan.id },
