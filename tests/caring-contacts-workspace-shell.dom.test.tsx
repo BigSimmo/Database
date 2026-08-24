@@ -84,11 +84,12 @@ describe("caring-contacts workspace shell", () => {
     );
   });
 
-  it("keeps the frozen rail destination set, in order, with only Today navigable", () => {
+  it("keeps the frozen rail destination set, in order, with only the built screens navigable", () => {
     renderShell();
     expect(destinationsOf(screen.getByRole("navigation", { name: "Workspace" }))).toEqual([
       { label: "Today", kind: "link" },
-      { label: "Patients", kind: "unavailable" },
+      // Patients became a link in Phase 2B Task 5, in the same change as its page (Ruling 89).
+      { label: "Patients", kind: "link" },
       { label: "Schedule", kind: "unavailable" },
       { label: "Templates", kind: "unavailable" },
     ]);
@@ -98,7 +99,7 @@ describe("caring-contacts workspace shell", () => {
     renderShell();
     expect(destinationsOf(screen.getByRole("navigation", { name: "Phone workspace" }))).toEqual([
       { label: "Today", kind: "link" },
-      { label: "Patients", kind: "unavailable" },
+      { label: "Patients", kind: "link" },
       { label: "Schedule", kind: "unavailable" },
       { label: "More", kind: "in-page" },
     ]);
@@ -115,9 +116,9 @@ describe("caring-contacts workspace shell", () => {
     const { container } = renderShell();
     const internalHrefs = [...container.querySelectorAll("a[href^='/']")].map((anchor) => anchor.getAttribute("href"));
     expect(internalHrefs.length).toBeGreaterThan(0);
-    // `today` is the only Caring Contacts route with a page. Every other declared
-    // destination is an unavailable control until Plan 2B builds its page.
-    expect(new Set(internalHrefs)).toEqual(new Set([CARING_CONTACTS_ROUTES.today]));
+    // `today` and `patients` are the Caring Contacts routes with a page. Every other
+    // declared destination is an unavailable control until Plan 2B builds its page.
+    expect(new Set(internalHrefs)).toEqual(new Set([CARING_CONTACTS_ROUTES.today, CARING_CONTACTS_ROUTES.patients]));
   });
 
   it("keeps the More panel's destination set, in order, all of them unavailable", () => {
@@ -145,9 +146,9 @@ describe("caring-contacts workspace shell", () => {
     expect(primary!.textContent).toBe("New plan");
     expect(destinationKind(primary!)).toBe("unavailable");
     expectStatesItsReason(primary!);
-    // 3 unbuilt rail destinations + 2 on the phone bar + 10 in the More panel + this one.
+    // 2 unbuilt rail destinations + 1 on the phone bar + 10 in the More panel + this one.
     expect([...container.querySelectorAll("button")].filter((c) => destinationKind(c) === "unavailable")).toHaveLength(
-      16,
+      14,
     );
   });
 
@@ -156,7 +157,9 @@ describe("caring-contacts workspace shell", () => {
     const unavailable = [...container.querySelectorAll("button")].filter(
       (control) => destinationKind(control) === "unavailable",
     );
-    // Three unbuilt rail destinations, two more on the phone bar, plus the More panel.
+    // Two unbuilt rail destinations, one more on the phone bar, plus the More panel.
+    // The floor stays at 5: it was written as a floor rather than a count, the exact count is
+    // asserted above, and lowering a floor a change did not breach is loosening for its own sake.
     expect(unavailable.length).toBeGreaterThanOrEqual(5);
     for (const control of unavailable) expectStatesItsReason(control);
   });

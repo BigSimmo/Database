@@ -357,12 +357,12 @@ product exclusions; the only route-only dispositions are the documented legacy-r
 surfaces. Shared shell/component roots carry their own explicit `shared-shell` disposition.
 
 Registered public components: 54
-Declared product roots: 94
+Declared product roots: 95
 Roots with a literal `.ckb-v2` opt-in: 1
-Roots inheriting `.ckb-v2` from the global `<html>`: 93
+Roots inheriting `.ckb-v2` from the global `<html>`: 94
 Production surfaces observed under v2: 17/17
 Dynamic `ckb-v2` constructions: 0
-Declared production page routes: 79/79
+Declared production page routes: 80/80
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
@@ -381,7 +381,7 @@ Observed v2 under a compatibility declaration fails closed. A declared v2 shell 
 | `ward-management-constellation-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
 | `favourites`                                    | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `tools-and-calculators`                         | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
-| `caring-contacts-workspace`                     | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `caring-contacts-workspace`                     | owned           |      2 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `ward-management`                               | owned           |     12 |    20 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `privacy-safety-and-reference`                  | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
 | `search-results-shared`                         | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |

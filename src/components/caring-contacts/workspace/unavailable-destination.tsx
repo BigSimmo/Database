@@ -29,8 +29,23 @@ export type UnavailableDestinationProps = {
  * reached by keyboard. The two attributes are never used together;
  * `eslint-rules/require-button-wiring.mjs` fails on the pair.
  *
- * This is the only client component the production workspace ships, which is
- * what keeps the route's client payload to a rounding error (Ruling 13).
+ * A client component, and one of a handful this workspace ships.
+ *
+ * Ruling 94: no count is stated here, and none should be added. This comment
+ * once said "the only client component the production workspace ships", which
+ * was true when written, stopped being true as the overlay half landed, and was
+ * copied verbatim into three later files before anyone recounted. Its
+ * replacement — "five" — was wrong within the same round, because it silently
+ * scoped itself to this directory and omitted the route's own `error.tsx` and
+ * the module that one pulls in. A tally in prose is a claim that decays every
+ * time someone adds a file.
+ *
+ * What actually holds Ruling 13 is the MODULE BOUNDARY, which does not decay:
+ * nothing outside the `/caring-contacts` route segment imports this workspace —
+ * the tools catalogue names it by href, never by import — so the Clinical KB
+ * dashboard references no chunk exclusive to it, whatever this directory grows
+ * to. A screen that adds no client component of its own therefore adds no client
+ * payload, and that is the property worth checking, not the number of files.
  */
 export function UnavailableDestination({ id, label, reason, className, children }: UnavailableDestinationProps) {
   const noteId = `caring-contacts-unavailable-${id}`;
