@@ -52,11 +52,20 @@ export type GovernedMessageInput = {
   messageType: MessageType;
   /** The recipient's own mobile number, if known, so it can be checked for leakage into the text. */
   patientMobileNumber?: string;
+  /**
+   * Explicit, greppable acknowledgement that a reserved fictional contact detail (see
+   * message-rules.ts's `fictionalContactMarker`) in `text` is known to be synthetic. Ruling 79
+   * (item A1, 2026-08-24): defaults to false/absent, which means the message is REFUSED whenever
+   * it contains that marker. There is deliberately no way to silence the check other than passing
+   * this flag at the call site.
+   */
+  syntheticFictionalContactsAcknowledged?: boolean;
 };
 
 export type MessageValidationIssue =
   | { code: "exceeds-two-segments"; septets: number; segments: number }
   | { code: "prohibited-term"; term: string }
+  | { code: "fictional-contact-detail-present" }
   | { code: "first-message-missing-support-information" }
   | { code: "closing-message-missing-ending-statement" }
   | { code: "closing-message-missing-support-information" }
@@ -84,6 +93,12 @@ export function validateGovernedMessage(input: GovernedMessageInput): Validation
     if (lowerText.includes(term.toLowerCase())) {
       issues.push({ code: "prohibited-term", term });
     }
+  }
+
+  // Ruling 79 (item A1): always reported when the marker is present, unless explicitly
+  // acknowledged at the call site. See message-rules.ts's `fictionalContactMarker` doc comment.
+  if (!input.syntheticFictionalContactsAcknowledged && text.includes(rules.fictionalContactMarker)) {
+    issues.push({ code: "fictional-contact-detail-present" });
   }
 
   if (input.messageType === "first") {

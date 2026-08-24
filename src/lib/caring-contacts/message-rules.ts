@@ -17,9 +17,20 @@ export type ProvisionalMessageRules = {
   emergencyDirection: string;
   /** The one crisis-support contact; required in first and closing messages. */
   crisisSupportContact: string;
+  /**
+   * Text that identifies a reserved fictional contact detail inside a message (see
+   * ../synthetic-contacts.ts). NOT in `prohibitedTerms` -- Ruling 79 (item A1, 2026-08-24): both
+   * approved patient-visible messages contain `crisisSupportContact` today, so a bare prohibition
+   * on this text would make every existing message invalid. message-policy.ts instead reports
+   * `fictional-contact-detail-present` whenever a message contains this marker, unless the caller
+   * explicitly acknowledges the number is synthetic. See task-c-brief.md, "A1".
+   */
+  fictionalContactMarker: string;
   /** States that the message is the last one the recipient will receive. */
   closingStatement: string;
 };
+
+const CRISIS_SUPPORT_CONTACT = "Fictional Support Line: +61 491 570 158";
 
 export const PROVISIONAL_MESSAGE_RULES: ProvisionalMessageRules = Object.freeze({
   maxSegments: 2,
@@ -37,6 +48,9 @@ export const PROVISIONAL_MESSAGE_RULES: ProvisionalMessageRules = Object.freeze(
   programmeLine: "Example Aftercare Team is thinking of you",
   operatingHours: "9 am-6 pm",
   emergencyDirection: "In an emergency call 000",
-  crisisSupportContact: "Fictional Support Line: +61 491 570 158",
+  crisisSupportContact: CRISIS_SUPPORT_CONTACT,
+  // Derived from crisisSupportContact rather than hard-coded a second time, so the marker can
+  // never say something the crisis contact itself does not.
+  fictionalContactMarker: CRISIS_SUPPORT_CONTACT.split(":")[0],
   closingStatement: "This is the final message in this programme",
 });

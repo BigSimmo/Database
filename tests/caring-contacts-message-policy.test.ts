@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { AUTOMATED_REPLY_RESPONSE, EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
 import { PROVISIONAL_MESSAGE_RULES } from "@/lib/caring-contacts/message-rules";
 import {
   calculateGsm7,
@@ -132,30 +133,88 @@ describe("rule 3: prohibited-term", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Rule 3b — fictional-contact-detail-present (Ruling 79 / item A1, 2026-08-24)
+//
+// "Fictional" is deliberately NOT in prohibitedTerms: both approved patient-visible messages
+// contain "Fictional Support Line" today, so that would make every existing message invalid and
+// the check would have to be disabled to ship -- a disabled check is worse than no check. Instead
+// this issue is always reported unless the caller explicitly acknowledges the number is synthetic,
+// so the day a real send path is built, someone must consciously pass a flag whose name says it is
+// synthetic, or remove the fictional numbers. See docs/caring-contacts/phase-2b-sdd-archive/
+// task-c-brief.md, "A1".
+// ---------------------------------------------------------------------------
+
+describe("rule 3b: fictional-contact-detail-present", () => {
+  it("fails with exactly that issue code when the fictional crisis contact is present and unacknowledged", () => {
+    const input: GovernedMessageInput = { text: rules.crisisSupportContact, messageType: "standard" };
+    const result = validateGovernedMessage(input);
+    expect(result).toEqual({ valid: false, issues: [{ code: "fictional-contact-detail-present" }] });
+  });
+
+  it("passes the same message when syntheticFictionalContactsAcknowledged is true", () => {
+    const input: GovernedMessageInput = {
+      text: rules.crisisSupportContact,
+      messageType: "standard",
+      syntheticFictionalContactsAcknowledged: true,
+    };
+    expect(validateGovernedMessage(input)).toEqual({ valid: true });
+  });
+
+  it("does not raise the issue for a message with no fictional contact marker, acknowledged or not", () => {
+    const plain: GovernedMessageInput = { text: "Thinking of you today.", messageType: "standard" };
+    expect(validateGovernedMessage(plain)).toEqual({ valid: true });
+    expect(
+      validateGovernedMessage({ ...plain, syntheticFictionalContactsAcknowledged: true }),
+    ).toEqual({ valid: true });
+  });
+
+  it("the two approved patient-visible messages pass once the fictional-contact acknowledgement is given", () => {
+    // The prototype's real callers: both approved messages name the fictional numbers on purpose
+    // (see message-copy.ts), so both must pass validateGovernedMessage only when the caller
+    // explicitly acknowledges that -- never silently.
+    for (const text of [EXACT_PATIENT_VISIBLE_MESSAGE, AUTOMATED_REPLY_RESPONSE]) {
+      const unacknowledged = validateGovernedMessage({ text, messageType: "standard" });
+      expect(unacknowledged.valid).toBe(false);
+      if (unacknowledged.valid) throw new Error("unreachable");
+      expect(unacknowledged.issues).toContainEqual({ code: "fictional-contact-detail-present" });
+
+      expect(
+        validateGovernedMessage({ text, messageType: "standard", syntheticFictionalContactsAcknowledged: true })
+          .valid,
+      ).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Rule 4 — a first message must carry full support information
 // ---------------------------------------------------------------------------
 
 describe("rule 4: first-message-missing-support-information", () => {
   it("passes a first message that contains the programme line, hours, emergency direction, and a crisis contact", () => {
-    const input: GovernedMessageInput = { text: compliantFirstMessage, messageType: "first" };
+    const input: GovernedMessageInput = {
+      text: compliantFirstMessage,
+      messageType: "first",
+      syntheticFictionalContactsAcknowledged: true,
+    };
     expect(validateGovernedMessage(input)).toEqual({ valid: true });
   });
 
   it("fails when the programme line is missing", () => {
     const text = [rules.operatingHours, rules.emergencyDirection, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first" });
+    const result = validateGovernedMessage({ text, messageType: "first", syntheticFictionalContactsAcknowledged: true });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
   it("fails when the hours are missing", () => {
     const text = [rules.programmeLine, rules.emergencyDirection, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first" });
+    const result = validateGovernedMessage({ text, messageType: "first", syntheticFictionalContactsAcknowledged: true });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
   it("fails when the emergency direction is missing", () => {
     const text = [rules.programmeLine, rules.operatingHours, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "first" });
+    const result = validateGovernedMessage({ text, messageType: "first", syntheticFictionalContactsAcknowledged: true });
     expect(result).toEqual({ valid: false, issues: [{ code: "first-message-missing-support-information" }] });
   });
 
@@ -177,13 +236,17 @@ describe("rule 4: first-message-missing-support-information", () => {
 
 describe("rule 5: closing-message-missing-ending-statement / closing-message-missing-support-information", () => {
   it("passes a closing message with the ending statement, programme line, and crisis contact", () => {
-    const input: GovernedMessageInput = { text: compliantClosingMessage, messageType: "closing" };
+    const input: GovernedMessageInput = {
+      text: compliantClosingMessage,
+      messageType: "closing",
+      syntheticFictionalContactsAcknowledged: true,
+    };
     expect(validateGovernedMessage(input)).toEqual({ valid: true });
   });
 
   it("fails with closing-message-missing-ending-statement when the final-message statement is absent", () => {
     const text = [rules.programmeLine, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "closing" });
+    const result = validateGovernedMessage({ text, messageType: "closing", syntheticFictionalContactsAcknowledged: true });
     expect(result).toEqual({
       valid: false,
       issues: [{ code: "closing-message-missing-ending-statement" }],
@@ -192,7 +255,7 @@ describe("rule 5: closing-message-missing-ending-statement / closing-message-mis
 
   it("fails with closing-message-missing-support-information when the programme line is absent", () => {
     const text = [rules.closingStatement, rules.crisisSupportContact].join(". ");
-    const result = validateGovernedMessage({ text, messageType: "closing" });
+    const result = validateGovernedMessage({ text, messageType: "closing", syntheticFictionalContactsAcknowledged: true });
     expect(result).toEqual({
       valid: false,
       issues: [{ code: "closing-message-missing-support-information" }],
