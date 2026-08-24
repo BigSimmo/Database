@@ -1010,10 +1010,11 @@ select.field-control[aria-invalid="true"]:focus-visible {
 
 /* Nested search: the rounded shell owns focus. Inner `outline-none` utilities
    cannot suppress the shared field rule, which is why compare / filter /
-   catalogue pickers grew a bright rectangle around the text. */
+   catalogue pickers grew a bright rectangle around the text. Border only —
+   do not replace resting elevation on tools / calculator / document pills,
+   the same failure the composer comment forbids. */
 .search-shell:focus-within {
   border-color: color-mix(in srgb, var(--clinical-accent) 34%, var(--border-strong));
-  box-shadow: var(--shadow-inset);
 }
 
 .search-shell-input:focus,
@@ -4892,16 +4893,26 @@ html.theme-transitioning *:after {
     border: 1px solid CanvasText;
   }
 
-  .search-shell:focus-within {
-    outline: 2px solid Highlight;
+  /* Quiet default-mode focus is a border shift / color-mix outline. Forced
+     colors remaps `--focus` to Highlight; restore that ring so keyboard users
+     do not lose the only system-color affordance. Nested search inputs stay
+     outline-none — their rounded shell (or composer pill) owns the ring. */
+  .search-shell:focus-within,
+  .chat-composer-shell-delta:focus-within {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible,
+  input.field-control:focus-visible,
+  textarea.field-control:focus-visible,
+  select.field-control:focus-visible {
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 
   .search-shell-input:focus,
-  .search-shell-input:focus-visible,
-  input.field-control:focus-visible,
-  textarea.field-control:focus-visible,
-  select.field-control:focus-visible {
+  .search-shell-input:focus-visible {
     outline: none;
   }
 }

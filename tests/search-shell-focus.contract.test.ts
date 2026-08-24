@@ -10,12 +10,13 @@ const comparePicker = readFileSync(
   new URL("../src/components/compare/compare-catalog-picker.tsx", import.meta.url),
   "utf8",
 );
+const documentViewer = readFileSync(new URL("../src/components/DocumentViewer.tsx", import.meta.url), "utf8");
 
 describe("search / field focus is quiet and shell-owned", () => {
   it("does not paint a 2px inset --focus rectangle on text fields", () => {
     const body = sourceSegment(
       globals,
-      ':where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {',
+      "  /* Hairline on the field edge, not an inset accent rectangle. The previous",
       "}",
       { label: "shared text-field focus rule" },
     );
@@ -43,9 +44,11 @@ describe("search / field focus is quiet and shell-owned", () => {
     expect(shell).toContain(".search-shell:focus-within");
     expect(shell).toContain("color-mix(in srgb, var(--clinical-accent)");
     expect(shell).not.toContain("outline: 2px solid var(--focus)");
+    expect(shell, "search-shell focus must not replace resting elevation").not.toContain("box-shadow");
 
     const input = sourceSegment(globals, ".search-shell-input:focus,\n.search-shell-input:focus-visible {", "}", {
       label: "search-shell-input focus",
+      allowRepeatedStart: true,
     });
     expect(input).toContain("outline: none");
     expect(input).toContain("box-shadow: none");
@@ -68,11 +71,34 @@ describe("search / field focus is quiet and shell-owned", () => {
     expect(comparePicker).not.toMatch(/className="min-w-0 flex-1 bg-transparent text-base outline-none/);
   });
 
+  it("gives document search a search-shell owner so the nested input is not ringless", () => {
+    expect(documentViewer).toContain("search-shell");
+    expect(documentViewer).toContain("searchShellInput");
+  });
+
   it("does not put a second 2px --focus outline on the composer pill", () => {
-    const body = sourceSegment(globals, ".chat-composer-shell-delta:focus-within {", "}", {
-      label: "composer shell focus",
-    });
+    const body = sourceSegment(
+      globals,
+      "/* One focus owner. The retired `--shadow-focus` token painted a 3px accent",
+      ".chat-composer-input {",
+      { label: "composer shell focus" },
+    );
     expect(body).toContain("outline: none");
     expect(body).not.toContain("outline: 2px solid var(--focus)");
+  });
+
+  it("restores a Highlight ring for quiet fields in forced-colors", () => {
+    const forcedColorsOpeners = [...globals.matchAll(/@media \(forced-colors: active\)/g)];
+    const lastOpener = forcedColorsOpeners.at(-1)?.index ?? -1;
+    const forced = globals.slice(lastOpener);
+    expect(forced).toContain(".chat-composer-shell-delta:focus-within");
+    expect(forced).toContain("input.field-control:focus-visible");
+    expect(forced).toMatch(/outline:\s*2px solid var\(--focus\)/);
+    expect(forced).toContain(".search-shell-input:focus");
+    const nested = sourceSegment(forced, ".search-shell-input:focus,", "}", {
+      label: "forced-colors nested search-shell-input",
+    });
+    expect(nested).toContain("outline: none");
+    expect(nested).not.toContain("input.field-control:focus-visible");
   });
 });
