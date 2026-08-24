@@ -80,7 +80,7 @@ function waitForDifferentialCatalogQuery(page: Page, query: string) {
 }
 
 async function submitDifferentialSearch(page: Page, query: string) {
-  const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+  const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible').first();
   const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
 
   // Own the fill here rather than leaving it to callers. The server-rendered
@@ -310,6 +310,40 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   });
 
   expect(overflow).toBeLessThanOrEqual(2);
+}
+
+async function expectIdlePhoneHomeCentered(page: Page, homeTestId: string) {
+  await expect(page.getByTestId(homeTestId)).toBeVisible();
+  const geometry = await page.evaluate((homeTestId) => {
+    const home = [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((node) => {
+      const rect = node.getBoundingClientRect();
+      const style = window.getComputedStyle(node);
+      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+    });
+    const canvas = document.querySelector("[data-mode-home-canvas]");
+    const main = document.getElementById("main-content");
+    if (!home || !canvas || !main) return null;
+    const homeRect = home.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    return {
+      homeMidX: homeRect.left + homeRect.width / 2,
+      homeMidY: homeRect.top + homeRect.height / 2,
+      canvasMidX: canvasRect.left + canvasRect.width / 2,
+      canvasMidY: canvasRect.top + canvasRect.height / 2,
+      canvasHeight: canvasRect.height,
+      docOverflowY: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+      mainOverflowY: main.scrollHeight - main.clientHeight,
+    };
+  }, homeTestId);
+
+  expect(geometry).not.toBeNull();
+  expect(geometry!.docOverflowY).toBeLessThanOrEqual(2);
+  expect(geometry!.mainOverflowY).toBeLessThanOrEqual(2);
+  expect(Math.abs(geometry!.homeMidY - geometry!.canvasMidY)).toBeLessThanOrEqual(
+    Math.max(24, geometry!.canvasHeight * 0.12),
+  );
+  expect(Math.abs(geometry!.homeMidX - geometry!.canvasMidX)).toBeLessThanOrEqual(24);
+  await expectNoPageHorizontalOverflow(page);
 }
 
 async function expectMapLabelsContained(canvas: Locator) {
@@ -876,13 +910,15 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       expect(headingBox).not.toBeNull();
       expect(mainBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // The home centres its hero+search block in the scrollable main pane on
-      // phones (below the sticky header), not necessarily the full viewport.
+      // Search sits in the lower half of the centred cluster, so its midpoint
+      // is not the optical centre. Keep a coarse pane bound here; the helper
+      // below pins the whole home cluster to the leftover canvas.
       const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
       const mainTop = mainBox?.y ?? 0;
       const mainHeight = mainBox?.height ?? 844;
       expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
       expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
+      await expectIdlePhoneHomeCentered(page, "shared-home-empty-state");
       const metrics = await globalSearchComposerMetrics(page, "shared-home-empty-state");
       expect(metrics).not.toBeNull();
       expect(metrics?.position).not.toBe("fixed");
@@ -901,6 +937,24 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
     // The home hero is the only phone surface with the APP-5 privacy notice.
     await expect(page.getByTestId("answer-composer-privacy-warning")).toBeVisible();
+  });
+
+  test("idle phone mode homes stay centered without scrolling", async ({ page }) => {
+    const sizes = [
+      { width: 320, height: 720 },
+      { width: 390, height: 844 },
+      { width: 430, height: 932 },
+    ] as const;
+    const homes = ["/?mode=answer", "/?mode=documents"] as const;
+
+    for (const size of sizes) {
+      await page.setViewportSize(size);
+      for (const path of homes) {
+        await mockAnswerDashboardApi(page);
+        await gotoLauncher(page, path);
+        await expectIdlePhoneHomeCentered(page, "shared-home-empty-state");
+      }
+    }
   });
 
   test("320px shared-home presentation wraps the longest mode copy without overflow", async ({ page }) => {
@@ -1897,7 +1951,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     const heroSearch = sharedHome.getByTestId("global-search-input");
     await expect(heroSearch).toBeVisible();
-    await expect(heroSearch).toHaveAttribute("placeholder", "Ask or search a presentation");
+    await expect(heroSearch).toHaveAttribute("placeholder", "Ask or search a presentation...");
 
     // The hero heading sits above the composer, and the composer stays in the
     // upper two thirds — the same geometry contract every mode home is held to.
@@ -2345,7 +2399,7 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
+    const input = page.locator('input[placeholder="Ask or search a presentation..."]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await expect(input).toHaveCount(1, { timeout: 15_000 });
     await expect(submit).toHaveCount(1, { timeout: 15_000 });
@@ -2681,10 +2735,8 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
     await expect(queue).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "1 diagnosis selected" })).toBeVisible();
     await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
-    await expect(page.getByTestId("differential-compare-edit-selection")).toHaveAttribute(
-      "href",
-      /\/differentials\/search\?.*ids=wernicke-encephalopathy/,
-    );
+    await page.getByTestId("differential-compare-edit-selection").click();
+    await expect(page.getByTestId("differential-compare-picker")).toBeVisible();
     await expect(page.getByTestId("differential-compare-open")).toBeVisible();
 
     await page.getByTestId("differential-compare-open").click();

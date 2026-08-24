@@ -297,6 +297,12 @@ export async function addPhoneScrollRunway(page: Page) {
     filler.dataset.testid = "phone-header-scroll-runway";
     filler.setAttribute("aria-hidden", "true");
     filler.style.height = "1600px";
+    filler.style.minHeight = "1600px";
+    // Idle phone homes make `#main-content` a flex column. A height-only
+    // sibling still shrinks to fit (`flex-shrink: 1`, automatic min-size 0),
+    // so hide-on-scroll never gets travel. Lock the runway to its intended size.
+    filler.style.flexShrink = "0";
+    filler.style.flexGrow = "0";
     filler.style.pointerEvents = "none";
     main.append(filler);
   });

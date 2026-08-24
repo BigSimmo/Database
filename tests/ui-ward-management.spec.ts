@@ -51,7 +51,23 @@ test.describe("Ward Flow command view", () => {
   // ("shows a failing gate as a failure and never auto-allocates"), so the Constellation step is
   // removed here rather than repointed — leaving it would assert a route that no longer exists.
 
+  /**
+   * This test performs one page load plus seven sequential route navigations. Against a dev
+   * server, which compiles each route on demand, that costs ~3.8 s warm and ~15.2 s cold,
+   * measured at HEAD `12f17b13a`. The failures previously recorded here as a flake are
+   * consistent with budget exhaustion on a machine running the same gate ~6x slower — that
+   * surfaces at whichever mode link the clock happens to expire on, and it is not a weakening
+   * of any assertion here. CI runs this spec against a production build, which
+   * scripts/run-playwright.mjs builds and serves, so no on-demand compilation happens there and
+   * the larger allowance below costs CI nothing.
+   *
+   * What the larger allowance does cost: playwright.config.ts sets no actionTimeout or
+   * navigationTimeout, so a genuinely hung navigation in this one test now burns 120 s rather
+   * than 45 s before failing — worst case about +75 s on a Chromium-only PR shard and about
+   * +225 s across the three browsers of verify:release, both well inside those jobs' budgets.
+   */
   test("opens every Ward Flow mode", async ({ page }) => {
+    test.setTimeout(120_000);
     await page.setViewportSize({ width: 1440, height: 1024 });
     await gotoWardFlow(page);
 
@@ -68,7 +84,7 @@ test.describe("Ward Flow command view", () => {
     ] as const;
     for (const [linkName, testId] of modes) {
       await page.getByRole("link", { name: linkName }).click();
-      await expect(page.getByTestId(testId)).toBeVisible();
+      await expect(page.getByTestId(testId)).toBeVisible({ timeout: 15_000 });
       await expectNoPageOverflow(page);
     }
   });

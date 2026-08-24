@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "399ff5bd-d489-453f-a6b7-d185b9de7155",
+  "createdOn": "2026-08-23",
+  "action": "done",
+  "payload": {
+    "id": "#72G3XZ",
+    "outcome": "Authored docs/ci-operations.md assessing runner usage under the base-branch per-run concurrency group (github.run_id). Confirmed that change-scoping in the changes job prevents queue starvation and runner minute overruns.",
+    "baseRowFingerprint": "33f4ae1906bea85d3278ded2e3db9e3121f289ea0f6c5d04c2276d5606aca9fc"
+  }
+}

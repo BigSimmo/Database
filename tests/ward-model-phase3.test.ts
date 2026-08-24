@@ -77,6 +77,15 @@ describe("Phase 3 model additions", () => {
     // inspects and assert there is a real, non-trivial number of them — so a future edit that
     // empties withdrawnReferrals/escalation back out of the fixture turns this test red
     // instead of leaving it vacuously green.
+    //
+    // Was `toBeGreaterThanOrEqual(3)` — the whole-branch review's fix for C2/I6
+    // (`ward-movements.ts`'s WF-018) removed a `withdrawnReferrals` entry that named a referral
+    // never actually raised (`ACCEPT_IN_PRINCIPLE` is the only reducer branch that ever writes
+    // `withdrawnReferrals`, and WF-018 had no `acceptedUnitId` to pair it with — see
+    // `tests/ward-flow-contracts.test.ts`'s new fixture-coherence invariants). The 3-count
+    // threshold happened to be calibrated against that phantom entry: today's honest count is 2
+    // (WF-006's real withdrawal plus WF-009's escalation contact) — still real and non-trivial,
+    // just one fewer than a threshold that was quietly propped up by a fabricated record.
     const inspected: string[] = [];
     for (const movement of wardMovements.filter(isOpen)) {
       for (const withdrawn of movement.withdrawnReferrals) {
@@ -86,19 +95,27 @@ describe("Phase 3 model additions", () => {
         inspected.push(movement.escalation.contact);
       }
     }
-    expect(inspected.length).toBeGreaterThanOrEqual(3);
+    expect(inspected.length).toBeGreaterThanOrEqual(2);
     for (const text of inspected) {
       expect(text).not.toMatch(forbidden);
     }
   });
 
-  it("never gives a Form 3B a dueAt, and never omits one from a Form 1A", () => {
-    // Task 6A: the Mental Health Act imposes no post-examination deadline (clinician-confirmed —
-    // the post-examination clock is elapsed ED wait, counting up, never a legal countdown), so a
-    // 3B must carry no dueAt at all — not a wrong one, none. A 1A still carries a real statutory
-    // examination window and must always have one. Both sides are accumulated so this cannot
-    // pass vacuously if the fixture ever stopped carrying one kind or the other — a vacuous guard
-    // shape has already cost this phase two fix rounds (see the deleted test this replaces).
+  // Renamed and inverted 2026-08-23. Task 6A first established that a Form 3B carries no
+  // `dueAt`: put to the clinician directly, he settled that the post-examination clock "is just
+  // counting how long they have been in ED determining priority. So counting up," so no
+  // post-examination deadline is recorded for a 3B. That was established while
+  // this fixture still gave a Form 1A one. That 1A `dueAt` was never a real statutory figure —
+  // it was an unverified number an earlier agent wrote into ward-model.ts from its own
+  // recollection of the Act, not from the clinician or product owner. Put to the product owner
+  // directly on 2026-08-23, the instruction was narrower than a corrected figure: drop the
+  // legal countdown from this model entirely rather than get its number right ("please can you
+  // leave the legal part and just start a clock once the patient arrives to ED. Keep it simple
+  // for now"). So a 1A now carries no `dueAt` either — the same absence a 3B has always carried.
+  // Both codes are accumulated so this cannot pass vacuously if the fixture ever stopped
+  // carrying one kind or the other — a vacuous guard shape has already cost this phase two fix
+  // rounds (see the deleted test this replaces).
+  it("never gives any legal form — 1A or 3B — a dueAt", () => {
     const form3B: string[] = [];
     const form1A: string[] = [];
     for (const movement of wardMovements) {
@@ -108,11 +125,8 @@ describe("Phase 3 model additions", () => {
     expect(form3B.length).toBeGreaterThan(0);
     expect(form1A.length).toBeGreaterThan(0);
     for (const movement of wardMovements) {
-      if (movement.legalForm?.code === "3B") {
-        expect(movement.legalForm.dueAt).toBeUndefined();
-      }
-      if (movement.legalForm?.code === "1A") {
-        expect(movement.legalForm.dueAt).toBeDefined();
+      if (movement.legalForm?.code === "3B" || movement.legalForm?.code === "1A") {
+        expect(movement.legalForm.dueAt, `${movement.id} (${movement.legalForm.code}) carries a dueAt`).toBeUndefined();
       }
     }
   });

@@ -335,9 +335,15 @@ test.describe("universal search typeahead", () => {
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
     await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
-    await expect(page.getByText("Also matches in other modes")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(alsoMatches).toBeVisible();
+    await expect(alsoMatches.getByRole("button", { name: /Also matches in other modes/ })).toBeVisible();
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
+    const accents = await alsoMatches
+      .locator("div[data-category-accent]")
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-category-accent")));
+    expect(accents.every(Boolean)).toBe(true);
+    expect(new Set(accents).size).toBeGreaterThan(1);
     expect(new URL((await universalRequest).url()).searchParams.get("domains")?.split(",")).not.toContain("services");
   });
 
@@ -546,7 +552,9 @@ test.describe("universal search smart affordances", () => {
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
 
     await expect(page.getByTestId("universal-also-matches")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Also matches in other modes")).toBeVisible();
+    await expect(
+      page.getByTestId("universal-also-matches").getByRole("button", { name: /Also matches in other modes/ }),
+    ).toBeVisible();
   });
 
   test("keeps a saved exact match first in Favourites", async ({ page }) => {

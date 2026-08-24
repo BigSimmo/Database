@@ -2,7 +2,7 @@
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
     "sha": "6085a0a59aca4c1bb9e19fb4d490fd34dec950cd",
-    "committed_at": "2026-08-22T20:52:39Z"
+    "committed_at": "2026-08-22T20:52:39+00:00"
   },
   "counts": {
     "open": 73,
@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 72,
+    "pending": 128,
     "resolved": 376
   },
   "queue": [
@@ -792,6 +792,12 @@
       "created_at": "2026-08-20"
     },
     {
+      "request_id": "06fca542-5d96-4dbb-9c67-2b1aa5c8ec56",
+      "action": "add",
+      "summary": "A hardcoded topic denylist refuses in-corpus psychiatric queries with zero retrieval and caches the empty result",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0807d756-ecd5-4988-b4e3-9c5ec5e41ee3",
       "action": "cancel",
       "summary": "Cancel request 95eba5d7-8f01-46e5-8342-3e01ddf6d3a1: Fixed on branch claude/suicide-contact-mockup-b5aaa0 before this request was ever reconciled, so there is no open row to close. The request's premise was wrong: it says THIS IS A SHARED DESIGN-SYSTEM FIX, NOT A WORKSPACE ONE, but sheet.tsx already exposes the hook its own controller looks for. src/components/caring-contacts/workspace/overlays/overlay-host.tsx now stamps data-sheet-autofocus=\"true\" on the overlay action control when the overlay is not dismissible and is not the status banner, so startSheetOpenFocus resolves the recovery action instead of falling through to document.body. No change to sheet.tsx, so no blast radius across other Sheet consumers. Pinned by \"puts opening focus on the recovery action of an overlay that cannot be dismissed\" in tests/caring-contacts-overlay-host.dom.test.tsx, which was watched failing on document.body first.",
@@ -804,9 +810,27 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "0d4d5361-8e2e-466a-adfa-7e78b10b0873",
+      "action": "done",
+      "summary": "#XN95DM: Resolved: Updated tests/gate-receipts.test.ts to probe filesystem executable bit capability dynamically, skipping unsupported working-tree chmod assertions on Windows Dev Drive (core.fileMode=false) while preserving index-mode test coverage.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0d8500fb-3202-4825-930e-3dd9c927dd41",
       "action": "cancel",
       "summary": "Cancel request a1495b3e-29fb-489a-a261-df3dcb142f51: Adversarial review found that route-ownership tests do not pin the unresolved visual owner decision; replace only after recording and testing that decision explicitly.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "0e3c05e2-b381-4e7b-9cfd-9721eaeca155",
+      "action": "done",
+      "summary": "#CM7DG9: Updated .claude/hooks/push-format-guard.sh to resolve core.hooksPath against both worktree and common git directory (git rev-parse --git-common-dir), ensuring linked worktrees are recognized as wired without triggering whole-repo Prettier checks.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "0e72a462-30a9-4970-a1c4-8f30099d7d2b",
+      "action": "add",
+      "summary": "Retrieval RPC still treats a null document owner as public, so the owner_id republication hole is only half closed",
       "created_at": "2026-08-23"
     },
     {
@@ -816,9 +840,21 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "122cc83b-a1f7-4f03-bb2d-d9eec84cb35f",
+      "action": "done",
+      "summary": "#Y090R5: Resolved: Reconciled snapshot generation and check integrity workflow, reducing PR merge conflicts on generated snapshot artifacts and streamlining ledger CI validation.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "16965ea0-230f-486e-90e6-ca05f315d78b",
       "action": "done",
       "summary": "#4XBMMR: Resolved by retaining the non-sensitive public design comps while making their indexing policy truthful and enforceable: next.config.ts now serves X-Robots-Tag: noindex, nofollow for exact /mockups/:path* assets, and mockups/README.md now distinguishes public retrieval from indexing and access control. tests/mockup-crawler-policy.test.ts imports the effective Next config, validates the route grammar, proves nested mockup assets match, and proves unrelated assets do not. Focused combined policy verification passed 3 files and 26 tests; the focused proxy production-block test passed 1 test with 14 skipped on 2026-08-23.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "183965e3-ec47-48cf-a99f-8b037311ed2d",
+      "action": "add",
+      "summary": "Patient-profile alerts surface unassessed gates only for contraindication rows, so 266 caution, dose-adjust and monitor gates silently no-op",
       "created_at": "2026-08-23"
     },
     {
@@ -834,6 +870,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "1c9ca9cc-cc96-45f4-acd4-9f034834890b",
+      "action": "add",
+      "summary": "Form 12A retains generic Authority and Criteria prose despite having a readable approved PDF",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "1ec9957a-532d-4425-8352-6851e64ef54f",
       "action": "done",
       "summary": "#47M1XD: Closed 2026-08-23 from the two read-only production observation windows already recorded in the row and docs/audit/live-drift-forensics-2026-08.md Phase 5. The restored trigram indexes retained the same OIDs and stayed at idx_scan=0 and idx_tup_read=0 while serving GIN/HNSW indexes advanced under live traffic; database-wide stats_reset remained null. The proposed before/after ANALYZE experiment is non-discriminating because the four relevant tables were already analyzed with n_mod_since_analyze=0. Operational attribution is therefore corrected: check planner statistics first during a recurrence, do not attribute the 2026-08-14 recovery to the unused trigram pair, and do not drop the repo-defined indexes. No new production query or mutation was run for this closure.",
@@ -846,10 +888,40 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "2184d26a-5bdb-451c-913b-38f53f20487c",
+      "action": "add",
+      "summary": "Therapy Compass labels itself Decision support in production, against the product's own stated boundary",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "224d9a15-49c9-4375-b7bf-563bde1cdccc",
       "action": "cancel",
       "summary": "Cancel request b9f8c826-070f-408b-b700-579117d2414f: This update correctly records the shipped predicate and canary evidence but leaves the completed issue open. Supersede it with the evidence-preserving done request queued in the same task; the separate metabolic-monitoring defect remains independently queued.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "256bf4a0-9189-4a42-aca9-e6518a7d5c39",
+      "action": "done",
+      "summary": "#6SMMB4: Verified on workstation that npm cache resolves to D:\\.npm-cache and fsutil devdrv query returns Error 5 without elevation. Documented the Dev Drive trusted package cache verification and Defender exclusion workflow in docs/testing.md.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "276fa864-4337-40db-8430-a94825e71e73",
+      "action": "add",
+      "summary": "Icons passed as icon props render with no aria-hidden, and the lint rule is structurally blind to it",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "27c093fb-607a-405b-93e3-7e3bc1874523",
+      "action": "cancel",
+      "summary": "Cancel request d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f: Resolved: Desktop session gate layout verified with centered dialog geometry (512x382 layout at 1440px viewport under desktop session-gate modality) instead of full-bleed letterbox.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "2a0a150f-19f5-4c92-8438-90b1806c8830",
+      "action": "done",
+      "summary": "#RZQQBT: Settled PreCompact hook contract in docs/testing.md: .claude/hooks/precompact-issues-capture.sh acts as a silent append-only log (.git/claude-precompact.log) and transcript notice, guaranteed never to throw or disrupt context compaction.",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "32d58b0f-a504-434e-8360-d6969160ec06",
@@ -861,6 +933,12 @@
       "request_id": "346c12f3-fbcb-478f-bd86-d0c4aa0436c0",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Two real Claude Code v2.1.237 auto-compactions correlate with the hook log. .git/worktrees/caring-contacts-phase-2a-11b-a37803/claude-precompact.log records 2026-08-22T11:37:51Z before ~/.claude/projects/<worktree-slug>/d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl line 1902 at the 2026-08-22T11:39:38.041Z compact boundary. .git/worktrees/ward-flow-phase-3-49f201/claude-precompact.log records 2026-08-22T18:33:10Z before ~/.claude/projects/<worktree-slug>/d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl line 2492 at the 2026-08-22T18:34:57.371Z boundary. Both compact_boundary records explicitly carry version 2.1.237, and the exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. Independently, the current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks), checked 2026-08-23, states that successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The later local claude --version result 2.1.238 was not the correlated runtime and is not used as provenance. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event; .git/worktrees/Database36/claude-precompact.log was absent when checked at 2026-08-23T06:41:54.9955991Z and is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "3648add6-bf2b-4733-a651-ec2d8ffa9f35",
+      "action": "done",
+      "summary": "#71NT23: Configured mobile-webkit and mobile-pwa-standalone projects in playwright.config.ts with Mobile Safari emulation and standalone PWA display mode settings.",
       "created_at": "2026-08-23"
     },
     {
@@ -876,6 +954,18 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "37fdb906-b528-4011-81ca-9303256ec927",
+      "action": "done",
+      "summary": "#KZJD4Q: Activated zero-cost review coverage levers: added path_filters in .coderabbit.yaml to skip documentation and bookkeeping PRs, and documented bookkeeping-only PR prevention in docs/codex-review-protocol.md.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "399ff5bd-d489-453f-a6b7-d185b9de7155",
+      "action": "done",
+      "summary": "#72G3XZ: Authored docs/ci-operations.md assessing runner usage under the base-branch per-run concurrency group (github.run_id). Confirmed that change-scoping in the changes job prevents queue starvation and runner minute overruns.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "3a2cac06-0076-4e83-81fa-f98be7285444",
       "action": "done",
       "summary": "#2TAQDC: Resolved by the 2026-08-23 current-main performance remediation. The streaming-hydration gap is documented beside the search-chrome invariant; every current :has(#main-content ...) selector is bounded by explicit post-hydration PWA allowlist markers; and a whitespace-tolerant, mutation-tested whole-file contract rejects any future unclassified occurrence while retaining the valid selectors. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/pwa-lifecycle.dom.test.tsx.",
@@ -888,9 +978,45 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "3be77c8b-4010-4c17-9cda-3e1ff1eea1a4",
+      "action": "add",
+      "summary": "sentry.server.config falls back to the service-role key when the publishable key is absent",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "421ff6e8-4cb3-4456-b918-d71218b973d5",
+      "action": "cancel",
+      "summary": "Cancel request e7909949-2a75-44fc-92b0-b978f08546c6: Mitigated by PR #2327: the clinical-decision hold now runs before routing with no override, so these surfaces cannot receive unattended Codex repair.",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "423d5a24-569d-4988-83c8-2a9e64d52ddb",
+      "action": "add",
+      "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "43122ce4-bfa2-43d1-83b0-f859eae6fc84",
       "action": "add",
       "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "455d31fc-c3d3-4645-ae2c-2696836f16af",
+      "action": "add",
+      "summary": "Form 12A displays a false Password protected warning although its committed PDF is readable",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "462215d6-4847-42c9-88e6-43354cc96723",
+      "action": "add",
+      "summary": "Three SECURITY DEFINER functions omit pg_temp from search_path",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "4751f8ff-d012-4cbb-afce-2c458b272515",
+      "action": "cancel",
+      "summary": "Cancel request 7dc2d09a-b05c-4d10-b198-263af3c0f45e: Superseded by done request c4b1de28-7e91-46d6-9129-aa8b4d58f685 resolving #RSD9EJ on feature branch.",
       "created_at": "2026-08-23"
     },
     {
@@ -912,6 +1038,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "4eb99dcb-d19f-42b8-8dcd-835814b3780e",
+      "action": "add",
+      "summary": "Medication source_status current is derived from a substring and never expires",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "505f3b8e-a800-4efa-809f-ad2ccc6e158e",
       "action": "update",
       "summary": "#QSHHGK: detail → PARTIALLY ADDRESSED 2026-08-23: the bundle checker now validates the configured 40-character baseline source before reporting distance and emits explicit, non-failing text plus structured JSON remediation when the commit is missing or not an ancestor. Normal JSON remains a single document; size enforcement and explicit --update semantics are unchanged. The current source e5ee533bc04ff0ab34ff17c23341cb67abf3d59a is unresolved locally and the non-updating budget check passes its existing ceilings, so provenance uncertainty is visible. KEEP OPEN: this does not create the scheduled refresh owner or trigger the row requests; accumulated-growth ownership remains unresolved.; source → docs/evidence/performance-remediation-2026-08-23.md; scripts/check-bundle-budget.mjs; tests/bundle-budget.test.ts",
@@ -930,15 +1062,33 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "52f27b86-e6e7-4e9e-a66b-01a01962ad82",
+      "action": "cancel",
+      "summary": "Cancel request 122cc83b-a1f7-4f03-bb2d-d9eec84cb35f: Snapshot conflict reduction remains unimplemented: pending inbox records are still committed into the generated snapshot, so concurrent ledger work can conflict or fail stale-snapshot checks.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "531c3f7f-baab-4a11-9882-b60cfdabe31c",
       "action": "done",
       "summary": "#778Q0H: Resolved on current main by PR #2282 / commit c677ea25f. The merged fix includes tests/rsc-boundary.test.ts, which statically traces the Server Component graph and rejects event handlers on the server side of the RSC boundary, including the exact ignoreUnavailableActivation pattern that caused the Developer Hub request-time failure; panel-card.tsx is explicitly marked use client.",
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "561c9187-f8c7-4381-ad31-528b408c0669",
+      "action": "done",
+      "summary": "#JZM7RM: Harmonized and documented automated PR review fixer governance in docs/agents-guide.md; established repository GitHub workflow as authoritative responder with deduplication markers and client watcher throttling.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "578aabb2-ba72-4de2-b163-d66e57a4ad1c",
       "action": "cancel",
       "summary": "Cancel request fda95495-3d07-41e3-a9b9-0c9c1d999087: Final adversarial review found the update wording claimed unconditional all-source rollback. The corrected transaction deliberately preserves non-cooperating concurrent source bytes while restoring generated assets, so this immutable update must be cancelled and replaced with exact conditional-rollback wording.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "5794387a-496b-4c9b-ab66-f710369697cd",
+      "action": "done",
+      "summary": "#099: Eliminated duplicate server auth round-trips via proxy claims header forwarding (x-proxy-auth-user) with anti-spoofing stripping; batched anonymous dual-quota rate limit deny cache checks; converted 8 setCachedSearch calls to concurrent non-blocking execution with upfront synchronous result cloning.",
       "created_at": "2026-08-23"
     },
     {
@@ -957,6 +1107,12 @@
       "request_id": "66ad26af-eac0-4157-8125-8644af34e455",
       "action": "cancel",
       "summary": "Cancel request a680a25f-5aa7-4a19-94bc-0f30fcf9a61d: Adversarial review found the tooling-only implementation does not complete the 205 real qualified-clinician attestations, so the done request would close #SBKXZ7 prematurely. Preserve it for audit but cancel its mutation; a separate update request records implemented tooling while keeping the row open.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "672f9d6d-e9f1-46bc-8860-b08596fddd4d",
+      "action": "add",
+      "summary": "The batch image endpoint calls getPublicUrl against a bucket pinned private, so public-corpus figures silently fail to load",
       "created_at": "2026-08-23"
     },
     {
@@ -996,9 +1152,21 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "7698edb7-af3e-4618-97f6-b70f74b803fb",
+      "action": "cancel",
+      "summary": "Cancel request fa89c68a-3769-483f-9670-900012471425: Superseded by 977ad2ec-5dcf-49ee-aa87-018ddc6fb366, the replacement #JVYQEM done request queued on this branch. Both close the same mode-home composer-reserve CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "77aec421-1595-4307-aaf1-447ec5414cbd",
       "action": "cancel",
       "summary": "Cancel request 7b276d24-acb7-423a-9730-6fc4dca309ce: Superseded after independent final review found an unmeasured 1024-1279px boundary. The replacement done request carries the production 1024/1025/1279 pre/post evidence and bounded 1279.98px correction.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "79631cfc-7258-4cad-8b40-7e4832f6e963",
+      "action": "add",
+      "summary": "Enrichment artifact families can be permanently lost, the designed repair function is called by nothing, and no monitoring exists",
       "created_at": "2026-08-23"
     },
     {
@@ -1012,6 +1180,12 @@
       "action": "update",
       "summary": "#RSD9EJ: source → PR #2298 push attempts 2026-08-22/23 (squash-merged as f3d1a3cce2c943ad3083425ed9c7c46dbef23087; the feature branch and its commits 90b5de61f/7703188ef/55f3a47fa are NOT reachable from any ref -- view them on the PR page, not via git); scripts/guard-push.mjs; scripts/check-ledger-write-discipline.mjs; commit 9a382a050 (#2294) is the reconcile whose applied/ records triggered the false positive and IS on main. REPRODUCTION without those commits: branch from main, let a reconcile PR land on main, merge origin/main into the branch, then push -- guard-push refuses with 'applied/<uuid>.json was introduced without moving the identical pending request from the base' while 'node scripts/check-ledger-write-discipline.mjs --base origin/main --head HEAD' passes on the same tree. The divergence between those two results is the bug.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "7e0a9690-6dce-4d5c-ac51-1c8dcda6467a",
+      "action": "add",
+      "summary": "Four no-DDL migrations sit outside every history guard, and the drift allowlist was never reconciled against a live read",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "7ffd3e0e-635d-41a3-8fdf-fb0efc4b6a88",
@@ -1050,6 +1224,18 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "977ad2ec-5dcf-49ee-aa87-018ddc6fb366",
+      "action": "done",
+      "summary": "#JVYQEM: Resolved: Phone reserve established at 10.125rem (--spacing-mode-home-composer-phone in globals.css) covering smart hint tickets, and wide reserve established at 5.5rem (--spacing-mode-home-composer-wide) with responsive container adaptivity, eliminating ticket-bearing home CLS.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "978a9fa0-a206-4a8e-be82-f98c13e80ccf",
+      "action": "cancel",
+      "summary": "Cancel request d627018c-e5ce-44c9-a9cc-5d798f807c93: Correction: the queued repair must identify or establish the canonical manifest generation path before changing a data manifest; direct manifest editing is not an approved implementation path.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "9dd3e06a-ec5c-439e-bdf5-f092d59706cd",
       "action": "done",
       "summary": "#XCAX01: Resolved 2026-08-23 for the repository fleet-sweep surfaces only. scripts/clean-worktree.mjs and scripts/worktree-inventory.mjs are now permanently report-only across CLI, exported, and programmatic paths: any remove/apply-shaped option is rejected before adapters; Git is confined to an exact read-only allowlist with optional locks and lazy fetch suppressed, and prune is permitted only as --dry-run -v; inspection and Windows reparse-boundary uncertainty fail closed; liveness is tri-state and absence remains unknown; explicit-root inventory has no removal API and immutable mutation counts stay zero. For worktree tooling, verify:preflight invokes only worktrees:report -- --self-test rather than inspecting the fleet. Synthetic proof: tests/clean-worktree.test.ts plus tests/worktree-inventory.test.ts, 46/46 passed, plus both pure self-tests and git diff --check. No live fleet report, cleanup, prune, or file/ref/object/registration/worktree/directory removal occurred. This closure does not change or claim to remove guard-push.mjs's separate exact temporary-worktree lifecycle. Exact-path fleet cleanup remains deferred under #6GW95D.",
@@ -1086,9 +1272,27 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "a75bc5e3-3655-4ea5-a043-bd53c40bc085",
+      "action": "add",
+      "summary": "Two live overloads of purge_expired_rag_response_cache, one unbounded",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "a833f6b8-80c3-4e0e-b025-16c6578c5c61",
       "action": "cancel",
       "summary": "Cancel request e603434c-3ac2-40e2-bc36-d47e2e0e7efb: Adversarial review found three previously rejected role-qualified placeholders—dummy, fake and sample—were omitted from the new central trivial-token set. This evidence update must be replaced immutably after restoring and testing those regressions.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "ad833519-1b0b-4f02-b965-a7be0667cac4",
+      "action": "done",
+      "summary": "#97VQK5: Added accessible H1 to Documents mode home (src/app/(search-app)/documents/documents-home-client.tsx), unified placeholder punctuation across all app modes to ASCII ... in src/lib/app-modes.ts, and synchronized docs/site-map.md (npm run sitemap:check passed).",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "ae0fdbd3-4ccf-4584-9342-916851070516",
+      "action": "cancel",
+      "summary": "Cancel request b5d6b1be-d1c9-4739-898a-33aec4a656a5: Resolved on feature branch: added /ward-management/constellation to staticRouteRedirects in src/proxy.ts and documented in ward flow phase 2 plan.",
       "created_at": "2026-08-23"
     },
     {
@@ -1110,6 +1314,18 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "b887e3ab-faad-4134-b207-8ef7562d128a",
+      "action": "done",
+      "summary": "#164Z0H: Confirmed .claude/hooks/session-start.sh is checked into git index with mode 100755, contains 0 CR bytes, and executes hermetically in web container environments. Verified with tests/session-start-hook.test.ts (11/11 passed).",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "b9b03e99-c1ec-4a74-ad42-8d9cb5585ab0",
+      "action": "done",
+      "summary": "#NEBJAM: Standardized Therapy Compass UI kit components in src/components/therapy-compass/ui.tsx on shared design-system primitives: Tag and TagRow compose shared Chip from @/components/ui/chip; StatusBadge standardizes on shared Chip with status appearance (kind: 'status', tone: meta.tone) and clinical iconography (ShieldCheck, TriangleAlert); IconTile adheres to design system token palette and size-tap sizing; LoadingState adopts shared LoadingPanel; EmptyState adopts shared SharedEmptyState with clinical centered treatment; Eyebrow uses tokenized tracking and colors; Meter provides full accessibility with named completeness bands. Verified with npm run check:design-system-contract and npm run check:design-system-adoption.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "ba2bdfba-b1e1-4e13-83b4-8cb0f3ddc092",
       "action": "add",
       "summary": "Caring Contacts: three unmitigated hazards block any real-patient pilot (safety officer, lived-experience review, Aboriginal health review)",
@@ -1122,15 +1338,39 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "c186182a-b838-4055-b37e-e9e75457b835",
+      "action": "add",
+      "summary": "No automated reaper for abandoned reindex generations, so crashed mid-builds leak rows and storage indefinitely",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "c202f5e2-f935-47d4-8008-a2f9399ae0b4",
       "action": "done",
       "summary": "#0YK2S3: Resolved on current main by commit ade30a9b3. CaringContactShellFrame stores the deferred focus timeout in focusTimerRef, clears it in a useEffect unmount cleanup, and resets the ref when the callback runs, preventing the document.querySelector callback from firing after jsdom teardown. The merged fix's recorded full-suite receipt covered the existing tests/caring-contact-product-redesign.dom.test.tsx and reported 7,599 passing with exit 0.",
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "c48454d1-86d0-4f12-8b98-ee897fd3e97f",
+      "action": "add",
+      "summary": "isPublicDocument ranks caller-adjacent metadata above owner_id",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "c4b1de28-7e91-46d6-9129-aa8b4d58f685",
+      "action": "done",
+      "summary": "#RSD9EJ: Updated scripts/guard-push.mjs (newlyIntegratedMainMergeBase) to resolve comparison baselines against git merge-base HEAD origin/main rather than previous remote tip, preventing false-positive ledger violations after merging main into a feature branch. Pinned by unit test in tests/guard-push.test.ts (55/55 passed).",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "c5d6045b-6493-4c8b-a1c8-6e151629d561",
       "action": "update",
       "summary": "#057: detail → Staging migration parity is closed. Run SHA-bound tenancy evidence, transition the same candidate image from the offline tenancy profile to the authenticated auto-provider load profile, execute the staging soak, and rehearse rollback. Retain checkout/deployed SHA, latency, error, throttling, authentication, cleanup, and rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "c7c4359a-3f2a-47cc-8690-d749bc10d81a",
+      "action": "add",
+      "summary": "The tenancy boundary is app-code only, so a single missing owner predicate has nothing behind it; make the property mechanical",
       "created_at": "2026-08-23"
     },
     {
@@ -1146,10 +1386,34 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "ca505f25-5403-4867-9985-91763c3fbca4",
+      "action": "add",
+      "summary": "Schema drift is gated against schema.sql only; the migration chain's semantics are never diffed against the mirror",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "cb4ab5a2-71d2-4dc3-83a4-96d2264a4af9",
       "action": "done",
       "summary": "#XPY409: Resolved on current main by PR #2186 / commit d7ffae1a5. docs/testing.md and docs/search-chrome-behaviour.md now document the measured unsettled-versus-settled phone geometry and require an expect.poll assertion that phone-sticky-header-stack has a non-zero height matching --phone-overlay-chrome-h before screenshots or DOM offset measurements. This is documentation-only; no browser or device rerun was needed for closure.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "cb863b4d-a600-4992-b0d5-73aa1a4e9054",
+      "action": "done",
+      "summary": "#5MMK5R: Documented in docs/testing.md that npm run verify:phone-chrome inspects working-tree diffs relative to merge-base and selects zero browser stages against clean trees by design, with guidance for explicit --files or --full=always execution.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "d4452409-69bf-4bb6-9ad7-dab654822940",
+      "action": "add",
+      "summary": "eval-retrieval can report success over zero golden fixture cases",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
+      "action": "add",
+      "summary": "Form 12A shows a false 'Password protected' warning: its PDF is not encrypted at all, and both the manifest and a test pin the wrong fact",
+      "created_at": "2026-08-24"
     },
     {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
@@ -1170,9 +1434,33 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "dbee1d86-48e5-4d16-b12a-fee4ee71f24f",
+      "action": "cancel",
+      "summary": "Cancel request 2a0a150f-19f5-4c92-8438-90b1806c8830: Duplicate of existing pending done request 346c12f3-fbcb-478f-bd86-d0c4aa0436c0 for #RZQQBT.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "e176f92a-2579-4700-b0af-869f3aeb1a77",
+      "action": "add",
+      "summary": "A stale 'D4 is OFF' production-deploy claim survives uncorrected in two places in the live-drift forensics doc",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "e603434c-3ac2-40e2-bc36-d47e2e0e7efb",
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Replacement implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: the generator is guarded by a central contract requiring exactly seven explicit boolean checks, all true for reviewed; display-approved public reviewer attribution that rejects the full trivial placeholder set and role-qualified variants, email and account handles, phone and obvious private identifiers; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata and rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. ReviewStatus is exactly reviewed or needs_review. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows every governed field, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, and has no batch, yes, answer, provider or production path. The persistence transaction snapshots every generator-owned fixed and content-addressed asset and refuses success unless the canonical source still equals the exact intended JSON bytes after generation and checking. A generator or check failure while the source is unchanged restores the exact pre-review source and generated bytes. A non-cooperating source edit during either a successful or throwing generator makes the transaction fail, preserves those concurrent canonical source bytes, restores generated assets to their exact pre-review state, and removes transaction temp and lock residue. Focused evidence: Therapy workflow tests 62 of 62 passed, including deterministic concurrent source mutation during both successful and throwing injected generators; the combined Therapy workflow, regression and source-governance suite passed 71 of 71; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; docs inventory, index and script-reference checks passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "e69b9dca-057d-48b4-8c7b-793faa3fd0df",
+      "action": "add",
+      "summary": "Forms mode: 34 forms still show boilerplate Clock/Authority/Criteria prose because the approved-form instruction text is locked in password-protected PDFs",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "e7909949-2a75-44fc-92b0-b978f08546c6",
+      "action": "add",
+      "summary": "The Codex auto-resolve workflow reversed an explicit owner decision on a clinical surface without approval, and no gate distinguishes a bot finding from a decision already made",
       "created_at": "2026-08-23"
     },
     {
@@ -1194,6 +1482,30 @@
       "created_at": "2026-08-18"
     },
     {
+      "request_id": "ee116498-1f7e-4945-8a5b-4c7f06bb5e28",
+      "action": "add",
+      "summary": "Forms mode: 33 password-protected forms retain generic Clock, Authority, and Criteria prose",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "f2cbf1f2-e5cb-4a05-a73e-e3c740fae534",
+      "action": "cancel",
+      "summary": "Cancel request 4e1ffb03-9151-4c88-a414-659a804b6a42: Superseded by f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1, the replacement #K9XD5N done request queued on this branch. Both close the same DegradedNotice CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "f4f32a31-70ad-4d1f-80a8-9c64e30ab0e1",
+      "action": "done",
+      "summary": "#K9XD5N: Resolved: Implemented stable layout container for DegradedNotice / offline notices preventing hero section layout shift (~0.16 CLS) on / during online/offline state transitions.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "f6768be1-9aeb-4374-afa1-9529718efada",
+      "action": "cancel",
+      "summary": "Cancel request e69b9dca-057d-48b4-8c7b-793faa3fd0df: Correction: Form 12A is readable and has a fixed clock; its generic maker and threshold need a separate follow-up, while the password-protected-PDF blocker applies to the other 33 generic maker-and-threshold forms.",
+      "created_at": "2026-08-24"
+    },
+    {
       "request_id": "f7c179ec-ae2d-49da-9f04-92b727e41aaf",
       "action": "done",
       "summary": "#RZQQBT: Answered negative and made truthful on 2026-08-23. Claude Code 2.1.238 ran the hook in real auto-compactions: D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\caring-contacts-phase-2a-11b-a37803\\\\claude-precompact.log records 2026-08-22T11:37:51Z before transcript d66f9a55-0d9c-4ede-b7f9-ec3d31f57219.jsonl's 2026-08-22T11:39:38.041Z compact boundary; ward-flow-phase-3-49f201 records 2026-08-22T18:33:10Z before transcript d5328978-6de3-4fee-9e3c-4b869c9bace2.jsonl's 2026-08-22T18:34:57.371Z boundary. The exact reminder is absent from both complete transcripts and their immediate post-compaction model turns. The current official Claude Code Hooks reference (https://code.claude.com/docs/en/hooks) explains the result: successful exit-0 plain stdout is model context only for SessionStart, UserPromptSubmit, and UserPromptExpansion; other events are debug-log-only. PreCompact's documented contract provides blocking but no supported additionalContext path and discards systemMessage/continue. The hook is now deliberately silent and log-only, retains bounded trigger evidence, always exits 0, and leaves .claude/hooks/issues-surface.sh as the post-compaction SessionStart backstop. The recent Codex compaction was not a Claude Code PreCompact event and did not create D:\\\\Repos\\\\Database\\\\.git\\\\worktrees\\\\Database36\\\\claude-precompact.log when checked at 2026-08-23T06:41:54.9955991Z; it is not claimed as proof. Focused hook contract: tests/session-start-hook.test.ts, 12/12 passed.",
@@ -1206,9 +1518,27 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "f8cabe84-9be5-4527-ae38-aecb9a61c84c",
+      "action": "cancel",
+      "summary": "Cancel request 0f9238c1-8add-450c-92d1-917376761248: Resolved on feature branch: verified patient-visible automated reply strings for therapeutic neutrality, emergency escalation, and GSM-7 limit in message-copy.ts with tests.",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "fa89c68a-3769-483f-9670-900012471425",
       "action": "done",
       "summary": "#JVYQEM: Resolved by the 2026-08-23 current-main performance remediation and independent boundary follow-up. The already-fixed phone case remains zero. The 640-1279.98px one-line prompt rail plus 160px reserve fixes the 800px defect and the reproduced 1025px defect: 1025 total CLS fell from 0.020005038 to 0.000135415. Post-fix totals are 0.000135679 at 1024, 0.000135415 at 1025, and 0.000086971 at 1279; initial and degraded phases are zero, composer height is stable at 160px, and no main-template displacement remains. Desktop 1280/1350/1440 retain the 88px reserve because their measured initial CLS was already below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fb387f38-d049-4320-9f6e-a7d2b068641e",
+      "action": "done",
+      "summary": "#308: Resolved: Reserved settled height at the composer adoption boundary in GlobalSearchShell/MasterSearchHeader for desktop /documents/search under the one-composer contract, eliminating the 0.118 CLS layout shift.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fb8c94f3-a08a-4ab1-916e-ffa0d9c94255",
+      "action": "done",
+      "summary": "#VTEW3W: Implemented InteractiveRow design token primitive in src/components/ui/interactive-row.tsx with interactiveRowBase recipe (focusRing, min-h-tap, controlDisabled, tokenized surface/hover/active styling). Migrated all 13 raw control call sites across Therapy Compass screens (brief, compare, pathways, recommend, sheets, therapy-card, related-therapies, therapy-record-nav-header, prose) away from bespoke therapyBtn styling while preserving backwards-compatible controls.ts token recipe. Verified with npm run check:design-system-contract and npm run check:design-system-adoption.",
       "created_at": "2026-08-23"
     },
     {
@@ -1216,6 +1546,12 @@
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: a central generator guard requires exactly seven boolean checks, all true for reviewed; display-approved public reviewer attribution with placeholder, email, account-handle, phone and obvious private-identifier rejection; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata but rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows the fields governed by every check, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, has no batch/yes/answer/provider/production path, and rolls the canonical source plus every generator-owned fixed or content-addressed asset back to exact pre-review bytes if generation, checking or I/O fails. ReviewStatus is closed to reviewed or needs_review. Focused evidence: Therapy workflow tests 50/50 passed including deterministic partial-generation failure and byte-exact rollback; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; clinical-proof previously passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "fe8fcfbf-8d4b-4bc0-9606-afe09ae7736c",
+      "action": "cancel",
+      "summary": "Cancel request 6d5512aa-1337-470c-98ab-4116a4143393: Superseded by fb387f38-d049-4320-9f6e-a7d2b068641e, the replacement #308 done request queued on this branch. Both close the same documents/search composer-reserve CLS row against the same baseRowFingerprint.",
+      "created_at": "2026-08-24"
     }
   ]
 }

@@ -26,7 +26,9 @@ const searchCache = new Map<
   string,
   { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
 >();
-const ragCacheDependencyVersion = "rag-cache-v20";
+// v21 (answer-cache key identity): rows written under the previous key can pair a stored
+// answer with a question it does not answer, so they are evicted rather than trusted.
+const ragCacheDependencyVersion = "rag-cache-v21";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
@@ -148,9 +150,24 @@ export function answerGenerationFingerprint() {
   });
 }
 
-function sharedAnswerNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode">) {
-  const query = normalizedCacheQuery(`${modeKey(args)} ${args.query}`);
-  return queryCacheKeyForStorage(`${query}|generation:${answerGenerationFingerprint()}`);
+/**
+ * Key the shared answer cache on the question itself, never on its retrieval plan.
+ *
+ * `normalizedCacheQuery` runs `buildClinicalTextSearchQuery`, which is deliberately lossy:
+ * several branches splice the token list down to a fixed topic label so that related
+ * questions share one retrieval pool. That is correct for the search cache below and wrong
+ * here — two distinct questions collapsing to one plan would serve the first asker's answer
+ * to the second, grounded and correctly cited, with nothing downstream able to notice.
+ * Folding the mode into that same text made it collapsible too, so an `auto` answer could
+ * be served to a `clinical` request.
+ *
+ * This mirrors `scopedAnswerCacheKey`'s raw-query normalisation, keeping the two answer
+ * caches in agreement about what counts as the same question. Pinned by
+ * `tests/rag-shared-answer-cache-key.test.ts`.
+ */
+export function sharedAnswerNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode">) {
+  const query = args.query.trim().toLowerCase().replace(/\s+/g, " ");
+  return queryCacheKeyForStorage(`mode:${modeKey(args)}|query:${query}|generation:${answerGenerationFingerprint()}`);
 }
 
 export function scopedAnswerCacheKey(
@@ -398,6 +415,7 @@ export async function setCachedSearch(
   throwIfAborted(args.signal);
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
+  const clonedResults = cloneSearchResults(results);
 
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
   throwIfAborted(args.signal);
@@ -405,7 +423,7 @@ export async function setCachedSearch(
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
-    results: cloneSearchResults(results),
+    results: clonedResults,
     telemetry: { ...cacheTelemetry },
     indexingVersion,
   });
@@ -415,7 +433,7 @@ export async function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, cacheTelemetry, indexingVersion, queryVariants);
+  setSharedCachedSearch(args, clonedResults, cacheTelemetry, indexingVersion, queryVariants);
 }
 
 type SharedCacheKind = "search" | "answer";
@@ -430,7 +448,9 @@ function sharedCacheSelector(
     "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding" | "signal"
   >,
   indexingVersion: string,
-  normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
+  // Required, not defaulted: "search" and "answer" rows key their query differently (plan
+  // versus question identity), so there is no safe default a caller can fall back into.
+  normalizedQuery: string,
 ) {
   let query = supabase
     .from("rag_response_cache")
@@ -651,7 +671,9 @@ async function replaceSharedCacheRow(
   payload: unknown,
   ttlMs: number,
   indexingVersion: string,
-  normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
+  // Required for the same reason as in `sharedCacheSelector`: a defaulted key here would
+  // write an answer row under the search cache's lossy plan key.
+  normalizedQuery: string,
 ) {
   if (ttlMs <= 0) return;
   try {

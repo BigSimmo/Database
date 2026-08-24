@@ -23,7 +23,7 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   movementHealthService,
   movementTimeline,
   stageCopy,
@@ -43,15 +43,21 @@ import styles from "./ward-management.module.css";
 
 /**
  * The "label (code) · …" line for a legal form, shared by the readiness card and the legal
- * panel below. Task 6A: a Form 3B honestly carries no `dueAt` (the Mental Health Act imposes no
- * post-examination deadline) — this states that absence explicitly rather than ever formatting
- * an undefined instant, which is how "due NaN:NaN" would ship.
+ * panel below. Neither a Form 1A nor a Form 3B carries a `dueAt` in this model (see `LegalForm`'s
+ * own doc comment in ward-model.ts) — this states that absence explicitly rather than ever
+ * formatting an undefined instant, which is how "due NaN:NaN" would ship.
+ *
+ * The wording is deliberately "no deadline recorded", not "no statutory deadline". It reports
+ * what THIS RECORD holds, which is all we can verify. "No statutory deadline" asserts what the
+ * Mental Health Act requires, and that is a legal claim this prototype is not entitled to make in
+ * either direction — asserting an absence is the same overreach as asserting the seven-day figure
+ * that was deleted on 2026-08-23.
  */
 function legalFormReadinessLine(legalForm: LegalForm): string {
   const named = `${legalForm.label} (${legalForm.code})`;
   return legalForm.dueAt !== undefined
     ? `${named} · due ${formatInstant(legalForm.dueAt)}`
-    : `${named} · no statutory deadline`;
+    : `${named} · no deadline recorded`;
 }
 
 const stageIcons = {
@@ -138,9 +144,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
   // This workspace shows the movement's own record only — it never falls back to a
   // suggested/top-eligible unit, so `destination` here is always the real recorded destination
   // or nothing.
-  const destination = destinationUnit(patient);
+  const destination = destinationUnit(patient, units);
   const verdict = destination ? eligibility(patient, destination, now) : undefined;
-  const candidates = eligibleCandidates(patient, now, 3, units).filter(
+  const candidates = eligibleCandidatesAmong(patient, units, now).filter(
     (candidate) => candidate.unit.id !== destination?.id,
   );
   const timeline = movementTimeline(patient);
