@@ -102,8 +102,11 @@ a claim.
 The mark component is the one in the mockup, lifted as-is. The open question is not
 how to draw it but **what a "claim" is**, and there is one answer that is safe today:
 
-- **Ship: a mark per rendered section.** Sections are already discrete, source-backed
-  modules with exact chunk ids. Attribution is exact because the model asserted it.
+- **Ship: a mark per rendered section only after direct support is established.** Sections carry exact
+  chunk ids, but those ids record what the model associated with the section; they do not prove that
+  every routine claim is directly supported. Gate direct marks on `supportedClaims` or
+  `evidenceAssessments`; partial or unsupported sections must suppress the mark or be explicitly
+  qualified as related sources.
 - **Do not ship: sentence-level marks derived by matching answer prose to retrieved
   chunks after the fact.** A mark that points at a page not actually supporting the
   claim is worse than no mark, and this failure mode is already an open ledger row —
@@ -232,6 +235,8 @@ ordinary Tailwind utilities and design tokens. Never hardcode hex
    to the mark that opened it.
 6. The mark's accessible name is distinct from the pager's ("Source 2, …" vs
    "Show source 2, …") so the two controls do not announce identically.
+7. A routine partial or unsupported section renders no direct claim mark; only
+   `supportedClaims` / `evidenceAssessments` may establish direct attribution.
 
 ---
 
