@@ -4,7 +4,9 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
+  CANCEL_TRANSPORT_REASONS,
   LEGAL_STATUS_CHANGE_REASONS,
+  RELEASE_HOLD_REASONS,
   URGENCY_CHANGE_REASONS,
 } from "../src/components/ward-management/ward-change-reasons";
 import { EVENT_ROLE, type WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
@@ -494,6 +496,16 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
       // Both scenarios, like RAISE_REFERRAL's real domain values above — not one hard-coded
       // choice that would leave the other half of `WARD_SCENARIOS` untested.
       return WARD_SCENARIOS.map((scenario) => ({ type, role, now, scenario }));
+    case "RELEASE_HOLD":
+      // One candidate per reason, same precedent as CHANGE_URGENCY/CHANGE_LEGAL_STATUS above —
+      // `role` is the first permitted role (coordinator), so `actingUnitId` is never needed here.
+      return movementIds.flatMap((movementId) =>
+        RELEASE_HOLD_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
+    case "CANCEL_TRANSPORT":
+      return movementIds.flatMap((movementId) =>
+        CANCEL_TRANSPORT_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
   }
 }
 
@@ -512,6 +524,8 @@ const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
   "RECORD_ESCALATION",
   "CHANGE_URGENCY",
   "CHANGE_LEGAL_STATUS",
+  "RELEASE_HOLD",
+  "CANCEL_TRANSPORT",
 ]);
 
 /**

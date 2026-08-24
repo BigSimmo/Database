@@ -188,6 +188,24 @@ export type MovementClosure = {
   reason: string;
 };
 
+/**
+ * The undo the prototype has never had (Task 3, spec item 10). Before this, the only path that
+ * released a held bed or cancelled a transport job was closing the movement outright — recording
+ * an examination with outcome `community_order` or `revoked` — so a coordinator who held the
+ * wrong bed had to declare the patient does not need admission in order to correct it.
+ * `RELEASE_HOLD` and `CANCEL_TRANSPORT` unwind exactly one earlier reservation each, WITHOUT
+ * closing the movement, clearing `legalForm`, or touching `referredUnitIds` — the movement
+ * survives and keeps its acceptance. Every unwind is recorded here so the fact that a hold or a
+ * transport job was undone is never silently lost, the same discipline `StatusChange` and
+ * `UrgencyChange` already hold to for their own reversible facts.
+ */
+export type UnwindRecord = {
+  at: Instant;
+  kind: "hold_released" | "transport_cancelled";
+  by: string;
+  reason: string;
+};
+
 export type Movement = {
   id: string;
   /** Where the patient physically is. Detention here is lawful even when unauthorised. */
@@ -227,6 +245,9 @@ export type Movement = {
   withdrawnReferrals: { unitId: string; at: Instant; reason: string }[];
   /** Recorded when the network is exhausted. */
   escalation?: { at: Instant; triedUnitIds: string[]; contact: string };
+  /** Every hold released and transport job cancelled against this movement, oldest first. Empty
+   *  for a movement nothing has ever been unwound on. See `UnwindRecord`'s own doc comment. */
+  unwinds: UnwindRecord[];
 };
 
 /** A transition the reducer refused, surfaced on the coordinator screen rather than swallowed. */

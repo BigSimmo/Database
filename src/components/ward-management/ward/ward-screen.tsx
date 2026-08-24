@@ -2,6 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 
+import {
+  CANCEL_TRANSPORT_REASONS,
+  changeReasonLabels,
+  RELEASE_HOLD_REASONS,
+  type CancelTransportReason,
+  type ReleaseHoldReason,
+} from "@/components/ward-management/ward-change-reasons";
 import { formatInstant, formatRemaining, minutesUntil } from "@/components/ward-management/ward-clock";
 import {
   elapsedLabel,
@@ -87,6 +94,13 @@ export function WardScreen({ unitId }: WardScreenProps) {
   const [declineOpenFor, setDeclineOpenFor] = useState<string | undefined>(undefined);
   const [declineReason, setDeclineReason] = useState<DeclineReason | undefined>(undefined);
   const [capacityValue, setCapacityValue] = useState<string>(() => String(unit?.allocatable.value ?? 0));
+  // Task 3: the undo the prototype has never had. Keyed by movementId, same pattern as
+  // `declineOpenFor`/`declineReason` above — at most one release form and one cancel form open
+  // at a time.
+  const [releaseOpenFor, setReleaseOpenFor] = useState<string | undefined>(undefined);
+  const [releaseReason, setReleaseReason] = useState<ReleaseHoldReason | undefined>(undefined);
+  const [cancelOpenFor, setCancelOpenFor] = useState<string | undefined>(undefined);
+  const [cancelReason, setCancelReason] = useState<CancelTransportReason | undefined>(undefined);
 
   if (!unit) {
     return (
@@ -158,6 +172,48 @@ export function WardScreen({ unitId }: WardScreenProps) {
       actingUnitId: unitId,
       value: Math.floor(parsed),
     });
+  }
+
+  function toggleRelease(movementId: string) {
+    setReleaseOpenFor((current) => (current === movementId ? undefined : movementId));
+    setReleaseReason(undefined);
+  }
+
+  function submitRelease(event: FormEvent<HTMLFormElement>, movementId: string) {
+    event.preventDefault();
+    if (!releaseReason) return;
+    // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` above —
+    // it states which ward the caller says it is; it does not prove it.
+    dispatch({
+      type: "RELEASE_HOLD",
+      role: "ward",
+      now,
+      movementId,
+      actingUnitId: unitId,
+      reason: releaseReason,
+    });
+    setReleaseOpenFor(undefined);
+    setReleaseReason(undefined);
+  }
+
+  function toggleCancel(movementId: string) {
+    setCancelOpenFor((current) => (current === movementId ? undefined : movementId));
+    setCancelReason(undefined);
+  }
+
+  function submitCancel(event: FormEvent<HTMLFormElement>, movementId: string) {
+    event.preventDefault();
+    if (!cancelReason) return;
+    dispatch({
+      type: "CANCEL_TRANSPORT",
+      role: "ward",
+      now,
+      movementId,
+      actingUnitId: unitId,
+      reason: cancelReason,
+    });
+    setCancelOpenFor(undefined);
+    setCancelReason(undefined);
   }
 
   return (
@@ -350,6 +406,15 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 const notice = restrictionNotice(movement, unit);
                 const canHold = movement.stage === "accepted_awaiting_bed";
                 const blocked = canHold ? holdBlockedReason(movement, unit) : undefined;
+                // Task 3: each control renders ONLY when the reducer would accept it — never
+                // dispatched optimistically and left for the reducer to refuse silently.
+                const canRelease = movement.stage === "bed_held";
+                const canCancel =
+                  movement.transport !== undefined &&
+                  movement.transport.cancelledAt === undefined &&
+                  movement.transport.arrivedAt === undefined;
+                const releaseOpen = releaseOpenFor === movement.id;
+                const cancelOpen = cancelOpenFor === movement.id;
                 return (
                   <li key={movement.id} data-testid={`ward-accepted-${movement.id}`} className={styles.card}>
                     <header className={styles.cardHeader}>
@@ -400,6 +465,92 @@ export function WardScreen({ unitId }: WardScreenProps) {
                           </span>
                         ) : null}
                       </div>
+                    ) : null}
+                    {canRelease ? (
+                      <div className={styles.actionRow}>
+                        <button
+                          type="button"
+                          data-testid={`ward-release-hold-toggle-${movement.id}`}
+                          aria-expanded={releaseOpen}
+                          className={styles.declineButton}
+                          onClick={() => toggleRelease(movement.id)}
+                        >
+                          Release the held bed
+                        </button>
+                      </div>
+                    ) : null}
+                    {canRelease && releaseOpen ? (
+                      <form
+                        className={styles.declineForm}
+                        onSubmit={(event) => submitRelease(event, movement.id)}
+                        data-testid={`ward-release-hold-${movement.id}`}
+                      >
+                        <label className={styles.declineLegend} htmlFor={`ward-release-hold-reason-${movement.id}`}>
+                          Reason for releasing the held bed for {movement.id}
+                        </label>
+                        <select
+                          id={`ward-release-hold-reason-${movement.id}`}
+                          required
+                          className={styles.capacityInput}
+                          value={releaseReason ?? ""}
+                          onChange={(event) => setReleaseReason(event.target.value as ReleaseHoldReason)}
+                        >
+                          <option value="" disabled>
+                            Choose a reason
+                          </option>
+                          {RELEASE_HOLD_REASONS.map((reason) => (
+                            <option key={reason} value={reason}>
+                              {changeReasonLabels[reason]}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" disabled={!releaseReason} className={styles.declineSubmit}>
+                          Confirm release
+                        </button>
+                      </form>
+                    ) : null}
+                    {canCancel ? (
+                      <div className={styles.actionRow}>
+                        <button
+                          type="button"
+                          data-testid={`ward-cancel-transport-toggle-${movement.id}`}
+                          aria-expanded={cancelOpen}
+                          className={styles.declineButton}
+                          onClick={() => toggleCancel(movement.id)}
+                        >
+                          Cancel transport
+                        </button>
+                      </div>
+                    ) : null}
+                    {canCancel && cancelOpen ? (
+                      <form
+                        className={styles.declineForm}
+                        onSubmit={(event) => submitCancel(event, movement.id)}
+                        data-testid={`ward-cancel-transport-${movement.id}`}
+                      >
+                        <label className={styles.declineLegend} htmlFor={`ward-cancel-transport-reason-${movement.id}`}>
+                          Reason for cancelling transport for {movement.id}
+                        </label>
+                        <select
+                          id={`ward-cancel-transport-reason-${movement.id}`}
+                          required
+                          className={styles.capacityInput}
+                          value={cancelReason ?? ""}
+                          onChange={(event) => setCancelReason(event.target.value as CancelTransportReason)}
+                        >
+                          <option value="" disabled>
+                            Choose a reason
+                          </option>
+                          {CANCEL_TRANSPORT_REASONS.map((reason) => (
+                            <option key={reason} value={reason}>
+                              {changeReasonLabels[reason]}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" disabled={!cancelReason} className={styles.declineSubmit}>
+                          Confirm cancellation
+                        </button>
+                      </form>
                     ) : null}
                   </li>
                 );

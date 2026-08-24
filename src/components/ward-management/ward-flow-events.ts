@@ -1,5 +1,10 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
-import type { LegalStatusChangeReason, UrgencyChangeReason } from "@/components/ward-management/ward-change-reasons";
+import type {
+  CancelTransportReason,
+  LegalStatusChangeReason,
+  ReleaseHoldReason,
+  UrgencyChangeReason,
+} from "@/components/ward-management/ward-change-reasons";
 import type { Cohort, DeclineReason, LegalStatus, Security, Sex } from "@/components/ward-management/ward-model";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -104,6 +109,34 @@ export type WardFlowEvent =
       movementId: string;
       legalStatus: LegalStatus;
       reason: LegalStatusChangeReason;
+    }
+  | {
+      type: "RELEASE_HOLD";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      reason: ReleaseHoldReason;
+      /**
+       * The unit the caller stated it was acting as. Required for a `ward` caller, unused for a
+       * `coordinator` caller. This records the caller's CLAIM about itself and does not prove it:
+       * nothing here authenticates anything, and this model has no identity model. The comparison
+       * constrains future callers rather than this one.
+       */
+      actingUnitId?: string;
+    }
+  | {
+      type: "CANCEL_TRANSPORT";
+      role: WardFlowRole;
+      now: Instant;
+      movementId: string;
+      reason: CancelTransportReason;
+      /**
+       * The unit the caller stated it was acting as. Required for a `ward` caller, unused for a
+       * `coordinator` caller. This records the caller's CLAIM about itself and does not prove it:
+       * nothing here authenticates anything, and this model has no identity model. The comparison
+       * constrains future callers rather than this one.
+       */
+      actingUnitId?: string;
     };
 
 /**
@@ -134,4 +167,6 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   SET_SCENARIO: ["demo"],
   CHANGE_URGENCY: ["coordinator", "ed"],
   CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
+  RELEASE_HOLD: ["coordinator", "ward"],
+  CANCEL_TRANSPORT: ["coordinator", "ward"],
 };

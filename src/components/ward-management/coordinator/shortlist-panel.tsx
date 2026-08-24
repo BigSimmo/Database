@@ -4,10 +4,14 @@ import { CheckCircle2, CircleAlert } from "lucide-react";
 import { useMemo, useState, type Dispatch, type FormEvent } from "react";
 
 import {
+  CANCEL_TRANSPORT_REASONS,
   changeReasonLabels,
   LEGAL_STATUS_CHANGE_REASONS,
+  RELEASE_HOLD_REASONS,
   URGENCY_CHANGE_REASONS,
+  type CancelTransportReason,
   type LegalStatusChangeReason,
+  type ReleaseHoldReason,
   type UrgencyChangeReason,
 } from "@/components/ward-management/ward-change-reasons";
 import { clockState, formatInstant, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
@@ -192,6 +196,15 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
     legalStatus: LegalStatus;
     reason: LegalStatusChangeReason;
   }>({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
+  // Task 3: the undo the prototype has never had. Both forms only ever OPEN when the reducer
+  // would actually accept the event — see `canReleaseHold`/`canCancelTransport` below — so
+  // neither control can advertise an action the reducer would silently refuse.
+  const [releaseHoldOpen, setReleaseHoldOpen] = useState(false);
+  const [releaseHoldReason, setReleaseHoldReason] = useState<ReleaseHoldReason>(RELEASE_HOLD_REASONS[0]);
+  const [cancelTransportOpen, setCancelTransportOpen] = useState(false);
+  const [cancelTransportReason, setCancelTransportReason] = useState<CancelTransportReason>(
+    CANCEL_TRANSPORT_REASONS[0],
+  );
 
   // A confirmation, an open override form, or a referral selection all belong to the movement
   // they were made against — moving to a different movement must never leave a stale "Referred"
@@ -211,6 +224,10 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
     setUrgencyDraft({ urgency: movement?.urgency ?? 1, reason: URGENCY_CHANGE_REASONS[0] });
     setLegalStatusChangeOpen(false);
     setLegalStatusDraft({ legalStatus: movement?.legalStatus ?? "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
+    setReleaseHoldOpen(false);
+    setReleaseHoldReason(RELEASE_HOLD_REASONS[0]);
+    setCancelTransportOpen(false);
+    setCancelTransportReason(CANCEL_TRANSPORT_REASONS[0]);
   }
 
   if (!movement) {
@@ -224,6 +241,16 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
   // values are what they close over instead of re-checking `movement` themselves.
   const movementId = movement.id;
   const declinedUnitIds = movement.declines.map((decline) => decline.unitId);
+
+  // Task 3: each control renders ONLY when the reducer would accept it — never dispatched
+  // optimistically and left for the reducer to refuse silently (the defect Task 5's `canRefer`
+  // exists to prevent, applied here to the undo path). Mirrors `RELEASE_HOLD`/`CANCEL_TRANSPORT`'s
+  // own preconditions in `ward-flow-reducer.ts` exactly.
+  const canReleaseHold = movement.stage === "bed_held";
+  const canCancelTransport =
+    movement.transport !== undefined &&
+    movement.transport.cancelledAt === undefined &&
+    movement.transport.arrivedAt === undefined;
 
   const originEd = allEmergencyDepartments().find((ed) => ed.id === movement.originEdId);
   // Neutral "currently at" language, never framed as an authorisation requirement — authorisation
@@ -400,6 +427,31 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
       reason: legalStatusDraft.reason,
     });
     setLegalStatusChangeOpen(false);
+  }
+
+  /**
+   * Releases a held bed back to allocatable WITHOUT closing the movement, clearing `legalForm`,
+   * or touching `referredUnitIds` — the patient survives and keeps their acceptance; only the
+   * hold itself unwinds. Dispatched as role "coordinator", so no `actingUnitId` is needed — a
+   * coordinator may release a hold at any unit.
+   */
+  function submitReleaseHold(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canReleaseHold) return;
+    dispatch({ type: "RELEASE_HOLD", role: "coordinator", now, movementId, reason: releaseHoldReason });
+    setReleaseHoldOpen(false);
+  }
+
+  /**
+   * Cancels the transport job WITHOUT closing the movement — the bed itself (held or already
+   * occupied) is untouched by this handler. Dispatched as role "coordinator", so no
+   * `actingUnitId` is needed.
+   */
+  function submitCancelTransport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canCancelTransport) return;
+    dispatch({ type: "CANCEL_TRANSPORT", role: "coordinator", now, movementId, reason: cancelTransportReason });
+    setCancelTransportOpen(false);
   }
 
   // Structurally incapable of claiming an override succeeded when it did not: this checks the
@@ -617,6 +669,92 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
           </form>
         ) : null}
       </section>
+
+      {/* Task 3: the undo the prototype has never had. Before this, the only path that released a
+          held bed or cancelled a transport job was closing the movement outright, by recording an
+          examination with outcome community_order or revoked. Each control renders only while the
+          reducer would actually accept it — see `canReleaseHold`/`canCancelTransport` above. */}
+      {canReleaseHold || canCancelTransport ? (
+        <section aria-label="Release or cancel">
+          <h4 className={styles.shortlistSectionHeading}>Release hold or cancel transport</h4>
+          <div className={styles.shortlistActionRow}>
+            {canReleaseHold ? (
+              <button
+                type="button"
+                data-testid="ward-release-hold-toggle"
+                aria-expanded={releaseHoldOpen}
+                className={styles.shortlistOverrideButton}
+                onClick={() => setReleaseHoldOpen((open) => !open)}
+              >
+                Release the held bed
+              </button>
+            ) : null}
+            {canCancelTransport ? (
+              <button
+                type="button"
+                data-testid="ward-cancel-transport-toggle"
+                aria-expanded={cancelTransportOpen}
+                className={styles.shortlistOverrideButton}
+                onClick={() => setCancelTransportOpen((open) => !open)}
+              >
+                Cancel transport
+              </button>
+            ) : null}
+          </div>
+
+          {canReleaseHold && releaseHoldOpen ? (
+            <form className={styles.shortlistOverrideForm} onSubmit={submitReleaseHold} data-testid="ward-release-hold">
+              <label className={styles.shortlistOverrideLabel} htmlFor="ward-release-hold-reason">
+                Reason for releasing the held bed for {movement.id}
+              </label>
+              <select
+                id="ward-release-hold-reason"
+                required
+                className={styles.shortlistOverrideSelect}
+                value={releaseHoldReason}
+                onChange={(event) => setReleaseHoldReason(event.target.value as ReleaseHoldReason)}
+              >
+                {RELEASE_HOLD_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {changeReasonLabels[reason]}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className={styles.shortlistOverrideSubmit}>
+                Release the held bed
+              </button>
+            </form>
+          ) : null}
+
+          {canCancelTransport && cancelTransportOpen ? (
+            <form
+              className={styles.shortlistOverrideForm}
+              onSubmit={submitCancelTransport}
+              data-testid="ward-cancel-transport"
+            >
+              <label className={styles.shortlistOverrideLabel} htmlFor="ward-cancel-transport-reason">
+                Reason for cancelling transport for {movement.id}
+              </label>
+              <select
+                id="ward-cancel-transport-reason"
+                required
+                className={styles.shortlistOverrideSelect}
+                value={cancelTransportReason}
+                onChange={(event) => setCancelTransportReason(event.target.value as CancelTransportReason)}
+              >
+                {CANCEL_TRANSPORT_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {changeReasonLabels[reason]}
+                  </option>
+                ))}
+              </select>
+              <button type="submit" className={styles.shortlistOverrideSubmit}>
+                Cancel transport
+              </button>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
 
       <section aria-label="Candidate units">
         {/* Whole-branch review Critical 1: this list was headed "Nearest candidates", a proximity

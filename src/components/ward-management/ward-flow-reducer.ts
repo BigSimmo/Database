@@ -177,6 +177,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         declines: [],
         blocker: "Awaiting coordinator referral",
         withdrawnReferrals: [],
+        unwinds: [],
         // `formedAt` is deliberately left unset. It used to be stamped in this same branch, on
         // the strength of the status-derived Form 1A that has now been deleted; with that
         // derivation gone there is no rule left to hang it on, and inventing a replacement one
@@ -578,6 +579,93 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         ],
       };
       return replaceMovement(state, movement.id, updated);
+    }
+
+    case "RELEASE_HOLD": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot release a hold for a closed movement (${movement.closure.reason})`);
+      }
+      if (movement.stage !== "bed_held") {
+        return reject(state, event, `cannot release a hold while the movement is ${movement.stage}`);
+      }
+      // Same claim-not-proof discipline as CONFIRM_CAPACITY: this compares what the caller SAID
+      // it was acting as against the unit actually holding the bed, and refuses when they differ.
+      // Unused for a coordinator caller, who may act on behalf of any unit.
+      if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId) {
+        return reject(
+          state,
+          event,
+          `RELEASE_HOLD was raised acting as unit ${event.actingUnitId} but movement ${movement.id}'s bed is held at ${movement.acceptedUnitId}`,
+        );
+      }
+      if (!movement.acceptedUnitId) {
+        return reject(state, event, `movement ${movement.id} has no accepted unit holding a bed`);
+      }
+      const unit = findUnit(state, movement.acceptedUnitId);
+      if (!unit) return reject(state, event, `no unit found for id ${movement.acceptedUnitId}`);
+
+      // The EXACT inverse of HOLD_BED's own writes (ruling P4-1) — every field HOLD_BED sets,
+      // undone, and nothing else touched. HOLD_BED writes four fields: `unit.allocatable.value`
+      // (-1), `unit.allocatable.confirmedAt` (event.now), `movement.stage` ("bed_held") and
+      // `movement.bedHeldUntil` (event.now + 60). It does NOT touch `Unit.held` — that field is
+      // seed-only data; the live held count on every screen is `unitCapacity()`'s own derivation
+      // from `empty` and `allocatable`, so giving back the bed by raising `allocatable.value` is
+      // the whole correction, on both fields HOLD_BED actually wrote to the unit.
+      const releasedUnit: Unit = {
+        ...unit,
+        allocatable: { ...unit.allocatable, value: unit.allocatable.value + 1, confirmedAt: event.now },
+      };
+      // Never closes the movement, never clears `legalForm`, never touches `referredUnitIds` —
+      // the patient survives and keeps their acceptance; only the hold itself unwinds.
+      const updatedMovement: Movement = {
+        ...movement,
+        stage: "accepted_awaiting_bed",
+        bedHeldUntil: undefined,
+        unwinds: [...movement.unwinds, { at: event.now, kind: "hold_released", by: event.role, reason: event.reason }],
+      };
+      const withUnit = replaceUnit(state, unit.id, releasedUnit);
+      return replaceMovement(withUnit, movement.id, updatedMovement);
+    }
+
+    case "CANCEL_TRANSPORT": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot cancel transport for a closed movement (${movement.closure.reason})`);
+      }
+      if (!movement.transport) {
+        return reject(state, event, `movement ${movement.id} has no transport job to cancel`);
+      }
+      if (movement.transport.cancelledAt !== undefined) {
+        return reject(state, event, `transport for movement ${movement.id} was already cancelled`);
+      }
+      if (movement.transport.arrivedAt !== undefined) {
+        return reject(state, event, `cannot cancel transport for movement ${movement.id} — the patient has arrived`);
+      }
+      // Same claim-not-proof discipline as CONFIRM_CAPACITY: this compares what the caller SAID
+      // it was acting as against the unit the movement is accepted at, and refuses when they
+      // differ. Unused for a coordinator caller, who may act on behalf of any unit.
+      if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId) {
+        return reject(
+          state,
+          event,
+          `CANCEL_TRANSPORT was raised acting as unit ${event.actingUnitId} but movement ${movement.id} is accepted at ${movement.acceptedUnitId ?? "no unit"}`,
+        );
+      }
+      // Never closes the movement — the patient stays open, only the transport job unwinds. The
+      // bed itself (if still held or already occupied) is untouched by this handler.
+      const updatedMovement: Movement = {
+        ...movement,
+        stage: "handover_ready",
+        transport: { ...movement.transport, cancelledAt: event.now },
+        unwinds: [
+          ...movement.unwinds,
+          { at: event.now, kind: "transport_cancelled", by: event.role, reason: event.reason },
+        ],
+      };
+      return replaceMovement(state, movement.id, updatedMovement);
     }
   }
 }

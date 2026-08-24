@@ -31,6 +31,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Confirming destination options",
     withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-002",
@@ -50,6 +51,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Awaiting older-adult bed confirmation",
     withdrawnReferrals: [],
+    unwinds: [],
     formedAt: NOW_ANCHOR - 180 - 90,
     arrivalMode: "ambulance",
   },
@@ -76,6 +78,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Bed being made ready",
     withdrawnReferrals: [],
+    unwinds: [],
     arrivalMode: "ambulance",
     examination: { at: NOW_ANCHOR - 60, outcome: "inpatient_order" },
   },
@@ -103,6 +106,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Escort provider organising secure transport",
     withdrawnReferrals: [],
+    unwinds: [],
     bedHeldUntil: NOW_ANCHOR - 10,
   },
   {
@@ -132,6 +136,7 @@ const seededMovements: Movement[] = [
     },
     blocker: "Transport escort confirming departure time",
     withdrawnReferrals: [],
+    unwinds: [],
     formedAt: NOW_ANCHOR - 330 - 150,
   },
   {
@@ -175,6 +180,7 @@ const seededMovements: Movement[] = [
         reason: "Referral withdrawn once RGH Adult Secure confirmed the bed",
       },
     ],
+    unwinds: [],
   },
   {
     id: "WF-007",
@@ -196,6 +202,7 @@ const seededMovements: Movement[] = [
     blocker: "None — handover complete",
     closure: { at: NOW_ANCHOR - 5, outcome: "arrived", reason: "Handover complete at SCGH Older Adult" },
     withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-008",
@@ -226,6 +233,7 @@ const seededMovements: Movement[] = [
       reason: "Patient self-discharged from ED before transport arrived",
     },
     withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-009",
@@ -279,6 +287,7 @@ const seededMovements: Movement[] = [
     // capped at three parallel referrals.
     blocker: "No secure adult bed available across the network",
     withdrawnReferrals: [],
+    unwinds: [],
     arrivalMode: "police",
     examination: { at: NOW_ANCHOR - 100, outcome: "inpatient_order" },
     escalation: {
@@ -320,6 +329,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Awaiting destination response",
     withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-011",
@@ -345,6 +355,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Awaiting single-room clean",
     withdrawnReferrals: [],
+    unwinds: [],
     bedHeldUntil: NOW_ANCHOR + 20,
   },
   {
@@ -380,6 +391,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Awaiting specialling roster confirmation",
     withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-013",
@@ -399,6 +411,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Comparing two older-adult options",
     withdrawnReferrals: [],
+    unwinds: [],
     formedAt: NOW_ANCHOR - 200 - 120,
   },
   {
@@ -436,6 +449,7 @@ const seededMovements: Movement[] = [
     },
     blocker: "None — in transit",
     withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-015",
@@ -457,6 +471,7 @@ const seededMovements: Movement[] = [
     transport: { id: "TR-1015", provider: "St John WA", escortRequired: false, acceptedAt: NOW_ANCHOR - 15 },
     blocker: "Awaiting transport escort",
     withdrawnReferrals: [],
+    unwinds: [],
   },
   {
     id: "WF-016",
@@ -478,6 +493,7 @@ const seededMovements: Movement[] = [
     declines: [],
     blocker: "Ward finalising bed clean",
     withdrawnReferrals: [],
+    unwinds: [],
     bedHeldUntil: NOW_ANCHOR + 45,
   },
   {
@@ -509,6 +525,7 @@ const seededMovements: Movement[] = [
     ],
     blocker: "Escalated to duty psychiatrist — breach imminent",
     withdrawnReferrals: [],
+    unwinds: [],
     examination: { at: NOW_ANCHOR - 260, outcome: "inpatient_order" },
   },
   {
@@ -541,6 +558,7 @@ const seededMovements: Movement[] = [
     // would fabricate exactly the kind of state this prototype must never invent, and nothing
     // else in this record (blocker text, stage, other fields) supports that history.
     withdrawnReferrals: [],
+    unwinds: [],
   },
 ];
 
@@ -675,6 +693,7 @@ function routineMovements(count: number, startIndex: number): Movement[] {
       declines: [],
       blocker: index % 5 === 0 ? "Awaiting destination response" : "No blocker",
       withdrawnReferrals: [],
+      unwinds: [],
       ...stageFields(stage, cohort, security, index),
     } satisfies Movement;
   });

@@ -945,3 +945,83 @@ describe("urgency and legal status changes (Task 2)", () => {
     expect(after.rejections[0].reason).toContain("arrived at unit");
   });
 });
+
+/**
+ * Task 3, spec item 10 — the undo the prototype has never had. Before this, the only path that
+ * released a held bed or cancelled a transport job was closing the movement outright, by
+ * recording an examination with outcome `community_order` or `revoked`.
+ */
+describe("release and cancel", () => {
+  it("releases a held bed back to allocatable and returns the movement to accepted_awaiting_bed", () => {
+    const seeded = seedWardFlowState();
+    const movement = seeded.movements.find((candidate) => candidate.stage === "bed_held")!;
+    const unitBefore = seeded.units.find((candidate) => candidate.id === movement.acceptedUnitId)!;
+    const after = wardFlowReducer(seeded, {
+      type: "RELEASE_HOLD",
+      role: "coordinator",
+      now: NOW_ANCHOR,
+      movementId: movement.id,
+      reason: "hold_made_in_error",
+    });
+    const updated = after.movements.find((candidate) => candidate.id === movement.id)!;
+    const unitAfter = after.units.find((candidate) => candidate.id === movement.acceptedUnitId)!;
+    expect(updated.stage).toBe("accepted_awaiting_bed");
+    expect(updated.bedHeldUntil).toBeUndefined();
+    expect(unitAfter.allocatable.value).toBe(unitBefore.allocatable.value + 1);
+    // The movement survives, keeps its acceptance, and is not re-referred anywhere.
+    expect(updated.closure).toBeUndefined();
+    expect(updated.acceptedUnitId).toBe(movement.acceptedUnitId);
+    expect(updated.legalForm).toEqual(movement.legalForm);
+    expect(updated.unwinds.at(-1)).toMatchObject({ kind: "hold_released", by: "coordinator" });
+  });
+
+  it("refuses a release once the patient is handover_ready or moving", () => {
+    const seeded = seedWardFlowState();
+    const movement = seeded.movements.find((candidate) => candidate.stage === "moving")!;
+    const after = wardFlowReducer(seeded, {
+      type: "RELEASE_HOLD",
+      role: "coordinator",
+      now: NOW_ANCHOR,
+      movementId: movement.id,
+      reason: "hold_made_in_error",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.movements.find((candidate) => candidate.id === movement.id)!.stage).toBe("moving");
+  });
+
+  it("refuses a ward caller acting as a unit that is not holding the bed, naming both ids", () => {
+    const seeded = seedWardFlowState();
+    const movement = seeded.movements.find((candidate) => candidate.stage === "bed_held")!;
+    const otherUnit = seeded.units.find((candidate) => candidate.id !== movement.acceptedUnitId)!;
+    const after = wardFlowReducer(seeded, {
+      type: "RELEASE_HOLD",
+      role: "ward",
+      now: NOW_ANCHOR,
+      movementId: movement.id,
+      actingUnitId: otherUnit.id,
+      reason: "ward_withdrew_the_bed",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain(otherUnit.id);
+    expect(after.rejections[0].reason).toContain(movement.acceptedUnitId!);
+  });
+
+  it("cancels a transport job without closing the movement", () => {
+    const seeded = seedWardFlowState();
+    const movement = seeded.movements.find(
+      (candidate) => candidate.transport !== undefined && candidate.transport.cancelledAt === undefined,
+    )!;
+    const after = wardFlowReducer(seeded, {
+      type: "CANCEL_TRANSPORT",
+      role: "coordinator",
+      now: NOW_ANCHOR,
+      movementId: movement.id,
+      reason: "provider_unavailable",
+    });
+    const updated = after.movements.find((candidate) => candidate.id === movement.id)!;
+    expect(updated.transport?.cancelledAt).toBe(NOW_ANCHOR);
+    expect(updated.closure).toBeUndefined();
+    expect(updated.stage).toBe("handover_ready");
+    expect(updated.unwinds.at(-1)).toMatchObject({ kind: "transport_cancelled" });
+  });
+});
