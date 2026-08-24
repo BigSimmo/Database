@@ -887,3 +887,62 @@ owner's armed auto-merge once the checks went green. Two CI failures were fixed 
 a stale outstanding-issues snapshot, and five broken path references — two from Ruling 88's rename that
 my own briefs still pointed at, one a quoted `tsc` diagnostic whose `path(line,col)` the link checker
 read as a path, and a Task 5 brief describing work that PR did not contain.
+
+### Task 5 scoped re-review — all ten ADDRESSED, three new Minors, one repeat
+
+C-1's remedy was judged real rather than cosmetic: `openWorkspace()` is parameterised by screen so the
+route-specific heading travels with it, and three of the four modes earn their category on evidence
+only the new route can supply — a 48px tap-target measurement at 320px, a `borderTopWidth` read off an
+element that exists only on Patients, and the heading under print media. Dark is the thinnest: its
+load-bearing comparisons come from shell chrome identical on both routes, so it is substantively
+Today's proof re-run on a second URL. Not a re-creation of C-1 — the route genuinely loads in dark —
+but named and sent back.
+
+**Ruling [94] — drop the client-component count; keep the conclusion. The replacement was wrong the
+same way the original was.** "The workspace ships five client components in total" misses
+`src/app/caring-contacts/error.tsx`, which is a Client Component because Next requires it, sits inside
+the workspace by the very paragraph doing the correcting, and pulls a sixth client module
+(`route-error-boundary.tsx`) into the route's bundle. The implementer had scoped its count to
+`workspace/**`, which is defensible, but no site said so and "in total" forecloses it.
+
+— Why drop rather than re-count: **this is the second time in two rounds that this one paragraph has
+carried a false number**, and it is now replicated across three files exactly as "one" was. A count in
+prose is a claim that decays whenever anyone adds a file, and nothing checks it. What actually carries
+Ruling 13 is the module boundary — the dashboard cannot reach this workspace's chunks — which is true
+independent of how many client components exist. — Cost if wrong: a reader loses a number that was
+never reliable anyway.
+
+**The generalisable shape: a fact that must be restated to stay true will eventually be false.**
+Prefer the invariant over the tally.
+
+**Three new Minors, each a different flavour of the same week's lesson:**
+
+- **N-1** — the new null guard tests `=== null` while `auditedRead` treats **null or undefined** as
+  denied. `released` is typed `T | null`, so the compiler cannot see the gap and the pinning test mocks
+  `null` specifically. Fails closed either way, but with a `TypeError` rather than the stated message,
+  and the branch the item is about would not be the one that fired.
+- **N-2** — an absorbed contact and a transition-suppressed contact in the same plan disagree: the
+  count subtracts all suppressed contacts, the explanation covers only absorption. Exactly the blur
+  M-8 fixed, one case further along.
+- **N-3** — `scheduled` changed its definition this round from absorbed-only to all-suppressed, and
+  **nothing asserts that clinician-facing number**. Same shape as the implementer's own I-4 finding,
+  and the same shape as the Ward Flow lesson where green tests missed a wrong value on every screen.
+
+**The mutation ledger does not close, and that is worth more than the two missing lines.** Thirteen
+claimed, eleven verifiable; two Vitest mutations are counted and never named. Every mutation the report
+_describes_ was traced to an assertion reading the mutated value — the descriptions are sound. But
+**a total that outruns its itemisation is the weakest form of the misdescription problem** this
+programme has already met twice. Sent back to be named or corrected to eleven. Also flagged: M-6's
+mutation raises the test's own threshold, so it proves the assertion executes rather than that the
+floor detects anything — accurate as described, but not product proof.
+
+**The reviewer answered the open enforcement question, and its caution is the valuable half.** A static
+check comparing the adoption surface's `routes` against the spec's screen list is the right closure —
+it converts the generator's _shape_ check into a _truth_ check, which is precisely C-1's lesson — and
+is ~30 lines offline if scoped to this surface. **But it must not be generalised**: `ward-management`
+declares 12 routes evidenced by generic contract suites that enumerate no routes at all, so a repo-wide
+rule goes red immediately on surfaces nobody asked to remediate, and the pressure would then be to
+weaken the rule rather than fix them. Opt-in marker, joined deliberately.
+
+Task 5: fix round 2/5 dispatched — Ruling 94, the mutation ledger, N-1, N-2, N-3, and the dark-mode
+assertion.
