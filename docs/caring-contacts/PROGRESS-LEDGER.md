@@ -140,6 +140,23 @@ a re-sent undelivered contact; a cross-team row leak; a duplicate active plan; a
 committed cross-team write; and a silently rewritable safety incident. **Four tests have been found unable
 to fail and rewritten.**
 
+### 5c. The condensed bar's two mutation proofs — both run 2026-08-24, both discriminate
+
+| Mutation                                                     | Result                      | What it proves                                     |
+| ------------------------------------------------------------ | --------------------------- | -------------------------------------------------- |
+| Pin: `top-full` -> `top-0`                                   | 13 failed / 19 passed       | The 1440px pin assertion is REACHED and fails at    |
+|                                                              |                             | line 877 on `barBox.top` 64 -> 0, with the two      |
+|                                                              |                             | preceding assertions passing first.                 |
+| Dark colours: danger tokens -> fixed light-theme literals    | **1 failed** / 31 passed    | Only the dark-scheme comparison reddens, at line    |
+|                                                              |                             | 931, naming the injected literal.                   |
+
+**And the trap that nearly produced a false proof.** The first attempt at the colour mutation used an
+anchor matching TWO elements. A uniqueness assertion refused the edit — but the script ran the whole
+browser gate anyway, on an unmutated tree, and reported `32 passed`, exit 0. Read without the abort
+line, that is a real, green, strongest-looking gate run supporting exactly the opposite conclusion.
+**A mutation proof has two results, not one: prove the mutation is in the tree before believing the
+gate.** Full account in the build record.
+
 ## 6. Decisions taken on the owner's behalf
 
 **Phase 1 — 13 numbered decisions**, each with why and cost-if-wrong: `phase-1-handoff.md` §"Decisions".

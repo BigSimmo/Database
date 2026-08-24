@@ -2819,3 +2819,50 @@ diff before a single test runs.
 A quieter lesson sits underneath it. The uniqueness assertion was cheap insurance added almost as an
 afterthought, and it is the only reason this was caught. **Guard the mutation, not just the assertion**
 — the thing being manipulated is as capable of silent failure as the thing being tested.
+
+### Mutation B — the dark-mode colour assertion IS falsifiable, and reddens ONLY itself
+
+The corrected mutation swaps the condensed bar's `--danger-bg` / `--danger-text` for fixed literals
+carrying the light theme's own values, so the bar renders identically in both schemes. This is exactly
+the mutation the test's own comment names: "swapping `--danger-text` for a token whose value is
+identical in both themes reddens this and would have sailed through the old assertion."
+
+No theme-invariant token exists to swap in — every colour token in `globals.css` that is defined before
+the dark block is also redefined inside it. That is a good property of the design system and it is why
+the mutation uses literals; recorded so nobody later reads the literals as sloppiness.
+
+Anchoring had to be precise, because `bg-[color:var(--danger-bg)]` matches the full banner too. The
+unique anchors are the longer runs `bg-[color:var(--danger-bg)] px-4 py-2 text-sm font-semibold` and
+`text-sm font-semibold text-[color:var(--danger-text)] data-[full-banner-out-of-view=true]:flex`, each
+appearing exactly once, and the script asserts that count before writing.
+
+Result: **1 failed, 31 passed.** The single failure, verbatim:
+
+```
+31) ui-caring-contacts-workspace.spec.ts:913:7 > re-resolves the condensed bar's own colours in dark
+    Error: the condensed bar's ink did not change in dark
+    expect(received).not.toBe(expected)
+    Expected: not "rgb(163, 25, 15)"
+    > 931 |  expect(dark.colour, "the condensed bar's ink did not change in dark").not.toBe(light.colour)
+```
+
+Everything a proof needs is in those four lines:
+
+- **Exactly one test reddened**, and it is the intended one. Mutation A's thirteen failures were honest
+  collateral from moving the bar; this one changes only colour, and only the colour assertion notices.
+  A mutation whose blast radius matches its intent is itself evidence the assertion is measuring what
+  it claims.
+- **The failing assertion is the scheme-comparison at line 931**, not the `display !== "none"` guard at
+  924 — which passed first, so the assertion is reached.
+- **`Expected: not "rgb(163, 25, 15)"` is the literal the mutation injected.** The failure is
+  attributable to the mutation by value, not merely by timing.
+
+The `surface` assertion on the next line never ran, because `expect` throws on the first failure. That
+is not a gap: the test is proven able to fail, which is the claim. Proving the second assertion
+independently would need its own mutation, and nothing depends on it that the first does not already
+establish.
+
+### Both closing proofs are now run, and the earlier "unrun" record is discharged
+
+The final review recorded these two as **unrun, not passed**, and blocked on the browser gate. The gate
+is green, both are run, and both discriminate. The condensed pinned safety bar's fix round is closed.

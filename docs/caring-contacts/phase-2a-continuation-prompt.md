@@ -99,9 +99,13 @@ OPEN, in the order I would take them:
      only correct invocation: `npx playwright test` refuses with an `Error:` line and EXIT CODE 0,
      so it reads as a pass having run nothing. Redirect the whole log to a file; never pipe a gate
      through `tail`. Expect 32 tests, not 33.
-  2. TWO MUTATION PROOFS — the condensed bar's pin assertion at 1440px, and its dark-mode colour
-     assertion. See the build record's 2026-08-24 section for their result; if that section is
-     absent they are still unrun and must be reported as unrun, never as passed.
+  2. DONE 2026-08-24 — BOTH MUTATION PROOFS RUN, and both discriminate. Pin (`top-full` -> `top-0`):
+     13 failed / 19 passed, failing at line 877 on `barBox.top` 64 -> 0 with the two preceding
+     assertions passing first, so the 1440px pin is REACHED. Dark colours (danger tokens -> fixed
+     literals): exactly 1 failed / 31 passed, at line 931, naming the injected literal — no
+     collateral at all. The condensed bar's fix round is CLOSED.
+     Read the build record's account of the near-miss before writing your own mutation proof: the
+     first colour mutation silently failed to apply and its gate reported `32 passed`, exit 0.
   3. THE COPY DECISIONS await the owner. `docs/caring-contacts/copy-decisions-recommended.md`
      (new, 2026-08-24) carries a recommendation, a reason and a cost-if-wrong for each. Note the
      count: this prompt and the ledger both said SEVEN, but `copy-review.md` actually raises
