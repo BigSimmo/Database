@@ -8,6 +8,7 @@ vi.mock("@/components/clinical-dashboard/signed-image", () => ({
   SignedImage: ({ caption }: { caption?: string }) => <p>{caption}</p>,
 }));
 
+import { AnswerSupportSummaryCard } from "@/components/clinical-dashboard/evidence-panels";
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
 import {
@@ -271,6 +272,22 @@ describe("answer source drawer", () => {
 
     await user.click(screen.getByRole("button", { name: "Previous source" }));
     expect(screen.getByTestId("answer-source-drawer-images")).toBeInTheDocument();
+  });
+});
+
+describe("evidence gaps stay answer-level", () => {
+  it("lists the answer's warnings on the card rather than against any one source", async () => {
+    const user = userEvent.setup();
+    render(
+      <AnswerSupportSummaryCard
+        priority={null}
+        warnings={["Retrieval confidence gate was blocked for low signal."]}
+        onSubmitFeedback={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByTestId("answer-evidence-gaps-trigger"));
+    expect(screen.getByText("Retrieval confidence gate was blocked for low signal.")).toBeInTheDocument();
   });
 });
 

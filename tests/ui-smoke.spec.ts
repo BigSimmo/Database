@@ -3192,11 +3192,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
       );
       const tableRail = page.getByTestId("answer-source-rail");
       await expect(tableRail).toBeVisible();
-      await tableRail.getByTestId("answer-source-rail-row").first().click();
+      // A table hangs off the source it was cited from, which is not necessarily
+      // the best match — open the row that actually has it.
+      const tableRows = tableRail.getByTestId("answer-source-rail-row");
       const tableDrawer = page.getByTestId("answer-source-drawer");
-      await expect(tableDrawer).toBeVisible();
-
       const clinicalTable = tableDrawer.getByLabel("Inline table preview").first();
+      let openedTableRow = false;
+      for (let index = 0; index < (await tableRows.count()); index += 1) {
+        await tableRows.nth(index).click();
+        await expect(tableDrawer).toBeVisible();
+        if (await clinicalTable.count()) {
+          openedTableRow = true;
+          break;
+        }
+        await page.keyboard.press("Escape");
+        await expect(tableDrawer).toHaveCount(0);
+      }
+      expect(openedTableRow).toBe(true);
       await expect(clinicalTable).toBeVisible();
       await expect(clinicalTable).toContainText("FBC/ANC");
       await expect(clinicalTable).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -3231,12 +3243,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
-      const modal = page.getByRole("dialog", { name: /clozapine monitoring/i });
-      await expect(modal).toBeVisible();
+      // The full-screen table now opens from inside the source drawer, which is
+      // itself a dialog carrying the document's name — so a by-name lookup is
+      // ambiguous. `openMobileTableFullscreen` already hands back the right
+      // handle; the focus-trap assertions are unchanged.
+      await expect(dialog).toBeVisible();
       await page.keyboard.press("Shift+Tab");
-      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await page.keyboard.press("Tab");
-      expect(await modal.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await expectNoPageHorizontalOverflow(page);
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
