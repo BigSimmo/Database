@@ -100,15 +100,18 @@ describe("overlay and global CSS contracts", () => {
 
   it("keeps phone header edge padding tokenized and never zeroed by unlayered media", () => {
     // --header-edge-pad is the single phone/sm inset shared by the layered
-    // .edge-glass-header base, the unlayered max-width:639px guard, and
-    // .mode-nav-rail — which sits directly under the header and has to land on
-    // the same content edge. A bare max(0px, safe-area) override previously
-    // pinned new-chat to the bezel; a literal in the mode nav would be the same
+    // .edge-glass-header base, the unlayered max-width:639px guard,
+    // .mode-nav-rail, and .inpage-nav-header (layered phone rule + the same
+    // unlayered guard). The in-page header portals into the collapse addon —
+    // a sibling of .edge-glass-header — so it has to carry the token itself
+    // or the action pill sits 4px closer to the bezel than the chrome above it.
+    // A bare max(0px, safe-area) override previously pinned new-chat to the
+    // bezel; a literal in the mode nav or in-page header would be the same
     // defect one element lower.
     expect(occurrenceCount(globalStylesSource, "--header-edge-pad:")).toBe(1);
     expect(globalStylesSource).toMatch(/--header-edge-pad:\s*1rem;/);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(3);
-    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(3);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(5);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(5);
     expect(globalStylesSource).not.toMatch(
       /\.edge-glass-header\s*\{[^}]*padding-left:\s*max\(0px,\s*var\(--safe-area-left\)\)/s,
     );

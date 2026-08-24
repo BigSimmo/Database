@@ -1123,6 +1123,18 @@ summary::-webkit-details-marker {
       padding-right: max(1.5rem, var(--safe-area-right));
     }
   }
+
+  /* InPageNavHeader portals into the collapse addon — a sibling of
+     .edge-glass-header — so none of that gutter is inherited. Tokenize the
+     phone inset here; sm+ keeps Tailwind sm:px-6 / lg:px-8, so this must not
+     apply above 639px. The unlayered max-width:639px guard below repeats the
+     same tokens so a later literal cannot pin the action pill to the bezel. */
+  @media (max-width: 639px) {
+    .inpage-nav-header {
+      padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+      padding-right: max(var(--header-edge-pad), var(--safe-area-right));
+    }
+  }
 }
 
 /* Shared-home hero copy reserve.
@@ -2606,6 +2618,11 @@ summary::-webkit-details-marker {
      value so unlayered media cannot reintroduce a 0px override or drift from
      the @layer components base. */
   .edge-glass-header {
+    padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+    padding-right: max(var(--header-edge-pad), var(--safe-area-right));
+  }
+
+  .inpage-nav-header {
     padding-left: max(var(--header-edge-pad), var(--safe-area-left));
     padding-right: max(var(--header-edge-pad), var(--safe-area-right));
   }
