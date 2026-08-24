@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "183965e3-ec47-48cf-a99f-8b037311ed2d",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Patient-profile alerts surface unassessed gates only for contraindication rows, so 266 caution, dose-adjust and monitor gates silently no-op",
+    "detail": "medication-patient-alerts.ts:344-358 collects missingGates for every gated row but the consumer discards them unless patient.action is contraindication. Counted from data/medications-snapshot.json: 256 caution, 145 dose-adjust and 62 monitor rows, 266 of them gated on a numeric or categorical input (eGFR, CrCl, QTc, age, hepatic). A clinician entering a partial profile without eGFR gets no considerations from a renal DOSE REDUCTION row and an empty panel indistinguishable from an all-clear; the UI sentence that would warn is scoped to contraindications only. FIX: include dose-adjust at minimum in the unassessed set and widen the UI copy.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96QPP5PQRSW7W8JA73F7M"
+  }
+}

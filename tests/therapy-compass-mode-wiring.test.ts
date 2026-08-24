@@ -23,7 +23,6 @@ const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
 const legacyCatalogueAssets = {
   full: "therapies.json",
   index: "therapies-index.json",
-  home: "therapies-home.json",
 } as const;
 const therapyMetadataFiles = [
   "../src/app/(search-app)/therapy-compass/page.tsx",
@@ -54,7 +53,7 @@ describe("Therapy Compass production-mode wiring", () => {
     );
 
     expect(appModesSrc).toContain('label: "Therapy"');
-    expect(appModesSrc).toContain('placeholder: "Search therapies…"');
+    expect(appModesSrc).toContain('placeholder: "Search therapies..."');
     expect(appModesSrc).toContain('inputAriaLabel: "Search therapies by problem, symptom, skill, or population"');
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
     expect(sharedHomePresentation["therapy-compass"].title).toBe("Therapy");
@@ -92,14 +91,46 @@ describe("Therapy Compass production-mode wiring", () => {
     }
   });
 
+  it("ships only the two reachable catalogue kinds", () => {
+    expect(Object.keys(THERAPY_CATALOGUE_ASSETS)).toEqual(["full", "index"]);
+    expect(Object.keys(THERAPY_CATALOGUE_ASSETS_PREVIOUS)).toEqual(["full", "index"]);
+
+    const retiredHomeAssets = readdirSync(dataDir).filter((name) =>
+      /^therapies-home(?:\.[a-f0-9]{16})?\.json$/.test(name),
+    );
+    expect(retiredHomeAssets).toEqual([]);
+    expect(loaderSrc).not.toMatch(/["']home["']/);
+    expect(loaderSrc).not.toContain("therapies-home.json");
+
+    const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+    expect(nextConfig).not.toContain("therapies-home");
+
+    const generatorSource = readFileSync(new URL("../scripts/build-therapies-index.mjs", import.meta.url), "utf8");
+    const therapyContractSource = readFileSync(
+      new URL("../scripts/lib/therapy-review-contract.mjs", import.meta.url),
+      "utf8",
+    );
+    expect(therapyContractSource).toContain('retiredHomeAlias: "therapies-home.json"');
+    expect(therapyContractSource).toContain("/^therapies(?:-(?:home|index))?");
+    expect(generatorSource).toContain("const RETIRED_HOME_ALIAS = THERAPY_GENERATED_PATHS.retiredHomeAlias");
+    expect(generatorSource).toContain("existsSync(join(publicData, RETIRED_HOME_ALIAS))");
+    expect(generatorSource).toContain("const HASHED_ASSET_RE = THERAPY_HASHED_ASSET_RE");
+
+    for (const filename of ["ui-therapy-nav-scroll.spec.ts", "ui-route-coverage.spec.ts"]) {
+      const fixtureSource = readFileSync(new URL(filename, import.meta.url), "utf8");
+      expect(fixtureSource, filename).not.toContain("(?:home|index)");
+      expect(fixtureSource, filename).not.toContain("therapies-home");
+    }
+  });
+
   it("serves unversioned catalogue aliases by rewrite, not by duplicating bytes", () => {
     // The aliases used to be real files written byte-identical to their hashed
     // twin, costing a second copy of every payload in the tree and in every
-    // Docker image (2.81 MB; 5.34 MB during the one-deploy grace window). They
+    // Docker image (2.66 MB; 5.33 MB during the one-deploy grace window). They
     // are now next.config.ts rewrites onto the current content-addressed asset,
     // so the URLs behave the same with no duplicated bytes.
     const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
-    for (const kind of ["full", "index", "home"] as const) {
+    for (const kind of ["full", "index"] as const) {
       const alias = legacyCatalogueAssets[kind];
       expect(existsSync(new URL(alias, dataDir)), `${alias} must not exist as a duplicate file`).toBe(false);
       expect(nextConfig, alias).toContain(`alias("${alias}", THERAPY_CATALOGUE_ASSETS.${kind})`);
@@ -112,8 +143,8 @@ describe("Therapy Compass production-mode wiring", () => {
 
   it("commits no catalogue assets older than the one-deploy grace generation", () => {
     // Every regeneration mints new hashed filenames. Without pruning, each data
-    // revision strands the previous full catalogue (~2.5 MB) plus both
-    // projections in `public/` permanently — in git history and in every Docker
+    // revision strands the previous full catalogue (~2.5 MB) plus the browse
+    // projection in `public/` permanently — in git history and in every Docker
     // image. PR #1489 stranded two inside a single pull request and needed a
     // hand-deletion commit. `check:therapy-data-index` enforces the same rule;
     // this pins it for anyone who adds a hashed file without rerunning it.
@@ -128,8 +159,10 @@ describe("Therapy Compass production-mode wiring", () => {
     );
     expect(hashed.length).toBeGreaterThan(0);
     expect(hashed.filter((name) => !manifested.has(name))).toEqual([]);
-    // Growth is bounded at two generations per stem, not N.
-    expect(hashed.length).toBeLessThanOrEqual(6);
+    // Growth is bounded at two generations per retained stem, not N. The regex
+    // deliberately still sees retired home assets so one can never hide from
+    // the orphan check above.
+    expect(hashed.length).toBeLessThanOrEqual(4);
   });
 
   it("retains the previous generation on disk so pre-deploy bundles do not 404", () => {
@@ -154,19 +187,17 @@ describe("Therapy Compass production-mode wiring", () => {
   it("caches hashed catalogue assets immutably and forces alias revalidation", () => {
     const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
     expect(nextConfig).toContain(
-      'source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.[a-f0-9]{16}\\\\.json)"',
+      'source: "/therapy-compass-data/:asset(therapies(?:-index)?\\\\.[a-f0-9]{16}\\\\.json)"',
     );
     expect(nextConfig).toContain('value: "public, max-age=31536000, immutable"');
-    expect(nextConfig).toContain('source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.json)"');
+    expect(nextConfig).toContain('source: "/therapy-compass-data/:asset(therapies(?:-index)?\\\\.json)"');
     expect(nextConfig).toContain('value: "public, max-age=0, must-revalidate"');
   });
 
-  it("keeps projections available without putting one on the Therapy home paint path", () => {
+  it("keeps the browse projection available without putting it on the Therapy home paint path", () => {
     const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
     const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
-    const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
     expect(indexSize).toBeLessThan(fullSize * 0.1);
-    expect(homeSize).toBeLessThanOrEqual(indexSize);
     // The loader still selects by catalogue kind from the generated manifest —
     // the lookup moved inside fetchCatalogue when the alias fallback landed, so
     // pin both halves rather than the old single expression.
@@ -180,17 +211,17 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("generates Therapy home count and artifact defaults from the current catalogue", () => {
-    const home = JSON.parse(readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir), "utf8")) as Array<{
+    const index = JSON.parse(readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir), "utf8")) as Array<{
       slug: string;
       briefInterventionAvailable: boolean;
       patientSheetAvailable: boolean;
     }>;
-    expect(THERAPY_CATALOGUE_SUMMARY.totalCount).toBe(home.length);
+    expect(THERAPY_CATALOGUE_SUMMARY.totalCount).toBe(index.length);
     expect(THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug).toBe(
-      home.find((therapy) => therapy.briefInterventionAvailable)?.slug,
+      index.find((therapy) => therapy.briefInterventionAvailable)?.slug,
     );
     expect(THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug).toBe(
-      home.find((therapy) => therapy.patientSheetAvailable)?.slug,
+      index.find((therapy) => therapy.patientSheetAvailable)?.slug,
     );
   });
 
@@ -213,11 +244,9 @@ describe("Therapy Compass production-mode wiring", () => {
 
   it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {
     // Regression for the old mid-word sk- → s\u006b- rewrite in the generator.
-    for (const kind of ["home", "index"] as const) {
-      const text = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir), "utf8");
-      expect(text, kind).toContain('"slug": "task-centred-practice"');
-      expect(text, kind).not.toContain("\\u006b");
-    }
+    const text = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir), "utf8");
+    expect(text).toContain('"slug": "task-centred-practice"');
+    expect(text).not.toContain("\\u006b");
   });
 
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {

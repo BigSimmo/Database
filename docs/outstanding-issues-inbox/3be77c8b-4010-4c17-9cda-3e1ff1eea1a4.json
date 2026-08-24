@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3be77c8b-4010-4c17-9cda-3e1ff1eea1a4",
+  "createdOn": "2026-08-23",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "sentry.server.config falls back to the service-role key when the publishable key is absent",
+    "detail": "src/sentry.server.config.ts:54 reads NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY or else SUPABASE_SERVICE_ROLE_KEY. Server-only file and sendOperationData is false, so no key or PHI reaches Sentry and the risk is contained - but the fallback broadens where the secret is instantiated for no benefit. If the publishable key is missing, tracing should be disabled rather than escalated. FIX: drop the fallback.",
+    "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f",
+    "issueUlid": "01M0Q96T2K5YKAQ5STR14BC2HC"
+  }
+}

@@ -716,6 +716,7 @@ export function SettingsDialog({
                   <button
                     key={item.id}
                     type="button"
+                    data-settings-nav-target={item.id}
                     onClick={() => scrollToSection(item.id)}
                     disabled={!reachable}
                     aria-current={active && reachable ? "true" : undefined}

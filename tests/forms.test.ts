@@ -73,20 +73,28 @@ describe("psychiatry form records", () => {
     // Source status remains on the rail / overview, not in the priority-fact grid.
     expect(form?.source?.status).toBe("Source checked");
     // Draft section summaries and supplemental form mappings remain staged for
-    // clinical review; they cannot replace the conservative Source status card.
-    expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
-    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(true);
-    expect(formCatalogDetails(getFormRecord("transfer-order")!)?.actSections).toBeUndefined();
+    // Every other form reaches the same card from its own section cue, or from the
+    // supplemental map for the seven the archive never indexed.
+    expect(getFormRecord("form-1b")?.summaryCards?.some((card) => card.id === "source")).toBe(false);
+    expect(getFormRecord("form-13")?.summaryCards?.some((card) => card.id === "source")).toBe(false);
+    const form4c = formCatalogDetails(getFormRecord("transfer-order")!);
+    expect(form4c?.actSections?.map((entry) => entry.section)).toEqual(["66", "91"]);
+    expect(form4c?.actSections?.every((entry) => entry.summary?.trim())).toBe(true);
   });
 
-  it("keeps every unreviewed form on the Source status card", () => {
+  it("gives every one of the 54 forms an Act-sections card", () => {
     expect(formRecords).toHaveLength(54);
-    for (const form of formRecords.filter((entry) => entry.slug !== "form-1a")) {
+    for (const form of formRecords) {
       expect(
-        form.summaryCards?.some((card) => card.id === "source"),
+        form.summaryCards?.map((card) => card.id),
+        form.slug,
+      ).toEqual(["clock", "authority", "criteria", "act-sections"]);
+      const sections = formCatalogDetails(form)?.actSections;
+      expect(sections?.length, form.slug).toBeGreaterThan(0);
+      expect(
+        sections?.every((entry) => entry.summary?.trim()),
         form.slug,
       ).toBe(true);
-      expect(formCatalogDetails(form)?.actSections, form.slug).toBeUndefined();
     }
   });
 
@@ -102,7 +110,9 @@ describe("psychiatry form records", () => {
 
     const merged = mergeRegistryRecordsWithDefaults("form", [seeded as never]);
     const record = merged.find((entry) => entry.slug === "form-1b");
-    expect(formCatalogDetails(record!)?.actSections).toBeUndefined();
+    const summaries = formCatalogDetails(record!)?.actSections?.map((entry) => entry.summary);
+    expect(summaries).not.toContain("SUPERSEDED SUMMARY");
+    expect(summaries).toEqual(formCatalogDetails(getFormRecord("form-1b")!)?.actSections?.map((s) => s.summary));
   });
 
   it("covers the seven unindexed forms from the supplemental cue map", () => {
@@ -115,8 +125,14 @@ describe("psychiatry form records", () => {
       expect(record, entry.code).toBeTruthy();
       const details = formCatalogDetails(record!);
       expect(details?.sourceFacts?.sectionCue, entry.code).toBeFalsy();
-      expect(details?.actSections, entry.code).toBeUndefined();
-      expect(entry.status, entry.code).toBe("drafted");
+      expect(
+        details?.actSections?.map((section) => section.section),
+        entry.code,
+      ).toEqual(entry.sections);
+      expect(
+        details?.actSections?.every((section) => section.summary?.trim()),
+        entry.code,
+      ).toBe(true);
       expect(entry.basis.trim().length, entry.code).toBeGreaterThan(40);
     }
   });

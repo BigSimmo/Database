@@ -6,8 +6,17 @@ import { GuideDialog } from "@/components/clinical-dashboard/guide-dialog";
 import { guideTopics } from "@/components/clinical-dashboard/guide-content";
 import { guideProgressStorageKey } from "@/components/clinical-dashboard/guide-progress";
 
+const routerPush = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: routerPush, replace: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 beforeEach(() => {
   window.localStorage.clear();
+  routerPush.mockReset();
 });
 
 afterEach(async () => {
@@ -169,6 +178,17 @@ describe("Clinical KB Guide Centre", () => {
       await user.click(within(dialog).getAllByRole("button", { name: topic.navLabel })[0]);
       expect(within(dialog).getByRole("heading", { name: topic.title })).toBeVisible();
     }
+  });
+
+  it("surfaces the colour coding guide from home and renders the tone key", async () => {
+    const user = userEvent.setup();
+    const { dialog } = renderGuide();
+
+    await user.click(within(dialog).getByRole("button", { name: "Open colour coding guide" }));
+    expect(within(dialog).getByRole("heading", { name: "Colour coding & badges" })).toBeVisible();
+    expect(within(dialog).getByRole("heading", { name: "Tone key" })).toBeVisible();
+    expect(within(dialog).getByText("Contraindicated")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Open full reference" })).toBeVisible();
   });
 
   it("wires the docked tour controls, including Previous on phones", async () => {

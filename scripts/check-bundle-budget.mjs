@@ -105,6 +105,17 @@ const fixtureSnapshotMarkerGroups = [
     name: "differentials snapshot",
     markers: ["redFlagFlows", "searchAliases", "exportedAt"],
   },
+  // Prevention-only guards: these marker sets do not claim a measured speedup.
+  // They fail only when an entire generated medication payload leaks into an
+  // initial dashboard chunk, not when ordinary UI copy contains one marker.
+  {
+    name: "medications snapshot",
+    markers: ["GABA / Glutamate Modulator", "1998 mg/day", "Renal Adj."],
+  },
+  {
+    name: "medication interaction index",
+    markers: ["generatedFrom", "sourceRowCount", "rowsWithCatalogueTarget", "medicationsWithUnresolvedRows"],
+  },
 ];
 
 function walkJsFiles(dir) {
@@ -451,6 +462,61 @@ export function resolveBaselineSource(environment = process.env, readHead = read
 
 export const STALE_BASELINE_COMMIT_DISTANCE_THRESHOLD = 50;
 
+const BASELINE_SOURCE_REMEDIATION =
+  "Fetch the recorded baseline commit so its ancestry can be verified, or deliberately refresh the baseline from a reviewed known-good production build with `npm run check:bundle-budget -- --update`.";
+
+/**
+ * Resolve whether a configured baseline names a local commit that is an
+ * ancestor of HEAD. Git's exit 1 for `merge-base --is-ancestor` and command
+ * failures both mean that commit distance is not trustworthy here.
+ * @param {string | null | undefined} baselineSha
+ * @param {string} [cwd]
+ * @param {typeof execFileSync} [exec]
+ */
+export function resolveBaselineGitStatus(baselineSha, cwd = root, exec = execFileSync) {
+  if (!baselineSha || typeof baselineSha !== "string" || !/^[0-9a-f]{40}$/i.test(baselineSha.trim())) {
+    return { commitExists: null, comparableAsAncestor: null };
+  }
+  const normalized = baselineSha.trim().toLowerCase();
+  const options = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+  try {
+    exec("git", ["-C", cwd, "cat-file", "-e", `${normalized}^{commit}`], options);
+  } catch {
+    return { commitExists: false, comparableAsAncestor: null };
+  }
+  try {
+    exec("git", ["-C", cwd, "merge-base", "--is-ancestor", normalized, "HEAD"], options);
+    return { commitExists: true, comparableAsAncestor: true };
+  } catch {
+    return { commitExists: true, comparableAsAncestor: false };
+  }
+}
+
+/** Pure decision for the non-failing baseline provenance warning. */
+export function decideBaselineSourceWarning({ baselineSource, commitExists, comparableAsAncestor }) {
+  if (typeof baselineSource !== "string" || !/^[0-9a-f]{40}$/i.test(baselineSource.trim()) || commitExists === null) {
+    return null;
+  }
+  const normalized = baselineSource.trim().toLowerCase();
+  if (!commitExists) {
+    return {
+      code: "baseline-source-unresolvable",
+      baselineSource: normalized,
+      message: `Configured baselineSource ${normalized} does not resolve to a local Git commit.`,
+      remediation: BASELINE_SOURCE_REMEDIATION,
+    };
+  }
+  if (!comparableAsAncestor) {
+    return {
+      code: "baseline-source-not-ancestor",
+      baselineSource: normalized,
+      message: `Configured baselineSource ${normalized} cannot be compared as an ancestor of HEAD.`,
+      remediation: BASELINE_SOURCE_REMEDIATION,
+    };
+  }
+  return null;
+}
+
 /**
  * Resolve commit distance between baseline SHA and current Git HEAD.
  * @param {string | null | undefined} baselineSha
@@ -601,6 +667,27 @@ export function selfTest() {
   const mockExec = () => "12\n";
   const distance = resolveBaselineCommitDistance("a".repeat(40), root, mockExec);
   check("resolveBaselineCommitDistance: mock exec returns count", distance === 12);
+
+  const missingGitStatus = resolveBaselineGitStatus("a".repeat(40), root, () => {
+    throw new Error("missing");
+  });
+  const missingSourceWarning = decideBaselineSourceWarning({
+    baselineSource: "a".repeat(40),
+    ...missingGitStatus,
+  });
+  check(
+    "baseline source: unresolvable commit warns without changing budget verdicts",
+    missingSourceWarning?.code === "baseline-source-unresolvable" &&
+      missingSourceWarning.remediation.includes("Fetch the recorded baseline commit"),
+  );
+
+  const medicationFixture = findFixtureSnapshotsInChunks([
+    { name: "test.js", buffer: Buffer.from("GABA / Glutamate Modulator 1998 mg/day Renal Adj.") },
+  ]);
+  check(
+    "fixture guard: medication snapshot marker group is detected",
+    medicationFixture.includes("medications snapshot"),
+  );
 
   // measureChunks
   const m = measureChunks([{ name: "test.js", buffer: Buffer.from("console.log('hello');") }]);
@@ -794,7 +881,9 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
   );
 
   const baselineSource = budget?.baselineSource ?? null;
-  const baselineCommitDistance = resolveBaselineCommitDistance(baselineSource, root);
+  const baselineGitStatus = resolveBaselineGitStatus(baselineSource, root);
+  const baselineSourceWarning = decideBaselineSourceWarning({ baselineSource, ...baselineGitStatus });
+  const baselineCommitDistance = baselineSourceWarning ? null : resolveBaselineCommitDistance(baselineSource, root);
   const baselineDistanceText =
     baselineCommitDistance !== null ? `${baselineCommitDistance} commit(s) behind HEAD` : "distance unresolvable";
 
@@ -805,6 +894,7 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
           current: { ...current, measured: undefined },
           baselineSource,
           baselineCommitDistance,
+          warnings: baselineSourceWarning ? [baselineSourceWarning] : [],
           production: { gzipBytes: productionGzipBytes, verdict: productionVerdict },
           mockups: {
             gzipBytes: mockupGzipBytes,
@@ -852,6 +942,11 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
             : " — no baseline recorded."),
       );
     }
+    if (baselineSourceWarning) {
+      console.warn(
+        `[bundle-budget] WARN (${baselineSourceWarning.code.replaceAll("-", " ")}) — ${baselineSourceWarning.message} ${baselineSourceWarning.remediation}`,
+      );
+    }
     if (
       baselineSource &&
       baselineCommitDistance !== null &&
@@ -888,23 +983,25 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
   }
   if (failed) return 1;
 
-  for (const [label, verdict] of [
-    ["production bundle", productionVerdict],
-    [`${MOCKUP_ROUTE_SEGMENT} scratch`, mockupVerdict],
-    ...Object.entries(routeVerdicts).map(([route, verdict]) => [`route ${route}`, verdict]),
-  ]) {
-    if (verdict.status !== "warn") continue;
-    if (verdict.baseline == null) {
-      console.log(
-        `[bundle-budget] warn-only: no ${label} baseline — capture one with --update after a known-good build, then set enforce:true.`,
-      );
-    } else if (verdict.isDriftWarning) {
-      console.warn(`[bundle-budget] WARN (drift warning) — ${label} ${verdict.reason}.`);
-    } else {
-      console.warn(`[bundle-budget] WARN (not enforced) — ${label} ${verdict.reason}.`);
+  if (!asJson) {
+    for (const [label, verdict] of [
+      ["production bundle", productionVerdict],
+      [`${MOCKUP_ROUTE_SEGMENT} scratch`, mockupVerdict],
+      ...Object.entries(routeVerdicts).map(([route, verdict]) => [`route ${route}`, verdict]),
+    ]) {
+      if (verdict.status !== "warn") continue;
+      if (verdict.baseline == null) {
+        console.log(
+          `[bundle-budget] warn-only: no ${label} baseline — capture one with --update after a known-good build, then set enforce:true.`,
+        );
+      } else if (verdict.isDriftWarning) {
+        console.warn(`[bundle-budget] WARN (drift warning) — ${label} ${verdict.reason}.`);
+      } else {
+        console.warn(`[bundle-budget] WARN (not enforced) — ${label} ${verdict.reason}.`);
+      }
     }
+    console.log("[bundle-budget] done.");
   }
-  console.log("[bundle-budget] done.");
   return 0;
 }
 

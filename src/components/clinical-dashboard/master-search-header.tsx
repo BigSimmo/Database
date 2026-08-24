@@ -10,6 +10,7 @@ import {
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -232,6 +233,8 @@ export function MasterSearchHeader({
   showDesktopNewChat = true,
   canAccessFavourites = false,
   onRequestAccountSetup,
+  clinicalAskActions,
+  clinicalAskActive = false,
 }: {
   demoMode: boolean;
   documents: ClinicalDocument[];
@@ -355,6 +358,10 @@ export function MasterSearchHeader({
   canAccessFavourites?: boolean;
   /** Invoked when the user tries to open Favourites without access. */
   onRequestAccountSetup?: () => void;
+  clinicalAskMode?: import("@/lib/clinical-ask/contracts").ClinicalAskModeId;
+  onClinicalAsk?: () => void;
+  clinicalAskActive?: boolean;
+  clinicalAskActions?: ReactNode;
 }) {
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
@@ -374,8 +381,11 @@ export function MasterSearchHeader({
   const isServicesMode = searchMode === "services";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
+  // Documents search is API-backed (`requestSourceLibrarySearch`) and
+  // `ClinicalDashboard.executeSearch` rejects it when `!canRunSearch`. Only
+  // catalogue / namespaced modes whose submit path never hits that gate stay
+  // enabled while live data is not ready.
   const canRunLocalSearch =
-    selectedSearch.kind === "documents" ||
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "therapies" ||
@@ -385,7 +395,8 @@ export function MasterSearchHeader({
     selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
     selectedSearch.kind === "dsm";
-  const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
+  const searchSetupNotReady = !realDataReady && !canRunLocalSearch;
+  const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && !searchSetupNotReady;
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
   const loadedScopeSummary = hasUnloadedDocuments
@@ -1922,6 +1933,11 @@ export function MasterSearchHeader({
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
           />
         ) : null}
+        {clinicalAskActions ? (
+          <div className="relative z-10 w-full" aria-busy={clinicalAskActive}>
+            {clinicalAskActions}
+          </div>
+        ) : null}
         {showsAnswerFollowUpRow && composerFollowUpSuggestions?.length && onPickComposerFollowUpSuggestion ? (
           <AnswerFollowUpSuggestions
             suggestions={composerFollowUpSuggestions}
@@ -2035,6 +2051,8 @@ export function MasterSearchHeader({
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
+                disabled={searchSetupNotReady}
+                title={searchSetupNotReady ? "Search setup not ready" : undefined}
                 onFocus={(e) => {
                   e.target.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
                 }}
@@ -2074,7 +2092,7 @@ export function MasterSearchHeader({
               type="submit"
               disabled={!canAsk}
               title={
-                !realDataReady && !canRunLocalSearch
+                searchSetupNotReady
                   ? "Search setup not ready"
                   : trimmedQuery.length < 1
                     ? selectedSearch.emptyTitle

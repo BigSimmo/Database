@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "32d58b0f-a504-434e-8360-d6969160ec06",
+  "createdOn": "2026-08-22",
+  "action": "done",
+  "payload": {
+    "id": "#NPQJKP",
+    "outcome": "Resolved by PR #2285 (predicate commit 957b76afa), live canary run 32589154243, and the follow-up allowance on current main (commit 62cfcab48). generatedAnswerQualityFailureReason now rejects both captured incoherent answers as guidance_wrapper_fragment; tests/rag-guidance-wrapper-quality-gate.test.ts pins both shapes, legitimate prose, enforcing-gate reachability, and the preformatted grounded bypass. The canary converted exactly the two named cases to source-backed review fallbacks with flat retrieval metrics; scripts/eval-quality.ts records the documented two-case allowance instead of leaving the weekly canary permanently red. The newly exposed antipsychotic metabolic-monitoring written-answer defect remains separately open as #J8SJQ9 and is not hidden by this closure. The post-PR #2302 canonical row already preserves the full predicate, canary, baseline, threshold, and dispatch-limitation evidence.",
+    "baseRowFingerprint": "576e46a90a94b678b14f0438adf989c6466f34265e23d654600bb14b40110714"
+  }
+}

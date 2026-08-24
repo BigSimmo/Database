@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "578aabb2-ba72-4de2-b163-d66e57a4ad1c",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "fda95495-3d07-41e3-a9b9-0c9c1d999087",
+    "reason": "Final adversarial review found the update wording claimed unconditional all-source rollback. The corrected transaction deliberately preserves non-cooperating concurrent source bytes while restoring generated assets, so this immutable update must be cancelled and replaced with exact conditional-rollback wording."
+  }
+}

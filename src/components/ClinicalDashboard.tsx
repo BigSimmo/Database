@@ -22,6 +22,7 @@ import {
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -48,6 +49,15 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
+import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
+import {
+  type ClinicalDashboardProps,
+  useClinicalAskDashboardChrome,
+} from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import {
+  ClinicalAskComposerActions,
+  ClinicalAskWorkspace,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -61,16 +71,18 @@ import {
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import {
+  canRunDashboardSearch,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
+  shouldShowDashboardDegradedNotice,
   type SetupCheck,
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/document-manager-contracts";
 import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-health-strip";
 import { GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
-import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
+import { SystemNotice, DegradedNoticeFrame } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer } from "@/components/clinical-dashboard/answer-content";
 import {
@@ -266,20 +278,25 @@ import {
 import type { AnswerFeedbackType } from "@/lib/answer-feedback";
 export type { AnswerFeedbackType } from "@/lib/answer-feedback";
 
-/**
- * Renders the clinical search dashboard, including document search, answer generation, conversation history, source management, and ingestion controls.
- *
- * @param initialSearchMode - The mode selected when the dashboard loads.
- * @param initialQuery - The initial search or composer query.
- * @param focusSearch - Whether to focus the search input on load.
- * @param autoRunSearch - Whether to automatically submit the initial query.
- */
-export function ClinicalDashboard({
+function ClinicalAskSessionBoundary({ children }: { children: ReactNode }) {
+  const auth = useAuthSession();
+  return <ClinicalAskSessionProvider accountId={auth.session?.user.id}>{children}</ClinicalAskSessionProvider>;
+}
+
+export function ClinicalDashboard(props: ClinicalDashboardProps = {}) {
+  return (
+    <ClinicalAskSessionBoundary>
+      <ClinicalDashboardContent {...props} />
+    </ClinicalAskSessionBoundary>
+  );
+}
+
+function ClinicalDashboardContent({
   initialSearchMode = "answer",
   initialQuery = "",
   focusSearch = false,
   autoRunSearch = false,
-}: { initialSearchMode?: AppModeId; initialQuery?: string; focusSearch?: boolean; autoRunSearch?: boolean } = {}) {
+}: ClinicalDashboardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -544,6 +561,11 @@ export function ClinicalDashboard({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
+  const { clinicalAskSession, clinicalAskOnline, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+    accountId: auth.session?.user.id,
+    searchMode,
+    query,
+  });
   const {
     status: authStatus,
     authorizationHeader,
@@ -715,12 +737,14 @@ export function ClinicalDashboard({
   const isAdministrator = isAdministratorUser(auth.session?.user);
   const canUseAdministrativeApis = localProjectReady && isAdministrator;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
-  const canRunSearch =
-    explicitDemoMode ||
-    canUsePublicSearchApis ||
-    canUseDegradedLocalSearchApis ||
-    canUseNonProductionDemoFallback ||
-    canAttemptDeployedPublicSearch;
+  const canRunSearch = canRunDashboardSearch({
+    localProjectReady,
+    explicitDemoMode,
+    canUsePublicSearchApis,
+    canUseDegradedLocalSearchApis,
+    canUseNonProductionDemoFallback,
+    canAttemptDeployedPublicSearch,
+  });
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
       indexingAdminReturnFocusRef.current =
@@ -771,11 +795,6 @@ export function ClinicalDashboard({
     },
     [canUseAdministrativeApis, closeDashboardTransientSurfaces, settingsState],
   );
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(prefetchApplications, 250);
-    return () => window.clearTimeout(timeoutId);
-  }, [prefetchApplications]);
 
   // The dashboard renders directly on "/" without the standalone search shell,
   // so it must purge the legacy unscoped recent-queries key too (2026-07-13
@@ -2676,6 +2695,7 @@ export function ClinicalDashboard({
   }
 
   function startNewChat() {
+    clinicalAskSession.clear();
     modeChangeFromUiRef.current = true;
     const href = appModeHomeHref("answer", { focus: true });
     setQuery("");
@@ -2981,7 +3001,7 @@ export function ClinicalDashboard({
     },
   ] as const;
   const showAuthPanel = false;
-  const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
+  const showDegradedNotice = shouldShowDashboardDegradedNotice({ isOnline, apiUnavailable, canRunSearch });
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
   const showSharedHome = shouldShowSharedHome({
@@ -3090,6 +3110,8 @@ export function ClinicalDashboard({
           differentialsCompareAddonActive,
           patientDetailsAddonActive,
           heroOwnsPhoneComposer,
+          clinicalAskActionsVisible:
+            Boolean(clinicalAskMode) && (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim())),
         }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
@@ -3322,6 +3344,19 @@ export function ClinicalDashboard({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
+          clinicalAskActive={clinicalAskSession.submitted}
+          clinicalAskActions={
+            clinicalAskMode && (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim())) ? (
+              <ClinicalAskComposerActions
+                mode={clinicalAskMode}
+                draft={query}
+                active={clinicalAskSession.submitted}
+                offline={!clinicalAskOnline}
+                onDraftChange={setQuery}
+                onAsk={runModeClinicalAsk}
+              />
+            ) : undefined
+          }
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
@@ -3501,12 +3536,15 @@ export function ClinicalDashboard({
                   {actionNotice.message}
                 </InlineNotice>
               )}
-              {showDegradedNotice && <DegradedNotice isOnline={isOnline} />}
+              <DegradedNoticeFrame visible={showDegradedNotice} isOnline={isOnline} reserveSpace={centeredModeHome} />
               {showSystemNotice && answer ? (
                 <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="hidden sm:block" />
               ) : null}
 
               <section
+                // 640–1919 first-paint top-align hook in globals.css. Do not
+                // restyle this from body:has(.pwa-notice-stack) — that caused CLS.
+                data-mode-home-canvas={centeredModeHome || showSharedHome ? "true" : undefined}
                 className={cn(
                   compactMobileModeHome
                     ? cn(
@@ -3657,6 +3695,7 @@ export function ClinicalDashboard({
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
+                <ClinicalAskWorkspace onDraftChange={stageAnswerFollowUpDraft} />
                 {showSharedHome ? (
                   // The one home surface, shared by every registered mode. It sits above every
                   // mode-specific branch so picking a mode on `/` changes only its
@@ -4073,7 +4112,10 @@ export function ClinicalDashboard({
           open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
-          onSignOut={auth.signOut}
+          onSignOut={async () => {
+            clinicalAskSession.clear();
+            await auth.signOut();
+          }}
           onOpenGuide={settingsGuideFlow.openGuideFromSettings}
           onPrefetchGuide={loadGuideDialog}
           initialFocus={settingsGuideFlow.settingsInitialFocus}

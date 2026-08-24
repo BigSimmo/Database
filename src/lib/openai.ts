@@ -34,6 +34,7 @@ type TextGenerationOptions = {
   maxRetries?: number;
   signal?: AbortSignal;
   safetyIdentifier?: string;
+  store?: boolean;
 };
 
 type ResolvedTextGenerationOptions = Required<Pick<TextGenerationOptions, "model" | "maxOutputTokens">> &
@@ -89,6 +90,48 @@ export function createOpenAIClient() {
     }),
   );
   return openAIClient;
+}
+
+/** Direct, non-persistent transcription boundary for an in-memory Clinical Ask recording. */
+export async function transcribeClinicalAskAudio(file: File, signal: AbortSignal, timeoutMs: number) {
+  const result = await createOpenAIClient().audio.transcriptions.create(
+    { file, model: env.OPENAI_TRANSCRIPTION_MODEL },
+    { signal, timeout: timeoutMs, maxRetries: 0 },
+  );
+  return { transcript: result.text, model: env.OPENAI_TRANSCRIPTION_MODEL };
+}
+
+/** Server-only bounded web search used by Clinical Ask's governed authority adapter.
+ * `filters.allowed_domains` and `include: web_search_call.results` are runtime
+ * Responses fields; the installed SDK request type still omits them, so the
+ * payload is asserted after construction rather than dropping the allow-list.
+ */
+export async function createClinicalAskWebSearchResponse(args: {
+  input: Array<Record<string, unknown>>;
+  allowedDomains: readonly string[];
+  signal: AbortSignal;
+  timeoutMs: number;
+}) {
+  const client = createOpenAIClient();
+  const request = {
+    model: env.OPENAI_ANSWER_MODEL,
+    store: false,
+    input: args.input,
+    tools: [
+      {
+        type: "web_search" as const,
+        filters: { allowed_domains: [...args.allowedDomains] },
+        search_context_size: "medium" as const,
+      },
+    ],
+    include: ["web_search_call.action.sources", "web_search_call.results"] as const,
+    metadata: { operation: "clinical_ask_external_search" },
+  };
+  return client.responses.create(request as unknown as Parameters<typeof client.responses.create>[0], {
+    signal: args.signal,
+    timeout: args.timeoutMs,
+    maxRetries: 0,
+  });
 }
 
 function normalizeQueryEmbeddingText(text: string) {
@@ -269,7 +312,7 @@ function responseBody(
     input,
     ...(resolved.instructions ? { instructions: resolved.instructions } : {}),
     max_output_tokens: Math.max(resolved.maxOutputTokens, reasoningHeadroomFloor(resolvedReasoningEffort)),
-    store: env.OPENAI_STORE_RESPONSES,
+    store: resolved.store ?? env.OPENAI_STORE_RESPONSES,
     prompt_cache_key: resolved.promptCacheKey ?? promptCacheKeyFor(operation),
     ...(capabilities.usesPromptCacheOptions
       ? promptCacheTtl

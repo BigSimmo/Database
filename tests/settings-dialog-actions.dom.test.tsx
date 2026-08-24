@@ -121,7 +121,7 @@ describe("SettingsDialog — destructive and account actions", () => {
     const renderedIds = [...document.querySelectorAll("[data-settings-section]")].map((el) =>
       el.getAttribute("data-settings-section"),
     );
-    if (railLabels.length) expect(railLabels).toEqual(renderedIds);
+    expect(railLabels).toEqual(renderedIds);
   });
 
   it("clears recent searches through the privacy action", () => {

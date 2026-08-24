@@ -34,6 +34,8 @@ test("Show all opens the unfiltered tools search mode", async ({ page }) => {
   const results = page.getByTestId("tools-search-results-page");
   await expect(results).toBeVisible();
   await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
+  await expect(results.getByRole("link", { name: "Open Clinical KB Search" })).toHaveAttribute("href", "/?mode=answer");
+  await expect(results.getByRole("button", { name: "View details for Clinical KB Search" })).toBeVisible();
   await expect(page.getByTestId("global-search-input")).toHaveCount(0);
   await expectNoPageHorizontalOverflow(page);
 });

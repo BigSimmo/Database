@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "77aec421-1595-4307-aaf1-447ec5414cbd",
+  "createdOn": "2026-08-23",
+  "action": "cancel",
+  "payload": {
+    "requestId": "7b276d24-acb7-423a-9730-6fc4dca309ce",
+    "reason": "Superseded after independent final review found an unmeasured 1024-1279px boundary. The replacement done request carries the production 1024/1025/1279 pre/post evidence and bounded 1279.98px correction."
+  }
+}

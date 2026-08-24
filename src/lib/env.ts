@@ -10,6 +10,29 @@ function coerceBlankUrlEnv(value: unknown): unknown {
   return typeof value === "string" && value.trim() === "" ? undefined : value;
 }
 
+const clinicalAskDisabledModeIds = new Set([
+  "services",
+  "forms",
+  "differentials",
+  "formulation",
+  "dsm",
+  "specifiers",
+  "therapy-compass",
+]);
+
+export function parseClinicalAskDisabledModes(value: unknown): string[] {
+  if (value === undefined || value === null || value === "") return [];
+  if (typeof value !== "string") throw new Error("CLINICAL_ASK_DISABLED_MODES must be comma-separated mode IDs.");
+  const modes = value
+    .split(",")
+    .map((mode) => mode.trim())
+    .filter(Boolean);
+  if (new Set(modes).size !== modes.length || modes.some((mode) => !clinicalAskDisabledModeIds.has(mode))) {
+    throw new Error("CLINICAL_ASK_DISABLED_MODES contains an unknown or duplicate mode ID.");
+  }
+  return modes;
+}
+
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
@@ -56,6 +79,16 @@ const envSchema = z.object({
   SENTRY_PROJECT: z.string().optional(),
   SENTRY_AUTH_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  OPENAI_TRANSCRIPTION_MODEL: z.string().default("gpt-4o-mini-transcribe"),
+  CLINICAL_ASK_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  CLINICAL_ASK_EXTERNAL_SEARCH_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
+  CLINICAL_ASK_DISABLED_MODES: z.preprocess(parseClinicalAskDisabledModes, z.array(z.string())),
   SENTRY_DSN: z.preprocess(coerceBlankUrlEnv, z.string().url().optional()),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding

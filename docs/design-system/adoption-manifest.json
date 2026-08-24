@@ -287,13 +287,13 @@
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
         "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/workspace.tsx",
+        "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx",
         "src/components/ui/print-output.tsx"
       ],
@@ -303,13 +303,13 @@
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
         "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/workspace.tsx",
+        "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx",
         "src/components/ui/print-output.tsx"
       ],
@@ -376,12 +376,14 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
-        "src/components/therapy-compass/ui.tsx"
+        "src/components/therapy-compass/ui.tsx",
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
-        "src/components/therapy-compass/ui.tsx"
+        "src/components/therapy-compass/ui.tsx",
+        "src/components/tools/tools-search-results-page.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -427,6 +429,7 @@
       "testFiles": [
         "tests/answer-render-policy.test.ts",
         "tests/citations.test.ts",
+        "tests/clinical-ask-external-evidence.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-viewer-shell.dom.test.tsx",
         "tests/probe-generation-quality.test.ts",
@@ -558,8 +561,14 @@
       "source": "src/components/ui/disclosure.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/medication-considerations.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1071,7 +1080,11 @@
         "preview": ".design-sync/previews/LoadingPanel.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-target-evidence.test.ts"],
+      "testFiles": [
+        "tests/clinical-ask-provider-contract.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-target-evidence.test.ts"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1583,6 +1596,7 @@
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
@@ -1612,6 +1626,7 @@
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
@@ -1730,13 +1745,13 @@
       "directImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "productImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "designSync": {
@@ -1796,13 +1811,13 @@
       "directImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "productImportFiles": [
         "src/components/answer/AnswerFooter.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
-        "src/components/therapy-compass/screens/detail-screen.tsx",
+        "src/components/therapy-compass/record/source-provenance.tsx",
         "src/components/ui/dose-line.tsx"
       ],
       "designSync": {
