@@ -58,7 +58,7 @@ import type {
   ReferralId,
   TeamId,
 } from "./ids";
-import { TERMINAL_PLAN_STATES } from "./model";
+import { contactSendability, TERMINAL_PLAN_STATES } from "./model";
 import type { Contact, Plan, PlanState, ProviderStatus, Referral, SendingPreference, TransitionResult } from "./model";
 import type { NotificationPreferences } from "./notification-preferences";
 import type { PathwayVersion, PathwayVersionAction } from "./pathway-versions";
@@ -263,6 +263,47 @@ export const CLEARED_PATIENT_DETAIL: EpisodePatientDetail = Object.freeze({
  * list, it can never be in one.
  */
 export type StoredContact = { contact: Contact; planned: PlannedContact };
+
+/**
+ * How much of a plan has gone out, how much is still to go, and how much never will.
+ *
+ * Every count is derived from `contactSendability` in ./model, which classifies each `ContactState`
+ * with an exhaustive switch beside the state machine that produces it. Nothing here decides which
+ * states are sendable, and nothing that renders a schedule should either -- that was the defect
+ * this function exists to remove: the patient overview counted "not suppressed" as "will be sent",
+ * which announced a withdrawn plan's ten CANCELLED contacts as ten messages still to come.
+ *
+ * It lives on the contract rather than in a component or a store because `StoredContact` is
+ * declared here and both stores hold one: a second copy of this arithmetic anywhere would be a
+ * second answer to "how much of this plan is left".
+ *
+ * `total` is stated rather than left to the caller to add up, so a caller cannot reconstruct it
+ * from two of the three buckets and be wrong when a third exists.
+ */
+export type StoredContactSummary = {
+  total: number;
+  alreadySent: number;
+  stillToSend: number;
+  willNotBeSent: number;
+};
+
+export function summariseStoredContacts(contacts: readonly StoredContact[]): StoredContactSummary {
+  const summary: StoredContactSummary = { total: contacts.length, alreadySent: 0, stillToSend: 0, willNotBeSent: 0 };
+  for (const stored of contacts) {
+    switch (contactSendability(stored.contact.state)) {
+      case "alreadySent":
+        summary.alreadySent += 1;
+        break;
+      case "stillToSend":
+        summary.stillToSend += 1;
+        break;
+      case "willNotBeSent":
+        summary.willNotBeSent += 1;
+        break;
+    }
+  }
+  return summary;
+}
 
 /** What a read returns. Deliberately carries no patient-identifying detail — see `getEpisode`. */
 export type PlanRecord = {

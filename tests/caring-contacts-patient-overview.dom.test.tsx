@@ -167,6 +167,32 @@ async function endPlan(store: CaringContactRepository, id: PlanId) {
   if (!result.ok) throw new Error(`withdrawPlan(${id}) refused: ${result.reason}`);
 }
 
+/**
+ * Records a death against a live plan, through the real store.
+ *
+ * The other path to a plan of cancelled contacts: `recordHospitalStatusEvent`'s `cancelUnsent`
+ * outcome runs every unsent contact through `{ type: "cancel" }`, exactly as `withdrawPlan` does.
+ * It is the case the screen must never get wrong -- a plan whose patient has died, announcing that
+ * its messages are still to come.
+ */
+async function recordDeath(store: CaringContactRepository, id: PlanId) {
+  const actor = demoActorForRole("coordinator");
+  const activated = await store.activatePlan(
+    { planId: id, expectedVersion: 1 },
+    { actor, idempotencyKey: idempotencyKey(`activate-death-${id}`) },
+  );
+  if (!activated.ok) throw new Error(`activatePlan(${id}) refused: ${activated.reason}`);
+  const result = await store.recordHospitalStatusEvent(
+    {
+      planId: id,
+      expectedVersion: activated.value.plan.version,
+      event: { type: "death", recordedAt: new Date(NOW) },
+    },
+    { actor, idempotencyKey: idempotencyKey(`death-${id}`) },
+  );
+  if (!result.ok) throw new Error(`recordHospitalStatusEvent(${id}) refused: ${result.reason}`);
+}
+
 async function renderPage(
   patient = PATIENT,
   searchParams: Record<string, string | string[] | undefined> = {},
@@ -298,7 +324,7 @@ describe("the patient overview - Ruling 98: the contact count is derived, never 
     const schedule = screen.getByRole("list", { name: "Twelve-month schedule" });
     expect(within(schedule).getAllByRole("listitem")).toHaveLength(10);
     expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
-      "10 entries, and every one of them will be sent.",
+      "10 entries, and every one of them is still to be sent.",
     );
   });
 
@@ -315,7 +341,7 @@ describe("the patient overview - Ruling 98: the contact count is derived, never 
     // The absorbed entry is still an entry -- it is kept so the interface can explain the plan.
     expect(within(schedule).getAllByRole("listitem")).toHaveLength(10);
     expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
-      "10 entries: 9 that will be sent, and 1 that will not.",
+      "10 entries: 9 still to send, and 1 that will not be sent.",
     );
   });
 
@@ -462,7 +488,7 @@ describe("the patient overview - a contact suppressed by a later transition stil
     );
 
     expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
-      "3 entries: 2 that will be sent, and 1 that will not.",
+      "3 entries: 2 still to send, and 1 that will not be sent.",
     );
     const suppressed = screen.getByRole("group", { name: "Suppressed" });
     // Not the absorption wording: nothing here says this message collided with the first contact,
@@ -470,5 +496,151 @@ describe("the patient overview - a contact suppressed by a later transition stil
     expect(suppressed).toHaveTextContent(/does not hold what caused that/i);
     expect(suppressed).not.toHaveTextContent(/same calendar day/i);
     expect(suppressed).toHaveTextContent(/never sent later/i);
+  });
+});
+
+/**
+ * C1, review round 1. The summary said "every one of them will be sent" for any plan holding no
+ * SUPPRESSED contact -- so a withdrawn plan, or one stopped by a recorded death, announced ten
+ * cancelled messages as ten messages still to come, directly above ten rows each reading
+ * "Caring contact · Cancelled". On a suicide-prevention screen.
+ *
+ * Both plans are built through the real store, because both are reached by ordinary writes:
+ * `withdrawPlan` and `recordHospitalStatusEvent`'s `cancelUnsent` outcome each run every unsent
+ * contact through `{ type: "cancel" }`. Nothing here is a hand-built fixture, so nothing here can
+ * be true of a plan the domain would never produce.
+ */
+describe("the patient overview - a plan that has ended says so, and never promises a send", () => {
+  it("says none of a withdrawn plan's messages will be sent", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    await endPlan(store, id);
+
+    await renderPage();
+
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "10 entries, and none of them will be sent.",
+    );
+    // The old predicate's exact failure, pinned as the sentence it used to print: not one of
+    // these contacts is suppressed, and every one of them is non-sendable.
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).not.toHaveTextContent(
+      "every one of them will be sent",
+    );
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).not.toHaveTextContent("still to");
+  });
+
+  it("says none of a death-stopped plan's messages will be sent", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    await recordDeath(store, id);
+
+    await renderPage();
+
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "10 entries, and none of them will be sent.",
+    );
+  });
+
+  it("explains every cancelled message in place, rather than leaving a bare status beside it", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    await endPlan(store, id);
+
+    await renderPage();
+
+    // Spec 4.4: one explanation per row, not one for the screen. Ruling 98 named only suppression;
+    // a cancellation is equally the system having acted on its own.
+    const cancelled = screen.getAllByRole("group", { name: "Cancelled" });
+    expect(cancelled).toHaveLength(10);
+    expect(cancelled[0]).toHaveTextContent(/This plan ended \(withdrawn\)/i);
+    expect(cancelled[0]).toHaveTextContent(/cancelled every message that had not already gone out/i);
+    expect(cancelled[0]).toHaveTextContent(/never sent later/i);
+  });
+
+  it("does not claim a plan still running ended, when one of its messages is cancelled", () => {
+    const record: PlanRecord = {
+      plan: { id: planId("plan-x"), teamId: demoActorForRole("coordinator").teamId, state: "active", version: 1 },
+      patientId: patientId(PATIENT),
+      referralId: referralId("referral-x"),
+      pathwayVersionId: pathwayVersionId("pathway-1"),
+      dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
+      completedAt: null,
+      outcome: "inProgress",
+      contacts: [
+        {
+          contact: { id: contactId("plan-x--contact-1"), planId: planId("plan-x"), state: "cancelled", version: 1 },
+          planned: {
+            sequence: 1,
+            cadenceLabel: "Day 1",
+            calendarDay: "2026-08-16",
+            sendAt: new Date("2026-08-16T02:00:00.000Z"),
+            messageType: "first",
+          },
+        },
+      ],
+    };
+
+    render(
+      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
+    );
+
+    const cancelled = screen.getByRole("group", { name: "Cancelled" });
+    expect(cancelled).toHaveTextContent(/does not hold what caused that/i);
+    expect(cancelled).not.toHaveTextContent(/This plan ended/i);
+  });
+
+  it("explains a missed message as a closed window, not as a send still to come", () => {
+    const record: PlanRecord = {
+      plan: { id: planId("plan-x"), teamId: demoActorForRole("coordinator").teamId, state: "active", version: 1 },
+      patientId: patientId(PATIENT),
+      referralId: referralId("referral-x"),
+      pathwayVersionId: pathwayVersionId("pathway-1"),
+      dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
+      completedAt: null,
+      outcome: "inProgress",
+      contacts: [
+        {
+          contact: { id: contactId("plan-x--contact-1"), planId: planId("plan-x"), state: "missed", version: 1 },
+          planned: {
+            sequence: 1,
+            cadenceLabel: "Day 1",
+            calendarDay: "2026-08-16",
+            sendAt: new Date("2026-08-16T02:00:00.000Z"),
+            messageType: "first",
+          },
+        },
+        {
+          contact: { id: contactId("plan-x--contact-2"), planId: planId("plan-x"), state: "delivered", version: 1 },
+          planned: {
+            sequence: 2,
+            cadenceLabel: "Month 1",
+            calendarDay: "2026-09-15",
+            sendAt: new Date("2026-09-15T02:00:00.000Z"),
+            messageType: "standard",
+          },
+        },
+        {
+          contact: { id: contactId("plan-x--contact-3"), planId: planId("plan-x"), state: "scheduled", version: 1 },
+          planned: {
+            sequence: 3,
+            cadenceLabel: "Month 2",
+            calendarDay: "2026-10-15",
+            sendAt: new Date("2026-10-15T02:00:00.000Z"),
+            messageType: "standard",
+          },
+        },
+      ],
+    };
+
+    render(
+      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
+    );
+
+    // All three buckets at once -- the only shape that proves the sentence is built from the
+    // summary rather than from the absence of one state.
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "3 entries: 1 already sent, 1 still to send, and 1 that will not be sent.",
+    );
+    expect(screen.getByRole("group", { name: "Missed" })).toHaveTextContent(/window for sending this message closed/i);
   });
 });

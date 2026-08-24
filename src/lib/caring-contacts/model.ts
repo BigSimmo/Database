@@ -127,3 +127,70 @@ export function applyContactTransition(contact: Contact, action: ContactAction):
         : { ok: false, reason: "contact-not-missable" };
   }
 }
+
+/**
+ * What a contact's state says about whether its message goes out. Three answers, and every
+ * `ContactState` has exactly one.
+ *
+ * WHY THIS LIVES HERE. The patient overview needs to say how much of a plan is still to be sent,
+ * and its first answer was "every contact whose state is not `suppressed`" -- a predicate typed out
+ * by hand in a component, narrower than the truth, and wrong on a path the domain reaches with an
+ * ordinary write: `withdrawPlan` and `recordHospitalStatusEvent` both run every unsent contact
+ * through `{ type: "cancel" }`, so a withdrawn plan, or one stopped by a recorded death, is ten
+ * CANCELLED contacts that the screen then announced as ten messages still to be sent. On a
+ * suicide-prevention screen.
+ *
+ * The rule belongs beside the state machine that produces the states, not in whatever renders them.
+ * This is that rule, stated once.
+ *
+ * WHY AN EXHAUSTIVE SWITCH RATHER THAN A LIST. A `readonly ContactState[]` of non-sendable states
+ * is a list someone has to remember to extend. This does not compile at all when a member is added
+ * to `ContactState` and left unclassified, so a new state cannot default into "will be sent".
+ *
+ * `EpisodeCounts.contactsScheduled` is deliberately NOT redefined in terms of this. It counts
+ * entries whose `planned.suppressed` is undefined, other things may read it, and silently changing
+ * what an existing number means would be a second defect wearing the first one's clothes. Its own
+ * divergence -- a contact suppressed by a later transition still counts as scheduled -- is filed
+ * separately.
+ */
+export type ContactSendability = "alreadySent" | "stillToSend" | "willNotBeSent";
+
+export function contactSendability(state: ContactState): ContactSendability {
+  switch (state) {
+    case "scheduled":
+    case "processing":
+      return "stillToSend";
+    case "sent":
+    case "delivered":
+    case "notDelivered":
+    case "numberInvalid":
+    case "contactChanged":
+    case "statusUnavailable":
+      return "alreadySent";
+    // A missed contact sent nothing and is never retried; `applyContactTransition`'s own note says
+    // so. It belongs with suppressed and cancelled, not with the sends.
+    case "missed":
+    case "suppressed":
+    case "cancelled":
+      return "willNotBeSent";
+    default: {
+      const unclassified: never = state;
+      return unclassified;
+    }
+  }
+}
+
+// Ties the classification above to the two facts this module already held, rather than leaving
+// three overlapping descriptions of the same state machine to drift apart. Load-time, and thrown
+// rather than asserted in a test, for the same reason `schedule.ts` checks its send window here:
+// a build that got this wrong must not start.
+for (const state of DISPATCHED_CONTACT_STATES) {
+  if (contactSendability(state) !== "alreadySent") {
+    throw new Error(`caring-contacts model: dispatched contact state ${state} is not classified as already sent`);
+  }
+}
+for (const state of TERMINAL_CONTACT_STATES) {
+  if (contactSendability(state) === "stillToSend") {
+    throw new Error(`caring-contacts model: terminal contact state ${state} is classified as still to send`);
+  }
+}

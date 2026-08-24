@@ -4,8 +4,15 @@ import Link from "next/link";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import type { Episode } from "@/lib/caring-contacts/episode";
-import type { ContactState, MessageType, PlanState } from "@/lib/caring-contacts/model";
-import type { PatientNameProjection, PlanOutcome, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
+import { contactSendability, type ContactState, type MessageType, type PlanState } from "@/lib/caring-contacts/model";
+import {
+  summariseStoredContacts,
+  type PatientNameProjection,
+  type PlanOutcome,
+  type PlanRecord,
+  type StoredContact,
+  type StoredContactSummary,
+} from "@/lib/caring-contacts/repository";
 
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
@@ -319,8 +326,12 @@ function EpisodeOverview({
 }) {
   const name = episode !== null && episode.patientName !== "" ? episode.patientName : null;
   const entries = [...record.contacts].sort((left, right) => left.planned.sequence - right.planned.sequence);
-  const suppressedEntries = entries.filter((entry) => entry.contact.state === "suppressed");
-  const sendable = entries.length - suppressedEntries.length;
+  // The counts come from the domain (`summariseStoredContacts` -> `contactSendability`), not from
+  // a predicate written here. The first version of this screen counted "not suppressed" as "will
+  // be sent", which is narrower than the truth and wrong on a path ordinary writes reach:
+  // `withdrawPlan` and `recordHospitalStatusEvent` cancel every unsent contact, so a withdrawn
+  // plan -- or one stopped by a recorded death -- was announced as ten messages still to come.
+  const summary = summariseStoredContacts(entries);
   const firstContact = entries.find((entry) => entry.planned.messageType === "first") ?? entries[0];
 
   return (
@@ -450,9 +461,7 @@ function EpisodeOverview({
               data-testid="caring-contacts-schedule-summary"
               className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]"
             >
-              {suppressedEntries.length === 0
-                ? `${plural(entries.length, "entry", "entries")}, and every one of them will be sent.`
-                : `${plural(entries.length, "entry", "entries")}: ${sendable} that will be sent, and ${suppressedEntries.length} that will not.`}
+              {scheduleSummarySentence(summary)}
             </p>
           </div>
           {/*
@@ -471,7 +480,7 @@ function EpisodeOverview({
 
         <ul aria-label="Twelve-month schedule" className="mt-4 flex min-w-0 flex-col gap-3">
           {entries.map((entry) => (
-            <ScheduleEntry key={entry.contact.id} entry={entry} />
+            <ScheduleEntry key={entry.contact.id} entry={entry} plan={record} />
           ))}
         </ul>
 
@@ -547,10 +556,21 @@ function FirstContact({ record, firstContact }: { record: PlanRecord; firstConta
   );
 }
 
-/** One entry in the schedule: what it is, when it goes, and — if it will not go — why not. */
-function ScheduleEntry({ entry }: { entry: StoredContact }) {
-  const suppressed = entry.contact.state === "suppressed";
-  const absorbed = entry.planned.suppressed?.reason === "absorbedByFirstContact";
+/**
+ * One entry in the schedule: what it is, when it goes, and — if it will not go — why not.
+ *
+ * The explanation covers every state the domain classifies as `willNotBeSent`, not suppression
+ * alone. Ruling 98 named only the absorbed Week 1, but a contact CANCELLED when a plan was
+ * withdrawn or a death was recorded is just as much the system having acted on its own, and spec
+ * 4.4 does not care which of them it is: a row reading "Caring contact · Cancelled" with nothing
+ * beside it is the bare status chip that rule exists to prevent.
+ *
+ * `plan` is passed for one reason: a cancelled contact on a plan that has ENDED can be explained
+ * exactly, while a cancelled contact on a plan still running cannot, and the row must not claim the
+ * first when it is looking at the second.
+ */
+function ScheduleEntry({ entry, plan }: { entry: StoredContact; plan: PlanRecord }) {
+  const explanation = notSentExplanation(entry, plan);
 
   return (
     <li className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3 forced-colors:border-[CanvasText]">
@@ -565,23 +585,15 @@ function ScheduleEntry({ entry }: { entry: StoredContact }) {
           The last message in the plan. It closes the twelve months and is not one more caring contact.
         </p>
       ) : null}
-      {suppressed ? (
+      {explanation === null ? null : (
         <div className="mt-2 min-w-0">
           <AutomatedState
-            state="Suppressed"
-            because={
-              absorbed
-                ? "This message falls on the same calendar day as this plan's first contact, and two caring contacts must never land on one day, so the schedule kept one of them."
-                : "The system marked this message suppressed, and this screen does not hold what caused that."
-            }
-            changedBy={
-              absorbed
-                ? "Choosing a different first-contact date for this plan puts this message back into the schedule."
-                : "Nothing here. A suppressed message is final and is never sent later; the plan continues with the messages that remain."
-            }
+            state={CONTACT_STATE_LABELS[entry.contact.state]}
+            because={explanation.because}
+            changedBy={explanation.changedBy}
           />
         </div>
-      ) : null}
+      )}
     </li>
   );
 }
@@ -655,6 +667,78 @@ function NoNameHeldNotice() {
       </p>
     </div>
   );
+}
+
+/**
+ * What is true of this plan's schedule, said in plain words and never as a claim about the future
+ * that the plan itself has already falsified.
+ *
+ * "Every one of them will be sent" was the first version, and a withdrawn plan made it false: the
+ * sentence has to be derived from all three buckets, not from the absence of one of them. The
+ * single-bucket wordings exist because "10 entries: 10 still to send." is arithmetic rather than a
+ * sentence, and this is the line a clinician reads first.
+ */
+function scheduleSummarySentence(summary: StoredContactSummary): string {
+  const entries = plural(summary.total, "entry", "entries");
+  if (summary.total === 0) return "This plan holds no schedule entries.";
+  if (summary.willNotBeSent === summary.total) return `${entries}, and none of them will be sent.`;
+  if (summary.stillToSend === summary.total) return `${entries}, and every one of them is still to be sent.`;
+  if (summary.alreadySent === summary.total) return `${entries}, and every one of them has been sent.`;
+
+  const parts: string[] = [];
+  if (summary.alreadySent > 0) parts.push(`${summary.alreadySent} already sent`);
+  if (summary.stillToSend > 0) parts.push(`${summary.stillToSend} still to send`);
+  if (summary.willNotBeSent > 0) parts.push(`${summary.willNotBeSent} that will not be sent`);
+  const last = parts.pop() as string;
+  return `${entries}: ${[...parts, `and ${last}`].join(", ")}.`;
+}
+
+/**
+ * Why this message will not be sent, and what would change it — or null when it still will be.
+ *
+ * Every branch says only what this screen actually holds. A cancelled contact on an ENDED plan is
+ * explained by the ending, which the record does carry; a cancelled contact on a plan still running
+ * is not, and says so rather than inventing a cause. Neither claims a remedy that does not exist:
+ * suppression by absorption is the one reversible case here, and it is the only one offered.
+ */
+function notSentExplanation(entry: StoredContact, plan: PlanRecord): { because: string; changedBy: string } | null {
+  if (contactSendability(entry.contact.state) !== "willNotBeSent") return null;
+
+  const finalAndNeverResent =
+    "Nothing here. This message is final and is never sent later; the plan continues with the messages that remain.";
+
+  if (entry.contact.state === "suppressed") {
+    return entry.planned.suppressed?.reason === "absorbedByFirstContact"
+      ? {
+          because:
+            "This message falls on the same calendar day as this plan's first contact, and two caring contacts must never land on one day, so the schedule kept one of them.",
+          changedBy: "Choosing a different first-contact date for this plan puts this message back into the schedule.",
+        }
+      : {
+          because: "The system marked this message suppressed, and this screen does not hold what caused that.",
+          changedBy: finalAndNeverResent,
+        };
+  }
+
+  if (entry.contact.state === "cancelled") {
+    return {
+      because: isTerminalOutcome(plan.outcome)
+        ? `This plan ended (${PLAN_OUTCOME_LABELS[plan.outcome].toLowerCase()}), and the system cancelled every message that had not already gone out.`
+        : "The system cancelled this message, and this screen does not hold what caused that.",
+      changedBy: finalAndNeverResent,
+    };
+  }
+
+  return {
+    because:
+      "The window for sending this message closed without the message going out, so the system recorded it as missed.",
+    changedBy: finalAndNeverResent,
+  };
+}
+
+/** Whether the plan has ended. `"inProgress"` is the one outcome that is not an ending. */
+function isTerminalOutcome(outcome: PlanOutcome): boolean {
+  return outcome !== "inProgress";
 }
 
 function plural(count: number, one: string, many: string): string {
