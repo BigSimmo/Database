@@ -97,10 +97,11 @@ import { UnavailableDestination } from "./unavailable-destination";
  * ---------------------------------------------------------------
  * A suppressed entry and a moved first contact are both things the reader will otherwise have to
  * account for by guessing. Each carries its reason beside it, in plain words, on the same screen.
- * The moved first contact's RECORDED reason is a known gap rather than an omission: the domain
- * validates `firstContactReason` in `buildApprovedSchedule` and neither store persists it, so
- * there is nowhere for this screen to read it from. The note says exactly that rather than leaving
- * a moved date unexplained.
+ * The moved first contact's RECORDED reason is now held with the plan and shown here verbatim
+ * (Ruling 105): it travels on the episode rather than on the plan record, because it is free text
+ * a clinician wrote about this patient. When none is held the screen says WHICH absence it is
+ * looking at — a role that may not read the episode, a retention clearance, or a plan older than
+ * the field — rather than reporting one absence for three different facts. See `FirstContact`.
  *
  * A Server Component with no hooks and no client boundary (Ruling 13). The chooser is a set of
  * `<Link>`s that put the choice in the URL; nothing on this screen needs JavaScript to work, and
@@ -472,7 +473,7 @@ function EpisodeOverview({
 
         {firstContact === undefined ? null : (
           <div data-testid="caring-contacts-first-contact" className="mt-3 min-w-0">
-            <FirstContact record={record} firstContact={firstContact} />
+            <FirstContact record={record} episode={episode} firstContact={firstContact} />
           </div>
         )}
       </section>
@@ -532,20 +533,50 @@ function EpisodeOverview({
 }
 
 /**
- * The first contact date, and — when it is not the programme's usual day — the fact that it moved.
+ * The first contact date, and — when it is not the programme's usual day — why it moved.
  *
  * Ruling 96 puts the CONTROL on the review-and-activation screen (Tasks 7-9) and the DISPLAY here.
  * Spec 4.4 makes the display a contract: wherever an earlier decision has moved something, the
- * surface stating it must also state why, in plain words, where the reader is looking.
+ * surface stating it must also state why, in plain words, where the reader is looking. So the
+ * reason is rendered IN PLACE beside the date — a reason reachable only by hovering has not been
+ * stated.
  *
- * The recorded reason cannot be shown, and that is a real gap rather than an omission. A moved
- * first contact IMPLIES a reason was given: `buildApprovedSchedule` refuses any offset other than
- * discharge + 1 unless `firstContactReason` is non-blank. But neither store persists that string —
- * it is validated and discarded, reaching no field of `StoredPlan` and no column of
- * `caring_contacts.plans` — so there is nowhere for this screen to read it from. The note says
- * that, rather than leaving a moved date standing unexplained or inventing a place to keep it.
+ * THE REASON COMES FROM THE EPISODE, WHICH IS WHY THIS TAKES ONE (Ruling 105)
+ * ---------------------------------------------------------------------------
+ * It is free text a clinician wrote about this patient, so it is held with the name, the mobile
+ * number and the identifiers, and released by the one read that releases those. It is deliberately
+ * NOT on `PlanRecord`: that is what the caseload renders for every patient in the team, and a
+ * clinical note has no business being fetched for a list screen. `record` therefore cannot answer
+ * this question and `episode` can, which is exactly the shape the placement was chosen for.
+ *
+ * FOUR CASES, AND THEY ARE DIFFERENT FACTS (Ruling 108)
+ * ----------------------------------------------------
+ * A moved date with nothing beside it has more than one cause, and this screen states which one it
+ * is holding rather than picking the tidiest:
+ *
+ *   * the date is the usual day — no reason was ever required, so none is missing;
+ *   * a reason is held — show it, verbatim, beside the date;
+ *   * the episode was not released to this role — the plan is visible and the person is not, so the
+ *     reason is not this screen's to show and its absence says nothing about whether one exists;
+ *   * the episode was released and holds no reason — either a retention clearance removed it with
+ *     the rest of the patient detail, which this screen can tell from the blank name exactly as
+ *     `NoNameHeldNotice` does, or the plan predates the reason being kept at all.
+ *
+ * That last case is real and will persist: plans created before this field existed hold null
+ * forever, and no placeholder was migrated into them. It is stated as the record's own history, not
+ * as a coordinator having failed to give a reason — one WAS required and given, because
+ * `buildApprovedSchedule` refuses any offset other than discharge + 1 without a non-blank one.
+ * There was simply nowhere to keep it.
  */
-function FirstContact({ record, firstContact }: { record: PlanRecord; firstContact: StoredContact }) {
+function FirstContact({
+  record,
+  episode,
+  firstContact,
+}: {
+  record: PlanRecord;
+  episode: Episode | null;
+  firstContact: StoredContact;
+}) {
   const day = firstContact.planned.calendarDay;
   const offset = calendarDaysBetween(awstCalendarDay(record.dischargeAt), day);
 
@@ -559,6 +590,8 @@ function FirstContact({ record, firstContact }: { record: PlanRecord; firstConta
   }
 
   const heading = "First contact moved from the usual day";
+  const moved = `This plan's first contact is ${day}, ${plural(offset, "day", "days")} after discharge rather than the usual one.`;
+
   return (
     <>
       <p className="text-sm leading-6 text-[color:var(--text-muted)]">
@@ -574,18 +607,98 @@ function FirstContact({ record, firstContact }: { record: PlanRecord; firstConta
           <CalendarClock aria-hidden="true" className="size-icon-md shrink-0" />
           <span className="min-w-0">{heading}</span>
         </p>
+        <FirstContactReason moved={moved} episode={episode} />
+      </div>
+    </>
+  );
+}
+
+/**
+ * The "Why" and "What changes it" pair inside the moved-first-contact note.
+ *
+ * Split out so each of the four cases is one branch returning one pair, rather than a nest of
+ * conditionals inside the markup. The wording of each is the point of this component: they are four
+ * different statements about what the record holds, and collapsing any two of them would make the
+ * screen say something it does not know.
+ */
+function FirstContactReason({ moved, episode }: { moved: string; episode: Episode | null }) {
+  const reason = episode === null ? null : episode.firstContactReason;
+
+  // A reason is held. It is a clinician's own words, so it is rendered verbatim and attributed,
+  // never paraphrased or summarised into the sentence around it.
+  if (reason !== null) {
+    return (
+      <>
         <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
           <span className="font-medium text-[color:var(--text)]">Why: </span>
-          This plan&rsquo;s first contact is {day}, {plural(offset, "day", "days")} after discharge rather than the
-          usual one. A coordinator has to give a reason before a plan can be created with a moved first contact, and one
-          was given for this plan — but the reason is not kept with the plan, so this screen has nothing to show you.
+          {moved} The coordinator who created it gave this reason: &ldquo;{reason}&rdquo;
         </p>
         <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
           <span className="font-medium text-[color:var(--text)]">What changes it: </span>
-          Nothing on this screen. The reason is checked when the plan is created and then discarded, so there is nowhere
-          for this screen to read it from. Keeping it with the plan is outstanding work on this prototype.
+          Nothing on this screen. The date and its reason are set when the plan is created, and the rest of the
+          twelve-month schedule hangs off the discharge day rather than off this date, so moving it moves this message
+          alone.
         </p>
-      </div>
+      </>
+    );
+  }
+
+  // The role may list plans but may not read an episode, so the reason was never released to this
+  // screen. Its absence is a fact about the ACTOR and says nothing about what the plan holds --
+  // decided by the page from the actor, exactly as `EpisodeNotPermittedNotice` above is.
+  if (episode === null) {
+    return (
+      <>
+        <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+          <span className="font-medium text-[color:var(--text)]">Why: </span>
+          {moved} A coordinator has to give a reason before a plan can be created with a moved first contact. That
+          reason is part of this patient&rsquo;s record, which is not visible in the role you are acting in, so this
+          screen is not showing it — that says nothing about whether one is held.
+        </p>
+        <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+          <span className="font-medium text-[color:var(--text)]">What changes it: </span>
+          Nothing on this screen, and there is no control for it anywhere in this workspace yet. The role this
+          demonstration acts in is set outside the interface.
+        </p>
+      </>
+    );
+  }
+
+  // The episode WAS released and holds no reason. A blank name is the retention clearance's own
+  // value, and this screen may read it as the clearance for the same reason `NoNameHeldNotice`
+  // does: an actor who may not read an episode receives no episode at all, so a blank name here can
+  // only be the clearance.
+  if (episode.patientName === "") {
+    return (
+      <>
+        <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+          <span className="font-medium text-[color:var(--text)]">Why: </span>
+          {moved} A coordinator has to give a reason before a plan can be created with a moved first contact, and one
+          was given for this plan. A retention clearance has since removed it, along with the name, the mobile number,
+          the identifiers and the cultural identity — the reason is a clinician&rsquo;s free text about this patient,
+          so it is removed with the rest of them.
+        </p>
+        <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+          <span className="font-medium text-[color:var(--text)]">What changes it: </span>
+          Nothing, here or anywhere. A clearance is not reversible, and the date above is what the record still holds.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">Why: </span>
+        {moved} A coordinator has to give a reason before a plan can be created with a moved first contact, and one was
+        given for this plan. It is not held: this plan was created before reasons were kept with the plan, so there was
+        nowhere to put it. Nobody failed to give one.
+      </p>
+      <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+        <span className="font-medium text-[color:var(--text)]">What changes it: </span>
+        Nothing, for this plan. Reasons given from now on are kept with the plan and shown here; an older plan cannot
+        gain one after the fact, and inventing a sentence to fill the gap would be worse than the gap.
+      </p>
     </>
   );
 }
@@ -758,7 +871,14 @@ function notSentExplanation(entry: StoredContact, plan: PlanRecord): { because: 
     return {
       because: isTerminalOutcome(plan.outcome)
         ? `This plan ended (${PLAN_OUTCOME_LABELS[plan.outcome].toLowerCase()}), and the system cancelled every message that had not already gone out.`
-        : "The system cancelled this message, and this screen does not hold what caused that.",
+        : // DEFENSIVE, and unreachable through any store write today (established in Task 6's
+          // review). Every `{ type: "cancel" }` in the domain travels with a plan transition to
+          // `cancelled` or `withdrawn`, and `applyDeathCorrection` deliberately leaves the plan
+          // cancelled when it undoes one — so a cancelled contact on a plan still in progress has
+          // no path that produces it. The branch stays because the alternative is asserting a
+          // combination the types permit, and this wording is what the screen should say if a
+          // future write ever creates one. Do not go hunting for the path: there isn't one.
+          "The system cancelled this message, and this screen does not hold what caused that.",
       changedBy: finalAndNeverResent,
     };
   }

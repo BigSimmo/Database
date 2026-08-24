@@ -109,7 +109,6 @@ import {
   type CreateReferralInput,
   type DispatchDiscrepancyResolution,
   type DispatchRecord,
-  type EpisodePatientDetail,
   type HospitalStatusInput,
   type HospitalStatusOutcome,
   type PathwayVersionTransitionInput,
@@ -122,6 +121,7 @@ import {
   type ResolveDiscrepancyInput,
   type SavePathwayVersionInput,
   type StoredContact,
+  type StoredPatientDetail,
   type WithdrawPlanInput,
   type WriteContext,
 } from "../repository";
@@ -1070,12 +1070,17 @@ export function createPostgresRepository(
           });
           if (!schedule.ok) return schedule;
 
+          // `first_contact_reason` is written from the SCHEDULE's accepted value, never from
+          // `input.firstContactReason`: whether a reason was required is ../schedule's rule, and a
+          // store re-deriving it would be a second copy of that rule free to disagree with the
+          // in-memory one. The column is deliberately absent from `PLAN_COLUMNS`, so no list read
+          // fetches it -- see `getEpisode`, the one read that selects it.
           await connection.query(
             `insert into caring_contacts.plans
                (id, team_id, patient_id, referral_id, pathway_version_id, state, version, outcome,
                 discharge_at, completed_at, sending_preference, patient_name, patient_mobile_number,
-                patient_identifiers)
-             values ($1, $2, $3, $4, $5, 'draft', 1, 'inProgress', $6, null, $7, $8, $9, $10)`,
+                patient_identifiers, first_contact_reason)
+             values ($1, $2, $3, $4, $5, 'draft', 1, 'inProgress', $6, null, $7, $8, $9, $10, $11)`,
             [
               input.planId,
               actor.teamId,
@@ -1087,6 +1092,7 @@ export function createPostgresRepository(
               input.patientDetail.patientName,
               input.patientDetail.patientMobileNumber,
               [...input.patientDetail.patientIdentifiers],
+              schedule.firstContactReason,
             ],
           );
 
@@ -2077,19 +2083,29 @@ export function createPostgresRepository(
           // rather than a later sweep, so a committed clearance record and un-cleared detail cannot
           // coexist: if the de-identification fails, the record does not commit either.
           //
-          // The four fields are exactly ../retention's list. `patient_name` and
+          // The four identifying fields are exactly ../retention's list. `patient_name` and
           // `patient_mobile_number` are `not null` in the schema, so the cleared value is the empty
           // string ../repository fixes for both stores; cultural identity lives in its own
           // projection and is DELETED, because that table holds nothing but the identity itself.
+          //
+          // `first_contact_reason` is the fifth (Ruling 105). It is not on ../retention's list,
+          // because that list names what identifies a patient and this names a scheduling decision
+          // -- but the VALUE is free text a clinician wrote about this patient, so leaving it would
+          // keep identifying prose in a record this write reports as de-identified. Every value
+          // comes from `CLEARED_PATIENT_DETAIL` rather than being spelled out here, so the two
+          // stores clear to one shape; the column list beside it is what no type can check, which
+          // is why the shared contract suite asserts this reason is gone from BOTH stores.
           await connection.query(
             `update caring_contacts.plans
-                set patient_name = $2, patient_mobile_number = $3, patient_identifiers = $4
+                set patient_name = $2, patient_mobile_number = $3, patient_identifiers = $4,
+                    first_contact_reason = $5
               where id = $1`,
             [
               input.planId,
               CLEARED_PATIENT_DETAIL.patientName,
               CLEARED_PATIENT_DETAIL.patientMobileNumber,
               [...CLEARED_PATIENT_DETAIL.patientIdentifiers],
+              CLEARED_PATIENT_DETAIL.firstContactReason,
             ],
           );
           await connection.query("delete from caring_contacts.cultural_identity_reports where plan_id = $1", [
@@ -2203,11 +2219,25 @@ export function createPostgresRepository(
         );
         const culturalIdentity = cultural.rows[0] ? textOf(cultural.rows[0].cultural_identity) : null;
 
-        const detail: EpisodePatientDetail = {
+        // The first-contact reason is selected HERE and only here, by name, rather than being added
+        // to `PLAN_COLUMNS`. That list is what `readPlanRecord` and `listPlans` select, so a reason
+        // added to it would be pulled for the team's whole caseload on every render of a list
+        // screen -- the narrowing `listPatientNames` argues for, applied in the query rather than
+        // only in the mapping afterwards. It is inside `runRead`, so it carries the team preamble
+        // and row-level security decides whether the row is this actor's to read at all.
+        const reasonRow = await connection.query(
+          "select first_contact_reason from caring_contacts.plans where id = $1",
+          [planId],
+        );
+        const reasonValue = reasonRow.rows[0]?.first_contact_reason;
+        const firstContactReason = isAbsent(reasonValue) ? null : textOf(reasonValue);
+
+        const detail: StoredPatientDetail = {
           patientName: textOf(planRow.patient_name),
           patientMobileNumber: textOf(planRow.patient_mobile_number),
           patientIdentifiers: [...((planRow.patient_identifiers as string[] | null) ?? [])],
           culturalIdentity,
+          firstContactReason,
         };
         const states = contactRows.map((row) => textOf(row.state) as ContactState);
 
@@ -2217,6 +2247,7 @@ export function createPostgresRepository(
           patientMobileNumber: detail.patientMobileNumber,
           patientIdentifiers: detail.patientIdentifiers,
           culturalIdentity: detail.culturalIdentity,
+          firstContactReason: detail.firstContactReason,
           planDates: {
             dischargeAt: instantOf(planRow.discharge_at),
             completedAt:

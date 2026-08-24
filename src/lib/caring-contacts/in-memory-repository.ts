@@ -552,6 +552,11 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
               patientMobileNumber: input.patientDetail.patientMobileNumber,
               patientIdentifiers: [...input.patientDetail.patientIdentifiers],
               culturalIdentity: input.patientDetail.culturalIdentity,
+              // The reason the SCHEDULE accepted, never `input.firstContactReason` directly: only
+              // that module knows whether a reason was required, and it hands back the trimmed
+              // string or null accordingly. Reading the input here would store text this domain
+              // refused, or text it never looked at.
+              firstContactReason: schedule.firstContactReason,
             },
           };
           return {
@@ -1269,6 +1274,12 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           // them back afterwards -- while anything reading the clearance record concluded they had
           // been removed. A record named "cleared" must mean cleared, and it happens in the same
           // staged commit as the record so the two can never come apart.
+          //
+          // The whole constant is spread rather than its fields being named one at a time, so a
+          // field added to `StoredPatientDetail` is cleared here without this line being touched.
+          // That is how `firstContactReason` (Ruling 105) arrived already cleared in this store;
+          // the Postgres store names columns in SQL and had to be edited, which is why the
+          // clearance is pinned by the shared contract suite rather than by this shape alone.
           const clearedAt = clock.now();
           const cleared: StoredPlan = { ...stored, patientDetail: { ...CLEARED_PATIENT_DETAIL } };
           return {
@@ -1340,6 +1351,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         patientMobileNumber: stored.patientDetail.patientMobileNumber,
         patientIdentifiers: [...stored.patientDetail.patientIdentifiers],
         culturalIdentity: stored.patientDetail.culturalIdentity,
+        firstContactReason: stored.patientDetail.firstContactReason,
         planDates: {
           dischargeAt: new Date(stored.dischargeAt.getTime()),
           completedAt: stored.completedAt === null ? null : new Date(stored.completedAt.getTime()),

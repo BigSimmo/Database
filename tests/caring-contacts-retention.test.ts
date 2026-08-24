@@ -65,6 +65,9 @@ function baseEpisode(overrides: Partial<Episode> = {}): Episode {
     patientMobileNumber: "+61 491 570 156",
     patientIdentifiers: ["UR-00219384", "MRN-778213"],
     culturalIdentity: "Aboriginal",
+    // Free text a clinician wrote about this patient, so de-identification must drop it with the
+    // other identifying fields rather than carry it into the reporting projection.
+    firstContactReason: "Patient asked to wait until she is home from her sister's.",
     planDates: {
       dischargeAt: new Date("2019-08-05T02:00:00.000Z"),
       completedAt: new Date("2019-08-19T02:00:00.000Z"), // 2019-08-19 10:00 AWST
@@ -215,6 +218,12 @@ describe("rule 3: deidentifyEpisode", () => {
     expect(deidentified).not.toHaveProperty("patientMobileNumber");
     expect(deidentified).not.toHaveProperty("patientIdentifiers");
     expect(deidentified).not.toHaveProperty("culturalIdentity");
+    // The fifth field (Ruling 105). It is not on this module's own list, because that list names
+    // what identifies a patient and this names a scheduling decision -- but its VALUE is prose a
+    // clinician typed about this patient, so a de-identified episode carrying it would be
+    // de-identified in name only.
+    expect(deidentified).not.toHaveProperty("firstContactReason");
+    expect(JSON.stringify(deidentified)).not.toContain("sister");
   });
 
   it("retains plan dates, pathway version, team, outcome, and counts", () => {

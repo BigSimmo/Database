@@ -23,8 +23,10 @@
 // every write returns a `PlanRecord`, `StoredContact`, `Referral`, `PathwayVersion`,
 // `PlanAssignment`, `DispatchRecord`, `ServiceState`, `NotificationPreferences`, `TrainingRecord`
 // or `void`, and no write returns any of `StoredPlan`'s `patientDetail`. That detail is released by
-// READS alone, and only by two of them: `getEpisode`, which releases all four fields together, and
-// `listPatientNames`, which releases the name and structurally cannot release the rest. A new write
+// READS alone, and only by two of them: `getEpisode`, which releases every field of it together --
+// including the free-text first-contact reason, which is why that reason is filed there rather than
+// on the plan -- and `listPatientNames`, which releases the name and structurally cannot release
+// anything else. A new write
 // that would put anything else identifying in a result needs a NARROWER RETURN TYPE, not a filter on
 // the way into storage: the stored result is the answer a replay must return, so filtering it makes
 // a genuine retry receive less than the first call did.
@@ -91,11 +93,48 @@ import type { PlannedContact } from "./schedule";
 type SameUnion<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 export const EPISODE_STATE_MATCHES_PLAN_STATE: SameUnion<PlanState, EpisodeState> = true;
 
-/** The patient-identifying half of an `Episode`, taken from that type so it cannot drift from it. */
+/** `true` only while `T` has no property called `K`. Used below to pin a shape's ABSENCES. */
+type LacksKey<T, K extends string> = K extends keyof T ? never : true;
+
+/**
+ * The four fields that say who the patient is. A CALLER supplies exactly these, which is why
+ * `CreatePlanInput.patientDetail` still names this type rather than the wider stored one below.
+ *
+ * Taken from `Episode` so it cannot drift from it.
+ */
 export type EpisodePatientDetail = Pick<
   Episode,
   "patientName" | "patientMobileNumber" | "patientIdentifiers" | "culturalIdentity"
 >;
+
+/**
+ * Everything a stored plan holds ABOUT ITS PATIENT: the four identifying fields above, plus the
+ * free-text reason a coordinator gave for moving the first contact off the programme's usual day.
+ *
+ * WHY THE REASON IS FILED HERE, AND NOT BESIDE THE PLAN DATES (Ruling 105). It is not a fact about
+ * the person the way a name is; it is a fact about a scheduling decision. But it is PROSE A
+ * CLINICIAN TYPED, and a real one reads "patient asked to wait until she is home from her
+ * sister's" -- relatives, places, living arrangements. Judged by what it contains rather than by
+ * what it is about, it belongs with the name, and that placement buys two guarantees that a field
+ * sitting beside `dischargeAt` would not have had:
+ *
+ *   * IT CANNOT REACH A LIST READ. `StoredPlan` is `PlanRecord` plus this; `PlanRecord` is what
+ *     `listPlans` returns and what the caseload renders for every patient in the team, and
+ *     `toPlanRecord` in each store is the one function that crosses the line. A free-text clinical
+ *     note fetched for a list screen was Task 5b's whole argument.
+ *     `PLAN_RECORD_HOLDS_NO_FIRST_CONTACT_REASON` below turns that from a habit into a compile
+ *     error.
+ *   * A CLEARANCE CANNOT FORGET IT. `CLEARED_PATIENT_DETAIL` is declared as this type, so adding a
+ *     field here and not to that constant stops the module compiling. That is the failure this
+ *     placement exists to make impossible: the clearance blanks a fixed list of fields, and a
+ *     fifth one added anywhere else would have been left behind -- leaving identifying prose in a
+ *     record the system reports as de-identified.
+ *
+ * The compile error covers the CONSTANT, not the two stores' writes: the Postgres store names its
+ * columns in SQL, which no type can check. That half is pinned by the shared contract suite, which
+ * clears a plan and asserts the reason is gone from both stores.
+ */
+export type StoredPatientDetail = EpisodePatientDetail & Pick<Episode, "firstContactReason">;
 
 /**
  * Seeds the running-service singleton before any stop has ever been raised. It names no real
@@ -245,15 +284,23 @@ export function outcomeFor(state: PlanState): PlanOutcome {
  * It lives on the contract rather than in either store because the clearance is the one write whose
  * WHOLE meaning is what is no longer held: two stores clearing to two different shapes would be two
  * different answers to "was this episode de-identified", and the contract could only catch the
- * difference where it happened to look. The four fields are exactly ../retention's list — name,
- * mobile number, identifiers, cultural identity — and `Episode` types the first two as `string`
- * rather than `string | null`, so an emptied field is the cleared value.
+ * difference where it happened to look. The four identifying fields are exactly ../retention's list
+ * — name, mobile number, identifiers, cultural identity — and `Episode` types the first two as
+ * `string` rather than `string | null`, so an emptied field is the cleared value.
+ *
+ * `firstContactReason` is the fifth, and it is not on ../retention's list because that list names
+ * what identifies a patient and this names a scheduling decision. It is cleared all the same: the
+ * VALUE is free text a clinician wrote about this patient (see `StoredPatientDetail`), and an
+ * episode reported as de-identified while still holding that prose would be the worst outcome this
+ * constant can produce. It clears to null rather than to `""`, because `Episode` types it as
+ * `string | null` and null is already what "no reason held" means everywhere else.
  */
-export const CLEARED_PATIENT_DETAIL: EpisodePatientDetail = Object.freeze({
+export const CLEARED_PATIENT_DETAIL: StoredPatientDetail = Object.freeze({
   patientName: "",
   patientMobileNumber: "",
   patientIdentifiers: Object.freeze([]),
   culturalIdentity: null,
+  firstContactReason: null,
 });
 
 /**
@@ -318,8 +365,23 @@ export type PlanRecord = {
   contacts: readonly StoredContact[];
 };
 
+/**
+ * Pins `PlanRecord` as holding no first-contact reason (Ruling 105).
+ *
+ * The sibling of `PATIENT_NAME_PROJECTION_RELEASES_ONLY_THE_NAME` below, and the same argument
+ * pointed the other way: that one pins a shape to the two fields it MAY hold, this one pins a
+ * shape against one field it may NOT. `PlanRecord` is the caseload's read, so a reason added to it
+ * would be fetched for every patient in the team on every render of a list screen -- and it would
+ * typecheck, pass every existing test, and be described by its own name as a plan record.
+ *
+ * A guard rather than a comment because `StoredPlan` is `PlanRecord & …`: the natural place for a
+ * later editor to put a new plan-level field is the record, and that is exactly where it must not
+ * go.
+ */
+export const PLAN_RECORD_HOLDS_NO_FIRST_CONTACT_REASON: LacksKey<PlanRecord, "firstContactReason"> = true;
+
 /** What the datastore holds. The patient detail is released only through `getEpisode`. */
-export type StoredPlan = PlanRecord & { patientDetail: EpisodePatientDetail };
+export type StoredPlan = PlanRecord & { patientDetail: StoredPatientDetail };
 
 /**
  * One plan's patient NAME, and the plan it belongs to. The whole of what `listPatientNames`
@@ -353,6 +415,13 @@ export type PatientNameProjection = { planId: PlanId; patientName: string };
  * Pins the projection's fields to exactly those two. Adding `patientMobileNumber`,
  * `patientIdentifiers` or `culturalIdentity` -- or anything else -- stops this line compiling, so
  * the read cannot be widened quietly by someone who has not read the paragraph above.
+ *
+ * It held unchanged when `firstContactReason` was added to the stored detail (Ruling 105), because
+ * this type is declared field by field rather than derived from the detail: a fifth stored field
+ * reaches it only if someone writes it here, and writing it here breaks this line. It therefore
+ * needed no sibling of its own. `PLAN_RECORD_HOLDS_NO_FIRST_CONTACT_REASON` above is the sibling
+ * the new field DID need, for the one shape that is derived by intersection and so could have
+ * gained it silently.
  */
 export const PATIENT_NAME_PROJECTION_RELEASES_ONLY_THE_NAME: SameUnion<
   keyof PatientNameProjection,

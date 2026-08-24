@@ -29,7 +29,20 @@ export type PlannedContact = {
   suppressed?: { reason: "absorbedByFirstContact" };
 };
 
-export type ScheduleResult = { ok: true; contacts: PlannedContact[] } | { ok: false; reason: string };
+/**
+ * `firstContactReason` is the reason this function ACCEPTED, ready to be stored, or null when the
+ * plan holds none.
+ *
+ * It is published here rather than left for each store to work out from its own copy of the input,
+ * because deciding whether a reason is required is this module's rule and nowhere else's: the
+ * reason is demanded only when the first contact moves off the default day, and a store that
+ * re-derived "did it move?" would be a second copy of that rule, free to disagree with this one.
+ * Both stores then write exactly what was validated -- trimmed, and null when nothing was required
+ * -- so neither can persist a string this function refused or a string it never looked at.
+ */
+export type ScheduleResult =
+  | { ok: true; contacts: PlannedContact[]; firstContactReason: string | null }
+  | { ok: false; reason: string };
 
 /** Approved AWST wall-clock send hours. */
 const SEND_HOUR_BY_PREFERENCE: Record<SendingPreference, number> = {
@@ -73,6 +86,25 @@ const MONTH_OFFSETS = [1, 2, 3, 4, 6, 8, 10, 12] as const;
 const FIRST_CONTACT_DEFAULT_OFFSET_DAYS = 1;
 const FIRST_CONTACT_MIN_OFFSET_DAYS = 0;
 const FIRST_CONTACT_MAX_OFFSET_DAYS = 7;
+
+/**
+ * The longest first-contact reason this domain accepts, in characters after trimming (Ruling 106).
+ *
+ * Five hundred is a few sentences: enough for a coordinator to say what the ward agreed with the
+ * patient and why, and short enough that the field stays a reason rather than becoming a clinical
+ * note nobody reviews. It is a limit chosen to be generous, so hitting it is a signal that the
+ * wrong thing is being written here, not an obstacle to writing the right one.
+ *
+ * An over-long reason is REFUSED by its own name, never trimmed to fit. A clinical reason cut off
+ * mid-sentence can invert its meaning -- "not because the family objected" truncated after "not"
+ * says the opposite -- and nothing in the record would show that it had happened.
+ *
+ * The Postgres column carries a matching check. That is defence in depth, exactly as
+ * `isAwstCalendarDay` is against the schema's calendar-day pattern: the rule is enforced here,
+ * where the input arrives and where the refusal can be named, and the column is the backstop for a
+ * write that somehow reached it another way.
+ */
+export const FIRST_CONTACT_REASON_MAX_LENGTH = 500;
 
 const MILLISECONDS_PER_DAY = 86_400_000;
 const CALENDAR_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -169,6 +201,12 @@ export function buildApprovedSchedule(input: ScheduleInput): ScheduleResult {
 
   let firstContactDay = addCalendarDays(dischargeDay, FIRST_CONTACT_DEFAULT_OFFSET_DAYS);
 
+  // What this function accepted, for the store to persist. Null while the first contact is on the
+  // usual day: no reason was required then, so there is nothing the record is missing. A reason
+  // supplied alongside an unmoved date is deliberately NOT kept -- it explains nothing, and free
+  // text about a patient that no surface ever accounts for is text that should not be stored.
+  let acceptedReason: string | null = null;
+
   if (input.firstContactDate !== undefined) {
     const requested = parseCalendarDay(input.firstContactDate);
     if (!requested) return { ok: false, reason: "first-contact-invalid-date" };
@@ -179,8 +217,13 @@ export function buildApprovedSchedule(input: ScheduleInput): ScheduleResult {
     }
 
     const isDefault = offset === FIRST_CONTACT_DEFAULT_OFFSET_DAYS;
-    if (!isDefault && (input.firstContactReason ?? "").trim() === "") {
-      return { ok: false, reason: "first-contact-reason-required" };
+    if (!isDefault) {
+      const reason = (input.firstContactReason ?? "").trim();
+      if (reason === "") return { ok: false, reason: "first-contact-reason-required" };
+      if (reason.length > FIRST_CONTACT_REASON_MAX_LENGTH) {
+        return { ok: false, reason: "first-contact-reason-too-long" };
+      }
+      acceptedReason = reason;
     }
 
     firstContactDay = requested;
@@ -224,5 +267,5 @@ export function buildApprovedSchedule(input: ScheduleInput): ScheduleResult {
     }
   }
 
-  return { ok: true, contacts };
+  return { ok: true, contacts, firstContactReason: acceptedReason };
 }

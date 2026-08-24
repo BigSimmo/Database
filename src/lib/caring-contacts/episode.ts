@@ -31,6 +31,22 @@ export type Episode = {
   patientMobileNumber: string;
   patientIdentifiers: readonly string[];
   culturalIdentity: string | null;
+  /**
+   * Why this episode's first contact was moved off the programme's usual day, or null when no
+   * reason is held for it.
+   *
+   * It sits among the identifying fields rather than beside the plan dates because of what it
+   * CONTAINS, not what it describes: it is prose a clinician typed about this patient, and a real
+   * one names relatives, places and living arrangements. So it is released by the one read that
+   * releases a name, and removed by the one write that removes one. `DeidentifiedEpisode` below
+   * does not carry it, which is what makes a de-identified episode free of it.
+   *
+   * Null carries no single cause and must never be rendered as one. The date may never have been
+   * moved, the plan may predate the field existing, or a retention clearance may have removed it;
+   * a surface that can tell those apart says which, and one that cannot says only that no reason
+   * is held.
+   */
+  firstContactReason: string | null;
   planDates: EpisodePlanDates;
   pathwayVersionId: PathwayVersionId;
   teamId: TeamId;
