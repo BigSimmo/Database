@@ -56,6 +56,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   const isWarningLineMockup = pathname === "/mockups/warning-line";
   const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
+  // Every direction in this study draws its own top bar, transcript and
+  // composer inside phone/desktop frames — the reference system under review
+  // sits directly between them, so shared chrome would read as a second real
+  // header and a second real search bar over the study.
+  const isAnswerChatRedesignMockup = pathname === "/mockups/answer-chat-redesign";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -127,6 +132,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
+        !isAnswerChatRedesignMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
@@ -152,6 +158,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
+        !isAnswerChatRedesignMockup &&
         !isPrivacyPageDirectionsMockup &&
         !isPrivacyLiveSignalPerfectedMockup &&
         !isSearchLensMenuMockup &&
