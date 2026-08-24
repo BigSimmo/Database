@@ -52,8 +52,12 @@ describe("category identity registry", () => {
     );
     expect(source).toContain("APP_MODE_ACCENT");
     expect(source).toContain("data-category-accent={accent}");
-    expect(source).toContain("cardAccentEdge");
+    expect(source).not.toContain("cardAccentEdge");
     expect(source).toContain("search.statusLabel");
+    expect(source).toContain("bg-[color:var(--cat-soft)]");
+    expect(source).toContain("grid-cols-1");
+    expect(source).toContain("Also matches");
+    expect(source).not.toContain("Across Clinical KB");
   });
 
   it("tints library chips from APP_MODE_ACCENT", () => {

@@ -4,12 +4,11 @@ import Link from "next/link";
 import { ChevronDown, Layers } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
-import { cardAccentEdge } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches-state";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
-import { cn, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
@@ -125,6 +124,7 @@ export function UniversalSearchAlsoMatches({
       : matchCount > 0
         ? matchCountLabel(matchCount)
         : "No additional matches";
+  const desktopMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : null;
 
   // Medication search is already a tightly scoped clinical result surface. Do
   // not add cross-mode suggestions above its prescribing results: they displace
@@ -161,22 +161,24 @@ export function UniversalSearchAlsoMatches({
         aria-controls={panelId}
         tabIndex={isWide ? -1 : undefined}
         className={cn(
-          "flex min-h-tap w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
+          "flex min-h-tap w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
           "hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           // On desktop the panel is always open, so the header is inert copy rather than a control.
-          "sm:pointer-events-none sm:mb-1.5 sm:min-h-0 sm:cursor-default sm:gap-2 sm:px-2 sm:py-1 sm:hover:bg-transparent",
+          "sm:pointer-events-none sm:min-h-0 sm:cursor-default sm:gap-2 sm:px-2 sm:py-1.5 sm:hover:bg-transparent",
+          "sm:border-b sm:border-[color:var(--border)]",
         )}
       >
         <span
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:hidden"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:h-7 sm:w-7"
           aria-hidden
         >
-          <Layers className="h-4 w-4" aria-hidden />
+          <Layers className="size-icon-sm" aria-hidden />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-              Also matches in other modes
+            <span className={cn(eyebrowText, "truncate text-[color:var(--text-heading)]")}>
+              Also matches
+              <span className="sr-only"> in other modes</span>
             </span>
             <span
               className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-semibold tabular-nums text-[color:var(--clinical-accent)] sm:hidden"
@@ -190,7 +192,9 @@ export function UniversalSearchAlsoMatches({
             {phoneSubtitle}
           </span>
         </span>
-        <span className="hidden text-2xs font-medium text-[color:var(--text-muted)] sm:inline">Across Clinical KB</span>
+        {desktopMeta ? (
+          <span className={cn("hidden text-2xs font-medium sm:inline", textMuted)}>{desktopMeta}</span>
+        ) : null}
         <span
           className={cn(
             "grid h-8 w-8 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform sm:hidden",
@@ -198,13 +202,13 @@ export function UniversalSearchAlsoMatches({
           )}
           aria-hidden
         >
-          <ChevronDown className="h-4 w-4" aria-hidden="true" />
+          <ChevronDown className="size-icon-sm" aria-hidden="true" />
         </span>
       </button>
       <div
         id={panelId}
         className={cn(
-          "gap-2 px-1 pb-1 sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 xl:grid-cols-4",
+          "grid-cols-1 gap-2 px-1 pb-1 sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 sm:pt-2 xl:grid-cols-4",
           expanded ? "mt-1.5 grid sm:mt-0" : "hidden",
         )}
       >
@@ -221,18 +225,15 @@ export function UniversalSearchAlsoMatches({
             <div
               key={targetModeId}
               data-category-accent={accent}
-              className={cn(
-                "flex min-w-0 items-start gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3",
-                cardAccentEdge,
-              )}
+              className="flex min-w-0 items-start gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3"
             >
               <CategoryIconTile icon={APP_MODE_ICON[targetModeId]} accent={accent} size="sm" />
               <span className="min-w-0 flex-1 space-y-1">
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--cat-accent)]">
+                  <span className="block truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--text-heading)]">
                     {targetMode.label}
                   </span>
-                  <span className="inline-flex shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 py-px text-2xs font-semibold text-[color:var(--text-muted)]">
+                  <span className="inline-flex shrink-0 items-center rounded-md border border-[color:var(--cat-border)] bg-[color:var(--cat-soft)] px-1.5 py-px text-2xs font-semibold text-[color:var(--cat-accent)] forced-colors:border">
                     {targetMode.search.statusLabel}
                   </span>
                 </span>

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { cardAccentEdge } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
-import { cn, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
 
@@ -138,20 +138,26 @@ function AlsoMatchesPanel({
       className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)]"
       aria-label="Matches in other modes"
     >
-      <div className={cn("flex items-center gap-2 px-2", phone ? "min-h-tap py-2" : "mb-1.5 py-1")}>
+      <div
+        className={cn(
+          "flex items-center gap-2.5 px-2",
+          phone ? "min-h-tap py-2" : "border-b border-[color:var(--border)] py-1.5",
+        )}
+      >
         <span
           className={cn(
-            "h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-            phone ? "grid" : "hidden",
+            "grid shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+            phone ? "h-8 w-8" : "h-7 w-7",
           )}
           aria-hidden
         >
-          <Layers className="h-4 w-4" aria-hidden />
+          <Layers className="size-icon-sm" aria-hidden />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-              Also matches in other modes
+            <span className={cn(eyebrowText, "truncate text-[color:var(--text-heading)]")}>
+              Also matches
+              <span className="sr-only"> in other modes</span>
             </span>
             {phone ? (
               <span
@@ -173,13 +179,13 @@ function AlsoMatchesPanel({
             className="grid h-8 w-8 shrink-0 rotate-180 place-items-center rounded-md text-[color:var(--text-muted)]"
             aria-hidden
           >
-            <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            <ChevronDown className="size-icon-sm" aria-hidden="true" />
           </span>
         ) : (
-          <span className={cn("text-2xs font-medium", textMuted)}>Across Clinical KB</span>
+          <span className={cn("text-2xs font-medium", textMuted)}>4 related modes</span>
         )}
       </div>
-      <div className={cn("grid gap-2 px-1 pb-1", phone ? "grid-cols-1" : "grid-cols-2 xl:grid-cols-4")}>
+      <div className={cn("grid gap-2 px-1 pb-1", phone ? "grid-cols-1" : "grid-cols-2 pt-2 xl:grid-cols-4")}>
         {CLUSTER.map((modeId) => (
           <AlsoMatchesCard key={modeId} modeId={modeId} treatment={treatment} density={density} />
         ))}

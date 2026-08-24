@@ -10,9 +10,11 @@ describe("also-matches accent mockups", () => {
     expect(source).toContain('id: "chip"');
     expect(source).toContain("cardAccentEdge");
     expect(source).toContain("border-l-[3px] border-l-[color:var(--cat-accent)]");
+    expect(source).toContain("eyebrowText");
     expect(source).toContain("bg-[color:var(--cat-soft)]");
     expect(source).toContain('phone ? "grid-cols-1"');
     expect(source).toContain('data-testid="also-matches-chosen-chip"');
+    expect(source).not.toContain("Across Clinical KB");
   });
 
   it("keeps identity on category tokens, not clinical-state colour", () => {
