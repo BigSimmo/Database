@@ -42,20 +42,20 @@ import { cn } from "@/components/ui-primitives";
  * Nothing here is wired to real retrieval. All copy is synthetic.
  */
 
-const focusRing =
+export const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 /** Frame and mark geometry lives in JS: this repo's mockup CSS pipeline only
  *  re-emits utilities that already exist in non-mockup source, so a novel
  *  arbitrary value written inside a mockup file never reaches the stylesheet. */
-const PHONE_WIDTH = 390;
-const PHONE_HEIGHT = 844;
-const DESKTOP_HEIGHT = 660;
-const PROSE_MEASURE = { maxWidth: "68ch" } as const;
+export const PHONE_WIDTH = 390;
+export const PHONE_HEIGHT = 844;
+export const DESKTOP_HEIGHT = 660;
+export const PROSE_MEASURE = { maxWidth: "68ch" } as const;
 
-type SourceStatus = "current" | "review-due";
+export type SourceStatus = "current" | "review-due";
 
-type MockSource = {
+export type MockSource = {
   id: string;
   index: number;
   short: string;
@@ -68,7 +68,7 @@ type MockSource = {
   attachment?: { kind: "table" | "figure"; label: string };
 };
 
-const SOURCES: MockSource[] = [
+export const SOURCES: MockSource[] = [
   {
     id: "s1",
     index: 1,
@@ -108,18 +108,18 @@ const SOURCES: MockSource[] = [
   },
 ];
 
-const sourceById = (id: string) => SOURCES.find((source) => source.id === id) ?? SOURCES[0];
+export const sourceById = (id: string) => SOURCES.find((source) => source.id === id) ?? SOURCES[0];
 
-type AnswerBlock = {
+export type AnswerBlock = {
   id: string;
   text: string;
   sourceIds: string[];
   safety?: boolean;
 };
 
-const QUESTION = "What physical health monitoring does a patient on clozapine need in the first year?";
+export const QUESTION = "What physical health monitoring does a patient on clozapine need in the first year?";
 
-const ANSWER_BLOCKS: AnswerBlock[] = [
+export const ANSWER_BLOCKS: AnswerBlock[] = [
   {
     id: "b1",
     text: "Haematological monitoring is the part that cannot slip: FBC and ANC at baseline, weekly for the first 18 weeks, fortnightly to week 52, then monthly while treatment continues.",
@@ -189,7 +189,7 @@ export const MARK_VARIANTS: Array<{
  * carry a real tap target without disturbing the line, and show which
  * source is currently open.
  */
-function RefMark({
+export function RefMark({
   source,
   variant,
   active,
@@ -305,7 +305,7 @@ function RefMark({
  * cluster are bound into one non-breaking run so a mark can never be
  * stranded at the start of the next line.
  */
-function Claim({
+export function Claim({
   block,
   variant,
   activeSourceId,
@@ -358,7 +358,7 @@ function Claim({
 
 /* ══════════════════════  the source rail  ══════════════════════ */
 
-function statusLabel(status: SourceStatus) {
+export function statusLabel(status: SourceStatus) {
   return status === "current" ? "Current" : "Review due";
 }
 
@@ -371,7 +371,7 @@ function statusLabel(status: SourceStatus) {
  * separate object beside the card rather than part of it, and the badge was
  * already carrying the same signal.
  */
-function SourceRail({ activeId, onOpen }: { activeId: string | null; onOpen: (id: string) => void }) {
+export function SourceRail({ activeId, onOpen }: { activeId: string | null; onOpen: (id: string) => void }) {
   return (
     <div
       className="flex gap-1.5 overflow-x-auto pb-1"
@@ -734,7 +734,7 @@ function DrawerPanel({
 
 /* ══════════════════════  the message  ══════════════════════ */
 
-function AssistantMark() {
+export function AssistantMark() {
   return (
     <span
       aria-hidden="true"
@@ -852,7 +852,7 @@ function AnswerMessage({
 
 /* ══════════════════════  screen chrome  ══════════════════════ */
 
-function TopBar() {
+export function TopBar() {
   return (
     <div className="flex shrink-0 items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-2.5 py-2">
       <button
@@ -880,7 +880,7 @@ function TopBar() {
   );
 }
 
-function Composer({ suggestions = false }: { suggestions?: boolean }) {
+export function Composer({ suggestions = false }: { suggestions?: boolean }) {
   return (
     <div className="shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-3 pb-3 pt-2">
       {suggestions ? (
@@ -942,7 +942,7 @@ function ThreadDivider() {
   );
 }
 
-function UserTurn() {
+export function UserTurn() {
   return (
     <div className="flex justify-end">
       <p
@@ -999,7 +999,7 @@ function AnswerScreen({
 
 /* ══════════════════════  page scaffold  ══════════════════════ */
 
-function PhoneFrame({ caption, children }: { caption: string; children: React.ReactNode }) {
+export function PhoneFrame({ caption, children }: { caption: string; children: React.ReactNode }) {
   return (
     <figure className="min-w-0">
       <figcaption className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -1021,7 +1021,7 @@ function PhoneFrame({ caption, children }: { caption: string; children: React.Re
   );
 }
 
-function DesktopFrame({ caption, children }: { caption: string; children: React.ReactNode }) {
+export function DesktopFrame({ caption, children }: { caption: string; children: React.ReactNode }) {
   return (
     <figure className="min-w-0">
       <figcaption className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -1055,7 +1055,7 @@ function DesktopFrame({ caption, children }: { caption: string; children: React.
   );
 }
 
-function Panel({
+export function Panel({
   id,
   step,
   title,
@@ -1143,7 +1143,7 @@ function MarkSpecimen() {
   );
 }
 
-function DetailCard({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
+export function DetailCard({ title, body, children }: { title: string; body: string; children: React.ReactNode }) {
   return (
     <article className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
       <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">{title}</h3>

@@ -80,7 +80,7 @@ const gotoTherapySearch = (page: Page) => gotoTherapy(page);
  * offline rather than leaving a mode uncovered.
  */
 const MODES = [
-  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 4, profile: "balanced-four" },
+  { modeId: "therapy-compass", route: "/therapy-compass/search?q=CBT&run=1", items: 5, profile: "extended" },
   { modeId: "dsm", route: "/dsm/compare", items: 2, profile: "two-item" },
   { modeId: "specifiers", route: "/specifiers/compare", items: 4, profile: "compact-four" },
   { modeId: "formulation", route: "/formulation/compare", items: 4, profile: "compact-four" },
@@ -284,6 +284,7 @@ test.describe("ModeNav density", () => {
         ["/therapy-compass/compare", "Compare"],
         ["/therapy-compass/recommend", "Recommend"],
         ["/therapy-compass/pathways", "Pathways"],
+        ["/therapy-compass/review", "Review"],
       ] as const) {
         await gotoTherapy(page, route);
         await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("bar");

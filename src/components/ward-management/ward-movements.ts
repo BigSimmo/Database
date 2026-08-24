@@ -22,7 +22,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
@@ -63,7 +63,6 @@ const seededMovements: Movement[] = [
     legalStatus: "Involuntary inpatient",
     legalForm: {
       code: "3B",
-      label: "Inpatient treatment order",
       kind: "detention",
     },
     statusChanges: [],
@@ -89,7 +88,6 @@ const seededMovements: Movement[] = [
     legalStatus: "Involuntary inpatient",
     legalForm: {
       code: "4C",
-      label: "Transfer between authorised hospitals",
       kind: "transfer",
       dueAt: NOW_ANCHOR + 300,
     },
@@ -113,7 +111,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
     stage: "handover_ready",
     owner: "ED mental health team",
@@ -143,7 +141,6 @@ const seededMovements: Movement[] = [
     legalStatus: "Involuntary inpatient",
     legalForm: {
       code: "4A",
-      label: "Transport order",
       kind: "transport",
       dueAt: NOW_ANCHOR + 90,
     },
@@ -234,7 +231,6 @@ const seededMovements: Movement[] = [
     legalStatus: "Involuntary inpatient",
     legalForm: {
       code: "3B",
-      label: "Inpatient treatment order",
       kind: "detention",
     },
     statusChanges: [],
@@ -298,7 +294,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Detained awaiting examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [
       { at: NOW_ANCHOR - 40, from: "Voluntary", to: "Detained awaiting examination", by: "Duty psychiatrist" },
     ],
@@ -321,7 +317,6 @@ const seededMovements: Movement[] = [
     legalStatus: "Involuntary inpatient",
     legalForm: {
       code: "4C",
-      label: "Transfer between authorised hospitals",
       kind: "transfer",
       dueAt: NOW_ANCHOR + 340,
     },
@@ -345,7 +340,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: true,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
     stage: "placement_requested",
     owner: "ED mental health team",
@@ -399,7 +394,6 @@ const seededMovements: Movement[] = [
     legalStatus: "Involuntary inpatient",
     legalForm: {
       code: "4A",
-      label: "Transport order",
       kind: "transport",
       dueAt: NOW_ANCHOR + 60,
     },
@@ -453,7 +447,7 @@ const seededMovements: Movement[] = [
     sex: "Female",
     specialling: false,
     legalStatus: "Referred for psychiatric examination",
-    legalForm: { code: "1A", label: "Referral for examination", kind: "examination" },
+    legalForm: { code: "1A", kind: "examination" },
     statusChanges: [],
     stage: "bed_held",
     owner: "Flow coordinator",
@@ -476,7 +470,6 @@ const seededMovements: Movement[] = [
     legalStatus: "Involuntary inpatient",
     legalForm: {
       code: "3B",
-      label: "Inpatient treatment order",
       kind: "detention",
     },
     statusChanges: [],
@@ -647,7 +640,6 @@ function routineMovements(count: number, startIndex: number): Movement[] {
         index % 3 === 0
           ? {
               code: "1A",
-              label: "Referral for examination",
               kind: "examination" as const,
             }
           : undefined,

@@ -310,6 +310,7 @@
   /* Layout constraints */
   --content-max-width: 1440px;
   --rail-width: 480px;
+  --content-width-catalogue: 76rem;
 
   /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
   --neutral-0: #ffffff;

@@ -31,6 +31,7 @@ import {
   transportStatusLabel,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import {
   MOVEMENT_STAGES,
   type LegalForm,
@@ -54,7 +55,9 @@ import styles from "./ward-management.module.css";
  * that was deleted on 2026-08-23.
  */
 function legalFormReadinessLine(legalForm: LegalForm): string {
-  const named = `${legalForm.label} (${legalForm.code})`;
+  // A code this model holds no label for — Form 3D — is named by its code alone, never by a
+  // guessed expansion and never by the word "undefined".
+  const named = legalFormNameLabelFirst(legalForm);
   return legalForm.dueAt !== undefined
     ? `${named} · due ${formatInstant(legalForm.dueAt)}`
     : `${named} · no deadline recorded`;
@@ -284,7 +287,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
                 <ShieldCheck aria-hidden="true" />
                 <span>
                   <strong>Form readiness</strong>
-                  {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form required"}
+                  {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form recorded"}
                 </span>
               </li>
               <li>
@@ -310,9 +313,15 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <h2>Legal and forms</h2>
             <p>{patient.legalStatus}</p>
             <p>
-              {patient.legalForm
-                ? legalFormReadinessLine(patient.legalForm)
-                : "No Mental Health Act transport form required"}
+              {/* Until 2026-08-24 the absent case here named the Mental Health Act and asserted
+                  that no transport form was needed — wrong twice over. It claimed what the Act
+                  demands of this patient, which this prototype cannot verify in either direction,
+                  and it named a transport instrument inside the legal panel, which reads
+                  `patient.legalForm`. It is also the DEFAULT rendering now that the clinician
+                  picks the form and the picker starts at none, so it was the most-shown legal
+                  claim on this route. Same wording as the readiness line 28 lines above: state
+                  what the record holds. */}
+              {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form recorded"}
             </p>
           </section>
         ) : null}

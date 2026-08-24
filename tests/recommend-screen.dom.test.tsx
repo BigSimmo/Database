@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Therapy } from "@/components/therapy-compass/data/types";
@@ -83,6 +83,7 @@ describe("Recommend screen", () => {
     const cards = document.querySelectorAll("[data-therapy-result-card]");
     expect(cards).toHaveLength(2);
     expect(cards[0]).toHaveAttribute("data-therapy-result-featured");
+    expect(within(cards[0] as HTMLElement).getByText("Best match")).toBeInTheDocument();
     const featuredOpen = cards[0]?.querySelector('[aria-label="Open record"]');
     expect(featuredOpen).toHaveClass("bg-[color:var(--command)]");
     expect(screen.getAllByText("WHY MATCHED").length).toBeGreaterThan(0);

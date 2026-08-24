@@ -12,6 +12,7 @@ import {
 import { splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
+import { legalFormName, SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import {
   ED_ACCESS_TARGET_MINUTES,
   type Cohort,
@@ -38,6 +39,13 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
 ];
 const URGENCY_OPTIONS = [1, 2, 3] as const;
 
+/**
+ * The `<option>` value standing for "no form". A `<select>` option value is always a string, so
+ * "no form" needs a sentinel; it is converted back to `null` on the way into the draft, where
+ * "no form" is a real choice rather than a blank.
+ */
+const NO_LEGAL_FORM_VALUE = "";
+
 type ReferralDraftState = {
   cohort: Cohort;
   security: Security;
@@ -45,6 +53,7 @@ type ReferralDraftState = {
   specialling: boolean;
   legalStatus: LegalStatus;
   urgency: 1 | 2 | 3;
+  legalFormCode: string | null;
 };
 
 const DEFAULT_DRAFT: ReferralDraftState = {
@@ -54,6 +63,8 @@ const DEFAULT_DRAFT: ReferralDraftState = {
   specialling: false,
   legalStatus: "Voluntary",
   urgency: 3,
+  // Defaults to no form. The clinician picks one; the software never picks one for them.
+  legalFormCode: null,
 };
 
 /**
@@ -63,9 +74,10 @@ const DEFAULT_DRAFT: ReferralDraftState = {
  * `officer-screen.tsx`'s four `*BlockedReason` functions already hold to.
  */
 function examinationBlockedReason(movement: Movement): string | undefined {
-  if (movement.legalForm?.code !== "1A") {
-    return `${movement.id} cannot have an examination recorded while its form is ${movement.legalForm?.code ?? "none"}, not 1A.`;
-  }
+  // There is deliberately no form check here. The reducer's "form must be 1A" rejection was
+  // deleted on 2026-08-24 — an examination may be recorded for any patient, on any form or on
+  // none — so a form check here would advertise a refusal the reducer would not make, which is
+  // the exact drift this function exists to prevent.
   if (movement.examination) {
     return `${movement.id} was already examined.`;
   }
@@ -106,21 +118,35 @@ function outstandingItem(movement: Movement): OutstandingItem {
     const detail = leg === undefined ? "Not yet requested" : leg;
     return { kind: "transport", label: "Transport", detail };
   }
-  if (movement.legalForm?.code === "1A" && movement.examination === undefined) {
+  // NEITHER branch below infers anything from the form code. Until 2026-08-24 this read
+  // `legalForm?.code === "1A" && examination === undefined` and printed "Referred for
+  // examination" — a claim about what a Form 1A means, which this software is no longer entitled
+  // to make and which the picker can now contradict outright: a Voluntary patient the clinician
+  // puts on a 1A would have been labelled "Referred for examination". Both lines now state only
+  // what the record holds, and the examination line keys off the examination record itself
+  // rather than off any form.
+  if (movement.examination === undefined) {
     return {
       kind: "examination",
       label: "Examination",
-      detail: "Referred for examination — outcome not yet recorded.",
+      detail: "No examination outcome recorded for this movement.",
     };
   }
+  const outcomeWords = movement.examination.outcome.replace(/_/g, " ");
   if (movement.legalForm) {
+    // `legalFormName` resolves the official title from the code, and shows a code the register
+    // does not list as the bare code.
     return {
       kind: "form",
       label: "Form",
-      detail: `Form ${movement.legalForm.code} (${movement.legalForm.label}) — awaiting next step.`,
+      detail: `${legalFormName(movement.legalForm)} · examination recorded (${outcomeWords}).`,
     };
   }
-  return { kind: "form", label: "Form", detail: "No legal form recorded for this movement." };
+  return {
+    kind: "form",
+    label: "Form",
+    detail: `No legal form recorded for this movement · examination recorded (${outcomeWords}).`,
+  };
 }
 
 /** Whether `formedAt` genuinely predates `openedAt` — the only condition under which the legal
@@ -308,6 +334,26 @@ export function EdScreen({ edId }: EdScreenProps) {
                     {LEGAL_STATUS_OPTIONS.map((option) => (
                       <option key={option} value={option}>
                         {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.referralField}>
+                  Legal form
+                  <select
+                    data-testid="ward-ed-referral-legal-form"
+                    value={draft.legalFormCode ?? NO_LEGAL_FORM_VALUE}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        legalFormCode: event.target.value === NO_LEGAL_FORM_VALUE ? null : event.target.value,
+                      }))
+                    }
+                  >
+                    <option value={NO_LEGAL_FORM_VALUE}>No form</option>
+                    {SELECTABLE_LEGAL_FORMS.map((form) => (
+                      <option key={form.code} value={form.code}>
+                        {legalFormName(form)}
                       </option>
                     ))}
                   </select>

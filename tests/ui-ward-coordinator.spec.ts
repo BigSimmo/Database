@@ -266,8 +266,8 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(firstRow).toContainText(`Operational ${firstRowScore}`);
 
     // The breach line used to be the row a coordinator must not miss (Task 5 review Important
-    // 3, then Task 6A fix round 1, then the clinician's "Bed need confirmed" factor added
-    // 2026-08-22 — see this test's history for how WF-017/WF-009/WF-303 used to be pinned here).
+    // 3, then Task 6A fix round 1, then the removal of the "Bed need confirmed" factor on
+    // 2026-08-24 — see this test's history for how WF-017/WF-009/WF-303 used to be pinned here).
     //
     // 2026-08-23 correction: put to the product owner directly, the instruction was to drop the
     // legal countdown from this model entirely, not to get its deadline figure right — "please
@@ -377,9 +377,9 @@ test.describe("Ward Flow coordinator screen", () => {
     await expect(diagram.locator('svg path[data-connector-kind="demand"]')).toHaveCount(8);
     await expect(diagram.locator('svg path[data-connector-kind="route"]')).toHaveCount(0);
 
-    // Excludes WF-009 by id. The clinician's "Bed need confirmed" factor (added 2026-08-22) can
-    // put WF-009 at row 1 on the current fixture — see the "orders by clinical tier" test above
-    // — and the contrast this test needs below only holds if the two clicked movements are
+    // Excludes WF-009 by id. WF-009 leads tier 1 on the current fixture (28 waiting + 15
+    // declines + 10 blocker = 53, the highest tier-1 operational score) and so renders at row 1,
+    // and the contrast this test needs below only holds if the two clicked movements are
     // genuinely different. Without the exclusion, "row 1" and "WF-009" could silently become the
     // same movement and the second assertion would pass by tautology rather than by proof.
     const firstRow = page
@@ -696,12 +696,10 @@ test.describe("Ward Flow coordinator screen", () => {
    * rather than merely checking a button is visible (Ruling 4).
    *
    * Task 6A fix round 1: queue row 1 used to be WF-017 only because a fabricated Form 3B
-   * deadline (deleted in Task 6A) inflated its operational score; WF-303 and WF-009 ranked
-   * first and second by `queueOrder` on that fixture instead. The clinician's "Bed need
-   * confirmed" factor (added 2026-08-22 — a movement whose examination outcome is recorded as
-   * `inpatient_order` now outranks one nobody has assessed, inside its tier) reorders it again:
-   * WF-009 and WF-017 both carry that confirmed need and now rank rows 1 and 2, ahead of
-   * WF-303. This test selects both WF-017 and WF-009 explicitly by id rather than by row
+   * deadline (deleted in Task 6A) inflated its operational score. On 2026-08-24 the product
+   * owner dropped the "Bed need confirmed" factor as well, so having been examined no longer
+   * scores at all: WF-009 leads tier 1 on wait, declines and blocker alone (row 1) and WF-017
+   * falls to row 5. This test selects both WF-017 and WF-009 explicitly by id rather than by row
    * position, so it does not depend on either fixture's ordering. WF-017's default candidate
    * still passes all eight gates (re-verified against the current fixture), so the
    * clean-vs-failing contrast this test depends on still holds; WF-009 still guarantees a
