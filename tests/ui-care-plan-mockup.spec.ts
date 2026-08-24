@@ -205,6 +205,34 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 /**
+ * The Current Plan's metadata block, and the assertion that it has not moved.
+ *
+ * Both halves deliberately go through `innerText`. Mixing capture methods is how
+ * the first version of two of these journeys failed: `innerText` is CSS-aware, so
+ * it returns `PLAN OWNER` for a `text-transform: uppercase` label and puts real
+ * newlines between rows, while `toHaveText` compares whitespace-normalised
+ * `textContent` and sees `Plan owner` on one line. The two strings described the
+ * same, entirely unchanged plan and still could not match. `expect.poll` keeps
+ * the retry that a plain equality would throw away.
+ */
+const planMetadata = (page: Page) => page.getByTestId("care-plan-current-plan-metadata");
+
+async function readPlanMetadata(page: Page): Promise<string> {
+  const text = (await planMetadata(page).innerText()).trim();
+  expect(text, "the Current Plan metadata block rendered nothing to compare against").toContain("Current version");
+  return text;
+}
+
+async function expectPlanMetadataUnchanged(page: Page, before: string) {
+  await expect
+    .poll(async () => (await planMetadata(page).innerText()).trim(), {
+      message: "the Current Plan moved when nothing in this journey should have moved it",
+      timeout: 10_000,
+    })
+    .toBe(before);
+}
+
+/**
  * The standing statement that this is fictional and holds nothing. Both halves
  * are asserted: the synthetic-data label alone does not warn somebody
  * demonstrating the tool that a reload discards what they are showing.
@@ -884,8 +912,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // clinical plan says before any of this — the second half of this case's
     // name was previously asserted nowhere at all.
     await gotoRoute(page, routes.managementPlan, "Management Plan");
-    const planBefore = (await page.getByTestId("care-plan-current-plan-metadata").innerText()).trim();
-    expect(planBefore).toContain("Current version");
+    const planBefore = await readPlanMetadata(page);
     await page.getByRole("link", { name: "Personal Safety Plan" }).first().click();
     await expect(page.getByRole("heading", { level: 1, name: "Personal Safety Plan" })).toBeVisible();
     await page.getByRole("link", { name: /^Start a new version with this person$/ }).click();
@@ -928,7 +955,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
       .getByRole("link", { name: "Management Plan" })
       .click();
     await expect(page.getByRole("heading", { level: 1, name: "Management Plan" })).toBeVisible();
-    await expect(page.getByTestId("care-plan-current-plan-metadata")).toHaveText(planBefore);
+    await expectPlanMetadataUnchanged(page, planBefore);
   });
 
   test("a Review Trigger is resolved without the plan changing by itself", async ({ page }) => {
@@ -943,8 +970,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // What the plan says before any of this, read from the record itself rather
     // than assumed, so the after-assertion is an equality and not a bare value.
     await desktopRail(page).getByRole("link", { name: "Home" }).click();
-    const planBefore = (await page.getByTestId("care-plan-current-plan-metadata").innerText()).trim();
-    expect(planBefore).toContain("Current version");
+    const planBefore = await readPlanMetadata(page);
     await desktopRail(page).getByRole("link", { name: "Reviews" }).click();
     await page.getByRole("tab", { name: /^Review Suggested/ }).click();
 
@@ -982,7 +1008,7 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // never changes a plan by itself, and this is the only assertion in the
     // suite that actually watches that happen.
     await desktopRail(page).getByRole("link", { name: "Home" }).click();
-    await expect(page.getByTestId("care-plan-current-plan-metadata")).toHaveText(planBefore);
+    await expectPlanMetadataUnchanged(page, planBefore);
   });
 
   test("a team's contact details are confirmed as checked, never as available", async ({ page }) => {
@@ -1293,11 +1319,31 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
       const sections = page.getByTestId("care-plan-first-minute-sections");
       const clipped = await sections.evaluate((element) => element.scrollHeight - element.clientHeight);
       expect(clipped, `the first-minute sections are clipped ${at}`).toBeLessThanOrEqual(1);
-      const sectionsBox = await sections.boundingBox();
-      expect(sectionsBox, `the first-minute sections have no painted box ${at}`).not.toBeNull();
-      expect(sectionsBox!.width, `the Current Plan card is too narrow to read ${at}`).toBeGreaterThanOrEqual(
-        Math.min(width, 320) - 48,
-      );
+      // Measured against the space the plan is actually given rather than
+      // against the viewport. The first version of this assertion guessed a
+      // pixel floor from the shell's padding, was wrong by two levels of nesting
+      // — the card is 238px inside a 320px viewport, not the 272 I predicted —
+      // and would have been "fixed" by lowering the number until it passed,
+      // which measures nothing. A share of the content column is the contract:
+      // it is scale-free, it holds at every width, and a plan squeezed into a
+      // sliver beside something else still fails it.
+      const readability = await sections.evaluate((element) => {
+        const main = element.closest("main");
+        return {
+          cardWidth: element.getBoundingClientRect().width,
+          columnWidth:
+            main === null
+              ? 0
+              : main.clientWidth -
+                Number.parseFloat(getComputedStyle(main).paddingLeft) -
+                Number.parseFloat(getComputedStyle(main).paddingRight),
+        };
+      });
+      expect(readability.columnWidth, `the plan has no content column to measure ${at}`).toBeGreaterThan(0);
+      expect(
+        readability.cardWidth / readability.columnWidth,
+        `the Current Plan card is squeezed into ${Math.round((readability.cardWidth / readability.columnWidth) * 100)}% of the content column ${at}, which is too narrow to read`,
+      ).toBeGreaterThanOrEqual(0.6);
 
       // CMHT and Safety Plan access, and the 48 px floor on every primary
       // target, measured rather than assumed.

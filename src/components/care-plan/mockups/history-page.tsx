@@ -73,7 +73,13 @@ const ALL_GROUPS = "";
 type HistoryEntry = {
   id: string;
   group: HistoryGroup;
-  occurredAt: string;
+  /**
+   * When this happened, or `null` when the record does not hold the moment. An
+   * undated entry is still shown — losing it would hide something that
+   * happened — but it carries no date and sorts to the end, because a position
+   * in a chronology is itself a claim about time.
+   */
+  occurredAt: string | null;
   heading: string;
   detail: string;
   /** Who this is attributed to, or `null` when the record names nobody. */
@@ -204,12 +210,7 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
         // who sat down and went through it are two different clinicians doing
         // two different things, and inferring one from the other would invent
         // an attribution the record does not hold.
-        actorId: actorFromAudit(
-          state,
-          "management_plan_shared_with_patient",
-          version.id,
-          version.sharedWithPatientAt,
-        ),
+        actorId: actorFromAudit(state, "management_plan_shared_with_patient", version.id, version.sharedWithPatientAt),
         unattributed: "The record does not name who went through it with them",
       });
     }
@@ -225,34 +226,47 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
       detail: version.collaborationNote,
       actorId: version.authorId,
     });
-    if (version.confirmedAt !== null) {
+    /**
+     * The person's part in this version.
+     *
+     * Which moment this line is about was decided on 25 August 2026 (D1): it is
+     * when the participation state was recorded, which the record now keeps for
+     * itself in `participationRecordedAt`. It is emphatically not `confirmedAt`,
+     * which this line used to be dated by — that is set inside
+     * `make-safety-plan-current` when the version goes live, possibly a
+     * different day, so it dated a person's participation to a day they may
+     * have had nothing to do with. Rowan's fixture shows the gap.
+     *
+     * A version that is or has been this person's plan asserts a participation
+     * state whether or not the moment survives in the record, so it gets a line
+     * either way. A draft gets one only once somebody has actually recorded
+     * that part, because a new draft starts at `unavailable` by default and a
+     * line drawn from that would claim a record that does not exist.
+     */
+    if (version.participationRecordedAt !== null || version.state !== "draft") {
       entries.push({
         id: `${version.id}-confirmation`,
         group: "safetyPlan",
-        occurredAt: version.confirmedAt,
+        // Null rather than `confirmedAt` when the moment is not held. A precise
+        // date belonging to a different event is worse than no date at all.
+        occurredAt: version.participationRecordedAt,
         heading: `Personal Safety Plan version ${version.version} — ${PATIENT_CONFIRMATION_LABEL[version.patientConfirmation]}`,
         detail:
           "This is this person's own document. What is recorded here is their part in this version, not a clinical approval of it.",
         /**
-         * Not `version.authorId`, which this line used to name.
-         *
-         * There is no single actor to resolve here, and that is the finding
-         * rather than an obstacle to it. `patientConfirmation` is written by
-         * `save-safety-plan-draft` and `confirmedAt` is set later, as a side
-         * effect inside `make-safety-plan-current`, by whoever made it current
-         * — possibly a different clinician on a different day. `authorId` is
-         * never reassigned, so naming the author asserted a person at a moment
-         * the application cannot place them at. Rowan's fixture shows it: his
-         * `confirmedAt` is a day after `createdAt`.
-         *
-         * Which of those two moments this line is *about* is a product
-         * decision, and it stays deferred. But not knowing who acted is exactly
-         * what the unattributed sentence is for, and this build's rule is that
-         * uncertainty degrades conservatively rather than guessing. So the line
-         * says what the record holds and no more.
+         * Not `version.authorId`, which this line used to name. `authorId` is
+         * never reassigned, and the clinician who wrote the version is not
+         * necessarily the one who sat down and recorded this person's part, so
+         * naming the author asserted somebody at a moment the application
+         * cannot place them at. Not knowing who acted is exactly what the
+         * unattributed sentence is for, and this build's rule is that
+         * uncertainty degrades conservatively rather than guessing.
          */
         actorId: null,
-        unattributed: "The record does not name who recorded their part",
+        unattributed:
+          version.participationRecordedAt === null
+            ? "The record does not name who recorded their part, or when"
+            : "The record does not name who recorded their part",
       });
     }
   }
@@ -260,8 +274,7 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
   const patientPlan = state.patientPlans.find((plan) => plan.patientId === patient.id) ?? null;
   for (const version of state.patientPlanVersions) {
     if (patientPlan === null || version.planId !== patientPlan.id) continue;
-    const source =
-      state.managementPlanVersions.find(({ id }) => id === version.derivedFromManagementVersionId) ?? null;
+    const source = state.managementPlanVersions.find(({ id }) => id === version.derivedFromManagementVersionId) ?? null;
     entries.push({
       id: `${version.id}-created`,
       group: "patientPlan",
@@ -366,7 +379,16 @@ function buildHistory(state: CarePlanPrototypeState, patient: Patient): HistoryE
     });
   }
 
-  return entries.sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt));
+  // Newest first, with anything the record cannot place in time at the end.
+  // Slotting an undated entry among the dated ones would give it a position
+  // that reads as a date, which is the claim it must not make.
+  return entries.sort((left, right) => {
+    if (left.occurredAt === null || right.occurredAt === null) {
+      if (left.occurredAt === right.occurredAt) return 0;
+      return left.occurredAt === null ? 1 : -1;
+    }
+    return Date.parse(right.occurredAt) - Date.parse(left.occurredAt);
+  });
 }
 
 export function HistorySurface({ patientId, scenario }: { patientId: string | null; scenario: PrototypeScenario }) {
@@ -375,10 +397,7 @@ export function HistorySurface({ patientId, scenario }: { patientId: string | nu
 
   const snapshot = patientId === null ? null : buildPatientSnapshot(state, patientId as SyntheticId, PROTOTYPE_NOW);
 
-  const entries = useMemo(
-    () => (snapshot === null ? [] : buildHistory(state, snapshot.patient)),
-    [state, snapshot],
-  );
+  const entries = useMemo(() => (snapshot === null ? [] : buildHistory(state, snapshot.patient)), [state, snapshot]);
 
   if (snapshot === null) {
     return (
@@ -397,8 +416,7 @@ export function HistorySurface({ patientId, scenario }: { patientId: string | nu
       <section aria-label={`${patient.fullName} History`} className={styles.workspace}>
         <p role="alert" data-testid="care-plan-identity-uncertain" className={styles.identityUncertain}>
           <strong>This record has not been confirmed as the right person.</strong> No history is shown, because showing
-          a nearby person&rsquo;s record would be worse than showing none. Return to search and choose the record
-          again.
+          a nearby person&rsquo;s record would be worse than showing none. Return to search and choose the record again.
         </p>
       </section>
     );
@@ -436,8 +454,8 @@ export function HistorySurface({ patientId, scenario }: { patientId: string | nu
             ]}
           />
           <p data-testid="care-plan-history-filter-note" className={styles.contactBoundary}>
-            Nothing has been removed from the record by choosing a kind here. This prototype holds everything in
-            memory, so reloading the page starts over and anything recorded since then is gone.
+            Nothing has been removed from the record by choosing a kind here. This prototype holds everything in memory,
+            so reloading the page starts over and anything recorded since then is gone.
           </p>
         </div>
 
@@ -458,14 +476,25 @@ export function HistorySurface({ patientId, scenario }: { patientId: string | nu
         ) : (
           <ol data-testid="care-plan-history-list" className={styles.historyList}>
             {visible.map((entry) => (
-              <li key={entry.id} data-occurred-at={entry.occurredAt} className={styles.historyEntry}>
+              <li key={entry.id} data-occurred-at={entry.occurredAt ?? undefined} className={styles.historyEntry}>
                 <h3 className={styles.historyHeading}>
                   <StatusMark tone="neutral" label={HISTORY_GROUP_LABEL[entry.group]} />
                   <span>{entry.heading}</span>
                 </h3>
                 <p className={styles.historyDetail}>{entry.detail}</p>
                 <p className={styles.historyAttribution}>
-                  {`${state.users.find(({ id }) => id === entry.actorId)?.displayName ?? entry.unattributed ?? "No clinician is recorded"} — ${formatPerthDateTime(entry.occurredAt)}`}
+                  {/*
+                    An undated entry ends after the attribution sentence, which
+                    is written to say the moment is not held. Appending
+                    `Not recorded` where a date goes would put a blank where a
+                    reader looks for a time and tell them nothing the sentence
+                    has not already told them.
+                  */}
+                  {entry.occurredAt === null
+                    ? (state.users.find(({ id }) => id === entry.actorId)?.displayName ??
+                      entry.unattributed ??
+                      "No clinician is recorded")
+                    : `${state.users.find(({ id }) => id === entry.actorId)?.displayName ?? entry.unattributed ?? "No clinician is recorded"} — ${formatPerthDateTime(entry.occurredAt)}`}
                 </p>
               </li>
             ))}

@@ -305,6 +305,16 @@ export type PersonalSafetyPlanVersion = {
   confirmedAt: string | null;
   reviewDueAt: string | null;
   patientConfirmation: PatientConfirmationState;
+  /**
+   * When a clinician recorded this person's part in this version, or null when
+   * the record does not hold that moment.
+   *
+   * Deliberately not `confirmedAt`, which is set when the version goes live and
+   * can be a different day entirely. This is the moment `patientConfirmation`
+   * was written, and it is the only one that can honestly be shown beside a
+   * statement about what the person did.
+   */
+  participationRecordedAt: string | null;
   collaborationNote: string;
   content: SafetyPlanContent;
 };

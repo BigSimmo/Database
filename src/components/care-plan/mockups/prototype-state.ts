@@ -1322,8 +1322,10 @@ export function prototypeReducer(
         confirmedAt: null,
         reviewDueAt: addIsoMonths(createdAt, REVIEW_INTERVAL_MONTHS),
         // As with a Management Plan draft, nothing is yet known about this
-        // person's part in this edition, so the record claims none.
+        // person's part in this edition, so the record claims none — and it
+        // therefore holds no moment at which their part was recorded either.
         patientConfirmation: "unavailable",
+        participationRecordedAt: null,
         collaborationNote: "",
         content: cloneJson(current === null ? EMPTY_SAFETY_CONTENT : current.content),
       };
@@ -1360,10 +1362,27 @@ export function prototypeReducer(
         );
       }
 
+      /**
+       * This save is the moment the person's part is recorded, so the moment
+       * is kept here rather than inferred later from `confirmedAt`, which
+       * belongs to publication and can be a different day.
+       *
+       * It moves when the answer moves, and not otherwise. A clinician
+       * re-saving a draft to tidy the wording has not sat down with the person
+       * again, and stamping a fresh date on that save would claim a
+       * conversation that did not happen — the overclaim this prototype exists
+       * to avoid. The first save is stamped whatever it says, because that is
+       * when the record first asserts a participation state at all instead of
+       * carrying the untouched default a new draft starts with.
+       */
+      const participationChanged =
+        version.participationRecordedAt === null || action.input.patientConfirmation !== version.patientConfirmation;
+
       const saved: PersonalSafetyPlanVersion = {
         ...version,
         reviewDueAt: action.input.reviewDueAt,
         patientConfirmation: action.input.patientConfirmation,
+        participationRecordedAt: participationChanged ? prototypeTimestamp(state) : version.participationRecordedAt,
         collaborationNote: action.input.collaborationNote,
         content: cloneJson(action.input.content),
       };

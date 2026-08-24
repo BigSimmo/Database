@@ -809,6 +809,81 @@ describe("Care Plan Personal Safety Plan", () => {
     expect(saved.content.warningSigns).toHaveLength(1);
   });
 
+  /**
+   * D1, 25 August 2026: when the person's part was recorded is its own moment,
+   * not the moment the version went live. `patientConfirmation` is written by
+   * `save-safety-plan-draft`; `confirmedAt` is set later inside
+   * `make-safety-plan-current`. Reading the second as though it were the first
+   * dated a person's participation to a day they may have had nothing to do
+   * with.
+   */
+  it("records when the person's part was recorded, separately from when the version went live", () => {
+    const state = createInitialPrototypeState();
+    const saved = prototypeReducer(state, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput(),
+    });
+    const afterSave = saved.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+
+    // The moment the save happened, not `undefined` and not the publication.
+    expect(afterSave.participationRecordedAt).toBe(saved.auditEvents.at(-1)?.occurredAt);
+    expect(afterSave.confirmedAt).toBeNull();
+
+    const published = prototypeReducer(saved, {
+      type: "make-safety-plan-current",
+      versionId: "SYN-SAFETY-VERSION-003",
+    });
+    const afterPublish = published.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+
+    // Publication sets `confirmedAt` and must leave the participation moment
+    // exactly where the save put it. The two are different days in the record
+    // and must be different values here.
+    expect(afterPublish.participationRecordedAt).toBe(afterSave.participationRecordedAt);
+    expect(afterPublish.confirmedAt).toEqual(expect.any(String));
+    expect(afterPublish.confirmedAt).not.toBe(afterPublish.participationRecordedAt);
+  });
+
+  /**
+   * Deliberate: the stamp moves when the participation answer moves, and not
+   * otherwise. A clinician re-saving a draft to tidy the wording has not sat
+   * down with the person again, and stamping a fresh date there would claim a
+   * conversation that did not happen.
+   */
+  it("leaves the recorded moment alone when a later save does not change the participation answer", () => {
+    const state = createInitialPrototypeState();
+    const first = prototypeReducer(state, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput(),
+    });
+    const firstStamp = first.personalSafetyPlanVersions.find(
+      ({ id }) => id === "SYN-SAFETY-VERSION-003",
+    )!.participationRecordedAt;
+    expect(firstStamp).toEqual(expect.any(String));
+
+    const tidied = prototypeReducer(first, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput({
+        collaborationNote: "Tidied the wording of the warning signs. Jordan's part is unchanged.",
+      }),
+    });
+    const afterTidy = tidied.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+    expect(afterTidy.collaborationNote).toMatch(/Tidied the wording/);
+    expect(afterTidy.participationRecordedAt).toBe(firstStamp);
+
+    const changed = prototypeReducer(tidied, {
+      type: "save-safety-plan-draft",
+      versionId: "SYN-SAFETY-VERSION-003",
+      input: safetyDraftInput({ patientConfirmation: "declined" }),
+    });
+    const afterChange = changed.personalSafetyPlanVersions.find(({ id }) => id === "SYN-SAFETY-VERSION-003")!;
+    expect(afterChange.patientConfirmation).toBe("declined");
+    expect(afterChange.participationRecordedAt).toBe(changed.auditEvents.at(-1)?.occurredAt);
+    expect(afterChange.participationRecordedAt).not.toBe(firstStamp);
+  });
+
   it("refuses a draft whose next review date cannot be read as a date", () => {
     const state = createInitialPrototypeState();
     const next = prototypeReducer(state, {

@@ -4163,6 +4163,54 @@ describe("Care Plan combined History", () => {
     expect(attribution).not.toMatch(/No clinician is recorded/);
   });
 
+  /**
+   * D1, 25 August 2026. The line is dated by the moment the person's part was
+   * recorded, which the record now holds on its own. Rowan's fixture separates
+   * the three moments deliberately: the version was written on 03/09/2025 at
+   * 10:20 am, his part was recorded that afternoon at 3:40 pm, and the version
+   * went live the next morning at 9:45 am. Only the middle one belongs here.
+   *
+   * The dates are spelled out rather than read back off the fixture, so the
+   * assertion cannot agree with a value the fixture later changes to.
+   */
+  it("dates the person's part by when it was recorded, not by when the version went live", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Personal Safety Plan version 1 —/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/03\/09\/2025, 3:40 pm/);
+    // `confirmedAt` — the moment the version went live, which this line showed
+    // before D1 and must not show now.
+    expect(attribution).not.toMatch(/04\/09\/2025/);
+    expect(attribution).not.toMatch(/9:45 am/);
+  });
+
+  /**
+   * The fallback, and it has to stay reachable. Mira's fixture version records
+   * her part without recording when it was captured — the shape a record made
+   * before this moment existed has. The line must say so in words rather than
+   * borrowing `confirmedAt`, and rather than vanishing.
+   */
+  it("says a version with no recorded moment does not name when the person's part was recorded", () => {
+    renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-002"));
+    const entry = within(screen.getByTestId("care-plan-history-list"))
+      .getAllByRole("listitem")
+      .find((node) => /Personal Safety Plan version 1 —/i.test(node.textContent ?? ""));
+    expect(entry).toBeDefined();
+
+    const paragraphs = [...(entry as HTMLElement).querySelectorAll("p")];
+    const attribution = paragraphs[paragraphs.length - 1]?.textContent ?? "";
+    expect(attribution).toMatch(/The record does not name who recorded their part, or when/);
+    // No date of any kind, rather than a precise one taken from another moment.
+    expect(attribution).not.toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    expect(attribution).not.toMatch(/Not recorded/);
+    expect(attribution).not.toMatch(/No clinician is recorded/);
+  });
+
   it("says a fixture submission does not name who submitted it, rather than naming the author", () => {
     renderScenarioJourney(carePlanRoute.history("SYN-PATIENT-001"));
     const entry = within(screen.getByTestId("care-plan-history-list"))
