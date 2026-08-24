@@ -836,6 +836,50 @@ text against itself. Six conflicts found, six ruled.
     output stays non-pristine, against the repository's standing rule that warnings are findings —
     so it is recorded as a deferred minor and as an `/issues` candidate, not silently accepted.
 
+### Task 10 — pre-flight scan, 24 August 2026
+
+Ruling 37 requires every remaining brief to be checked against the fixtures and the shipped code
+before dispatch, because three separate task briefs have pinned version numbers the fixtures
+contradict. Task 10's brief was checked line by line. What it claims, against what is there:
+
+| Brief claim                                                                | Reality in this worktree                                                                             | Verdict                      |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Worked example refers to `Jordan Test` and `scenario=no-current-plan`      | `fixtures.ts:140` is `fullName: "Jordan Test"`; `no-current-plan` is a real `PrototypeScenario`      | **holds** — first brief to   |
+| Worked example uses `CARE_PLAN_ROUTES.patients`                            | `routes.ts:25` exports `CARE_PLAN_ROUTES` with a `patients` key                                      | **holds**                    |
+| "Add prototype-role selection to the shell from the exact synthetic users" | Already built by Task 6 under Ruling 38 — `care-plan-shell-frame.tsx:181` renders `Prototype role`   | **already done** — Ruling 51 |
+| Implies Task 10 adds its reducer actions                                   | All five already exist: `create-identification-review`, `close-identification-review`,               | **already done** — Ruling 52 |
+|                                                                            | `verify-cmht-contact`, `resolve-review-trigger`, `set-active-user`                                   |                              |
+| "remove all remaining Task 3 route-purpose surfaces"                       | Exactly five routes still fall through to `RoutePurposeSurface`: reviews, team, governance, history, | **holds**                    |
+|                                                                            | system-states — precisely Task 10's five                                                             |                              |
+
+51. **Task 10 verifies the role switcher rather than rebuilding it.** Ruling 38 gave Task 6 the
+    switcher because approval is role-gated and a prototype that cannot switch between a senior
+    and a non-senior view cannot demonstrate its own central governance rule. Task 10's checklist
+    still asks for it, having been written before that ruling existed. Building a second one
+    would put two controls for one piece of state in the shell. _Cost if wrong:_ none — the
+    control exists and is reviewed; Task 10 confirms it covers the exact synthetic users its
+    checklist names and moves on.
+
+52. **Task 10 is a pure UI task: every reducer action it needs already exists.** All five actions
+    were built and reviewed in Task 2. This is a real scope reduction rather than a licence to
+    skip proof — the surfaces must still be built RED/GREEN with positive controls, and each must
+    dispatch the existing action rather than growing a parallel path. _Cost if wrong:_ if a queue
+    genuinely needs an action nobody wrote, the pre-flight ruling assigning actions to tasks says
+    it joins in the task that implements it — so Task 10 adds it, with a ledger note, rather than
+    bending an existing action to fit.
+
+53. **The scenario control on the System states screen updates the URL, and reuses the existing
+    guarded sync rather than adding a second one.** Ruling 39 left this question explicitly to
+    Task 10 and named the constraint: `apply-scenario` reconstructs fixtures, so anything that
+    routes through it discards a clinician's in-session draft — which is exactly why Ruling 20
+    removed the online/offline listener. Updating the address is what makes a specimen shareable
+    and reloadable, which is most of what the screen is for, and the existing effect already
+    dispatches **only when the scenario named in the URL differs from `state.scenario`**. So the
+    control navigates and lets that one effect do the dispatching; it must not dispatch directly
+    as well, or a scenario change would apply twice. _Cost if wrong:_ a hand-toggled scenario
+    leaves the address stale and a copied link shows a different world than the screen did — the
+    lesser harm, and a one-line change either way.
+
 ---
 
 ## Deferred minors — for the whole-branch review to triage
