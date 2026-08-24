@@ -25,7 +25,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
   prescribing: [],
   tools: [],
   calculators: [],
-  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways", "Review"],
+  "therapy-compass": ["Search", "Recommend", "Compare", "Pathways"],
   factsheets: ["Topics", "Search"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
 };
@@ -302,7 +302,6 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/recommend")).toBe("recommend");
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/compare")).toBe("compare");
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/pathways")).toBe("pathways");
-    expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/review")).toBe("review");
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/cbt")).toBeNull();
 
     // Dictionary's Search and Browse were one catalogue behind two routes and
