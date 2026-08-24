@@ -6,7 +6,7 @@ import { actSectionsForCue, sectionCueForForm } from "@/lib/mha-act-sections";
 // pulling this file's JSON imports. Re-exported below: one register, two entry points.
 import { normalizeCode, officialForms, type OfficialForm } from "@/lib/form-register";
 
-import type { FormActSection, FormAvailability, FormCatalogDetails, FormPriorityFactCard } from "@/lib/form-ranker";
+import type { FormActSection, FormCatalogDetails, FormPriorityFactCard } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceRecord, ServiceSummaryCard } from "@/lib/services";
 
 export { formCatalogDetails } from "@/lib/form-ranker";

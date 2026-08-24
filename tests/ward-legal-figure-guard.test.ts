@@ -845,7 +845,6 @@ describe("Mental Health Act figures cannot return to the ward model", () => {
      */
     const PROVENANCE_SCANNED_FILES = [modelPath, formsPath, registerPath];
 
-    const allExported = PROVENANCE_SCANNED_FILES.flatMap((path) => exportedNamesInFile(path));
     const numericExported = PROVENANCE_SCANNED_FILES.flatMap((path) => exportedNamesInFile(path, true));
 
     // Non-vacuity per file: each one is really being read, not silently skipped — a mistyped path
