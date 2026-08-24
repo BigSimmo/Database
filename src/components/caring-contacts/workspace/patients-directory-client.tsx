@@ -44,7 +44,7 @@ import { UnavailableDestination } from "./unavailable-destination";
  * search is deliberately local state in this one directory boundary: putting a name in a GET query
  * would copy patient information into browser history and request logs, which the workspace's
  * binding privacy contract forbids. The boundary receives only the already narrowed plan and name
- * projections; service-state incident notes never enter it.
+ * projections; incident responder notes never enter it.
  *
  * Ruling 94: that is the whole claim, and it is deliberately not a count. This paragraph previously
  * carried client-component tallies that went stale. The checkable property is narrower: this screen
