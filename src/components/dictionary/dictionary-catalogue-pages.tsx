@@ -381,12 +381,12 @@ export function DictionaryCataloguePage() {
           id={modeHomeDesktopComposerSlotId}
           data-testid="dictionary-catalogue-composer"
           data-composer-reserve={modeHomeComposerReservePendingValue}
-          className="mode-home-composer-slot mx-auto hidden w-full max-w-[76rem] min-w-0 px-4 pt-3 sm:block sm:px-6 sm:pt-4 sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
+          className="mode-home-composer-slot mx-auto hidden w-full max-w-[var(--content-width-catalogue)] min-w-0 px-4 pt-3 sm:block sm:px-6 sm:pt-4 sm:min-h-0 sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
         />
         <h1 className="sr-only">Dictionary catalogue</h1>
         {/* The original Filter band stays on browse and search. Compact Terms /
             Abbreviations and A–Z sit underneath on the right. */}
-        <div className="mx-auto w-full max-w-[76rem] px-4 pb-2 sm:px-6 sm:pb-3">
+        <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 pb-2 sm:px-6 sm:pb-3">
           <SearchResultsHeaderBand
             modeId="dictionary"
             query={params.q}
@@ -438,7 +438,10 @@ export function DictionaryCataloguePage() {
             })}
           </nav>
         </div>
-        <div id="dictionary-catalogue-results" className="mx-auto w-full max-w-[76rem] px-0 py-3 sm:px-6 sm:py-4">
+        <div
+          id="dictionary-catalogue-results"
+          className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-0 py-3 sm:px-6 sm:py-4"
+        >
           {hits.length ? (
             <section
               aria-label="Dictionary catalogue"
@@ -597,7 +600,7 @@ export function DictionaryTopicsPage() {
   return (
     <>
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topics-main">
-        <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
+        <div className="mx-auto grid w-full max-w-[var(--content-width-catalogue)] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
           {/* A `div`, not a `main`: `InformationPageShell` already renders the
               route's `<main>`, and a nested one is a duplicate landmark. */}
           <div className="min-w-0">
@@ -850,7 +853,7 @@ export function DictionaryTopicDetailPage({ topicSlug }: { topicSlug: string }) 
         }
       />
       <InformationPageShell width="bleed" gap={false} testId="dictionary-topic-detail-main">
-        <div className="mx-auto grid w-full max-w-[76rem] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
+        <div className="mx-auto grid w-full max-w-[var(--content-width-catalogue)] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:py-8">
           <div id="dictionary-topic-terms" className="min-w-0 scroll-mt-page-section">
             <h1 className="text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
               {topic.title}
