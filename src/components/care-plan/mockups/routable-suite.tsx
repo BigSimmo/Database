@@ -4,7 +4,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CarePlanShellFrame } from "./care-plan-shell-frame";
-import styles from "./care-plan.module.css";
 import { ClinicalSnapshotSurface, type ClinicalSnapshotVariant } from "./clinical-snapshot-page";
 import { ManagementPlanFormSurface } from "./management-plan-form";
 import { ManagementPlanPrintSurface } from "./management-plan-print";
