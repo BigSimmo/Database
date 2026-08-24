@@ -353,13 +353,16 @@ describe("Codex Run PR operator workflow", () => {
     );
 
     expect(actualTrustedPatterns).toEqual(expectedTrustedPatterns);
-    expect(repair).toContain('if ! git diff --name-only --no-renames --no-ext-diff -z "$BASE_SHA" "$EXPECTED_HEAD"');
+    expect(repair).toContain('if ! git diff --name-only --no-renames --no-ext-diff -z "$BASE_SHA" HEAD');
     expect(repair).toContain("mapfile -d '' -t policy_candidates < \"$policy_candidates_file\"");
     expect(repair).toContain("The operative policy diff could not be computed.");
     expect(repair).toContain('[[ "$changed_path" == $trusted_policy_pattern ]]');
     expect(repair).toContain("Operative Run PR policy differs from the trusted base");
     expect(repair.indexOf("trusted_policy_patterns=(")).toBeLessThan(
       repair.indexOf("Run official Codex repair action"),
+    );
+    expect(repair.indexOf('git merge --no-edit "$BASE_SHA"')).toBeLessThan(
+      repair.indexOf('if ! git diff --name-only --no-renames --no-ext-diff -z "$BASE_SHA" HEAD'),
     );
 
     const globToRegExp = (glob: string) =>
@@ -398,7 +401,7 @@ describe("Codex Run PR operator workflow", () => {
     expect(repair).toContain("OPERATOR_START_SHA=$operator_start_sha");
     expect(repair).toContain('git diff --name-only --no-renames -z "$OPERATOR_START_SHA"');
     expect(repair).toContain("mapfile -d '' -t changed_paths");
-    expect(repair).toContain(".github/*|.codex/*|.claude/*|.agents/*");
+    expect(repair).toContain(".github/*|.codex/*|.claude/*|.agents/*|.cursor/*");
     expect(repair).toContain("supabase/*|.env|.env.*");
     expect(repair).toContain(".npmrc|*/.npmrc");
     expect(repair).toContain('git diff --cached --raw "$OPERATOR_START_SHA"');
