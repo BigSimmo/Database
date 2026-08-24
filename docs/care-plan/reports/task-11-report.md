@@ -423,26 +423,52 @@ score by accident:
 Every run in this round was therefore taken through a retry loop that scores only a real
 `N passed` / `N failed` summary line and treats everything else as "retry".
 
-Still owed, and **not** claimed as done:
+**These three were owed when the paragraph above was first written, and have since been
+executed.** The wording is replaced rather than deleted, because the sequence is the evidence:
 
-1. **The browser suite re-run to green after the three assertion repairs above.** The repairs
-   are made, typechecked, linted and committed; the run proving them green has not landed. The
-   last fully green run was `29 passed (1.6m)`, before this round's changes. Two partial runs
-   were killed by my own `TaskStop` and produced a phantom
+1. **The browser suite re-run to green after the three assertion repairs.** Run: `30 passed
+(1.6m)`, 1 skipped. Before this round the last green run was `29 passed`; the extra case is
+   the per-width tap-target checklist added for the Critical. Two earlier partial runs were
+   killed by my own `TaskStop` and produced a phantom
    `worker process exited unexpectedly (code=3221225794)` — not a result, not scored. The one
    real failure they surfaced, the Safety Plan journey using the patient section navigation on
    a **print** route, which correctly carries none, is fixed.
-2. **The Important 1 control.** Editing a primary tap target from `min-h-12` to `min-h-11` and
-   watching `TAP_TARGET_FLOOR` redden. The threshold change is made; the mutation proving it
-   catches the banned edit has not been run.
-3. **The Important 2 control.** Giving an ancestor an unparseable `color-mix()` background and
-   watching `expectLooksLikeALink` redden on `has an unreadable computed background`. The
-   fail-closed assertions are in place; the mutation proving they fire has not been run.
+2. **The Important 1 control — executed, red as designed.** Mutation: in `care-plan.module.css`,
+   `.appRoot .dockItem { min-height: var(--spacing-tap) }` → `2.75rem`, i.e. exactly the banned
+   `min-h-11`. Result: `1 failed`, on
+   `Error: a phone dock destination is below the 48px tap convention`. Reverted; `git diff` on
+   the stylesheet is empty. This is the control that matters, because 44 px is the value a
+   well-meaning accessibility pass would introduce: the floor now rejects it by measurement,
+   not by naming a class.
+3. **The Important 2 control — executed, red as designed.** Mutation: `.appRoot
+.pinnedBoundary { background: var(--warning-soft) }` →
+   `color-mix(in oklch, white 60%, black)`. Result: `1 failed`, on
+   `` `pinnedBoundaryLink` has an unreadable computed background:
+oklch(0.599996 0.0000298791 none) ``. Reverted. The failure text is the point: the guard
+   names the unparseable value it received instead of soft-skipping the comparison, which is
+   the behaviour the review asked for.
 
-Both controls are one-line stylesheet mutations, and both were designed before the lease
-blocked them. They are the first thing to run when the lease clears. Reporting them as pending
-rather than passing is the point: this fix round exists because a test claimed work it had not
-done, and it would be a poor answer to close it with a control claimed but not executed.
+Both controls were single-line stylesheet mutations, applied one at a time with no run in
+flight, and both stylesheet edits are fully reverted — `git diff` on
+`src/components/care-plan/mockups/care-plan.module.css` is empty at the recorded HEAD.
+
+**Still owed after the controls, and not claimed as done.** The green `30 passed` run above was
+taken _before_ the two mutations. A fourth run, to confirm the suite is green again _after_
+both reverts, was started and did not finish: it was killed by a ten-minute tool timeout. The
+reverts themselves are verified by `git diff` rather than by a re-run, which is weaker evidence
+and is recorded as such.
+
+That confirmation run then became unsafe to simply retry, for a reason worth recording as an
+environment hazard rather than a test result. Immediately afterwards, `git status` showed six
+files modified in this worktree that **I did not touch** — `management-plan-print.tsx`,
+`management-plan-read.tsx`, `management-plan-review.tsx`, `patient-workspace.tsx`,
+`prototype-ui.tsx` and `care-plan-linked-routes.dom.test.tsx`. A concurrent session is editing
+this checkout, and the diff shows it adding a `safetyPlanStatusLine()` helper to
+`prototype-ui.tsx` — that is, implementing the `confirmed Not recorded` finding this report
+raises and leaves for decision D1. Its work was left untouched: not committed, not reverted,
+not run against. Only my own two report files were staged by explicit path. **Any suite result
+produced in this worktree from now on measures that session's in-progress edits mixed with
+mine, and must not be attributed to this branch's committed state.**
 
 Also still not run, and unchanged from the first round: `npm run typecheck` and `npm run lint`
 **through the coordinator wrapper** — the underlying compiler and linter were run directly
