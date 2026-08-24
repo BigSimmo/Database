@@ -397,6 +397,26 @@ describe("Codex auto-resolve workflow guard", () => {
     expect(result.output).toContain("clinical-decision hold");
   });
 
+  // The workflow's hold list and the guard's pinned list are two hand-maintained
+  // copies. Naming each pattern individually only pins the ones someone
+  // remembered; this asserts the correspondence itself, so adding a pattern to
+  // the workflow without pinning it fails here rather than silently leaving the
+  // new surface unprotected against a later edit.
+  it("pins every clinical-decision hold pattern in the guard", () => {
+    const guardSource = readFileSync(guardPath, "utf8").replace(/\r\n/g, "\n");
+    const holdList = originalWorkflow.match(/const clinicalDecisionHoldPathPatterns = \[(.*?)\n\s*\];/s)?.[1];
+    expect(holdList).toBeTruthy();
+
+    const patterns = (holdList as string)
+      .split("\n")
+      .map((line) => line.trim().replace(/,$/, ""))
+      .filter((line) => line.startsWith("/"));
+    expect(patterns.length).toBeGreaterThanOrEqual(7);
+
+    const unpinned = patterns.filter((pattern) => !guardSource.includes(pattern.replaceAll("\\", "\\\\")));
+    expect(unpinned).toEqual([]);
+  });
+
   it("rejects evaluating the clinical-decision hold after routing", () => {
     const holdBlockPattern =
       /\n {12}\/\/ Held before routing[\s\S]*?\n {12}if \(clinicalDecisionHoldFiles\.length > 0\) \{\n[\s\S]*?\n {12}\}\n/;
