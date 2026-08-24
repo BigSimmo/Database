@@ -10,6 +10,7 @@ const isWindows = process.platform === "win32";
 const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed"];
 const docsScripts = [
   "sitemap:check",
+  "check:repo-awareness-snapshot",
   "docs:check-index",
   "docs:check-inventory",
   "docs:check-scripts",
