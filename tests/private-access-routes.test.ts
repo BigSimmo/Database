@@ -608,7 +608,9 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
     expect(body.pagination).toMatchObject({ limit: 100, offset: 0, nextOffset: 1, hasMore: false });
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
     expect(client.calls[0].selected).toContain("storage_path");
     expect(client.calls[0].range).toEqual({ from: 0, to: 99 });
   });
@@ -739,7 +741,9 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(client.auth.getUser).toHaveBeenCalledWith(token);
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
   });
 
   it("accepts Supabase auth token cookies for private document access", async () => {
@@ -754,7 +758,9 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(client.auth.getUser).toHaveBeenCalledWith(token);
     expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
   });
 
   it("redacts owner-internal fields when an authenticated user reads a public document they do not own", async () => {
@@ -808,7 +814,9 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     // The caller can still read the shared public document...
     expect(document).toMatchObject({ id: documentId, title: "Public guideline" });
-    expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    expect(client.calls[0].orFilters).toContain(
+      `owner_id.eq.${userId},and(owner_id.is.null,metadata->>public_corpus.eq.true)`,
+    );
     // ...but not the owner's storage location, dedup hash, import provenance, raw error, metadata,
     // or index-health diagnostics — an authed non-owner gets the same redacted view as anonymous.
     expect(document).not.toHaveProperty("storage_path");

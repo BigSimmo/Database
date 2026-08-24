@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 87,
+    "pending": 106,
     "resolved": 376
   },
   "queue": [
@@ -792,6 +792,12 @@
       "created_at": "2026-08-20"
     },
     {
+      "request_id": "06fca542-5d96-4dbb-9c67-2b1aa5c8ec56",
+      "action": "add",
+      "summary": "A hardcoded topic denylist refuses in-corpus psychiatric queries with zero retrieval and caches the empty result",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0807d756-ecd5-4988-b4e3-9c5ec5e41ee3",
       "action": "cancel",
       "summary": "Cancel request 95eba5d7-8f01-46e5-8342-3e01ddf6d3a1: Fixed on branch claude/suicide-contact-mockup-b5aaa0 before this request was ever reconciled, so there is no open row to close. The request's premise was wrong: it says THIS IS A SHARED DESIGN-SYSTEM FIX, NOT A WORKSPACE ONE, but sheet.tsx already exposes the hook its own controller looks for. src/components/caring-contacts/workspace/overlays/overlay-host.tsx now stamps data-sheet-autofocus=\"true\" on the overlay action control when the overlay is not dismissible and is not the status banner, so startSheetOpenFocus resolves the recovery action instead of falling through to document.body. No change to sheet.tsx, so no blast radius across other Sheet consumers. Pinned by \"puts opening focus on the recovery action of an overlay that cannot be dismissed\" in tests/caring-contacts-overlay-host.dom.test.tsx, which was watched failing on document.body first.",
@@ -816,6 +822,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "0e72a462-30a9-4970-a1c4-8f30099d7d2b",
+      "action": "add",
+      "summary": "Retrieval RPC still treats a null document owner as public, so the owner_id republication hole is only half closed",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "0f9238c1-8add-450c-92d1-917376761248",
       "action": "add",
       "summary": "Caring Contacts patient-visible reply wording is now factually wrong and must change before any demonstration",
@@ -825,6 +837,12 @@
       "request_id": "16965ea0-230f-486e-90e6-ca05f315d78b",
       "action": "done",
       "summary": "#4XBMMR: Resolved by retaining the non-sensitive public design comps while making their indexing policy truthful and enforceable: next.config.ts now serves X-Robots-Tag: noindex, nofollow for exact /mockups/:path* assets, and mockups/README.md now distinguishes public retrieval from indexing and access control. tests/mockup-crawler-policy.test.ts imports the effective Next config, validates the route grammar, proves nested mockup assets match, and proves unrelated assets do not. Focused combined policy verification passed 3 files and 26 tests; the focused proxy production-block test passed 1 test with 14 skipped on 2026-08-23.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "183965e3-ec47-48cf-a99f-8b037311ed2d",
+      "action": "add",
+      "summary": "Patient-profile alerts surface unassessed gates only for contraindication rows, so 266 caution, dose-adjust and monitor gates silently no-op",
       "created_at": "2026-08-23"
     },
     {
@@ -852,6 +870,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "2184d26a-5bdb-451c-913b-38f53f20487c",
+      "action": "add",
+      "summary": "Therapy Compass labels itself Decision support in production, against the product's own stated boundary",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "224d9a15-49c9-4375-b7bf-563bde1cdccc",
       "action": "cancel",
       "summary": "Cancel request b9f8c826-070f-408b-b700-579117d2414f: This update correctly records the shipped predicate and canary evidence but leaves the completed issue open. Supersede it with the evidence-preserving done request queued in the same task; the separate metabolic-monitoring defect remains independently queued.",
@@ -861,6 +885,12 @@
       "request_id": "256bf4a0-9189-4a42-aca9-e6518a7d5c39",
       "action": "done",
       "summary": "#6SMMB4: Verified on workstation that npm cache resolves to D:\\.npm-cache and fsutil devdrv query returns Error 5 without elevation. Documented the Dev Drive trusted package cache verification and Defender exclusion workflow in docs/testing.md.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "276fa864-4337-40db-8430-a94825e71e73",
+      "action": "add",
+      "summary": "Icons passed as icon props render with no aria-hidden, and the lint rule is structurally blind to it",
       "created_at": "2026-08-23"
     },
     {
@@ -912,9 +942,27 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "3be77c8b-4010-4c17-9cda-3e1ff1eea1a4",
+      "action": "add",
+      "summary": "sentry.server.config falls back to the service-role key when the publishable key is absent",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "423d5a24-569d-4988-83c8-2a9e64d52ddb",
+      "action": "add",
+      "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "43122ce4-bfa2-43d1-83b0-f859eae6fc84",
       "action": "add",
       "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "462215d6-4847-42c9-88e6-43354cc96723",
+      "action": "add",
+      "summary": "Three SECURITY DEFINER functions omit pg_temp from search_path",
       "created_at": "2026-08-23"
     },
     {
@@ -939,6 +987,12 @@
       "request_id": "4e1ffb03-9151-4c88-a414-659a804b6a42",
       "action": "done",
       "summary": "#K9XD5N: Resolved by the 2026-08-23 current-main performance remediation. An always-mounted DegradedNoticeFrame reserves the exact 62px collapsed maximum while healthy state exposes no empty alert/live region. Before the fix, offline, reconnecting, and local-identity-unavailable each shifted the root by about 0.043-0.080 CLS; after the fix every degraded phase is below 0.01 and the main displacement is absent across mobile plus four desktop profiles. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/dashboard-degraded-notice.dom.test.tsx.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "4eb99dcb-d19f-42b8-8dcd-835814b3780e",
+      "action": "add",
+      "summary": "Medication source_status current is derived from a substring and never expires",
       "created_at": "2026-08-23"
     },
     {
@@ -990,6 +1044,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "672f9d6d-e9f1-46bc-8860-b08596fddd4d",
+      "action": "add",
+      "summary": "The batch image endpoint calls getPublicUrl against a bucket pinned private, so public-corpus figures silently fail to load",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "67381059-b223-450e-8f4e-2e0bd088f45d",
       "action": "done",
       "summary": "#NPQJKP: Resolved by PR #2285 (predicate commit 957b76afa), live canary run 32589154243, and the follow-up allowance on current main (commit 62cfcab48). generatedAnswerQualityFailureReason now rejects both captured incoherent answers as guidance_wrapper_fragment; tests/rag-guidance-wrapper-quality-gate.test.ts pins both shapes, legitimate prose, enforcing-gate reachability, and the preformatted grounded bypass. The canary converted exactly the two named cases to source-backed review fallbacks with flat retrieval metrics; scripts/eval-quality.ts now records the documented two-case allowance instead of leaving the weekly canary permanently red. The newly exposed antipsychotic metabolic-monitoring written-answer defect remains separate in pending request ad18a397 and is not hidden by this closure. Existing update request b9f8c826 is cancelled because it records the same final evidence but would leave this completed row open.",
@@ -1032,6 +1092,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "79631cfc-7258-4cad-8b40-7e4832f6e963",
+      "action": "add",
+      "summary": "Enrichment artifact families can be permanently lost, the designed repair function is called by nothing, and no monitoring exists",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "7b276d24-acb7-423a-9730-6fc4dca309ce",
       "action": "done",
       "summary": "#JVYQEM: Resolved by the 2026-08-23 current-main performance remediation. The already-fixed phone case remains zero. At desktop 800, where initial CLS 0.021676 crossed the intervention threshold, a 640-1023.98px one-line prompt rail plus 160px reserve removes the 88px-to-199px growth shift. Desktop 1280/1350/1440 deliberately retain the 88px reserve because their measured initial CLS was already below 0.01; post-fix totals remain below 0.01. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts.",
@@ -1042,6 +1108,12 @@
       "action": "update",
       "summary": "#RSD9EJ: source → PR #2298 push attempts 2026-08-22/23 (squash-merged as f3d1a3cce2c943ad3083425ed9c7c46dbef23087; the feature branch and its commits 90b5de61f/7703188ef/55f3a47fa are NOT reachable from any ref -- view them on the PR page, not via git); scripts/guard-push.mjs; scripts/check-ledger-write-discipline.mjs; commit 9a382a050 (#2294) is the reconcile whose applied/ records triggered the false positive and IS on main. REPRODUCTION without those commits: branch from main, let a reconcile PR land on main, merge origin/main into the branch, then push -- guard-push refuses with 'applied/<uuid>.json was introduced without moving the identical pending request from the base' while 'node scripts/check-ledger-write-discipline.mjs --base origin/main --head HEAD' passes on the same tree. The divergence between those two results is the bug.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "7e0a9690-6dce-4d5c-ac51-1c8dcda6467a",
+      "action": "add",
+      "summary": "Four no-DDL migrations sit outside every history guard, and the drift allowlist was never reconciled against a live read",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "7ffd3e0e-635d-41a3-8fdf-fb0efc4b6a88",
@@ -1116,6 +1188,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "a75bc5e3-3655-4ea5-a043-bd53c40bc085",
+      "action": "add",
+      "summary": "Two live overloads of purge_expired_rag_response_cache, one unbounded",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "a833f6b8-80c3-4e0e-b025-16c6578c5c61",
       "action": "cancel",
       "summary": "Cancel request e603434c-3ac2-40e2-bc36-d47e2e0e7efb: Adversarial review found three previously rejected role-qualified placeholders—dummy, fake and sample—were omitted from the new central trivial-token set. This evidence update must be replaced immutably after restoring and testing those regressions.",
@@ -1170,10 +1248,22 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "c186182a-b838-4055-b37e-e9e75457b835",
+      "action": "add",
+      "summary": "No automated reaper for abandoned reindex generations, so crashed mid-builds leak rows and storage indefinitely",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "c202f5e2-f935-47d4-8008-a2f9399ae0b4",
       "action": "done",
       "summary": "#0YK2S3: Resolved on current main by commit ade30a9b3. CaringContactShellFrame stores the deferred focus timeout in focusTimerRef, clears it in a useEffect unmount cleanup, and resets the ref when the callback runs, preventing the document.querySelector callback from firing after jsdom teardown. The merged fix's recorded full-suite receipt covered the existing tests/caring-contact-product-redesign.dom.test.tsx and reported 7,599 passing with exit 0.",
       "created_at": "2026-08-22"
+    },
+    {
+      "request_id": "c48454d1-86d0-4f12-8b98-ee897fd3e97f",
+      "action": "add",
+      "summary": "isPublicDocument ranks caller-adjacent metadata above owner_id",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "c4b1de28-7e91-46d6-9129-aa8b4d58f685",
@@ -1185,6 +1275,12 @@
       "request_id": "c5d6045b-6493-4c8b-a1c8-6e151629d561",
       "action": "update",
       "summary": "#057: detail → Staging migration parity is closed. Run SHA-bound tenancy evidence, transition the same candidate image from the offline tenancy profile to the authenticated auto-provider load profile, execute the staging soak, and rehearse rollback. Retain checkout/deployed SHA, latency, error, throttling, authentication, cleanup, and rollback evidence. Stop on unsafe data, identity mismatch, or an unowned rollback decision.",
+      "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "c7c4359a-3f2a-47cc-8690-d749bc10d81a",
+      "action": "add",
+      "summary": "The tenancy boundary is app-code only, so a single missing owner predicate has nothing behind it; make the property mechanical",
       "created_at": "2026-08-23"
     },
     {
@@ -1200,6 +1296,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "ca505f25-5403-4867-9985-91763c3fbca4",
+      "action": "add",
+      "summary": "Schema drift is gated against schema.sql only; the migration chain's semantics are never diffed against the mirror",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "cb4ab5a2-71d2-4dc3-83a4-96d2264a4af9",
       "action": "done",
       "summary": "#XPY409: Resolved on current main by PR #2186 / commit d7ffae1a5. docs/testing.md and docs/search-chrome-behaviour.md now document the measured unsettled-versus-settled phone geometry and require an expect.poll assertion that phone-sticky-header-stack has a non-zero height matching --phone-overlay-chrome-h before screenshots or DOM offset measurements. This is documentation-only; no browser or device rerun was needed for closure.",
@@ -1212,10 +1314,10 @@
       "created_at": "2026-08-23"
     },
     {
-      "request_id": "d627018c-e5ce-44c9-a9cc-5d798f807c93",
+      "request_id": "d4452409-69bf-4bb6-9ad7-dab654822940",
       "action": "add",
-      "summary": "Form 12A shows a false 'Password protected' warning: its PDF is not encrypted at all, and both the manifest and a test pin the wrong fact",
-      "created_at": "2026-08-24"
+      "summary": "eval-retrieval can report success over zero golden fixture cases",
+      "created_at": "2026-08-23"
     },
     {
       "request_id": "d6b9ff08-391f-4ed7-bbb3-aa8e8f95dd3f",
@@ -1242,21 +1344,15 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "e176f92a-2579-4700-b0af-869f3aeb1a77",
+      "action": "add",
+      "summary": "A stale 'D4 is OFF' production-deploy claim survives uncorrected in two places in the live-drift forensics doc",
+      "created_at": "2026-08-23"
+    },
+    {
       "request_id": "e603434c-3ac2-40e2-bc36-d47e2e0e7efb",
       "action": "update",
       "summary": "#SBKXZ7: summary → Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented; detail → Replacement implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: the generator is guarded by a central contract requiring exactly seven explicit boolean checks, all true for reviewed; display-approved public reviewer attribution that rejects the full trivial placeholder set and role-qualified variants, email and account handles, phone and obvious private identifiers; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. needs_review permits null or absent sign-off metadata and rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. ReviewStatus is exactly reviewed or needs_review. npm run therapy:review is report-only by default; its only write flow is one exact slug in an interactive TTY, shows every governed field, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, and has no batch, yes, answer, provider or production path. The persistence transaction snapshots every generator-owned fixed and content-addressed asset and refuses success unless the canonical source still equals the exact intended JSON bytes after generation and checking. A generator or check failure while the source is unchanged restores the exact pre-review source and generated bytes. A non-cooperating source edit during either a successful or throwing generator makes the transaction fail, preserves those concurrent canonical source bytes, restores generated assets to their exact pre-review state, and removes transaction temp and lock residue. Focused evidence: Therapy workflow tests 62 of 62 passed, including deterministic concurrent source mutation during both successful and throwing injected generators; the combined Therapy workflow, regression and source-governance suite passed 71 of 71; focused ESLint and Prettier passed; check:therapy-data-index passed at 205; report-only CLI passed; docs inventory, index and script-reference checks passed; canonical source and generated catalogue remain byte-identical to HEAD. Clinical state is deliberately unchanged: 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
-      "created_at": "2026-08-23"
-    },
-    {
-      "request_id": "e69b9dca-057d-48b4-8c7b-793faa3fd0df",
-      "action": "add",
-      "summary": "Forms mode: 34 forms still show boilerplate Clock/Authority/Criteria prose because the approved-form instruction text is locked in password-protected PDFs",
-      "created_at": "2026-08-23"
-    },
-    {
-      "request_id": "e7909949-2a75-44fc-92b0-b978f08546c6",
-      "action": "add",
-      "summary": "The Codex auto-resolve workflow reversed an explicit owner decision on a clinical surface without approval, and no gate distinguishes a bot finding from a decision already made",
       "created_at": "2026-08-23"
     },
     {
