@@ -674,3 +674,52 @@ not. **Identical numbers across two different trees are not evidence of the same
 separate measurements that happen to agree, and only one of them describes the code that now exists.
 Had the fix broken the viewport assertion, the stale green would have said `32 passed` about a tree
 nobody was shipping.
+
+### Task 3 scoped re-review — ALL FIVE ADDRESSED, no new Important
+
+The re-reviewer checked Ruling 90 against `definitions.ts` itself rather than the report: exactly 8
+rows carry `mutatesState: false`, their `decision` fields are the eight exits word for word, the
+withholding reads the frozen flag rather than re-deciding it, and `definitions.ts` is untouched across
+the whole task range — so the flag was consulted, not edited. `session-expiry` deep-linked with
+nothing staged is covered twice, once parameterised across all eight and once by a named recovery-only
+gate.
+
+**It corrected one of my own claims, and the correction matters.** I described the Important 3 fix as
+"a one-shot token". It is **two** mechanisms — the token in `history.state` AND a reconciliation effect
+that empties any slot whose token is not the current entry's — and **neither alone closes the set**:
+disabling the effect reddens 2 tests, dropping the token match reddens 1. The report's summary table
+attributes several cases to the token alone; its body states both. I repeated the summary. **A
+mechanism described as one thing that is actually two is a description under which a later maintainer
+can delete half and still believe the comment.**
+
+It walked all seven cases rather than accepting "one rule closes them" — Back, Back-then-Forward,
+cross-screen, spent commit, deep link, two triggers in quick succession, and page reload. All closed;
+Back-then-Forward is closed by composition of two asserted facts rather than driven directly, which it
+flagged as a coverage note rather than a gap.
+
+**The generated-manifest line is a DIFFERENT problem from Ruling 88, and the implementer was right to
+stage it.** Ruling 88's defect was a **false** attribution — that test never imported `EmptyState`.
+Here the trigger test really does render the shared `Sheet` and assert inside it, so the attribution is
+**true**; the generator reached a correct answer for a bad reason. Rewording accurate technical prose
+to dodge a regex would have been gaming the generator, and Ruling 88's own remedy was to fix the name,
+not the comment. **Same weak mechanism, opposite verdicts — which is why "we saw this before" is not
+itself an answer.**
+
+**Deferred minors, pointed at the final whole-branch review:**
+
+1. The trigger hand-rolls a near-duplicate of `floatingControl` and its comment overstates the match —
+   it uses `--border`/`--surface-subtle` where `floatingControl` uses `--border-lux`/`--surface-raised`
+   and reserves `--surface-subtle` for hover. So the control that OPENS an overlay and the overlay's
+   own secondary action will not look alike. Consistency, not correctness.
+2. A rejection after unmount is now fully silent, where it previously surfaced as an unhandled
+   rejection. Narrow — `WorkspaceOverlays` lives for the route — and the deferred policy task owns it.
+3. Back-then-Forward is argued rather than driven; one `history.forward()` call would assert it.
+4. `NO_STAGED_COMMIT_REASON` says "opened by address rather than from a control", which is literally
+   false for Forward-into-a-spent-commit. Pre-existing wording looseness.
+5. The `overlayId: string` render-time throw — needs `definitions.ts`, which the brief forbade.
+
+**Task 3: COMPLETE (commits `16d666039`..`1306c0b7d`, review clean after 1 fix round, 5 minors
+deferred).** Browser gate green at the post-fix head: `32 passed`, exit 0.
+
+**Group 0 is finished.** Task 2 was cut (Ruling 84), Task 4 merged forward (Ruling 89), so the shared
+scaffolding is: `ListEmptyState`, the overlay trigger and its commit contract. Group 1 begins.
