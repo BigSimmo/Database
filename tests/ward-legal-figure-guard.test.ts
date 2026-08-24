@@ -1,0 +1,1017 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import ts from "typescript";
+import { describe, expect, it } from "vitest";
+
+import { EVENT_ROLE, type WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
+import {
+  seedWardFlowState,
+  wardFlowReducer,
+  type WardFlowState,
+} from "../src/components/ward-management/ward-flow-reducer";
+import { DECLINE_REASONS, type LegalForm, type LegalStatus } from "../src/components/ward-management/ward-model";
+import { wardMovements } from "../src/components/ward-management/ward-movements";
+import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
+
+/**
+ * Guard against a fourth fabrication of a Mental Health Act duration in this prototype.
+ *
+ * Three separate agents have now written three different invented statutory figures into
+ * `src/components/ward-management/` and attributed them to the Act: a Form 3B post-examination
+ * deadline (deleted in Task 6A), a four-hour figure bolted onto `legalForm.dueAt` (ruling F23),
+ * and a Form 1A examination window (deleted 2026-08-23, the correction this file was added
+ * alongside). Each was removed only after it had already reached the screen. The product owner's
+ * standing instruction is narrower than "get the number right": "please can you leave the legal
+ * part and just start a clock once the patient arrives to ED. Keep it simple for now."
+ *
+ * The guard has three parts, built on different evidence so a reintroduction has to defeat more
+ * than one. Every claim below is demonstrated by an assertion in this file; where a part has a
+ * limit, the limit is stated rather than glossed.
+ *
+ *   Part 1 reads REAL RUNTIME VALUES — every `LegalForm` the fixture authors, every one the
+ *   reducer authors, and every one reachable by driving the reducer through EVERY event type in
+ *   its union — and requires that NO form of ANY code carries a `dueAt` unless its code is on
+ *   `DEADLINE_BEARING_FORM_PROVENANCE` below. It is fail-closed on the code, not a check of two
+ *   named codes: every consumer is code-agnostic (`ward-priority.ts` scores any code carrying a
+ *   `dueAt` and renders `Form ${code} passed its deadline …`), so a fabrication on an invented
+ *   code would otherwise render as a legal countdown with nothing in its way.
+ *
+ *   Because it inspects values rather than text, it is unaffected by how the value got there: a
+ *   helper in another file, an intermediate local, a spread, a computed property name, a
+ *   post-construction mutation of an existing form, or a constant imported from anywhere at all.
+ *   Its limit is REACHABILITY. The traversal drives every event type against a movement carrying
+ *   EACH examination-timeline code and asserts acceptance per code, so a branch keyed on one code
+ *   cannot go unentered — that exact hole let `code === "1A" ? { …, dueAt } : legalForm` pass the
+ *   whole suite. What acceptance-per-code still does not give is every guard condition inside
+ *   each case; a branch the sweep cannot reach at all is not inspected.
+ *
+ *   Part 2 is a fail-closed ALLOWLIST over `ward-model.ts`. Every exported declaration there that
+ *   WRITES A NUMBER DOWN ANYWHERE in its initializer — a constant, an object property, a function
+ *   body, an enum member — must appear in `MODEL_CONSTANT_PROVENANCE` below with a one-line record
+ *   of who supplied the figure and when. The trigger is the shape of the declaration, never its
+ *   name, so a constant nobody thought to predict is caught because it was never declared. Its
+ *   limits are SCOPE (it governs `ward-model.ts` and nothing else) and EXPORT (a module-private
+ *   declaration is not inspected).
+ *
+ *   Part 3 is a token denylist over the whole ward directory, kept as a WIDER BUT INCOMPLETE
+ *   second net for the files Part 2 does not govern. It scans identifiers via the TypeScript AST
+ *   (never a regular expression, never a hand-rolled string scanner) across every `.ts`/`.tsx`
+ *   file under the ward directory, recursively, so a file added in `coordinator/`, `ed/`,
+ *   `officer/`, `tracker/` or `ward/` is covered exactly as a top-level one is. It is NOT
+ *   complete and a green Part 3 proves nothing on its own.
+ *
+ * WHY PART 2 IS SHAPE-BASED AND NOT NAME-BASED. Two earlier versions of this guard tried to
+ * recognise a fabricated figure by its NAME, and both were defeated by a reviewer:
+ *
+ *     FORM_1A_REFERRAL_EXPIRY_MINUTES   caught by the token denylist
+ *     ASSESSMENT_WINDOW_MINUTES         defeated the denylist  (caught by v2's unit-token rule)
+ *     INVOLUNTARY_ORDER_HOURS           defeated the denylist  (caught by v2's unit-token rule)
+ *     SECTION_REVIEW_DAYS               defeated the denylist  (caught by v2's unit-token rule)
+ *     FORM_1A_REFERRAL_CLOCK            defeated BOTH — no unit token, and it carried the
+ *                                       deleted fabrication's exact value, 7 * 24 * 60
+ *
+ * Each round added vocabulary and each round missed the next name nobody had thought of. Keying
+ * on the shape of the declaration instead ends that: an exported number in `ward-model.ts` is
+ * caught whatever it is called. All of the names above are pinned as test cases below.
+ *
+ * WHAT THIS GUARD CANNOT SEE — stated plainly, because a guard that overstates its reach is the
+ * failure mode this repository has hit most often:
+ *
+ *   - Part 2 governs `ward-model.ts` only. A duration constant declared in another ward file
+ *     falls through to Part 3's incomplete denylist, and one declared outside the ward directory
+ *     entirely is seen by neither.
+ *   - Part 3 is incomplete BY CONSTRUCTION, as the table above demonstrates. It is a safety net,
+ *     not a proof of absence, and a green Part 3 means nothing on its own.
+ *   - Part 2 sees only EXPORTED declarations — `export const`, `export enum`, `export function`.
+ *     A module-private `const` in `ward-model.ts`, or a number written inline at its use site, is
+ *     not a declaration it inspects. Within an exported declaration it looks for a numeric literal
+ *     anywhere, so the object / arrow-function / enum shapes that defeated the narrower rule are
+ *     covered; a number arriving by import or computed at runtime is not.
+ *   - Part 3 sees only SCREAMING_SNAKE_CASE identifiers. That filter is deliberate: every
+ *     fabrication so far was a named constant, whereas the camelCase names in this directory are
+ *     locals that merely READ a value (`legalDueAt`, `minutesLegalClock` — both honest readers of
+ *     the 4A/4C deadlines that legitimately exist). Flagging those would make the guard cry wolf
+ *     and get it disabled.
+ *   - Anything that is not an identifier at all. A duration written only inside a string literal,
+ *     a template literal, a comment, JSX text, or a CSS module is invisible to Part 3.
+ *   - Part 1's limit is reachability. It inspects the states its traversal reaches; a branch the
+ *     traversal cannot get an event accepted into is not inspected. The traversal asserts every
+ *     event type was accepted against a movement carrying EACH examination-timeline code, so a
+ *     code-keyed branch is entered rather than assumed — but "accepted per code" is still not
+ *     "every guard condition inside that case exercised".
+ *   - The `STRUCTURALLY_IMPOSSIBLE_FOR_CODE` exclusion list gets only a partial check; its exact
+ *     limit, and the measurement that established it, are recorded at its declaration.
+ *   - A fabricated number parked in a variable nothing reads reaches no user and is caught by
+ *     nothing here until something uses it.
+ *   - Non-`.ts`/`.tsx` files, including the `.module.css` files in this directory.
+ *   - Forms 4A ("Transport order") and 4C ("Transfer between authorised hospitals"), which carry
+ *     real `dueAt` figures about moving a person rather than about the examination timeline and
+ *     are deliberately out of scope for every part.
+ *
+ * This file must never be relaxed to make a change green. If a real statutory figure is ever
+ * supplied, it arrives with a named source and date from the clinician or the product owner, and
+ * this guard is amended in the same change that records that provenance — never before it.
+ */
+
+const WARD_DIR = "src/components/ward-management";
+
+/**
+ * THE DEADLINE ALLOWLIST (Part 1's rule). A legal form of ANY code may carry a `dueAt` only if its
+ * code appears here with a line recording why that form legitimately bears an operational
+ * deadline. Every other code — including one nobody has invented yet — fails.
+ *
+ * This is the same fail-closed inversion Part 2 uses, and for the same reason. The previous rule
+ * named the two codes to CHECK (`1A`, `3B`), which meant a fabrication on any third code was
+ * checked by nothing — while every consumer is code-agnostic: `ward-priority.ts` scores points
+ * for any code carrying a `dueAt` and renders `Form ${code} passed its deadline …`, and
+ * `shortlist-panel.tsx` and `ward-derivations.ts` do the same. A new code would have rendered as
+ * a legal countdown with no guard in its way.
+ *
+ * Never add an entry for a form on the examination timeline (1A, 3B), and never add one whose
+ * justification traces to an assistant's recollection of the Mental Health Act.
+ */
+const DEADLINE_BEARING_FORM_PROVENANCE: Record<string, string> = {
+  // "Transport order" — a deadline about MOVING A PERSON (when transport must occur by), not
+  // about the examination timeline. Pre-dates the 2026-08-23 correction, which the product owner
+  // scoped to the examination clock and explicitly left these alone.
+  "4A": "Transport order — operational deadline for moving a person, out of scope for the 2026-08-23 correction",
+
+  // "Transfer between authorised hospitals" — same category as 4A: an operational deadline about
+  // a move between sites, unrelated to the examination timeline.
+  "4C": "Transfer between authorised hospitals — operational deadline for a move between sites, same category as 4A",
+};
+
+/**
+ * The two codes on the examination timeline. Used ONLY for non-vacuity — proving the fixture and
+ * the traversal actually held these forms — never as the set of codes the rule checks. The rule
+ * is the allowlist above.
+ */
+const EXAMINATION_TIMELINE_CODES = new Set(["1A", "3B"]);
+
+/**
+ * Word-level token sets. Matching is on exact tokens, never substrings: substring matching would
+ * flag `formattedMinutes` (FORM inside FORMATTED) and other innocent names, and a guard that
+ * cries wolf gets disabled. Tokenisation splits on `_` and on camelCase boundaries, so both
+ * `FORM_1A_EXPIRY_MINUTES` and `form1AExpiryMinutes` decompose the same way.
+ */
+const LEGAL_TOKENS = new Set([
+  "FORM",
+  "FORMS",
+  "1A",
+  "3B",
+  "STATUTORY",
+  "LEGAL",
+  "MHA",
+  "ACT",
+  "DETENTION",
+  "DETAINED",
+  "EXAMINATION",
+  "REFERRAL",
+]);
+
+const DURATION_TOKENS = new Set([
+  "MINUTES",
+  "MINS",
+  "HOURS",
+  "DAYS",
+  "EXPIRY",
+  "EXPIRES",
+  "DEADLINE",
+  "WINDOW",
+  "LIMIT",
+  "TIMEOUT",
+  "DUE",
+]);
+
+/**
+ * THE ALLOWLIST (Part 2). Every exported SCREAMING_SNAKE_CASE constant in `ward-model.ts` whose
+ * name carries a duration token must appear here, with a one-line record of who supplied the
+ * figure and when. Adding an entry is the deliberate act of recording provenance; a figure whose
+ * provenance cannot be written down does not belong in this model at all.
+ *
+ * Never add an entry whose provenance is an assistant's recollection of the Mental Health Act.
+ * That is precisely what produced the three deleted fabrications. Provenance means a named human
+ * — the clinician or the product owner — and a date.
+ */
+const MODEL_CONSTANT_PROVENANCE: Record<string, string> = {
+  // Product owner (the spec's own author), 2026-08-22: superseded the spec's original four-hour
+  // figure and set the emergency department access target to 24 hours for this prototype, in
+  // response to a direct clinical question. Counted UP from `openedAt`; never a deadline, never
+  // attached to a `LegalForm`. See the constant's own doc comment in ward-model.ts.
+  ED_ACCESS_TARGET_MINUTES: "product owner, 2026-08-22 — ED access target, counted up from openedAt",
+
+  // Product owner's own spec, `docs/ward-flow-context.md` (line 205 states the constant; line 287
+  // states the rule: "Parallel referrals are supported, capped at three"). An operational
+  // courtesy limit between services — explicitly NOT a clinical or statutory quantity, and it
+  // measures a count of units, not a duration.
+  PARALLEL_REFERRAL_CAP: "product owner's spec, docs/ward-flow-context.md — count of units, not a duration",
+};
+
+/**
+ * True when a subtree contains a numeric literal ANYWHERE. Read structurally from the AST, so the
+ * trigger does not depend on the declaration's NAME at all, and not on its shape either.
+ *
+ * Both narrower rules this replaced were defeated by a reviewer. Keying on the name was defeated
+ * by `FORM_1A_REFERRAL_CLOCK = 7 * 24 * 60` — the deleted fabrication's exact value, carrying no
+ * duration-unit token. Keying on "the initializer IS a number" was then defeated by three shapes
+ * that merely CONTAIN one: an object (`{ minutes: 7 * 24 * 60 }`), an arrow function
+ * (`(): number => 7 * 24 * 60`), and an enum member (`Window = 10080`). Containment is the widest
+ * honest rule available here, and it is the one in force.
+ */
+function containsNumericLiteral(node: ts.Node): boolean {
+  if (ts.isNumericLiteral(node)) return true;
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found && containsNumericLiteral(child)) found = true;
+  });
+  return found;
+}
+
+/**
+ * Exported constant names declared in one file, read from the AST — never from a regular
+ * expression, and never from a substring search that a quote or a comment could fool. Only
+ * `export const NAME = …` declarations are collected, which is exactly the shape a written-down
+ * figure takes. `numericOnly` narrows to declarations whose initializer is a number written into
+ * the source, which is the allowlist's trigger.
+ */
+function exportedDeclarationNames(source: ts.SourceFile, numericOnly = false): string[] {
+  const names: string[] = [];
+  const isExported = (node: ts.Node): boolean =>
+    ts.canHaveModifiers(node) &&
+    (ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false);
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableStatement(node) && isExported(node)) {
+      for (const declaration of node.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name)) continue;
+        if (numericOnly && !(declaration.initializer && containsNumericLiteral(declaration.initializer))) continue;
+        names.push(declaration.name.text);
+      }
+    }
+    // An exported enum is a declaration of numbers by another name, and was one of the three
+    // shapes that defeated the previous rule.
+    if (ts.isEnumDeclaration(node) && isExported(node)) {
+      if (!numericOnly || containsNumericLiteral(node)) names.push(node.name.text);
+    }
+    // An exported function whose body writes a number down is the same thing wearing a hat.
+    if (ts.isFunctionDeclaration(node) && isExported(node) && node.name) {
+      if (!numericOnly || containsNumericLiteral(node)) names.push(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return names;
+}
+
+function exportedNamesInFile(path: string, numericOnly = false): string[] {
+  return exportedDeclarationNames(
+    ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS),
+    numericOnly,
+  );
+}
+
+/**
+ * SCREAMING_SNAKE_CASE — the shape a written-down figure takes in this codebase. See the header
+ * for why camelCase readers are deliberately excluded and what that costs.
+ */
+function isConstantName(identifier: string): boolean {
+  return /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/.test(identifier);
+}
+
+function tokenise(identifier: string): string[] {
+  return identifier
+    .split("_")
+    .flatMap((part) => part.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(" "))
+    .filter((token) => token.length > 0)
+    .map((token) => token.toUpperCase());
+}
+
+/**
+ * True when an identifier names a legal concept AND a duration — the shape every one of the
+ * three fabrications took (`FORM_1A_REFERRAL_EXPIRY_MINUTES` and its predecessors).
+ */
+function namesALegalDuration(identifier: string): boolean {
+  const tokens = tokenise(identifier);
+  return tokens.some((token) => LEGAL_TOKENS.has(token)) && tokens.some((token) => DURATION_TOKENS.has(token));
+}
+
+/**
+ * The unconditional shapes the brief names for `ward-model.ts`: any `*_EXPIRY_MINUTES` or
+ * `*_DEADLINE_*` identifier is banned there whether or not it also names a legal concept,
+ * because that file is the model's own vocabulary and a bare `EXPIRY_MINUTES` there would be
+ * read as statutory by the next author regardless of what it is called.
+ */
+function namesABannedModelShape(identifier: string): boolean {
+  const upper = identifier.toUpperCase();
+  return upper.endsWith("_EXPIRY_MINUTES") || upper.includes("_DEADLINE_") || upper.endsWith("_DEADLINE");
+}
+
+function walk(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)],
+  );
+}
+
+type ScannedFile = { path: string; identifiers: string[] };
+
+/**
+ * Every identifier the TypeScript parser sees in a file — declarations, references and imports
+ * alike, so importing a banned name from elsewhere is caught as well as declaring one here.
+ * Identifiers are collected into an array of the matched names themselves; nothing in this file
+ * counts loop iterations and calls that a result.
+ */
+function scanWardFiles(): ScannedFile[] {
+  return walk(WARD_DIR)
+    .filter((path) => path.endsWith(".ts") || path.endsWith(".tsx"))
+    .map((path) => {
+      const source = ts.createSourceFile(
+        path,
+        readFileSync(path, "utf8"),
+        ts.ScriptTarget.Latest,
+        true,
+        path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      );
+      const identifiers: string[] = [];
+      const visit = (node: ts.Node): void => {
+        if (ts.isIdentifier(node)) identifiers.push(node.text);
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+      return { path, identifiers };
+    });
+}
+
+/** Every event type in the union, taken from the role table so a new variant cannot be forgotten. */
+const ALL_EVENT_TYPES = Object.keys(EVENT_ROLE) as WardFlowEvent["type"][];
+
+/**
+ * Candidate events of one type, generated against the CURRENT state rather than hard-coded, so a
+ * fixture change cannot silently make the traversal untestable. Every candidate carries the role
+ * the role table requires — a wrong role is refused before the reducer body runs, and a refused
+ * event proves nothing about what the reducer body does.
+ */
+function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now: number): WardFlowEvent[] {
+  const role = EVENT_ROLE[type];
+  const movementIds = state.movements.map((movement) => movement.id);
+  const unitIds = state.units.map((unit) => unit.id);
+  const pairs = movementIds.flatMap((movementId) => unitIds.map((unitId) => ({ movementId, unitId })));
+
+  switch (type) {
+    case "RAISE_REFERRAL":
+      return allEmergencyDepartments().flatMap((ed) =>
+        (["Referred for psychiatric examination", "Detained awaiting examination"] as LegalStatus[]).map(
+          (legalStatus) => ({
+            type,
+            role,
+            now,
+            edId: ed.id,
+            draft: {
+              cohort: "Adult" as const,
+              security: "Open" as const,
+              sex: "Female" as const,
+              specialling: false,
+              legalStatus,
+              urgency: 2 as const,
+            },
+          }),
+        ),
+      );
+    case "RECORD_EXAMINATION":
+      return movementIds.flatMap((movementId) =>
+        (["inpatient_order", "community_order", "revoked"] as const).map((outcome) => ({
+          type,
+          role,
+          now,
+          movementId,
+          outcome,
+        })),
+      );
+    case "REFER_TO_UNITS":
+      return pairs.map(({ movementId, unitId }) => ({ type, role, now, movementId, unitIds: [unitId] }));
+    case "ACCEPT_IN_PRINCIPLE":
+    case "HOLD_BED":
+      return pairs.map(({ movementId, unitId }) => ({ type, role, now, movementId, unitId }));
+    case "DECLINE":
+      return pairs.map(({ movementId, unitId }) => ({
+        type,
+        role,
+        now,
+        movementId,
+        unitId,
+        reason: DECLINE_REASONS[0],
+      }));
+    case "HANDOVER_READY":
+    case "TRANSPORT_ACCEPTED":
+    case "TRANSPORT_EN_ROUTE":
+    case "PATIENT_COLLECTED":
+    case "PATIENT_ARRIVED":
+      return movementIds.map((movementId) => ({ type, role, now, movementId }));
+    case "CONFIRM_CAPACITY":
+      return unitIds.flatMap((unitId) => [0, 1, 2].map((value) => ({ type, role, now, unitId, value })));
+    case "RECORD_ESCALATION":
+      return movementIds.map((movementId) => ({
+        type,
+        role,
+        now,
+        movementId,
+        triedUnitIds: unitIds.slice(0, 1),
+        contact: "State-wide bed coordination line",
+      }));
+    case "ADVANCE_CLOCK":
+      return [{ type, role, now, minutes: 30 }];
+    case "RESET_SCENARIO":
+      return [{ type, role, now }];
+  }
+}
+
+/** Event types that act on one named movement. The rest act on a unit, or on the whole scenario. */
+const MOVEMENT_TARGETED_EVENTS: ReadonlySet<WardFlowEvent["type"]> = new Set([
+  "RECORD_EXAMINATION",
+  "REFER_TO_UNITS",
+  "ACCEPT_IN_PRINCIPLE",
+  "HOLD_BED",
+  "DECLINE",
+  "HANDOVER_READY",
+  "TRANSPORT_ACCEPTED",
+  "TRANSPORT_EN_ROUTE",
+  "PATIENT_COLLECTED",
+  "PATIENT_ARRIVED",
+  "RECORD_ESCALATION",
+]);
+
+/**
+ * Event types that CANNOT apply to a movement already carrying a given code, because the reducer
+ * structurally refuses them — not because the traversal failed to reach them.
+ *
+ * This is an exclusion from the coverage assertion, so it is exactly the shape that could be
+ * abused to hide a real gap. Only structural impossibility belongs here — never "the sweep did
+ * not happen to get there".
+ *
+ * THE CHECK ON THIS LIST IS WEAKER THAN IT LOOKS, and the limit is stated here rather than
+ * discovered later. The test below confirms the reducer refuses each entry against ONE fixture
+ * movement carrying that code, in the seeded state. That catches an entry the reducer plainly
+ * accepts, but it does NOT establish structural impossibility: an event refused for that
+ * movement's STAGE rather than its form code passes the check too. Measured directly — adding a
+ * bogus `1A: HOLD_BED` entry left the guard green at 7 passed, because WF-001 sits at
+ * `placement_requested` and HOLD_BED requires `accepted_awaiting_bed`.
+ *
+ * So the single entry below is justified by READING the reducer, not by this check:
+ * `RECORD_EXAMINATION` opens with `if (movement.legalForm?.code !== "1A") return reject(...)`,
+ * which is a guard on the code itself. Any future entry needs the same treatment — quote the
+ * code-keyed guard that makes it impossible — and must not lean on the check alone.
+ */
+const STRUCTURALLY_IMPOSSIBLE_FOR_CODE: Record<string, { type: WardFlowEvent["type"]; reason: string }[]> = {
+  "3B": [
+    {
+      type: "RECORD_EXAMINATION",
+      // ward-flow-reducer.ts: `if (movement.legalForm?.code !== "1A") return reject(...)`. A 3B is
+      // what RECORD_EXAMINATION PRODUCES, so by construction it acts on a 1A and never on a 3B.
+      reason: "the reducer refuses RECORD_EXAMINATION unless the form is 1A; a 3B is its output",
+    },
+  ],
+};
+
+/** The movement an event acts on, or `undefined` for the unit- and scenario-scoped events. */
+function targetMovementId(event: WardFlowEvent): string | undefined {
+  return "movementId" in event ? event.movementId : undefined;
+}
+
+/**
+ * Applies the first candidate of this type that the reducer ACCEPTS, optionally restricted to
+ * candidates acting on a movement whose legal form carries `code`.
+ *
+ * Acceptance is measured by `state.rejections` not growing — the reducer records every refusal
+ * there, so this cannot mistake a silently-refused event for an applied one.
+ *
+ * The `code` restriction is the whole point of fix wave 3. Without it this took whichever
+ * movement the reducer happened to accept first — a fixture Form 3B — so a branch keyed on
+ * `movement.legalForm?.code === "1A"` was never entered, and a seven-day fabrication written
+ * there passed the entire suite.
+ */
+function applyFirstAccepted(
+  type: WardFlowEvent["type"],
+  state: WardFlowState,
+  now: number,
+  code?: string,
+): { applied: WardFlowState; event: WardFlowEvent } | undefined {
+  for (const event of candidateEvents(type, state, now)) {
+    if (code !== undefined && MOVEMENT_TARGETED_EVENTS.has(type)) {
+      const target = state.movements.find((movement) => movement.id === targetMovementId(event));
+      if (target?.legalForm?.code !== code) continue;
+    }
+    const next = wardFlowReducer(state, event);
+    if (next.rejections.length === state.rejections.length) return { applied: next, event };
+  }
+  return undefined;
+}
+
+/**
+ * Drives the reducer repeatedly against movements carrying `code`. Sweeping rather than following
+ * a hand-written script means the clinical pathway's ordering (HOLD_BED must precede
+ * HANDOVER_READY, which must precede TRANSPORT_ACCEPTED) is discovered rather than assumed, so a
+ * reordering of the pathway cannot silently drop a branch from coverage.
+ *
+ * Each round ROTATES the order the event types are tried in. A fixed order is itself an
+ * assumption, and a wrong one: with the role table's natural order, ACCEPT_IN_PRINCIPLE always
+ * ran before DECLINE and consumed the only live referral, so DECLINE was never once accepted
+ * against a Form 1A — the coverage assertion below caught that while this fix was being written.
+ * Rotating over at least as many rounds as there are event types tries every relative ordering.
+ */
+function driveEveryEventAgainst(
+  code: string,
+  rounds = ALL_EVENT_TYPES.length + 2,
+): {
+  accepted: Set<WardFlowEvent["type"]>;
+  offenders: string[];
+  finalState: WardFlowState;
+} {
+  let state = seedWardFlowState();
+  const accepted = new Set<WardFlowEvent["type"]>();
+  const offenders: string[] = [];
+
+  for (let round = 0; round < rounds; round += 1) {
+    const now = NOW_ANCHOR + round;
+    const pivot = round % ALL_EVENT_TYPES.length;
+    const order = [...ALL_EVENT_TYPES.slice(pivot), ...ALL_EVENT_TYPES.slice(0, pivot)];
+    for (const type of order) {
+      // RESET_SCENARIO would discard the movement the sweep is building; it is exercised on its
+      // own below, where the invariant is checked against the reset state directly.
+      if (type === "RESET_SCENARIO") continue;
+      const result = applyFirstAccepted(type, state, now, code);
+      if (!result) continue;
+      accepted.add(type);
+      state = result.applied;
+      offenders.push(...offendingFormsIn(state, `${code} / ${type}`));
+    }
+  }
+
+  return { accepted, offenders, finalState: state };
+}
+
+/**
+ * Every form in a state carrying a `dueAt` whose code is NOT on the deadline allowlist — of any
+ * code, invented or otherwise. This is the rule; the code list is not.
+ */
+function offendingFormsIn(state: WardFlowState, label: string): string[] {
+  return state.movements
+    .filter(
+      (movement) =>
+        movement.legalForm !== undefined &&
+        movement.legalForm.dueAt !== undefined &&
+        !(movement.legalForm.code in DEADLINE_BEARING_FORM_PROVENANCE),
+    )
+    .map(
+      (movement) => `${label}: ${movement.id} (Form ${movement.legalForm!.code}, dueAt ${movement.legalForm!.dueAt})`,
+    );
+}
+
+/** Every `LegalForm` reachable at runtime, tagged with where it came from. */
+function collectLegalForms(): { source: string; movementId: string; form: LegalForm }[] {
+  const collected: { source: string; movementId: string; form: LegalForm }[] = [];
+
+  for (const movement of wardMovements) {
+    if (movement.legalForm) collected.push({ source: "fixture", movementId: movement.id, form: movement.legalForm });
+  }
+
+  const seeded = seedWardFlowState();
+  for (const movement of seeded.movements) {
+    if (movement.legalForm)
+      collected.push({ source: "seeded state", movementId: movement.id, form: movement.legalForm });
+  }
+
+  // Every reducer path that authors a legal form: RAISE_REFERRAL builds the 1A, RECORD_EXAMINATION
+  // replaces it with the 3B. A fabricated constant would have to be applied in one of these.
+  const nonVoluntary: LegalStatus[] = ["Referred for psychiatric examination", "Detained awaiting examination"];
+  for (const legalStatus of nonVoluntary) {
+    const referred = wardFlowReducer(seeded, {
+      type: "RAISE_REFERRAL",
+      role: "ed",
+      now: NOW_ANCHOR,
+      edId: "jhc-ed",
+      draft: { cohort: "Adult", security: "Open", sex: "Female", specialling: false, legalStatus, urgency: 2 },
+    });
+    const raised = referred.movements.at(-1)!;
+    if (raised.legalForm) collected.push({ source: "RAISE_REFERRAL", movementId: raised.id, form: raised.legalForm });
+
+    const examined = wardFlowReducer(referred, {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW_ANCHOR + 1,
+      movementId: raised.id,
+      outcome: "inpatient_order",
+    });
+    const afterExamination = examined.movements.find((movement) => movement.id === raised.id);
+    if (afterExamination?.legalForm)
+      collected.push({ source: "RECORD_EXAMINATION", movementId: raised.id, form: afterExamination.legalForm });
+  }
+
+  return collected;
+}
+
+describe("Mental Health Act figures cannot return to the ward model", () => {
+  it("gives no Form 1A and no Form 3B a dueAt, in the fixture or from any reducer path", () => {
+    const collected = collectLegalForms();
+
+    // Non-vacuity, per source and per code: this test must fail if it ever inspects nothing,
+    // or if one of the four sources silently stopped producing a form. Asserting only a total
+    // would let a reducer path that returned `undefined` forever pass unnoticed.
+    expect(collected.length).toBeGreaterThan(0);
+    for (const source of ["fixture", "seeded state", "RAISE_REFERRAL", "RECORD_EXAMINATION"]) {
+      expect(
+        collected.filter((entry) => entry.source === source).length,
+        `no legal form was collected from ${source}`,
+      ).toBeGreaterThan(0);
+    }
+    for (const code of EXAMINATION_TIMELINE_CODES) {
+      expect(
+        collected.filter((entry) => entry.form.code === code).length,
+        `no Form ${code} was inspected — this guard would pass vacuously`,
+      ).toBeGreaterThan(0);
+    }
+
+    const offenders = collected
+      .filter((entry) => EXAMINATION_TIMELINE_CODES.has(entry.form.code) && entry.form.dueAt !== undefined)
+      .map((entry) => `${entry.source}:${entry.movementId} (Form ${entry.form.code}, dueAt ${entry.form.dueAt})`);
+    expect(offenders).toEqual([]);
+  });
+
+  /**
+   * Fix wave 3, finding 1 — the traversal, now driven PER FORM CODE.
+   *
+   * Wave 2's version applied whichever candidate the reducer accepted first. That was a fixture
+   * Form 3B, so a branch keyed on the other code was never entered, and this variant of the
+   * TRANSPORT_ACCEPTED bypass passed the whole suite at 227:
+   *
+   *     legalForm: movement.legalForm?.code === "1A"
+   *       ? { ...movement.legalForm, dueAt: event.now + 10080 }
+   *       : movement.legalForm,
+   *
+   * It is genuinely reachable — raise referral, refer, accept in principle, hold bed, handover
+   * ready, transport accepted puts a seven-day `dueAt` on a real Form 1A. So every event type is
+   * now driven against a movement carrying EACH code, and acceptance is asserted per code so the
+   * traversal cannot pass by quietly failing to reach one of them.
+   */
+  it("puts no dueAt on a form of any code, through any event, against a movement carrying each code", () => {
+    // Non-vacuity 1: the union is non-trivial and drawn from the role table, not hand-listed.
+    expect(ALL_EVENT_TYPES.length, "the event union looks empty").toBeGreaterThan(10);
+
+    const offenders: string[] = [];
+    const coverage = new Map<string, Set<WardFlowEvent["type"]>>();
+
+    for (const code of EXAMINATION_TIMELINE_CODES) {
+      const { accepted, offenders: found, finalState } = driveEveryEventAgainst(code);
+      coverage.set(code, accepted);
+      offenders.push(...found);
+
+      // Non-vacuity 2: the sweep really held a movement of this code to act on. Without this, a
+      // code that vanished from the model would make its whole pass silently vacuous.
+      const carrying = finalState.movements.filter((movement) => movement.legalForm?.code === code);
+      expect(carrying.length, `the sweep never held a Form ${code}`).toBeGreaterThan(0);
+    }
+
+    // Non-vacuity 3: every movement-targeted event type was ACCEPTED against a movement carrying
+    // each code. This is the assertion wave 2 lacked. Reported by name, never counted — and it is
+    // what proves the `code === "1A"` branch above is actually entered rather than merely
+    // believed to be reachable.
+    for (const [code, accepted] of coverage) {
+      const excluded = new Set((STRUCTURALLY_IMPOSSIBLE_FOR_CODE[code] ?? []).map((entry) => entry.type));
+      const missing = [...MOVEMENT_TARGETED_EVENTS].filter((type) => !accepted.has(type) && !excluded.has(type));
+      expect(missing, `never accepted against a Form ${code}`).toEqual([]);
+    }
+
+    // The exclusions above get a PARTIAL check, whose limit is documented at the declaration: for
+    // each entry, confirm the reducer refuses the event against a fixture movement carrying that
+    // code. This catches an entry the reducer plainly accepts. It does NOT prove structural
+    // impossibility — an event refused for that movement's stage passes too — so the entry itself
+    // must be justified by a code-keyed guard read out of the reducer.
+    const seededForExclusions = seedWardFlowState();
+    for (const [code, entries] of Object.entries(STRUCTURALLY_IMPOSSIBLE_FOR_CODE)) {
+      for (const entry of entries) {
+        const carrier = seededForExclusions.movements.find((movement) => movement.legalForm?.code === code);
+        expect(carrier, `no fixture movement carries a Form ${code} to test the exclusion against`).toBeDefined();
+        const refusedEvents = candidateEvents(entry.type, seededForExclusions, NOW_ANCHOR).filter(
+          (event) => targetMovementId(event) === carrier!.id,
+        );
+        expect(refusedEvents.length, `no ${entry.type} candidate targets ${carrier!.id}`).toBeGreaterThan(0);
+        for (const event of refusedEvents) {
+          const next = wardFlowReducer(seededForExclusions, event);
+          expect(
+            next.rejections.length,
+            `${entry.type} was NOT refused against Form ${code} — the exclusion is wrong: ${entry.reason}`,
+          ).toBeGreaterThan(seededForExclusions.rejections.length);
+        }
+      }
+    }
+
+    // The non-movement-scoped events (RAISE_REFERRAL, CONFIRM_CAPACITY, ADVANCE_CLOCK) are not
+    // code-targetable, but must still be exercised and must still leave the invariant intact.
+    for (const [code, accepted] of coverage) {
+      const unscoped = ALL_EVENT_TYPES.filter(
+        (type) => !MOVEMENT_TARGETED_EVENTS.has(type) && type !== "RESET_SCENARIO",
+      );
+      expect(
+        unscoped.filter((type) => !accepted.has(type)),
+        `unscoped events never accepted during the Form ${code} sweep`,
+      ).toEqual([]);
+    }
+
+    // RESET_SCENARIO on its own: it discards the sweep's movements, so it is exercised here and
+    // the invariant checked against the state it restores.
+    const reset = applyFirstAccepted("RESET_SCENARIO", seedWardFlowState(), NOW_ANCHOR);
+    expect(reset, "RESET_SCENARIO was never accepted").toBeDefined();
+    offenders.push(...offendingFormsIn(reset!.applied, "RESET_SCENARIO"));
+
+    expect(offenders).toEqual([]);
+  });
+
+  // Fix wave 3, finding 2 — the deadline allowlist is a real gate in both directions, and it is
+  // what makes the traversal above code-agnostic. Without these, `offendingFormsIn` could be
+  // silently inert (allowlisting everything) or absurd (allowlisting nothing).
+  it("permits a dueAt only on a form code with recorded provenance", () => {
+    // The two allowlisted codes are permitted; the examination-timeline codes are not; and a code
+    // nobody has invented yet is not — which is the case the old two-code rule could not make.
+    for (const code of ["4A", "4C"]) {
+      expect(code in DEADLINE_BEARING_FORM_PROVENANCE, `Form ${code} should be permitted`).toBe(true);
+    }
+    for (const code of ["1A", "3B", "2B", "6A", "MHA-99", ""]) {
+      expect(code in DEADLINE_BEARING_FORM_PROVENANCE, `Form ${code} must not be permitted`).toBe(false);
+    }
+
+    // Every entry records WHY, so a code cannot be admitted as a bare key.
+    for (const [code, provenance] of Object.entries(DEADLINE_BEARING_FORM_PROVENANCE)) {
+      expect(provenance.length, `Form ${code}'s provenance line is too short to be a real record`).toBeGreaterThan(20);
+    }
+
+    // `offendingFormsIn` actually applies the allowlist, in both directions — proven against a
+    // synthetic state rather than trusted. The 4A passes; the invented code does not.
+    const seeded = seedWardFlowState();
+    const withForms: WardFlowState = {
+      ...seeded,
+      movements: [
+        {
+          ...seeded.movements[0],
+          id: "PROBE-4A",
+          legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 10 },
+        },
+        {
+          ...seeded.movements[0],
+          id: "PROBE-9Z",
+          legalForm: { code: "9Z", label: "Invented form", kind: "transport", dueAt: NOW_ANCHOR - 10 },
+        },
+      ],
+    };
+    const flagged = offendingFormsIn(withForms, "probe");
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0]).toContain("PROBE-9Z");
+  });
+
+  it("records provenance for every exported declaration in ward-model.ts that writes a number down", () => {
+    const modelPath = `${WARD_DIR}/ward-model.ts`;
+    const allExported = exportedNamesInFile(modelPath);
+    const numericExported = exportedNamesInFile(modelPath, true);
+
+    // Non-vacuity 1: the AST really read the file, and really distinguishes declarations that
+    // write a number from those that do not. `MOVEMENT_STAGES` and `DECLINE_REASONS` are exported
+    // string arrays and must be excluded; the two numeric constants must be included. If the
+    // containment rule ever matched nothing, the offender list below would be empty for the wrong
+    // reason, and these assertions are what catch that.
+    expect(allExported, "exportedNamesInFile read nothing from ward-model.ts").toContain("MOVEMENT_STAGES");
+    expect(numericExported, "MOVEMENT_STAGES is an array of strings").not.toContain("MOVEMENT_STAGES");
+    expect(numericExported, "DECLINE_REASONS is an array of strings").not.toContain("DECLINE_REASONS");
+    expect(numericExported).toContain("ED_ACCESS_TARGET_MINUTES");
+    expect(numericExported).toContain("PARALLEL_REFERRAL_CAP");
+
+    /** Names the rule would demand provenance for, in a snippet of source. */
+    const flaggedIn = (source: string): string[] =>
+      exportedDeclarationNames(ts.createSourceFile("probe.ts", source, ts.ScriptTarget.Latest, true), true);
+
+    // Non-vacuity 2: every shape that has defeated a previous version of this rule is caught.
+    // The first five defeated the NAME-based rules; the last three defeated the "initializer IS a
+    // number" rule by merely CONTAINING one. All eight are real reviewer bypasses, not inventions.
+    for (const [label, snippet] of [
+      ["denylist bypass: expiry-minutes", "export const FORM_1A_REFERRAL_EXPIRY_MINUTES = 7 * 24 * 60;"],
+      ["denylist bypass: assessment window", "export const ASSESSMENT_WINDOW_MINUTES = 24 * 60;"],
+      ["denylist bypass: involuntary order", "export const INVOLUNTARY_ORDER_HOURS = 72;"],
+      ["denylist bypass: section review", "export const SECTION_REVIEW_DAYS = 7;"],
+      ["name-rule bypass: no unit token", "export const FORM_1A_REFERRAL_CLOCK = 7 * 24 * 60;"],
+      ["shape bypass: object", "export const REFERRAL_CLOCK_SPEC = { minutes: 7 * 24 * 60 };"],
+      ["shape bypass: arrow function", "export const referralClockMinutes = (): number => 7 * 24 * 60;"],
+      ["shape bypass: enum", "export enum ReferralClock { Window = 10080 }"],
+    ] as const) {
+      expect(flaggedIn(snippet), `${label} would not be flagged`).toHaveLength(1);
+    }
+
+    // Non-vacuity 3: the rule is not simply "flag every export". A declaration that writes no
+    // number down is not flagged, in each of the same shapes — otherwise the rule would be
+    // useless noise and would be disabled on its first false positive.
+    expect(flaggedIn('export const DECLINE_REASONS = ["no_bed"] as const;')).toEqual([]);
+    expect(flaggedIn('export const SHAPE = { label: "text" };')).toEqual([]);
+    expect(flaggedIn("export const describeForm = (code: string): string => `Form ${code}`;")).toEqual([]);
+    expect(flaggedIn('export enum Kind { Examination = "examination" }')).toEqual([]);
+    // A non-exported declaration is out of scope, and the limits section says so.
+    expect(flaggedIn("const PRIVATE_CLOCK = 7 * 24 * 60;")).toEqual([]);
+
+    // Every allowlist entry carries a non-trivial provenance line, so an entry cannot be added as
+    // a bare name to silence the guard.
+    for (const [name, provenance] of Object.entries(MODEL_CONSTANT_PROVENANCE)) {
+      expect(provenance.length, `${name}'s provenance line is too short to be a real record`).toBeGreaterThan(20);
+    }
+
+    // The allowlist must not rot: an entry for a declaration that no longer exists is dead weight
+    // that would silently re-admit the name later.
+    for (const name of Object.keys(MODEL_CONSTANT_PROVENANCE)) {
+      expect(numericExported, `${name} is allowlisted but no longer writes a number down`).toContain(name);
+    }
+
+    const offenders = numericExported.filter((name) => !(name in MODEL_CONSTANT_PROVENANCE));
+    expect(offenders).toEqual([]);
+  });
+
+  // Fix wave 1, finding 5. Part 1 exercises the reducer's two legal-form authoring sites by
+  // dispatching RAISE_REFERRAL and RECORD_EXAMINATION. That is complete only while those remain
+  // the ONLY two sites — a third branch stamping a `dueAt` would be invisible to Part 1, which
+  // would then still pass while claiming to cover "every LegalForm the reducer produces". Pin the
+  // set, so growing a new authoring site fails here until Part 1 is taught to exercise it.
+  it("pins the reducer's legal-form authoring sites, so Part 1 cannot silently miss a new one", () => {
+    const reducerPath = `${WARD_DIR}/ward-flow-reducer.ts`;
+    const source = ts.createSourceFile(
+      reducerPath,
+      readFileSync(reducerPath, "utf8"),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS,
+    );
+
+    // An authored legal form is an object literal carrying a `code:` string. Read from the AST,
+    // so a `code` mentioned in a comment or a string cannot inflate or hide the count.
+    const authoredCodes: string[] = [];
+    const visit = (node: ts.Node): void => {
+      if (ts.isObjectLiteralExpression(node)) {
+        for (const property of node.properties) {
+          if (
+            ts.isPropertyAssignment(property) &&
+            ts.isIdentifier(property.name) &&
+            property.name.text === "code" &&
+            ts.isStringLiteral(property.initializer)
+          ) {
+            authoredCodes.push(property.initializer.text);
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+
+    // Non-vacuity: the walk really found the literals rather than returning an empty list.
+    expect(authoredCodes.length, "no legal-form literal was found in the reducer").toBeGreaterThan(0);
+
+    // Exactly these two, in source order. A third authoring site — of any code — fails, and so
+    // does deleting one, which would mean Part 1 is dispatching at a site that no longer exists.
+    expect(authoredCodes).toEqual(["1A", "3B"]);
+  });
+
+  /**
+   * Fix wave 1, findings 6 and 7 — the rendered legal wording.
+   *
+   * Both renderers are `"use client"` components whose helpers are not exported, so a unit test
+   * cannot call them; the only behavioural coverage is Playwright, which this task may not run.
+   * This reads the STRING LITERALS from the AST instead — which is strictly better than a text
+   * search for this job, because comments are not string literals, so the paragraphs in those two
+   * files that *discuss* the rejected wording cannot satisfy or trip the check.
+   *
+   * WHAT THIS CANNOT SEE: it proves the literal exists in the module, not that any code path
+   * reaches it or that a user sees it. It would not catch the branch being made unreachable. That
+   * is a real limit and Playwright remains the only thing that closes it.
+   */
+  it("renders absence as 'no deadline recorded', never as a claim about the Act", () => {
+    const renderers = [`${WARD_DIR}/ward-management-console.tsx`, `${WARD_DIR}/coordinator/shortlist-panel.tsx`];
+
+    const literalsIn = (path: string): string[] => {
+      const source = ts.createSourceFile(
+        path,
+        readFileSync(path, "utf8"),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX,
+      );
+      const literals: string[] = [];
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isStringLiteral(node) ||
+          ts.isNoSubstitutionTemplateLiteral(node) ||
+          ts.isTemplateHead(node) ||
+          ts.isTemplateMiddle(node) ||
+          ts.isTemplateTail(node)
+        ) {
+          literals.push(node.text);
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+      return literals;
+    };
+
+    for (const path of renderers) {
+      const literals = literalsIn(path);
+
+      // Non-vacuity: the parse really produced literals for this file.
+      expect(literals.length, `no string literal was read from ${path}`).toBeGreaterThan(0);
+
+      // The wording states what the record holds, not what the legislation requires. Asserting an
+      // absence in the Act is the same overreach as asserting the deleted seven-day figure.
+      expect(
+        literals.some((literal) => literal.includes("no deadline recorded")),
+        `${path} no longer renders "no deadline recorded"`,
+      ).toBe(true);
+      expect(
+        literals.filter((literal) => literal.includes("no statutory deadline")),
+        `${path} renders a claim about what the Mental Health Act requires`,
+      ).toEqual([]);
+    }
+
+    // Finding 7: the breach line must still exist in the shortlist renderer. Before this, the only
+    // test mentioning the string was a whole-page ABSENCE assertion, which deleting the string
+    // makes MORE likely to pass. (Its counterpart in ward-priority.ts is pinned behaviourally in
+    // tests/ward-priority.test.ts, which is the stronger proof of the two.)
+    expect(
+      literalsIn(`${WARD_DIR}/coordinator/shortlist-panel.tsx`).some((literal) =>
+        literal.includes("passed its deadline"),
+      ),
+      "the shortlist breach line was deleted or renamed",
+    ).toBe(true);
+  });
+
+  // PART 3 — the wider but INCOMPLETE token denylist. Green here proves nothing on its own; see
+  // the file header's bypass table. Part 2 above is the fail-closed check.
+  it("trips the wider token denylist on no identifier under the ward directory (incomplete net)", () => {
+    const files = scanWardFiles();
+
+    // Non-vacuity 1 — the walk is recursive and really reached the subdirectories. Naming the
+    // files rather than counting them is what stops a walk that silently stopped at the top
+    // level from passing: a guard that "walked only one directory" is a defect this repository
+    // has already shipped once.
+    const scannedPaths = files.map((file) => file.path.replaceAll("\\", "/"));
+    for (const expected of [
+      `${WARD_DIR}/ward-model.ts`,
+      `${WARD_DIR}/ward-movements.ts`,
+      `${WARD_DIR}/ward-flow-reducer.ts`,
+      `${WARD_DIR}/coordinator/priority-queue.tsx`,
+      `${WARD_DIR}/coordinator/shortlist-panel.tsx`,
+      `${WARD_DIR}/ed/ed-screen.tsx`,
+      `${WARD_DIR}/officer/officer-screen.tsx`,
+      `${WARD_DIR}/tracker/live-tracker.tsx`,
+      `${WARD_DIR}/ward/ward-screen.tsx`,
+    ]) {
+      expect(scannedPaths, `${expected} was never scanned`).toContain(expected);
+    }
+
+    // Non-vacuity 2 — parsing actually produced identifiers. If `ts.createSourceFile` ever
+    // returned an empty tree (a changed API, a parse failure swallowed, a wrong ScriptKind),
+    // every rule below would pass on nothing. These two sentinels are real constants in this
+    // directory, so their absence means the scan itself is broken, not that the code is clean.
+    const allIdentifiers = new Set(files.flatMap((file) => file.identifiers));
+    expect(allIdentifiers, "the AST scan produced no identifiers").toContain("ED_ACCESS_TARGET_MINUTES");
+    expect(allIdentifiers, "the AST scan produced no identifiers").toContain("PARALLEL_REFERRAL_CAP");
+
+    // Non-vacuity 3 — the predicates themselves discriminate. A rule that can never match is
+    // the "check that cannot fail" shape; a rule that matches everything would be disabled on
+    // its first false positive. Both directions are pinned here against real names.
+    expect(namesALegalDuration("FORM_1A_REFERRAL_EXPIRY_MINUTES")).toBe(true);
+    expect(namesALegalDuration("FORM_1A_SOMETHING_MINUTES")).toBe(true);
+    expect(namesALegalDuration("STATUTORY_EXAMINATION_WINDOW_HOURS")).toBe(true);
+    expect(namesALegalDuration("ED_ACCESS_TARGET_MINUTES")).toBe(false);
+    expect(namesALegalDuration("PARALLEL_REFERRAL_CAP")).toBe(false);
+    expect(namesALegalDuration("MINUTES_PER_DAY")).toBe(false);
+    // Tokenisation is word-level, not substring: FORM inside FORMATTED must not match.
+    expect(namesALegalDuration("formattedMinutes")).toBe(false);
+    // The header calls this net INCOMPLETE. That is not a hedge, it is a measured fact, and this
+    // is the assertion that keeps it honest: `FORM_1A_REFERRAL_CLOCK` names a form and a clock,
+    // carried the deleted fabrication's exact value, and this predicate does not flag it. Part 2
+    // is what catches it — in `ward-model.ts`, which is where it was declared. If someone ever
+    // "fixes" this by adding CLOCK to the token list, this assertion fails and the header's claim
+    // must be re-measured rather than quietly outgrown.
+    expect(namesALegalDuration("FORM_1A_REFERRAL_CLOCK")).toBe(false);
+    // The constant-name filter is what excludes the honest camelCase readers of the 4A/4C
+    // deadlines; if it ever started matching them the guard would be disabled on its first
+    // false positive, and if it stopped matching real constants the guard would be inert.
+    expect(isConstantName("FORM_1A_REFERRAL_EXPIRY_MINUTES")).toBe(true);
+    expect(isConstantName("ED_ACCESS_TARGET_MINUTES")).toBe(true);
+    expect(isConstantName("legalDueAt")).toBe(false);
+    expect(isConstantName("minutesLegalClock")).toBe(false);
+    expect(namesABannedModelShape("SOME_EXPIRY_MINUTES")).toBe(true);
+    expect(namesABannedModelShape("A_DEADLINE_B")).toBe(true);
+    expect(namesABannedModelShape("ED_ACCESS_TARGET_MINUTES")).toBe(false);
+
+    const offenders = files.flatMap((file) =>
+      [...new Set(file.identifiers)]
+        .filter(isConstantName)
+        .filter(
+          (identifier) =>
+            namesALegalDuration(identifier) ||
+            (file.path.replaceAll("\\", "/") === `${WARD_DIR}/ward-model.ts` && namesABannedModelShape(identifier)),
+        )
+        .map((identifier) => `${file.path.replaceAll("\\", "/")}: ${identifier}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+});
