@@ -12,6 +12,7 @@ import {
   MockupSection,
   MockupShell,
   NoteCard,
+  PhoneComposer,
   PhoneFrame,
   PhoneTopBar,
   ReviewPill,
@@ -59,7 +60,7 @@ function TrayPhone() {
   return (
     <PhoneFrame
       label="Direction C — live"
-      note="Add from the list. The tray fills at the bottom; tap it to expand, then Compare. You never see a compare screen with empty slots because you cannot reach one."
+      note="Add from the list. The tray fills at the bottom, above the real composer; tap it to expand, then Compare. You never see a compare screen with empty slots because you cannot reach one."
       tall
     >
       <PhoneTopBar title={view === "compare" ? "Compare" : "Therapy"} />
@@ -78,7 +79,7 @@ function TrayPhone() {
               />
             </div>
           </div>
-          <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-28">
+          <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             {results.map((therapy) => {
               const held = set.selected.includes(therapy.slug);
               const blocked = !held && set.full;
@@ -135,7 +136,7 @@ function TrayPhone() {
           </ul>
         </>
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3">
           <button
             type="button"
             onClick={() => setView("browse")}
@@ -167,7 +168,9 @@ function TrayPhone() {
         </div>
       )}
 
-      {/* The tray. Present on every Therapy screen, above the composer. */}
+      {/* The tray. Present on every Therapy screen, and drawn in flow directly
+          above the real phone composer so the bottom-chrome stack this
+          direction has to negotiate is visible rather than assumed away. */}
       {expanded ? (
         <button
           type="button"
@@ -177,7 +180,7 @@ function TrayPhone() {
           style={{ backgroundColor: "color-mix(in srgb, var(--text-heading) 25%, transparent)" }}
         />
       ) : null}
-      <div className="absolute inset-x-0 bottom-0 z-20">
+      <div className="relative z-20 shrink-0">
         <div className="border-t border-[color:var(--border)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)]">
           {expanded ? (
             <div className="max-h-72 overflow-y-auto px-4 pb-2 pt-3">
@@ -299,6 +302,8 @@ function TrayPhone() {
           </div>
         </div>
       </div>
+
+      <PhoneComposer />
     </PhoneFrame>
   );
 }
@@ -307,7 +312,7 @@ function TrayEmptyPhone() {
   return (
     <PhoneFrame
       label="Direction C — the tray at rest"
-      note="With nothing selected the tray is a 68 px bar with four hollow dots. It is the only thing on any Therapy screen that mentions comparing, and it never occupies the page body."
+      note="With nothing selected the tray is a 68 px bar with four hollow dots, sitting on top of the phone composer. That stack is the cost of this direction, drawn to scale: two pieces of fixed bottom chrome where the contract allows one owner."
     >
       <PhoneTopBar />
       <div className="min-h-0 flex-1 overflow-hidden px-4 pt-3">
@@ -359,6 +364,7 @@ function TrayEmptyPhone() {
           </span>
         </div>
       </div>
+      <PhoneComposer />
     </PhoneFrame>
   );
 }
@@ -407,7 +413,7 @@ export function TherapyCompareTrayMockups() {
           <NoteCard
             tone="warn"
             title="This collides with the phone composer"
-            body="`docs/search-chrome-behaviour.md` gives one owner per page and an edge-to-edge composer flush to the viewport bottom. A tray must stack above it, hide with it on scroll, and take a zero reserve when hidden — otherwise it is the second fixed bottom bar the contract forbids."
+            body="`docs/search-chrome-behaviour.md` gives one owner per page and an edge-to-edge composer flush to the viewport bottom. Both frames above draw the tray on top of the real composer, to scale, so you can judge that stack rather than take it on trust: roughly 134 px of permanent bottom chrome. Shipping it means the tray hides with the composer on scroll and takes a zero reserve when hidden — otherwise it is the second fixed bottom bar the contract forbids."
           />
           <NoteCard
             tone="warn"
