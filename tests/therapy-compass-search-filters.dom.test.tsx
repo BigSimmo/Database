@@ -222,4 +222,15 @@ describe("therapy-compass search filter contract adoption", () => {
     expect(document.querySelector("[data-therapy-result-featured]")).toBeNull();
     expect(screen.queryByText("Best match")).not.toBeInTheDocument();
   });
+
+  it("does not imply a best match for a punctuation-only query", () => {
+    bindingsState.query = "!!!";
+    bindingsState.queryMatches = [therapy({ slug: "first" }), therapy({ slug: "second" })];
+    bindingsState.searchResults = [therapy({ slug: "first" }), therapy({ slug: "second" })];
+
+    render(<SearchScreen />);
+
+    expect(document.querySelector("[data-therapy-result-featured]")).toBeNull();
+    expect(screen.queryByText("Best match")).not.toBeInTheDocument();
+  });
 });
