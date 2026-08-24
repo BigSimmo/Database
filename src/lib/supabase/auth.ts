@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import { isAdministratorAppMetadata } from "@/lib/authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyProxyAuthHeader } from "@/lib/supabase/proxy-auth-crypto";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -176,6 +177,32 @@ async function getUserFromRequestCookies(request: Request): Promise<Authenticate
   return { id: data.user.id, appMetadata: data.user.app_metadata ?? {} };
 }
 
+export const PROXY_AUTH_USER_HEADER = "x-proxy-auth-user";
+
+export function extractProxyAuthenticatedUser(request: Request): AuthenticatedUser | null {
+  const raw = request.headers.get(PROXY_AUTH_USER_HEADER);
+  if (!raw) return null;
+  try {
+    const verifiedPayload = verifyProxyAuthHeader(raw);
+    if (!verifiedPayload) return null;
+    const json = Buffer.from(verifiedPayload, "base64").toString("utf8");
+    const parsed = JSON.parse(json);
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      typeof parsed.id === "string" &&
+      parsed.id &&
+      typeof parsed.appMetadata === "object" &&
+      parsed.appMetadata !== null
+    ) {
+      return { id: parsed.id, appMetadata: parsed.appMetadata as Record<string, unknown> };
+    }
+  } catch {
+    // Malformed header or invalid signature, ignore
+  }
+  return null;
+}
+
 export async function resolveOptionalAuthentication(
   request: Request,
   supabase: AdminClient,
@@ -186,6 +213,12 @@ export async function resolveOptionalAuthentication(
 
     const bearerUser = await getUserFromAccessToken(supabase, bearerToken);
     return bearerUser ? { status: "valid", user: bearerUser } : { status: "invalid" };
+  }
+
+  // Fast path: Forwarded verified claims from Next.js proxy
+  const proxyUser = extractProxyAuthenticatedUser(request);
+  if (proxyUser) {
+    return { status: "valid", user: proxyUser };
   }
 
   const currentCookieToken = extractCurrentCookieSessionAccessToken(request);
@@ -219,7 +252,18 @@ export async function requireAuthenticatedUser(
       authentication.status === "invalid" ? "Invalid authentication credentials." : undefined,
     );
   }
-  const { user } = authentication;
+  let { user } = authentication;
+  if (requirement.administrator) {
+    // Administrator routes never trust proxy-forwarded claims. A missing live
+    // Auth user fails closed (401) instead of keeping a signed header.
+    const token = extractSessionAccessToken(request);
+    const freshUser =
+      (token ? await getUserFromAccessToken(supabase, token) : null) ?? (await getUserFromRequestCookies(request));
+    if (!freshUser) {
+      throw new AuthenticationError();
+    }
+    user = freshUser;
+  }
   if (requirement.administrator && !isAdministratorAppMetadata(user.appMetadata)) {
     throw new PublicApiError("Administrator access required.", 403, { code: "administrator_required" });
   }
