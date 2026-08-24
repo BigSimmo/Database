@@ -107,6 +107,14 @@ row in place on the page. Shared mockup chrome is suppressed because each frame 
 The tab rail reads Terms · Topics · More rather than Search · Browse · More: this round assumes Search and Browse have
 merged into one destination, with the site-wide composer as the mode’s only search surface.
 
+## Dictionary — compact trailing toolbar (2026-08-24)
+
+Runnable study at [`/mockups/dictionary-trailing-toolbar`](../src/app/mockups/dictionary-trailing-toolbar/page.tsx). Two frames.
+
+Title on the left. Compact Terms / Abbreviations toggle, Topics, and A–Z share the trailing corner. A–Z stands down during search; the original Filter occupies the results band. Kind and source stay in Filter.
+
+Shared mockup chrome is suppressed because each frame draws its own top bar, mode nav and composer.
+
 ## Dictionary — browse vs search (recommended split, 2026-08-24)
 
 Runnable study at [`/mockups/dictionary-az-state`](../src/app/mockups/dictionary-az-state/page.tsx). Two frames only.
