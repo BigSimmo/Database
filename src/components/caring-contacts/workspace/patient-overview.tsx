@@ -43,15 +43,26 @@ import { UnavailableDestination } from "./unavailable-destination";
  *     patient's name, which is the error that matters most here.
  *   * `"episode"` -- one plan, and the episode the page read for it.
  *
- * WHAT THE EPISODE VIEW SHOWS OF THE PERSON, AND WHAT IT WITHHOLDS
- * ---------------------------------------------------------------
+ * WHAT THE EPISODE VIEW SHOWS OF THE PERSON
+ * ----------------------------------------
  * `getEpisode` is the one read that releases the name, the mobile number, the identifiers and the
- * cultural identity together, and this is the one screen permitted to make it. Permitted is not
- * the same as obliged: the MOBILE NUMBER is deliberately never painted. Nothing a clinician does
- * on this screen needs it, the approved design does not show it, and a number on a rendered page
- * is a number in a screenshot, a printout and a browser cache. The name, the identifiers and the
- * cultural identity are shown, because they are what makes the record this person's rather than
- * somebody else's, and the cultural identity is what a caring-contact pathway is chosen against.
+ * cultural identity together, and this is the one screen permitted to make it. All four are shown:
+ * they are what makes the record this person's rather than somebody else's, the cultural identity
+ * is what a caring-contact pathway is chosen against, and the mobile number is the destination the
+ * whole plan is aimed at.
+ *
+ * The mobile number was withheld in the first version of this screen and the owner reversed that
+ * (review round 1). It is on the identity strip beside the name rather than in a detail row, since
+ * it is being shown deliberately and a reader looking for it should find it where identity lives.
+ *
+ * THE LICENCE DOES NOT TRAVEL. This screen may see the number because it already made the read
+ * that releases it; nothing else in the workspace may. The caseload uses `listPatientNames`, whose
+ * two-field return type structurally cannot carry a number, and no other surface calls
+ * `getEpisode`. Do not add a read for it elsewhere, and do not widen one.
+ *
+ * It is rendered as TEXT, never as a `tel:` link. Nothing in this workspace dials anybody, every
+ * number in it is invented, and a control that looked dialable would be the one thing on this
+ * screen a reader might act on. The label says so in place.
  *
  * A BLANK NAME IS NOT A NAME, AND HERE THE CAUSE IS KNOWABLE
  * ---------------------------------------------------------
@@ -350,6 +361,29 @@ function EpisodeOverview({
           <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">Synthetic identifier: {patientId}</p>
         )}
 
+        {/*
+          Beside the name, not in a detail row below: the number is shown deliberately, so it sits
+          where identity lives. Text, never a `tel:` link -- see the module note.
+
+          A blank is the retention clearance's own value (`CLEARED_PATIENT_DETAIL`), exactly as a
+          blank name is, so it is stated as "no number held" rather than rendered as an empty gap
+          that a reader would have to interpret. `episode === null` is the role case and prints
+          nothing at all here; the notice below says why.
+        */}
+        {episode === null ? null : (
+          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+            <span className="font-medium text-[color:var(--text)]">Mobile number: </span>
+            {episode.patientMobileNumber === "" ? (
+              "no number held for this episode"
+            ) : (
+              <>
+                {episode.patientMobileNumber}{" "}
+                <span className="text-xs">&mdash; invented, and nothing in this workspace is ever sent to it</span>
+              </>
+            )}
+          </p>
+        )}
+
         {episode === null ? (
           <div className="mt-3 min-w-0">
             <EpisodeNotPermittedNotice />
@@ -374,7 +408,7 @@ function EpisodeOverview({
           </p>
         ) : null}
         <p className="mt-2 max-w-[var(--measure)] text-xs leading-5 text-[color:var(--text-muted)]">
-          This patient is invented, and the mobile number this plan would use is deliberately not shown on this screen.
+          This patient is invented, and so is every identifier and number held against them.
         </p>
       </section>
 
@@ -656,9 +690,9 @@ function NoNameHeldNotice() {
       </p>
       <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
         <span className="font-medium text-[color:var(--text)]">Why: </span>
-        This episode holds no patient name, so the heading above is the synthetic identifier. A retention clearance
-        removes the name, the mobile number, the identifiers and the cultural identity together once an episode has
-        ended, and that is the one thing in this workspace that empties them.
+        This episode holds no patient name, so the heading above is the synthetic identifier, and no mobile number is
+        held for it either. A retention clearance removes the name, the mobile number, the identifiers and the cultural
+        identity together once an episode has ended, and that is the one thing in this workspace that empties them.
       </p>
       <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
         <span className="font-medium text-[color:var(--text)]">What changes it: </span>

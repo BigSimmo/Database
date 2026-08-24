@@ -431,13 +431,53 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
 });
 
 describe("the patient overview - what it may show about the person", () => {
-  it("never renders the patient's mobile number, though getEpisode released it", async () => {
+  // Review round 1, owner decision. The first version withheld the mobile number and flagged it;
+  // the owner reversed that. `getEpisode` already releases it on this screen, so it is taken from
+  // the episode already in hand -- no read was added and none was widened.
+  it("renders the patient's mobile number on the identity strip, labelled as invented", async () => {
     const { store } = spiedStore();
     await createPlan(store, "plan-solo");
 
     await renderPage();
 
-    expect(document.body.textContent).not.toContain("0400000000");
+    const identity = screen.getByRole("heading", { level: 2, name: "Rowan Sample" }).closest("section");
+    expect(identity).not.toBeNull();
+    expect(identity).toHaveTextContent("Mobile number:");
+    expect(identity).toHaveTextContent("0400000000");
+    // The one field on this screen a reader might act on, so the context travels with it.
+    expect(identity).toHaveTextContent(/invented, and nothing in this workspace is ever sent to it/i);
+  });
+
+  // Not a control, and deliberately not dialable: nothing in this workspace calls anybody.
+  it("renders the number as text, never as a tel: link", async () => {
+    const { store } = spiedStore();
+    await createPlan(store, "plan-solo");
+
+    await renderPage();
+
+    for (const link of screen.queryAllByRole("link")) {
+      expect(link.getAttribute("href") ?? "").not.toMatch(/^tel:/);
+    }
+    expect(document.body.innerHTML).not.toContain("tel:");
+  });
+
+  it("says no number is held for a cleared episode, rather than rendering a blank", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    await endPlan(store, id);
+    const cleared = await store.markRetentionCleared(
+      { planId: id },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("clear-number-plan-solo") },
+    );
+    if (!cleared.ok) throw new Error(`markRetentionCleared refused: ${cleared.reason}`);
+
+    await renderPage();
+
+    const identity = screen.getByRole("heading", { level: 2, name: PATIENT }).closest("section");
+    expect(identity).not.toBeNull();
+    expect(identity).toHaveTextContent("Mobile number: no number held for this episode");
+    // A cleared field is "no number held", never a number and never an empty-looking gap.
+    expect(identity).not.toHaveTextContent("0400000000");
   });
 
   it("falls back to the synthetic identifier, and says a name is not held, for a cleared episode", async () => {
