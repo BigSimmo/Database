@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import {
   rowToDifferentialRecord,
   rowToPresentationWorkflow,
@@ -301,6 +303,53 @@ function publicValue(kind: DynamicSiteContentKind, value: unknown, path: readonl
   );
 }
 
+const projectionDigestEncoder = new TextEncoder();
+
+function framedProjectionValue(tag: string, payload: string): string {
+  return `${tag}${projectionDigestEncoder.encode(payload).byteLength}:${payload}`;
+}
+
+function canonicalTypedProjectionValue(value: unknown): string {
+  if (value === null) return framedProjectionValue("n", "");
+  if (typeof value === "string") return framedProjectionValue("s", value);
+  if (typeof value === "boolean") return framedProjectionValue("b", value ? "1" : "0");
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("Site-content projection digest cannot encode non-finite numbers.");
+    const bytes = new ArrayBuffer(8);
+    new DataView(bytes).setFloat64(0, Object.is(value, -0) ? 0 : value, false);
+    const payload = Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return framedProjectionValue("d", payload);
+  }
+  if (Array.isArray(value)) {
+    return framedProjectionValue("a", value.map(canonicalTypedProjectionValue).join(""));
+  }
+  if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    const payload = Object.keys(object)
+      .filter((key) => object[key] !== undefined)
+      .sort()
+      .map((key) => framedProjectionValue("k", key) + canonicalTypedProjectionValue(object[key]))
+      .join("");
+    return framedProjectionValue("o", payload);
+  }
+  throw new Error(`Site-content projection digest cannot encode ${typeof value}.`);
+}
+
+export function siteContentProjectionDigest(projection: {
+  record: SiteContentRecord;
+  renderPayload: Record<string, unknown>;
+}): string {
+  return createHash("sha256")
+    .update(
+      canonicalTypedProjectionValue({
+        projectionVersion: "site-content-public-projection-v1",
+        record: projection.record,
+        renderPayload: projection.renderPayload,
+      }),
+    )
+    .digest("hex");
+}
+
 function recordIdentity(kind: DynamicSiteContentKind, slug: string) {
   if (kind === "service") return `services:${slug}`;
   if (kind === "form") return `forms:${slug}`;
@@ -529,6 +578,7 @@ export async function publishSiteContentCommand(input: {
     p_expected_change_epoch: input.command.expectedChangeEpoch,
     p_reconciliation_plan_digest: input.command.reconciliationPlanDigest ?? null,
     p_expected_record_digest: siteContentValueHash(canonical.record),
+    p_expected_projection_digest: siteContentProjectionDigest(canonical),
     p_published_by: input.actorId,
   });
   if (error) throw new Error(`Site-content publication command failed: ${error.message}`);

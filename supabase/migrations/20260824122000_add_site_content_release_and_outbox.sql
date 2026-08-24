@@ -360,6 +360,61 @@ as $$
   select encode(extensions.digest(convert_to(public.site_content_canonical_json(p_value), 'UTF8'), 'sha256'), 'hex');
 $$;
 
+-- A cross-runtime canonical value encoding for the publication mutation
+-- boundary. Numbers use their normalized IEEE-754 binary64 bytes, matching
+-- JavaScript Number rather than relying on PostgreSQL/JSON numeric spelling.
+create or replace function public.site_content_typed_json(p_value jsonb)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_payload text;
+  v_number double precision;
+begin
+  if p_value is null or p_value = 'null'::jsonb then return 'n0:'; end if;
+  if jsonb_typeof(p_value) = 'string' then
+    v_payload := p_value #>> '{}';
+    return 's' || pg_catalog.octet_length(pg_catalog.convert_to(v_payload, 'UTF8'))::text || ':' || v_payload;
+  end if;
+  if jsonb_typeof(p_value) = 'boolean' then
+    v_payload := case when p_value = 'true'::jsonb then '1' else '0' end;
+    return 'b1:' || v_payload;
+  end if;
+  if jsonb_typeof(p_value) = 'number' then
+    v_number := (p_value #>> '{}')::double precision;
+    if v_number = 0 then v_number := 0::double precision; end if;
+    v_payload := pg_catalog.encode(pg_catalog.float8send(v_number), 'hex');
+    return 'd16:' || v_payload;
+  end if;
+  if jsonb_typeof(p_value) = 'array' then
+    select coalesce(string_agg(public.site_content_typed_json(entry.value), '' order by entry.ordinal), '')
+    into v_payload from jsonb_array_elements(p_value) with ordinality entry(value, ordinal);
+    return 'a' || pg_catalog.octet_length(pg_catalog.convert_to(v_payload, 'UTF8'))::text || ':' || v_payload;
+  end if;
+  select coalesce(string_agg(
+    'k' || pg_catalog.octet_length(pg_catalog.convert_to(entry.key, 'UTF8'))::text || ':' || entry.key ||
+    public.site_content_typed_json(entry.value), '' order by entry.key collate "C"), '')
+  into v_payload from jsonb_each(p_value) entry;
+  return 'o' || pg_catalog.octet_length(pg_catalog.convert_to(v_payload, 'UTF8'))::text || ':' || v_payload;
+end;
+$$;
+
+create or replace function public.site_content_projection_digest(p_record jsonb, p_render_payload jsonb)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select pg_catalog.encode(extensions.digest(pg_catalog.convert_to(public.site_content_typed_json(
+    jsonb_build_object(
+      'projectionVersion', 'site-content-public-projection-v1',
+      'record', p_record,
+      'renderPayload', p_render_payload
+    )), 'UTF8'), 'sha256'), 'hex');
+$$;
+
 create or replace function public.site_content_public_json_projection(
   p_kind text,
   p_value jsonb,
@@ -546,7 +601,9 @@ begin
   if p_kind not in ('service', 'form') then
     raise exception using errcode = '22023', message = 'site_content_registry_kind_invalid';
   end if;
-  v_owner := jsonb_strip_nulls(jsonb_build_object(
+  select coalesce(jsonb_object_agg(entry.key, entry.value order by entry.key collate "C"), '{}'::jsonb)
+  into v_owner
+  from jsonb_each(jsonb_build_object(
     'slug', p_row->>'slug', 'title', p_row->>'title', 'subtitle', p_row->'subtitle',
     'statusChips', coalesce(p_row->'status_chips', '[]'::jsonb),
     'primaryContact', p_row->'primary_contact', 'contacts', coalesce(p_row->'contacts', '[]'::jsonb),
@@ -558,7 +615,8 @@ begin
     'tags', coalesce(p_row->'tags', '[]'::jsonb), 'catchments', coalesce(p_row->'catchments', '[]'::jsonb),
     'catalogueLabel', p_row->'catalogue_label', 'navigatorQuery', p_row->'navigator_query',
     'source', p_row->'source', 'catalogPayload', coalesce(p_row->'catalog_payload', '{}'::jsonb)
-  ));
+  )) entry
+  where entry.value <> 'null'::jsonb;
   if v_baseline is null then return v_owner; end if;
 
   v_render := v_baseline || jsonb_build_object('slug', v_owner->'slug', 'title', v_owner->'title');
@@ -1148,6 +1206,7 @@ create or replace function public.publish_site_content_record(
   p_expected_change_epoch bigint,
   p_reconciliation_plan_digest text,
   p_expected_record_digest text,
+  p_expected_projection_digest text,
   p_published_by uuid
 )
 returns table (outcome text, conflict_code text, logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
@@ -1175,6 +1234,11 @@ begin
   if p_expected_record_digest is null or p_expected_record_digest !~ '^[0-9a-f]{64}$'
     or public.site_content_json_sha256(v_source.record) is distinct from p_expected_record_digest then
     outcome := 'conflict'; conflict_code := 'record_digest_mismatch'; return next; return;
+  end if;
+  if p_expected_projection_digest is null or p_expected_projection_digest !~ '^[0-9a-f]{64}$'
+    or public.site_content_projection_digest(v_source.record, v_source.render_payload)
+      is distinct from p_expected_projection_digest then
+    outcome := 'conflict'; conflict_code := 'projection_digest_mismatch'; return next; return;
   end if;
   select * into v_existing
   from public.site_content_public_records h
@@ -1258,6 +1322,7 @@ create or replace function public.retire_site_content_record(
   p_expected_change_epoch bigint,
   p_reconciliation_plan_digest text,
   p_expected_record_digest text,
+  p_expected_projection_digest text,
   p_published_by uuid
 )
 returns table (outcome text, conflict_code text, logical_id text, publication_id uuid, event_sequence bigint, change_epoch bigint)
@@ -1284,6 +1349,11 @@ begin
   if p_expected_record_digest is null or p_expected_record_digest !~ '^[0-9a-f]{64}$'
     or public.site_content_json_sha256(v_source.record) is distinct from p_expected_record_digest then
     outcome := 'conflict'; conflict_code := 'record_digest_mismatch'; return next; return;
+  end if;
+  if p_expected_projection_digest is null or p_expected_projection_digest !~ '^[0-9a-f]{64}$'
+    or public.site_content_projection_digest(v_source.record, v_source.render_payload)
+      is distinct from p_expected_projection_digest then
+    outcome := 'conflict'; conflict_code := 'projection_digest_mismatch'; return next; return;
   end if;
   select * into v_head from public.site_content_public_records where site_content_public_records.logical_id = v_source.logical_id for update;
   if not found then outcome := 'conflict'; conflict_code := 'missing_publication'; return next; return; end if;
@@ -2144,6 +2214,8 @@ revoke all on function public.site_content_registry_baseline(text, text) from pu
 revoke all on function public.site_content_registry_source_render(text, jsonb) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_canonical_json(jsonb) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_json_sha256(jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_typed_json(jsonb) from public, anon, authenticated, service_role;
+revoke all on function public.site_content_projection_digest(jsonb, jsonb) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_public_json_projection(text, jsonb, text[]) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_json_text(jsonb) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_normalize_search_text(text) from public, anon, authenticated, service_role;
@@ -2163,10 +2235,10 @@ grant execute on function public.read_site_content_public_records(text, text) to
 revoke all on function public.record_site_content_reconciliation_plan(jsonb, uuid) from public, anon, authenticated;
 grant execute on function public.record_site_content_reconciliation_plan(jsonb, uuid) to service_role;
 revoke all on function public.site_content_reconciliation_sources_match(text) from public, anon, authenticated, service_role;
-revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, text, uuid) from public, anon, authenticated;
-grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, text, uuid) to service_role;
-revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, text, uuid) from public, anon, authenticated;
-grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, text, uuid) to service_role;
+revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text, uuid) from public, anon, authenticated;
+grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text, uuid) to service_role;
+revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text, uuid) from public, anon, authenticated;
+grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text, uuid) to service_role;
 revoke all on function public.claim_site_content_sync_events(uuid, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_site_content_sync_events(uuid, integer, integer) to service_role;
 revoke all on function public.heartbeat_site_content_sync_event(bigint, uuid, uuid, bigint, integer) from public, anon, authenticated;
@@ -2204,6 +2276,8 @@ alter function public.site_content_registry_baseline(text, text) owner to postgr
 alter function public.site_content_registry_source_render(text, jsonb) owner to postgres;
 alter function public.site_content_canonical_json(jsonb) owner to postgres;
 alter function public.site_content_json_sha256(jsonb) owner to postgres;
+alter function public.site_content_typed_json(jsonb) owner to postgres;
+alter function public.site_content_projection_digest(jsonb, jsonb) owner to postgres;
 alter function public.site_content_public_json_projection(text, jsonb, text[]) owner to postgres;
 alter function public.site_content_json_text(jsonb) owner to postgres;
 alter function public.site_content_normalize_search_text(text) owner to postgres;
@@ -2214,8 +2288,8 @@ alter function public.site_content_record_governance_hash(jsonb) owner to postgr
 alter function public.guard_site_content_receipt_shape(jsonb, text, uuid, text) owner to postgres;
 alter function public.record_site_content_reconciliation_plan(jsonb, uuid) owner to postgres;
 alter function public.site_content_reconciliation_sources_match(text) owner to postgres;
-alter function public.publish_site_content_record(text, uuid, text, bigint, text, text, uuid) owner to postgres;
-alter function public.retire_site_content_record(text, uuid, text, bigint, text, text, uuid) owner to postgres;
+alter function public.publish_site_content_record(text, uuid, text, bigint, text, text, text, uuid) owner to postgres;
+alter function public.retire_site_content_record(text, uuid, text, bigint, text, text, text, uuid) owner to postgres;
 alter function public.read_site_content_public_records(text, text) owner to postgres;
 alter function public.claim_site_content_sync_events(uuid, integer, integer) owner to postgres;
 alter function public.heartbeat_site_content_sync_event(bigint, uuid, uuid, bigint, integer) owner to postgres;

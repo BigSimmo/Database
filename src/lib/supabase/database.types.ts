@@ -3423,7 +3423,7 @@ export type Database = {
         Returns: boolean;
       };
       publish_site_content_record: {
-        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_expected_record_digest: string; p_published_by: string };
+        Args: { p_kind: string; p_source_row_id: string; p_expected_source_version: string; p_expected_change_epoch: number; p_reconciliation_plan_digest: string | null; p_expected_record_digest: string; p_expected_projection_digest: string; p_published_by: string };
         Returns: { outcome: string; conflict_code: string | null; logical_id: string | null; publication_id: string | null; event_sequence: number | null; change_epoch: number | null }[];
       };
       retire_site_content_record: Database["public"]["Functions"]["publish_site_content_record"];

@@ -25,7 +25,10 @@ import { recordToRow as registryToRow, type RegistryRecordRow } from "@/lib/regi
 import { mergeRegistryRecordWithDefault } from "@/lib/registry-seed";
 import { serviceRecords } from "@/lib/services";
 import { registryEntryToSiteContentRecord } from "@/lib/site-content/adapters/registry";
-import { canonicalDynamicSiteContentProjection } from "@/lib/site-content/site-content-publication";
+import {
+  canonicalDynamicSiteContentProjection,
+  siteContentProjectionDigest,
+} from "@/lib/site-content/site-content-publication";
 
 const rpc = vi.fn();
 const sourceRow = {
@@ -178,6 +181,7 @@ describe("site-content publication POST", () => {
       "publish_site_content_record",
       expect.objectContaining({
         p_expected_record_digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+        p_expected_projection_digest: expect.stringMatching(/^[0-9a-f]{64}$/),
         p_published_by: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       }),
     );
@@ -208,6 +212,40 @@ describe("site-content publication POST", () => {
 });
 
 describe("canonical dynamic public projection", () => {
+  it("binds render-only nullable overrides and numeric values into the typed projection digest", () => {
+    const row = {
+      ...registryToRow(serviceRecords[0]!, ownerId, "service"),
+      ...rowAudit,
+      verification: {
+        ...serviceRecords[0]!.verification,
+        locallyVerified: null,
+        confidence: null,
+      },
+    } as RegistryRecordRow;
+    const projection = canonicalDynamicSiteContentProjection("service", row);
+    expect(projection.renderPayload).toMatchObject({
+      verification: { locallyVerified: null, confidence: null },
+    });
+    const changedRender = {
+      ...projection,
+      renderPayload: {
+        ...projection.renderPayload,
+        verification: {
+          ...(projection.renderPayload.verification as Record<string, unknown>),
+          locallyVerified: false,
+        },
+      },
+    };
+    expect(siteContentProjectionDigest(projection)).toMatch(/^[0-9a-f]{64}$/);
+    expect(siteContentProjectionDigest(changedRender)).not.toBe(siteContentProjectionDigest(projection));
+    expect(
+      siteContentProjectionDigest({
+        ...projection,
+        renderPayload: { ...projection.renderPayload, numericProbe: [0, -0, 1.25, 1e30] },
+      }),
+    ).toMatch(/^[0-9a-f]{64}$/);
+  });
+
   it("matches every P03 converter and preserves each rendered public fixture without audit identifiers", () => {
     const serviceRow = {
       ...registryToRow(serviceRecords[0]!, ownerId, "service"),

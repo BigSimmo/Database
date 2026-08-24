@@ -1259,6 +1259,22 @@ describe("site-content publication and release control plane", () => {
     expect(migration).toContain("return p_value #>> '{}'");
     expect(migration).toContain("site_content_utf16_cutoff_unrepresentable");
     expect(migration).toContain("v_render#>>'{catalogPayload,availability}'");
+    expect(migration).toContain("create or replace function public.site_content_typed_json(p_value jsonb)");
+    expect(migration).toContain(
+      "create or replace function public.site_content_projection_digest(p_record jsonb, p_render_payload jsonb)",
+    );
+    expect(migration).toContain("p_expected_projection_digest text");
+    expect(migration).toContain("projection_digest_mismatch");
+    expect(migration).not.toContain("v_owner := jsonb_strip_nulls(jsonb_build_object(");
+    expect(migration).toContain(
+      "revoke all on function public.site_content_projection_digest(jsonb, jsonb) from public, anon, authenticated, service_role",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text, uuid) to service_role",
+    );
+    expect(migration).toContain(
+      "grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text, uuid) to service_role",
+    );
   });
 
   it("pins the exact current P03 registry baseline for SQL null and forced-field merging", () => {

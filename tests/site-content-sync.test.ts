@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ts from "typescript";
 
-import { createSiteContentRecord, buildStaticSiteContentManifest } from "@/lib/site-content/site-content-manifest";
+import {
+  createSiteContentRecord,
+  buildStaticSiteContentManifest,
+  siteContentValueHash,
+} from "@/lib/site-content/site-content-manifest";
 import { planSiteContentSync, type SiteContentSyncSourceRecord } from "@/lib/site-content/site-content-sync";
 
 const SHA = "a".repeat(40);
@@ -318,9 +322,10 @@ describe("site-content synchronization planning", () => {
     expect(result.stderr).not.toMatch(/reconciliation/i);
   });
 
-  it("requires reconciliation flags as an exact initial-adoption-only pair", () => {
+  it("requires reconciliation for initial plans but reserves its expected digest for guarded writes", () => {
     const directory = mkdtempSync(join(tmpdir(), "site-content-reconciliation-guard-"));
     const initial = join(directory, "initial.json");
+    const reconciliationPath = join(directory, "reconciliation.json");
     try {
       const dynamic = JSON.parse(readFileSync("tests/fixtures/site-content/dynamic-empty.json", "utf8")) as Record<
         string,
@@ -328,15 +333,35 @@ describe("site-content synchronization planning", () => {
       >;
       dynamic.initialAdoption = true;
       writeFileSync(initial, `${JSON.stringify(dynamic)}\n`, "utf8");
+      const trustedSnapshots: Array<Record<string, unknown>> = [];
+      const trustedSnapshotDigest = siteContentValueHash({
+        version: "site-content-trusted-snapshot-v1",
+        records: trustedSnapshots,
+      });
+      const governed = {
+        version: "site-content-reconciliation-plan-v1",
+        trustedSnapshotDigest,
+        expectedRecordCount: 0,
+        expectedGroupCount: 0,
+        batchSize: 100,
+        batchCount: 0,
+        counts: { adopt: 0, retire: 0, identicalDuplicate: 0, total: 0 },
+        trustedSnapshots,
+        dispositions: [] as Array<Record<string, unknown>>,
+      };
+      const reconciliation = { ...governed, planDigest: siteContentValueHash(governed) };
+      writeFileSync(reconciliationPath, `${JSON.stringify(reconciliation)}\n`, "utf8");
       const common = [
         "scripts/run-tsx.mjs",
         "scripts/sync-site-content-corpus.ts",
         "--manifest",
         "tests/fixtures/site-content/static-manifest-baseline.json",
       ];
-      const missingPair = spawnSync(process.execPath, [...common, "--dynamic", initial, "--dry-run"], {
-        encoding: "utf8",
-      });
+      const initialDryRun = spawnSync(
+        process.execPath,
+        [...common, "--dynamic", initial, "--reconciliation", reconciliationPath, "--dry-run"],
+        { encoding: "utf8" },
+      );
       const postAdoptionArtifact = spawnSync(
         process.execPath,
         [
@@ -350,8 +375,37 @@ describe("site-content synchronization planning", () => {
         { encoding: "utf8" },
       );
 
-      expect(missingPair.status).toBe(1);
-      expect(missingPair.stderr).toMatch(/initial adoption requires.*reconciliation.*expected-reconciliation/i);
+      expect(initialDryRun.status).toBe(0);
+      const initialSummary = JSON.parse(initialDryRun.stdout) as Record<string, unknown>;
+      expect(initialSummary).toMatchObject({ dryRun: true });
+      const missingWriteDigest = spawnSync(
+        process.execPath,
+        [
+          ...common,
+          "--dynamic",
+          initial,
+          "--reconciliation",
+          reconciliationPath,
+          "--write",
+          "--project-ref",
+          "project-ref",
+          "--confirm-project-ref",
+          "project-ref",
+          "--expected-state-digest",
+          String(initialSummary.currentStateDigest),
+          "--expected-plan-digest",
+          String(initialSummary.planDigest),
+          "--recovery-evidence",
+          "tests/fixtures/site-content/dynamic-empty.json",
+          "--provider-authorization",
+          "tests/fixtures/site-content/dynamic-empty.json",
+          "--event-sequence",
+          "1",
+        ],
+        { encoding: "utf8" },
+      );
+      expect(missingWriteDigest.status).toBe(1);
+      expect(missingWriteDigest.stderr).toMatch(/exact reconciliation digest/i);
       expect(postAdoptionArtifact.status).toBe(1);
       expect(postAdoptionArtifact.stderr).toMatch(/post-adoption.*omit reconciliation/i);
     } finally {

@@ -351,10 +351,8 @@ async function main() {
   const dynamic = json(options.dynamic!);
   assertDynamicInput(dynamic);
   let reconciliation: ReconciliationInput | null = null;
-  if (dynamic.initialAdoption && (!options.reconciliation || !options.expectedReconciliationDigest)) {
-    throw new Error(
-      "Initial adoption requires --reconciliation <reviewed-plan.json> and --expected-reconciliation-digest.",
-    );
+  if (dynamic.initialAdoption && !options.reconciliation) {
+    throw new Error("Initial adoption requires --reconciliation <reviewed-plan.json>.");
   }
   if (!dynamic.initialAdoption && (options.reconciliation || options.expectedReconciliationDigest)) {
     throw new Error("Post-adoption plans must omit reconciliation arguments.");
@@ -363,6 +361,9 @@ async function main() {
     const candidate = json(options.reconciliation);
     assertReconciliationInput(candidate);
     reconciliation = candidate;
+  }
+  if (!options.write && options.expectedReconciliationDigest) {
+    throw new Error("--expected-reconciliation-digest is a guarded-write authorization only.");
   }
   const staticRecords = allSiteContentRecords
     .filter((record) => record.producerClass === "static_repository")
@@ -409,6 +410,7 @@ async function main() {
     if (
       dynamic.initialAdoption &&
       (!reconciliation ||
+        !options.expectedReconciliationDigest ||
         options.expectedReconciliationDigest !== reconciliation.planDigest ||
         plan.reconciliationPlanDigest !== reconciliation.planDigest)
     ) {
