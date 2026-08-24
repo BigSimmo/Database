@@ -16,6 +16,14 @@ export type ReferralDraft = {
   specialling: boolean;
   legalStatus: LegalStatus;
   urgency: 1 | 2 | 3;
+  /**
+   * The legal form the clinician selected, as a code from `SELECTABLE_LEGAL_FORMS`, or `null`
+   * for no form at all. Explicitly nullable rather than optional or an empty string so that
+   * "this patient is on no form" is a first-class choice the clinician made, indistinguishable
+   * from neither a field the caller forgot to fill in nor a blank that could be read as a
+   * default. Nothing derives this from `legalStatus` any more (product owner, 2026-08-24).
+   */
+  legalFormCode: string | null;
 };
 
 /**

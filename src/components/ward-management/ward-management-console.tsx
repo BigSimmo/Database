@@ -31,6 +31,7 @@ import {
   transportStatusLabel,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import {
   MOVEMENT_STAGES,
   type LegalForm,
@@ -54,7 +55,9 @@ import styles from "./ward-management.module.css";
  * that was deleted on 2026-08-23.
  */
 function legalFormReadinessLine(legalForm: LegalForm): string {
-  const named = `${legalForm.label} (${legalForm.code})`;
+  // A code this model holds no label for — Form 3D — is named by its code alone, never by a
+  // guessed expansion and never by the word "undefined".
+  const named = legalFormNameLabelFirst(legalForm);
   return legalForm.dueAt !== undefined
     ? `${named} · due ${formatInstant(legalForm.dueAt)}`
     : `${named} · no deadline recorded`;
@@ -284,7 +287,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
                 <ShieldCheck aria-hidden="true" />
                 <span>
                   <strong>Form readiness</strong>
-                  {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form required"}
+                  {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form recorded"}
                 </span>
               </li>
               <li>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
+import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
 
 const NOW = NOW_ANCHOR;
@@ -220,6 +221,7 @@ describe("new referrals", () => {
         specialling: false,
         legalStatus: "Voluntary",
         urgency: 2,
+        legalFormCode: null,
       },
     });
     const second = wardFlowReducer(seeded(), {
@@ -234,6 +236,7 @@ describe("new referrals", () => {
         specialling: false,
         legalStatus: "Voluntary",
         urgency: 2,
+        legalFormCode: null,
       },
     });
     const firstId = first.movements[first.movements.length - 1].id;
@@ -254,6 +257,7 @@ describe("new referrals", () => {
         specialling: false,
         legalStatus: "Voluntary",
         urgency: 3,
+        legalFormCode: null,
       },
     });
     const created = next.movements[next.movements.length - 1];
@@ -264,16 +268,13 @@ describe("new referrals", () => {
   });
 
   /**
-   * Whole-branch review I5: RAISE_REFERRAL used to write no `legalForm` at all, whatever
-   * `legalStatus` the draft carried, so a referral awaiting examination could never have its
-   * examination recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`). The
-   * two tests below pin both halves of the rule at creation: a voluntary referral gets no form,
-   * and an awaiting-examination one gets a real, examinable 1A. An "Involuntary inpatient" draft
-   * is deliberately covered by neither — that patient has already been examined and carries a 3B
-   * in every fixture record, and whether a 1A should ever be authored for one is an open
-   * clinical question for the product owner, not something this test may decide.
+   * 2026-08-24: RAISE_REFERRAL used to DERIVE the form from `legalStatus` — a Form 1A for the two
+   * awaiting-examination statuses, nothing otherwise. That derivation is deleted. The clinician
+   * chooses the form on the intake form and the software chooses none, so the tests below pin the
+   * choice being carried through faithfully in both directions: `null` means no form, a chosen
+   * code means that form and no other, and the status has no say in either.
    */
-  it("gives a voluntary referral no legal form at all", () => {
+  it("gives a referral with no form chosen no legal form at all", () => {
     const voluntary = wardFlowReducer(seeded(), {
       type: "RAISE_REFERRAL",
       role: "ed",
@@ -286,18 +287,25 @@ describe("new referrals", () => {
         specialling: false,
         legalStatus: "Voluntary",
         urgency: 2,
+        legalFormCode: null,
       },
     });
     const voluntaryCreated = voluntary.movements[voluntary.movements.length - 1];
     expect(voluntaryCreated.legalForm).toBeUndefined();
-    // `formedAt` is stamped only for a referral awaiting examination, so its absence here is
-    // the other half of the same gate.
+    // `formedAt` used to be stamped in the same branch as the derived 1A. With the derivation
+    // gone there is no rule left to hang it on and none was invented, so a runtime-raised
+    // referral now carries no `formedAt` whatever the draft says. Pinned as an explicit absence
+    // so a future edit cannot quietly reintroduce a stamping rule nobody asked for.
     expect(voluntaryCreated.formedAt).toBeUndefined();
   });
 
-  it.each(["Referred for psychiatric examination", "Detained awaiting examination"] as const)(
-    "creates an examinable Form 1A for a %s referral",
+  it.each(["Referred for psychiatric examination", "Detained awaiting examination", "Voluntary"] as const)(
+    "attaches the chosen Form 3D to a %s referral, and derives nothing from the status",
     (legalStatus) => {
+      // 3D is the sharpest case in the whole change. The product owner named it as a form a
+      // patient might be on; this model holds NO label and NO classification for it, so it is
+      // offered as the bare code and carried as the bare code. Asserting the exact object is what
+      // makes an invented label or `kind` fail here rather than reach a screen.
       const referred = wardFlowReducer(seeded(), {
         type: "RAISE_REFERRAL",
         role: "ed",
@@ -310,43 +318,76 @@ describe("new referrals", () => {
           specialling: false,
           legalStatus,
           urgency: 2,
+          legalFormCode: "3D",
         },
       });
+      expect(referred.rejections).toEqual([]);
       const created = referred.movements.at(-1)!;
-      // 2026-08-23 product-owner correction: a raised Form 1A carries no legal deadline. The
-      // `toEqual` below is exact, so an extra `dueAt` key would already fail it — but the
-      // explicit assertion that follows names the intent, so a later reader cannot read the
-      // absence as an oversight in the object literal.
-      expect(created.legalForm).toEqual({
-        code: "1A",
-        label: "Referral for examination",
-        kind: "examination",
-      });
+      expect(created.legalForm).toEqual({ code: "3D" });
+      expect(created.legalForm?.kind).toBeUndefined();
+      // The movement stores a code and nothing else — no title is copied onto it. The title a
+      // reader sees comes from the register at render time, so it cannot go stale here.
+      expect(Object.keys(created.legalForm!)).toEqual(["code"]);
       expect(created.legalForm?.dueAt).toBeUndefined();
-      expect(created.formedAt).toBe(NOW);
-      // Kept from the branch: the 1A/3B invariant's other half — a movement on 1A never carries
-      // an examination.
-      expect(created.examination).toBeUndefined();
-
-      // R79: asserting the 1A exists is weaker than I5's actual claim, which is that the form is
-      // EXAMINABLE. `RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`, so driving the
-      // round trip here is what proves the created form is the real thing rather than a shaped
-      // object that merely looks like one.
-      const examined = wardFlowReducer(referred, {
-        type: "RECORD_EXAMINATION",
-        role: "ed",
-        now: NOW + 1,
-        movementId: created.id,
-        outcome: "inpatient_order",
-      });
-      expect(examined.rejections).toEqual([]);
-      const afterExamination = movement(examined, created.id);
-      expect(afterExamination.legalForm?.code).toBe("3B");
-      // Kept from the branch: the 3B's own absence of a deadline is pinned explicitly here too,
-      // not merely left uncontradicted.
-      expect(afterExamination.legalForm?.dueAt).toBeUndefined();
+      // The status had no say: a "Voluntary" draft carrying a 3D gets the 3D, and an
+      // awaiting-examination draft gets the 3D too rather than the 1A the deleted rule imposed.
+      expect(created.legalStatus).toBe(legalStatus);
+      expect(created.formedAt).toBeUndefined();
     },
   );
+
+  it.each(SELECTABLE_LEGAL_FORMS.map((form) => form.code))(
+    "attaches the chosen Form %s exactly as declared",
+    (code) => {
+      const declared = SELECTABLE_LEGAL_FORMS.find((form) => form.code === code)!;
+      const referred = wardFlowReducer(seeded(), {
+        type: "RAISE_REFERRAL",
+        role: "ed",
+        now: NOW,
+        edId: "jhc-ed",
+        draft: {
+          cohort: "Adult",
+          security: "Open",
+          sex: "Female",
+          specialling: false,
+          legalStatus: "Voluntary",
+          urgency: 2,
+          legalFormCode: code,
+        },
+      });
+      expect(referred.rejections).toEqual([]);
+      const created = referred.movements.at(-1)!;
+      expect(created.legalForm).toEqual(declared);
+      // 2026-08-23 product-owner correction, still in force: no offered form carries a deadline.
+      expect(created.legalForm?.dueAt).toBeUndefined();
+      // The attached form must be a COPY, never the picker's own entry — a movement is mutable
+      // state and the list is a shared module constant.
+      expect(created.legalForm).not.toBe(declared);
+    },
+  );
+
+  it("refuses a form code the picker does not offer rather than inventing or dropping one", () => {
+    const next = wardFlowReducer(seeded(), {
+      type: "RAISE_REFERRAL",
+      role: "ed",
+      now: NOW,
+      edId: "jhc-ed",
+      draft: {
+        cohort: "Adult",
+        security: "Open",
+        sex: "Female",
+        specialling: false,
+        legalStatus: "Voluntary",
+        urgency: 2,
+        legalFormCode: "9Z",
+      },
+    });
+    // Conservative failure: the referral is refused and visible in `rejections`, rather than
+    // being created with a fabricated Form 9Z or with the clinician's choice silently discarded.
+    expect(next.rejections).toHaveLength(1);
+    expect(next.rejections[0].reason).toContain("9Z");
+    expect(next.movements).toHaveLength(seeded().movements.length);
+  });
 });
 
 describe("purity", () => {
@@ -365,26 +406,115 @@ describe("purity", () => {
 });
 
 describe("examination", () => {
-  it("moves a Form 1A to a Form 3B when the examination confirms an inpatient order", () => {
-    // WF-001 is seeded on 1A ("Referral for examination", no examination recorded yet).
-    const next = wardFlowReducer(seeded(), {
+  /**
+   * 2026-08-24: recording an examination used to REPLACE a Form 1A with a Form 3B on an inpatient
+   * order, and CLEAR the form entirely on a community order or a revocation. Both are deleted —
+   * the form never changes by itself, in any outcome, and only the clinician changes it. These
+   * three cases pin that across all three outcomes, so a form-touching branch cannot come back in
+   * one of them unnoticed.
+   */
+  it.each(["inpatient_order", "community_order", "revoked"] as const)(
+    "records a %s examination without touching the legal form",
+    (outcome) => {
+      // WF-001 is seeded on 1A ("Referral for examination", no examination recorded yet).
+      const before = seeded();
+      const formBefore = movement(before, "WF-001").legalForm;
+      // Non-vacuity: this proves nothing unless the movement actually carries a form to leave alone.
+      expect(formBefore?.code).toBe("1A");
+
+      const next = wardFlowReducer(before, {
+        type: "RECORD_EXAMINATION",
+        role: "ed",
+        now: NOW,
+        movementId: "WF-001",
+        outcome,
+      });
+      expect(next.rejections).toEqual([]);
+      const target = movement(next, "WF-001");
+      expect(target.examination).toEqual({ at: NOW, outcome });
+      // Unchanged: still a 1A, still no 3B, still not cleared — and still no deadline.
+      expect(target.legalForm).toEqual(formBefore);
+      expect(target.legalForm?.dueAt).toBeUndefined();
+    },
+  );
+
+  it("still refuses a second examination on the same movement", () => {
+    // The one guard in this branch that is NOT a form rule and was deliberately kept: two
+    // examinations against one movement is a data-integrity fault. Nothing else pinned it, and
+    // with the form gate gone it is the only thing standing between the record and a duplicate.
+    const once = wardFlowReducer(seeded(), {
       type: "RECORD_EXAMINATION",
       role: "ed",
       now: NOW,
       movementId: "WF-001",
       outcome: "inpatient_order",
     });
-    const target = movement(next, "WF-001");
-    expect(target.examination).toEqual({ at: NOW, outcome: "inpatient_order" });
-    expect(target.legalForm?.code).toBe("3B");
-    // Task 6A: the clinician settled that the post-examination clock is elapsed ED wait,
-    // counting up, never a countdown — so no post-examination deadline is recorded for a 3B, and
-    // the reducer-produced 3B must carry no dueAt at all. Pinned as an explicit absence, not
-    // merely no longer contradicted by a stale expected value.
-    expect(target.legalForm?.dueAt).toBeUndefined();
+    expect(once.rejections).toEqual([]);
+    const twice = wardFlowReducer(once, {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW + 5,
+      movementId: "WF-001",
+      outcome: "community_order",
+    });
+    expect(twice.rejections).toHaveLength(1);
+    expect(twice.rejections[0].reason).toContain("already examined");
+    // The first examination stands unchanged; the refused second one wrote nothing.
+    expect(movement(twice, "WF-001").examination).toEqual({ at: NOW, outcome: "inpatient_order" });
   });
 
-  it("closes the movement without an inpatient bed when the examination is revoked", () => {
+  it("refuses an examination against a movement that has already closed", () => {
+    // Fix wave 1, item 4. Every other movement-scoped handler already refused a closed movement;
+    // this one did not, so an examination recorded against an ARRIVED patient overwrote the
+    // arrival closure with `did_not_proceed`. Walked through real events rather than by
+    // hand-setting `closure`.
+    //
+    // WF-012 rather than WF-009 ON PURPOSE: WF-009 already carries an examination in the fixture,
+    // so the second-examination guard would refuse this too and the test would still pass with
+    // the closure check deleted. WF-012 is Adult/Secure, at `placement_requested`, and carries NO
+    // examination, so the closure check is the only thing that can refuse it — which is what
+    // makes the mutation kill this test.
+    const TARGET = "WF-012";
+    const steps = [
+      { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+      { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+      { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      { type: "HANDOVER_READY", role: "ed" },
+      { type: "TRANSPORT_ACCEPTED", role: "officer" },
+      { type: "TRANSPORT_EN_ROUTE", role: "officer" },
+      { type: "PATIENT_COLLECTED", role: "officer" },
+      { type: "PATIENT_ARRIVED", role: "officer" },
+    ] as const;
+    let state = seeded();
+    for (const step of steps) {
+      state = wardFlowReducer(state, { ...step, now: NOW, movementId: TARGET } as never);
+    }
+    expect(state.rejections).toEqual([]);
+    const arrived = movement(state, TARGET);
+    // Non-vacuity: the walk really did close this movement by arriving, so the refusal below is
+    // about the closure and not about some earlier step having failed.
+    expect(arrived.stage).toBe("arrived");
+    expect(arrived.closure?.outcome).toBe("arrived");
+
+    // Non-vacuity, and the whole reason this movement was chosen: it carries no examination, so
+    // the second-examination guard cannot be what refuses the event below.
+    expect(arrived.examination).toBeUndefined();
+
+    const after = wardFlowReducer(state, {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW + 500,
+      movementId: TARGET,
+      outcome: "revoked",
+    });
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain("closed movement");
+    // The arrival stands: neither the closure nor the examination field was overwritten.
+    expect(movement(after, TARGET).closure?.outcome).toBe("arrived");
+    expect(movement(after, TARGET).examination).toBeUndefined();
+  });
+
+  it("still closes the movement without an inpatient bed when the examination is revoked", () => {
     const next = wardFlowReducer(seeded(), {
       type: "RECORD_EXAMINATION",
       role: "ed",
@@ -393,8 +523,46 @@ describe("examination", () => {
       outcome: "revoked",
     });
     const target = movement(next, "WF-001");
-    expect(target.legalForm).toBeUndefined();
     expect(target.closure?.outcome).toBe("did_not_proceed");
+  });
+
+  /**
+   * The three cases the deleted "form must be 1A" gate refused outright. Each raises a fresh
+   * referral so the movement's form is exactly what this test says it is, rather than whatever
+   * the fixture happens to carry.
+   */
+  it.each([["3B"], ["4A"], [null]] as const)("records an examination for a patient on %s", (legalFormCode) => {
+    const referred = wardFlowReducer(seeded(), {
+      type: "RAISE_REFERRAL",
+      role: "ed",
+      now: NOW,
+      edId: "jhc-ed",
+      draft: {
+        cohort: "Adult",
+        security: "Open",
+        sex: "Female",
+        specialling: false,
+        legalStatus: "Voluntary",
+        urgency: 2,
+        legalFormCode,
+      },
+    });
+    const created = referred.movements.at(-1)!;
+    // Non-vacuity: the movement really carries (or really lacks) the form this case is about.
+    expect(created.legalForm?.code ?? null).toBe(legalFormCode);
+
+    const next = wardFlowReducer(referred, {
+      type: "RECORD_EXAMINATION",
+      role: "ed",
+      now: NOW + 1,
+      movementId: created.id,
+      outcome: "inpatient_order",
+    });
+    expect(next.rejections).toEqual([]);
+    const target = movement(next, created.id);
+    expect(target.examination).toEqual({ at: NOW + 1, outcome: "inpatient_order" });
+    // Recorded, and the form is still exactly what the clinician selected.
+    expect(target.legalForm).toEqual(created.legalForm);
   });
 
   it("cancels downstream transport, releases the held bed, and refuses further transitions when a movement closes", () => {
@@ -574,6 +742,7 @@ describe("arrival capacity floor", () => {
         specialling: false,
         legalStatus: "Voluntary",
         urgency: 3,
+        legalFormCode: null,
       },
     });
     const thirdId = raised.movements[raised.movements.length - 1].id;

@@ -410,9 +410,10 @@ test.describe("Role switcher — the loop", () => {
     await expect(examineForm).toBeVisible();
     await examineForm.getByRole("radio", { name: "Inpatient treatment order" }).check();
     await examineForm.getByRole("button", { name: "Confirm examination outcome" }).click();
-    // The examination flips the form 1A -> 3B and the movement remains referable — proven by
-    // the reducer walk in the task report, and re-proven here on screen: the outstanding item
-    // for WF-315 must no longer read "Examination" once this submits.
+    // Since 2026-08-24 the examination does NOT change the form — WF-315 stays on its 1A — and
+    // the movement remains referable. What changes is that the examination is now recorded, so
+    // the outstanding item for WF-315 must no longer read "Examination" once this submits. The
+    // assertion below is unchanged; only the reason it holds is different.
     await expect(page.getByTestId("ward-ed-outstanding-WF-315")).not.toHaveAttribute("data-kind", "examination");
 
     // --- Step 2: Coordinator — select WF-315, refer to all three candidates. ---

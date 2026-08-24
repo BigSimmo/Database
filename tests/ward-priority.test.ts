@@ -41,11 +41,11 @@ describe("operational score", () => {
     const base = movementById("WF-001");
     const breached: Movement = {
       ...base,
-      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR - 30 },
+      legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 30 },
     };
     const clear: Movement = {
       ...base,
-      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR + 400 },
+      legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR + 400 },
     };
     expect(operationalScore(breached, NOW_ANCHOR).score).toBeGreaterThan(operationalScore(clear, NOW_ANCHOR).score);
 
@@ -80,7 +80,7 @@ describe("operational score", () => {
     // figure.
     const approaching: Movement = {
       ...base,
-      legalForm: { code: "4A", label: "Transport order", kind: "transport", dueAt: NOW_ANCHOR + 90 },
+      legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR + 90 },
     };
     const approachingFactor = operationalScore(approaching, NOW_ANCHOR).factors.find(
       (factor) => factor.label === "Statutory timing",
@@ -132,7 +132,7 @@ describe("operational score", () => {
     const base = movementById("WF-003");
     const noDeadline: Movement = {
       ...base,
-      legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention" },
+      legalForm: { code: "3B", kind: "detention" },
     };
     const { factors } = operationalScore(noDeadline, NOW_ANCHOR);
     expect(factors.find((factor) => factor.label === "Statutory timing")).toBeUndefined();
@@ -182,7 +182,7 @@ describe("operational score", () => {
     const base = movementById("WF-003");
     const noDeadline: Movement = {
       ...base,
-      legalForm: { code: "3B", label: "Inpatient treatment order", kind: "detention" },
+      legalForm: { code: "3B", kind: "detention" },
     };
     const { factors } = operationalScore(noDeadline, NOW_ANCHOR);
     expect(factors.find((factor) => factor.label === "Statutory timing")).toBeUndefined();

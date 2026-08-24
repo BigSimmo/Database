@@ -74,7 +74,11 @@ function arrivedBlockedReason(movement: Movement, unit: Unit | undefined): strin
 }
 
 function formRequiredLabel(transport: TransportJob): string {
-  return transport.formRequired ?? "No legal form required";
+  // "recorded", not "required" — fix wave 1, item 2, found by the ward-wide scan that item added
+  // rather than named in it. An absent `formRequired` means this transport record names no form;
+  // it does not mean the Mental Health Act requires none, which is a claim this prototype is not
+  // entitled to make in either direction.
+  return transport.formRequired ?? "No transport form recorded";
 }
 
 /**
