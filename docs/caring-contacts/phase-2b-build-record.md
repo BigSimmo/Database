@@ -1383,3 +1383,5 @@ destruction, ownership should be proved, not inferred. Carried into future brief
 6. A one-entry plan would render "1 entry, and none of them will be sent." — "them" against a
    singular. Every schedule is ten entries so it is unreachable, and a guard for an unreachable
    grammatical case is not worth the line today. Recorded, not fixed.
+
+**Task 6b dispatched**, BASE `6fc194039d3bbd3849339472540f8ae628e313f1`. Brief: `task-6b-brief.md`.
