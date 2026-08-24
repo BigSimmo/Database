@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { render, screen } from "@testing-library/react";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import { AutomatedState } from "@/components/caring-contacts/workspace/automated-state";
@@ -402,7 +403,54 @@ function guardedModuleGraph(entry: string): string[] {
   return [...seen];
 }
 
+function serviceStateReferences(source: string, fileName: string) {
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  let module = false;
+  let identifier = false;
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === "ServiceState") identifier = true;
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      node.moduleSpecifier.text.includes("service-state")
+    ) {
+      module = true;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.some((argument) => ts.isStringLiteral(argument) && argument.text.includes("service-state"))
+    ) {
+      module = true;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return { module, identifier };
+}
+
 describe("the service-state path stays on the server", () => {
+  it("distinguishes architecture prose from executable service-state references", () => {
+    expect(serviceStateReferences("// ServiceState from the service-state module", "comment-only.ts")).toEqual({
+      module: false,
+      identifier: false,
+    });
+    expect(
+      serviceStateReferences(
+        'import type { ServiceState } from "@/lib/caring-contacts/service-state";',
+        "real-reference.ts",
+      ),
+    ).toEqual({ module: true, identifier: true });
+  });
+
   it("keeps every workspace component but the allowlisted client controls a Server Component", () => {
     const clientComponents = workspaceSourceFiles()
       .filter(({ source }) => USE_CLIENT_DIRECTIVE.test(source))
@@ -444,10 +492,11 @@ describe("the service-state path stays on the server", () => {
       for (const file of guardedModuleGraph(entry)) {
         const label = path.relative(process.cwd(), file).split(path.sep).join("/");
         const moduleSource = readFileSync(file, "utf8");
-        expect(moduleSource, `${label} (reached from ${name}) references the service-state module`).not.toMatch(
-          /service-state/,
-        );
-        expect(moduleSource, `${label} (reached from ${name}) names ServiceState`).not.toMatch(/ServiceState/);
+        // Parse executable syntax so architecture comments may describe the boundary without
+        // masquerading as an import or type reference inside the client graph.
+        const references = serviceStateReferences(moduleSource, file);
+        expect(references.module, `${label} (reached from ${name}) references the service-state module`).toBe(false);
+        expect(references.identifier, `${label} (reached from ${name}) names ServiceState`).toBe(false);
       }
     }
   });
