@@ -175,8 +175,10 @@ function StagedAnswerResultSurfaceImpl({
    * priority row (its trigger is the only route to the safety sheet), the
    * evidence gaps that belong to the answer rather than to any one document, and
    * the feedback control. Everything per-source moved to the rail and drawer.
+   * Mount when any of those rows would render — a clean high-trust answer still
+   * needs the "Report a problem" path.
    */
-  const showInlineSupportCard = Boolean(priority || renderModel.warnings.length > 0);
+  const showInlineSupportCard = Boolean(priority || renderModel.warnings.length > 0 || onSubmitFeedback);
 
   return (
     <div className="min-w-0 space-y-4 motion-safe:animate-fade-up sm:space-y-5" data-dashboard-stage="answer-surface">

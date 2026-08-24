@@ -4,14 +4,20 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/components/clinical-dashboard/signed-image", () => ({
+  SignedImage: ({ caption }: { caption?: string }) => <p>{caption}</p>,
+}));
+
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
 import {
   type AnswerSourceRow,
+  answerSourceRailRowId,
   sourceCapsuleDisplay,
   sourceSupportSentence,
 } from "@/components/clinical-dashboard/answer-source-rows";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import type { VisualEvidenceCard } from "@/lib/types";
 
 /**
  * The rail and the drawer replaced four separate source surfaces (the "Sources"
@@ -51,7 +57,30 @@ const SOURCES: AnswerSourceRow[] = [
   }),
 ];
 
-function RailAndDrawer({ sources = SOURCES }: { sources?: AnswerSourceRow[] }) {
+function visualCard(
+  overrides: Partial<VisualEvidenceCard> & Pick<VisualEvidenceCard, "id" | "source_chunk_id">,
+): VisualEvidenceCard {
+  return {
+    image_id: overrides.id,
+    signed_url_endpoint: `/api/images/${overrides.id}`,
+    caption: "Cited figure",
+    document_id: "doc-shared",
+    title: "Shared protocol",
+    file_name: "protocol.pdf",
+    page_number: 4,
+    chunk_index: 0,
+    viewer_href: "/documents/doc-shared",
+    ...overrides,
+  };
+}
+
+function RailAndDrawer({
+  sources = SOURCES,
+  visualEvidence = [],
+}: {
+  sources?: AnswerSourceRow[];
+  visualEvidence?: VisualEvidenceCard[];
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   return (
     <>
@@ -61,6 +90,7 @@ function RailAndDrawer({ sources = SOURCES }: { sources?: AnswerSourceRow[] }) {
         openIndex={openIndex}
         onOpenIndexChange={setOpenIndex}
         onClose={() => setOpenIndex(null)}
+        visualEvidence={visualEvidence}
       />
     </>
   );
@@ -89,6 +119,25 @@ describe("answer source rail", () => {
     // than advertise a panel that will never open.
     expect(rows[0].tagName).toBe("A");
     expect(rows[0]).toHaveAttribute("href", "/documents/s1?chunk=s1");
+  });
+
+  it("does not reuse the live drawer's return-focus ids on a prior-turn rail", () => {
+    render(
+      <>
+        <AnswerSourceRail sources={SOURCES} query="earlier turn" />
+        <RailAndDrawer />
+      </>,
+    );
+
+    const identified = [...document.querySelectorAll("[id^='answer-source-rail-row-']")];
+    expect(identified.map((node) => node.id)).toEqual(SOURCES.map((_, index) => answerSourceRailRowId(index)));
+    expect(document.getElementById(answerSourceRailRowId(0))?.tagName).toBe("BUTTON");
+
+    const listIds = [...document.querySelectorAll('[role="list"][aria-label="Cited documents"]')].map(
+      (node) => node.id,
+    );
+    expect(listIds).toHaveLength(2);
+    expect(new Set(listIds).size).toBe(2);
   });
 
   it("collapses to a single chip under compact citations and expands back to the same rows", async () => {
@@ -168,6 +217,60 @@ describe("answer source drawer", () => {
 
     await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
     expect(screen.getByTestId("answer-source-drawer-passage")).toHaveTextContent("Check FBC weekly.");
+  });
+
+  it("attaches an image only to the rail row that owns its chunk", async () => {
+    const user = userEvent.setup();
+    const sources = [
+      row({ id: "chunk-a", documentId: "doc-shared", title: "Page 4 passage" }),
+      row({ id: "chunk-b", documentId: "doc-shared", title: "Page 11 passage" }),
+    ];
+    render(
+      <RailAndDrawer
+        sources={sources}
+        visualEvidence={[
+          visualCard({
+            id: "fig-a",
+            source_chunk_id: "chunk-a",
+            document_id: "doc-shared",
+            caption: "Flowchart for chunk A",
+          }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
+    expect(screen.queryByTestId("answer-source-drawer-images")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Previous source" }));
+    expect(screen.getByTestId("answer-source-drawer-images")).toBeInTheDocument();
+  });
+
+  it("sends an unmatched image to the first source only", async () => {
+    const user = userEvent.setup();
+    const sources = [
+      row({ id: "chunk-a", documentId: "doc-shared", title: "Page 4 passage" }),
+      row({ id: "chunk-b", documentId: "doc-shared", title: "Page 11 passage" }),
+    ];
+    render(
+      <RailAndDrawer
+        sources={sources}
+        visualEvidence={[
+          visualCard({
+            id: "fig-orphan",
+            source_chunk_id: "orphan-chunk",
+            document_id: "doc-shared",
+            caption: "Unmatched figure",
+          }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
+    expect(screen.queryByTestId("answer-source-drawer-images")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Previous source" }));
+    expect(screen.getByTestId("answer-source-drawer-images")).toBeInTheDocument();
   });
 });
 

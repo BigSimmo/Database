@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown, ExternalLink, Layers } from "lucide-react";
 
 import {
@@ -55,6 +55,7 @@ export function AnswerSourceRail({
   compact?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const rowListId = useId();
   const display = sourceCapsuleDisplay({ sourceCount: sources.length, compact });
 
   if (!sources.length) {
@@ -82,7 +83,7 @@ export function AnswerSourceRail({
           type="button"
           className={sourceCapsuleHit}
           aria-expanded={expanded}
-          aria-controls={expanded ? "answer-source-rail-rows" : undefined}
+          aria-controls={expanded ? rowListId : undefined}
           onClick={() => setExpanded((current) => !current)}
           data-testid="answer-source-rail-toggle"
         >
@@ -105,7 +106,7 @@ export function AnswerSourceRail({
           preview used the same idiom for the same reason. */}
       {collapsed ? null : (
         <div
-          id="answer-source-rail-rows"
+          id={rowListId}
           role="list"
           className={cn("grid gap-0 divide-y divide-[color:var(--border)]", compact && "mt-2")}
           aria-label="Cited documents"
@@ -163,7 +164,6 @@ export function AnswerSourceRail({
                 ) : (
                   <Link
                     href={source.href}
-                    id={answerSourceRailRowId(index)}
                     data-testid="answer-source-rail-row"
                     onClick={() => query && logSourceOpen(query, source)}
                     className={railRowLabelClass}

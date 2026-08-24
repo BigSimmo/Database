@@ -45,11 +45,23 @@ function tablesForSource(tables: CanonicalAnswerTableRecord[], sources: AnswerSo
   });
 }
 
-function imagesForSource(visualEvidence: VisualEvidenceCard[], source: AnswerSourceRow | null) {
+/**
+ * Attaches each image to the source it was cited from.
+ *
+ * Same rule as `tablesForSource`: a card whose `source_chunk_id` matches a rail
+ * row stays on that row only. Anything unmatched falls to the first source so
+ * it stays reachable after the table column was removed — never to every row
+ * that happens to share a `documentId`.
+ */
+function imagesForSource(visualEvidence: VisualEvidenceCard[], sources: AnswerSourceRow[], index: number) {
+  const chunkIds = new Set(sources.map((source) => source.id));
+  const source = sources[index];
   if (!source) return [];
-  const byChunk = visualEvidence.filter((card) => card.source_chunk_id === source.id);
-  if (byChunk.length) return byChunk;
-  return visualEvidence.filter((card) => card.document_id === source.documentId);
+  return visualEvidence.filter((card) => {
+    const chunkId = card.source_chunk_id;
+    if (chunkId && chunkIds.has(chunkId)) return chunkId === source.id;
+    return index === 0;
+  });
 }
 
 function quoteCardForSource(quoteCards: QuoteCard[], source: AnswerSourceRow | null) {
@@ -115,7 +127,7 @@ export function AnswerSourceDrawer({
   const quoteCard = quoteCardForSource(quoteCards, source);
   const passage = passageForSource(quoteCard, source);
   const sourceTables = open ? tablesForSource(tables, sources, openIndex) : [];
-  const sourceImages = imagesForSource(visualEvidence, source);
+  const sourceImages = open ? imagesForSource(visualEvidence, sources, openIndex) : [];
   const stale = source ? sourceRowIsStale(source) : false;
   const numbered = sources.length <= NUMBERED_PAGER_LIMIT;
 
