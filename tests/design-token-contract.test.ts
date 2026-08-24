@@ -195,7 +195,7 @@ describe("elevation ladder", () => {
   // — `.chat-composer-shell-delta:focus-within` — painted a companion ring on
   // top of the accent border swap, which is the second focus affordance the
   // shared `:focus-visible` treatment is written to prevent. The composer now
-  // uses the sanctioned `outline: 2px solid var(--focus)`.
+  // uses a quiet border shift; buttons keep the sanctioned 2px outline.
   //
   // Unlike the `--shadow-tight` assertion above this is not a raw substring
   // check: the stylesheet comment at the composer rule names the retired token

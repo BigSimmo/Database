@@ -1454,10 +1454,11 @@ describe("private document API access", () => {
 
   it("rejects an authenticated non-administrator upload", async () => {
     const client = createSupabaseMock();
-    client.auth.getUser.mockResolvedValueOnce({
-      data: { user: { id: userId, app_metadata: { site_role: "user" } } },
-      error: null,
-    });
+    client.auth.getUser.mockImplementation(async (receivedToken?: string) =>
+      receivedToken === token
+        ? { data: { user: { id: userId, app_metadata: { site_role: "user" } } }, error: null }
+        : { data: { user: null }, error: { message: "Invalid token" } },
+    );
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
@@ -1473,6 +1474,44 @@ describe("private document API access", () => {
     expect(response.status).toBe(403);
     expect(await payload(response)).toMatchObject({ code: "administrator_required" });
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
+  });
+
+  it("rejects administrator uploads when proxy claims cannot be revalidated live", async () => {
+    const client = createSupabaseMock();
+    client.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Auth lookup failed" },
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const { signProxyAuthPayload } = await import("../src/lib/supabase/proxy-auth-crypto");
+    const previousServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-for-proxy-auth";
+    const proxyHeader = signProxyAuthPayload(
+      Buffer.from(JSON.stringify({ id: userId, appMetadata: { site_role: "administrator" } })).toString("base64"),
+    );
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
+
+    try {
+      const response = await POST(
+        request("/api/upload", {
+          method: "POST",
+          body: formData,
+          headers: proxyHeader ? { "x-proxy-auth-user": proxyHeader } : undefined,
+        }),
+      );
+
+      expect(response.status).toBe(401);
+      expect(await payload(response)).toMatchObject({ code: "authentication_required" });
+      expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    } finally {
+      if (previousServiceRoleKey === undefined) {
+        delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      } else {
+        process.env.SUPABASE_SERVICE_ROLE_KEY = previousServiceRoleKey;
+      }
+    }
   });
 
   it("fails closed for administrator uploads when the durable limiter is unavailable", async () => {

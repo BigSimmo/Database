@@ -58,10 +58,16 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
  * that node when healthy: a hidden `h-0` box still takes the parent
  * `space-y-*` gap and inflates phone geometry.
  *
- * Centred homes keep a 62px reserved frame on first paint even while healthy.
- * Unmounting that slot lets a late "Service unavailable" banner shove the
- * hero (~0.075 CLS, Production UI `ui-pwa` wide-phone). Filling the reserved
- * box does not change layout.
+ * Centred homes on sm+ keep a 62px reserved frame on first paint even while
+ * healthy. Unmounting that slot lets a late "Service unavailable" banner shove
+ * the hero (~0.075 CLS, Production UI `ui-pwa` wide-phone). Filling the
+ * reserved box does not change layout.
+ *
+ * Phone centred homes overlay instead (`h-0 overflow-visible`): the 62px band
+ * sat above the cluster, sank the hero, and helped manufacture a scrollbar.
+ * A late banner paints over the cluster rather than shoving it. The parent
+ * idle-home column uses `max-sm:space-y-0`, so the zero-height frame cannot
+ * donate a `space-y-*` gap either.
  */
 export function DegradedNoticeFrame({
   visible,
@@ -80,7 +86,11 @@ export function DegradedNoticeFrame({
     <div
       data-testid="dashboard-degraded-notice-frame"
       data-visible={visible ? "true" : "false"}
-      className={reserveSpace ? "min-h-[3.875rem]" : "relative z-10 !mt-0 h-0 overflow-visible"}
+      className={
+        reserveSpace
+          ? "max-sm:relative max-sm:z-10 max-sm:!mt-0 max-sm:h-0 max-sm:overflow-visible sm:min-h-[3.875rem]"
+          : "relative z-10 !mt-0 h-0 overflow-visible"
+      }
     >
       {visible ? (
         <>

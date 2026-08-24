@@ -70,7 +70,10 @@ import {
   ClinicalAskWorkspace,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
-import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import {
+  clinicalAskComposerChromeEnabled,
+  clinicalAskWorkspaceVisible,
+} from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
 
 // Namespaced mode homes share this client shell but never render the dashboard
@@ -480,9 +483,10 @@ function GlobalStandaloneSearchShellBody({
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
   // Idle empty homes already have the search composer; Ask / Dictate appear
-  // once the draft has text or a search has been submitted.
+  // once the draft has text or a search has been submitted. Therapy never
+  // mounts this rail — query-gated remounts were flickering the microphone.
   const showClinicalAskDockChrome =
-    Boolean(clinicalAskMode) &&
+    clinicalAskComposerChromeEnabled(clinicalAskMode) &&
     !isToolDetailWithFooterSearch(pathname) &&
     !isStandaloneModeHome &&
     !(pathname === "/" && !hasSubmittedModeSearch && !query.trim());

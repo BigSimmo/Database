@@ -17,15 +17,17 @@ vi.mock("next/link", () => ({
 
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
 import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
-import { eligibleCandidates } from "@/components/ward-management/ward-derivations";
+import { eligibleCandidatesAmong } from "@/components/ward-management/ward-derivations";
 import { wardMovements } from "@/components/ward-management/ward-movements";
-import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
+import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 const FIRST_MOVEMENT = wardMovements[0]!;
 // Same call the app itself makes for the "top candidate" the decision panel falls back to when
 // nothing has been referred yet, computed here only to build a real, valid dispatch payload —
-// not to assert against production's own output.
-const TOP_CANDIDATE_ID = eligibleCandidates(FIRST_MOVEMENT, NOW_ANCHOR, 1)[0]!.unit.id;
+// not to assert against production's own output. `allUnits()` is the fixture's own pristine
+// seed, which this suite never mutates (no CONFIRM_CAPACITY/HOLD_BED/PATIENT_ARRIVED dispatch
+// runs before this is computed), so it is identical to the provider's live `units` here.
+const TOP_CANDIDATE_ID = eligibleCandidatesAmong(FIRST_MOVEMENT, allUnits(), NOW_ANCHOR, 1)[0]!.unit.id;
 
 /** Dispatches a real REFER_TO_UNITS event from a sibling of QueueView, mirroring `ClockAdvancer`
  * in tests/ward-flow-clock-consistency.dom.test.tsx and `DispatchProbe` in

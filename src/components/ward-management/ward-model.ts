@@ -30,28 +30,30 @@ export type DeclineReason = (typeof DECLINE_REASONS)[number];
 /** Referring to more than three units at once spams wards and erodes trust between services. */
 export const PARALLEL_REFERRAL_CAP = 3;
 
-/**
- * A Form 1A referral must carry an explicit expiry. In this synthetic model a
- * newly raised referral uses the Mental Health Act's seven-day outer limit;
- * production form capture must always use the expiry recorded on the actual
- * approved form rather than treating this demo default as clinical advice.
- */
-export const FORM_1A_REFERRAL_EXPIRY_MINUTES = 7 * 24 * 60;
-
 export type LegalStatus =
   "Voluntary" | "Referred for psychiatric examination" | "Detained awaiting examination" | "Involuntary inpatient";
 
 /**
  * The legal clock and the ED clock are different clocks (spec "Model changes this phase
- * requires", `Movement.formedAt`). `dueAt` is the legal clock — the Mental Health Act deadline
- * this specific form carries, when it has one. A Form 1A ("referral for examination") always
- * carries a real statutory examination window, so it always carries a `dueAt`. A Form 3B
- * ("inpatient treatment order") has no equivalent post-examination deadline in the Act — put to
- * the clinician directly, his answer was that the post-examination clock "is just counting how
- * long they have been in ED determining priority. So counting up," i.e. it is not a legal
- * countdown at all (Task 6A). So `dueAt` is optional, and a 3B is authored — and produced by the
- * reducer — without one. Never substitute a fallback number for an absent `dueAt`, and never let
- * an absent `dueAt` read as "clear" or "not yet due"; render its absence explicitly.
+ * requires", `Movement.formedAt`). `dueAt`, when present, is the legal clock — a statutory
+ * deadline a specific form carries. Task 6A first established that a Form 3B ("inpatient
+ * treatment order") has no such deadline: put to the clinician directly, his answer was that
+ * the post-examination clock "is just counting how long they have been in ED determining
+ * priority. So counting up," i.e. not a legal countdown at all. This model briefly gave a Form
+ * 1A ("referral for examination") an authored `dueAt` on the strength of an unverified figure
+ * an earlier agent wrote into this file from its own recollection, not from the clinician.
+ * Asked directly on 2026-08-23, the product owner's instruction was narrower than a corrected
+ * figure — "please can you leave the legal part and just start a clock once the patient arrives
+ * to ED. Keep it simple for now" — so as of that date **neither a Form 1A nor a Form 3B carries
+ * a `dueAt` in this model.** (The transport/transfer forms — 4A, "Transport order"; 4C,
+ * "Transfer between authorised hospitals" — are a different question, out of scope for this
+ * correction, and still carry real `dueAt` figures unrelated to the examination timeline this
+ * comment is about.) The field stays optional (never required) precisely so a form can honestly
+ * carry none, the same shape Task 6A gave a 3B and this now gives a 1A too. Never substitute a
+ * fallback number for an absent `dueAt`, never let an absent `dueAt` read as "clear" or "not yet
+ * due" — render its absence explicitly — and never reintroduce a `dueAt` on a 1A or 3B without a
+ * figure that traces back to the clinician or product owner by name and date, not to an
+ * assistant's recollection of the Mental Health Act.
  */
 export type LegalForm = {
   code: string;
