@@ -280,8 +280,8 @@ export function DictionaryCataloguePage() {
   ];
 
   /* Joined two-cell toggle: one border, no gap, sized to its own labels.
-     Compact (28px, 11px type) so the row under the Filter band stays a control
-     strip rather than a second header. `aria-label` keeps the accessible name
+     Each segment keeps the shared 48px tap target while compact text preserves
+     the row's visual density. `aria-label` keeps the accessible name
      "Terms (2)" rather than concatenated "Terms2". Focus uses an inset outline
      because the joined track clips an outset ring. */
   const scopeToggle = (
@@ -303,7 +303,7 @@ export function DictionaryCataloguePage() {
             aria-controls="dictionary-catalogue-results"
             onClick={() => setOne("view", option.value, "definitions")}
             className={cn(
-              "inline-flex h-full items-center gap-1 px-2 text-2xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
+              "inline-flex min-h-tap items-center gap-1 px-2 text-2xs font-semibold leading-none tracking-tight transition-colors motion-reduce:transition-none sm:px-2.5",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
               active
                 ? "bg-[color:var(--tone-purple)] text-[color:var(--surface)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
