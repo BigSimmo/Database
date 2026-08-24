@@ -129,7 +129,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(clinicalDashboardSource).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
     expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:flex-col");
     expect(clinicalDashboardSource).toContain("max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col");
-    expect(clinicalDashboardSource).toContain("max-sm:items-center max-sm:justify-center");
+    expect(clinicalDashboardSource).toContain('centeredModeHome && "max-sm:items-center max-sm:justify-center"');
     expect(clinicalDashboardSource).not.toContain("max-sm:flex max-sm:flex-1 max-sm:flex-col");
     expect(clinicalDashboardSource).not.toContain("max-sm:min-h-0 max-sm:flex-1");
   });
