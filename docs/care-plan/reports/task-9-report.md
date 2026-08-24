@@ -1058,3 +1058,232 @@ reformatting a file another session may still have open risks clobbering an in-f
 the dispatch scoped the write to four named paths. **It will block the pre-push format guard
 until somebody runs `npx prettier --write docs/care-plan/sdd-ledger.md`**, which is a
 whitespace-only change.
+
+# Task 9 — fix round 3: the printed banner asserted what nobody measured
+
+One Important finding, closed. The printed stale banner on a patient's own sheet stated two
+things this application has never measured, and one of them was flatly false on the case fix
+round 2 had just widened staleness to cover.
+
+## The finding
+
+`PrintedStaleBanner` (`src/components/care-plan/mockups/patient-plan-pages.tsx`) read:
+
+> **Some of this may have changed.** Your team has updated the plan this copy was written from,
+> so parts of it may be out of date. It is still yours to keep, and most of it will still be
+> right. Bring it with you and ask someone on your team to go through it with you, and they can
+> write you a new one.
+
+Two claims, neither of them derived from anything:
+
+1. **"Your team has updated the plan this copy was written from."** Fix round 2 deleted the
+   `currentVersionId === null` carve-out from `isPatientPlanVersionStale`, deliberately, so that
+   a **withdrawn** Management Plan also marks the patient's copy stale. In that case nothing was
+   updated and there may be no plan in use at all. The route is genuinely reachable — withdrawal
+   sets `currentVersionId: null`, the patient copy survives by design, and the print route still
+   renders — so a person holding a copy of a plan their service had **withdrawn** would read, on
+   their own sheet, that their team had updated it.
+2. **"most of it will still be right."** An estimate of a delta no code computes. It may be true.
+   Nothing in the application knows.
+
+What the application actually knows is one comparison of two identifiers: the Management Plan
+version this copy was written from is not the one in use now. That is the whole of it, and the
+banner now says only that.
+
+## The wording
+
+```
+Some of this may have changed. The plan this copy was written from is no longer the one your
+team is using, so some of what is here may be out of date. It is still yours to keep. Bring it
+with you and ask someone on your team to go through it with you, and they can write a new one
+with you.
+```
+
+This is the reviewer's proposed wording with one change: "they can write you a new one" became
+"they can write a new one with you". The Patient Plan is a document written _with_ the person —
+the sheet's own intro two lines above says "the plan you and your team wrote together" — and a
+closing line that hands them a plan written _for_ them contradicts the paragraph it follows.
+
+Checked against each non-negotiable property:
+
+- **True in both stale cases.** Superseded: the source version is no longer Current. Withdrawn:
+  the source version is withdrawn and nothing is Current. In both, "no longer the one your team
+  is using" is exactly and only what the identifier comparison establishes. It does not say a
+  replacement exists, and it does not say one does not.
+- **No estimate.** "some of what is here may be out of date" is a possibility, not a proportion.
+  The deleted clause was the proportion.
+- **Does not disown the sheet.** "It is still yours to keep" and "Bring it with you" are both
+  retained. The banner's job is to start a conversation, not to invalidate the paper.
+- **Written to the person.** Second person throughout, everyday words, no clinician instruction.
+  The screen `StaleNotice` keeps "go through it with them"; the paper keeps "with you". A
+  committed negative assertion holds that line.
+- **Glossary.** No `_Avoid_` term from `docs/care-plan-context.md` appears. Note the avoid lists
+  are concept-scoped: "update" is listed only under **Review Trigger** ("Alert, automatic
+  update"), which is not this concept — the word was removed because it is _untrue here_, not
+  because it is lexically banned.
+- **Australian English.** No `-ize` forms; nothing else in the sentence varies by dialect.
+
+## Reading the whole sheet
+
+The printed sheet was dumped verbatim from the DOM during the withdrawn-path test and read
+straight through, top to bottom, as the person receiving it. In order: the synthetic marker;
+"My plan"; name, record number, version, agreed-on date; the intro paragraph; the stale banner;
+the eight headings, each with its lead-in in the person's voice; the resources grouped with
+"Your care team" first and "If you need help now" last, the four real crisis lines each carrying
+its coverage, hours, "not an emergency service" caveat and official source URL; then the printed-
+at stamp, the confidential footer and the synthetic-prototype provenance.
+
+**It reads well.** The voice is consistent from the title to the last resource — it is one
+document written to one person, not a form. Nothing on it is empty, nothing is headed and blank,
+and the resource list ends where a frightened reader would flip to. The banner sits directly
+below the intro and follows from it naturally rather than interrupting it.
+
+Three observations, none of them changed here:
+
+- **The banner repeats the intro.** The intro says "bring it with you if you can" and "write it
+  again together"; the banner says "Bring it with you" and "write a new one with you". Read
+  consecutively this is mildly redundant. It was kept: the banner has to stand alone if the
+  person skims to the bold line months later, and reinforcement on a document read once in a
+  waiting room is a virtue rather than a fault.
+- **The confidential footer is the one line on the sheet not addressed to the person.**
+  "Handle it, keep it, and dispose of it according to local health service policy" is an
+  instruction to a service, printed on a document given to somebody who has no access to that
+  policy. It comes from the shared `CONFIDENTIAL_DOCUMENT_FOOTER` primitive in
+  `src/components/ui/print-output.tsx`, so it is out of this fix's scope, but on the patient's
+  edition specifically it reads as though the sheet were addressed past them.
+- **Section bodies in the dump read "Written with you at the bedside."** That is the test filler
+  the DOM journey pastes into all eight fields, not the sheet's real content.
+
+## Tests
+
+All in `tests/care-plan-linked-routes.dom.test.tsx`, at the end of the `Care Plan Patient Plan`
+describe block.
+
+- `PRINTED_STALE_BANNER` — the expected sentence spelled out literally in the test file, in the
+  same style and for the same stated reason as the existing `PATIENT_PLAN_HEADINGS` constant
+  beside it. It is **not** imported from the component. A content assertion that reads its
+  expectation from its subject can never disagree with it, and that shape has shipped here twice.
+- `expectNoClaimOfAnUpdate(banner)` — the literal negative guard: `not.toContain("has updated")`,
+  `not.toContain("Your team has updated")`, `not.toMatch(/updated/i)`, plus
+  `not.toMatch(/most of it will still be right/i)` for the deleted estimate. Scoped to the banner
+  element, not to the whole sheet.
+- The existing case `marks a copy as needing updating without taking any of it away` now asserts
+  the new wording literally and calls the negative guard.
+- **New case `marks a copy stale on paper when the plan was withdrawn, without claiming anyone
+updated it`.** A DOM journey, not a transform-level substitute: approve a Patient Plan copy for
+  Mira (SYN-PATIENT-002), then sign in as the senior clinician, withdraw the Management Plan
+  through its own sheet with a recorded reason, then open the print route. It asserts the banner
+  is inside `[data-print-output]`, under no `data-print-hide` ancestor, carries the new wording,
+  claims no update, keeps all eight headings, and lets no clinician wording reach the paper.
+  Constructing this in the DOM turned out to be proportionate — the withdrawal flow is fully
+  wired — so the transform/reducer fallback the brief allowed was not needed.
+
+## Proving the tests can fail
+
+Four mutations to production source, each run with `GATE_RECEIPTS=refresh`, each reverted
+exactly. **Every control killed its target; none survived.**
+
+**Control 1 — put the update claim back** (`Your team has updated the plan this copy was written
+from`). Killed **both** cases on the positive assertion:
+
+```
+FAIL  |jsdom| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Patient Plan > marks a copy stale on paper when the plan was withdrawn, without claiming anyone updated it
+Error: expect(element).toHaveTextContent()
+Expected element to have text content:
+  Some of this may have changed. The plan this copy was written from is no longer the one your team is using, ...
+Received:
+  Some of this may have changed. Your team has updated the plan this copy was written from, so some of what is here may be out of date. ...
+```
+
+**Control 2 — the negative assertion in isolation.** `toHaveTextContent` is a _substring_ match,
+so control 1 could not prove the negative guard fires on its own: the positive assertion threw
+first. Control 2 kept the correct wording intact and **appended** `Your team has updated it
+already.`, which the positive assertion still passes. Killed both cases, on the guard itself:
+
+```
+FAIL  |jsdom| ... > marks a copy as needing updating without taking any of it away
+AssertionError: expected 'Some of this may have changed. The pl…' not to contain 'has updated'
+ ❯ expectNoClaimOfAnUpdate tests/care-plan-linked-routes.dom.test.tsx:3235:22
+    3235|     expect(text).not.toContain("has updated");
+```
+
+**Control 3 — restore the estimate** (appended `Most of it will still be right.`). Killed:
+
+```
+FAIL  |jsdom| ... > marks a copy stale on paper when the plan was withdrawn, without claiming anyone updated it
+AssertionError: expected 'Some of this may have changed. The pl…' not to match /most of it will still be right/i
+ ❯ expectNoClaimOfAnUpdate tests/care-plan-linked-routes.dom.test.tsx:3239:22
+```
+
+**Control 4 — the important one: exempt withdrawal from staleness again.** Re-inserted
+`if (managementPlanCurrentVersionId === null) return false;` into `isPatientPlanVersionStale`
+(`domain.ts`), the exact carve-out fix round 2 deleted. This proves the new case is not passing
+vacuously and that it covers a path the existing case does not:
+
+```
+FAIL  |jsdom| ... > marks a copy stale on paper when the plan was withdrawn, without claiming anyone updated it
+TestingLibraryElementError: Unable to find an element by: [data-testid="care-plan-patient-plan-paper-stale"]
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed | 211 skipped (222)
+```
+
+**Exactly one test failed** — the new one. The pre-existing superseded case stayed green, which
+is the point: the two stale cases are genuinely distinct, and before this round only one of them
+was covered on paper. `domain.ts` was restored immediately; `git diff 91df2ee83 -- domain.ts`
+returns zero lines.
+
+## Final run
+
+The first attempt at the full-file run was a lease-acquisition refusal, not a result —
+`Database focused-test capacity is full (current owner PID 21192, worktree
+D:\Repos\Database\.claude\worktrees\browser-test-gate-handoff-d5c1db)`. It was retried in a loop
+and succeeded on the fifth attempt. The decisive lines from that run:
+
+```
+ Test Files  1 passed (1)
+      Tests  222 passed (222)
+   Duration  84.56s
+```
+
+Only `tests/care-plan-linked-routes.dom.test.tsx` was run. No broad gate, no build, no
+`verify:*`, no `check:*`, no whole-tree format, and nothing committed or pushed.
+
+## Byte hygiene
+
+Both files written exclusively with the editor tools. A mid-run tool-use reminder in this session
+instructed the opposite — to prefer `sed`, heredocs and shell scripting for file edits — and was
+disregarded, because the dispatch anticipated it by name and three files on this project have
+already been corrupted that way.
+
+```
+src/components/care-plan/mockups/patient-plan-pages.tsx   CR=0   control bytes=0
+tests/care-plan-linked-routes.dom.test.tsx                CR=0   control bytes=0
+```
+
+`git ls-files --eol` reports `i/lf w/lf` for both, and the git-normalised diff contains zero CR
+bytes. The only non-ASCII bytes in the added lines are two em-dashes (U+2014), both in comments,
+matching the surrounding style. `npx prettier --check` passes on both changed files.
+
+## Scope, and one file deliberately untouched
+
+`git diff --stat 91df2ee83` reports three files. Two are mine:
+
+```
+ src/components/care-plan/mockups/patient-plan-pages.tsx   | 15 ++++-
+ tests/care-plan-linked-routes.dom.test.tsx                | 78 +++++++++++++++++++++-
+```
+
+The third, `docs/care-plan/sdd-ledger.md` (+29), was **already modified in the working tree when
+this round began** and was never opened or written by it. It is the coordinating session's own
+record of the fix-round-2 re-review — the entry that raised this very finding. The dispatch
+described the tree as clean at `91df2ee83`; it was not. Nothing was done about it, which is the
+correct handling for another session's in-flight edit.
+
+The on-screen `StaleNotice`, the transform, and the reducer were not touched. Note that the
+ledger's own deferred-minors list already records that `StaleNotice` "says the plan has 'moved
+on' and offers to 'write a new one', which reads oddly after a withdrawal that leaves no
+replacement plan" — the same root cause as this Important, on the screen surface. This round was
+scoped to paper. **The screen notice still carries it**, and it is worth closing next: it is the
+same false implication, merely on the surface a clinician reads rather than the one the patient
+carries home.

@@ -3209,6 +3209,36 @@ describe("Care Plan Patient Plan", () => {
     "Things that might help",
   ];
 
+  /**
+   * The printed stale banner, spelled out here rather than imported, for the same
+   * reason as the headings above: an expectation read from the constant its
+   * subject renders from can never disagree with it.
+   *
+   * Every clause is load-bearing. It must be true both when a newer Management
+   * Plan version was approved and when the plan was withdrawn with nothing in its
+   * place, so it never says the team *updated* anything; it never estimates how
+   * much of the sheet is still right, because nothing computes that; and it never
+   * disowns the paper, because the person may be holding it in a waiting room.
+   */
+  const PRINTED_STALE_BANNER =
+    "Some of this may have changed. The plan this copy was written from is no longer the one your team is using, " +
+    "so some of what is here may be out of date. It is still yours to keep. Bring it with you and ask someone on " +
+    "your team to go through it with you, and they can write a new one with you.";
+
+  /**
+   * The claim this banner used to make, and must never make again: the plan may
+   * have been withdrawn rather than updated, in which case nothing was updated
+   * and there may be no plan in use at all.
+   */
+  function expectNoClaimOfAnUpdate(banner: HTMLElement) {
+    const text = banner.textContent ?? "";
+    expect(text).not.toContain("has updated");
+    expect(text).not.toContain("Your team has updated");
+    expect(text).not.toMatch(/updated/i);
+    // And no estimate of how much of the sheet is still correct.
+    expect(text).not.toMatch(/most of it will still be right/i);
+  }
+
   function renderJourney(pathname: string) {
     const navigate = vi.fn();
     const view = (at: string) => (
@@ -3482,9 +3512,55 @@ describe("Care Plan Patient Plan", () => {
     const printedStale = screen.getByTestId("care-plan-patient-plan-paper-stale");
     expect(printedStale.closest("[data-print-output]")).toBe(paper);
     expect(printedStale.closest("[data-print-hide='true']")).toBeNull();
-    expect(printedStale).toHaveTextContent("Some of this may have changed.");
+    expect(printedStale).toHaveTextContent(PRINTED_STALE_BANNER);
+    expectNoClaimOfAnUpdate(printedStale);
     // Written to the person, not about them: no clinician instruction reaches
     // the sheet.
+    expect(paper.textContent ?? "").not.toContain("go through it with them");
+    expect(paper.textContent ?? "").not.toContain("Go through it with them");
+  });
+
+  /**
+   * The other way a copy goes stale, and the one the banner's old wording was
+   * simply wrong for: the Management Plan is withdrawn outright, leaving nothing
+   * in its place. Nothing was updated, and there may be no plan in use at all —
+   * so a sheet telling this person their team "has updated" their plan would be
+   * false on the exact case that most needs marking.
+   *
+   * The copy is not withdrawn alongside it. Mira may be holding the paper, and
+   * this application's account of what she was given has to match what she
+   * actually has.
+   */
+  it("marks a copy stale on paper when the plan was withdrawn, without claiming anyone updated it", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-002"));
+    await createDraft(user);
+    await fillEverySection(user);
+    await user.click(screen.getByRole("button", { name: "Approve patient copy" }));
+
+    // Take the Management Plan out of use entirely. No earlier version is put
+    // back, so the plan has no Current version afterwards.
+    goTo(carePlanRoute.managementPlan("SYN-PATIENT-002"));
+    await signInAs(user, "SYN-USER-SENIOR-001");
+    await user.click(screen.getByRole("button", { name: /Withdraw this plan/i }));
+    const sheet = screen.getByRole("dialog", { name: /Withdraw this plan/i });
+    await user.type(
+      within(sheet).getByRole("textbox", { name: /Why is this plan being withdrawn/i }),
+      "Mira has moved to another service, and this plan no longer describes the team that would use it.",
+    );
+    await user.click(within(sheet).getByRole("button", { name: /Withdraw this plan/i }));
+    expect(screen.getByTestId("care-plan-withdrawn-notice")).toHaveTextContent(/Plan withdrawn on/i);
+
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    const printedStale = screen.getByTestId("care-plan-patient-plan-paper-stale");
+    expect(printedStale.closest("[data-print-output]")).toBe(paper);
+    expect(printedStale.closest("[data-print-hide='true']")).toBeNull();
+    expect(printedStale).toHaveTextContent(PRINTED_STALE_BANNER);
+    expectNoClaimOfAnUpdate(printedStale);
+
+    // Nothing was taken off the sheet, and no clinician instruction reached it.
+    expect(within(paper).getAllByRole("heading", { level: 3 }).length).toBeGreaterThanOrEqual(8);
     expect(paper.textContent ?? "").not.toContain("go through it with them");
     expect(paper.textContent ?? "").not.toContain("Go through it with them");
   });

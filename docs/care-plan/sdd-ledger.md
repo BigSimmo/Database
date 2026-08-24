@@ -98,18 +98,18 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 
 ## Progress
 
-| Task                               | State                                | Commits                | Evidence                                                                                                        |
-| ---------------------------------- | ------------------------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 1. Domain, fixtures, selectors     | **complete, review clean**           | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                                                  |
-| 2. Reducer, provider, lifecycle    | **complete, review clean**           | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                                           |
-| 3. Routes, gate, shell             | **complete, review clean**           | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                                           |
-| 4. Snapshot, search, contacts      | **complete, review clean**           | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                           |
-| 5. Plan reading, boundary, print   | **complete, review clean**           | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                          |
-| 6. Authoring, approval, withdrawal | **complete, review clean**           | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
-| 7. ED presentations, amendments    | **complete, review clean**           | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                               |
-| 8. Personal Safety Plan, print     | **complete, review clean**           | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                               |
-| 9. Patient Plan, transform, print  | fix round 2 verified, re-review owed | `73d004095..63d69be34` | 446/446 passing, typecheck + lint clean (24 Aug), 29 + 3 + 4 mutations                                          |
-| 10–11                              | not started                          | —                      | —                                                                                                               |
+| Task                               | State                      | Commits                | Evidence                                                                                                        |
+| ---------------------------------- | -------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1. Domain, fixtures, selectors     | **complete, review clean** | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                                                  |
+| 2. Reducer, provider, lifecycle    | **complete, review clean** | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                                           |
+| 3. Routes, gate, shell             | **complete, review clean** | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                                           |
+| 4. Snapshot, search, contacts      | **complete, review clean** | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                           |
+| 5. Plan reading, boundary, print   | **complete, review clean** | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                          |
+| 6. Authoring, approval, withdrawal | **complete, review clean** | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent |
+| 7. ED presentations, amendments    | **complete, review clean** | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                               |
+| 8. Personal Safety Plan, print     | **complete, review clean** | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                               |
+| 9. Patient Plan, transform, print  | **complete, review clean** | `73d004095..7d8dba4e6` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed      |
+| 10–11                              | not started                | —                      | —                                                                                                               |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
 lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
@@ -362,6 +362,49 @@ regex applied across all four labels and all four explanations.
   Both gates were retried in a loop until a real invocation was observed; typecheck acquired on
   the fourth attempt. **Never score a heavy gate on its exit code alone on this machine — grep
   the output for the marker.**
+
+- **Fix round 2's scoped re-review (opus, 24 August) verdicted all seven findings ADDRESSED**
+  and both unlisted additions — `missingSectionKeys` and the withdrawal-raised
+  `patient_plan_stale` trigger — sound and in scope. It confirmed **no guard that cannot fail**:
+  it mutated production source once per new or changed guard and each mutation reddened exactly
+  its own test, seven for seven, reverting every one. It traced the leak question the quoting
+  upgrade raises and found it closed: a `gapReason` renders only on a flagged section, the print
+  surface passes `gaps="omit"`, the reducer refuses approval while any section is flagged or
+  empty, and only an approved version prints — so the clinician's raw refused clinical wording
+  stays on the draft.
+- **It also found one new Important, in the fix diff itself, and it is the shape this build keeps
+  producing.** The printed stale banner asserted two things the application has never measured:
+  that "your team has **updated** the plan this copy was written from" — untrue in the withdrawal
+  case that fix round 2 had _just_ widened staleness to include, where nothing was updated and
+  nothing is in use — and that "most of it will still be right", an estimate of a delta no code
+  computes, printed as fact onto a patient's own sheet. Reachable today. Fix round 3 owns it.
+
+- **Fix round 3 closed it.** The banner now says only what the application has actually measured
+  — one comparison of two identifiers — and never that anyone updated anything:
+  _"Some of this may have changed. The plan this copy was written from is no longer the one your
+  team is using, so some of what is here may be out of date. It is still yours to keep. Bring it
+  with you and ask someone on your team to go through it with you, and they can write a new one
+  with you."_ Four positive controls, four killed, none survived: restoring the update claim,
+  appending it as extra text (which isolates the negative guard, because `toHaveTextContent` is a
+  substring match and the first control never reaches it), appending the "most of it will still be
+  right" estimate, and re-inserting the withdrawal carve-out in `isPatientPlanVersionStale`. That
+  fourth control reddened **only** the new withdrawn case and left the superseded case green,
+  which proves the two stale paths are genuinely distinct and that nothing had ever printed the
+  withdrawn one. `Test Files 1 passed (1)` / `Tests 222 passed (222)` — on the fifth attempt; the
+  first four were lease refusals with no summary line, retried rather than scored.
+
+### Task 9 — deferred minors from the fix-round-2 re-review
+
+- `mentionsAnotherPerson` (`patient-plan-transform.ts:932`) carries the same possessive-token
+  blind spot that finding 1 closed. Its word set holds role nouns rather than names, so it is
+  near-inert today — but it is the same latent defect, one rename away from live.
+- The withdrawal success message chooses its wording from `staleTrigger === null`, so when a
+  stale trigger is **already** open the clinician is told nothing at all about the person's copy —
+  the deduplication silently suppresses the notice as well as the duplicate trigger.
+- The on-screen `StaleNotice` says the plan has "moved on" and offers to "write a new one", which
+  reads oddly after a withdrawal that leaves no replacement plan. Same root as the printed-banner
+  Important, on the surface that was not in the fix round's scope.
+- `missingSectionKeys` rejects absent headings but not duplicate or unknown keys.
 
 ---
 
@@ -879,6 +922,21 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     as well, or a scenario change would apply twice. _Cost if wrong:_ a hand-toggled scenario
     leaves the address stale and a copied link shows a different world than the screen did — the
     lesser harm, and a one-line change either way.
+
+54. **Fix round 3 was adjudicated by the controller inline rather than given its own review
+    seat.** The SDD loop ends every fix round with a scoped re-review, and that rule exists
+    because unreviewed fixes are how regressions land. It is suspended for this round only, on
+    these grounds: the diff is one paragraph of patient-facing copy plus its tests; the wording
+    was **proposed by the reviewer that raised the finding**, so a fresh seat would largely be
+    reviewing its own prescription; four positive controls were run and all four killed, one of
+    them isolating the negative guard from the substring match that would otherwise have hidden
+    it; and the controller read the whole source and test diff rather than the summary. The user
+    asked on 24 August 2026 that the work stay local and focused on building, and a fourth review
+    seat for a copy change is the ceremony that request was about. _Cost if wrong:_ a copy defect
+    reaches the whole-branch review instead of being caught one step earlier — and the
+    whole-branch review is explicitly pointed at every patient-facing surface, so it is one net
+    later, not no net. **This is a one-round suspension, not a new standard: Task 10 and Task 11
+    each get their full task review and fix loop.**
 
 ---
 

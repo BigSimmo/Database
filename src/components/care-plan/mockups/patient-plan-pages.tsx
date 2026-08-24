@@ -209,13 +209,22 @@ function StaleNotice({ version, patient }: { version: PatientPlanVersion; patien
  * It does not tell the person the sheet is wrong, or to stop using it. Most of
  * what is on it will still be true, and a document that disowns itself is worse
  * than useless to somebody holding it in a waiting room.
+ *
+ * It also states only what this application has actually measured, which is one
+ * comparison of two identifiers: the Management Plan version this copy was
+ * written from is not the one in use now. It does not say the team *updated*
+ * anything — staleness includes the Management Plan being withdrawn outright,
+ * where nothing was updated and there may be no plan in use at all, and a person
+ * holding a copy of a plan their service has withdrawn must not read on their own
+ * sheet that it was updated. Nor does it estimate how much of the sheet is still
+ * right: that is a delta nothing here computes.
  */
 function PrintedStaleBanner() {
   return (
     <p data-testid="care-plan-patient-plan-paper-stale" className={styles.patientPlanPaperStale}>
-      <strong>Some of this may have changed.</strong> Your team has updated the plan this copy was written from, so
-      parts of it may be out of date. It is still yours to keep, and most of it will still be right. Bring it with you
-      and ask someone on your team to go through it with you, and they can write you a new one.
+      <strong>Some of this may have changed.</strong> The plan this copy was written from is no longer the one your team
+      is using, so some of what is here may be out of date. It is still yours to keep. Bring it with you and ask someone
+      on your team to go through it with you, and they can write a new one with you.
     </p>
   );
 }
