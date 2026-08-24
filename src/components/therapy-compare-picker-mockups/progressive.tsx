@@ -241,7 +241,8 @@ function ProgressivePhone() {
                     type="button"
                     onClick={() => (already ? undefined : choose(therapy.slug))}
                     aria-disabled={already || undefined}
-                    className={cn("flex w-full items-center gap-2 py-3 text-left", focusRing, already && "opacity-45")}
+                    className={cn("flex w-full items-center gap-2 py-3 text-left", focusRing)}
+                    style={already ? { opacity: 0.45 } : undefined}
                   >
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-bold leading-5 text-[color:var(--text-heading)]">

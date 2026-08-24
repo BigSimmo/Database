@@ -51,6 +51,10 @@ function TrayPhone() {
   const results = filterTherapies(query, "All").filter((therapy) =>
     query.trim() ? true : BROWSE_RESULTS.includes(therapy.slug),
   );
+  // The claim this direction makes is that a compare screen is unreachable
+  // without a set, so emptying the tray while reading one has to fall back to
+  // browse rather than leave a blank comparison mounted.
+  const showCompare = view === "compare" && count >= 2;
 
   return (
     <PhoneFrame
@@ -60,7 +64,7 @@ function TrayPhone() {
     >
       <PhoneTopBar title={view === "compare" ? "Compare" : "Therapy"} />
 
-      {view === "browse" ? (
+      {!showCompare ? (
         <>
           <div className="shrink-0 px-4 pb-2 pt-3">
             <div className="flex h-11 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3">
@@ -90,12 +94,19 @@ function TrayPhone() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => (held ? set.remove(therapy.slug) : set.add(therapy.slug))}
+                    onClick={() => {
+                      if (held) set.remove(therapy.slug);
+                      else if (!set.full) set.add(therapy.slug);
+                    }}
                     aria-pressed={held}
+                    aria-disabled={!held && set.full ? true : undefined}
+                    title={!held && set.full ? `Tray full — remove one to add ${therapy.short}` : undefined}
                     aria-label={
                       held
                         ? `Remove ${therapy.short} from the compare tray`
-                        : `Add ${therapy.short} to the compare tray`
+                        : set.full
+                          ? `Cannot add ${therapy.short} — the compare tray already holds ${MAX_COMPARE}`
+                          : `Add ${therapy.short} to the compare tray`
                     }
                     className={cn(
                       "grid h-11 w-11 shrink-0 place-items-center rounded-full border",
@@ -104,6 +115,7 @@ function TrayPhone() {
                         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]"
                         : "border-[color:var(--border-strong)] text-[color:var(--clinical-accent)]",
                     )}
+                    style={!held && set.full ? { opacity: 0.4 } : undefined}
                   >
                     {held ? (
                       <Check aria-hidden="true" className="h-4 w-4" />
@@ -166,6 +178,7 @@ function TrayPhone() {
               <div className="flex items-center justify-between">
                 <p className="text-3xs font-black uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   Compare tray · {count} of {MAX_COMPARE}
+                  {set.full ? " · full" : ""}
                 </p>
                 <button
                   type="button"

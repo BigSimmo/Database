@@ -247,7 +247,8 @@ function SheetPhone() {
                     onClick={() => (blocked ? undefined : toggleDraft(therapy.slug))}
                     aria-pressed={ticked}
                     aria-disabled={blocked || undefined}
-                    className={cn("flex w-full items-center gap-3 py-3 text-left", focusRing, blocked && "opacity-40")}
+                    className={cn("flex w-full items-center gap-3 py-3 text-left", focusRing)}
+                    style={blocked ? { opacity: 0.4 } : undefined}
                   >
                     <span
                       className={cn(
