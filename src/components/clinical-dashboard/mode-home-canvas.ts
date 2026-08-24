@@ -38,8 +38,7 @@ export function resolveModeHomeCanvasClass({
           activeModeResultKind === "favourites" ||
           activeModeResultKind === "differentials"
         ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
-        : activeModeResultKind === "documents" ||
-            activeModeResultKind === "services"
+        : activeModeResultKind === "documents" || activeModeResultKind === "services"
           ? "mx-auto w-full max-w-6xl space-y-4 overflow-x-hidden"
           : "mx-auto w-full max-w-3xl space-y-4 overflow-x-hidden",
   );

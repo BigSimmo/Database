@@ -11,9 +11,7 @@ describe("resolveModeHomeCanvasClass", () => {
       showSharedHome: true,
     });
 
-    expect(className).toContain(
-      "max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col",
-    );
+    expect(className).toContain("max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col");
     expect(className).toContain("max-sm:items-center max-sm:justify-center");
     expect(className).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
   });
