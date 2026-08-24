@@ -360,8 +360,23 @@ type AuditDraft = {
  * Appends one attributed audit event. `evidence` describes only what this
  * application actually did — never that a message reached anyone, that a call
  * was answered, or that a page was printed.
+ *
+ * The timestamp is not adjustable, and that is load-bearing rather than tidy.
+ * History resolves who performed a record-derived action by matching the audit
+ * event of that type, on that object, at exactly that moment — which is sound
+ * only while an audit timestamp identifies one event. `prototypeTimestamp` is
+ * `PROTOTYPE_NOW + auditEvents.length + 1` and exactly one event is appended
+ * per action, so timestamps are unique by construction; a per-call-site offset
+ * could collide two of them and hand the lookup a different action's actor,
+ * turning an honest name into a quiet lie.
+ *
+ * This previously took an `offsetMinutes` that not one of the twenty-four call
+ * sites ever passed, so the hazard was pure surface area. Record timestamps
+ * still use `prototypeTimestamp(state, n)` where a reducer writes several
+ * records in one action — that is a different sequence with no lookup keyed on
+ * it, and it is unaffected.
  */
-function withAudit(state: CarePlanPrototypeState, draft: AuditDraft, offsetMinutes = 0): AuditEvent[] {
+function withAudit(state: CarePlanPrototypeState, draft: AuditDraft): AuditEvent[] {
   return [
     ...state.auditEvents,
     {
@@ -373,7 +388,7 @@ function withAudit(state: CarePlanPrototypeState, draft: AuditDraft, offsetMinut
       patientId: draft.patientId,
       objectId: draft.objectId,
       actorId: state.activeUserId,
-      occurredAt: prototypeTimestamp(state, offsetMinutes),
+      occurredAt: prototypeTimestamp(state),
       evidence: draft.evidence,
     },
   ];

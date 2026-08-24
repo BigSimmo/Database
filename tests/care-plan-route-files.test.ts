@@ -784,11 +784,20 @@ describe("Care Plan synthetic, memory-only boundary", () => {
    *
    *   - the link is rendered inside a `<nav>`, where the surrounding landmark
    *     and the `aria-current` treatment carry the affordance; or
-   *   - its own rule paints a filled chip — both a `border` and a `background` —
-   *     so it reads as a control rather than as a word inside a sentence.
+   *   - it paints a filled chip — a visible `border` and a visible `background`
+   *     — so it reads as a control rather than as a word inside a sentence.
    *
-   * Neither exemption excuses colour and weight, which every link class must
-   * declare: those are exactly what preflight takes away.
+   * Neither exemption excuses colour and weight, which every link must resolve
+   * to: those are exactly what preflight takes away.
+   *
+   * A third repair on 2026-08-24, after four working probes got regressions
+   * past the second one. Each is guarded above where it is fixed: the cascade
+   * is resolved in stylesheet order rather than className order; the tag walker
+   * fails closed instead of running into its neighbour; the floor counts tags
+   * as well as classes, and a link the scan cannot read at all is an explicit
+   * failure; the chip test states what a chip must have rather than listing
+   * ways to say nothing; and at-rule bodies no longer merge into the base
+   * cascade.
    */
   it("keeps every link the mockups render looking like a link", () => {
     const css = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/care-plan.module.css`), "utf8").replace(
@@ -796,40 +805,109 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       "",
     );
 
-    const rules = css
-      .replace(/@[^{]*\{/g, "")
-      .split("}")
-      .flatMap((chunk) => {
-        const [head, body] = chunk.split("{");
-        if (head === undefined || body === undefined) return [];
-        return [
-          {
-            selectors: head
+    /**
+     * The stylesheet as an ordered list of style rules, with at-rule blocks kept
+     * **separate** rather than flattened into the base cascade.
+     *
+     * The previous parser stripped `@media (…) {` and let its body merge into the
+     * base rules, so a `background` or `border` declared only under
+     * `forced-colors` counted as an unconditional filled chip and silently
+     * cancelled that link's underline requirement. Declaring one there is an
+     * ordinary thing for an author to do.
+     */
+    type StyleRule = { selectors: string[]; declarations: [string, string][]; conditional: boolean };
+
+    function parseRules(source: string, conditional: boolean): StyleRule[] {
+      const parsed: StyleRule[] = [];
+      let index = 0;
+      let preludeStart = 0;
+      while (index < source.length) {
+        const character = source[index];
+        if (character === "}") {
+          index += 1;
+          preludeStart = index;
+          continue;
+        }
+        if (character !== "{") {
+          index += 1;
+          continue;
+        }
+
+        let depth = 1;
+        let end = index + 1;
+        while (end < source.length && depth > 0) {
+          if (source[end] === "{") depth += 1;
+          else if (source[end] === "}") depth -= 1;
+          end += 1;
+        }
+        const body = source.slice(index + 1, end - 1);
+        // Statement at-rules (`@import …;`) leave text before the prelude.
+        const preamble = source.slice(preludeStart, index);
+        const prelude = preamble.slice(preamble.lastIndexOf(";") + 1).trim();
+
+        if (prelude.startsWith("@")) {
+          parsed.push(...parseRules(body, true));
+        } else {
+          parsed.push({
+            selectors: prelude
               .split(",")
               .map((part) => part.trim())
               .filter((part) => part.length > 0),
-            body,
-          },
-        ];
-      });
-
-    function declaredPropertiesFor(className: string): Map<string, string> {
-      const declared = new Map<string, string>();
-      for (const rule of rules) {
-        if (!rule.selectors.includes(`.appRoot .${className}`)) continue;
-        for (const declaration of rule.body.split(";")) {
-          const separator = declaration.indexOf(":");
-          if (separator === -1) continue;
-          declared.set(
-            declaration.slice(0, separator).trim().toLowerCase(),
-            declaration
-              .slice(separator + 1)
-              .trim()
-              .toLowerCase(),
-          );
+            declarations: body.split(";").flatMap((declaration) => {
+              const separator = declaration.indexOf(":");
+              if (separator === -1) return [];
+              return [
+                [
+                  declaration.slice(0, separator).trim().toLowerCase(),
+                  declaration
+                    .slice(separator + 1)
+                    .trim()
+                    .toLowerCase(),
+                ] as [string, string],
+              ];
+            }),
+            conditional,
+          });
         }
+
+        index = end;
+        preludeStart = end;
       }
-      return declared;
+      return parsed;
+    }
+
+    const rules = parseRules(css, false);
+
+    /**
+     * The declarations that actually apply to an element carrying `classes`, in
+     * **stylesheet order**.
+     *
+     * Order is the whole point. These rules are all equal specificity
+     * (`.appRoot .x`), so the last one written wins — not the last one named in
+     * the className. Merging per class in class-list order scored a modifier
+     * backwards: `cn(styles.probeKill, styles.timelineLink)` with `probeKill`
+     * appended last in the stylesheet renders as plain body text in a browser,
+     * and the old merge reported it as a healthy link because `timelineLink` was
+     * written second in the call.
+     *
+     * Conditional rules are excluded: a declaration that only applies under a
+     * media query cannot be what makes a link readable in the ordinary case.
+     */
+    function appliedProperties(classes: readonly string[]): Map<string, string> {
+      const wanted = new Set(classes.map((className) => `.appRoot .${className}`));
+      const applied = new Map<string, string>();
+      for (const rule of rules) {
+        if (rule.conditional) continue;
+        if (!rule.selectors.some((selector) => wanted.has(selector))) continue;
+        for (const [property, value] of rule.declarations) applied.set(property, value);
+      }
+      return applied;
+    }
+
+    /** Rename detection only, so an at-rule-only definition still counts as a
+     *  rule existing. */
+    function matchesAnyRule(className: string): boolean {
+      return rules.some((rule) => rule.selectors.includes(`.appRoot .${className}`));
     }
 
     /** The `<nav>` spans of one source, so a link's own position decides whether
@@ -867,21 +945,35 @@ describe("Care Plan synthetic, memory-only boundary", () => {
      * a `>` occurs inside `=>` and inside attribute expressions. Brace depth
      * tracks attribute expressions; the `=` check catches a stray arrow at
      * depth zero.
+     *
+     * It **fails closed**. The brace tracker cannot see string boundaries, so a
+     * `}` inside an attribute string drove depth negative, the walker never
+     * recognised the tag's `>`, and it ran 408 characters into the *next* link
+     * and merged that link's colour, weight and underline into the broken
+     * element — laundering a passing neighbour's styling onto a failing one,
+     * which is worse than not seeing the tag at all. So the scan now stops at
+     * any `<` after the tag name, and a tag whose end was never found is
+     * reported rather than guessed at.
      */
-    function openingTags(source: string): { at: number; text: string }[] {
-      const tags: { at: number; text: string }[] = [];
+    function openingTags(source: string): { at: number; text: string | null }[] {
+      const tags: { at: number; text: string | null }[] = [];
       for (const match of source.matchAll(/<(?:Link|a)[\s>]/g)) {
         const at = match.index ?? 0;
-        let index = at;
+        let index = at + 1;
         let depth = 0;
+        let end = -1;
         while (index < source.length) {
           const character = source[index];
           if (character === "{") depth += 1;
           else if (character === "}") depth -= 1;
-          else if (character === ">" && depth === 0 && source[index - 1] !== "=") break;
+          else if (character === "<") break;
+          else if (character === ">" && depth === 0 && source[index - 1] !== "=") {
+            end = index;
+            break;
+          }
           index += 1;
         }
-        tags.push({ at, text: source.slice(at, index + 1) });
+        tags.push({ at, text: end === -1 ? null : source.slice(at, end + 1) });
       }
       return tags;
     }
@@ -893,18 +985,32 @@ describe("Care Plan synthetic, memory-only boundary", () => {
      * `patientNavSecondary` sets a margin and a colour and takes its weight from
      * `patientNavItem` — and demanding colour and weight of the modifier on its
      * own would force meaningless declarations. So the classes on one tag are
-     * merged, in source order, and the merged result is what must read as a
-     * link. A sole-class link is just the one-element case of that, so the
-     * defect this guard was repaired for is unaffected.
+     * resolved together, in **stylesheet** order, and the result is what must
+     * read as a link. A sole-class link is just the one-element case of that, so
+     * the defect this guard was repaired for is unaffected.
      */
     const linkElements: { file: string; classes: string[]; inNav: boolean }[] = [];
     const linkClasses = new Map<string, Set<string>>();
+    const unparsedTags: string[] = [];
+    const opaqueTags: string[] = [];
+    let tagCount = 0;
     for (const { path, source } of readNamespaceSources()) {
       if (!/\.tsx$/.test(path)) continue;
       const ranges = navRanges(source);
       for (const { at, text } of openingTags(source)) {
+        tagCount += 1;
+        if (text === null) {
+          unparsedTags.push(`${path} at offset ${at}`);
+          continue;
+        }
         const classes = [...text.matchAll(/\bstyles\.([A-Za-z][\w$]*)/g)].map((match) => match[1]);
-        if (classes.length === 0) continue;
+        if (classes.length === 0) {
+          // A link styled with literal Tailwind utilities is out of this
+          // guard's scope by design. A link whose className is neither is a
+          // link this scan cannot see at all.
+          if (!/className="[^"]+"/.test(text)) opaqueTags.push(`${path} at offset ${at}: ${text.replace(/\s+/g, " ")}`);
+          continue;
+        }
         linkElements.push({ file: path, classes, inNav: ranges.some(([from, to]) => at > from && at < to) });
         for (const className of classes) {
           linkClasses.set(className, (linkClasses.get(className) ?? new Set<string>()).add(path));
@@ -913,36 +1019,54 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     }
 
     // A derived list that derives nothing is the failure this guard exists for.
-    // Eleven classes were carried by a link when this was written; if the scan
-    // ever finds fewer, it has stopped seeing links and every assertion below is
-    // vacuous. The named four are the shapes that have each broken once: the two
-    // repaired links, the composed className, and a bordered control.
+    // Eleven classes on fifty tags when this was written; if either count falls,
+    // the scan has stopped seeing links and every assertion below is vacuous.
+    // The named five are the shapes that have each broken once: the 2026-08-22
+    // rebinding, the two repaired links, a bordered control, and the composed
+    // className.
     expect(
       linkClasses.size,
       "no styles.… class was found on any <Link>/<a> opening tag — the scan has stopped seeing links",
     ).toBeGreaterThanOrEqual(11);
-    for (const inherited of ["inlineLink", "specimenLink", "queueAction", "patientNavSecondary"]) {
+    expect(tagCount, "the <Link>/<a> scan is finding fewer tags than the mockups contain").toBeGreaterThanOrEqual(50);
+    for (const inherited of [
+      "pinnedBoundaryLink",
+      "inlineLink",
+      "specimenLink",
+      "queueAction",
+      "patientNavSecondary",
+    ]) {
       expect(
         [...linkClasses.keys()],
         `.${inherited} is applied to a link in the mockups but the scan did not derive it`,
       ).toContain(inherited);
     }
 
-    // Fails closed on a rename: a class that matches no rule is invisible in a
-    // merge, so it is checked on its own before anything is merged.
+    // Counting classes cannot canary a link the walker never sees at all. A
+    // className hoisted into a variable — `<a className={probeClass}>` — carries
+    // no `styles.` token inside the tag, so it vanished silently while the class
+    // count held steady.
+    expect(
+      opaqueTags,
+      "a <Link>/<a> carries neither a styles.* class nor a literal className, so nothing here can check it",
+    ).toEqual([]);
+    expect(
+      unparsedTags,
+      "a <Link>/<a> opening tag could not be read to its end — its styling is unchecked, and guessing would merge a neighbour's",
+    ).toEqual([]);
+
+    // Fails closed on a rename: a class that matches no rule is invisible once
+    // the cascade is resolved, so it is checked on its own first.
     for (const [className, files] of [...linkClasses].sort()) {
       expect(
-        declaredPropertiesFor(className).size,
+        matchesAnyRule(className),
         `.${className} (used by ${[...files].sort().join(", ")}) matched no rule at all — has it been renamed or rebound?`,
-      ).toBeGreaterThan(0);
+      ).toBe(true);
     }
 
     for (const { file, classes, inNav } of linkElements) {
       const where = `${classes.map((name) => `.${name}`).join(" + ")} in ${file}`;
-      const declared = new Map<string, string>();
-      for (const className of classes) {
-        for (const [property, value] of declaredPropertiesFor(className)) declared.set(property, value);
-      }
+      const declared = appliedProperties(classes);
 
       expect(declared.has("color"), `${where} declares no colour, so the link renders as body text`).toBe(true);
       expect(declared.has("font-weight"), `${where} declares no font weight, so the link renders at body weight`).toBe(
@@ -951,16 +1075,29 @@ describe("Care Plan synthetic, memory-only boundary", () => {
 
       // A filled chip carries its own edges. Navigation carries the landmark.
       //
-      // Presence is not enough: `border: none` plus `background: transparent`
-      // paints nothing and would buy a silent underline exemption. So would a
-      // `background` declared only inside `@media (forced-colors: active)`,
-      // because at-rule bodies are merged into the base rule by the parser
-      // above — the less visible half of the same hole.
-      const paints = (value: string | undefined) =>
-        value !== undefined && !/^(none|transparent|initial|unset)$/.test(value);
+      // Both tests are stated as what a chip **must have**, not as a list of
+      // ways to say nothing. A denylist of `none`/`transparent` leaked
+      // immediately: `border: 0` with `background: rgba(0, 0, 0, 0)` paints
+      // exactly as little and bought the exemption anyway. There are unbounded
+      // ways to write invisible; there are few ways to write a visible edge.
+      const hasVisibleBorder = (value: string | undefined) =>
+        value !== undefined &&
+        !/\bnone\b/.test(value) &&
+        // a non-zero width, so `0`, `0px` and `0 solid` do not qualify
+        /(?:^|\s)(?:[1-9]\d*|\d*\.\d*[1-9]\d*)(?:px|rem|em|pt)(?:\s|$)/.test(value);
+
+      const hasVisibleBackground = (value: string | undefined) => {
+        if (value === undefined) return false;
+        // an explicit zero alpha, however it is spelled
+        if (/^(?:rgba|hsla)\([^)]*[,/]\s*(?:0|0?\.0+|0%)\s*\)$/.test(value)) return false;
+        if (/^#(?:[0-9a-f]{6}00|[0-9a-f]{3}0)$/.test(value)) return false;
+        // and then it must actually name a paint
+        return /var\(|^#[0-9a-f]{3,8}$|rgba?\(|hsla?\(|\bcanvas\b|\bbuttonface\b|\bhighlight\b/.test(value);
+      };
+
       const isChip =
-        paints(declared.get("border")) &&
-        (paints(declared.get("background")) || paints(declared.get("background-color")));
+        hasVisibleBorder(declared.get("border")) &&
+        (hasVisibleBackground(declared.get("background")) || hasVisibleBackground(declared.get("background-color")));
       if (isChip || inNav) continue;
 
       const underline = declared.get("text-decoration") ?? declared.get("text-decoration-line") ?? "";
