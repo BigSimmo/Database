@@ -1,7 +1,8 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import DeveloperTestHealthPage, { QuarantineList } from "@/app/mockups/development/test-health/page";
+import DeveloperTestHealthPage from "@/app/mockups/development/test-health/page";
+import { QuarantineList } from "@/components/developer-area/hub/quarantine-list";
 import { loadRepoAwarenessSnapshot } from "@/lib/developer-area/repo-awareness-snapshot";
 
 const snapshot = loadRepoAwarenessSnapshot();
