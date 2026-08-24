@@ -263,6 +263,38 @@ describe("new referrals", () => {
     expect(created.withdrawnReferrals).toEqual([]);
   });
 
+  /**
+   * Whole-branch review I5: RAISE_REFERRAL used to write no `legalForm` at all, whatever
+   * `legalStatus` the draft carried, so a referral awaiting examination could never have its
+   * examination recorded (`RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`). The
+   * two tests below pin both halves of the rule at creation: a voluntary referral gets no form,
+   * and an awaiting-examination one gets a real, examinable 1A. An "Involuntary inpatient" draft
+   * is deliberately covered by neither — that patient has already been examined and carries a 3B
+   * in every fixture record, and whether a 1A should ever be authored for one is an open
+   * clinical question for the product owner, not something this test may decide.
+   */
+  it("gives a voluntary referral no legal form at all", () => {
+    const voluntary = wardFlowReducer(seeded(), {
+      type: "RAISE_REFERRAL",
+      role: "ed",
+      now: NOW,
+      edId: "jhc-ed",
+      draft: {
+        cohort: "Adult",
+        security: "Open",
+        sex: "Female",
+        specialling: false,
+        legalStatus: "Voluntary",
+        urgency: 2,
+      },
+    });
+    const voluntaryCreated = voluntary.movements[voluntary.movements.length - 1];
+    expect(voluntaryCreated.legalForm).toBeUndefined();
+    // `formedAt` is stamped only for a referral awaiting examination, so its absence here is
+    // the other half of the same gate.
+    expect(voluntaryCreated.formedAt).toBeUndefined();
+  });
+
   it.each(["Referred for psychiatric examination", "Detained awaiting examination"] as const)(
     "creates an examinable Form 1A for a %s referral",
     (legalStatus) => {
@@ -292,7 +324,14 @@ describe("new referrals", () => {
       });
       expect(created.legalForm?.dueAt).toBeUndefined();
       expect(created.formedAt).toBe(NOW);
+      // Kept from the branch: the 1A/3B invariant's other half — a movement on 1A never carries
+      // an examination.
+      expect(created.examination).toBeUndefined();
 
+      // R79: asserting the 1A exists is weaker than I5's actual claim, which is that the form is
+      // EXAMINABLE. `RECORD_EXAMINATION` refuses unless `legalForm?.code === "1A"`, so driving the
+      // round trip here is what proves the created form is the real thing rather than a shaped
+      // object that merely looks like one.
       const examined = wardFlowReducer(referred, {
         type: "RECORD_EXAMINATION",
         role: "ed",
@@ -301,7 +340,11 @@ describe("new referrals", () => {
         outcome: "inpatient_order",
       });
       expect(examined.rejections).toEqual([]);
-      expect(movement(examined, created.id).legalForm?.code).toBe("3B");
+      const afterExamination = movement(examined, created.id);
+      expect(afterExamination.legalForm?.code).toBe("3B");
+      // Kept from the branch: the 3B's own absence of a deadline is pinned explicitly here too,
+      // not merely left uncontradicted.
+      expect(afterExamination.legalForm?.dueAt).toBeUndefined();
     },
   );
 });

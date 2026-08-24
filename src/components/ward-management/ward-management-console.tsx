@@ -23,7 +23,7 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   movementHealthService,
   movementTimeline,
   stageCopy,
@@ -144,9 +144,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
   // This workspace shows the movement's own record only — it never falls back to a
   // suggested/top-eligible unit, so `destination` here is always the real recorded destination
   // or nothing.
-  const destination = destinationUnit(patient);
+  const destination = destinationUnit(patient, units);
   const verdict = destination ? eligibility(patient, destination, now) : undefined;
-  const candidates = eligibleCandidates(patient, now, 3, units).filter(
+  const candidates = eligibleCandidatesAmong(patient, units, now).filter(
     (candidate) => candidate.unit.id !== destination?.id,
   );
   const timeline = movementTimeline(patient);
