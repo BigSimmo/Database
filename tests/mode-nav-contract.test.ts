@@ -302,9 +302,11 @@ describe("ModeNav density coverage", () => {
     for (const modeId of MODE_NAV_ADOPTED_MODES) {
       expect(covered.has(modeId), `${modeId} adopted the bar but the density spec never loads it`).toBe(true);
     }
-    // Therapy now uses the shared registry and deliberately exposes only the
-    // four workspace destinations. Record-owned outputs require a selected
-    // therapy and therefore stay off the global mode bar.
+    // Therapy uses the shared registry and exposes five workspace
+    // destinations: the four clinical ones plus Review, the curation queue that
+    // would otherwise have no inbound link once this PR takes it off the
+    // Pathways header. Record-owned outputs (briefs, patient sheets) still
+    // require a selected therapy and stay off the global mode bar.
     expect(covered.get("therapy-compass")).toBe(5);
   });
 
