@@ -829,3 +829,61 @@ one-line edit at the moment someone is already in the file.
 gates check **shape** rather than **truth**: the generator checks an evidence path is a tracked file,
 never that the suite visits the route; the empty-state test checks a remedy is present, never that it
 exists. **A gate that checks a claim is well-formed will certify a well-formed lie.**
+
+### Task 5 fix round 1 — all ten, and the browser gate went 32 to 38
+
+`Tests 2 failed | 9860 passed | 74 skipped (9936)` (the two known `gate-receipts` file-mode
+failures), typecheck and lint fresh passes, and the Playwright gate **`38 passed (58.3s)`, exit 0** —
+six new Patients tests, so C-1's proof claim is now backed by coverage rather than by a pointer.
+
+**Ruling 93's PREMISE WAS WRONG, and the error was mine.** I wrote that
+`CARING_CONTACTS_ROLE_COOKIE` "appears exactly once in `src/`, its own declaration, and nothing writes
+it". The implementer corrected it and I verified the correction myself: the constant appears **four**
+times and `src/app/api/caring-contacts/session/route.ts:53` **does** write the cookie.
+
+**How I got it wrong is the part worth keeping.** I grepped `"caring-contacts-demo-role"` — the
+cookie's string _literal_ — which appears exactly once, at the `const` that names it. Every actual use
+goes through the constant. So my grep returned a true answer to a question I was not asking, and I
+reported it as though it answered the one I was. The reviewer made the identical mistake independently,
+which is what made it feel confirmed.
+
+This is the same family as the five "checks that cannot fail" already recorded, and it is the variant
+that catches careful people: **not a check that cannot fail, but a check that answers a neighbouring
+question.** When grepping for whether something is used, grep the SYMBOL, not the value it holds — and
+when two people agree, check whether they ran the same flawed command rather than two different ones.
+
+**The conclusion survives:** there is still no role-switching control in the interface, so naming one
+was false and the new wording is right. Only the stated fact was wrong. Recorded rather than quietly
+amended, because the server half of a switcher existing matters to whoever builds the UI.
+
+**Three findings the mutations PRODUCED rather than confirmed:**
+
+1. **`expect(status).toBe(200)` cannot catch a `notFound()` on this route.** With `notFound()` added
+   the route still answered **200**: it is dynamic and streams under a Suspense boundary, so headers
+   flush before the render reaches the refusal and the 404 arrives as content. Only the content
+   assertions failed. The status assertion is kept — it still catches a refusal made before the stream
+   opens — but the test now names which assertions are load-bearing. **The "gates check shape, not
+   truth" lesson landed on a test written in the same round it was issued.**
+2. **I-4's branch had no covering test at all.** Restoring `?? []` left all 56 tests green, because
+   the branch is unreachable through the real stores — which is precisely why it was wrong and why
+   nobody noticed. Now pinned by spying `listPlans` to `null`.
+3. **M-9's assertion covered less than it looked.** It checked the filter chips but not the empty
+   state's own remedy link; stripping the attribute from that one link left the file green.
+
+**A process failure that was MINE.** Partway through this round I switched this worktree to
+`claude/caring-contacts-foundation` to fix the PR's CI — **while an implementer was working in it**.
+Its source files vanished from disk and two of its edits landed on the wrong branch. It recovered
+cleanly: saved the stray diff, restored that tree exactly as found, switched back, re-applied. Nothing
+was lost, and the recovery was better than the incident deserved. **Never switch a worktree's branch
+while a subagent is working in it** — one worktree, one branch, for the duration of a dispatch. If a
+second branch needs work, it needs a second worktree.
+
+**Still open and captured:** nothing enforces that a new screen joins `WORKSPACE_SCREENS`, so a Task 6
+screen added to the adoption surface but not to the spec recreates C-1 exactly. The implementer
+identified this and did not build the closure.
+
+**PR #2350 (the foundation: Task C, Task 1, Task 3) MERGED to `main` at 2026-08-24T15:49:29Z**, by the
+owner's armed auto-merge once the checks went green. Two CI failures were fixed on the way, both mine:
+a stale outstanding-issues snapshot, and five broken path references — two from Ruling 88's rename that
+my own briefs still pointed at, one a quoted `tsc` diagnostic whose `path(line,col)` the link checker
+read as a path, and a Task 5 brief describing work that PR did not contain.
