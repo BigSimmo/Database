@@ -167,13 +167,21 @@ test("@critical keeps Ask on Services and Forms catalog result docks", async ({ 
   }
 });
 
-test("@critical keeps Ask and Dictate on Therapy home and results", async ({ page }) => {
-  for (const route of ["/?mode=therapy-compass", "/therapy-compass/search?q=insomnia&run=1"]) {
-    await page.goto(route);
-    await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Ask Therapy", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Dictate question for Therapy" })).toBeVisible();
-  }
+test("@critical exposes Ask and Dictate for Therapy after a query or submitted result", async ({ page }) => {
+  await page.goto("/?mode=therapy-compass");
+  await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ask Therapy", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dictate question for Therapy" })).toHaveCount(0);
+
+  const input = await composer(page);
+  await input.fill(syntheticQuestion);
+  await expect(page.getByRole("button", { name: "Ask Therapy", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dictate question for Therapy" })).toBeVisible();
+
+  await page.goto("/therapy-compass/search?q=insomnia&run=1");
+  await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ask Therapy", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Dictate question for Therapy" })).toBeVisible();
 });
 
 test("@critical renders governed answers for Clinical Ask composer modes without leaking input", async ({ page }) => {
