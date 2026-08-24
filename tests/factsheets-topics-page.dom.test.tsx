@@ -68,6 +68,17 @@ describe("FactsheetsTopicsPage", () => {
     expect(screen.getByTestId("factsheets-topics-directory")).toBeInTheDocument();
   });
 
+  it("updates the open topic when client navigation changes the selected topic", () => {
+    const { rerender } = render(<FactsheetsTopicsPage selectedTopic="Medications" />);
+
+    rerender(<FactsheetsTopicsPage selectedTopic="Conditions" />);
+
+    expect(screen.getByTestId("factsheets-topics-topic-medications")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("factsheets-topics-topic-conditions")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByTestId(topicSectionId("Medications"))).not.toBeInTheDocument();
+    expect(screen.getByTestId(topicSectionId("Conditions"))).toBeInTheDocument();
+  });
+
   it("collapses long topic lists behind a Show all control", async () => {
     const user = userEvent.setup();
     render(<FactsheetsTopicsPage selectedTopic="Medications" previewLimit={1} />);

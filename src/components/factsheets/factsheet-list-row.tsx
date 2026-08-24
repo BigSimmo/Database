@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
-import { categoryTheme, type Factsheet } from "@/components/factsheets/factsheets-data";
+import { categoryTheme, factsheetDetailHref, type Factsheet } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { cn } from "@/components/ui-primitives";
 
@@ -9,10 +9,10 @@ export function FactsheetListRow({ sheet, compact = false }: { sheet: Factsheet;
   const theme = categoryTheme(sheet.category);
   return (
     <Link
-      href={`/factsheets/${sheet.slug}`}
+      href={factsheetDetailHref(sheet.slug)}
       data-testid="factsheets-result"
       className={cn(
-        "group flex items-start gap-3.5 border-b border-[color:var(--border)] transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+        "group flex items-start gap-3.5 border-b border-[color:var(--border)] transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus-ring-contained",
         compact ? "px-3.5 py-3" : "px-4 py-4",
       )}
     >

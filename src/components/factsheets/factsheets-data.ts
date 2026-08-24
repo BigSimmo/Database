@@ -649,6 +649,11 @@ export function factsheetSlugs(): string[] {
   return factsheets.map((sheet) => sheet.slug);
 }
 
+/** Canonical detail route for a factsheet record. */
+export function factsheetDetailHref(slug: string): string {
+  return `/factsheets/${slug}`;
+}
+
 /** Category-ordered groups for the Topics browse page. */
 export function factsheetsGroupedByCategory(): Array<{ category: FactsheetCategory; sheets: Factsheet[] }> {
   return factsheetCategories.map((category) => ({

@@ -164,17 +164,17 @@ export function FactsheetsTopicsPhoneMockupsPage() {
 
 function PhoneFrame({ label, variant }: { label: string; variant: VariantId }) {
   return (
-    <figure className="mx-auto w-full max-w-[390px]">
+    <figure className="mx-auto w-full max-w-phone-frame">
       <figcaption className="mb-2 flex items-center justify-between">
         <span className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
           {label}
         </span>
         <span className="text-3xs font-bold text-[color:var(--text-soft)]">scrollable</span>
       </figcaption>
-      <div className="relative h-[844px] overflow-hidden rounded-[1.85rem] border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-lux)]">
+      <div className="relative flex h-phone-frame flex-col overflow-hidden rounded-phone-frame border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-lux)]">
         <StatusBar />
         <PhoneChrome />
-        <div className="h-[calc(844px-2.25rem)] overflow-y-auto overscroll-contain pb-24">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <TopicsPhoneStudy variant={variant} />
         </div>
         <PhoneComposer />
@@ -237,7 +237,7 @@ function PhoneChrome() {
 
 function PhoneComposer() {
   return (
-    <div className="absolute inset-x-0 bottom-0 z-10 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 pb-4 pt-2">
+    <div className="z-10 shrink-0 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 pb-4 pt-2">
       <div className="flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
         <Plus className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden="true" />
         <span className="flex-1 text-xs font-medium text-[color:var(--text-soft)]">Search a factsheet…</span>

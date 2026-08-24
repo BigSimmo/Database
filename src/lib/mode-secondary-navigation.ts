@@ -1,4 +1,4 @@
-import { appModeHomeHref, type AppModeId } from "@/lib/app-modes";
+import { appModeHomeHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -75,7 +75,7 @@ export const modeSecondaryNavigationRegistry = {
   // search affordance for this mode is the Search tab.
   factsheets: [
     { id: "search", label: "Search", href: "/factsheets/search" },
-    { id: "topics", label: "Topics", href: "/factsheets/topics" },
+    { id: "topics", label: "Topics", href: factsheetsTopicsHref },
   ],
   // Search and Browse were one catalogue behind two destinations: the same
   // entries, the same rows, the same data, so a reader who typed a term while on

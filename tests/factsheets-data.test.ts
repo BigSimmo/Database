@@ -4,6 +4,7 @@ import {
   FACTSHEET_DEMO_NOTICE,
   TOPIC_SECTION_PREVIEW_LIMIT,
   factsheetCategories,
+  factsheetDetailHref,
   factsheetTopicQueryValue,
   factsheets,
   factsheetSlugs,
@@ -62,6 +63,10 @@ describe("factsheet library", () => {
 
   it("exposes every slug through the static-params helper", () => {
     expect(factsheetSlugs().sort()).toEqual(factsheets.map((sheet) => sheet.slug).sort());
+  });
+
+  it("builds the canonical detail route for a factsheet slug", () => {
+    expect(factsheetDetailHref("sertraline")).toBe("/factsheets/sertraline");
   });
 
   it("resolves every featured slug to a real sheet", () => {

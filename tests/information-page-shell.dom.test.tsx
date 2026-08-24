@@ -53,6 +53,16 @@ describe("InformationPageShell", () => {
     expect(screen.getByText("Body")).toBeInTheDocument();
   });
 
+  it("uses the shared reading-width container for narrow information pages", () => {
+    render(
+      <InformationPageShell testId="narrow-info-shell" width="narrow">
+        <p>Reading body</p>
+      </InformationPageShell>,
+    );
+
+    expect(screen.getByTestId("narrow-info-shell").querySelector(".max-w-reading")).not.toBeNull();
+  });
+
   it("exposes shared breadcrumbs as a link back to the mode home", () => {
     render(
       <InformationPageBreadcrumbs

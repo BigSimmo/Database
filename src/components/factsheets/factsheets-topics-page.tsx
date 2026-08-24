@@ -21,7 +21,7 @@ export function FactsheetsTopicsPage({
   return (
     <div
       data-testid="factsheets-topics-page"
-      className="mx-auto w-full max-w-[64rem] px-4 py-5 pb-4 sm:px-6 sm:py-8 lg:px-8"
+      className="mx-auto w-full max-w-reading px-4 py-5 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
       <header>
         <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">

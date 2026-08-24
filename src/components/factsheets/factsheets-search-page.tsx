@@ -17,6 +17,7 @@ import { FactsheetListRow } from "@/components/factsheets/factsheet-list-row";
 import {
   categoryTheme,
   factsheetCategories,
+  factsheetDetailHref,
   filterFactsheets,
   type Factsheet,
 } from "@/components/factsheets/factsheets-data";
@@ -95,7 +96,7 @@ export function FactsheetsSearchPage({
   return (
     <div
       data-testid="factsheets-search-page"
-      className="mx-auto w-full max-w-[64rem] px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
+      className="mx-auto w-full max-w-reading px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
       <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">Find a sheet</p>
       <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
@@ -239,7 +240,7 @@ export function FactsheetsSearchPage({
             return (
               <Link
                 key={sheet.slug}
-                href={`/factsheets/${sheet.slug}`}
+                href={factsheetDetailHref(sheet.slug)}
                 data-testid="factsheets-result"
                 className="group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 style={{ borderTopColor: theme.accent }}
