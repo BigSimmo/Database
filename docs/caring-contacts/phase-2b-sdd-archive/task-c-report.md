@@ -246,3 +246,171 @@ import-boundary tests.
    `tests/helpers/caring-contacts-prohibited-language.ts` has the same job-title collision risk
    for interface copy that B2 fixed for messages. Reported, not fixed, per the brief's own
    instruction.
+
+---
+
+## Fix round 1
+
+Reviewer verdict on the original submission: spec compliance approved (all six items, exact
+values, nothing missing); task quality approved with findings. Seven items, addressed below. Six
+were fixed; the seventh (A4) was confirmed correct as originally built and left unchanged, per the
+reviewer's own instruction not to touch it.
+
+**Commits:**
+- `e3d658eef` — fix(caring-contacts): fix round 1 -- seven review findings (B2, A1, B3, comment)
+
+### Important 1 + 2 — B2's allowlist inverted; `scoring?` typo confirmed gone
+
+The original `COMMERCIAL_LEAD_PATTERN` was an allowlist of nine commercial modifiers/companions.
+The reviewer verified nine phrasings it silently permitted: `lead nurturing`, `lead magnet`,
+`lead source`, `leads database`, `lead gen`, `qualify this lead`, `convert the lead`, `this lead
+is hot`, `your lead`. I confirmed all nine reproduce against the pre-fix pattern (they do — none
+contain any of the nine enumerated words) before changing anything.
+
+**Fix:** inverted the pattern. `COMMERCIAL_LEAD_PATTERN` is now
+`/(?<!\b(?:incident|programme|clinical|team|service)\s)\bleads?\b/i` — refuses "lead"/"leads" as a
+whole word by default, exempting only when one of the five job-title qualifiers sits *immediately*
+before the word (a negative lookbehind, not a strip-and-retest). This correctly handles "the
+clinical programme lead": the qualifying pair actually adjacent to "lead" is "programme lead", so
+the lookbehind still exempts it, even though "clinical" appears earlier in the sentence and is not
+itself adjacent. Verified with a 17-case throwaway Node script before writing any test (5 job
+titles accepted, 12 commercial phrasings including all 9 reviewer-verified gaps rejected) — every
+case matched expectation.
+
+**Important 2 confirmed:** the `scoring?` typo (`lead scoring` matched, `lead score` did not) is
+gone — there is no companion-word list left for it to live in. Added a dedicated test asserting
+`"This platform assigns a lead score to every contact."` is rejected, specifically exercising the
+exact phrasing the typo used to miss.
+
+**Tests:** rewrote `rule 3c` in `tests/caring-contacts-message-policy.test.ts` — job titles now
+covers all five exempted phrasings (previously only two); the CRM-rejection test now lists all
+nine reviewer-verified gaps plus the original three plus the `lead score` typo-regression case.
+
+**Mutation proof (two directions, since the reviewer called this the least-covered, highest-risk
+item):**
+1. Reverted to the exact original allowlist pattern — confirmed in the tree with `grep`, ran the
+   suite: the CRM-phrasing test went red (`expected true to be false`, i.e. "lead nurturing" etc.
+   were valid again). Restored, reran green.
+2. Widened to bare `/\bleads?\b/i` (no exemption at all) — confirmed in the tree, ran the suite:
+   the job-title-acceptance test went red (`the incident lead` etc. now flagged). Restored, reran
+   green (50/50 in `caring-contacts-message-policy.test.ts`).
+
+### Promoted Important — A1's marker now covers the number, not just the label
+
+The original `fictionalContactMarker` was `crisisSupportContact.split(":")[0]` —
+`"Fictional Support Line"`. A message carrying only the bare number `+61 491 570 158` raised
+nothing.
+
+**Fix:** `message-rules.ts` now imports `DESIGNATED_FICTIONAL_MOBILE_NUMBERS` from
+`./synthetic-contacts` (a same-domain relative import, so domain isolation is untouched) and
+builds `FICTIONAL_CONTACT_MARKER_PATTERN` as `/Fictional|<number1>|<number2>|<number3>|<number4>/i`
+(numbers escaped via a small `escapeRegExp` helper). The rules type's field is renamed
+`fictionalContactMarkerPattern: RegExp`, and `message-policy.ts`'s check changed from
+`text.includes(rules.fictionalContactMarker)` to `rules.fictionalContactMarkerPattern.test(text)`.
+Verified in a throwaway Node script against both edits the reviewer named — reformatted
+(`"Fictional Support Line (24h): +61 491 570 158"`) and reordered with no colon
+(`"+61 491 570 158 (Fictional Support Line)"`) — plus a bare-number-only case, before writing any
+test.
+
+**Side effect found and fixed:** `+61 491 570 006` (miraPatientMobile) was already used in the
+pre-existing `rule 6: contains-patient-mobile` test as an arbitrary example patient number. Since
+it's one of the four reserved numbers, it now also trips `fictional-contact-detail-present`. This
+is correct — both codes are true of that text — so the test's expectation was updated (not
+loosened) to the two-issue result, with a comment explaining why.
+
+**Tests added** (`rule 3b`): relabelled crisis contact still refused; reordered/no-colon form
+still refused; the bare number alone (`"Call +61 491 570 158 for support."`) refused; all four
+`DESIGNATED_FICTIONAL_MOBILE_NUMBERS` refused when present unlabelled; all pass once acknowledged.
+
+**Mutation proof:** narrowed `FICTIONAL_CONTACT_MARKER_PATTERN` back to `/Fictional/i` only
+(dropping the number half), confirmed in the tree, ran the suite — 3 tests went red (bare-number
+test, four-numbers-loop test, and the updated rule-6 test, which reverted to expecting only
+`contains-patient-mobile`). Restored, reran green.
+
+### Minor 5 — overrides map pinned
+
+Added `expect(Object.keys(rules.prohibitedTermPatternOverrides)).toEqual(["lead"])` to
+`rule 3c`. The overrides map survived the B2 inversion (still one entry, still keyed `"lead"`),
+so this did not require the "skip if inverting removes the map" escape hatch the reviewer allowed
+for.
+
+### Important 3 — B3 now scans plain JSX text, not only quoted strings
+
+Confirmed the reviewer's claim first: `shell.tsx:232` (`<span>...>Caring Contacts</span>`) and
+`loading.tsx:6` (`<p className="sr-only">Loading the Caring Contacts workspace</p>`) both write
+copy as bare JSX text with no surrounding quotes, which `extractInterfaceStrings` (quoted/template
+literals only) cannot see.
+
+**Fix:** added `stripCommentsAndClassNameValues` (comments and `className` values removed,
+everything else — including plain JSX text — left as written) and
+`scanRawProseForProhibitedLanguage` (a `matchAll` pass over that stripped text with a `g`-flagged
+copy of `CARING_CONTACTS_PROHIBITED_LANGUAGE`). `scanOneFileForProhibitedLanguage` now runs both
+the original quoted-literal pass and this new raw-prose pass per file. Verified empirically with a
+throwaway Node script against the real tree before writing the fixture test: 15 files scanned,
+zero new false positives from the raw-prose pass.
+
+**Prove-it-fails test:** a second fixture, `<p>Check your inbox for the latest campaign.</p>`
+written as plain JSX text with no quotes at all — exactly the shape the original scan missed.
+
+**Mutation proof:** removed the raw-prose loop from `scanOneFileForProhibitedLanguage` (leaving
+only the quoted-literal pass), confirmed in the tree, ran the suite — the new plain-JSX-text
+fixture test went red (`expected 0 to be greater than 0`); the original quoted-fixture test still
+passed (proving the two passes are genuinely independent, not one masking a bug in the other).
+Restored, reran green.
+
+### Minor 7 — real-tree scan floor assertion
+
+Refactored `scanRootForProhibitedLanguage` to `walk(root).flatMap(scanOneFileForProhibitedLanguage)`
+and added a `filesScanned` counter in the real-tree test, asserted `> 0` before the `offences`
+assertion.
+
+**Mutation proof:** changed the counter increment to `+= 0` (never actually counting), confirmed
+in the tree, ran the suite — the real-tree test went red on the floor assertion itself
+(`expected 0 to be greater than 0`), proving it isn't vacuous. Restored, reran green.
+
+### Minor 6 — reconciled the self-contradicting comment
+
+`message-copy.ts`'s comment above `AUTOMATED_REPLY_RESPONSE` used to assert as settled fact that
+"Content is discarded after this response is sent; nothing is stored... " immediately above a new
+paragraph explaining that A2 removed exactly this kind of claim because there is no telephony
+provider yet to verify it. Reworded the first sentence to state it as a design **intent/contract**
+on a future sender, explicitly noting it is not a claim about current system behaviour and
+pointing at the next paragraph's reasoning — so a future reader cannot re-derive the removed
+sentence from this one. Comment-only change; no test applicable, none added.
+
+### Not fixed — A4, per explicit reviewer instruction
+
+The reviewer confirmed `resolveClosingContactMessageBody` is correctly built as originally
+submitted and told me explicitly to leave it as-is (it rides no existing chokepoint, unlike A1,
+so it's a guard nothing currently calls — recorded for the owner rather than something to invent a
+caller for). No change made.
+
+### Full verification after fix round 1
+
+`npm run test` (full suite):
+```
+Test Files  1 failed | 811 passed | 3 skipped (815)
+     Tests  2 failed | 9785 passed | 74 skipped (9861)
+```
+The 2 failures are the same pre-existing, environmental `tests/gate-receipts.test.ts` `chmodSync`
+failures documented above (unrelated to this task, unrelated to fix round 1 — no gate-receipts
+file was touched in this round either).
+
+`npm run typecheck`:
+```
+[gate-receipts] recorded a pass for "typecheck:internal" (5213 input files).
+```
+
+`npm run lint`:
+```
+[gate-receipts] recorded a pass for "lint:internal" (5213 input files).
+```
+
+Focused re-run of every directly touched and related caring-contacts test file together, for a
+quick decisive line before the full suite:
+```
+Test Files  8 passed (8)
+     Tests  151 passed (151)
+```
+
+Nothing was pushed; no PR was opened.
