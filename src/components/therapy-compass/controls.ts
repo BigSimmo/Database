@@ -26,7 +26,7 @@ import { interactiveRowBase } from "@/components/ui/interactive-row";
  */
 export const therapyBtn = cn(
   interactiveRowBase,
-  "cursor-pointer font-[inherit] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-quick)]",
+  "w-full cursor-pointer font-[inherit] transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-quick)]",
   "hover:not-aria-disabled:enabled:-translate-y-px active:not-aria-disabled:enabled:translate-y-px",
   "disabled:cursor-not-allowed disabled:opacity-55",
   "aria-disabled:cursor-not-allowed aria-disabled:opacity-55",

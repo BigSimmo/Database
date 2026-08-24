@@ -12,7 +12,7 @@ export type InteractiveRowVariant = "default" | "card" | "subtle" | "table-row";
  * contract that handles hover, press, focus, and dual-disabled encodings.
  */
 export const interactiveRowBase = cn(
-  "group flex min-h-tap w-full cursor-pointer items-center text-left font-[inherit]",
+  "group flex min-h-tap cursor-pointer items-center text-left font-[inherit]",
   "transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--duration-quick)] motion-reduce:transition-none",
   "hover:not-aria-disabled:enabled:bg-[color:var(--surface-subtle)]",
   "active:not-aria-disabled:enabled:translate-y-px motion-reduce:active:translate-y-0",
@@ -60,7 +60,7 @@ export function InteractiveRow({
       data-testid={testId}
       disabled={disabled}
       aria-current={active ? "true" : undefined}
-      className={cn(interactiveRowBase, VARIANT[variant], className)}
+      className={cn(interactiveRowBase, "w-full", VARIANT[variant], className)}
     >
       {children}
     </button>
