@@ -119,6 +119,7 @@ function ConfirmRphAdultSecureCapacityAtZero() {
           role: "ward",
           now,
           unitId: "rph-adult-secure",
+          actingUnitId: "rph-adult-secure",
           value: 0,
         })
       }

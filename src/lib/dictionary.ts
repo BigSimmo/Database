@@ -250,7 +250,7 @@ export type DictionaryCatalogueSort = "relevance" | "az" | "za";
 export type DictionaryCatalogueParams = {
   q: string;
   scope: DictionaryCatalogueScope;
-  /** `all`, or a single A–Z initial. Ignored while a query runs — see below. */
+  /** `all`, or a single A–Z initial. Always applied: the A–Z control stays on the page. */
   letter: string;
   topics: readonly string[];
   kinds: readonly DictionaryEntryKind[];
@@ -293,34 +293,24 @@ export function parseDictionaryCatalogueParams(params: URLSearchParams): Diction
 }
 
 /**
+ * The URL keys a "clear the search" control has to remove.
+ *
+ * Facets and the letter jump stay: they remain visible on the page after the
+ * query is dismissed, each removable in one tap. Dropping `letter` would reset
+ * an A–Z choice the chip still shows. Anything `dictionaryCatalogue` learns to
+ * ignore while searching belongs in this list; `tests/dictionary-data.test.ts`
+ * pins the pair together.
+ */
+export const dictionaryClearedQueryKeys = ["q", "query", "run"] as const;
+
+/**
  * One selector for the merged catalogue: the query, the scope, the alphabet and
  * the facets all narrow the same list.
  *
- * **The letter is dropped while a query runs.** The alphabetical index stands
- * down mid-search in the UI — an A–Z jump is meaningless against a ranked result
- * set and only competes for phone width — so honouring a stale `letter` here
- * would silently withhold matches with no visible control to explain it. That is
- * exactly the "filter the reader cannot see" failure `docs/filter-contract.md`
- * exists to prevent, so the rule lives with the predicate rather than in the
- * component that happens to hide the chip.
+ * The A–Z control stays visible during a search, so a `letter` in the URL is
+ * never an invisible filter. Honouring it here is what `docs/filter-contract.md`
+ * requires of a control the reader can still see.
  */
-/**
- * The URL keys a "clear the search" control has to remove.
- *
- * `letter` is the one that is easy to miss, and it lives here rather than in the
- * component because it is the direct consequence of the rule below: while a
- * query runs `dictionaryCatalogue` ignores `letter` and the chip that owns it
- * stands down, so a `letter` in the URL is invisible AND inert. Delete only
- * `q`/`query`/`run` and dismissing the search hands the reader back a catalogue
- * silently narrowed to one initial — 6 of 96 entries for `?q=tardive&letter=T`,
- * which is exactly what the Terms tab's own self-link produces — under a control
- * whose accessible name promises the whole catalogue.
- *
- * Anything `dictionaryCatalogue` learns to ignore while searching belongs in
- * this list too; `tests/dictionary-data.test.ts` pins the pair together.
- */
-export const dictionaryClearedQueryKeys = ["q", "query", "run", "letter"] as const;
-
 export function dictionaryCatalogue(params: DictionaryCatalogueParams): DictionarySearchHit[] {
   const filters: DictionaryFilters = {
     q: params.q,
@@ -330,7 +320,7 @@ export function dictionaryCatalogue(params: DictionaryCatalogueParams): Dictiona
     sources: params.sources,
     sort: params.sort === "relevance" ? "relevance" : "az",
   };
-  const letter = params.q ? "all" : params.letter;
+  const letter = params.letter;
   let hits = searchDictionary(filters).filter((hit) => {
     if (!letter || letter === "all") return true;
     return dictionaryBrowseLetter(hit) === letter.toLocaleUpperCase();

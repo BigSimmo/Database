@@ -11,6 +11,7 @@ import {
   isDashboardModeHref,
   dashboardOwnedModeHomeModeId,
   isDashboardOwnedModeHomePath,
+  isDictionaryCataloguePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -66,6 +67,16 @@ describe("shared-search route ownership", () => {
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
+  });
+
+  it("classifies the dictionary catalogue as an in-flow composer owner", () => {
+    expect(isDictionaryCataloguePath("/dictionary/search")).toBe(true);
+    expect(isDictionaryCataloguePath("/dictionary/browse")).toBe(true);
+    expect(isDictionaryCataloguePath("/dictionary/topics")).toBe(false);
+    expect(isDictionaryCataloguePath("/dictionary/compare")).toBe(false);
+    expect(isDictionaryCataloguePath("/dictionary/sources")).toBe(false);
+    expect(isDictionaryCataloguePath("/dictionary/auditory-hallucination")).toBe(false);
+    expect(isStandaloneModeHomePath("/dictionary/search")).toBe(false);
   });
 
   /*
@@ -257,6 +268,10 @@ describe("shared-search route ownership", () => {
       resolve(process.cwd(), "src/components/tools/tools-search-results-page.tsx"),
       "utf8",
     );
+    const dictionaryCatalogueSource = readFileSync(
+      resolve(process.cwd(), "src/components/dictionary/dictionary-catalogue-pages.tsx"),
+      "utf8",
+    );
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
@@ -280,7 +295,8 @@ describe("shared-search route ownership", () => {
     expect(homeTemplateSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
     expect(homeTemplateSource).not.toContain("mode-home-composer-slot hidden");
 
-    // Bespoke mode homes (favourites and tools) satisfy Chrome Invariant 15 with pending reserve & min-h tokens
+    // Bespoke mode homes (favourites and tools) satisfy Chrome Invariant 15
+    // with pending reserve & min-h tokens at every width.
     for (const bespokeSource of [favouritesPageSource, favouritesHubSource, toolsPageSource]) {
       expect(bespokeSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
       expect(bespokeSource).toContain(
@@ -292,6 +308,21 @@ describe("shared-search route ownership", () => {
       expect(bespokeSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
       expect(bespokeSource).toContain("sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]");
     }
+    // Dictionary catalogue portals the shared composer from sm up only. Phones
+    // keep the usual compact dock, so this slot is hidden and must not reserve
+    // the phone hero height.
+    expect(dictionaryCatalogueSource).toContain('data-testid="dictionary-catalogue-composer"');
+    expect(dictionaryCatalogueSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");
+    expect(dictionaryCatalogueSource).toContain("mx-auto hidden w-full");
+    expect(dictionaryCatalogueSource).toContain("sm:block");
+    expect(dictionaryCatalogueSource).toContain(
+      "sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]",
+    );
+    expect(dictionaryCatalogueSource).not.toContain(
+      "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
+    );
+    expect(dictionaryCatalogueSource).not.toContain("Clinical terms");
+    expect(dictionaryCatalogueSource).not.toContain("Clinical dictionary");
 
     // Desktop page composer slot in GlobalSearchShell reserves height to avoid 0.118 CLS layout jump
     expect(shellSource).toContain("data-composer-reserve={modeHomeComposerReservePendingValue}");

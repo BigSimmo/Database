@@ -60,6 +60,7 @@ export const modeSecondaryNavigationRegistry = {
     { id: "recommend", label: "Recommend", href: "/therapy-compass/recommend" },
     { id: "compare", label: "Compare", href: "/therapy-compass/compare" },
     { id: "pathways", label: "Pathways", href: "/therapy-compass/pathways" },
+    { id: "review", label: "Review", href: "/therapy-compass/review" },
   ],
   // Two genuinely distinct surfaces: the mode home and `/factsheets/search`, a
   // separate component with filters, a view toggle and result rows.
@@ -191,6 +192,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/therapy-compass/recommend") return "recommend";
     if (pathname === "/therapy-compass/compare") return "compare";
     if (pathname === "/therapy-compass/pathways") return "pathways";
+    if (pathname === "/therapy-compass/review") return "review";
     return null;
   }
   if (modeId === "dictionary") {
