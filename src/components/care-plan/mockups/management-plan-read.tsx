@@ -33,6 +33,7 @@ import {
   SyntheticMarker,
   WHY_THIS_PLAN_EXISTS_LABEL,
   formatPerthDate,
+  safetyPlanStatusLine,
 } from "./prototype-ui";
 import { CARE_PLAN_ROUTES, carePlanRoute } from "./routes";
 import {
@@ -419,10 +420,7 @@ export function ManagementPlanSurface({
       ? null
       : deriveReviewState(currentManagementVersion.reviewDueAt, PROTOTYPE_NOW);
 
-  const safetyPlanStatus =
-    snapshot.currentSafetyPlanVersion === null
-      ? "No current version"
-      : `Current version ${snapshot.currentSafetyPlanVersion.version}, confirmed ${formatPerthDate(snapshot.currentSafetyPlanVersion.confirmedAt)}`;
+  const safetyPlanStatus = safetyPlanStatusLine(snapshot.currentSafetyPlanVersion);
 
   const openTriggers = state.reviewTriggers.filter(
     (trigger) => trigger.patientId === patient.id && trigger.status === "open",

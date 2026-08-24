@@ -19,6 +19,7 @@ import {
   PinnedSafetyBoundary,
   SyntheticMarker,
   formatPerthDate,
+  safetyPlanStatusLine,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type { PrototypeScenario, PrototypeUser, SyntheticId } from "./types";
@@ -131,10 +132,7 @@ export function ManagementPlanPrintSurface({
       ? null
       : deriveReviewState(currentManagementVersion.reviewDueAt, PROTOTYPE_NOW);
 
-  const safetyPlanStatus =
-    snapshot.currentSafetyPlanVersion === null
-      ? "No current version"
-      : `Current version ${snapshot.currentSafetyPlanVersion.version}, confirmed ${formatPerthDate(snapshot.currentSafetyPlanVersion.confirmedAt)}`;
+  const safetyPlanStatus = safetyPlanStatusLine(snapshot.currentSafetyPlanVersion);
   const blockedReason = getPrototypeMutationBlockReason(state, {
     type: "record-management-plan-print-intent",
     patientId: patient.id,

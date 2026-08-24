@@ -3968,6 +3968,82 @@ describe("Care Plan Identification Review workflow", () => {
   });
 });
 
+/**
+ * Found by driving the app rather than by a test, which is why it survived: no
+ * fixture reaches it. The line beside the Personal Safety Plan link read
+ * `Current version 2, confirmed Not recorded` for every participation state
+ * except `confirmed`, because it was built from `confirmedAt` and the reducer
+ * sets that only for a confirmed version.
+ *
+ * The harm is that one sentence covered two different clinical facts: *this
+ * person did not confirm* and *this person confirmed and the date was lost*.
+ * The first is a decision the person made and the record should say so; the
+ * second is a hole in the record. And it reached the printed clinician summary.
+ *
+ * Every expected phrase below is spelled out literally rather than read back
+ * off `PATIENT_CONFIRMATION_LABEL`, which is the constant the component renders
+ * from — an assertion generated from the copy can never disagree with it.
+ */
+describe("Care Plan Personal Safety Plan status beside the plan link", () => {
+  function safetyPlanStatusText(): string {
+    const term = [...document.querySelectorAll("dt")].find((node) => node.textContent === "Personal Safety Plan");
+    return term?.nextElementSibling?.textContent ?? "";
+  }
+
+  it("names a confirmed version as confirmed by the person, on the reading surface", () => {
+    renderRoute(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 1 — Confirmed by this person");
+    expect(line).not.toContain("Not recorded");
+  });
+
+  it("states a discussed, not yet confirmed version as discussed, on the printed clinician summary", () => {
+    renderRoute(carePlanRoute.managementPlanPrint("SYN-PATIENT-002"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 1 — Discussed, not yet confirmed");
+    // The defect this replaces, in the exact words it printed.
+    expect(line).not.toContain("confirmed Not recorded");
+    expect(line).not.toContain("Not recorded");
+  });
+
+  it("states a declined version as the person's own decision rather than as a gap", () => {
+    renderRoute(carePlanRoute.patient("SYN-PATIENT-004"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 1 — This person chose not to write one in their own words");
+    expect(line).not.toContain("Not recorded");
+    // Never as non-compliance: what Evie declined was writing her own part.
+    expect(line).not.toMatch(/refus|non-compliant|failed|did not engage/i);
+  });
+
+  /**
+   * The state no fixture holds and the one the demonstration hit. A version
+   * made current without anybody recording the person's part is the only case
+   * where nothing was in fact recorded, and it is the only case that may say so.
+   */
+  it("says nothing was recorded only for a version where nothing was recorded", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderScenarioJourney(carePlanRoute.safetyPlanEdit("SYN-PATIENT-001"));
+    await user.click(screen.getByRole("button", { name: /Start a new version/i }));
+    // The note is required; the participation answer is deliberately left at the
+    // default a new draft starts with, because that is the state under test.
+    await user.type(
+      screen.getByLabelText(/How this version was written/i),
+      "Carried forward from the last version. Rowan was not available to go through it.",
+    );
+    await user.click(screen.getByRole("button", { name: /Make current Personal Safety Plan/i }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /Make it the current plan/i }));
+
+    goTo(carePlanRoute.managementPlan("SYN-PATIENT-001"));
+    const line = safetyPlanStatusText();
+    expect(line).toContain("Current version 2 — No confirmation recorded");
+    // The sentence the demonstration saw, which could not tell this state apart
+    // from a confirmed version whose date had been lost.
+    expect(line).not.toContain("confirmed Not recorded");
+    expect(line).not.toContain("Not recorded");
+  });
+});
+
 describe("Care Plan combined History", () => {
   function historyHeadings(): string[] {
     return within(screen.getByTestId("care-plan-history-list"))

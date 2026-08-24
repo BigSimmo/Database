@@ -21,6 +21,7 @@ import {
   StatusMark,
   SyntheticMarker,
   formatPerthDate,
+  safetyPlanStatusLine,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type {
@@ -101,10 +102,7 @@ export function PatientWorkspace({
     presentationActivity,
   } = snapshot;
 
-  const safetyPlanStatus =
-    currentSafetyPlanVersion === null
-      ? "No current version"
-      : `Current version ${currentSafetyPlanVersion.version}, confirmed ${formatPerthDate(currentSafetyPlanVersion.confirmedAt)}`;
+  const safetyPlanStatus = safetyPlanStatusLine(currentSafetyPlanVersion);
 
   const planCurrency =
     currentManagementVersion !== null

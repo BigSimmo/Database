@@ -147,6 +147,42 @@ export const PATIENT_CONFIRMATION_EXPLANATION: Record<PatientConfirmationState, 
     "Nothing has been recorded about this person's part in this version, so nothing here says whether they have seen it.",
 };
 
+/**
+ * The one-line Personal Safety Plan status shown beside the link to it, on the
+ * Management Plan reading, review, and printed surfaces and on the patient
+ * workspace.
+ *
+ * It names the participation state in words. It used to read
+ * `Current version 2, confirmed <date>` taken from `confirmedAt`, which the
+ * reducer sets only for a `confirmed` version — so a person who had discussed
+ * the plan, or who had declined to write their own part, printed as
+ * `confirmed Not recorded`. That sentence cannot tell a reader whether the
+ * person did not confirm, or whether they confirmed and the date was lost.
+ * Those are different clinical facts: the first is a decision the person made
+ * and the record should state it plainly; the second is a hole in the record.
+ * Saying `Not recorded` about a state that *was* recorded is the same family of
+ * defect as printing `My reasons for living — Not recorded` on a sheet handed
+ * to a person.
+ *
+ * The four labels are the wording already agreed for these states and already
+ * shown on the Personal Safety Plan itself, so this asserts nothing new about
+ * anybody. A recorded non-confirmation reads as the recorded decision it is,
+ * and only `unavailable` — where genuinely nothing was recorded — says nothing
+ * was.
+ *
+ * No date on this line. The date it used to carry was `confirmedAt`, the moment
+ * the version went live, which is not a moment the person acted. What the
+ * record now holds about the person's part is `participationRecordedAt`, and
+ * whether that belongs on this line is a product decision that has not been
+ * taken. Dropping a date that was wrong loses nothing.
+ */
+export function safetyPlanStatusLine(
+  version: { version: number; patientConfirmation: PatientConfirmationState } | null,
+): string {
+  if (version === null) return "No current version";
+  return `Current version ${version.version} — ${PATIENT_CONFIRMATION_LABEL[version.patientConfirmation]}`;
+}
+
 export const FIRST_MINUTE_SECTION_ID_PREFIX = "care-plan-first-minute";
 
 export function firstMinuteSectionId(key: (typeof FIRST_MINUTE_CONTENT_KEYS)[number]): string {
