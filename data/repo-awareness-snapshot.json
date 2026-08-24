@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "7d8ee141722946b69d31f632bd6699247c95525d",
-    "committed_at": "2026-08-24T15:23:35+08:00"
+    "sha": "a4b4317dfa5a177463b1674194cc7dd71cbd6458",
+    "committed_at": "2026-08-24T15:58:42+08:00"
   },
   "routes": {
     "modes": [
@@ -391,6 +391,11 @@
       {
         "path": "/mockups/development/ledger",
         "file": "src/app/mockups/development/ledger/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/routes",
+        "file": "src/app/mockups/development/routes/page.tsx",
         "area": "mockup"
       },
       {
@@ -1158,9 +1163,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 161,
+      "pages": 162,
       "product_pages": 62,
-      "mockup_pages": 99,
+      "mockup_pages": 100,
       "redirects": 16,
       "api": 42
     }
