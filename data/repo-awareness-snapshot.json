@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "1cde022410b1bcb23f47f119252fb16195fbf9f0",
-    "committed_at": "2026-08-25T05:24:03+08:00"
+    "sha": "c93dd40b99e84e0a445bb16fc36c82d3089f5674",
+    "committed_at": "2026-08-25T05:43:27+08:00"
   },
   "routes": {
     "modes": [
@@ -3582,6 +3582,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-24",
+        "ref": "2360",
+        "head": "772de6562ac06ba31f60a34ca67fc7403f72b4fb",
+        "scope": "PR #2360 current changed scope",
+        "outcome": "No P0-P2 findings; merge conflicts resolved while preserving removal of Clinical Ask composer controls",
+        "checks": "GitHub metadata/comments/threads and failed mergeability log; exact diff review; npm run format; npm run format:changed; git diff --check; focused Vitest admission blocked by active coordinator owner"
+      },
       {
         "date": "2026-08-24",
         "ref": "claude/browser-test-gate-handoff-d5c1db (PR #2347)",
@@ -24440,8 +24448,8 @@
       }
     ],
     "counts": {
-      "records": 2607,
-      "refs": 1589
+      "records": 2608,
+      "refs": 1590
     }
   }
 }
