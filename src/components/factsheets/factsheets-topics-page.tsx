@@ -2,8 +2,8 @@ import { Info } from "lucide-react";
 
 import { FactsheetsTopicsBrowse } from "@/components/factsheets/factsheets-topics-browse";
 import {
-  TOPIC_CHIP_OVERFLOW_AFTER,
   TOPIC_SECTION_PREVIEW_LIMIT,
+  factsheetCategories,
   factsheets,
   factsheetsGroupedByCategory,
   type FactsheetCategory,
@@ -12,17 +12,11 @@ import {
 export function FactsheetsTopicsPage({
   selectedTopic,
   previewLimit = TOPIC_SECTION_PREVIEW_LIMIT,
-  chipOverflowAfter = TOPIC_CHIP_OVERFLOW_AFTER,
 }: {
   selectedTopic?: FactsheetCategory;
   previewLimit?: number;
-  chipOverflowAfter?: number;
 }) {
   const groups = factsheetsGroupedByCategory();
-  const visibleGroups = selectedTopic ? groups.filter((group) => group.category === selectedTopic) : groups;
-  const sheetCount = selectedTopic
-    ? (groups.find((group) => group.category === selectedTopic)?.sheets.length ?? 0)
-    : factsheets.length;
 
   return (
     <div
@@ -35,19 +29,12 @@ export function FactsheetsTopicsPage({
         </p>
         <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">Topics</h1>
         <p className="mt-2 text-sm font-medium text-[color:var(--text-muted)]">
-          <span className="nums font-bold text-[color:var(--text-heading)]">{sheetCount}</span>{" "}
-          {sheetCount === 1 ? "sheet" : "sheets"}
-          {selectedTopic ? ` in ${selectedTopic}` : " organised by topic"}
+          <span className="nums font-bold text-[color:var(--text-heading)]">{factsheetCategories.length}</span> topics ·{" "}
+          <span className="nums font-bold text-[color:var(--text-heading)]">{factsheets.length}</span> sheets
         </p>
       </header>
 
-      <FactsheetsTopicsBrowse
-        groups={groups}
-        visibleGroups={visibleGroups}
-        selectedTopic={selectedTopic}
-        previewLimit={previewLimit}
-        chipOverflowAfter={chipOverflowAfter}
-      />
+      <FactsheetsTopicsBrowse groups={groups} selectedTopic={selectedTopic} previewLimit={previewLimit} />
 
       <aside className="mt-5 flex gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden="true" />

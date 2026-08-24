@@ -1,42 +1,42 @@
 "use client";
 
-import { BookOpenText, ChevronDown, ChevronRight, Menu, MessageSquarePlus, Plus, Search, X } from "lucide-react";
+import { BookOpenText, ChevronDown, ChevronRight, Menu, MessageSquarePlus, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import {
   categoryTheme,
   factsheetsGroupedByCategory,
-  topicChipOverflow,
   type FactsheetCategory,
   type FactsheetIconKey,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { FACTSHEET_CATEGORY_IDENTITY } from "@/lib/category-identity";
 import { categoryGlyph } from "@/lib/category-identity-icons";
+import { interactiveRowBase } from "@/components/ui/interactive-row";
 import { cn } from "@/components/ui-primitives";
 
 /**
  * Design scratch: phone Factsheets Topics browse.
  *
- * Variant A is the production target — sticky in-flow chips, collapsed sections,
- * Search then Topics ModeNav. B tries a one-open accordion. C stresses hundreds
- * of sheets and a topic index that overflows the chip budget.
+ * Variant A is the production target — a stacked topic directory, one topic
+ * open at a time, Search then Topics ModeNav. B keeps every topic expanded.
+ * C stresses extra topics and a long Medications list.
  */
 
-type VariantId = "chips" | "accordion" | "dense";
+type VariantId = "directory" | "expanded" | "dense";
 
 type Specimen = {
   slug: string;
   title: string;
   brand?: string;
-  category: FactsheetCategory;
+  category: string;
   icon: FactsheetIconKey;
   audience: string;
   readTime: string;
   summary: string;
 };
 
-const EXTRA_CATEGORIES = ["Sleep", "Substance use", "Carers", "Safety", "Young people", "Older adults"] as const;
+const EXTRA_CATEGORIES = ["Sleep", "Substance use", "Carers", "Safety"] as const;
 
 const EXTRA_MEDICATIONS = [
   "Fluoxetine",
@@ -49,12 +49,7 @@ const EXTRA_MEDICATIONS = [
   "Lamotrigine",
   "Valproate",
   "Melatonin",
-  "Zopiclone",
-  "Propranolol",
 ] as const;
-
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 const variants: ReadonlyArray<{
   id: VariantId;
@@ -65,27 +60,26 @@ const variants: ReadonlyArray<{
   cost: string;
 }> = [
   {
-    id: "chips",
+    id: "directory",
     number: "A",
-    name: "Chips + collapsed sections",
+    name: "Topic directory",
     recommended: true,
-    summary:
-      "Production target. Search then Topics. Sticky in-flow chips jump or isolate a topic. Sections stay collapsed after eight rows.",
-    cost: "Four topics fit the chip row today; More only appears once the catalogue grows past eight.",
+    summary: "Production target. Four topic rows in one list. Tap a topic to open its sheets; the others stay closed.",
+    cost: "Comparing two topics takes two taps. That is the point on a phone: one topic at a time.",
   },
   {
-    id: "accordion",
+    id: "expanded",
     number: "B",
-    name: "One topic open",
-    summary: "The same chips, but only one section is expanded at a time. Tapping a heading swaps the open topic.",
-    cost: "Comparing two topics takes two taps. Rejected for production unless A proves too long on a real catalogue.",
+    name: "All topics open",
+    summary: "The same directory, with every topic expanded. A study for desktop length, not the phone default.",
+    cost: "Eight demonstration sheets already scroll past the fold. Rejected for production on phone.",
   },
   {
     id: "dense",
     number: "C",
     name: "Hundred-item stress",
     summary:
-      "Synthetic extra sheets and extra topics. The chip row keeps seven topics plus More. Medications shows eight rows, then Show all.",
+      "Extra topics become more rows in the same list. Medications shows eight sheets, then Show all. No chip rail.",
     cost: "Dense rows drop the summary to prove the collapse control, not a production density change.",
   },
 ];
@@ -106,16 +100,25 @@ function liveSpecimens(): Specimen[] {
 }
 
 function denseSpecimens(): Specimen[] {
-  const extras: Specimen[] = EXTRA_MEDICATIONS.map((title, index) => ({
+  const extraMedications: Specimen[] = EXTRA_MEDICATIONS.map((title, index) => ({
     slug: `mock-${title.toLowerCase()}`,
     title,
-    category: "Medications" as const,
-    icon: "capsule" as const,
+    category: "Medications",
+    icon: "capsule",
     audience: "Patients starting treatment",
     readTime: "5 min read",
     summary: `Demonstration extra sheet ${index + 1} so the Medications list crosses the eight-row collapse threshold.`,
   }));
-  return [...liveSpecimens(), ...extras];
+  const extraTopics: Specimen[] = EXTRA_CATEGORIES.map((category) => ({
+    slug: `mock-${category.toLowerCase().replace(/\s+/g, "-")}`,
+    title: `${category} overview`,
+    category,
+    icon: "layers",
+    audience: "Patients and carers",
+    readTime: "4 min read",
+    summary: `Demonstration extra topic so a growing catalogue adds a directory row, not a scrolling chip.`,
+  }));
+  return [...liveSpecimens(), ...extraMedications, ...extraTopics];
 }
 
 export function FactsheetsTopicsPhoneMockupsPage() {
@@ -133,8 +136,8 @@ export function FactsheetsTopicsPhoneMockupsPage() {
             Topics on a 390 px phone
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
-            Search stays first in ModeNav. Topics is a browse page: sticky chips, no second search field, and a Show all
-            control so hundreds of sheets do not dump one list. Accordion and dense stress are studies only.
+            Search stays first in ModeNav. Topics is a stacked directory: tap a topic to open its sheets. No second
+            search field, no horizontal chip rail.
           </p>
         </div>
       </header>
@@ -244,122 +247,97 @@ function PhoneComposer() {
   );
 }
 
+function topicLook(category: string) {
+  if (category in FACTSHEET_CATEGORY_IDENTITY) {
+    const key = category as FactsheetCategory;
+    return { identity: FACTSHEET_CATEGORY_IDENTITY[key], theme: categoryTheme(key) };
+  }
+  return {
+    identity: undefined,
+    theme: { soft: "var(--surface-subtle)", accent: "var(--text-muted)" },
+  };
+}
+
 function TopicsPhoneStudy({ variant }: { variant: VariantId }) {
   const sheets = useMemo(() => (variant === "dense" ? denseSpecimens() : liveSpecimens()), [variant]);
-  const categories = useMemo(() => {
-    const live = factsheetsGroupedByCategory().map((group) => group.category);
-    return variant === "dense" ? ([...live, ...EXTRA_CATEGORIES] as string[]) : live;
-  }, [variant]);
+  const groups = useMemo(() => {
+    const order = [
+      ...factsheetsGroupedByCategory().map((group) => group.category),
+      ...(variant === "dense" ? EXTRA_CATEGORIES : []),
+    ];
+    return order
+      .map((category) => ({
+        category,
+        sheets: sheets.filter((sheet) => sheet.category === category),
+      }))
+      .filter((group) => group.sheets.length > 0);
+  }, [sheets, variant]);
   const previewLimit = 8;
-  const chipLimit = 8;
-  const [selected, setSelected] = useState<string | undefined>(undefined);
-  const [openTopic, setOpenTopic] = useState<string | undefined>(variant === "accordion" ? "Medications" : undefined);
+  const [openTopic, setOpenTopic] = useState<string | undefined>(variant === "expanded" ? undefined : "Medications");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [moreOpen, setMoreOpen] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
 
-  const { visible, overflow } = topicChipOverflow(categories, chipLimit);
-  const groups = categories
-    .filter((category) => !selected || category === selected)
-    .map((category) => ({
-      category,
-      sheets: sheets.filter((sheet) => sheet.category === category),
-    }))
-    .filter((group) => group.sheets.length > 0);
-
   return (
-    <div className="relative px-4 py-4">
+    <div className="px-4 py-4">
       <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">
         Patient information
       </p>
       <h3 className="mt-1 text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]">Topics</h3>
       <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-        <span className="nums font-bold text-[color:var(--text-heading)]">
-          {selected ? sheets.filter((sheet) => sheet.category === selected).length : sheets.length}
-        </span>{" "}
-        sheets{selected ? ` in ${selected}` : " organised by topic"}
+        <span className="nums font-bold text-[color:var(--text-heading)]">{groups.length}</span> topics ·{" "}
+        <span className="nums font-bold text-[color:var(--text-heading)]">{sheets.length}</span> sheets
       </p>
 
-      <div className="sticky top-0 z-10 -mx-4 mt-3 border-b border-[color:var(--border)] bg-[color:var(--surface)]/95 px-4 py-2 backdrop-blur-md">
-        <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <ChipButton current={!selected} onClick={() => setSelected(undefined)} label="All topics" />
-          {visible.map((category) => (
-            <ChipButton
-              key={category}
-              current={selected === category}
-              onClick={() => setSelected(category)}
-              label={category}
-              count={sheets.filter((sheet) => sheet.category === category).length || undefined}
-            />
-          ))}
-          {overflow.length > 0 ? (
-            <button
-              type="button"
-              aria-expanded={moreOpen}
-              onClick={() => setMoreOpen(true)}
-              className={cn(
-                "inline-flex min-h-12 shrink-0 items-center gap-1 rounded-full border border-[color:var(--border)] px-3.5 text-sm font-bold text-[color:var(--text-muted)]",
-                focusRing,
-              )}
-            >
-              More
-              <ChevronDown className="h-4 w-4" aria-hidden="true" />
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-4">
+      <ul className="mt-4 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]">
         {groups.map((group) => {
-          const category = group.category as FactsheetCategory;
-          const theme = categoryTheme(category);
-          const identity = FACTSHEET_CATEGORY_IDENTITY[category];
-          const accordionOpen = variant !== "accordion" || openTopic === group.category;
-          const isExpanded = Boolean(expanded[group.category]) || Boolean(selected);
+          const isOpen = variant === "expanded" || openTopic === group.category;
+          const { identity, theme } = topicLook(group.category);
+          const isExpanded = Boolean(expanded[group.category]);
           const shown =
-            variant === "accordion" && !accordionOpen
-              ? []
-              : isExpanded || group.sheets.length <= previewLimit
-                ? group.sheets
-                : group.sheets.slice(0, previewLimit);
-          const canCollapse = variant !== "accordion" && group.sheets.length > previewLimit;
+            isExpanded || group.sheets.length <= previewLimit ? group.sheets : group.sheets.slice(0, previewLimit);
+          const canCollapse = group.sheets.length > previewLimit;
 
           return (
-            <section key={group.category}>
+            <li key={group.category} className="border-b border-[color:var(--border)] last:border-b-0">
               <button
                 type="button"
+                aria-expanded={isOpen}
                 onClick={() => {
-                  if (variant === "accordion") {
-                    setOpenTopic((current) => (current === group.category ? undefined : group.category));
-                    return;
-                  }
-                  setSelected(group.category);
+                  if (variant === "expanded") return;
+                  setOpenTopic((current) => (current === group.category ? undefined : group.category));
                 }}
-                className={cn("mb-2 flex w-full items-center gap-3 text-left", focusRing)}
+                className={cn(
+                  interactiveRowBase,
+                  "w-full gap-3 rounded-none border-0 px-3.5 py-3",
+                  isOpen && "bg-[color:var(--clinical-accent-soft)]",
+                )}
               >
                 <span
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-lg"
                   style={{ backgroundColor: theme.soft, color: theme.accent }}
                 >
-                  {categoryGlyph(identity.icon, "h-5 w-5")}
+                  {identity ? categoryGlyph(identity.icon, "h-5 w-5") : factsheetGlyph("layers", "h-5 w-5")}
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-base font-extrabold text-[color:var(--text-heading)]">
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">
                     {group.category}
                   </span>
                   <span className="block text-xs font-bold" style={{ color: theme.accent }}>
                     <span className="nums">{group.sheets.length}</span> sheets
                   </span>
                 </span>
-                {variant === "accordion" ? (
+                {variant === "expanded" ? null : (
                   <ChevronDown
-                    className={cn("h-4 w-4 text-[color:var(--text-muted)]", accordionOpen && "rotate-180")}
+                    className={cn(
+                      "h-4 w-4 text-[color:var(--text-muted)] motion-safe:transition-transform",
+                      isOpen && "rotate-180",
+                    )}
                     aria-hidden="true"
                   />
-                ) : null}
+                )}
               </button>
-              {accordionOpen ? (
-                <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]">
+              {isOpen ? (
+                <div className="border-t border-[color:var(--border)]">
                   {shown.map((sheet) => (
                     <StudyRow
                       key={sheet.slug}
@@ -379,8 +357,8 @@ function TopicsPhoneStudy({ variant }: { variant: VariantId }) {
                         }))
                       }
                       className={cn(
-                        "flex min-h-12 w-full items-center justify-center border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-bold text-[color:var(--clinical-accent)]",
-                        focusRing,
+                        interactiveRowBase,
+                        "w-full justify-center rounded-none border-0 bg-[color:var(--surface-subtle)] text-sm font-bold text-[color:var(--clinical-accent)]",
                       )}
                     >
                       {isExpanded
@@ -390,79 +368,11 @@ function TopicsPhoneStudy({ variant }: { variant: VariantId }) {
                   ) : null}
                 </div>
               ) : null}
-            </section>
+            </li>
           );
         })}
-      </div>
-
-      {moreOpen ? (
-        <div className="absolute inset-0 z-20 flex flex-col justify-end bg-[color:var(--overlay-backdrop)]">
-          <button type="button" aria-label="Close more topics" className="flex-1" onClick={() => setMoreOpen(false)} />
-          <div className="rounded-t-2xl border-t border-[color:var(--border)] bg-[color:var(--surface)] px-4 pb-6 pt-3">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-extrabold text-[color:var(--text-heading)]">More topics</p>
-              <button
-                type="button"
-                onClick={() => setMoreOpen(false)}
-                className={cn("grid h-11 w-11 place-items-center rounded-lg", focusRing)}
-                aria-label="Close more topics"
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-            <ul className="grid gap-1">
-              {overflow.map((category) => (
-                <li key={category}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelected(category);
-                      setMoreOpen(false);
-                    }}
-                    className={cn(
-                      "flex min-h-12 w-full items-center justify-between rounded-xl px-3 text-sm font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]",
-                      focusRing,
-                    )}
-                  >
-                    {category}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ) : null}
+      </ul>
     </div>
-  );
-}
-
-function ChipButton({
-  current,
-  onClick,
-  label,
-  count,
-}: {
-  current: boolean;
-  onClick: () => void;
-  label: string;
-  count?: number;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={current}
-      onClick={onClick}
-      className={cn(
-        "inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-bold",
-        focusRing,
-        current
-          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-          : "border-[color:var(--border)] text-[color:var(--text-muted)]",
-      )}
-    >
-      {label}
-      {typeof count === "number" && count > 0 ? <span className="nums text-xs">{count}</span> : null}
-    </button>
   );
 }
 
@@ -477,7 +387,7 @@ function StudyRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const theme = categoryTheme(sheet.category);
+  const { theme } = topicLook(sheet.category);
   return (
     <button
       type="button"
@@ -485,8 +395,9 @@ function StudyRow({
       aria-pressed={selected}
       className={cn(
         "flex w-full items-start gap-3 border-b border-[color:var(--border)] text-left last:border-b-0 hover:bg-[color:var(--surface-subtle)]",
-        focusRing,
-        dense ? "px-3 py-2.5" : "px-4 py-3.5",
+        interactiveRowBase,
+        "rounded-none border-x-0 border-t-0",
+        dense ? "px-3 py-2.5" : "px-3.5 py-3",
         selected && "bg-[color:var(--clinical-accent-soft)]",
       )}
     >
