@@ -1394,7 +1394,7 @@ const RECONCILE: Array<[string, string, string]> = [
   [
     "Clinical notes sheet",
     "Folded away. Essentials was the tab nothing obviously carried.",
-    "Settled: it goes — audited first, not assumed. Essentials' structured-support rows are the headed sections themselves, its monitoring and medication items are the prose, and its comparison table is each document's best quote, which the drawer pages through. No content is lost; two at-a-glance views are, and the threshold list is the one to re-check on real answers before the old surface is deleted.",
+    "Settled: it goes — audited first, then corrected in review. The sheet drops any section carrying only tables and builds rows from items alone, so its structured-support and table-only comparison rows never rendered at all. Everything it does render originates in the answer prose or its sections, which this design shows as the prose. No content is lost; one at-a-glance view is — the grouped threshold list — and that is the thing to re-check on real answers before the old surface is deleted.",
   ],
   [
     "Answer feedback",

@@ -442,36 +442,52 @@ later reader can see why, rather than re-deriving it.
    than after; the audit is §10a. Nothing in it is lost, but two at-a-glance views are, and
    one of those is worth re-checking before the old surface is actually deleted.
 
-### 10a. Clinical-notes Essentials audit (2026-08-24)
+### 10a. Clinical-notes Essentials audit (2026-08-24, corrected)
 
-The Essentials tab is the only removed surface whose content was not obviously duplicated,
-so it was traced rather than assumed. It draws five section ids
-(`clinicalNotesTabMeta`, `evidence-panels.tsx`), all built by
-`buildClinicalOutputSections` (`src/lib/ward-output.ts`):
+The Essentials tab is the only removed surface whose content was not obviously duplicated, so
+it was traced rather than assumed.
 
-| Essentials piece            | Built from                                                                                          | Where it lives in the new design                                                   |
-| --------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `support-map`               | `buildStructuredSupportTable` — `[clinical area, section body]` rows straight from `answerSections` | **The prose.** These are the headed sections the design renders with run-in labels |
-| `monitoring` / `medication` | `parsedLines` — the answer prose plus `sectionDisplayLines`                                         | **The prose**                                                                      |
-| `comparison`                | `buildSourceComparisonTable` — one row per document, that document's `best_quote`                   | **The drawer**, one source at a time via the pager                                 |
-| `thresholds` items          | prose plus `quoteCards` text, filtered by `hasThresholdSignal`                                      | The prose, and quote text in the drawer passage                                    |
-| `thresholds` tables         | `buildThresholdTables` — promoted `visualEvidence` cards                                            | The drawer's table chip, on the cited page                                         |
+**Trace the rendered rows, not the builder.** The first version of this audit read
+`buildClinicalOutputSections` (`src/lib/ward-output.ts`) and reported every section it
+produces. That is wrong: two of those sections never reach the screen. Corrected after review
+of PR #2358, by tracing what actually renders.
 
-**No content is lost. Two at-a-glance views are.** Every item traces back to the prose, the
-sections, the quotes or the visual evidence — all of which the new surface shows. What goes
-is the _scan_: "every threshold in one list", and "each document's key detail stacked side
-by side". Both become paged or per-source.
+What the sheet renders, exactly:
 
-Two things the builder should know:
+- `clinicalNotesDetailSectionsForAnswer` (`evidence-panels.tsx`) ends with
+  `.filter((section) => section.items.length > 0)`, so any section carrying only `tables`
+  is dropped before the tabs are built.
+- `clinicalNotesRowsForTab` then builds rows with `for (const item of section.items.slice(0, 4))`.
+  **A table never becomes a row.**
+- `displayItemsForClinicalDetailSection` additionally drops items already redundant with the
+  answer prose, keeping the originals only when that would empty the section — so the sheet is
+  a de-duplicated view of the prose to begin with.
 
-- `buildSourceComparisonTable` fires whenever the answer draws on **three or more
-  documents**, not only on comparison questions. That stacked view is common, not an edge
-  case, so expect its absence to be noticed.
-- **The threshold list is the one worth re-checking.** Collecting doses and cut-offs into a
-  single scan is the most clinically load-bearing thing Essentials does, and the new design
-  has no equivalent. It is not a blocker — every value is on screen or one tap away — but
-  re-check it against real answers once the rail and drawer ship, **before** the old surface
-  is deleted in the separate PR §8 already stages.
+Consequently:
+
+| Essentials section          | Created as                                                                      | Renders?                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `support-map`               | `items: []` plus one structured-support table (`ward-output.ts:705`)            | **Never.** Dropped by the empty-items filter                                                     |
+| `comparison`                | `items: []` plus one table when the prose produced no comparison lines (`:766`) | **Only when the prose produced comparison items**; the table-only form is dropped                |
+| `thresholds`                | `items: thresholdItems` plus tables                                             | **Its items only** — the threshold lines from the prose and quote cards. Its tables never render |
+| `monitoring` / `medication` | items from `parsedLines`                                                        | Yes — and those lines are the answer prose and `sectionDisplayLines`                             |
+
+**Corrected conclusion: no content is lost, and one at-a-glance view is.**
+
+Every row the Essentials tab renders originates in the answer prose or its sections, which the
+new design shows as the prose itself. The earlier claim that a _stacked per-document comparison_
+view would be lost was wrong — that view is table-only and never rendered here.
+
+**The one real loss is the grouped threshold list**: `thresholds` items collect the
+threshold-shaped lines into a single scan, and the new design has no equivalent. Every value is
+still on screen or one tap away, so it is not a blocker — but re-check it against real answers
+once the rail and drawer ship, **before** the old surface is deleted in the separate PR §8
+already stages.
+
+**A method note worth keeping.** This audit was wrong the first time in the same way the
+first-pass design was wrong: it asserted from a code path without checking what the code path
+puts on screen. When this document says "confirm nothing is relied on", it means trace to the
+rendered output.
 
 ## 11. Related records
 
