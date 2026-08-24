@@ -94,7 +94,7 @@ export function DictionarySourcesPage() {
 
   return (
     <InformationPageShell width="bleed" gap={false} testId="dictionary-sources-main">
-      <div className="mx-auto w-full max-w-[76rem] px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-[var(--content-width-catalogue)] px-4 py-6 sm:px-6 sm:py-8">
         <header>
           <p className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
             Dictionary governance
