@@ -77,6 +77,7 @@ function TrayPhone() {
           <ul className="min-h-0 flex-1 overflow-y-auto px-4 pb-28">
             {results.map((therapy) => {
               const held = set.selected.includes(therapy.slug);
+              const blocked = !held && set.full;
               return (
                 <li
                   key={therapy.slug}
@@ -90,8 +91,9 @@ function TrayPhone() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => (held ? set.remove(therapy.slug) : set.add(therapy.slug))}
+                    onClick={() => (held ? set.remove(therapy.slug) : blocked ? undefined : set.add(therapy.slug))}
                     aria-pressed={held}
+                    aria-disabled={blocked || undefined}
                     aria-label={
                       held
                         ? `Remove ${therapy.short} from the compare tray`
@@ -102,7 +104,9 @@ function TrayPhone() {
                       focusRing,
                       held
                         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]"
-                        : "border-[color:var(--border-strong)] text-[color:var(--clinical-accent)]",
+                        : blocked
+                          ? "border-[color:var(--border)] text-[color:var(--text-muted)] opacity-40"
+                          : "border-[color:var(--border-strong)] text-[color:var(--clinical-accent)]",
                     )}
                   >
                     {held ? (
@@ -169,7 +173,10 @@ function TrayPhone() {
                 </p>
                 <button
                   type="button"
-                  onClick={set.clear}
+                  onClick={() => {
+                    set.clear();
+                    setView("browse");
+                  }}
                   aria-label="Empty the compare tray"
                   className={cn(
                     "inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-3xs font-bold text-[color:var(--text-muted)]",
@@ -195,7 +202,10 @@ function TrayPhone() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => set.remove(therapy.slug)}
+                      onClick={() => {
+                        set.remove(therapy.slug);
+                        if (count <= 2) setView("browse");
+                      }}
                       aria-label={`Remove ${therapy.short}`}
                       className={cn(
                         "grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)]",
