@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUp,
   Check,
@@ -412,6 +412,21 @@ function SourceDrawer({
   onClose: () => void;
   wide: boolean;
 }) {
+  // Tracks the element that had focus before the drawer opened, so closing it
+  // (Escape, backdrop click, or the close button) returns focus there instead
+  // of dropping it to <body>. Runs once per open/close transition, not per
+  // page change within an open drawer.
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+  const isOpen = openId !== null;
+  useEffect(() => {
+    if (isOpen) {
+      previouslyFocused.current = document.activeElement as HTMLElement | null;
+    } else {
+      previouslyFocused.current?.focus();
+      previouslyFocused.current = null;
+    }
+  }, [isOpen]);
+
   if (openId === null) return null;
   // Keyed on the source: the panel's own transient state (an open menu)
   // belongs to that source and is discarded when you move to another.
@@ -436,6 +451,14 @@ function DrawerPanel({
     const next = SOURCES[(position + delta + SOURCES.length) % SOURCES.length];
     onSelect(next.id);
   };
+
+  // Move focus into the dialog on open (and on each paged source, since the
+  // panel remounts per source) so keyboard and screen-reader users land
+  // inside it instead of staying on the now-covered trigger behind it.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
 
   // Overlay is not focusable and opening a source leaves focus on the trigger,
   // so React onKeyDown on this subtree never fires. Listen on window instead,
@@ -465,8 +488,10 @@ function DrawerPanel({
         className="min-h-0 w-full flex-1 cursor-default bg-[color:var(--overlay-backdrop)] motion-safe:animate-overlay-in"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-label={`Source ${source.index} of ${SOURCES.length}`}
+        tabIndex={-1}
         className={cn(
           "flex min-h-0 flex-col rounded-t-2xl border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-elevated)] motion-safe:animate-sheet-up",
           wide && "mx-auto w-full rounded-2xl border",
@@ -669,7 +694,10 @@ function MessageActions({ hoverReveal }: { hoverReveal: boolean }) {
   ] as const;
   return (
     <div
-      className={cn("flex items-center gap-0.5 transition-opacity", hoverReveal && "opacity-0 group-hover:opacity-100")}
+      className={cn(
+        "flex items-center gap-0.5 transition-opacity",
+        hoverReveal && "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+      )}
     >
       {items.map(({ key, label, Icon, onClick }) => (
         <button
