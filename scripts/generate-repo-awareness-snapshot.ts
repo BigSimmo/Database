@@ -364,8 +364,46 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
  * data was fresher than it is. Dating the snapshot by its own inputs can only
  * ever understate freshness, which is the safe direction and the same choice
  * Phase 1 made for `ledger_revision`.
+ *
+ * This list may only ever contain files that genuinely shape emitted data —
+ * never widened to a transitive-closure chase or a broad directory "to be
+ * safe." The two directions are not symmetric:
+ *
+ *  - Adding a TRUE input is always safe. It can only move the resolved commit
+ *    forward, toward the commit that actually last changed something here —
+ *    which is always an improvement in accuracy, never a risk.
+ *  - Adding something that is NOT an input is unsafe. An unrelated commit
+ *    would then advance the date, and the page would claim the data is
+ *    FRESHER than it actually is — the one direction this scheme exists to
+ *    rule out.
+ *  - Omitting a true input is merely imprecise, and imprecise in the safe
+ *    direction: the date understates freshness rather than overstating it.
+ *    That is why growing this list is a correctness improvement, not a bug
+ *    fix — nothing here was ever unsafe, just less accurate than it could be.
+ *
+ * `scripts/generate-site-map.ts` and `src/lib/consolidated-mode-home-redirect.ts`
+ * were added after confirming each one flows into an emitted field:
+ * `documentedRedirectTargets` (generate-site-map.ts) is consumed while
+ * building `routes.redirects[].target`, and `consolidatedModeHomeModeIds`
+ * (consolidated-mode-home-redirect.ts) is branched on by `appModeHomeHref()`
+ * while building every mode's `home` field below. `src/lib/document-flow-routes.ts`
+ * (`documentsSearchHref`) and `src/lib/search-navigation-context.ts`
+ * (`appendSearchNavigationContext`) were deliberately left out: `appModeHomeHref`
+ * is always called here with no second argument, so `options` is always `{}` —
+ * the `documentsSearchHref` branch requires a truthy `query`, which is never
+ * present, so it never runs; and `appendSearchNavigationContext` hits its
+ * `!filters` early return on every call here, so it always returns its input
+ * `URLSearchParams` unchanged. Neither file's content can currently reach an
+ * emitted field through this call site.
  */
-const REVISION_INPUTS = ["src/app", "src/lib/app-modes.ts", "docs", "tests/flake-ledger.json"];
+const REVISION_INPUTS = [
+  "src/app",
+  "src/lib/app-modes.ts",
+  "src/lib/consolidated-mode-home-redirect.ts",
+  "docs",
+  "tests/flake-ledger.json",
+  "scripts/generate-site-map.ts",
+];
 
 /**
  * Git is a hard requirement of this generator, and that is deliberate rather
@@ -391,6 +429,9 @@ export function readCapturedRevision({ cwd }: { cwd?: string } = {}): { sha: str
   }
   if (!output) throw new Error("git reported no commit touching this snapshot's inputs.");
   const [sha, committed_at] = output.split("\t");
+  if (!sha || !committed_at) {
+    throw new Error(`git log produced an unparsable revision line: "${output}" (expected "<sha>\\t<committed_at>").`);
+  }
   return { sha, committed_at };
 }
 

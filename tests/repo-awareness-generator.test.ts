@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -350,6 +351,44 @@ describe("generate", () => {
     const snapshot = generate();
     expect(snapshot.captured_revision?.sha).toMatch(/^[0-9a-f]{40}$/);
     expect(Number.isNaN(new Date(snapshot.captured_revision!.committed_at).getTime())).toBe(false);
+  });
+
+  it("dates the revision by its own inputs, not by HEAD", () => {
+    // The shape assertion above (40-hex sha, parsable date) cannot distinguish
+    // "git log -- REVISION_INPUTS" from a bare "git rev-parse HEAD" — both
+    // produce an equally valid-looking sha and date. This builds a throwaway
+    // repo where the two diverge and proves readCapturedRevision picks the
+    // input-scoped commit, never HEAD.
+    const dir = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-revision-"));
+    try {
+      const run = (args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+      run(["init", "-b", "main"]);
+      run(["config", "user.email", "test@example.com"]);
+      run(["config", "user.name", "Test"]);
+      run(["config", "commit.gpgsign", "false"]);
+
+      // Commit 1 touches "docs/", one of REVISION_INPUTS.
+      mkdirSync(path.join(dir, "docs"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "a.md"), "a\n", "utf8");
+      run(["add", "docs/a.md"]);
+      run(["commit", "-m", "touch an input path"]);
+      const inputSha = run(["rev-parse", "HEAD"]);
+
+      // Commit 2 touches a path outside every REVISION_INPUTS entry and becomes
+      // HEAD, without being a real input to anything the snapshot emits.
+      writeFileSync(path.join(dir, "unrelated.txt"), "b\n", "utf8");
+      run(["add", "unrelated.txt"]);
+      run(["commit", "-m", "touch an unrelated path"]);
+      const headSha = run(["rev-parse", "HEAD"]);
+
+      expect(headSha).not.toBe(inputSha);
+
+      const revision = readCapturedRevision({ cwd: dir });
+      expect(revision.sha).toBe(inputSha);
+      expect(revision.sha).not.toBe(headSha);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("fails loudly outside a git repository instead of writing a null revision", () => {
