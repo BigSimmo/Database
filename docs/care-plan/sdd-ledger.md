@@ -1078,15 +1078,24 @@ about when, and written up.
 
 **D2. When Task 11's build finishes, run the held-back release gates and then stop.** The user
 asked on 24 August that the work stay local and focused on building; this extends that instruction
-to its endpoint. After Task 11 and the D1 task land, run the gates that have deliberately not been
-run — `verify:pr-local`, `build`, `check:production-readiness`, `docs:update`, whole-tree
-`format` — report exactly what they say, and **stop there**. Do not push, do not open the pull
-request, do not merge. Publication is a separate decision the user will make with the gate results
-in front of them.
+to its endpoint. **Revised by the user the same day, and the revision is the operative
+instruction:** run only the **fast** checks, then stop so the user can review the finished product
+and ask for iterations.
+
+Fast means what the build already uses each task — `npm run typecheck`, `npm run lint`, the Care
+Plan Vitest files, `npx prettier --check` on changed files only, and Task 11's own Chromium
+journeys, which are the deliverable rather than a gate. It does **not** mean `verify:pr-local`,
+`verify:cheap`, `verify:release`, `build`, `check:production-readiness`, `docs:update`, or a
+whole-tree `format`; each of those costs tens of minutes on this machine and contends with the
+several other AI sessions holding the repository's heavy lease. Do not push, open a pull request,
+or merge. Publication stays a separate decision, and the user expects to iterate on the product
+before it is reached.
 
 Task 11's `verification-report.md` must therefore list every unrun gate explicitly as **not run,
 by user instruction** rather than omitting it — an unrun check reported as unrun is evidence; an
-unrun check left unmentioned is a false claim of completeness.
+unrun check left unmentioned is a false claim of completeness. That reporting duty is unchanged by
+the revision, and matters more under it: the shorter the list of checks actually run, the more the
+report has to be straight about which they were.
 
 ---
 
