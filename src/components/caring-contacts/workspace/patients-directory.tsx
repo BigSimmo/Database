@@ -21,11 +21,11 @@ import { UnavailableDestination } from "./unavailable-destination";
  * calls it and has no place to put one if it did. A row is therefore named by the patient's
  * synthetic identifier, which is what the store releases to a list read.
  *
- * That is a deliberate departure from the approved mockup (`PatientsDirectoryPage` in
- * `src/components/caring-contacts/mockups/product-pages.tsx`), which shows fictional patient names
- * and initials. The mockup is design scratch working from invented rows, not from the store's
- * release rules; reconciling the two is the owner's call, and it is raised in the Task 5 report
- * rather than settled here by reaching for a wider read.
+ * That is a deliberate departure from the approved design scratch for this screen
+ * (`PatientsDirectoryPage`), which shows fictional patient names and initials. Design scratch
+ * works from invented rows rather than from the store's release rules; reconciling the two is the
+ * owner's call, and it is raised in the Task 5 report rather than settled here by reaching for a
+ * wider read.
  *
  * Why the filter is a URL and not a client boundary
  * ------------------------------------------------
