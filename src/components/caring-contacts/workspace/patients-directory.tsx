@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import type { PlanState } from "@/lib/caring-contacts/model";
-import type { PlanRecord } from "@/lib/caring-contacts/repository";
+import type { PatientNameProjection, PlanRecord } from "@/lib/caring-contacts/repository";
 
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
@@ -15,17 +15,23 @@ import { UnavailableDestination } from "./unavailable-destination";
  *
  * What this screen may know, and why it is so little
  * -------------------------------------------------
- * Every row here is a `PlanRecord`, which carries no patient-identifying detail BY CONSTRUCTION --
- * no name, no mobile number, no identifiers, no cultural identity. `getEpisode` is the only read
- * in this domain that releases those, and a directory does not need them, so this screen never
- * calls it and has no place to put one if it did. A row is therefore named by the patient's
- * synthetic identifier, which is what the store releases to a list read.
+ * A row is a `PlanRecord`, which carries no patient-identifying detail BY CONSTRUCTION, plus ONE
+ * further field: the patient's name, read separately through `listPatientNames` (Ruling 91). That
+ * read is its own repository method with its own capability check, and its return type holds a plan
+ * id and a name -- so there is no mobile number, identifier list or ancestry for this screen to
+ * leak, because there is nowhere in the value for one to be.
  *
- * That is a deliberate departure from the approved design scratch for this screen
- * (`PatientsDirectoryPage`), which shows fictional patient names and initials. Design scratch
- * works from invented rows rather than from the store's release rules; reconciling the two is the
- * owner's call, and it is raised in the Task 5 report rather than settled here by reaching for a
- * wider read.
+ * `getEpisode` remains the read this screen must never make. It is the one that releases all four
+ * identifying fields together, and a caseload showing one of them has no business pulling four.
+ * Task 5 headed each row with the synthetic identifier for exactly that reason; the owner's answer
+ * (Ruling 91) was to narrow the read rather than to widen the screen, and this is that read
+ * consumed. The approved design's names and initials are honest again as a result.
+ *
+ * A row still SHOWS the synthetic identifier alongside the name. It is what distinguishes two
+ * patients who share a name, it is what the row's detail control is named by, and it is the only
+ * thing left to head a row with when no name comes back -- which happens for a plan a retention
+ * clearance has already de-identified, and for a role that may list plans without holding
+ * `viewPatientRecord`. The row never claims a name it was not given.
  *
  * Why the filter is a URL and not a client boundary
  * ------------------------------------------------
@@ -119,11 +125,20 @@ export function patientsDirectoryHref(filter: PatientsDirectoryFilter): string {
   return query === "" ? CARING_CONTACTS_ROUTES.patients : `${CARING_CONTACTS_ROUTES.patients}?${query}`;
 }
 
-function matchesFilter(record: PlanRecord, filter: PatientsDirectoryFilter): boolean {
+/**
+ * The search matches the patient's NAME as well as the three identifiers -- the approved design's
+ * "name or synthetic ID" -- and it still runs entirely on the server. Nothing here becomes client
+ * state: the form is still an ordinary GET, the URL is still the whole of the filter, and this
+ * function is still called during the server render. Ruling 13 is untouched.
+ *
+ * `name` is empty for a row with no name to match, and an empty haystack segment can never make a
+ * non-empty query match, so no row is found by a name it does not have.
+ */
+function matchesFilter(record: PlanRecord, name: string, filter: PatientsDirectoryFilter): boolean {
   if (filter.state !== "all" && record.plan.state !== filter.state) return false;
   if (filter.query === "") return true;
   const needle = filter.query.toLowerCase();
-  return `${record.patientId} ${record.plan.id} ${record.referralId}`.toLowerCase().includes(needle);
+  return `${name} ${record.patientId} ${record.plan.id} ${record.referralId}`.toLowerCase().includes(needle);
 }
 
 function plural(count: number, one: string, many: string): string {
@@ -199,13 +214,31 @@ const rowActionClass =
 export type PatientsDirectoryProps = {
   /** Every plan the read released, unfiltered. The filter is applied here, not by the caller. */
   records: readonly PlanRecord[];
+  /**
+   * What `listPatientNames` released, in whatever order it came back -- a plan id and a name each,
+   * and by its type nothing else. It is a separate prop rather than a field merged onto the records
+   * so that the narrow read stays visibly narrow at every layer it passes through: a merged record
+   * would be a widened `PlanRecord` in all but name, and the next screen would copy it.
+   *
+   * Shorter than `records` for a role that may list plans without holding `viewPatientRecord`, and
+   * empty when that read released nothing. A missing entry is not an error; the row falls back.
+   */
+  patientNames: readonly PatientNameProjection[];
   filter: PatientsDirectoryFilter;
   /** False when the acting role does not include viewing plans -- see the module note. */
   mayViewPlans: boolean;
 };
 
-export function PatientsDirectory({ records, filter, mayViewPlans }: PatientsDirectoryProps) {
-  const visible = mayViewPlans ? records.filter((record) => matchesFilter(record, filter)) : [];
+export function PatientsDirectory({ records, patientNames, filter, mayViewPlans }: PatientsDirectoryProps) {
+  // A cleared plan's name is the empty string both stores write for a removed one, so it is dropped
+  // here rather than at each row: an empty name is "no name held", never a name, and every reader
+  // below asks the same map the same way.
+  const nameByPlan = new Map(
+    patientNames.filter((entry) => entry.patientName !== "").map((e) => [e.planId, e.patientName]),
+  );
+  const visible = mayViewPlans
+    ? records.filter((record) => matchesFilter(record, nameByPlan.get(record.plan.id) ?? "", filter))
+    : [];
   const filtering = filter.state !== "all" || filter.query !== "";
 
   return (
@@ -214,8 +247,8 @@ export function PatientsDirectory({ records, filter, mayViewPlans }: PatientsDir
         This team&rsquo;s plans
       </h2>
       <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
-        One row for each caring-contact plan this team holds. Every patient here is invented, and a row names a patient
-        only by their synthetic identifier &mdash; a directory has no reason to hold a name or a number.
+        One row for each caring-contact plan this team holds. Every patient here is invented. A row carries a name and a
+        synthetic identifier and nothing else about the person, because a caseload needs nothing else.
       </p>
 
       {mayViewPlans ? (
@@ -262,7 +295,7 @@ export function PatientsDirectory({ records, filter, mayViewPlans }: PatientsDir
           >
             <div className="relative min-w-0 sm:max-w-sm sm:flex-1">
               <label htmlFor={searchInputId} className="sr-only">
-                Search by synthetic patient, plan or referral identifier
+                Search by name, or by synthetic patient, plan or referral identifier
               </label>
               <Search
                 aria-hidden="true"
@@ -274,7 +307,7 @@ export function PatientsDirectory({ records, filter, mayViewPlans }: PatientsDir
                 name="q"
                 defaultValue={filter.query}
                 autoComplete="off"
-                placeholder="Synthetic identifier"
+                placeholder="Name or synthetic ID"
                 className={fieldClass}
               />
             </div>
@@ -296,7 +329,7 @@ export function PatientsDirectory({ records, filter, mayViewPlans }: PatientsDir
       {visible.length > 0 ? (
         <ul className="mt-4 flex min-w-0 flex-col gap-3">
           {visible.map((record) => (
-            <PatientRow key={record.plan.id} record={record} />
+            <PatientRow key={record.plan.id} record={record} name={nameByPlan.get(record.plan.id) ?? null} />
           ))}
         </ul>
       ) : (
@@ -376,10 +409,20 @@ function hiddenBecause(total: number, filter: PatientsDirectoryFilter): string {
   if (filter.state !== "all") {
     return `The state filter is set to ${PLAN_STATE_LABELS[filter.state]}, and none of ${held} is in that state.`;
   }
-  return `The search for "${filter.query}" finds no identifier among ${held}.`;
+  return `The search for "${filter.query}" matches no name or identifier among ${held}.`;
 }
 
-function PatientRow({ record }: { record: PlanRecord }) {
+/**
+ * One plan's row.
+ *
+ * `name` is null when the names read held nothing for this plan -- a de-identified episode, or a
+ * role without `viewPatientRecord`. The heading then falls back to the synthetic identifier and the
+ * label above it says which of the two the heading is, so the row never presents an identifier as a
+ * name or leaves a reader guessing. It deliberately does not try to say WHICH cause applies: the
+ * screen is not told, and guessing between "this episode was de-identified" and "your role may not
+ * see names" would be a claim nothing here can support.
+ */
+function PatientRow({ record, name }: { record: PlanRecord; name: string | null }) {
   const suppressed = suppressedContactCount(record);
   const absorbed = absorbedContactCount(record);
   // Every suppressed contact is subtracted from the count, so every suppressed contact must be
@@ -393,9 +436,21 @@ function PatientRow({ record }: { record: PlanRecord }) {
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
-            Synthetic patient identifier
+            {name === null ? "Synthetic patient identifier" : "Patient"}
           </p>
-          <h3 className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">{record.patientId}</h3>
+          <h3 className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+            {name ?? record.patientId}
+          </h3>
+          {/*
+            Kept beside the name, not replaced by it. Two patients can share a name, the row's
+            detail control is named by the identifier, and it is the identifier a clinician quotes
+            when asking about a record.
+          */}
+          {name === null ? null : (
+            <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">
+              Synthetic identifier: {record.patientId}
+            </p>
+          )}
           <p className="mt-2 text-sm leading-6 text-[color:var(--text-muted)]">
             <span className="font-medium text-[color:var(--text)]">Plan state: </span>
             {PLAN_STATE_LABELS[record.plan.state]}

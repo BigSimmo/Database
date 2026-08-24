@@ -9,7 +9,7 @@ import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
-import { READ_ACTIONS, type PlanRecord } from "@/lib/caring-contacts/repository";
+import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 /**
@@ -27,8 +27,8 @@ const CaringContactsShell = dynamic(() =>
  * The team's caseload -- the first real screen of Phase 2B, and the shape every later list screen
  * copies.
  *
- * TWO AUDITED READS, no HTTP
- * --------------------------
+ * THREE AUDITED READS, no HTTP
+ * ----------------------------
  * `GET /api/caring-contacts/plans` already lists the team's plans, but this page is a Server
  * Component and reads the store directly, exactly as the Today page does. Going over HTTP from a
  * render would add a network hop, a second copy of the failure handling, and an access trail that
@@ -40,7 +40,11 @@ const CaringContactsShell = dynamic(() =>
  *
  *   * the service state -- `{ administrative, serviceState, "service" }`, because the safety
  *     banner is required on every screen (Ruling 56) and must be a state that was actually read;
- *   * the plans -- `{ search, plan, "all" }`, matching `plans/route.ts`'s `GET` exactly.
+ *   * the plans -- `{ search, plan, "all" }`, matching `plans/route.ts`'s `GET` exactly;
+ *   * the patient names -- `{ search, patientDirectory, "names" }`. Its own row, deliberately, and
+ *     not folded into the plans read: this is the one read on this page that releases patient
+ *     identity, and an access trail that recorded it as part of a plan search could not later
+ *     answer "who read patients' names, and when". Ruling 46 exists for that reason.
  *
  * Every bad outcome fails closed and reaches `error.tsx`, which says nothing was sent and nothing
  * was changed. There is no honest fallback for either read: a caseload rendered beside a
@@ -136,6 +140,38 @@ export default async function CaringContactsPatientsPage({
   }
   const records = plansRead.released;
 
+  // The names-only projection (Ruling 91). It replaces NOTHING above: the caseload is still read
+  // as `PlanRecord`s carrying no patient detail, and this adds the single field a clinician needs to
+  // recognise their own patients. `getEpisode` is still never called from this page, and would still
+  // be the wrong read -- it releases the mobile number, the identifiers and the ancestry alongside
+  // the name.
+  //
+  // Fails closed exactly as the two reads above do, and for the same reason rather than for
+  // symmetry: this read is the one that touches patient identity, so an unexplained failure of it
+  // is the last thing that should be rendered past. `error.tsx` says nothing was sent and nothing
+  // was changed, both of which are true. An actor whose role does not cover the read is not a
+  // failure at all -- it is an empty array, exactly as `listPlans` answers, and the rows below then
+  // head themselves with the synthetic identifier as they did before this read existed.
+  const namesRead = await auditedRead<PatientNameProjection[]>(
+    store,
+    actor,
+    { kind: "search", objectType: "patientDirectory", objectId: "names" },
+    () => store.listPatientNames({ actor }),
+  );
+  if (namesRead.outcome === "failed") {
+    throw namesRead.error instanceof Error ? namesRead.error : new Error("Failed to read this team's patient names.");
+  }
+  if (!namesRead.recorded) {
+    throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+  }
+  // `== null` for the same reason the plans guard above uses it: `auditedRead` treats null AND
+  // undefined as denied while typing `released` as `T | null`, so a `=== null` guard would let a
+  // contract-breaking `undefined` through to fail somewhere less legible.
+  if (namesRead.released == null) {
+    throw new Error("caring-contacts patient names read returned no list.");
+  }
+  const patientNames = namesRead.released;
+
   const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
 
   return (
@@ -144,7 +180,7 @@ export default async function CaringContactsPatientsPage({
       description="Every patient this team holds a caring-contact plan for, and where each plan has got to. Every patient, number and message in this workspace is invented; nothing here is ever sent to a real number."
       serviceState={serviceState}
     >
-      <PatientsDirectory records={records} filter={filter} mayViewPlans={mayViewPlans} />
+      <PatientsDirectory records={records} patientNames={patientNames} filter={filter} mayViewPlans={mayViewPlans} />
     </CaringContactsShell>
   );
 }

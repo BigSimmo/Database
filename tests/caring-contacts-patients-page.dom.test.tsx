@@ -45,7 +45,7 @@ import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { pathwayVersionId, patientId, planId, referralId } from "@/lib/caring-contacts/ids";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
-import type { CaringContactRepository, PlanRecord } from "@/lib/caring-contacts/repository";
+import type { CaringContactRepository, PatientNameProjection, PlanRecord } from "@/lib/caring-contacts/repository";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
 
@@ -251,5 +251,66 @@ describe("the /caring-contacts/patients page - roles", () => {
     expect(mocks.notFound).not.toHaveBeenCalled();
     expect(screen.getByRole("group", { name: /not visible in this role/i })).toBeInTheDocument();
     expect(screen.queryByText("No patients yet")).toBeNull();
+  });
+});
+
+describe("the /caring-contacts/patients page - the names-only projection (Ruling 91)", () => {
+  it("reads the names through their OWN access identity, not folded into the plans read", async () => {
+    const { store, recorded } = inMemoryStoreWithSpy();
+    vi.spyOn(store, "listPlans").mockResolvedValue([planRecord("plan-1")]);
+
+    await renderPage();
+
+    // Its own row. This is the one read on this page that releases patient identity, and a trail
+    // that recorded it as part of a plan search could not answer "who read patients' names".
+    expect(recorded()).toContainEqual(
+      expect.objectContaining({
+        kind: "search",
+        objectType: "patientDirectory",
+        objectId: "names",
+        outcome: "allowed",
+        actorId: demoActorForRole("coordinator").id,
+      }),
+    );
+    // And the plans read is still recorded separately, so the two are distinguishable.
+    expect(recorded()).toContainEqual(
+      expect.objectContaining({ kind: "search", objectType: "plan", objectId: "all", outcome: "allowed" }),
+    );
+  });
+
+  it("names the row from the projection, and STILL never reads the episode", async () => {
+    const { store } = inMemoryStoreWithSpy();
+    const getEpisode = vi.spyOn(store, "getEpisode");
+    vi.spyOn(store, "listPlans").mockResolvedValue([planRecord("plan-1")]);
+    vi.spyOn(store, "listPatientNames").mockResolvedValue([{ planId: planId("plan-1"), patientName: "Jordan Nguyen" }]);
+
+    await renderPage();
+
+    expect(screen.getByRole("heading", { name: "Jordan Nguyen" })).toBeInTheDocument();
+    // The whole point of the narrow read: the name arrives without the read that would have
+    // released the mobile number, the identifiers and the ancestry alongside it.
+    expect(getEpisode).not.toHaveBeenCalled();
+  });
+
+  it("throws rather than rendering when the names read itself fails, and still records the attempt", async () => {
+    const { store, recorded } = inMemoryStoreWithSpy();
+    vi.spyOn(store, "listPatientNames").mockRejectedValue(new Error("names store unreachable"));
+
+    const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
+
+    await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("names store unreachable");
+    expect(recorded()).toContainEqual(expect.objectContaining({ objectType: "patientDirectory", outcome: "failed" }));
+  });
+
+  it("throws rather than rendering a caseload from a names answer that was never given", async () => {
+    // Same shape as the plans guard, and unreachable through either real store for the same reason:
+    // `listPatientNames` returns an array for every actor by contract. A branch that cannot run is
+    // still read, and is still copied by the next screen.
+    const { store } = inMemoryStoreWithSpy();
+    vi.spyOn(store, "listPatientNames").mockResolvedValue(undefined as unknown as PatientNameProjection[]);
+
+    const { default: PatientsPage } = await import("@/app/caring-contacts/patients/page");
+
+    await expect(PatientsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(/names read returned no list/i);
   });
 });
