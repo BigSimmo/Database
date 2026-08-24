@@ -1181,3 +1181,85 @@ So `WORKSPACE_SCREENS` is a **registry, not a driver**: joining it proves nothin
 the silenced-gate hazard its own comment warns about, one level deeper than the comment describes —
 a screen can be listed there and still be visited by no accessibility-mode or service-stop proof.
 Carried to the Task 6 review rather than settled here.
+
+### Task 6 task review — PASS with one material shortfall; one Critical, three Important, four Minor
+
+Spec compliance PASS: route hygiene complete (inbound link, sitemap, codebase index, reachability
+assertion), no new client boundary, service-state `note` never crosses to a Client Component,
+`getEpisode` called from exactly one site, no hex, no `min-h-11`, no prohibited vocabulary, no path
+literals. Quality high: the mutation ledger was called genuinely good work and both gates the
+implementer caught itself were independently re-derived as really closed.
+
+**The Critical, and it is the instructive one.** The screen's schedule summary derived sendability as
+"entries minus those whose state is `suppressed`", so **every other non-sendable terminal state
+counted as sendable**. A withdrawn plan, or one stopped by a recorded death, renders `10 entries, and
+every one of them will be sent.` directly above ten rows each reading "Caring contact · Cancelled".
+On a suicide-prevention screen. `cancelled` is reachable today by ordinary store writes
+(`cancelAllNonTerminalContacts` from `withdrawPlan` and from `recordHospitalStatusEvent`), and
+`missed` is non-sendable too.
+
+**What makes it worth recording is HOW it happened.** The implementer saw the rule "a screen must
+never re-derive a rule a module already owns", reasoned about it explicitly, found a genuine defect in
+the module's number (`EpisodeCounts.contactsScheduled` keys off `planned.suppressed`, so it overstates
+a transition-suppressed plan — confirmed), and departed from the rule on that basis. The direction was
+right. The replacement predicate was **narrower than the true one and wrong on a path the domain
+reaches today**, while the module's number is only wrong on a path nothing reaches yet. It traded a
+latent error for a live one. **Seeing the rule and reasoning about it is not the same as being
+protected by it** — the protection is in putting the predicate where the domain can be held to it, not
+in deciding carefully where to put a copy.
+
+No test covered it, and no mutation would have found it, because no assertion read that path. That is
+the same fact stated three ways.
+
+**Ruling [101] — the sendability predicate goes in the sealed domain, and `EpisodeCounts` does not
+change meaning.** — Why: the fix must not be a second copy in the screen, and it must not be a silent
+redefinition of a number other code may already read. A new named export deriving the non-sendable set
+from the contact state machine in `model.ts` satisfies both; the screen consumes it. — Cost if wrong:
+one more domain export to keep honest. The alternative — editing `contactsScheduled` in place — would
+change a value's meaning under every existing reader without any of them being reviewed.
+
+**Ruling [102] — extend the brief to cover cancelled and missed rows with a stated reason.** — Why:
+Ruling 98 named only suppression, so a row reading "Caring contact · Cancelled" with nothing beside it
+is within the letter of the brief and is exactly the bare-status-chip shape spec section 4.4 exists to
+prevent. Shipping the count fix without it leaves the row still unexplained, and the same edit touches
+both. — Cost if wrong: a slightly wider fix round than the finding strictly required.
+
+**Ruling [103] — correct the false coverage comment now; parameterise the suites as separate work.**
+— Why: the spec file's comment now claims the accessibility-mode proofs "run against every screen on
+the surface". They do not — those suites name `WORKSPACE_ROUTE` and the `TODAY_SCREEN` default as
+literals and nothing iterates `WORKSPACE_SCREENS`. A false claim is fixed immediately; making it TRUE
+by parameterising is the right eventual fix but the service-stop test asserts `maxOffset >
+bannerTravel` and would fail on a short empty-state page, which needs deliberate handling rather than
+a fix round. — Cost if wrong: the gap stays open one task longer, on a surface where it has been open
+since Task 5 and is not a Task 6 regression.
+
+**Ruling [104] — the synthetic caseload is out of scope, and the consequence is stated rather than
+implied.** — Why: the plan's own "Deliberately NOT in Phase 2B" section gives the synthetic caseload
+to Phase 3. The reviewer ranked seeding one above parameterisation as the single highest-value change,
+because it would fix the Critical's testability, the short-page problem, and the jsdom-only gap at
+once. It is still Phase 3. — Cost if wrong: **every Phase 2B screen's populated state is proved in
+jsdom only, and that is a structural property of the phase rather than any task's shortfall.** Said
+plainly here so the final review does not discover it as news.
+
+**The scope correction that matters, and it cuts the other way from my own finding.** I reported to the
+reviewer that the new screen might be reached by fewer browser proofs than the two beside it. It is
+not: neither parameterised suite has EVER covered `/caring-contacts/patients` either, and Task 6
+achieved exact parity with Task 5 — five browser tests each. The real gap is workspace-wide and one
+screen wider than before, not a regression. **My finding was right about the mechanism and wrong about
+the blast radius**, and the direction of the error is the one worth noticing: I framed a pre-existing
+hole as a new task's shortfall. Checking whether the thing I found was already true would have cost one
+grep.
+
+**Deferred from Task 6, filed rather than dropped:**
+
+1. `EpisodeCounts.contactsScheduled` keys off `planned.suppressed` and overstates a
+   transition-suppressed plan. A real domain bug, found by the implementer. Own change, own blast
+   radius.
+2. Parameterise the accessibility-mode and service-stop suites over `WORKSPACE_SCREENS`, turning the
+   registry into a driver so a future entry carries coverage automatically. Caveat: the service-stop
+   assertion needs seeded content or an explicit stated skip on a short page — not a silent pass.
+3. The first-contact reason is validated and then discarded — no `StoredPlan` field, no
+   `caring_contacts.plans` column, in either store. Needs a field, a column, a migration and both
+   stores. **Owner decision.**
+4. The patient's mobile number is released by `getEpisode` here and deliberately not displayed.
+   **Owner decision**, one line either way.
