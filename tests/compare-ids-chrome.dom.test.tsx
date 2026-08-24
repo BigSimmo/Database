@@ -130,4 +130,15 @@ describe("CompareIdsChrome", () => {
 
     expect(screen.queryByTestId("dictionary-compare-picker")).not.toBeInTheDocument();
   });
+
+  it("lets a completed comparison reopen without remounting", async () => {
+    const user = userEvent.setup();
+    const view = render(<CompareIdsChrome selectedIds={[]} maxCount={2} onCommit={() => {}} {...chromeProps} />);
+
+    view.rerender(<CompareIdsChrome selectedIds={["mse", "mmse"]} maxCount={2} onCommit={() => {}} {...chromeProps} />);
+    expect(screen.queryByTestId("dictionary-compare-picker")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Change selection" }));
+    expect(screen.getByTestId("dictionary-compare-picker")).toBeVisible();
+  });
 });
