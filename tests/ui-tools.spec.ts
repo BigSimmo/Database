@@ -910,13 +910,14 @@ test.describe("Clinical KB tools directory and legacy launcher", () => {
       expect(headingBox).not.toBeNull();
       expect(mainBox).not.toBeNull();
       expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // The home centres its hero+search block in leftover main space on phones
-      // (below overlay chrome), without manufacturing a page scrollbar.
+      // Search sits in the lower half of the centred cluster, so its midpoint
+      // is not the optical centre. Keep a coarse pane bound here; the helper
+      // below pins the whole home cluster to the leftover canvas.
       const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
       const mainTop = mainBox?.y ?? 0;
       const mainHeight = mainBox?.height ?? 844;
-      expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.62);
-      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.28);
+      expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
+      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
       await expectIdlePhoneHomeCentered(page, "shared-home-empty-state");
       const metrics = await globalSearchComposerMetrics(page, "shared-home-empty-state");
       expect(metrics).not.toBeNull();
