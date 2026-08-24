@@ -1148,7 +1148,14 @@ describe("Care Plan synthetic, memory-only boundary", () => {
         (hasVisibleBackground(declared.get("background")) || hasVisibleBackground(declared.get("background-color")));
       if (isChip || inNav) continue;
 
-      const underline = declared.get("text-decoration-resolved") ?? "";
+      // An underline painted in nothing is not an underline. Found by probing
+      // this repair with `text-decoration-color: transparent`, which leaves the
+      // declaration standing and the line invisible; the shorthand can carry
+      // the same colour, so both are checked.
+      const decoration = declared.get("text-decoration-resolved") ?? "";
+      const invisible =
+        paintsNothing(decoration) || paintsNothing(declared.get("text-decoration-color") ?? "");
+      const underline = invisible ? "" : decoration;
       expect(
         underline,
         `${where} sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour`,
