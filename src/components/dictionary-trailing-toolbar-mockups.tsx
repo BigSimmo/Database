@@ -16,9 +16,9 @@ import { cn } from "@/components/ui-primitives";
 /* ------------------------------------------------------------------ *
  * Dictionary → compact trailing toolbar (2026-08-24)
  *
- * Title stays a title. The compact Terms / Abbreviations toggle, Topics,
- * and A–Z sit together in the trailing corner. A–Z stands down during
- * search; the original Filter then occupies the results band.
+ * Title stays a title. The original Filter search-band stays on browse and
+ * search. Compact Terms / Abbreviations and A–Z sit under that band on the
+ * right. Topics live inside Filter.
  * ------------------------------------------------------------------ */
 
 const QUERY = "mental state examination";
