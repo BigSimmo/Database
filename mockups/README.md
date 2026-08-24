@@ -107,6 +107,14 @@ row in place on the page. Shared mockup chrome is suppressed because each frame 
 The tab rail reads Terms · Topics · More rather than Search · Browse · More: this round assumes Search and Browse have
 merged into one destination, with the site-wide composer as the mode’s only search surface.
 
+## Dictionary — title off, search at the top (2026-08-24)
+
+Runnable study at [`/mockups/dictionary-no-title-top-search`](../src/app/mockups/dictionary-no-title-top-search/page.tsx).
+A single design, not a comparison: drop the in-page **Clinical terms** heading on every screen, keep the original
+search bar at the top (under the mode nav, above the Filter band), and step phone Terms / Abbreviations and A–Z up
+from 28px to 36px. Topics stay inside Filter. Shared mockup chrome is suppressed because each frame draws its own
+header and the composer under study.
+
 ## Phone Choose mode sheet YES comps
 
 Runnable study at [`/mockups/phone-mode-sheet-yes`](../src/app/mockups/phone-mode-sheet-yes/page.tsx): design review of the shipping phone mode sheet plus **YES 01 perfected** (sectioned clinical list — shipping recommendation) and YES 02 (icon deck alternate). Shared mockup chrome is suppressed so only the in-frame sheet is judged.

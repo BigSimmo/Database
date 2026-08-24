@@ -24,13 +24,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
-  // Draws its own phone/desktop frames with a top bar, mode nav and composer in
-  // every frame, because the header under study sits directly beneath them.
-  const isDictionaryBrowseHeaderMockup = pathname.startsWith("/mockups/dictionary-browse-header");
-  // Same reason: this study draws its own tab rail, page card and site-wide
-  // composer inside every frame, so shared chrome would read as a second real
-  // header and a second real search bar over the row under review.
-  const isDictionaryControlRowMockup = pathname === "/mockups/dictionary-control-row";
+  // Dictionary studies draw their own top bar, mode nav and composer inside
+  // every device frame, so shared chrome would read as a second real header
+  // and a second real search bar over the layout under review.
+  const isDictionaryMockup = pathname.startsWith("/mockups/dictionary");
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
@@ -139,8 +136,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
         !isCarePlanMockup &&
-        !isDictionaryBrowseHeaderMockup &&
-        !isDictionaryControlRowMockup
+        !isDictionaryMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -165,8 +161,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
         !isCarePlanMockup &&
-        !isDictionaryBrowseHeaderMockup &&
-        !isDictionaryControlRowMockup
+        !isDictionaryMockup
       }
     >
       {children}
