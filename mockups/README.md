@@ -25,6 +25,23 @@ Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header
 - The bottom composer routes live searches to the dashboard with `mode`, `q`, and `run=1`; New chat routes to `/?mode=answer&focus=1`.
 - If a future mockup must be standalone, move it outside the `/mockups` route shell or add an explicit opt-out route group before implementing it.
 
+## Calculators Show all chip (2026-08-24)
+
+Runnable study at [`/mockups/calculators-show-all`](../src/app/mockups/calculators-show-all/page.tsx). Tools already
+proved the placement — hero, then a compact launcher, then search — but the shipping chip is optically left-heavy: a
+14px accent icon, heading-coloured label, equal 12px padding, and an inset shadow. These frames keep that stack for
+Calculators and rebuild the chip.
+
+| Direction                   | Interior                                               | Trade-off                                     |
+| --------------------------- | ------------------------------------------------------ | --------------------------------------------- |
+| 01 Tools transplant         | Shipping Tools classes, calculator glyph               | Documents the defect; not a candidate         |
+| 02 Matched wordmark         | One accent colour, optical trailing padding            | Still a loose glyph, no designed left mass    |
+| 03 Icon-well capsule (rec.) | 32px circular well, soft fill, 48px tap height         | Closest to Tools; well is the designed object |
+| 04 Symmetric pair           | Matching wells left (icon) and right (directory count) | Strongest symmetry; a new grammar vs Tools    |
+
+Shared mockup chrome is suppressed because every phone frame draws its own top bar and composer. Tapping **Show all**
+opens the unfiltered directory in that frame.
+
 ## Production behavior
 
 - Ordinary `/mockups/*` prototype routes return 404 in production. Explicit developer-gated subtrees and the isolated
