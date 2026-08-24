@@ -598,3 +598,28 @@ a real defect (Ruling 87) was applied uniformly to a set whose members differ in
 the rule depends on. The rule was right; its domain was assumed rather than checked. **Before applying
 a rule to a set, ask which members it is actually about** — here the frozen matrix already carried a
 `mutatesState` flag that answers it row by row.
+
+### The browser gate answers Task 3's concern 2 — measured, not reasoned
+
+The implementer could not run `verify:ui` and honestly declined to claim it passed, flagging that its
+change adds a paragraph to every overlay which could in principle touch the 24-overlay matrix test's
+`toBeInViewport({ratio: 1})` at a 900px viewport. The reviewer confirmed the risk was correctly
+identified but understated in size — the refusal string is ~150 characters, roughly 4-5 wrapped lines
+at 390px rather than "one extra short paragraph".
+
+I ran it against Task 3's head rather than leaving it inferred:
+
+```
+32 passed (53.8s)
+EXIT=0
+```
+
+No failures. **Concern 2 is closed by measurement.** Both the implementer's and the reviewer's
+reasoning about the risk were sound; the margin held.
+
+**One thing this result does NOT cover, stated so nobody reads it as broader than it is:** it was
+taken at `9a36d292e`, BEFORE fix round 1. Ruling 90 changes which rows render that paragraph at all,
+and the fix to the confirm sequence changes what renders at commit time. **This green must be re-taken
+after the fix round** — a browser result names the commit it ran against or it means nothing, which is
+the rule this branch learned the expensive way when a concurrent session invented both a phantom
+failure and a phantom pass.
