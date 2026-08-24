@@ -230,7 +230,8 @@ describe("mode secondary navigation registry", () => {
       }),
     ).toBe("/factsheets/search?q=sertraline&category=Medicines&run=1");
 
-    // The browse home's category chips link with a category and no query.
+    // Search still carries a category filter from the results URL even when
+    // there is no query — Topics does not read that param.
     expect(
       modeSecondaryNavigationHref({
         modeId: "factsheets",
@@ -312,12 +313,13 @@ describe("mode secondary navigation registry", () => {
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers/builder")).toBe("builder");
     expect(activeModeSecondaryNavigationId("specifiers", "/specifiers")).toBe("search");
 
-    // Factsheets records cannot reach ModeNav today (hasLocalInformationPageNavigation
-    // returns null for them first), but the registry fallback would mark the
-    // first entry — Topics — current on any unmatched path, so the mode needs
-    // its own branch rather than inheriting that default.
+    // Factsheets records and the `/factsheets` redirect stub cannot reach
+    // ModeNav today (`hasLocalInformationPageNavigation` returns null for
+    // records; the home redirects). The registry fallback would mark the first
+    // entry — Search — current on any unmatched path, so the mode needs its
+    // own branch rather than inheriting that default.
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/sertraline")).toBeNull();
-    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets")).toBe("topics");
+    expect(activeModeSecondaryNavigationId("factsheets", "/factsheets")).toBeNull();
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/topics")).toBe("topics");
     expect(activeModeSecondaryNavigationId("factsheets", "/factsheets/search")).toBe("search");
     expect(activeModeSecondaryNavigationId("therapy-compass", "/therapy-compass/search")).toBe("search");

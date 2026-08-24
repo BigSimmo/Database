@@ -178,10 +178,9 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   if (modeId === "factsheets") {
     if (pathname === "/factsheets/search" || pathname.startsWith("/factsheets/search?")) return "search";
     if (pathname === "/factsheets/topics" || pathname.startsWith("/factsheets/topics?")) return "topics";
-    if (pathname === "/factsheets" || pathname.startsWith("/factsheets?")) return "topics";
-    // `/factsheets/<slug>` is a record. It cannot reach `ModeNav` today —
-    // `hasLocalInformationPageNavigation` returns null for it first — but
-    // without this branch it would inherit the mode's first entry.
+    // `/factsheets` redirects to the shared home and never renders ModeNav.
+    // `/factsheets/<slug>` is a record. Neither path is Search or Topics;
+    // without this explicit null they would inherit the mode's first entry.
     return null;
   }
   if (modeId === "therapy-compass") {

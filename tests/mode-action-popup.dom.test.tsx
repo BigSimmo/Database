@@ -219,4 +219,18 @@ describe("ModeActionPopup state transitions", () => {
       adminItems.filter((item) => item.id !== "documents-admin").map((item) => item.id),
     );
   });
+
+  it("sends factsheets Browse all sheets to the Topics page, not Search", () => {
+    const items = modeActionItemsFor("factsheets");
+    expect(items.map((item) => [item.id, item.label])).toEqual([
+      ["factsheets-search", "Search factsheets"],
+      ["factsheets-browse", "Browse all sheets"],
+    ]);
+
+    const source = readFileSync(
+      path.join(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    expect(source).toMatch(/if \(actionId === "factsheets-browse"\) \{\s*router\.push\("\/factsheets\/topics"\);/);
+  });
 });
