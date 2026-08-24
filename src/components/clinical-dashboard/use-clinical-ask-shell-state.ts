@@ -26,11 +26,6 @@ export function clinicalAskWorkspaceVisible(session: {
   return Boolean(session.mode || session.response || session.submitted);
 }
 
-/** Ask / Dictate composer chrome remains available for every supported Clinical Ask mode. */
-export function clinicalAskComposerChromeEnabled(mode: AppModeId | null): boolean {
-  return mode !== null && isClinicalAskModeId(mode);
-}
-
 export function useClinicalAskShellState(accountId: string | undefined): {
   clinicalAskSession: ClinicalAskSession;
   clinicalAskOnline: boolean;
