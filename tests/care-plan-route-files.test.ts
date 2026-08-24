@@ -764,11 +764,33 @@ describe("Care Plan synthetic, memory-only boundary", () => {
    * silent rebinding hides nothing. The `.appRoot` scoping guard splits the
    * selector list on `,` and both halves still started with `.appRoot`.
    *
-   * So this asserts the affordance itself: the two link classes must each resolve
-   * to a rule that still declares a colour, a weight, and an underline. It fails
-   * closed when a class is renamed or stops matching any rule at all.
+   * So this asserts the affordance itself: a link class must resolve to a rule
+   * that still declares a colour, a weight, and an underline. It fails closed
+   * when a class is renamed or stops matching any rule at all.
+   *
+   * It happened a second time on 2026-08-24, and the guard was structurally
+   * unable to see it. `.specimenLink` shipped declaring only layout — no colour,
+   * no weight, no underline — so the sole control on every System-states card
+   * rendered as plain body text under Tailwind preflight's `a { color: inherit;
+   * text-decoration: inherit }`. The guard read a **hard-coded list of four
+   * class names**, and the two classes that task added were not on it. A guard
+   * that can only see the classes somebody remembered to add is not a guard.
+   *
+   * So the list is now derived from the classes actually applied to `<Link>` and
+   * `<a>` elements in the mockups, and a class added tomorrow is covered without
+   * anyone remembering anything. Two exemptions from the *underline* rule, both
+   * derived rather than listed, because both are real affordance shapes this
+   * stylesheet already uses:
+   *
+   *   - the link is rendered inside a `<nav>`, where the surrounding landmark
+   *     and the `aria-current` treatment carry the affordance; or
+   *   - its own rule paints a filled chip — both a `border` and a `background` —
+   *     so it reads as a control rather than as a word inside a sentence.
+   *
+   * Neither exemption excuses colour and weight, which every link class must
+   * declare: those are exactly what preflight takes away.
    */
-  it("keeps the pinned boundary's jump link, and every inline link, looking like a link", () => {
+  it("keeps every link the mockups render looking like a link", () => {
     const css = readFileSync(resolve(process.cwd(), `${COMPONENT_ROOT}/care-plan.module.css`), "utf8").replace(
       /\/\*[\s\S]*?\*\//g,
       "",
@@ -810,21 +832,77 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       return declared;
     }
 
-    // Task 7 added the two episode links. `timelineLink` shares the rule above,
-    // which is exactly the arrangement that broke once — so it is on the list.
-    for (const className of ["pinnedBoundaryLink", "inlineLink", "timelineLink", "timelineRecordLink"]) {
+    /** The `<nav>` spans of one source, so a link's own position decides whether
+     *  it is navigation rather than a hand-maintained list of nav components. */
+    function navRanges(source: string): [number, number][] {
+      const ranges: [number, number][] = [];
+      let depth = 0;
+      let opened = 0;
+      for (const match of source.matchAll(/<nav[\s>]|<\/nav>/g)) {
+        const at = match.index ?? 0;
+        if (match[0] === "</nav>") {
+          depth = Math.max(0, depth - 1);
+          if (depth === 0) ranges.push([opened, at]);
+          continue;
+        }
+        if (depth === 0) opened = at;
+        depth += 1;
+      }
+      return ranges;
+    }
+
+    const linkClasses = new Map<string, { files: Set<string>; everOutsideNav: boolean }>();
+    for (const { path, source } of readNamespaceSources()) {
+      if (!/\.tsx$/.test(path)) continue;
+      const ranges = navRanges(source);
+      for (const match of source.matchAll(/<(?:Link|a)\s(?:[^>]|=>)*?className=\{styles\.([A-Za-z][\w$]*)\}/g)) {
+        const at = match.index ?? 0;
+        const inNav = ranges.some(([from, to]) => at > from && at < to);
+        const entry = linkClasses.get(match[1]) ?? { files: new Set<string>(), everOutsideNav: false };
+        entry.files.add(path);
+        entry.everOutsideNav = entry.everOutsideNav || !inNav;
+        linkClasses.set(match[1], entry);
+      }
+    }
+
+    // A derived list that derives nothing is the failure this guard exists for.
+    // Ten classes were applied to a link when this was written; if the scan ever
+    // finds fewer, the regex has stopped matching and every assertion below is
+    // vacuous.
+    expect(
+      linkClasses.size,
+      "no <Link>/<a> className={styles.…} was found at all — the scan has stopped seeing links",
+    ).toBeGreaterThanOrEqual(10);
+    for (const inherited of ["inlineLink", "pinnedBoundaryLink", "specimenLink", "queueAction"]) {
+      expect(
+        [...linkClasses.keys()],
+        `.${inherited} is applied to a link in the mockups but the scan did not derive it`,
+      ).toContain(inherited);
+    }
+
+    for (const [className, { files, everOutsideNav }] of [...linkClasses].sort()) {
+      const where = [...files].sort().join(", ");
       const declared = declaredPropertiesFor(className);
-      expect(declared.size, `.${className} matched no rule at all — has it been renamed or rebound?`).toBeGreaterThan(
-        0,
-      );
-      expect(declared.has("color"), `.${className} declares no colour, so it does not read as a link`).toBe(true);
-      expect(declared.has("font-weight"), `.${className} declares no font weight, so it does not read as a link`).toBe(
-        true,
-      );
+      expect(
+        declared.size,
+        `.${className} (used by ${where}) matched no rule at all — has it been renamed or rebound?`,
+      ).toBeGreaterThan(0);
+      expect(declared.has("color"), `.${className} (used by ${where}) declares no colour, so it renders as body text`)
+        .toBe(true);
+      expect(
+        declared.has("font-weight"),
+        `.${className} (used by ${where}) declares no font weight, so it renders at body weight`,
+      ).toBe(true);
+
+      // A filled chip carries its own edges. Navigation carries the landmark.
+      const isChip = declared.has("border") && (declared.has("background") || declared.has("background-color"));
+      if (isChip || !everOutsideNav) continue;
+
       const underline = declared.get("text-decoration") ?? declared.get("text-decoration-line") ?? "";
-      expect(underline, `.${className} is not underlined, so it carries no affordance beyond colour`).toContain(
-        "underline",
-      );
+      expect(
+        underline,
+        `.${className} (used by ${where}) sits in running content, paints no chip, and is not underlined, so it carries no affordance beyond colour`,
+      ).toContain("underline");
     }
   });
 
