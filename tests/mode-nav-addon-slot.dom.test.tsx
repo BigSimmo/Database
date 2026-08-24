@@ -75,6 +75,8 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/formulation/builder")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/search")).toBe(false);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/compare")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/factsheets/search")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/factsheets/topics")).toBe(false);
   });
 
   it("is covered, route for route, by the locally-owned early return", () => {
