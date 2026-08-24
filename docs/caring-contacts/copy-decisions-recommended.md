@@ -23,8 +23,9 @@
 > `message-copy` module remains the single place they live.
 
 
-**Written 2026-08-24. Nothing here has been implemented.** Patient-visible wording stays frozen until
-the owner answers, per the standing constraint in `phase-2a-handoff.md`.
+**Written 2026-08-24, approved the same day, and NOT YET IMPLEMENTED.** The freeze that used to sit
+here is lifted — see the banner above. Approval and implementation are different things, and the
+status table at the foot of this file is the one that says which items are built.
 
 ## Why this file exists
 
