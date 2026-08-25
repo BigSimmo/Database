@@ -137,9 +137,15 @@ export type PlanWizardPathwayOption = {
    * Plain words qualifying where those approvals came from, or null when the record claims nothing.
    *
    * Non-null ONLY for a version whose own snapshot carries a provenance (Ruling [126]); the page
-   * resolves it through `PATHWAY_VERSION_PROVENANCE_WORDING`, exactly as it resolves `approvedBy`,
-   * so neither the wording nor the domain module enters this client chunk. A screen must never
-   * infer this -- "Approved by ..." is a claim about provenance, and only the record knows.
+   * resolves it through `pathwayVersionProvenanceWording`, exactly as it resolves `approvedBy`, so
+   * neither the wording nor the domain module enters this client chunk. A screen must never infer
+   * this -- "Approved by ..." is a claim about provenance, and only the record knows.
+   *
+   * It is a resolver rather than a map lookup because the lookup failed in the unsafe direction: a
+   * provenance this build does not recognise -- reachable through the Postgres reader's unchecked
+   * cast -- yielded `undefined`, and `=== null` below is then false, so the qualifier rendered
+   * empty beside an approval left standing. The resolver returns `null` or a string, never
+   * `undefined`, which is what makes the test below safe to write.
    */
   provenanceNote: string | null;
   /** AWST instant this version was published, or null. */

@@ -150,10 +150,27 @@ type DemoPersonSeed = {
 /**
  * The population.
  *
- * Every name is obviously invented, following the surname convention the fixtures in this tree
- * already use ("Rowan Sample", "Mira Example"): the surname is what makes it unmistakable, so no
- * seeded patient can be mistaken for a findable person. The given names below are new; only the
- * convention is borrowed.
+ * NO NAME HERE IS NEW, AND THAT IS THE POINT. Every seeded patient name already existed in this
+ * repository's synthetic material, checked at the merge base rather than assumed:
+ *
+ *   * "Mira Example" appears verbatim in the mockup fixtures (`caring-contacts/mockups/fixtures.ts`
+ *     and `care-plan/mockups/fixtures.ts`);
+ *   * "Rowan Example" appears verbatim in this workspace's own test fixtures
+ *     (`caring-contacts-plan-draft.dom.test.tsx`, `caring-contacts-plan-activation.test.ts`);
+ *   * "Ari Sample" is the one new PAIRING, and both halves are borrowed: "Ari" from
+ *     "Ari Placeholder" in the care-plan mockup fixtures, "Sample" from "Rowan Sample".
+ *
+ * The surnames are what make these unmistakably not a real person's name, and this tree uses
+ * exactly two of them -- Sample and Example. Nothing was drawn from outside that vocabulary, so no
+ * seeded patient can be mistaken for a findable person.
+ *
+ * Round 1 wrote "the given names below are new", round 2 repeated it, and it was false both times:
+ * "Rowan" and "Mira" are the given names of the very fixtures cited as the precedent. A sentence
+ * that is wrong about where these names came from undermines the one assurance it exists to give,
+ * which is why it is spelled out per name rather than summarised.
+ *
+ * `wren` and `nima` below are IDENTIFIERS, never names. Those two referrals carry no plan, so no
+ * patient detail and no name is stored for either.
  *
  * Every mobile number is one of the reserved fictional numbers that stand for a patient's own
  * mobile (`DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS`, derived from `FICTIONAL_CONTACTS_BY_ROLE`
