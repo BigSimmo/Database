@@ -2,7 +2,15 @@
 
 import { X, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import {
+  cn,
+  ignoreUnavailableActivation,
+  toneDanger,
+  toneInfo,
+  toneNeutral,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 
 export type ChipSize = "compact" | "standard";
 export type ChipStatusTone = "neutral" | "info" | "success" | "warning" | "danger";
@@ -130,8 +138,12 @@ export function ChoiceChip({
       data-testid={testId}
       data-choice-chip="true"
       data-size={size}
-      onClick={() => {
-        if (!unavailable) onPressedChange(!pressed);
+      onClick={(event) => {
+        if (unavailable) {
+          if (ariaUnavailable) ignoreUnavailableActivation(event);
+          return;
+        }
+        onPressedChange(!pressed);
       }}
       className={cn(
         "group relative isolate inline-flex min-h-tap max-w-full items-center justify-center gap-1.5 rounded-lg font-semibold leading-none transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
