@@ -46,6 +46,8 @@
     "typecheck:internal": "node ./node_modules/typescript/bin/tsc -p tsconfig.typecheck.json --noEmit",
     "typecheck:source": "node scripts/run-heavy.mjs --npm-script typecheck:source:internal",
     "typecheck:source:internal": "node ./node_modules/typescript/bin/tsc -p tsconfig.typecheck.json --noEmit",
+    "typecheck:ci": "node scripts/run-heavy.mjs --npm-script typecheck:ci:internal",
+    "typecheck:ci:internal": "node ./node_modules/typescript/bin/tsc -p tsconfig.typecheck.json --noEmit --incremental false",
     "test": "node scripts/run-vitest.mjs run --reporter=dot",
     "caring-contacts:db:test": "node caring-contacts/run-db-tests.mjs",
     "test:focused": "node scripts/test-focused.mjs",

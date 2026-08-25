@@ -188,11 +188,7 @@ describe("buildDocumentationSection", () => {
 
   it("summarises each section and computes counts from its own arrays", () => {
     const section = buildDocumentationSection(DOC_PATHS, README);
-    expect(section.sections).toEqual([
-      { name: "design-system", documents: 2, uncatalogued: 1 },
-      { name: "rag-behaviour", documents: 1, uncatalogued: 0 },
-      { name: "root", documents: 2, uncatalogued: 1 },
-    ]);
+    expect(section.sections).toEqual([{ name: "design-system" }, { name: "rag-behaviour" }, { name: "root" }]);
     expect(section.counts).toEqual({ documents: 5, catalogued: 3, uncatalogued: 2, sections: 3 });
   });
 

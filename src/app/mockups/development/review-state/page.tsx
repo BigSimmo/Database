@@ -5,8 +5,8 @@ import {
   CountTile,
   META_CLASS,
   MONO_CLASS,
+  PanelSection,
   ROW_CLASS,
-  SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
@@ -57,10 +57,7 @@ export default function DeveloperReviewStatePage() {
         there is no pull request.
       </p>
 
-      <section aria-labelledby="developer-review-state-heading" className="grid gap-3">
-        <h2 id="developer-review-state-heading" className={SECTION_HEADING_CLASS}>
-          Records · {counts.records}
-        </h2>
+      <PanelSection headingId="developer-review-state-heading" heading={`Records · ${counts.records}`}>
         <p className={META_CLASS}>
           Newest first. Each record is immutable; a later review of the same recorded ref adds a row rather than
           replacing one. Showing all {counts.records} — nothing here is capped, paginated, or filtered, so a count and
@@ -109,7 +106,7 @@ export default function DeveloperReviewStatePage() {
             ))}
           </ol>
         )}
-      </section>
+      </PanelSection>
     </PanelPageShell>
   );
 }
