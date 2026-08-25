@@ -32,6 +32,12 @@ tell whether your situation is the one it is about.
   inert.
 - **Commit each piece before you mutate the file it lives in.** `git checkout --` also discards any
   uncommitted fix in that file.
+- **Never `git add -A`, `git add .` or `git commit -a` while a mutation is applied.** This has now
+  captured a live mutation into a commit **three times** in this programme — twice by the controller
+  sweeping an implementer's uncommitted work, once by an implementer committing its own mutation. The
+  worst instance disabled the demo's only entry point by leaving a referral in `awaitingHandover`;
+  the full suite caught it. **Stage explicit paths, always.** The two rules are converses and you need
+  both: commit before mutating, and never stage by wildcard while mutated.
 
 ## Proving a mutation is present
 
