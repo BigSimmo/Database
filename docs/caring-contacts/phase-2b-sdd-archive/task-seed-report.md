@@ -415,10 +415,11 @@ reported from an exit code**; each line is the run's own summary.
   `tests/caring-contacts-empty-state.dom.test.tsx`, which is untouched by this branch. The reviewer
   has established these were a stale eslint cache masking a real error, already fixed on another
   branch; nothing here to do. **No error in any file this task adds or changes.**
-- `npm run test:cc-guards` — the task gate, final run of round 2:
-  `Test Files  19 passed (19)` / `Tests  411 passed (411)`. Nineteen rather than eighteen because
-  `tests/caring-contacts-demo-seed.test.ts` is now in it: the gate had not been carrying the task's
-  own suite. It also covers both screen suites this work changed (`-plan-wizard.dom`,
+- `npm run test:cc-guards` — the task gate, re-run **after the last edit of round 3**:
+  `Test Files  20 passed (20)` / `Tests  421 passed (421)`. Twenty rather than the original eighteen
+  because the gate had not been carrying either of this task's own suites: the seed suite joined in
+  round 2 and `caring-contacts-pathway-versions` — which holds the fallback's direct proof, including
+  `"constructor"`, `"toString"` and `"__proto__"` — in round 3. It also covers both screen suites this work changed (`-plan-wizard.dom`,
   `-new-plan-page.dom`) and the vocabulary, workspace-screens and route-reachability scans a diff
   cannot contain.
 - `tests/caring-contacts-demo-seed.test.ts`, run alone after the round-1 restore before it joined the
