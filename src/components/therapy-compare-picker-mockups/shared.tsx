@@ -143,6 +143,96 @@ export const THERAPIES: TherapyFixture[] = [
     complexity: "Can be delivered by trained non-specialists",
     caution: "Source review required — open the record.",
   },
+  {
+    slug: "mindfulness-based-cognitive-therapy-mbct",
+    name: "Mindfulness-Based Cognitive Therapy (MBCT)",
+    short: "MBCT",
+    category: "Standard Talking Therapies",
+    fit: "Recurrent depression in remission; relapse prevention.",
+    time: "8 weekly sessions · group",
+    complexity: "Trained therapist",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "schema-therapy",
+    name: "Schema Therapy",
+    short: "Schema",
+    category: "Personality Disorder Therapies",
+    fit: "Longstanding relational patterns unresponsive to shorter work.",
+    time: "12–24 months",
+    complexity: "Accredited training and supervision",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "solution-focused-brief-therapy",
+    name: "Solution-focused brief therapy",
+    short: "SFBT",
+    category: "Community & Casework Support",
+    fit: "Goal-directed work where the presenting problem is circumscribed.",
+    time: "3–6 sessions",
+    complexity: "Can be delivered by trained non-specialists",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "family-intervention-for-psychosis",
+    name: "Family Intervention for Psychosis",
+    short: "FIp",
+    category: "Psychosis & Rehabilitation Therapies",
+    fit: "Relapse prevention where family contact is high.",
+    time: "10+ sessions over 3 months",
+    complexity: "Full team and supervision",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "social-skills-training-sst",
+    name: "Social Skills Training (SST)",
+    short: "SST",
+    category: "Psychosis & Rehabilitation Therapies",
+    fit: "Functional deficits in role and social performance.",
+    time: "Programme · weekly group",
+    complexity: "Trained facilitator",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "cognitive-remediation-therapy-crt",
+    name: "Cognitive Remediation Therapy (CRT)",
+    short: "CRT",
+    category: "Psychosis & Rehabilitation Therapies",
+    fit: "Cognitive impairment limiting rehabilitation or return to work.",
+    time: "20–40 sessions",
+    complexity: "Trained facilitator",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "contingency-management-cm",
+    name: "Contingency Management (CM)",
+    short: "CM",
+    category: "Substance Use Therapies",
+    fit: "Stimulant and opioid use where abstinence can be verified.",
+    time: "Programme · 12+ weeks",
+    complexity: "Service-level protocol required",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "brief-supportive-psychotherapy",
+    name: "Brief supportive psychotherapy",
+    short: "BSP",
+    category: "Foundational & Engagement Therapies",
+    fit: "Engagement and stabilisation where structured work is premature.",
+    time: "Flexible · 20–50 min",
+    complexity: "Any trained clinician",
+    caution: "Source review required — open the record.",
+  },
+  {
+    slug: "problem-management-plus-pm",
+    name: "Problem Management Plus / PM+",
+    short: "PM+",
+    category: "Self-Help & Digital Therapies",
+    fit: "Common mental disorders in low-resource or stepped-care settings.",
+    time: "5 sessions · 90 min",
+    complexity: "Can be delivered by trained non-specialists",
+    caution: "Source review required — open the record.",
+  },
 ];
 
 export const CATEGORY_FILTERS = [
@@ -466,11 +556,17 @@ export const directions = [
     name: "Carry a compare tray",
     tagline: "Selection lives in a bottom tray you fill from anywhere, never in the page.",
   },
+  {
+    slug: "therapy-compare-perfected",
+    letter: "C+",
+    name: "The tray, perfected",
+    tagline: "C with its three real costs removed. The one to judge.",
+  },
 ];
 
 function DirectionSwitcher({ current }: { current: string }) {
   return (
-    <nav aria-label="Comparison picker directions" className="mt-6 grid gap-2 sm:grid-cols-3">
+    <nav aria-label="Comparison picker directions" className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
       {directions.map((direction) => {
         const active = direction.slug === current;
         return (
