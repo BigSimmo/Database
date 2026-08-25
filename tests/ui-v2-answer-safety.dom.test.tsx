@@ -153,6 +153,35 @@ describe("VerificationNotice", () => {
     expect(full.className).toContain("print:block");
   });
 
+  it("holds the compact instruction at every width in inline presentation, and still prints the full wording", () => {
+    render(<VerificationNotice state="source_only" attribution="extractive" presentation="inline" />);
+
+    const compact = screen.getByTestId("verification-notice-compact");
+    const full = screen.getByTestId("verification-notice-full");
+    expect(compact).toHaveTextContent(
+      "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
+    );
+    // No `sm:hidden`: unlike responsive-compact, the quiet line is what a desktop
+    // reader gets too. Print is the one medium that still receives the full block.
+    expect(compact.className).not.toContain("sm:hidden");
+    expect(compact.className).toContain("print:hidden");
+    expect(full.className).toContain("hidden");
+    expect(full.className).toContain("print:block");
+    expect(full).toHaveTextContent(/without model synthesis/i);
+  });
+
+  it("keeps the warning mark on a caution state even when the notice is quietened", () => {
+    const { container, unmount } = render(<VerificationNotice state="ungrounded" presentation="inline" />);
+    // A caution must stay distinguishable from a routine notice. Quieting the
+    // presentation may not flatten the two into the same grey line.
+    expect(container.querySelector("svg")).toBeInTheDocument();
+    expect(screen.getByTestId("verification-notice").className).toContain("--warning");
+    unmount();
+
+    render(<VerificationNotice state="ready" presentation="inline" />);
+    expect(screen.getByTestId("verification-notice").className).not.toContain("--warning");
+  });
+
   it("preserves attribution and every state-specific instruction in responsive compact wording", () => {
     const cases = [
       ["ready", "model", /AI-generated.*Verify every clinical claim against the cited sources before acting/i],

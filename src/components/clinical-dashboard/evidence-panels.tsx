@@ -188,6 +188,7 @@ export function AnswerSupportSummaryCard({
   onOpenSafetyFindings,
   pendingFeedback = null,
   onSubmitFeedback,
+  density = "comfortable",
 }: {
   priority: AnswerSupportPriority | null;
   /** Answer-level evidence gaps (`renderModel.warnings`); they belong to no single source. */
@@ -197,13 +198,45 @@ export function AnswerSupportSummaryCard({
   onOpenSafetyFindings?: () => void;
   pendingFeedback?: AnswerFeedbackType | null;
   onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
+  /**
+   * `"compact"` is the chat-framed answer's density. Safety keeps its full row —
+   * it is the one thing here that must not be tucked into a chip — while the
+   * evidence-gaps and report rows collapse from two 56px two-line rows into one
+   * line of small buttons. Same controls, same ids, same routes; roughly 90px of
+   * phone scroll returned under a four-line answer.
+   */
+  density?: "comfortable" | "compact";
 }) {
   const [gapsOpen, setGapsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const compact = density === "compact";
   const supportRowCount = Number(warnings.length > 0) + Number(Boolean(onSubmitFeedback));
   const supportButtonClass =
     "grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+  // min-h-12 (48px), not min-h-11: 44px reintroduced a known sub-pixel rounding
+  // flake in `ui-smoke`. See AGENTS.md "External skill precedence".
+  const compactChipClass =
+    "inline-flex min-h-12 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
   const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
+  const gapsDetail =
+    warnings.length > 0 && gapsOpen ? (
+      <div id="answer-evidence-gaps-detail" className={cn("grid gap-2 pb-3", compact ? "px-2" : "px-3")}>
+        {warnings.map((warning, index) => (
+          <p
+            key={`${warning}:${index}`}
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            {warning}
+          </p>
+        ))}
+      </div>
+    ) : null;
+  const feedbackDetail =
+    onSubmitFeedback && feedbackOpen ? (
+      <div id="answer-feedback-detail" className={compact ? "px-2 pb-3" : "px-3 pb-3"}>
+        <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
+      </div>
+    ) : null;
 
   return (
     <section
@@ -273,81 +306,123 @@ export function AnswerSupportSummaryCard({
       ) : null}
 
       {supportRowCount > 0 ? (
-        <div className="grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
-          {warnings.length > 0 ? (
-            <div>
-              <button
-                id="answer-evidence-gaps-trigger"
-                data-testid="answer-evidence-gaps-trigger"
-                type="button"
-                onClick={() => setGapsOpen((current) => !current)}
-                className={cn(supportButtonClass, "w-full")}
-                aria-expanded={gapsOpen}
-                aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
-              >
-                <CircleAlert aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--warning)]" />
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence gaps</span>
-                  <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                    {warnings.length} note{warnings.length === 1 ? "" : "s"} about this answer
+        compact ? (
+          // One line of small buttons instead of two stacked 56px rows. The
+          // detail each one opens is unchanged and still carries the same id, so
+          // `aria-controls`, the feedback route and the gap wording all survive
+          // the density change.
+          <div className="border-t border-[color:var(--border)]">
+            <div className="flex flex-wrap items-center gap-1 px-2">
+              {warnings.length > 0 ? (
+                <button
+                  id="answer-evidence-gaps-trigger"
+                  data-testid="answer-evidence-gaps-trigger"
+                  type="button"
+                  onClick={() => setGapsOpen((current) => !current)}
+                  className={compactChipClass}
+                  aria-expanded={gapsOpen}
+                  aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
+                >
+                  <CircleAlert aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--warning)]" />
+                  Evidence gaps
+                  <span className="nums rounded-full bg-[color:var(--warning-soft)] px-1.5 text-2xs text-[color:var(--text-heading)]">
+                    {warnings.length}
                   </span>
-                </span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cn(
-                    "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
-                    gapsOpen ? "rotate-0" : "-rotate-90",
-                  )}
-                />
-              </button>
-              {gapsOpen ? (
-                <div id="answer-evidence-gaps-detail" className="grid gap-2 px-3 pb-3">
-                  {warnings.map((warning, index) => (
-                    <p
-                      key={`${warning}:${index}`}
-                      className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
-                    >
-                      {warning}
-                    </p>
-                  ))}
-                </div>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn("size-icon-sm transition-transform", gapsOpen ? "rotate-0" : "-rotate-90")}
+                  />
+                </button>
+              ) : null}
+              {onSubmitFeedback ? (
+                <button
+                  id="answer-feedback-trigger"
+                  data-testid="answer-feedback-trigger"
+                  type="button"
+                  onClick={() => setFeedbackOpen((current) => !current)}
+                  className={compactChipClass}
+                  aria-expanded={feedbackOpen}
+                  aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
+                >
+                  <MessageSquareWarning aria-hidden="true" className="size-icon-sm shrink-0" />
+                  Report a problem
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn("size-icon-sm transition-transform", feedbackOpen ? "rotate-0" : "-rotate-90")}
+                  />
+                </button>
               ) : null}
             </div>
-          ) : null}
-          {onSubmitFeedback ? (
-            <div>
-              <button
-                id="answer-feedback-trigger"
-                data-testid="answer-feedback-trigger"
-                type="button"
-                onClick={() => setFeedbackOpen((current) => !current)}
-                className={cn(supportButtonClass, "w-full")}
-                aria-expanded={feedbackOpen}
-                aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
-              >
-                <MessageSquareWarning aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Report a problem</span>
-                  <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                    Record whether the evidence supports this answer
+            {gapsDetail}
+            {feedbackDetail}
+          </div>
+        ) : (
+          <div className="grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
+            {warnings.length > 0 ? (
+              <div>
+                <button
+                  id="answer-evidence-gaps-trigger"
+                  data-testid="answer-evidence-gaps-trigger"
+                  type="button"
+                  onClick={() => setGapsOpen((current) => !current)}
+                  className={cn(supportButtonClass, "w-full")}
+                  aria-expanded={gapsOpen}
+                  aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
+                >
+                  <CircleAlert aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--warning)]" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence gaps</span>
+                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                      {warnings.length} note{warnings.length === 1 ? "" : "s"} about this answer
+                    </span>
                   </span>
-                </span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cn(
-                    "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
-                    feedbackOpen ? "rotate-0" : "-rotate-90",
-                  )}
-                />
-              </button>
-              {feedbackOpen ? (
-                <div id="answer-feedback-detail" className="px-3 pb-3">
-                  <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                      gapsOpen ? "rotate-0" : "-rotate-90",
+                    )}
+                  />
+                </button>
+                {gapsDetail}
+              </div>
+            ) : null}
+            {onSubmitFeedback ? (
+              <div>
+                <button
+                  id="answer-feedback-trigger"
+                  data-testid="answer-feedback-trigger"
+                  type="button"
+                  onClick={() => setFeedbackOpen((current) => !current)}
+                  className={cn(supportButtonClass, "w-full")}
+                  aria-expanded={feedbackOpen}
+                  aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
+                >
+                  <MessageSquareWarning
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[color:var(--text-heading)]">
+                      Report a problem
+                    </span>
+                    <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                      Record whether the evidence supports this answer
+                    </span>
+                  </span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={cn(
+                      "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                      feedbackOpen ? "rotate-0" : "-rotate-90",
+                    )}
+                  />
+                </button>
+                {feedbackDetail}
+              </div>
+            ) : null}
+          </div>
+        )
       ) : null}
     </section>
   );
