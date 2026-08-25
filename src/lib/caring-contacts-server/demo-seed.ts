@@ -39,11 +39,14 @@
 // decides whether a demo actor can be resolved at all; where it is false, the store is returned
 // empty. That keeps this module inside the repository's standing rule that demo content is a
 // development convenience and production fails loudly rather than falling back to synthetic data.
+// The isolated Playwright server is the one place that predicate is true inside a production
+// build, and it is excluded by default -- see `demoSeedRequested` for why, and for the switch a
+// browser journey turns it on with.
 import "server-only";
 
 import type { Clock } from "@/lib/caring-contacts/clock";
 import { idempotencyKey, patientId, pathwayVersionId, planId, referralId } from "@/lib/caring-contacts/ids";
-import type { PatientId, PathwayVersionId, PlanId, ReferralId } from "@/lib/caring-contacts/ids";
+import type { PathwayVersionId, PlanId, ReferralId } from "@/lib/caring-contacts/ids";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
 import type { MessageType, SendingPreference, TransitionResult } from "@/lib/caring-contacts/model";
@@ -244,6 +247,37 @@ export type DemoSeedOutcome = {
 };
 
 /**
+ * The environment variable a browser journey turns the population on with. Values other than `on`
+ * -- including absent -- leave the isolated Playwright server empty.
+ */
+export const CARING_CONTACTS_DEMO_SEED_VAR = "CARING_CONTACTS_DEMO_SEED";
+
+/**
+ * Whether this process should hold the demo population.
+ *
+ * Two gates, and the second is the one that is easy to get wrong.
+ *
+ * The FIRST is `isCaringContactsDemoEnabled()` -- the same predicate that decides whether a demo
+ * actor can be resolved at all. A production process cannot resolve an actor, so a population
+ * there would be unreachable synthetic content sitting in a production process for no one: exactly
+ * what the standing rule against production demo fallback exists to prevent.
+ *
+ * The SECOND excludes the isolated Playwright server, which is the ONE place the first predicate is
+ * true inside a production build. That server exists to observe the app's honest state end to end,
+ * and `tests/ui-caring-contacts-workspace.spec.ts` pins part of that honesty: an empty caseload is
+ * served as a PAGE rather than as a missing resource, with the empty state saying in words which of
+ * the three facts it is. Seeding that server by default would delete that observation -- the
+ * "No patients yet" group would never render again -- and would trade a proven contract for an
+ * unproven one. So it starts empty unless a journey asks, and the report for this task states
+ * exactly what a wizard journey has to do.
+ */
+function demoSeedRequested(runtime: Record<string, string | undefined> = process.env): boolean {
+  if (!isCaringContactsDemoEnabled()) return false;
+  if (runtime.PLAYWRIGHT_OFFLINE_MODE === "true") return runtime[CARING_CONTACTS_DEMO_SEED_VAR] === "on";
+  return true;
+}
+
+/**
  * Builds the in-memory reference store and populates it.
  *
  * The store is constructed HERE, which is the whole of why the seed cannot reach a database: there
@@ -252,9 +286,7 @@ export type DemoSeedOutcome = {
 export async function createDemoWorkspaceStore(clock: Clock): Promise<CaringContactRepository> {
   const store = createInMemoryRepository(clock);
   storesBuiltHere.add(store);
-  // Production gets the store exactly as the rest of this seam builds it: empty. Synthetic content
-  // is a development convenience here and never a production fallback.
-  if (!isCaringContactsDemoEnabled()) return store;
+  if (!demoSeedRequested()) return store;
   await applyDemoSeed(store, clock);
   return store;
 }
@@ -337,7 +369,7 @@ export async function applyDemoSeed(store: CaringContactRepository, clock: Clock
     taken(
       `createReferral:${person.key}`,
       await store.createReferral(
-        { referralId: referral, patientId: patientId(person.patientIdentifier) as PatientId },
+        { referralId: referral, patientId: patientId(person.patientIdentifier) },
         writeAs(coordinator, `referral-create-${person.key}`),
       ),
     );

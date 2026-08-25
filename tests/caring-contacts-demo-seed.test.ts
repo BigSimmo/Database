@@ -51,6 +51,7 @@ import { CARING_CONTACTS_PROHIBITED_LANGUAGE } from "./helpers/caring-contacts-p
 
 import {
   applyDemoSeed,
+  CARING_CONTACTS_DEMO_SEED_VAR,
   createDemoWorkspaceStore,
   DEMO_SEED_PATHWAY_VERSION_ID,
   DEMO_SEED_UNSTARTED_REFERRAL_ID,
@@ -103,6 +104,39 @@ describe("the demo seed cannot run against a database", () => {
     expect(mocks.createDemoWorkspaceStore).toHaveBeenCalledTimes(1);
     expect(mocks.createPostgresRepository).not.toHaveBeenCalled();
     expect(await first.listPlans({ actor: coordinator })).toHaveLength(3);
+  });
+
+  it("leaves the store empty in production, where no demo actor can be resolved anyway", async () => {
+    vi.stubEnv("CARING_CONTACTS_DATABASE_URL", "");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "false");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
+
+    const store = await caringContactsStore();
+
+    expect(await store.listPlans({ actor: coordinator })).toHaveLength(0);
+    expect(await store.listReferrals({ actor: coordinator })).toHaveLength(0);
+    expect(await store.listPathwayVersions({ actor: coordinator })).toHaveLength(0);
+  });
+
+  // The isolated Playwright server is the one place the demo predicate is true inside a production
+  // build. `tests/ui-caring-contacts-workspace.spec.ts` observes the empty-caseload contract there
+  // -- an empty list served as a page, saying in words which of the three facts it is -- so the
+  // population must not appear by default and delete that observation.
+  it("leaves the isolated Playwright server empty unless a journey asks for the population", async () => {
+    vi.stubEnv("CARING_CONTACTS_DATABASE_URL", "");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "true");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
+
+    const unasked = await caringContactsStore();
+    expect(await unasked.listPlans({ actor: coordinator })).toHaveLength(0);
+
+    clearCachedStore();
+    vi.stubEnv(CARING_CONTACTS_DEMO_SEED_VAR, "on");
+
+    const asked = await caringContactsStore();
+    expect(await asked.listPlans({ actor: coordinator })).toHaveLength(3);
   });
 
   it("refuses a store it did not build, so a Postgres repository has no way in", async () => {
@@ -173,12 +207,12 @@ describe("the seeded population", () => {
 
     const referrals = await store.listReferrals({ actor: coordinator });
     const plans = await store.listPlans({ actor: coordinator });
-    const patientsWithPlans = new Set(plans.map((record) => record.patientId));
+    const patientsWithPlans = new Set(plans.map((record) => String(record.patientId)));
 
     const unstarted = referrals.find((referral) => referral.id === DEMO_SEED_UNSTARTED_REFERRAL_ID);
     expect(unstarted?.state).toBe("accepted");
     expect(unstarted?.pathwayVersionId).toBe(DEMO_SEED_PATHWAY_VERSION_ID);
-    expect(patientsWithPlans.has(unstarted?.patientId ?? "")).toBe(false);
+    expect(patientsWithPlans.has(String(unstarted?.patientId))).toBe(false);
 
     expect(referrals.filter((referral) => referral.state === "awaitingHandover")).toHaveLength(1);
   });
