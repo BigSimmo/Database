@@ -572,6 +572,10 @@ describe("caring-contacts API boundary", () => {
         dischargeAt: "2026-03-02T02:00:00.000Z",
         sendingPreference: "morning",
         patientDetail: PATIENT_DETAIL,
+        // Present so the SCHEMA accepts the body and the refusal under test is the duplicate-plan
+        // one the record state produces. Without it this posts an invalid request and asserts a
+        // privacy property about a 400 the route never reached the store to produce.
+        assurances: PLAN_ASSURANCE_VALUES,
         idempotencyKey: "create-duplicate",
       }),
     );
