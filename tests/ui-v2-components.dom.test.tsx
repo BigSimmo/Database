@@ -232,6 +232,8 @@ describe("ChoiceChip", () => {
       "inset-1",
       "border",
       "shadow-[var(--shadow-inset)]",
+      "group-hover:border-[color:var(--border-strong)]",
+      "group-hover:bg-[color:var(--surface-subtle)]",
     );
     await userEvent.click(chip);
     expect(onPressedChange).toHaveBeenCalledWith(true);
