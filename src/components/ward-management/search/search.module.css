@@ -106,6 +106,11 @@
 
 .field {
   display: grid;
+  /* Grid items refuse to shrink below their content width by default, and a `<select>` is as wide
+     as its widest option. Without `min-width: 0` here and `width: 100%` below, the Department
+     select rendered wider than its own card on a 390px phone and spilled past the card's right
+     edge — visible in a screenshot, invisible to every structural check. */
+  min-width: 0;
   gap: var(--ps-space-4);
   color: var(--text-heading);
   font-size: var(--text-3xs);
@@ -114,6 +119,8 @@
 
 .field input,
 .field select {
+  width: 100%;
+  min-width: 0;
   min-height: var(--ps-space-48);
   border: 0.0625rem solid var(--border);
   border-radius: var(--radius-md);
@@ -186,4 +193,21 @@
 .resultLink:hover,
 .resultLink:focus-visible {
   text-decoration: underline;
+}
+
+/*
+ * Wide content scrolls; it never crushes. Without this the table is `width: 100%` on a 390px
+ * phone, so the browser squeezes every column until words break mid-syllable — measured on a
+ * production build: "Place/ment reque/sted", "Desti/natio/n revie/w" — and the right-hand column
+ * still runs off the screen. A `min-width` plus a scrolling wrapper keeps each column readable and
+ * lets the reader pan, which is the standard treatment for a wide table on a narrow screen.
+ *
+ * Found by looking at a screenshot. Every structural check passed on this table.
+ */
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  min-width: 44rem;
 }
