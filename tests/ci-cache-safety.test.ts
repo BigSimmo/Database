@@ -129,10 +129,10 @@ describe("CI cache safety", () => {
     expect(caringContactsJob).toContain("needs.changes.outputs.db_changed == 'true'");
     expect(caringContactsJob).toContain("needs.changes.outputs.static_heavy_changed == 'true'");
     expect(caringContactsJob).toContain("services:\n      postgres:");
+    expect(caringContactsJob).toContain("POSTGRES_HOST_AUTH_METHOD: trust");
+    expect(caringContactsJob).not.toContain("POSTGRES_PASSWORD");
     expect(caringContactsJob).toContain('--health-cmd "pg_isready -U postgres -d postgres"');
-    expect(caringContactsJob).toContain(
-      "CARING_CONTACTS_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54329/postgres",
-    );
+    expect(caringContactsJob).toContain("CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres");
     expect(caringContactsJob).toContain("run: npm run caring-contacts:db:test");
     expect(migrationReplayJob).not.toContain("npm run caring-contacts:db:test");
     expect(requiredNeeds).toContain("caring-contacts-db");

@@ -1120,7 +1120,9 @@ jobs:
       postgres:
         image: postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449
         env:
-          POSTGRES_PASSWORD: postgres
+          # This database exists only for this isolated runner job. Trust auth
+          # avoids committing a credential-shaped test literal.
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 54329:5432
         options: >-
@@ -1139,7 +1141,7 @@ jobs:
 
       - name: Run Caring Contacts Database & RLS Tests
         env:
-          CARING_CONTACTS_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54329/postgres
+          CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres
         run: npm run caring-contacts:db:test
 
   pr-required:
