@@ -8,7 +8,7 @@ async function gotoWard(page: Page, unitId: string) {
   await page.waitForLoadState("networkidle");
 }
 
-test.describe("Ward screen", () => {
+test.describe("@mockup Ward screen", () => {
   test.describe.configure({ timeout: 45_000 });
 
   test("shows one unit's own capacity and answers an incoming referral", async ({ page }) => {
@@ -124,7 +124,7 @@ test.describe("Ward screen", () => {
   });
 });
 
-test.describe("Transport officer screen", () => {
+test.describe("@mockup Transport officer screen", () => {
   test.describe.configure({ timeout: 45_000 });
 
   /**
@@ -200,7 +200,7 @@ test.describe("Transport officer screen", () => {
   });
 });
 
-test.describe("Live tracker", () => {
+test.describe("@mockup Live tracker", () => {
   test.describe.configure({ timeout: 45_000 });
 
   /**
@@ -275,7 +275,7 @@ test.describe("Live tracker", () => {
   });
 });
 
-test.describe("Emergency department screen", () => {
+test.describe("@mockup Emergency department screen", () => {
   test.describe.configure({ timeout: 45_000 });
 
   /**
@@ -453,7 +453,7 @@ test.describe("Emergency department screen", () => {
   });
 });
 
-test.describe("Role switcher — the loop", () => {
+test.describe("@mockup Role switcher — the loop", () => {
   test.describe.configure({ timeout: 60_000 });
 
   /**
@@ -617,7 +617,7 @@ test.describe("Role switcher — the loop", () => {
  * whole-branch review found it was wrong for the entirety of Phase 3's development without a
  * single existing test noticing.
  */
-test.describe("Live capacity — a ward's own action reaches every screen that reads it", () => {
+test.describe("@mockup Live capacity — a ward's own action reaches every screen that reads it", () => {
   test.describe.configure({ timeout: 45_000 });
 
   test("a ward confirming zero allocatable beds updates its own screen, then the coordinator, without ever reloading", async ({

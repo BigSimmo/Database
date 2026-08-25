@@ -36,7 +36,7 @@ async function expectNoRegionGridOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test.describe("Ward Flow command view", () => {
+test.describe("@mockup Ward Flow command view", () => {
   test.describe.configure({ timeout: 45_000 });
 
   // "supports role-aware queue review and human-confirmed destination choice" and "collapses

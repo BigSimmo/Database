@@ -90,7 +90,7 @@ async function expectNoRegionGridOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
-test.describe("Ward Flow coordinator screen", () => {
+test.describe("@mockup Ward Flow coordinator screen", () => {
   test.describe.configure({ timeout: 45_000 });
 
   test("presents the five coordination regions", async ({ page }) => {
