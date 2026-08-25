@@ -134,7 +134,7 @@ describe("developer ingestion page — the four states (plan §4)", () => {
   it("a 500 response falls into the same fetch-failed bucket as a network error", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Request failed." }, 500));
     render(<DeveloperIngestionPage />);
-    expect(await screen.findByTestId("developer-ingestion-fetch-error")).toHaveTextContent(/could not reach/i);
+    expect(await screen.findByTestId("developer-ingestion-fetch-error")).toHaveTextContent(/could not be reached/i);
   });
 
   it("an unexpected payload shape degrades to the fetch-failed state rather than inventing zero jobs", async () => {
@@ -143,7 +143,13 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     // AGENTS.md rather than guessing.
     fetchMock.mockResolvedValueOnce(jsonResponse({ jobs: "not-an-array" }));
     render(<DeveloperIngestionPage />);
-    expect(await screen.findByTestId("developer-ingestion-fetch-error")).toBeInTheDocument();
+    const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent(/unexpected shape/i);
+    // The endpoint was reached; a shared "could not reach" wrapper would
+    // collapse this into the network/500 copy this panel exists to keep
+    // separate.
+    expect(errorState).not.toHaveTextContent(/could not reach/i);
+    expect(errorState).not.toHaveTextContent(/No ingestion jobs/i);
   });
 });
 

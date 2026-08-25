@@ -131,14 +131,14 @@ describe("ingestion panel (2026-08-25)", () => {
 });
 
 describe("placeholder pruning (2026-08-25)", () => {
-  // `errors`, `budgets`, `commands` and `decision-log` were deliberately
-  // removed, not renamed or moved — each restated a fact a gate or another
-  // document already guarantees (Sentry, the bundle/lighthouse/maintainability
-  // budgets, docs/scripts-index.md, and docs/decisions/ respectively). This
-  // pins the removal so a future edit does not silently re-add one believing
-  // it was forgotten.
-  it("no longer declares the four removed placeholders", () => {
-    for (const id of ["errors", "budgets", "commands", "decision-log"]) {
+  // `errors`, `budgets`, `commands`, `decision-log` and `database-drift` were
+  // deliberately removed, not renamed or moved — each restated a fact a gate
+  // or another document already guarantees (Sentry, the
+  // bundle/lighthouse/maintainability budgets, docs/scripts-index.md,
+  // docs/decisions/, and live-drift.yml respectively). This pins the removal
+  // so a future edit does not silently re-add one believing it was forgotten.
+  it("no longer declares the five removed placeholders", () => {
+    for (const id of ["errors", "budgets", "commands", "decision-log", "database-drift"]) {
       expect(
         HUB_PANELS.find((panel) => panel.id === id),
         `${id} should have been removed`,

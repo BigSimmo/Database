@@ -33,14 +33,16 @@ export const HUB_PANELS: readonly HubPanel[] = [
     href: "/mockups/development/review-state",
   },
   // `decision-log` (phase 4) was removed 2026-08-25, along with `errors`,
-  // `budgets` and `commands` below. Each restated a fact the repository
+  // `budgets` and `commands` below, and `database-drift` (phase 3) for the
+  // same reason: `.github/workflows/live-drift.yml` already creates and
+  // updates a GitHub issue on drift. Each restated a fact the repository
   // already surfaces elsewhere — exactly what Ruling R1 forbids ("render only
   // facts no green gate already guarantees"), and every placeholder card is a
   // promise on screen: a card that never arrives quietly tells a reader work
   // is coming which is not. `decision-log`'s specific case: `docs/decisions/`
   // holds exactly one file, so the gap is that decisions are not being
   // written down, not that they are not being rendered — a page over one
-  // document would make the gap look addressed. Do not re-add these four
+  // document would make the gap look addressed. Do not re-add these five
   // believing they were forgotten.
 
   {
@@ -51,7 +53,7 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/clinical-trust",
   },
-  // Kept, unlike the four removed above: this is being reconsidered as a
+  // Kept, unlike the five removed above: this is being reconsidered as a
   // clinical-safety surface rather than a developer-tooling one, not dropped
   // for restating an already-guaranteed fact.
   {
@@ -64,14 +66,9 @@ export const HUB_PANELS: readonly HubPanel[] = [
 
   // No `environment` card: the environment strip renders as its own section on
   // the hub, so a card pointing at `#developer-hub-environment` would be a
-  // self-link, not a destination.
-  {
-    id: "database-drift",
-    name: "Database drift",
-    summary: "Schema and function differences against the repo",
-    group: "system",
-    phase: 3,
-  },
+  // self-link, not a destination. No `database-drift` card either — see the
+  // removal comment above; a phase-3 "coming soon" would promise a panel the
+  // plan records as never to be built.
   {
     id: "ingestion",
     name: "Ingestion",

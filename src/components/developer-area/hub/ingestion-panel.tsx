@@ -329,8 +329,8 @@ export function IngestionPanel() {
       <div data-testid="developer-ingestion-panel" className="grid gap-3">
         <div data-testid="developer-ingestion-fetch-error" role="alert" className={CARD_CLASS}>
           <p className="text-sm leading-6 text-[color:var(--text-heading)]">
-            This panel could not reach the ingestion jobs endpoint. {state.message} This says nothing about whether any
-            document is actually stuck — it means the check itself failed.
+            {state.message} This says nothing about whether any document is actually stuck — it means the check itself
+            failed.
           </p>
         </div>
         <CheckedAt fetchedAt={state.fetchedAt} />
