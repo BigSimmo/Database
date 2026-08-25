@@ -1235,3 +1235,248 @@ say is narrower and checkable. Round 3's diff is two source files and one test f
 changes are inside comment blocks, verified by `git diff` carrying no change to any string literal or
 JSX text node; and the adoption manifest is unchanged this round because no new test id was
 introduced.
+
+# Fix round 4
+
+## 1. The control-byte guard
+
+You were right that what I reported was not a check. It was a scan I ran once, in a shell, and then
+described in a report — which is the same category of thing as a comment claiming an invariant. It
+could not fail because it could not run.
+
+**Where it lives: `tests/source-control-bytes.test.ts`.** You asked me to say where it belongs and
+why, so the alternatives, and why each loses:
+
+- **An ESLint rule** sees only what it lints. Two of the three real occurrences were in Markdown —
+  `task-8-report.md` twice — and the extension list a lint rule would cover excludes `.md`, `.json`,
+  `.sh` and `.yml`. It would have caught the one occurrence that was already the easiest to find.
+- **A pre-commit hook** does not run in CI, and `core.hooksPath` is set by each checkout's own
+  `npm install`, so an agent pushing from its own environment bypasses it entirely — AGENTS.md says
+  exactly this about the format guard, which is why the format rule is still written down as a rule.
+- **A test** runs in `npm run test`, runs in CI, and fails in the same place as every other
+  correctness claim. The precedent is already in this repo: `tests/session-start-hook.test.ts`
+  polices CR bytes in the hook blobs, for the same reason and in the same shape.
+
+**Scope, deliberately, and what it does not touch.** Permitted everywhere: `0x09` tab, `0x0A` line
+feed, `0x0D` carriage return. Tab and newline are ordinary text. **The carriage return is out of
+scope rather than approved** — `.gitattributes` sets `* text=auto eol=lf` and the hook-script test
+already fails on CR in the blobs where a CR is dangerous. Policing it here as well would put two
+guards on one rule, and the second guard's failures would be somebody else's to interpret. Files are
+selected by text extension rather than by excluding known binaries, so generated and binary paths are
+out **by construction** rather than by an exclusion list that has to be maintained;
+`--exclude-standard` keeps `.gitignore` in force, so `node_modules`, `.next` and `coverage` never
+enter the scan.
+
+**The allowlist is per file AND per byte, with a written reason.** One entry:
+`tests/upload-structure.test.ts`, bytes `0x03` and `0x04` — the ZIP local-file-header signature
+`50 4B 03 04`, embedded literally because a `.docx` is a zip and writing it as an escape would test a
+different string from the one that actually arrives. I verified those bytes are literal rather than
+escape text before writing the entry: one `0x03` and one `0x04`. That single legitimate case is why
+the guard is an allowlist rather than an absolute rule.
+
+**Two gaps I found by inspection before mutating, both of which the mutations then confirmed:**
+
+- **The scan could not see the file being written.** A plain `git ls-files` lists tracked files only,
+  so a control byte in a NEW file would stay invisible for the whole session that introduced it and
+  surface later against somebody else's diff. That is the wrong half of the problem to solve, since a
+  byte arrives at the moment a file is written. It now lists `--cached --others --exclude-standard`.
+  Measured: 5,335 tracked, 5,336 including not-ignored untracked — the one extra being the guard
+  itself, which the tracked-only version could not scan.
+- **A scan over an empty list passes vacuously.** Everything the guard asserts about offences is
+  satisfied by examining nothing at all. That is the same shape of defect the guard exists to catch,
+  so it is not allowed to have it: it now also asserts it examined more than 1,000 files and names
+  three it must have seen — one source file, one Markdown file, and itself.
+
+**Cost.** 5,137 candidate files; the Buffer scan takes ~1.0 s, and the whole test file runs in
+1.5–2.6 s. I measured a UTF-8-decoding version at 24 s, which is why it reads bytes rather than
+characters — and reading bytes also means an invalid sequence cannot be silently turned into a
+replacement character and hidden.
+
+### Round 4 mutation log — every attempt, itemised, no aggregate
+
+Green baseline **shown** first: `7 passed`, clean tree.
+
+| #   | Mutation                                     | Predicted                                   | Observed                                                                                      |
+| --- | -------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| G1  | Plant `0x08` into tracked `task-8-report.md` | repo-wide case red, detector cases green    | `1 failed \| 6 passed`; message named `…/task-8-report.md:443 carries 0x08 between …`         |
+| G2  | Plant `0x08` into an UNTRACKED `.ts` file    | red — this is what the `--others` half buys | `1 failed \| 6 passed`; offence named `src/lib/caring-contacts/scratch-untracked-probe.ts:2`  |
+| G3  | `forbiddenControlBytes` returns `[]` always  | the positive controls red                   | `5 failed \| 2 passed`                                                                        |
+| G4  | `scannableTextFiles` returns `[]`            | ONLY the new count assertion red            | `1 failed \| 6 passed`; `expected 0 to be greater than 1000`                                  |
+| G5  | Delete the ZIP magic bytes from the fixture  | stale-exception case red                    | `1 failed \| 6 passed`; `is allowed 0x3 and no longer contains it, so the exception is stale` |
+
+Tree asserted clean by `git diff --quiet` before and after each; baseline re-confirmed at `7 passed`
+after the last revert.
+
+**What G3's two survivors say, because they are more interesting than its five reds.** The tab and
+newline case survives because it asserts a count of zero — it is a **labelled control**, not a
+missing assertion. The repo-wide scan also survives, and that one is worth stating plainly: **a scan
+cannot detect its own blindness.** With the detector returning nothing, the repository "carries no
+stray control byte" is still green. That is exactly why G1 and G2 plant real bytes in real files
+rather than relying on the unit controls, and why the guard would be worth much less without them.
+
+**What G4 says.** Before the hardening above, G4 was green. A guard that examines nothing and reports
+success is the failure mode I was asked to prevent, and it was present in my first draft.
+
+## 2. The two surviving prose counts — and the second one was false
+
+The comment read:
+
+> `ONLY WHERE IT IS TRUE: that the plan has not been started (NOT_STARTED). Three branches withhold
+it … Two of those three tell the clinician NOT to press again`
+
+sitting directly above `The counts are deliberately not restated in prose here`. You called it two
+surviving counts. Reading the three branches to fix them, the second one is not merely a count — **it
+is wrong**, and wrong in the direction that matters:
+
+- `plan-not-draft` — "Do not start the sign-up again". Warns.
+- `plan-terminal` — "Opening the plan on the patient's screen to see what ended it. It is the same
+  plan; nothing here will create a second one." **Says nothing either way about pressing again.**
+  This is the tightened reading you asked for: it does not tell the clinician not to press.
+- `service-answered-with-something-unreadable` — uses `PRESS_AGAIN`, so it **invites** pressing
+  again, after checking the patient's screen first.
+
+So only one of them warns. The sentence credited branches with a warning they do not give, in a
+paragraph written to correct an earlier over-claim. A tally is a claim nobody re-derives; that is the
+whole mechanism, and it produced the same defect a second time inside the fix for the first.
+
+The bullet now names the withholding branches without counting them, and a second bullet states that
+what they advise about pressing again is **not uniform and not summarisable** — read them. The
+sentence that used to promise no counts now explains why there are none, without quoting the tally.
+
+**I then introduced a count myself.** My replacement text ended "Read the three." — a count, written
+in the act of removing counts, in the same edit. That is the fourth instance this phase of finding a
+pattern failing to interrupt it, and I am reporting it rather than quietly fixing it because it is
+the strongest argument available for the pin: prose discipline demonstrably does not hold here, in
+either direction, even under direct instruction.
+
+**The pin, widened to the two shapes that survived**, and kept deliberately narrow. A general
+"`<numeral>` of those" pattern collides with ordinary prose in these two files — `one of them`, `one
+of the two confirmations`, `every one of them`, `not one of them is reproducible` — so it would fail
+on sentences that are fine and teach the next author to disable it. The two added patterns match a
+numeral qualifying `branches`, and a numeral-of-those-numeral construction, and neither matches
+anything now in either file.
+
+Two proofs, one of them free:
+
+- **Unplanned.** On first run the widened pin went red **on my own new comment**, which quoted the
+  false tally verbatim while explaining it. That is a real red on real content, and I fixed the
+  explanation rather than relaxing the pattern — describing the tally instead of reproducing it.
+  A second occurrence in the same block, `TWO of the three were false`, went red the same way and was
+  rewritten too.
+- **P1, deliberate.** Reinstated `Three branches withhold it` — predicted red on the
+  numeral-plus-`branches` pattern, observed exactly that, with the other unnumbered `branches` lines
+  in the same file not matching, which is the narrowness claim proved rather than asserted. Reverted;
+  baseline `70 passed` restored.
+
+`plan-wizard.tsx`'s counts are untouched, as instructed — verified by `git diff`: this round's source
+change is confined to `plan-activation.ts`.
+
+## 3. "A red proves presence" — the three conditions
+
+I have been treating a red as self-proving. It is not, and the correct statement is conditional. **A
+red proves the assertion was present and reachable only if all three hold:**
+
+1. **A green baseline on the same tree, shown rather than asserted.** Without it, the red may predate
+   the mutation. This is the condition I did not state for M12: its rescue rested on a green baseline
+   I claimed rather than pasted. This round I ran and pasted the baseline before the first mutation
+   and after the last revert.
+2. **A quiet worktree.** A concurrent edit produces a red that belongs to somebody else's change —
+   and that is not hypothetical here, it is the exact failure round 1 of this task records. **It
+   happened again this round; see the concern below.**
+3. **A deterministic assertion.** A flaky assertion produces reds without a mutation, and this very
+   run contains the existence proof: the `document-viewer` failure earlier in this task was red
+   without any input from me.
+
+The asymmetry that remains true: a red needs these three conditions, while a **green** needs all of
+them _plus_ an independent presence check, because a green is also what an absent, unreachable or
+inert assertion produces. That is the asymmetry — not that a red needs nothing.
+
+## 4. The Task 8 report repair
+
+`task-8-report.md` still carried two literal `0x08` bytes — inside the sentence explaining the
+backspace hazard, in a report that claims in its own round-1 section to have fixed it. Both are now
+the two literal characters `\b`, verified zero remaining. This had to happen before the guard could
+ship, since the guard scans that file; it is also the clearest possible statement of why the guard is
+a check and not a habit.
+
+## 5. Does round 4 touch the browser gate?
+
+**No, and the control-byte guard does not change that answer.** You asked me to say if it did. It
+adds one test file that reads bytes off disk, renders nothing, and imports no component; the
+adoption manifest is unchanged by it (`design-system adoption checked: 54 components, 97 roots`,
+exit 0, and the pre-commit hook's own run reported `Documentation is synchronized`). The
+copy a clinician reads is byte-identical to round 3 — this round's product change is inside a comment
+block in `plan-activation.ts`, with no change to any string literal or JSX text node.
+`tests/ui-caring-contacts-workspace.spec.ts` is unchanged. The browser gate stands where you measured
+it, `49 passed`, and I am not asking for it to be re-run.
+
+## Round 4 gates
+
+**`npm run test:cc-guards`**
+
+```
+ Test Files  18 passed (18)
+      Tests  391 passed (391)
+   Duration  81.73s
+```
+
+**`npm run test`** — started backgrounded, one run:
+
+```
+ Test Files  1 failed | 835 passed | 3 skipped (839)
+      Tests  1 failed | 10193 passed | 74 skipped (10268)
+   Duration  466.23s
+```
+
+**The one failure is `tests/document-viewer-page-virtualization.dom.test.tsx`, and it is the same
+one you already ruled conclusively not mine.** I re-proved it this round rather than citing your
+ruling: run alone it is `9 passed` in 2.82 s; it fails only under full-suite load, inside a
+`waitFor` on rendered page numbers, which is a timing signature rather than a logic one. My round-4
+diff is four files — `plan-activation.ts`, `caring-contacts-plan-wizard.dom.test.tsx`,
+`source-control-bytes.test.ts`, `task-8-report.md` — and none of them is imported by that test.
+
+**One thing about that run to flag rather than let pass.** The command exited with the wrapper
+printing `[exited with code 0]` even though the suite reports `1 failed`. The pipe I ran it through
+masked the real code. I am reporting the summary line, not the exit status, which is the rule; but it
+is worth recording that on this machine the exit code was actively misleading in the direction of
+false reassurance.
+
+Also run this round, each with its own summary line rather than an exit code:
+
+- `tests/source-control-bytes.test.ts` — `7 passed`, baseline before and after the mutation series.
+- `tests/caring-contacts-plan-wizard.dom.test.tsx` — `70 passed` after the prose fixes.
+- `node scripts/generate-design-system-adoption.mjs --check` — `design-system adoption checked: 54
+components, 97 roots`. The pre-commit hook independently ran the `--write` form on the second
+  commit and reported `[pre-commit] Documentation is synchronized.`
+
+## Concern: the worktree was not mine alone this round
+
+Condition 2 of section 3 failed, and I only know because the mutation discipline asserts it.
+
+While reverting the P1 mutation, `git diff --quiet` reported the tree dirty in a file I had never
+touched — `tests/caring-contacts-empty-state.dom.test.tsx`, converting `<a href>` to `<Link>`. Then,
+between two of my commands, that change was **committed to this branch**: `163f101f1`, "use Link in
+the empty-state tests — lint was red behind a stale cache", authored 02:12:06, which is now HEAD
+above my two round-4 commits.
+
+What I did **not** do: touch it, revert it, stage it, or include it in any commit of mine. Explicit
+paths only, as ruled.
+
+What I checked before continuing, because "my work is probably fine" is exactly the assumption that
+cost round 1:
+
+- All three of my commits are ancestors of the new HEAD; history is linear and nothing of mine was
+  rewritten or lost.
+- My five files match HEAD exactly — the P1 mutation was fully reverted and no foreign edit landed
+  inside anything I wrote.
+- The foreign edit appeared on disk **before** `test:cc-guards` started, and that gate does not
+  include the empty-state test, so its `391 passed` is unaffected. The full suite ran after the
+  commit and therefore includes that change; its `10193 passed` covers their file as well as mine.
+
+The mutation results themselves are unaffected: G1–G5 all completed with `git diff --quiet` asserted
+clean immediately before and after, and P1's red was on a byte I planted in a file they never
+touched. But the general point stands and is the reason I am not quietly absorbing this: **a red in a
+shared worktree is only evidence about my change if the tree is quiet, and this tree was not.** The
+only reason I can still make the claim is that the discipline asserts cleanliness rather than
+assuming it — which is the same argument as the guard in section 1, applied to process instead of
+bytes.
