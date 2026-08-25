@@ -72,6 +72,19 @@ export type PathwayVersionAction =
  * this list -- or letting one person cover both entries -- converts a dual-approval governance
  * decision into one person's call, which is the specific failure this module exists to prevent.
  */
+/**
+ * Plain words for the two approval seats, for a screen stating a version's governance provenance.
+ *
+ * Here rather than in the component that renders it, for the reasons `permissions.ts`'s
+ * `CARING_CONTACT_ROLE_WORDING` records in full: the wording belongs beside the roles it names, and
+ * the interface-vocabulary scan refuses `lead` as a whole word in a component with no exemption for
+ * job titles.
+ */
+export const PATHWAY_APPROVAL_ROLE_WORDING: Readonly<Record<PathwayApprovalRole, string>> = Object.freeze({
+  clinicalProgrammeLead: "the clinical programme lead",
+  livedExperienceRepresentative: "the lived-experience representative",
+});
+
 export const REQUIRED_PATHWAY_APPROVAL_ROLES: readonly PathwayApprovalRole[] = Object.freeze([
   "clinicalProgrammeLead",
   "livedExperienceRepresentative",

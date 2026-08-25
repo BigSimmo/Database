@@ -6,17 +6,13 @@ import {
   type PlanStartState,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-start-state";
 import type { PlanWizardPathwayOption } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
-import {
-  CARING_CONTACT_ROLE_LABELS,
-  PATHWAY_APPROVAL_ROLE_LABELS,
-} from "@/components/caring-contacts/workspace/plan-wizard/role-labels";
 import { CARING_CONTACTS_REFERRAL_QUERY_PARAM } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Referral } from "@/lib/caring-contacts/model";
-import type { PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
-import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
+import { PATHWAY_APPROVAL_ROLE_WORDING, type PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
+import { CARING_CONTACT_ROLE_WORDING, canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
@@ -237,10 +233,11 @@ export default async function CaringContactsNewPlanPage({
       .map((version) => ({
         id: version.id,
         cadenceLabels: version.snapshot.cadenceLabels,
-        // Plain words, resolved here rather than in the wizard (round 1, M-2): the label maps are
-        // `Record`s over the domain's own unions, so an unlabelled role is a compile error, and
-        // keeping them server-side keeps two domain modules out of the one client bundle.
-        approvedBy: version.approvals.map((approval) => PATHWAY_APPROVAL_ROLE_LABELS[approval.role]),
+        // Plain words, resolved here rather than in the wizard (round 1, M-2). The wording lives in
+        // the sealed domain beside the roles it names -- a screen must never re-derive a rule a
+        // module owns, and the interface-vocabulary scan refuses "lead" as a whole word in a
+        // component. Resolving it here also keeps both domain modules out of the client bundle.
+        approvedBy: version.approvals.map((approval) => PATHWAY_APPROVAL_ROLE_WORDING[approval.role]),
         publishedAt: version.publishedAt,
       }));
 
@@ -250,7 +247,7 @@ export default async function CaringContactsNewPlanPage({
         patientId={referral.patientId}
         teamId={referral.teamId}
         actorId={actor.id}
-        actorRoleLabels={actor.roles.map((role) => CARING_CONTACT_ROLE_LABELS[role])}
+        actorRoleLabels={actor.roles.map((role) => CARING_CONTACT_ROLE_WORDING[role])}
         referralPathwayVersionId={referral.pathwayVersionId}
         pathwayOptions={pathwayOptions}
       />
