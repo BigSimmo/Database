@@ -74,7 +74,7 @@ export type PlanAssuranceAttestation = {
 };
 
 /**
- * Pins the attestation to exactly these three fields.
+ * Pins the attestation to exactly the act, its actor and its instant.
  *
  * A GUARD RATHER THAN A COMMENT, and it is the specific guard Ruling [122] asks for. The ruling's
  * "cost if wrong" is a fourth field carrying FREE TEXT -- a note on what was checked -- because
