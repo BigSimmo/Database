@@ -48,6 +48,7 @@ import {
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-activation";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import { buildAccessAuditEvent } from "@/lib/caring-contacts/access-audit";
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { awstCalendarDay, fixedClock } from "@/lib/caring-contacts/clock";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import {
@@ -81,6 +82,9 @@ const PATIENT_DETAIL = {
   patientIdentifiers: ["UR-00219384"],
   culturalIdentity: null,
 };
+
+/** A stage-1 panel with every confirmation made, which is the only state stage 4 can be reached in. */
+const BOTH_CONFIRMED = { patientAgreed: true, mobileIsPatientControlled: true };
 
 function activation(overrides: Partial<PlanActivationDraft> = {}): PlanActivationDraft {
   return { ...EMPTY_PLAN_ACTIVATION, dischargeDay: DISCHARGE_DAY, ...overrides };
@@ -238,6 +242,7 @@ describe("the schedule preview stage 4 derives (Rulings [118] and [119])", () =>
       const created = await store.createPlan(
         {
           planId: planId("SYN-PLAN-PREVIEW"),
+          assurances: PLAN_ASSURANCE_VALUES,
           referralId: referralId("SYN-REFERRAL-001"),
           patientId: patientId("SYN-PATIENT-001"),
           pathwayVersionId: pathwayVersionId("SYN-PATHWAY-001"),
@@ -342,6 +347,7 @@ describe("the body stage 4 sends", () => {
       activation: activation(),
       sendingPreference: "morning",
       patientDetail: PATIENT_DETAIL,
+      assurances: BOTH_CONFIRMED,
     });
     expect(body).not.toBeNull();
 
@@ -364,6 +370,7 @@ describe("the body stage 4 sends", () => {
       activation: activation(),
       sendingPreference: "morning",
       patientDetail: PATIENT_DETAIL,
+      assurances: BOTH_CONFIRMED,
     });
 
     expect(body).not.toBeNull();
@@ -384,6 +391,7 @@ describe("the body stage 4 sends", () => {
       activation: activation(),
       sendingPreference: "morning" as const,
       patientDetail: PATIENT_DETAIL,
+      assurances: BOTH_CONFIRMED,
     };
 
     expect(createPlanRequestBody({ ...common, submission: null })).toBeNull();
@@ -567,6 +575,7 @@ describe("the second write: starting the plan that was just created (Ruling [123
         pathwayVersionId: pathwayVersionId("SYN-PATHWAY-001"),
         dischargeAt: dischargeInstantFor(DISCHARGE_DAY)!,
         sendingPreference: "morning",
+        assurances: PLAN_ASSURANCE_VALUES,
         patientDetail: PATIENT_DETAIL,
       },
       { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey(minted.createIdempotencyKey) },

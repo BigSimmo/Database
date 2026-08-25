@@ -98,6 +98,7 @@ import {
   READ_ACTIONS,
   REPOSITORY_REFUSALS,
   SERVICE_STATE_UNSET_TEAM,
+  admitPlanAssurances,
   contactIdentifierFor,
   isTerminalPlan,
   outcomeFor,
@@ -125,6 +126,7 @@ import {
   type WithdrawPlanInput,
   type WriteContext,
 } from "../repository";
+import { isPlanAssurance, type PlanAssuranceAttestation } from "../assurances";
 import type { Episode } from "../episode";
 import { buildApprovedSchedule, type PlannedContact } from "../schedule";
 
@@ -178,6 +180,12 @@ const PLAN_COLUMNS = `id, team_id, patient_id, referral_id, pathway_version_id, 
 
 const CONTACT_COLUMNS = `id, plan_id, team_id, sequence, state, version, cadence_label, calendar_day,
   send_at, message_type, suppressed_reason`;
+
+// Ordered by `attested_at, assurance` at every call site rather than by insertion, so two stores
+// asked the same question hand back the same list. The in-memory store preserves the caller's
+// order; a plan's attestations are all written in one statement at one instant, so the tie-break on
+// `assurance` is what actually decides it and the closed values sort deterministically.
+const PLAN_ASSURANCE_COLUMNS = "plan_id, assurance, actor_id, attested_at";
 
 const REFERRAL_COLUMNS = "id, team_id, patient_id, state, pathway_version_id";
 
@@ -282,7 +290,19 @@ function toStoredContact(row: SqlRow): StoredContact {
   return { contact, planned: toPlanned(row) };
 }
 
-function toPlanRecord(planRow: SqlRow, contactRows: readonly SqlRow[]): PlanRecord {
+function toAssuranceAttestation(row: SqlRow): PlanAssuranceAttestation {
+  const assurance = textOf(row.assurance);
+  // The column carries a check constraint naming the same closed set, so a value outside it cannot
+  // be in the table -- but the constraint lives in SQL and this is where the value becomes a domain
+  // type, so it is verified rather than asserted. A row that somehow held an unknown value would
+  // otherwise be handed to a screen as a valid attestation.
+  if (!isPlanAssurance(assurance)) {
+    throw new Error(`caring-contacts: plan assurance "${assurance}" is not one this domain knows`);
+  }
+  return { assurance, actorId: toActorId(textOf(row.actor_id)), attestedAt: instantOf(row.attested_at) };
+}
+
+function toPlanRecord(planRow: SqlRow, contactRows: readonly SqlRow[], assuranceRows: readonly SqlRow[]): PlanRecord {
   return {
     plan: toPlan(planRow),
     patientId: textOf(planRow.patient_id) as PatientId,
@@ -293,6 +313,7 @@ function toPlanRecord(planRow: SqlRow, contactRows: readonly SqlRow[]): PlanReco
       planRow.completed_at === null || planRow.completed_at === undefined ? null : instantOf(planRow.completed_at),
     outcome: textOf(planRow.outcome) as PlanOutcome,
     contacts: contactRows.map(toStoredContact),
+    assuranceAttestations: assuranceRows.map(toAssuranceAttestation),
   };
 }
 
@@ -685,7 +706,7 @@ export function createPostgresRepository(
         // the database actually holds, including any default or constraint it applied.
         const stored = await readPlanRecord(connection, input.planId);
         if (!stored) throw new Error(`caring-contacts: plan ${input.planId} vanished inside its own transaction`);
-        return { ok: true, value: toPlanRecord(stored.planRow, stored.contactRows) };
+        return { ok: true, value: toPlanRecord(stored.planRow, stored.contactRows, stored.assuranceRows) };
       },
     });
   }
@@ -781,14 +802,27 @@ export function createPostgresRepository(
     return inTransaction(context.actor.teamId, null, work);
   }
 
+  async function selectPlanAssurances(connection: SqlConnection, planId: PlanId): Promise<SqlRow[]> {
+    const result = await connection.query(
+      `select ${PLAN_ASSURANCE_COLUMNS} from caring_contacts.plan_assurances
+         where plan_id = $1 order by attested_at, assurance`,
+      [planId],
+    );
+    return result.rows;
+  }
+
   async function readPlanRecord(
     connection: SqlConnection,
     planId: PlanId,
-  ): Promise<{ planRow: SqlRow; contactRows: SqlRow[] } | null> {
+  ): Promise<{ planRow: SqlRow; contactRows: SqlRow[]; assuranceRows: SqlRow[] } | null> {
     const result = await connection.query(`select ${PLAN_COLUMNS} from caring_contacts.plans where id = $1`, [planId]);
     const planRow = result.rows[0];
     if (!planRow) return null;
-    return { planRow, contactRows: await selectContacts(connection, planId) };
+    return {
+      planRow,
+      contactRows: await selectContacts(connection, planId),
+      assuranceRows: await selectPlanAssurances(connection, planId),
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -1062,6 +1096,11 @@ export function createPostgresRepository(
             return { ok: false, reason: REPOSITORY_REFUSALS.duplicateActivePlan };
           }
 
+          // Refused before anything is written, and by ../repository rather than by this store, so
+          // both stores give the same answer to "may a plan exist with no attestation on it".
+          const assurances = admitPlanAssurances(input.assurances);
+          if (!assurances.ok) return assurances;
+
           const schedule = buildApprovedSchedule({
             dischargeAt: input.dischargeAt,
             sendingPreference: input.sendingPreference,
@@ -1121,6 +1160,26 @@ export function createPostgresRepository(
             );
           }
 
+          // WHO and WHEN come from the write context and the domain clock, never from the request
+          // body -- see `CreatePlanInput.assurances`. One `clock.now()` for the whole set, so a
+          // plan's attestations share the instant its plan was created rather than drifting apart
+          // across a loop.
+          //
+          // Its own table rather than a column on the plan, because it is a LIST whose set is not
+          // frozen (Ruling [122]). An array column would make adding a third confirmation a
+          // migration on the plan row and would put the actor and the instant somewhere they could
+          // not be typed. `team_id` is carried and the foreign key is composite for the reason
+          // 0003's assignment tables are: a bare `plan_id` reference would let one team attach a row
+          // to another team's plan, because foreign-key checks bypass row-level security.
+          const attestedAt = clock.now();
+          for (const assurance of assurances.value) {
+            await connection.query(
+              `insert into caring_contacts.plan_assurances (plan_id, team_id, assurance, actor_id, attested_at)
+               values ($1, $2, $3, $4, $5)`,
+              [input.planId, actor.teamId, assurance, actor.id, attestedAt],
+            );
+          }
+
           // Cultural identity goes to the reporting projection and nowhere near the plan row.
           if (input.patientDetail.culturalIdentity !== null) {
             await connection.query(
@@ -1132,7 +1191,7 @@ export function createPostgresRepository(
 
           const stored = await readPlanRecord(connection, input.planId);
           if (!stored) throw new Error(`caring-contacts: plan ${input.planId} vanished inside its own transaction`);
-          return { ok: true, value: toPlanRecord(stored.planRow, stored.contactRows) };
+          return { ok: true, value: toPlanRecord(stored.planRow, stored.contactRows, stored.assuranceRows) };
         },
       });
     },
@@ -1170,7 +1229,7 @@ export function createPostgresRepository(
 
           const stored = await readPlanRecord(connection, input.planId);
           if (!stored) throw new Error(`caring-contacts: plan ${input.planId} vanished inside its own transaction`);
-          return { ok: true, value: toPlanRecord(stored.planRow, stored.contactRows) };
+          return { ok: true, value: toPlanRecord(stored.planRow, stored.contactRows, stored.assuranceRows) };
         },
       });
     },
@@ -1216,7 +1275,7 @@ export function createPostgresRepository(
           if (!stored) throw new Error(`caring-contacts: plan ${input.planId} vanished inside its own transaction`);
 
           const value: HospitalStatusOutcome = {
-            record: toPlanRecord(stored.planRow, stored.contactRows),
+            record: toPlanRecord(stored.planRow, stored.contactRows, stored.assuranceRows),
             exceptions: applied.value.exceptions,
             contactsCancelled: cancelled,
           };
@@ -2122,7 +2181,7 @@ export function createPostgresRepository(
       if (!mayReadOwnTeam(context, READ_ACTIONS.plan)) return null;
       return runRead(context, async (connection) => {
         const stored = await readPlanRecord(connection, planId);
-        return stored ? toPlanRecord(stored.planRow, stored.contactRows) : null;
+        return stored ? toPlanRecord(stored.planRow, stored.contactRows, stored.assuranceRows) : null;
       });
     },
 
@@ -2133,14 +2192,29 @@ export function createPostgresRepository(
         const contacts = await connection.query(
           `select ${CONTACT_COLUMNS} from caring_contacts.contacts order by plan_id, sequence`,
         );
-        const byPlan = new Map<string, SqlRow[]>();
-        for (const row of contacts.rows) {
-          const key = textOf(row.plan_id);
-          const bucket = byPlan.get(key);
-          if (bucket) bucket.push(row);
-          else byPlan.set(key, [row]);
-        }
-        return plans.rows.map((row) => toPlanRecord(row, byPlan.get(textOf(row.id)) ?? []));
+        // A THIRD grouped query, not one per plan: a caseload costs one round trip per kind of row
+        // rather than one per row, which is the same argument `listPatientNames` makes for being a
+        // list. Row-level security scopes all three identically, so a plan invisible in the first
+        // has no attestations in this one.
+        const assurances = await connection.query(
+          `select ${PLAN_ASSURANCE_COLUMNS} from caring_contacts.plan_assurances
+             order by plan_id, attested_at, assurance`,
+        );
+        const groupByPlan = (rows: readonly SqlRow[]) => {
+          const grouped = new Map<string, SqlRow[]>();
+          for (const row of rows) {
+            const key = textOf(row.plan_id);
+            const bucket = grouped.get(key);
+            if (bucket) bucket.push(row);
+            else grouped.set(key, [row]);
+          }
+          return grouped;
+        };
+        const contactsByPlan = groupByPlan(contacts.rows);
+        const assurancesByPlan = groupByPlan(assurances.rows);
+        return plans.rows.map((row) =>
+          toPlanRecord(row, contactsByPlan.get(textOf(row.id)) ?? [], assurancesByPlan.get(textOf(row.id)) ?? []),
+        );
       });
     },
 

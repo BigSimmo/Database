@@ -9,6 +9,7 @@
 // suite living here is registered only by the thin file that calls this function.
 import { describe, expect, it } from "vitest";
 
+import { PLAN_ASSURANCES, PLAN_ASSURANCE_VALUES, type PlanAssurance } from "@/lib/caring-contacts/assurances";
 import { AuditEventContainsPatientDataError, type AuditEvent } from "@/lib/caring-contacts/audit";
 import { fixedClock, type Clock } from "@/lib/caring-contacts/clock";
 import {
@@ -53,6 +54,15 @@ const PATHWAY_VERSION_ID = pathwayVersionId("PATHWAY-1");
 /** 2026-03-02 10:00 AWST. */
 const DISCHARGE_AT = new Date("2026-03-02T02:00:00.000Z");
 const NOW = "2026-03-02T03:00:00.000Z";
+
+/**
+ * What a plan is created attesting, unless a case says otherwise. Both closed values, because that
+ * is what the wizard sends: stage 1 will not advance until every confirmation is made.
+ *
+ * Spread into a mutable array at each use rather than shared, so a store that kept the caller's
+ * array cannot be caught by one case and missed by the next.
+ */
+const ASSURANCES: readonly PlanAssurance[] = PLAN_ASSURANCE_VALUES;
 
 function actorWith(id: string, team: string, roles: readonly CaringContactRole[]): Actor {
   return { id: actorId(id), teamId: teamId(team), roles };
@@ -215,6 +225,7 @@ async function createActivePlan(store: CaringContactRepository, options: { actor
         dischargeAt: DISCHARGE_AT,
         sendingPreference: "morning",
         patientDetail: PATIENT_DETAIL,
+        assurances: [...ASSURANCES],
       },
       writeContext(actor, `ext-create-${suffix}`),
     ),
@@ -287,6 +298,7 @@ async function createPlanWithMovedFirstContact(
       firstContactDate: options.firstContactDate ?? MOVED_FIRST_CONTACT_DAY,
       firstContactReason: options.reason ?? FIRST_CONTACT_REASON,
       patientDetail: PATIENT_DETAIL,
+      assurances: [...ASSURANCES],
     },
     writeContext(actor, `moved-create-${suffix}`),
   );
@@ -303,6 +315,7 @@ function createInput(overrides: Partial<CreatePlanInput> = {}): CreatePlanInput 
     dischargeAt: DISCHARGE_AT,
     sendingPreference: "morning",
     patientDetail: PATIENT_DETAIL,
+    assurances: [...ASSURANCES],
     ...overrides,
   };
 }
@@ -1662,6 +1675,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
               dischargeAt: DISCHARGE_AT,
               sendingPreference: "morning",
               patientDetail: PATIENT_DETAIL,
+              assurances: [...ASSURANCES],
             },
             writeContext(COORDINATOR_A, "late-create"),
           ),
@@ -2764,6 +2778,177 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
       });
     });
 
+    // -------------------------------------------------------------------------
+    // The attestation that a check happened (Ruling [122])
+    //
+    // Stage 1 asks a coordinator to confirm the patient agreed and that the mobile is the
+    // patient's own. Until now neither could be stored, so an activated plan carried no evidence
+    // that anyone had confirmed anything. These cases pin WHAT is recorded, and -- the case this
+    // section exists for -- that a retention clearance leaves it alone while still clearing
+    // everything it is supposed to.
+    //
+    // What is recorded is that a coordinator confirmed a check: who, what, when. It is not a
+    // consent record and no assertion here may be written as though it were; agreement lives in
+    // the patient's hospital record, and this system is not connected to it.
+    // -------------------------------------------------------------------------
+    describe("the attestation that a check happened", () => {
+      it("records who confirmed, what they confirmed, and when", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-create")));
+
+        expect(created.assuranceAttestations).toEqual([
+          {
+            assurance: PLAN_ASSURANCES.patientAgreementConfirmed,
+            actorId: COORDINATOR_A.id,
+            attestedAt: new Date(NOW),
+          },
+          {
+            assurance: PLAN_ASSURANCES.patientControlsMobileConfirmed,
+            actorId: COORDINATOR_A.id,
+            attestedAt: new Date(NOW),
+          },
+        ]);
+      });
+
+      it("holds nothing beyond the act, its actor and its instant", async () => {
+        // The guard against the field this structure must not gain. A note on WHAT was checked
+        // would name patients, relatives and places -- and the clearing rule two cases below would
+        // have to flip for it. A shape assertion here is what makes that a decision somebody takes
+        // rather than one they inherit.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-shape")));
+
+        for (const attestation of created.assuranceAttestations) {
+          expect(Object.keys(attestation).sort()).toEqual(["actorId", "assurance", "attestedAt"]);
+        }
+      });
+
+      it("reads back through getPlan and through the caseload list alike", async () => {
+        // Two reads, because the Postgres store fetches them by two different queries: one keyed on
+        // the plan and one grouped across every plan in the team. A grouping bug would leave
+        // `getPlan` right and the caseload wrong, and only this case would see it.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-read")));
+
+        const fetched = await store.getPlan(PLAN_ID, { actor: COORDINATOR_A });
+        expect(fetched?.assuranceAttestations).toEqual(created.assuranceAttestations);
+
+        const listed = await store.listPlans({ actor: COORDINATOR_A });
+        expect(listed.find((record) => record.plan.id === PLAN_ID)?.assuranceAttestations).toEqual(
+          created.assuranceAttestations,
+        );
+      });
+
+      it("refuses a plan that would carry no attestation, and stores no plan at all", async () => {
+        // Refused rather than accepted-and-empty. A plan holding an empty list is indistinguishable
+        // afterwards from one created before attestations existed, and this is the write that
+        // decides which of those a new plan is.
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = await store.createPlan(
+          createInput({ assurances: [] }),
+          writeContext(COORDINATOR_A, "att-empty"),
+        );
+
+        expect(created).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.planAssurancesRequired });
+        expect(await store.getPlan(PLAN_ID, { actor: COORDINATOR_A })).toBeNull();
+      });
+
+      it("refuses a repeated assurance by name, so one check cannot be recorded as two", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        const created = await store.createPlan(
+          createInput({
+            assurances: [PLAN_ASSURANCES.patientAgreementConfirmed, PLAN_ASSURANCES.patientAgreementConfirmed],
+          }),
+          writeContext(COORDINATOR_A, "att-repeat"),
+        );
+
+        expect(created).toEqual({ ok: false, reason: REPOSITORY_REFUSALS.planAssuranceRepeated });
+        expect(await store.getPlan(PLAN_ID, { actor: COORDINATOR_A })).toBeNull();
+      });
+
+      it("is as unobtainable to another team as the plan itself", async () => {
+        const store = await newStore();
+        await createPlanParents(store, COORDINATOR_A);
+        unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-scope")));
+
+        // Positive control: the owning team's actor does get it, so the emptiness below is the team
+        // scoping rather than the attestation being absent everywhere.
+        expect((await store.getPlan(PLAN_ID, { actor: COORDINATOR_A }))?.assuranceAttestations).toHaveLength(
+          ASSURANCES.length,
+        );
+
+        expect(await store.getPlan(PLAN_ID, { actor: COORDINATOR_B })).toBeNull();
+        expect(await store.listPlans({ actor: COORDINATOR_B })).toEqual([]);
+      });
+
+      it("survives a retention clearance, which must not remove evidence that a check happened", async () => {
+        // RULING [122], AND IT INVERTS RULING [105]. That ruling clears the first-contact reason
+        // because it is prose a clinician typed about a patient. Judge an attestation the same way
+        // -- by what it CONTAINS -- and the answer comes out the other way: a closed value, an
+        // actor and an instant, no patient content at all. It is the same class as an audit event,
+        // which de-identification deliberately preserves. Clearing it would destroy the evidence
+        // that a check happened while keeping the plan it belongs to.
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+        const before = plan.assuranceAttestations;
+        expect(before).toHaveLength(ASSURANCES.length);
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, `att-withdraw-${plan.plan.id}`),
+          ),
+        );
+        unwrap(
+          await store.markRetentionCleared(
+            { planId: plan.plan.id },
+            writeContext(COORDINATOR_A, `att-clear-${plan.plan.id}`),
+          ),
+        );
+
+        const after = await store.getPlan(plan.plan.id, { actor: COORDINATOR_A });
+        expect(after?.assuranceAttestations).toEqual(before);
+      });
+
+      it("does not stop that clearance removing what it is supposed to remove", async () => {
+        // THE OTHER HALF, AND IT IS NOT REDUNDANT. The case above passes just as well against a
+        // clearance that has stopped working entirely -- an attestation left alone by a write that
+        // does nothing looks exactly like one left alone on purpose. This case is what tells those
+        // two apart, on the same shape of plan and the same shape of run.
+        const store = await newStore();
+        const plan = await createActivePlan(store);
+
+        unwrap(
+          await store.withdrawPlan(
+            { planId: plan.plan.id, expectedVersion: plan.plan.version, origin: "patient" },
+            writeContext(COORDINATOR_A, `att-both-withdraw-${plan.plan.id}`),
+          ),
+        );
+
+        // Positive control: the detail IS held right up until the clearance, so the emptiness below
+        // is the clearance acting rather than a fixture that never carried a name.
+        expect((await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A }))?.patientName).toBe("Jordan Nguyen");
+
+        unwrap(
+          await store.markRetentionCleared(
+            { planId: plan.plan.id },
+            writeContext(COORDINATOR_A, `att-both-clear-${plan.plan.id}`),
+          ),
+        );
+
+        const episode = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(episode?.patientName).toBe("");
+        expect(episode?.patientMobileNumber).toBe("");
+        expect(episode?.patientIdentifiers).toEqual([]);
+        expect(episode?.culturalIdentity).toBeNull();
+      });
+    });
+
     describe("markRetentionCleared", () => {
       it("marks a plan cleared, refuses an unknown plan, and refuses a role without the grant", async () => {
         const store = await newStore();
@@ -2939,6 +3124,7 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
               dischargeAt: DISCHARGE_AT,
               sendingPreference: "morning",
               patientDetail: { ...PATIENT_DETAIL, culturalIdentity: "Noongar" },
+              assurances: [...ASSURANCES],
             },
             writeContext(COORDINATOR_A, "cul-create"),
           ),

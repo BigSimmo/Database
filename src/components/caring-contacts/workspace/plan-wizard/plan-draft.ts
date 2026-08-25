@@ -64,9 +64,15 @@ export const PLAN_DRAFT_STORAGE_KEY = "caring-contacts:plan-draft";
  * patient's name nor a mobile number, so nothing about the patient's agreement or their phone can
  * be read from one. They are what the coordinator says, in this session, and the screen says so.
  *
- * They are also NOT RECORDED ANYWHERE. `createPlanSchema` has no field for either, so a draft is
- * the only place they exist and a draft is not durable — see the report for Task 7, which raises
- * this rather than inventing a storage location for it.
+ * A DRAFT IS WHERE THEY LIVE UNTIL THE PLAN IS CREATED, AND NOT AFTERWARDS. Task 7 found there was
+ * no field for either of them anywhere and reported it rather than inventing a storage location;
+ * Task 9b added one. `createPlanSchema` now carries them, and creating the plan records an
+ * attestation for each — that the coordinator confirmed this check, and when. So a tick here is
+ * held on this computer until the sign-up finishes or is discarded, exactly as before, and what
+ * outlives the sign-up is the attestation on the plan rather than the draft.
+ *
+ * What the plan records is the CONFIRMATION, never the thing confirmed: it can say a coordinator
+ * confirmed the patient's agreement, and it cannot say the patient consented.
  */
 export type PlanDraftAssurances = {
   /** The patient agreed to receive caring contacts. Not consent to treatment, and not legal consent. */

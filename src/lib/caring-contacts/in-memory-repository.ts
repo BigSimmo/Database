@@ -56,6 +56,7 @@ import {
   READ_ACTIONS,
   REPOSITORY_REFUSALS,
   SERVICE_STATE_UNSET_TEAM,
+  admitPlanAssurances,
   contactIdentifierFor,
   isTerminalPlan,
   outcomeFor,
@@ -81,6 +82,7 @@ import {
   type WithdrawPlanInput,
   type WriteContext,
 } from "./repository";
+import type { PlanAssuranceAttestation } from "./assurances";
 import type { Episode } from "./episode";
 import { buildApprovedSchedule, type PlannedContact } from "./schedule";
 
@@ -141,6 +143,19 @@ function toPlanRecord(stored: StoredPlan): PlanRecord {
     completedAt: stored.completedAt === null ? null : new Date(stored.completedAt.getTime()),
     outcome: stored.outcome,
     contacts: stored.contacts.map(cloneStoredContact),
+    // Copied for the same reason the contacts and the dates are: a caller holding the stored
+    // attestation could rewrite who attested, or when, in place -- with no version bump and no
+    // audit event. An attestation whose whole value is that it says who and when is the last thing
+    // in this record that may be handed out live.
+    assuranceAttestations: stored.assuranceAttestations.map(cloneAttestation),
+  };
+}
+
+function cloneAttestation(attestation: PlanAssuranceAttestation): PlanAssuranceAttestation {
+  return {
+    assurance: attestation.assurance,
+    actorId: attestation.actorId,
+    attestedAt: new Date(attestation.attestedAt.getTime()),
   };
 }
 
@@ -516,6 +531,12 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
           );
           if (open) return { ok: false, reason: REPOSITORY_REFUSALS.duplicateActivePlan };
 
+          // Refused before the schedule is built, so a plan that cannot say who confirmed what is
+          // never half-assembled. The rule is ../repository's, not this store's, so the Postgres
+          // store answers identically -- see `admitPlanAssurances`.
+          const assurances = admitPlanAssurances(input.assurances);
+          if (!assurances.ok) return assurances;
+
           const schedule = buildApprovedSchedule({
             dischargeAt: input.dischargeAt,
             sendingPreference: input.sendingPreference,
@@ -523,6 +544,17 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             firstContactReason: input.firstContactReason,
           });
           if (!schedule.ok) return schedule;
+
+          // WHO and WHEN come from here, never from the request. `actor` is the session the write
+          // is running as and `clock` is the domain's own clock, so a caller cannot attest in
+          // someone else's name or at a time of its choosing -- which is the whole value of a
+          // record that says who confirmed and when.
+          const attestedAt = clock.now();
+          const attestations: PlanAssuranceAttestation[] = assurances.value.map((assurance) => ({
+            assurance,
+            actorId: actor.id,
+            attestedAt: new Date(attestedAt.getTime()),
+          }));
 
           // Sendability comes from `sendableContacts`, never from `sendAt`: an absorbed entry
           // carries a real send instant and would otherwise go out as a second message that day.
@@ -547,6 +579,7 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             completedAt: null,
             outcome: "inProgress",
             contacts,
+            assuranceAttestations: attestations,
             patientDetail: {
               patientName: input.patientDetail.patientName,
               patientMobileNumber: input.patientDetail.patientMobileNumber,

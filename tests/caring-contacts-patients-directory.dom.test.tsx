@@ -60,6 +60,7 @@ function planRecord(options: { id: string; state: PlanState; contacts?: readonly
     dischargeAt: new Date("2026-03-01T02:00:00.000Z"),
     completedAt: null,
     outcome: "inProgress",
+    assuranceAttestations: [],
     contacts: options.contacts ?? [contact(1), contact(2)],
   };
 }

@@ -20,6 +20,7 @@
 import type { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { createPostgresRepository } from "@/lib/caring-contacts/db/postgres-repository";
 import {
@@ -189,6 +190,7 @@ describe("no patient detail reaches idempotency_records (postgres only)", () => 
     const created = await store.createPlan(
       {
         planId: planId("IDEM-PLAN"),
+        assurances: PLAN_ASSURANCE_VALUES,
         referralId: referralId("IDEM-REFERRAL"),
         patientId: patientId("IDEM-PATIENT"),
         pathwayVersionId: pathwayVersionId("IDEM-PATHWAY"),

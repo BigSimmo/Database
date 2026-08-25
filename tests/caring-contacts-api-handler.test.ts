@@ -24,6 +24,7 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
 }));
 
 import { readHandler, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { narrowServiceStateForActor, type ServiceStateView } from "@/lib/caring-contacts-server/service-state-view";
 import { CARING_CONTACTS_ROLE_COOKIE, DEMO_TEAM_ID, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
@@ -102,6 +103,7 @@ async function inMemoryStoreWithSpy(options: { actorRole?: CaringContactRole } =
       dischargeAt: DISCHARGE_AT,
       sendingPreference: "morning",
       patientDetail: PATIENT_DETAIL,
+      assurances: PLAN_ASSURANCE_VALUES,
     },
     { actor: coordinator, idempotencyKey: idempotencyKey("seed-create") },
   );

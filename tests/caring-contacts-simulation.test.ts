@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { assertAuditEventFreeOfPatientData, type AuditEvent } from "@/lib/caring-contacts/audit";
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import {
   actorId,
@@ -485,6 +486,7 @@ describe("scenario 6: a readmission never auto-resumes and never rebases", () =>
     const second = await run.store.createPlan(
       {
         planId: planId("PLAN-SIM-2"),
+        assurances: PLAN_ASSURANCE_VALUES,
         referralId: referralId("REFERRAL-SIM-2"),
         patientId: patientId("PATIENT-SIM"),
         pathwayVersionId: pathwayVersionId("PATHWAY-SIM"),

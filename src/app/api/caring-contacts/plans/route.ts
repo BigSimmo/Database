@@ -7,6 +7,7 @@
 import { z } from "zod";
 
 import { auditableIdentifier, readHandler, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
+import { PLAN_ASSURANCES } from "@/lib/caring-contacts/assurances";
 import { pathwayVersionId, patientId, planId, referralId } from "@/lib/caring-contacts/ids";
 
 export const runtime = "nodejs";
@@ -38,6 +39,17 @@ const createPlanSchema = z
         culturalIdentity: z.string().min(1).nullable(),
       })
       .strict(),
+    /**
+     * What the coordinator attests to having confirmed. The enum is built FROM `PLAN_ASSURANCES`
+     * rather than restated here, so the wire vocabulary, the screen and the database check
+     * constraint cannot drift apart.
+     *
+     * `.min(1)` is the schema half of the domain's `plan-assurances-required` refusal, not a
+     * replacement for it: a body that reaches `createPlan` another way is still refused there, by
+     * name. Only the assurances travel -- who attested and when are stamped by the store from the
+     * session and the domain clock, so a request cannot claim someone else made the check.
+     */
+    assurances: z.array(z.enum(PLAN_ASSURANCES)).min(1),
     idempotencyKey: auditableIdentifier,
   })
   .strict();
@@ -63,6 +75,7 @@ export const POST = writeHandler({
         firstContactDate: body.firstContactDate,
         firstContactReason: body.firstContactReason,
         patientDetail: body.patientDetail,
+        assurances: body.assurances,
       },
       writeContextFor(actor, body.idempotencyKey),
     ),

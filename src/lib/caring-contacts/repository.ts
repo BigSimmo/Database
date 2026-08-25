@@ -45,6 +45,7 @@
 // implement it, and both are exercised by the identical contract suite.
 import { teamId } from "./ids";
 import type { AccessedObjectType, AccessRecord } from "./access-audit";
+import type { PlanAssurance, PlanAssuranceAttestation } from "./assurances";
 import type { AssignmentAction, PlanAssignment } from "./assignment";
 import type { AuditEvent } from "./audit";
 import type { Clock } from "./clock";
@@ -195,9 +196,54 @@ export const REPOSITORY_REFUSALS = Object.freeze({
   dispatchDiscrepancyAlreadyResolved: "dispatch-discrepancy-already-resolved",
   /** `resolveDispatchDiscrepancy` requires a non-blank note, the same convention every other named-reason write in this domain uses for free text. */
   dispatchDiscrepancyNoteRequired: "dispatch-discrepancy-note-required",
+  /**
+   * `createPlan` was asked to create a plan with no assurance attestation on it (Ruling [122]).
+   *
+   * Refused rather than accepted-and-empty, because an empty list and a missing check are
+   * indistinguishable afterwards: a plan carrying no attestation would look exactly like one
+   * created before the attestation existed. A plan created from now on says who confirmed what,
+   * and a plan that cannot say it is not created.
+   */
+  planAssurancesRequired: "plan-assurances-required",
+  /**
+   * The same assurance was named twice in one `createPlan`.
+   *
+   * Refused rather than de-duplicated, following Ruling [106]'s stance on the first-contact reason:
+   * a store that silently collapses a caller's list records something the caller did not send, and
+   * nothing afterwards shows that it happened. It also keeps the two stores honest -- the Postgres
+   * table is keyed on (plan, assurance), so a duplicate would be a constraint violation there and a
+   * silent second row here.
+   */
+  planAssuranceRepeated: "plan-assurance-repeated",
 } as const);
 
 export type RepositoryRefusal = (typeof REPOSITORY_REFUSALS)[keyof typeof REPOSITORY_REFUSALS];
+
+/**
+ * Whether a `createPlan` may proceed on the assurances it was given (Ruling [122]).
+ *
+ * It lives on the contract rather than in either store for the reason `CLEARED_PATIENT_DETAIL`
+ * does: it is a rule about what a plan MEANS, and two stores each writing their own copy would be
+ * two answers to "may a plan exist without an attestation". The Postgres table's primary key would
+ * catch a duplicate and the in-memory map would not, so the answer has to be decided before either
+ * store touches storage.
+ *
+ * It does NOT decide WHICH assurances are required. Nothing in this domain says a plan needs the
+ * patient-agreement one specifically, and nothing should start saying so here: the design's
+ * assurance set is not frozen, and a required-list encoded in a store would have to be edited in
+ * lockstep with a screen every time a row moved between confirmation and display. What a store
+ * guarantees is that a plan created from now on carries at least one attestation and names no
+ * assurance twice; which confirmations a coordinator is asked for is the screen's question.
+ */
+export function admitPlanAssurances(assurances: readonly PlanAssurance[]): TransitionResult<readonly PlanAssurance[]> {
+  if (assurances.length === 0) return { ok: false, reason: REPOSITORY_REFUSALS.planAssurancesRequired };
+  const seen = new Set<PlanAssurance>();
+  for (const assurance of assurances) {
+    if (seen.has(assurance)) return { ok: false, reason: REPOSITORY_REFUSALS.planAssuranceRepeated };
+    seen.add(assurance);
+  }
+  return { ok: true, value: assurances };
+}
 
 /** What the episode ended as. Held separately from `Plan.state` because it outlives the plan. */
 export type PlanOutcome = "inProgress" | "withdrawn" | "cancelled" | "completed";
@@ -294,6 +340,23 @@ export function outcomeFor(state: PlanState): PlanOutcome {
  * episode reported as de-identified while still holding that prose would be the worst outcome this
  * constant can produce. It clears to null rather than to `""`, because `Episode` types it as
  * `string | null` and null is already what "no reason held" means everywhere else.
+ *
+ * WHAT THIS CONSTANT DELIBERATELY DOES NOT REACH, AND IT INVERTS THE REFLEX ABOVE (Ruling [122]).
+ * `PlanRecord.assuranceAttestations` is NOT cleared by a retention clearance and must never be
+ * added to this shape to make it so. The paragraph above clears the first-contact reason on what it
+ * CONTAINS; apply the same test to an attestation and the answer comes out the other way. An
+ * attestation is a closed enum value, an actor id and an instant -- no patient content -- and it is
+ * the same class as an audit event, which de-identification deliberately PRESERVES: it removes
+ * patient fields and keeps actor, action, timestamp and object type. `deidentifyAccessEvent` does
+ * exactly that. Clearing an attestation would destroy the evidence that a check happened while
+ * keeping the plan it belongs to, which is the opposite of what retention is for.
+ *
+ * The clearance is `{ ...stored, patientDetail: { ...CLEARED_PATIENT_DETAIL } }` in the in-memory
+ * store and a named column list in the Postgres one, so neither reaches an attestation today. That
+ * is a property of two implementations rather than of this type, which is why the shared contract
+ * suite asserts BOTH directions after a clearance: the attestation survives, and everything this
+ * constant names is gone. A test proving only the first would still pass if the clearance stopped
+ * working entirely.
  */
 export const CLEARED_PATIENT_DETAIL: StoredPatientDetail = Object.freeze({
   patientName: "",
@@ -363,6 +426,26 @@ export type PlanRecord = {
   completedAt: Date | null;
   outcome: PlanOutcome;
   contacts: readonly StoredContact[];
+  /**
+   * What a coordinator attested to having confirmed before this plan was created, and nothing else
+   * about it -- who, what, when. Empty for a plan created before the attestation existed, and that
+   * emptiness is a fact to be stated rather than filled in; see the migration's "no backfill".
+   *
+   * WHY IT SITS ON THE RECORD RATHER THAN IN `patientDetail` (Ruling [122]). It is an act a
+   * clinician performed, not a fact about the patient, and `patientDetail` is subject to
+   * `CLEARED_PATIENT_DETAIL` -- which is the one thing that must not happen to it. See that
+   * constant's own note.
+   *
+   * WHY THE LIST READ MAY CARRY IT, WHEN THE FIRST-CONTACT REASON MAY NOT.
+   * `PLAN_RECORD_HOLDS_NO_FIRST_CONTACT_REASON` below keeps that reason off this shape because the
+   * reason is prose a clinician typed about a patient, and the caseload renders this shape for every
+   * patient in the team. An attestation contains no patient content at all: a closed enum value, an
+   * actor id and an instant. Judged the way that reason was judged -- by what it CONTAINS rather
+   * than by what it is about -- it belongs here. What it does cost is a second grouped query per
+   * list read in the Postgres store; that is a stated cost, not an oversight, and it buys a read
+   * that returns the plan and the evidence about it together rather than by two different routes.
+   */
+  assuranceAttestations: readonly PlanAssuranceAttestation[];
 };
 
 /**
@@ -438,6 +521,15 @@ export type CreatePlanInput = {
   firstContactDate?: string;
   firstContactReason?: string;
   patientDetail: EpisodePatientDetail;
+  /**
+   * Which assurances the coordinator confirmed. Required and non-empty -- `admitPlanAssurances`
+   * refuses by name otherwise, and no plan is created.
+   *
+   * ONLY THE ASSURANCES. The actor and the instant are stamped by the store from the write context
+   * and the domain clock, never taken from here, so a request cannot claim someone else made the
+   * check or claim it was made at a time it was not.
+   */
+  assurances: readonly PlanAssurance[];
 };
 
 export type PlanLifecycleInput = { planId: PlanId; expectedVersion: number };

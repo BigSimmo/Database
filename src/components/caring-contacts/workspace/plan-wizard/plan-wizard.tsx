@@ -43,6 +43,7 @@ import {
   activatePlanRequestBody,
   activationRefusalWording,
   createPlanRequestBody,
+  everyAssuranceConfirmed,
   planVersionFromCreateAnswer,
   firstContactConsequence,
   firstContactReasonIsRequired,
@@ -419,6 +420,7 @@ export function PlanWizard({
       activation: draft.activation,
       sendingPreference: draft.sendingPreference,
       patientDetail: createPlanPatientDetail(draft.patientDetail),
+      assurances: draft.assurances,
     });
     // Unreachable through the interface: the trigger's commit is `unavailable` whenever the body
     // cannot be built, so the overlay refuses in place rather than opening a control that would land
@@ -800,9 +802,18 @@ function UnbuiltStagePanel({ stage, reason, onBack }: { stage: PlanWizardStage; 
  * from. An interface that presents a clinician's own tick as an imported record is lying about
  * provenance, on a screen whose entire purpose is assurance.
  *
- * THE CONFIRMATIONS ARE NOT RECORDED, AND THE SCREEN SAYS SO. There is no field for either of them
- * on a plan, so they live only in the draft, and the draft is not durable. That is reported rather
- * than papered over: see `docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md`.
+ * WHAT THE PLAN RECORDS ABOUT THESE CONFIRMATIONS, AND WHAT IT DOES NOT. Until Task 9b there was no
+ * field for either of them anywhere, so they lived only in the draft and were dropped when the
+ * sign-up finished. The owner closed that: creating the plan now records an ATTESTATION for each
+ * one — that this coordinator confirmed this check, and when.
+ *
+ * It records the CONFIRMATION, not the thing confirmed. The plan can say a coordinator confirmed the
+ * patient's agreement before it was created; it cannot say the patient consented, because this
+ * system is not where consent is held — the hospital record is, and the coordinator is confirming
+ * they checked it. No sentence on this screen may blur those two, in either direction.
+ *
+ * Before the plan is created the ticks are still only in the draft, and the draft is not durable, so
+ * the status line below points at the control that removes them.
  */
 function AgreementStage({
   referralId,
@@ -823,7 +834,9 @@ function AgreementStage({
   onAssuranceChange: (change: Partial<{ patientAgreed: boolean; mobileIsPatientControlled: boolean }>) => void;
   onContinue: () => void;
 }) {
-  const complete = assurances.patientAgreed && assurances.mobileIsPatientControlled;
+  // The same predicate stage 4 uses before it will build a create body, so the gate a coordinator
+  // passes here and the gate the request passes there cannot come apart.
+  const complete = everyAssuranceConfirmed(assurances);
   return (
     <section aria-label="Agreement" className="flex min-w-0 flex-col gap-5">
       <div className={panelClass}>
@@ -863,9 +876,9 @@ function AgreementStage({
       <div className={panelClass}>
         <h2 className={headingClass}>Confirmed by you</h2>
         <p className={`mt-1 ${mutedTextClass}`}>
-          These are your own confirmations, not imported facts, and the difference matters: nothing in this domain
-          records either of them. They are held only while this sign-up is open, and the plan that is created carries no
-          field for them.
+          These are your own confirmations, not imported facts, and the difference matters. What the plan records is
+          that you confirmed each of these, and when &mdash; not that the patient consented. Agreement is held in the
+          patient&rsquo;s hospital record; what you are confirming here is that you checked it.
         </p>
         <fieldset className="mt-3 min-w-0 border-0 p-0">
           <legend className="sr-only">Assurances you are confirming</legend>
@@ -912,13 +925,19 @@ function AgreementStage({
           and mobile number sit in that tab's storage. It works against the third requirement of
           Ruling [110].
 
-          What is true is the qualifier the panel above never dropped: neither confirmation is
-          recorded ON THE PLAN. Both are kept, with the rest of the draft, until the sign-up is
-          finished or discarded — and the sentence now points at the control that removes them.
+          What was true then was the qualifier the panel above never dropped: neither confirmation was
+          recorded ON THE PLAN. TASK 9B MADE THAT FALSE ON PURPOSE — creating the plan now records an
+          attestation for each confirmation. So the sentence states what the plan will record, and
+          still points at the control that removes the draft, because until the plan exists the ticks
+          are held on this computer exactly as round 2 found.
+
+          The third direction this sentence could go wrong, now that there IS a record: claiming the
+          plan records the patient's agreement. It records that YOU confirmed it. That is the whole
+          distinction the panel above draws, and it must survive here too.
         */}
         <p role="status" className={mutedTextClass}>
           {complete
-            ? "Both confirmations are ticked, so a pathway can be chosen. Neither is recorded on the plan; like everything else on this screen, they are kept on this computer until you finish or discard."
+            ? "Both confirmations are ticked, so a pathway can be chosen. Each is recorded on the plan when the plan is created — that you confirmed it, and when. Until then, like everything else on this screen, they are kept on this computer until you finish or discard."
             : "A pathway cannot be chosen until both confirmations above are ticked."}
         </p>
         <div className="flex min-w-0 flex-wrap gap-3">
@@ -1469,14 +1488,17 @@ function ForwardControl({
  * remove a message from a suicide-prevention schedule, so §4.4 requires that stated IN PLACE, before
  * the choice is committed — which is why the preview is live rather than shown after the write.
  *
- * WHAT IT REFUSES TO CLAIM (Ruling [119] again). The mockup renders `Agreement confirmed: Yes` as a
- * stored fact. It is not stored: `createPlanSchema` is `.strict()` with ten fields, `patientDetail`
- * `.strict()` with four, and neither has a place for it. This screen is the last place a false
- * reassurance could be introduced before a plan exists, so it states today's fact — confirmed in
- * this sign-up, not recorded on the plan — rather than a permanent property. That distinction is
- * deliberate and about to matter: the owner has decided the confirmations WILL be stored as an
- * attestation, which is a schema change and a later task, and wording claiming they never are would
- * have to be hunted down when it lands.
+ * WHAT IT CLAIMS, AND WHAT IT STILL REFUSES TO (Ruling [119], then Ruling [122]). The mockup renders
+ * `Agreement confirmed: Yes` as a stored fact. When this screen was built it was not stored at all,
+ * and the copy said so. Task 9b closed that: the plan now records an attestation for each
+ * confirmation — who confirmed, what, when — so "not recorded on the plan" would be the false
+ * sentence here today. That is exactly why the earlier wording stated a fact of the day rather than
+ * a permanent property; it took one edit to make true again instead of a hunt.
+ *
+ * What the screen still refuses to claim is the mockup's actual assertion. `Agreement confirmed:
+ * Yes` reads as the patient's agreement being a fact this plan holds. It is not. What the plan holds
+ * is that a coordinator confirmed they checked it, and this is the last surface before the plan
+ * exists — so it names the act and its actor, never the patient's state.
  *
  * WHAT CONFIRMING ACTUALLY DOES, said in place rather than implied by a verb. It performs TWO
  * writes (Ruling [123]): `POST /api/caring-contacts/plans` creates the plan, its patient detail and
@@ -1550,6 +1572,7 @@ function ReviewStage({
     activation,
     sendingPreference,
     patientDetail,
+    assurances,
   });
   const chosenPreference = sendingPreferenceOptions.find((option) => option.preference === sendingPreference) ?? null;
 
@@ -1629,30 +1652,33 @@ function ReviewStage({
         RULING [119], AND IT IS THE SENTENCE THIS SCREEN EXISTS TO GET RIGHT.
 
         The approved mockup renders `Agreement confirmed: Yes` beside the patient's name, in a row
-        of read-back cards, which presents it as a fact the plan holds. It is not one. There is no
-        field for it on a plan and none in the request: `createPlanSchema` is `.strict()` with ten
-        fields and its `patientDetail` `.strict()` with four. A screen telling a coordinator the
-        consent question is handled, at the exact moment the owner is deciding it is not, is the
-        worst available failure here — this is the last surface before the plan exists.
+        of read-back cards, which presents the patient's agreement as a fact the plan holds. That is
+        still not one, and this is still the last surface before the plan exists, so telling a
+        coordinator the consent question is handled is still the worst available failure here.
 
-        The wording states TODAY'S FACT rather than a permanent property, deliberately. The owner has
-        since decided these confirmations will be stored as an attestation — who confirmed, what they
-        confirmed, when — which is a schema change and a later task. "Not recorded on the plan" is
-        true now and becomes false in one place when that lands; "nothing in this domain records
-        them" would have had to be hunted for.
+        WHAT CHANGED IN TASK 9B, AND WHAT DID NOT. The request now carries the confirmations and the
+        plan records an attestation for each: that this coordinator confirmed this check, and when.
+        So the old sentence — "they are not recorded on the plan" — is now false and has gone. What
+        has NOT changed is the claim the mockup makes: an attestation is evidence that a check
+        happened, not evidence of what the patient agreed to, and agreement lives in the hospital
+        record rather than here.
+
+        This is also the payoff of stating today's fact rather than a permanent property. "Not
+        recorded on the plan" was true when written and false in one place afterwards; "nothing in
+        this domain records them" would have had to be hunted for across four screens.
       */}
       <StatedReason
         heading={
-          assurances.patientAgreed && assurances.mobileIsPatientControlled
-            ? "Both confirmations were made by you in this sign-up"
+          everyAssuranceConfirmed(assurances)
+            ? "Both confirmations were made by you, and the plan will record them"
             : "The confirmations at the start of this sign-up are not both ticked"
         }
         because={
-          assurances.patientAgreed && assurances.mobileIsPatientControlled
-            ? "You confirmed that the patient agreed to receive caring contacts, and that the number is the patient's own. They are your confirmations in this session, not facts read from a record, and they are not recorded on the plan — nothing in the plan being created has a field for either."
-            : "At least one of the two confirmations at the start of this sign-up is not ticked. They are your own confirmations, not facts read from a record, and they are not recorded on the plan."
+          everyAssuranceConfirmed(assurances)
+            ? "You confirmed that the patient agreed to receive caring contacts, and that the number is the patient's own. Creating the plan records each of those on the plan as your confirmation, with who you are acting as and the time. What is recorded is that you confirmed the patient agreed — not the agreement itself, which is held in the patient's hospital record and not here."
+            : "At least one of the confirmations at the start of this sign-up is not ticked. This plan cannot be created until every one of them is: the plan records each confirmation as yours, and a confirmation nobody made is not something it can record."
         }
-        changedBy="Going back to the agreement stage changes what you confirmed. What the plan records is not changed by it either way."
+        changedBy="Going back to the agreement stage changes what you confirmed, and so changes what the plan will record."
         icon={<ClipboardCheck aria-hidden="true" className="size-icon-md shrink-0" />}
       />
 

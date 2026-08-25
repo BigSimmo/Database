@@ -31,10 +31,17 @@
 // scans the wizard's whole client module graph for exactly that name, because the service-state
 // record carries a free-text incident note that must never cross this boundary. So the function is
 // used where it can be: in the test, against the store, as the pin on what is derived here.
+import { PLAN_ASSURANCES, type PlanAssurance } from "@/lib/caring-contacts/assurances";
 import { sendableContacts } from "@/lib/caring-contacts/hospital-events";
 import { awstCalendarDay, awstWallTimeToInstant } from "@/lib/caring-contacts/clock";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 import { buildApprovedSchedule, firstContactDayBounds, type PlannedContact } from "@/lib/caring-contacts/schedule";
+
+// TYPE ONLY, and deliberately so. This module holds no storage and this import adds none: it erases
+// at build. It is taken from `./plan-draft` rather than restated structurally so the assurance shape
+// this module maps has exactly one declaration -- a third confirmation added to the draft is then a
+// compile error here rather than a silently unmapped tick.
+import type { PlanDraftAssurances } from "./plan-draft";
 
 /**
  * What stage 4 collects, as the clinician has it typed so far.
@@ -325,7 +332,10 @@ export function firstContactConsequence(input: {
   return { absorbed: preview.absorbed, summary: preview.summary };
 }
 
-/** Exactly the body `createPlanSchema` accepts. Ten keys, because `.strict()` refuses an eleventh. */
+/**
+ * Exactly the body `createPlanSchema` accepts, and exactly that -- the schema is `.strict()`, so a
+ * key this type has and the schema does not is refused outright rather than ignored.
+ */
 export type CreatePlanRequestBody = {
   planId: string;
   referralId: string;
@@ -341,8 +351,50 @@ export type CreatePlanRequestBody = {
     patientIdentifiers: string[];
     culturalIdentity: string | null;
   };
+  /**
+   * What the coordinator attested to having confirmed at stage 1, as the domain's own closed
+   * values. Never a pair of booleans on the wire: the set is not frozen, and a third confirmation
+   * should be a value rather than a schema change.
+   */
+  assurances: PlanAssurance[];
   idempotencyKey: string;
 };
+
+/**
+ * The stage-1 tick-boxes as attestations.
+ *
+ * WHAT AN ENTRY MEANS, and it is the distinction this whole feature turns on: a coordinator
+ * confirmed a check. It is not a record of the patient's consent -- this system is not where consent
+ * lives -- and nothing built on the returned list may present it as one.
+ *
+ * An unticked confirmation contributes NOTHING rather than an entry saying "not confirmed". A row
+ * asserting a negative would be a claim nobody made; absence is what "this was not confirmed" looks
+ * like, here and in the table this reaches.
+ */
+export function planAssurancesFrom(assurances: PlanDraftAssurances): PlanAssurance[] {
+  const attested: PlanAssurance[] = [];
+  if (assurances.patientAgreed) attested.push(PLAN_ASSURANCES.patientAgreementConfirmed);
+  if (assurances.mobileIsPatientControlled) attested.push(PLAN_ASSURANCES.patientControlsMobileConfirmed);
+  return attested;
+}
+
+/**
+ * Whether every confirmation this sign-up asks for has been made.
+ *
+ * ONE PREDICATE, TWO CALLERS, AND THE SECOND IS WHY IT EXISTS. Stage 1 will not let a coordinator
+ * choose a pathway until both are ticked, and that used to be the only place it mattered — nothing
+ * was recorded either way, so a draft restored at a later stage with one tick missing changed
+ * nothing about the plan. It does now: `createPlanRequestBody` builds a list of attestations, and a
+ * half-ticked restored draft would otherwise create a plan attesting one confirmation that had
+ * never passed the gate. Stage 4 asks the same question this function answers for stage 1.
+ *
+ * It is not the DOMAIN's rule and must not become one. `admitPlanAssurances` requires a plan to
+ * carry at least one attestation and to name none twice; WHICH confirmations are asked for belongs
+ * to the screen that asks, and the approved design's assurance set is not frozen.
+ */
+export function everyAssuranceConfirmed(assurances: PlanDraftAssurances): boolean {
+  return assurances.patientAgreed && assurances.mobileIsPatientControlled;
+}
 
 /**
  * The body this screen POSTs, or null while anything required is missing.
@@ -355,6 +407,13 @@ export type CreatePlanRequestBody = {
  * `firstContactReason` is OMITTED rather than sent empty. The schema types it
  * `z.string().min(1).optional()`, so `""` is refused outright and a plan carrying one could not be
  * created at all — the same shape as `culturalIdentity`, one field over.
+ *
+ * `assurances` is the opposite case, and its guard is not decoration. The schema requires a
+ * non-empty list and the store refuses an empty one by name, so a body attesting nothing is never
+ * built. The guard is `everyAssuranceConfirmed`, not "at least one", because a draft restored from a
+ * tab's storage is parsed input rather than a promise: a draft sitting at stage 4 with one tick
+ * missing would otherwise create a plan attesting a confirmation that never passed stage 1's gate.
+ * A body that could not honestly be created must be no body rather than a refused one.
  */
 export function createPlanRequestBody(input: {
   submission: PlanSubmissionIdentity | null;
@@ -364,11 +423,15 @@ export function createPlanRequestBody(input: {
   activation: PlanActivationDraft;
   sendingPreference: SendingPreference | null;
   patientDetail: CreatePlanRequestBody["patientDetail"] | null;
+  assurances: PlanDraftAssurances;
 }): CreatePlanRequestBody | null {
   if (input.submission === null) return null;
   if (input.pathwayVersionId === null) return null;
   if (input.sendingPreference === null) return null;
   if (input.patientDetail === null) return null;
+
+  if (!everyAssuranceConfirmed(input.assurances)) return null;
+  const assurances = planAssurancesFrom(input.assurances);
 
   const preview = planSchedulePreview({ activation: input.activation, sendingPreference: input.sendingPreference });
   if (preview.kind !== "ready") return null;
@@ -389,6 +452,7 @@ export function createPlanRequestBody(input: {
     firstContactDate: preview.firstContactDay,
     ...(reason === "" ? {} : { firstContactReason: reason }),
     patientDetail: input.patientDetail,
+    assurances,
     idempotencyKey: input.submission.createIdempotencyKey,
   };
 }

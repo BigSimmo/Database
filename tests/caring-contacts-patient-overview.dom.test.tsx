@@ -57,6 +57,7 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
 import { PatientOverview } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import {
   contactId,
@@ -139,6 +140,7 @@ async function createPlan(
         patientIdentifiers: ["SYN-UMRN-001"],
         culturalIdentity: "Not stated",
       },
+      assurances: PLAN_ASSURANCE_VALUES,
     },
     { actor, idempotencyKey: idempotencyKey(`create-${id}`) },
   );
@@ -514,6 +516,7 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
       dischargeAt: DISCHARGE,
       completedAt: null,
       outcome: "inProgress",
+      assuranceAttestations: [],
       contacts: [
         {
           contact: { id: contactId("plan-x--contact-1"), planId: planId("plan-x"), state: "scheduled", version: 1 },
@@ -660,6 +663,7 @@ describe("the patient overview - a contact suppressed by a later transition stil
     dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
     completedAt: null,
     outcome: "inProgress",
+    assuranceAttestations: [],
     // The middle entry is suppressed with NO `planned.suppressed` marker -- a later transition,
     // not the schedule's absorption.
     contacts: [entry(1, "scheduled"), entry(2, "suppressed"), entry(3, "scheduled")],
@@ -749,6 +753,7 @@ describe("the patient overview - a plan that has ended says so, and never promis
       dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
       completedAt: null,
       outcome: "inProgress",
+      assuranceAttestations: [],
       contacts: [
         {
           contact: { id: contactId("plan-x--contact-1"), planId: planId("plan-x"), state: "cancelled", version: 1 },
@@ -781,6 +786,7 @@ describe("the patient overview - a plan that has ended says so, and never promis
       dischargeAt: new Date("2026-08-15T02:00:00.000Z"),
       completedAt: null,
       outcome: "inProgress",
+      assuranceAttestations: [],
       contacts: [
         {
           contact: { id: contactId("plan-x--contact-1"), planId: planId("plan-x"), state: "missed", version: 1 },
