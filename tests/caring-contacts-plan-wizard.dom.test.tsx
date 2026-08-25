@@ -710,6 +710,63 @@ describe("stage 3 — cultural identity is NOT asked for (owner decision, round 
   });
 });
 
+describe("stage 3 — validation before advancing (Ruling [115], round 1 finding I-1)", () => {
+  it("proves the forward control honours `ready` at all, on the one stage where it is reachable today", async () => {
+    // ROUND 1, I-1, first half. `ForwardControl` returns an `UnavailableDestination` whenever the
+    // NEXT stage is unbuilt and never reads `ready` on that path — so stage 3's `ready={complete}`
+    // is dead code until Task 9 builds review, and nothing was proving the prop is honoured
+    // anywhere. Stage 2 is where it IS reachable: its next stage is personalisation, which Task 8
+    // built. So the mechanism is proved live here, and stage 3's own gate is armed below.
+    const user = userEvent.setup();
+    renderWizard({ referralPathwayVersionId: null });
+    for (const box of screen.getAllByRole("checkbox")) await user.click(box);
+    await user.click(screen.getByRole("button", { name: /Continue to pathway/ }));
+
+    const forward = screen.getByRole("button", { name: /Continue to personalisation/ });
+    expect(forward, "the forward control was live with no pathway chosen").toBeDisabled();
+    // Native `disabled` and never `aria-disabled` here: this is TRANSIENT inertness awaiting
+    // validity, which is exactly what the native attribute is for, and the two must never be paired.
+    expect(forward).not.toHaveAttribute("aria-disabled");
+
+    await user.click(screen.getByRole("radio", { name: new RegExp(NAMED_PATHWAY) }));
+    expect(screen.getByRole("button", { name: /Continue to personalisation/ })).toBeEnabled();
+  });
+
+  it("will require an incomplete stage 3 to be unable to advance, the moment Task 9 builds review", async () => {
+    // ROUND 1, I-1, second half — and it is Task 7's self-arming shape, for the same reason: today
+    // there is nothing to assert, and the moment `stages.ts` flips `review` there is a hard
+    // requirement. Without this, Task 9 can ship a Continue that ignores `ready` with every gate
+    // green, and a plan could be submitted with no patient name and no mobile number.
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    if (planWizardStageImplementation("review").kind === "not-built") {
+      // Nothing to require yet, and this states that rather than passing silently: an enabled
+      // forward control here would mean a review body had appeared behind the table's back.
+      const unavailable = within(stage).getByRole("button", { name: /^Review and activation/ });
+      expect(unavailable).toHaveAttribute("aria-disabled", "true");
+      expect(within(stage).queryByRole("button", { name: /^Continue to review/ })).toBeNull();
+      return;
+    }
+
+    // Task 9 has built it. Nothing is typed, so the control must be inert — and inert by the native
+    // attribute, because awaiting validity is transient inertness.
+    const incomplete = within(stage).getByRole("button", { name: /^Continue to review/ });
+    expect(
+      incomplete,
+      "stage 3 could advance with no patient name and no mobile number — Ruling [115] requires the " +
+        "mobile number to be validated BEFORE the wizard advances",
+    ).toBeDisabled();
+    expect(incomplete).not.toHaveAttribute("aria-disabled");
+
+    await user.type(within(stage).getByLabelText(/patient.s name/i), "Rowan Example");
+    await user.type(within(stage).getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
+    await user.click(within(stage).getByRole("radio", { name: /Morning/ }));
+    expect(within(stage).getByRole("button", { name: /^Continue to review/ })).toBeEnabled();
+  });
+});
+
 describe("stage 3 — the sending preference (kept from the mockup, minus its count)", () => {
   it("offers the three approved preferences with the time each actually sends at", async () => {
     const user = userEvent.setup();
