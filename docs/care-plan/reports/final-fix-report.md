@@ -418,6 +418,26 @@ that note and is right: "my" asserts possession rather than authorship, and the 
 exactly that possession. `Your plan` would read as issued rather than owned. It goes to the copy pass
 as a note.
 
+## Gates — closing pass
+
+| Gate                                | Result                                                              |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| Care Plan + primitive Vitest        | `Test Files  6 passed (6)` / `Tests  533 passed (533)` (241.70s)    |
+| `npm run typecheck`                 | real `tsc` invocation, exit 0, zero diagnostics — **third attempt** |
+| `npm run lint`                      | real `eslint … --max-warnings 0`, exit 0                            |
+| `npx prettier --check` (3 changed)  | `All matched files use Prettier code style!`                        |
+| `npm run test:e2e:care-plan-mockup` | `30 passed (2.1m)`, `1 skipped` — **second attempt**                |
+| Byte scan, 3 changed files          | CR=0, control bytes=0, `git ls-files --eol` reports `i/lf w/lf`     |
+
+**Systemic lesson 6 caught two more runs on this pass, and both wore green.** Two typecheck attempts
+and one whole Playwright invocation printed `DATABASE_HEAVY_RUN_ADMISSION_BUSY` and **exited 0
+without running anything** — no `Test Files` line, no `passed` line, nothing executed. The Playwright
+one is the worse of the two, because a wrapper exiting 0 after a two-minute wait is indistinguishable
+from a fast green run unless the output is actually read. Every one was retried in a loop until a
+real invocation was observed, and only the real invocation is reported above. The interim state was
+also briefly mis-described in this session as "still in flight" when it had in fact already
+terminated as a refusal; corrected here rather than left standing.
+
 ## Still owed — the complete list
 
 1. **All five new headings and lead-ins are provisional**, awaiting the user's patient-facing copy
