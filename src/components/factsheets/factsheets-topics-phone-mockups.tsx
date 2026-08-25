@@ -166,9 +166,7 @@ function PhoneFrame({ label, variant }: { label: string; variant: VariantId }) {
   return (
     <figure className="mx-auto w-full max-w-phone-frame">
       <figcaption className="mb-2 flex items-center justify-between">
-        <span className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">
-          {label}
-        </span>
+        <span className="text-3xs font-extrabold uppercase tracking-kicker text-[color:var(--text-soft)]">{label}</span>
         <span className="text-3xs font-bold text-[color:var(--text-soft)]">scrollable</span>
       </figcaption>
       <div className="relative flex h-phone-frame flex-col overflow-hidden rounded-phone-frame border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-lux)]">
