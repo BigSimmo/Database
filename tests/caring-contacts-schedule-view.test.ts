@@ -558,8 +558,8 @@ describe("buildScheduleRange — what an entry carries through from the planner 
 
   it("carries each entry's own plan state, so a held entry says which plan state held it", async () => {
     const store = newStore();
-    const active = await seedPlan(store, { sendingPreference: "morning" });
-    const paused = await seedPlan(store, { sendingPreference: "afternoon", planState: "paused" });
+    await seedPlan(store, { sendingPreference: "morning" });
+    await seedPlan(store, { sendingPreference: "afternoon", planState: "paused" });
     const records = await plansOf(store);
 
     const day = dayOf(records, MONTH_END);
@@ -569,9 +569,11 @@ describe("buildScheduleRange — what an entry carries through from the planner 
       records.map((record) => [record.plan.id, record.plan.state]),
     );
 
-    // FIXTURE PRECONDITION, not a claim about the code: the two plans are deliberately in
-    // different states, which is what stops the line above from being satisfiable by a constant.
-    expect(reported.get(active)).not.toBe(reported.get(paused));
+    // FIXTURE PRECONDITION, not a claim about the code: the plans under test hold more than one
+    // state between them, which is what stops the line above from being satisfiable by a constant.
+    // Read from the plan RECORDS and never from the read's output, so a failure here can only mean
+    // the fixture stopped seeding two states -- never that the code hardcoded one.
+    expect(new Set(records.map((record) => record.plan.state)).size).toBeGreaterThan(1);
   });
 });
 

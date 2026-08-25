@@ -396,10 +396,24 @@ counts**, which the discipline permits and which is correct.
 
 ## An unlisted finding: two Task 12 files were committed unformatted
 
-Not in the review's list; found while committing. `prettier --check` fails on
-`src/lib/caring-contacts/schedule-view.ts` and `tests/caring-contacts-schedule-route.test.ts`, while
-`model.ts`, `schedule.ts`, `access-audit.ts`, the API route and the view test all pass — so it is
-those two new files specifically, not a misconfigured invocation.
+Not in the review's list; found while committing. Task 12 changed exactly these TypeScript files.
+The set is written out rather than counted, so the claim names what it covers:
+
+| File                                                | Task 12 | `prettier --check` at `6b75dcf3b` |
+| --------------------------------------------------- | ------- | --------------------------------- |
+| `src/lib/caring-contacts/schedule-view.ts`          | new     | **FAIL**                          |
+| `src/app/api/caring-contacts/schedule/route.ts`     | new     | pass                              |
+| `tests/caring-contacts-schedule-view.test.ts`       | new     | pass                              |
+| `tests/caring-contacts-schedule-route.test.ts`      | new     | **FAIL**                          |
+| `src/lib/caring-contacts/schedule.ts`               | edited  | pass                              |
+| `src/lib/caring-contacts/access-audit.ts`           | edited  | pass                              |
+| `src/app/api/caring-contacts/access-trail/route.ts` | edited  | pass                              |
+
+So it is those two files specifically, not a misconfigured invocation. **An earlier draft of this
+section said "the five Task 12 source and test files" and "two of five new files".** Neither number
+named a real set: the passing list it gave included `src/lib/caring-contacts/model.ts`, which Task 12
+never touched, while `access-trail/route.ts`, which it did, carried no stated evidence at all.
+Corrected here, and taken up in round 3 below as the rule it broke.
 
 The original gate table is not wrong about this; it never claimed format. That is the trap:
 **formatting is in none of `test`, `typecheck` or `lint`**, so every gate the task ran could pass on
@@ -419,7 +433,7 @@ never formatted, the sibling tasks in the other worktrees are worth the same one
 | `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`), new tests in | `Test Files  20 passed (20)` and `Tests  427 passed (427)`                       |
 | `npm run test:cc-guards`, M19 applied                            | `Test Files  1 failed / 19 passed (20)` and `Tests  1 failed / 426 passed (427)` |
 | `npm run test:cc-guards`, M20 applied                            | `Test Files  1 failed / 19 passed (20)` and `Tests  1 failed / 426 passed (427)` |
-| `prettier --check`, the five Task 12 source and test files       | `All matched files use Prettier code style!` after `a4550fc80`                   |
+| `prettier --check`, every file in the Task 12 file table above   | `All matched files use Prettier code style!` after `a4550fc80`                   |
 | `npm run typecheck` (`GATE_RECEIPTS=refresh`)                    | exit 0, no diagnostics emitted                                                   |
 | `npx eslint --no-cache`, the three files this round changed      | `files linted: 3`, `errors: 0 warnings: 0` (JSON formatter)                      |
 
@@ -437,17 +451,129 @@ hunks.
 
 ## Concerns from the fix round
 
-1. **The formatting finding is the one that generalises.** Two of five new files in a reviewed,
-   mutation-tested task had never been through Prettier, and no gate the task ran could have said so.
-   Worth one `prettier --check` across the other Group 2 worktrees before the controller merges.
+1. **The formatting finding is the one that generalises.** `schedule-view.ts` and
+   `caring-contacts-schedule-route.test.ts` — the two named FAIL in the table above — had never been
+   through Prettier in a reviewed, mutation-tested task, and no gate that task ran could have said
+   so. Worth one `prettier --check` across the other Group 2 worktrees before the controller merges.
 2. **`entryFor`'s remaining fields are asserted, but I checked that by reading the tests, not by
    mutating.** `patientId`, `cadenceLabel`, `sendAt` and `state` are each read by at least one
    existing case, and `planId` and `contactId` by many. I did not mutate them, so that is a reading
    of the suite rather than a proof about it, and I would rather say so than imply the field-mapping
    line is now fully covered.
-3. **The two fixture preconditions I added are labelled, not mutated.** They assert properties of the
-   seeded plan rather than of the code, and cannot go red under any mutation of `schedule-view.ts`.
-   They are in the suite so that a later fixture change cannot quietly make the assertion above each
-   of them vacuous. Recorded as what they are.
+3. **The two fixture preconditions I added are labelled, not mutated.** Both now read the plan
+   records rather than the read's output, so neither can go red under a mutation of
+   `schedule-view.ts`; they exist so a later fixture change cannot quietly make the assertion above
+   each of them vacuous. **This was not true of the second one as first written** — it read
+   `buildScheduleRange`'s output and did go red under M20. Corrected in round 3 below.
 4. **M17's note is now count-free, but M17 itself is still unfalsifiable.** The original concern
    stands unchanged; the correction was to the sentence, not to the coverage.
+
+---
+
+# Round 3 — report accuracy
+
+Both items are report accuracy, not code behaviour. The re-review verified the round-2 formatting
+claim literally and went further than I had: stripped of whitespace and trailing commas the two
+repaired files are byte-identical across `a4550fc80`, every string and template literal unchanged
+with its whitespace intact, and `git diff 6b75dcf3b..HEAD` changes **no executable token under
+`src/` at all** — the only executable change in the whole round is the two new test cases. Two of
+the three hunks were over `printWidth: 120`. Recorded here because it is the check I should have
+made myself on the commit that looked safest.
+
+## 1. The second "fixture precondition" was not one
+
+As first written the line was:
+
+```ts
+expect(reported.get(active)).not.toBe(reported.get(paused));
+```
+
+`reported` is built from `allEntries(day)` — from `buildScheduleRange`'s output. So it read **the
+code**, not the fixture, and it **does** go red under M20, where both sides become `"active"`. The
+in-file label ("FIXTURE PRECONDITION, not a claim about the code") and Concern 3 ("cannot go red
+under any mutation of `schedule-view.ts`") were both false of it. Precondition 1 was correctly
+labelled: it reads planner records only.
+
+The error was conservative — I under-claimed, so nothing was over-claimed and no coverage was
+missing. That is not a defence. **A note saying "this cannot fail" on an assertion that can is
+exactly what a later reader trusts and should not**, and it would have been read as licence to
+delete the line during a future cleanup on the grounds that it proved nothing.
+
+Fixed by taking the direct form, which reads the plan records rather than the output:
+
+```ts
+expect(new Set(records.map((record) => record.plan.state)).size).toBeGreaterThan(1);
+```
+
+The `active` and `paused` bindings became unused and were dropped with it, so the seeds are now bare
+`await seedPlan(...)` calls.
+
+**What this trades, stated rather than assumed.** The old line caught two different causes and could
+not say which: a fixture that stopped seeding two states, and code that hardcoded one. The new line
+catches only the first, unambiguously. Nothing is lost, because the second cause is already caught by
+the assertion directly above it — and strictly so, not just in practice: if that assertion passes,
+every plan's reported state equals its own record's state, and the records differ, so the reported
+values must differ too. The old line could therefore only fail where the assertion above it had
+already failed. **That is an argument, not a mutation** — M20 is consistent with it (only one
+assertion error printed, so the line was never reached) but does not by itself establish it, and I
+am not filing observed behaviour as proof of the general claim.
+
+## 2. Two false counts about the Prettier evidence — inside the round that exists to remove a count
+
+Round 2's gate row said "the five Task 12 source and test files" and Concern 1 said "two of five new
+files". Neither number named a real set: Task 12 changed **seven** TypeScript files and created four
+of them. Worse, the narrative's passing list named `src/lib/caring-contacts/model.ts`, which Task 12
+never touched, while `src/app/api/caring-contacts/access-trail/route.ts`, which it did, had no
+stated evidence under any reading of "the API route".
+
+The substance survived — two files really were unformatted and really are repaired — but on a
+**formatting** claim the set is the whole content of the claim. An evidence row that does not name
+what it covers is not evidence.
+
+Corrected by writing the set out: the file table now in "An unlisted finding" above lists every
+TypeScript file Task 12 touched, whether it was new or edited, and its `prettier --check` verdict at
+`6b75dcf3b`. The gate row points at that table instead of counting it, and Concern 1 names the two
+failing files instead of giving a fraction.
+
+**The rule this broke, in the sharper form the controller is putting into the standing discipline:**
+
+> **The counts that rot are the ones about a set you are not looking at.** A count sitting directly
+> on top of the list it counts has never failed here. Before writing a number, ask whether the thing
+> it counts is **visible in the same view as the number**. If it is not, name the set instead of
+> counting it.
+
+My gate row was a count about files listed nowhere near it. That is the failing shape every time,
+and this is the third occurrence in this programme — each one committed while removing somebody
+else's instance of it, mine included. The older form of the rule ("do not restate a count in prose")
+did not stop me, because I read my own row as a count "directly on top of" a list that was in fact
+two sections away. The visible-in-the-same-view test would have.
+
+## Not findings, no action taken
+
+Recorded so a later reader does not re-open them:
+
+- The `[id, value]` tuple comparisons have a tautological id half — the entry is _found_ by
+  `contactId`. It is a readable-failure-message idiom and the second element carries the load. Left
+  as they are.
+- Round 2's Concern 2 omitted `entry.needsReview` from the residual list. It is covered anyway:
+  `countsFor` derives `counts.needsReview` from it and both `toBe(1)` and `toBe(0)` are asserted, so
+  a hardcoded field reddens. The omission errs safe.
+- The controller has already run `prettier --check` across the other Group 2 worktrees. Their changed
+  TypeScript is clean; the only warning is one file a live implementer is mid-edit. Concern 1 of
+  round 2 is closed by that, not by me.
+
+## Commits
+
+| SHA                           | What                                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| _recorded in the next commit_ | The mislabelled precondition swapped for the records-based form, and the report's two counts replaced by the named set. |
+
+Every SHA written down in this report was checked to still resolve
+(`git cat-file -e <sha>^{commit}`) after the last commit of this round.
+
+## Gate
+
+_recorded in the next commit, after the run._
+
+Run **after** the final edit of this round, not before it, so its verdict covers the tree that was
+committed. The only change made after it is this section's own gate line.
