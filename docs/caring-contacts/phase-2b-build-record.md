@@ -1433,9 +1433,22 @@ matching nothing, which is exactly how this class of scan normally fails silentl
 correct; it is the runner that cannot reach it.** Worth stating as its own failure mode: _where a
 check lives decides whether it exists._
 
-The second half of that — that the other 193 database tests, including every row-level-security and
-cross-team assertion the shared contract makes against real SQL, also never run in CI — is bigger than
-this task and is filed (`b60f9982`, P2).
+The second half of that — that the **rest of that database project** never runs in CI either,
+including every row-level-security and cross-team assertion the shared contract makes against real
+SQL — is bigger than this task and is filed.
+
+**No count here, and the reason is a correction against me.** I first wrote that sentence with a test
+count in it, and filed an issue record carrying the same count. Moving the guard to the offline
+project changed it by one **inside this same branch**, so both were true when written and false before
+the issue record could be reconciled. The record's summary also double-counted, naming the guard
+separately from a total that already contained it. Cancelled (`9b9b8f4f`) and re-filed stating the
+invariant (`b2e5f3fc`).
+
+**Ruling 94, written by me, broken by me, inside one round — and in the one artifact that is durable
+cross-session memory.** The build record is at least read next to its own corrections; an inbox record
+is reconciled into the canonical ledger as written and outlives everyone who could remember what it
+meant. If a count must not go in prose, it must **especially** not go in a record that will be copied
+somewhere else months later.
 
 **On the length cap's duplicated literal: the cited precedent is real but NOT symmetric, and the
 asymmetry is the whole argument.** `plan_assignments_coverage_is_calendar_days` does hardcode a
@@ -1494,3 +1507,38 @@ trade I will make unasked**, and the implementer completed the wait without it. 
 `43 passed (1.1m)`, exit 0, unmoved. The implementer predicted no movement and gave its reasoning
 (two test files, one SQL check expression, one migration comment; no rendered output). Second
 prediction it has made about this gate and second time it held.
+
+### Task 6b scoped re-review — all six ADDRESSED, no Critical, no Important
+
+Browser gate `43 passed (1.1m)`, exit 0. The reviewer verified each mechanism rather than each claim:
+it executed both cap regexes against the real files, confirmed the moved guard is collected by the
+default `npm run test`, and confirmed the constraint name occurs exactly twice in the migration so
+M18's rename genuinely kills the match and fails with "expected undefined to be defined" — the
+positive control firing, not the scan passing on an empty match.
+
+**It also reconciled the test arithmetic from both sides**, which is the right way to check a claim
+that a count moved for a benign reason: the database project lost one case and the offline suite
+gained three — the moved scan, the new cap scan, and the I-2 case — with skips unchanged. Nothing was
+lost. That is a stronger check than reading either number alone, and it is worth copying.
+
+**Two of the three new findings were mine.** The count above is one. The other is the deferred anchor
+weakness below, which is the implementer's but which I am treating as worth fixing rather than
+filing.
+
+**The residual worth carrying about lease evidence.** The implementer identified an orphaned run as
+its own from `scripts/test-run-lock.mjs`'s lease record, which does carry
+`worktree: path.resolve(projectRoot)` — so it read a recorded working directory rather than inferring
+from a PID, which is what the standing requirement asks. The reviewer's addition is the useful part:
+a recorded `worktree` plus `processIsAlive(pid)` is still weaker than reading the live process's cwd
+from the OS, and a stale lease plus PID reuse would defeat it. **It did not matter because the only
+action taken was to wait — and that same evidence would not have justified breaking the lease.** The
+strength of evidence required scales with the destructiveness of what is done with it. Carried into
+future briefs.
+
+**Sent back as fix round 2 rather than filed: the cap scan's SQL anchor.** The regex anchors on the
+first occurrence of the constraint name — the `where c.conname =` existence guard, not the constraint
+body — then takes the first `<=` after it. A future edit inserting any other numeric `<=` between
+those points makes the scan read the wrong literal and agree with the TypeScript constant while the
+real cap has drifted. The positive control does not cover it: it proves _a_ number was found, not
+that it is the cap's. This is the same shape as the finding that started the task — a scan correct
+today that cannot stay correct by construction — which is why it is worth a round rather than a row.
