@@ -107,6 +107,32 @@ function coerceBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
+export const PREFERENCE_FIELD_KEYS = [
+  "density",
+  "motion",
+  "jurisdiction",
+  "population",
+  "answerStyle",
+  "landing",
+  "showRecentOnHome",
+  "showProtocolsOnHome",
+  "compactCitations",
+  "saveRecentSearches",
+  "notifyGuidelineUpdates",
+  "notifyProductNews",
+  "notifySavedChanges",
+] as const satisfies ReadonlyArray<keyof AppPreferences>;
+
+/**
+ * Apply a partial preference update without overwriting fields omitted from the
+ * request body. Pre-change clients that PUT an older shape must not re-enable
+ * privacy opt-outs stored on the account.
+ */
+export function mergeAccountPreferences(stored: unknown, patch: Partial<AppPreferences>): AppPreferences {
+  const base = stored === null || stored === undefined ? DEFAULT_PREFERENCES : normalizePreferences(stored);
+  return normalizePreferences({ ...base, ...patch });
+}
+
 export function normalizePreferences(input: unknown): AppPreferences {
   if (!isPlainObject(input)) return DEFAULT_PREFERENCES;
   const jurisdiction =

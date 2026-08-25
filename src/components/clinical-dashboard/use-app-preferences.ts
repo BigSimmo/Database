@@ -220,7 +220,8 @@ export function useAppPreferences() {
   }
 
   const syncState: PreferenceSyncState = authStatus !== "authenticated" ? "local-only" : (observedSync ?? "syncing");
-  const accountBootstrapReady = authStatus !== "authenticated" || observedSync !== null;
+  const accountBootstrapReady =
+    authStatus !== "authenticated" || observedSync === "synced" || observedSync === "local-only";
   const canRecordRecentSearches = accountBootstrapReady && preferences.saveRecentSearches;
 
   useEffect(() => {

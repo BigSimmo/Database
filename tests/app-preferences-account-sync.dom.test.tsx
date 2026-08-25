@@ -94,6 +94,22 @@ describe("account preference bootstrap and write serialisation", () => {
     expect(mayRecordRecentSearches()).toBe(false);
   });
 
+  it("does not allow recent-search recording when account bootstrap fails", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && String(input).includes("/api/account/preferences")) {
+        return Promise.resolve(new Response("upstream unavailable", { status: 503 }));
+      }
+      throw new Error(`Unexpected fetch: ${method} ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getByTestId } = render(<PreferencesProbe />);
+    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("error"));
+    expect(getByTestId("may-record")).toHaveTextContent("no");
+    expect(mayRecordRecentSearches()).toBe(false);
+  });
+
   it("serializes preference PUTs so a delayed older snapshot cannot overwrite a newer one", async () => {
     type PutResponse = { ok: boolean; status: number; json: () => Promise<{ preferences: unknown }> };
     const pendingPuts: Array<{

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DEFAULT_PREFERENCES, normalizePreferences } from "@/lib/account-preferences";
+import { mergeAccountPreferences, normalizePreferences } from "@/lib/account-preferences";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -8,7 +8,7 @@ import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 
-const preferencesSchema = z
+const preferencesPatchSchema = z
   .object({
     density: z.enum(["comfortable", "compact", "spacious"]),
     motion: z.enum(["system", "reduced", "full"]),
@@ -19,16 +19,18 @@ const preferencesSchema = z
     showRecentOnHome: z.boolean(),
     showProtocolsOnHome: z.boolean(),
     compactCitations: z.boolean(),
-    // Optional with default: tabs that opened before this field shipped still
-    // PUT the previous shape; rejecting the whole body would strand every other
-    // preference change until a refresh. Default matches the client opt-out
-    // contract (recording on until explicitly turned off).
-    saveRecentSearches: z.boolean().default(DEFAULT_PREFERENCES.saveRecentSearches),
+    // Omitted keys are preserved from the stored account row on PUT — never
+    // defaulted here, or a pre-change tab can overwrite a stored opt-out.
+    saveRecentSearches: z.boolean(),
     notifyGuidelineUpdates: z.boolean(),
     notifyProductNews: z.boolean(),
     notifySavedChanges: z.boolean(),
   })
-  .strict();
+  .partial()
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "Account preferences must include at least one field.",
+  });
 
 export async function GET(request: Request) {
   try {
@@ -54,7 +56,14 @@ export async function PUT(request: Request) {
   try {
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const preferences = await parseJsonBody(request, preferencesSchema, "Account preferences are invalid.");
+    const patch = await parseJsonBody(request, preferencesPatchSchema, "Account preferences are invalid.");
+    const { data: existing, error: readError } = await supabase
+      .from("user_preferences")
+      .select("preferences")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    const preferences = mergeAccountPreferences(existing?.preferences ?? null, patch);
     const { error } = await supabase.from("user_preferences").upsert({
       user_id: user.id,
       preferences,
