@@ -278,6 +278,22 @@ describe("ChoiceChip", () => {
     await userEvent.click(chip);
     expect(onPressedChange).not.toHaveBeenCalled();
   });
+
+  it("stops an explained dead end from activating a clickable ancestor", async () => {
+    const onPressedChange = vi.fn();
+    const onAncestorClick = vi.fn();
+    render(
+      <div onClick={onAncestorClick}>
+        <ChoiceChip ariaDisabled pressed={false} onPressedChange={onPressedChange}>
+          Unavailable
+        </ChoiceChip>
+      </div>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Unavailable" }));
+    expect(onPressedChange).not.toHaveBeenCalled();
+    expect(onAncestorClick).not.toHaveBeenCalled();
+  });
 });
 
 describe("Citation", () => {
