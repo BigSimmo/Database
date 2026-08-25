@@ -237,10 +237,7 @@ describe("ChoiceChip", () => {
       "group-hover:border-[color:var(--border-strong)]",
       "group-hover:bg-[color:var(--surface-subtle)]",
     );
-    expect(chip.querySelector("[data-choice-chip-content='true']")).toHaveClass(
-      "relative",
-      "z-[var(--z-raised)]",
-    );
+    expect(chip.querySelector("[data-choice-chip-content='true']")).toHaveClass("relative", "z-[var(--z-raised)]");
     await userEvent.click(chip);
     expect(onPressedChange).toHaveBeenCalledWith(true);
 
