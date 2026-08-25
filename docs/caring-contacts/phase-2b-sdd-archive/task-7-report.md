@@ -182,8 +182,14 @@ real Continue button with no edit at the call site. Three guards make a half-cha
 **Task 9 (review and activation) changes the same two places for `"review"`, plus one obligation:**
 
 - **It must call `clearPlanDraft()` the moment `createPlan` returns success, before anything
-  navigates.** `tests/caring-contacts-plan-draft.dom.test.tsx` carries a named case
-  ("clears on successful activation") specifically so that omission has a failing test to point at.
+  navigates.** ~~`tests/caring-contacts-plan-draft.dom.test.tsx` carries a named case ("clears on
+  successful activation") specifically so that omission has a failing test to point at.~~
+  **CORRECTED, round 1 finding M-1 — see "M-1 — the claim corrected, and a guard that arms itself"
+  below.** That case calls `clearPlanDraft()` directly, so it proves the SEAM and could not fail if
+  Task 9 forgot to call it; it has since been renamed accordingly. What does fail is
+  `tests/caring-contacts-plan-wizard.dom.test.tsx`'s `will require the activation stage to clear the
+  draft the moment Task 9 builds it`, which arms itself the instant `stages.ts` marks the review
+  stage built.
 - It must not clear the draft on a refused or failed activation — the coordinator has to be able to
   correct and retry.
 - The activation write needs `claimPlan` and `activatePlan`. The page already gates on `claimPlan`,

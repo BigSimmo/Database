@@ -68,7 +68,8 @@ export type PlanWizardPathwayOption = {
   cadenceLabels: readonly string[];
   /**
    * Which approval seats are recorded against this version, ALREADY IN PLAIN WORDS — the page
-   * resolves them through `role-labels.ts` (round 1, M-2). Governance provenance, not a tally.
+   * resolves them through `PATHWAY_APPROVAL_ROLE_WORDING` in `@/lib/caring-contacts/pathway-versions`
+   * (round 1, M-2). Governance provenance, not a tally.
    */
   approvedBy: readonly string[];
   /** AWST instant this version was published, or null. */
@@ -545,16 +546,28 @@ function AgreementStage({
 
       <div className="flex min-w-0 flex-col gap-2">
         {/*
-          "Confirmed", never "recorded" — round 1, finding M-6. The panel directly above says that
-          nothing in this domain records either confirmation, and the word "recorded" here
-          contradicted it on the same screen. That is a truth defect rather than a wording
-          preference: the gap is with the owner as a schema decision right now, and a screen
-          implying it is already handled is the one thing that could make the decision look
-          unnecessary.
+          THIS SENTENCE HAS BEEN WRONG IN BOTH DIRECTIONS, AND THE SECOND WAS WORSE.
+
+          Round 1, M-6: it read "Both confirmations are recorded for this sign-up", directly beneath
+          a panel saying nothing in this domain records them. That OVERSTATED durability, and the gap
+          is with the owner as a schema decision — a screen implying it is already handled is the one
+          thing that could make that decision look unnecessary.
+
+          Round 2, item 1: the replacement read "Neither is stored anywhere", which UNDERSTATED it and
+          was simply untrue — every tick goes through `writePlanDraft` into this tab's storage, and
+          the draft notice on this same screen says so in as many words. That direction is the more
+          dangerous of the two: a clinician on a shared ward computer who reads "neither is stored
+          anywhere" has just been given a reason NOT to press Discard draft, while the patient's name
+          and mobile number sit in that tab's storage. It works against the third requirement of
+          Ruling [110].
+
+          What is true is the qualifier the panel above never dropped: neither confirmation is
+          recorded ON THE PLAN. Both are kept, with the rest of the draft, until the sign-up is
+          finished or discarded — and the sentence now points at the control that removes them.
         */}
         <p role="status" className={mutedTextClass}>
           {complete
-            ? "Both confirmations are ticked, so a pathway can be chosen. Neither is stored anywhere; they hold only while this sign-up is open."
+            ? "Both confirmations are ticked, so a pathway can be chosen. Neither is recorded on the plan; like everything else on this screen, they are kept on this computer until you finish or discard."
             : "A pathway cannot be chosen until both confirmations above are ticked."}
         </p>
         <div className="flex min-w-0 flex-wrap gap-3">

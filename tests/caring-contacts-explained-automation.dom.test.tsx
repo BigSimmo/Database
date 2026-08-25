@@ -475,6 +475,29 @@ describe("the comment stripper the two source guards are built on", () => {
     expect(stripped).toMatch(/service-state lives next door/);
   });
 
+  it("pins the one place it errs UNSAFELY, so a green suite cannot be read as closing it", () => {
+    // Round 2, item 4. A trailing `//` comment is deliberately NOT stripped as a comment — but the
+    // `/*` inside it still opens the block branch, so the code after it is removed from what the
+    // guard reads. A silent false negative: the same class of bug `stripSourceComments` was written
+    // to fix, one layer down.
+    //
+    // THIS TEST PINS A LIMITATION, NOT A GUARANTEE. It exists so the limitation is visible in the
+    // suite rather than only in a header comment, and so that tightening the behaviour is a
+    // deliberate act that rewrites this case rather than a change nobody notices. Do not read it as
+    // saying the behaviour is correct.
+    const source = [
+      "const a = 1; // an aside mentioning /* a block opener",
+      'import type { ServiceState } from "@/lib/caring-contacts/service-state";',
+      "const b = 2; /* a real block */",
+    ].join(NEWLINE);
+
+    const stripped = stripSourceComments(source);
+
+    expect(stripped, "the known limitation has changed — see the header, and update it deliberately").not.toMatch(
+      /ServiceState/,
+    );
+  });
+
   it("copies template literals and their interpolations through untouched", () => {
     const stripped = stripSourceComments("const a = `before ${ServiceState} // not a comment` ;");
     expect(stripped).toMatch(/ServiceState/);

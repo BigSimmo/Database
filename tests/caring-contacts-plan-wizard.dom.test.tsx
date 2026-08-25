@@ -129,9 +129,16 @@ describe("the caring-contacts plan wizard — stage 1, agreement (Ruling [112])"
     for (const box of screen.getAllByRole("checkbox")) await user.click(box);
 
     const text = container.textContent ?? "";
-    expect(text).toMatch(/Both confirmations are ticked/);
+    // Pinned as a whole sentence, not a loose match — round 2, item 1. The replacement for M-6's
+    // wording was itself untrue in the other direction ("Neither is stored anywhere", on a screen
+    // whose own draft notice says the opposite), and a looser assertion would not have caught it.
+    expect(text).toContain(
+      "Both confirmations are ticked, so a pathway can be chosen. Neither is recorded on the plan; like everything else on this screen, they are kept on this computer until you finish or discard.",
+    );
     expect(text, "the screen claims the confirmations are recorded").not.toMatch(/confirmations are recorded/i);
-    expect(text).toMatch(/Neither is stored anywhere/);
+    // The understating direction is the more dangerous one on a shared ward computer: it gives a
+    // clinician a reason NOT to press Discard draft while a patient's details sit in this tab.
+    expect(text, "the screen denies keeping what it is in fact keeping").not.toMatch(/stored anywhere|kept anywhere/i);
   });
 
   it("shows roles in plain words, never as the domain's identifiers", async () => {

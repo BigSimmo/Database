@@ -18,9 +18,12 @@
 // defect in a check can take. This scans character by character instead and copies literals through
 // untouched.
 //
-// THREE PLACES IT IS DELIBERATELY CONSERVATIVE. Each errs toward LEAVING TEXT IN, which for a guard
-// means a false alarm a human reads rather than a missed offence that passes silently. Do not
-// "fix" any of them by loosening it:
+// FOUR PLACES IT IS INEXACT. THREE ERR TOWARD LEAVING TEXT IN, WHICH IS THE SAFE DIRECTION for a
+// guard: a false alarm a human reads, rather than a missed offence that passes silently. Do not
+// "fix" any of the three by loosening it. THE FOURTH ERRS THE OTHER WAY and is a known limitation
+// rather than a design choice — round 2, item 4.
+//
+// Safe direction:
 //
 //   * A LINE COMMENT IS STRIPPED ONLY WHEN THE LINE BEGINS WITH `//`. A trailing
 //     `import … // service-state` keeps its comment, so a guard still fires on it. That property
@@ -29,6 +32,23 @@
 //   * A REGULAR-EXPRESSION LITERAL IS NOT MODELLED, so a regex containing an unescaped `/*` or
 //     `//` is treated as code and could swallow the rest of its line.
 //   * AN UNTERMINATED STRING ENDS AT THE NEWLINE rather than running to the end of the file.
+//
+// UNSAFE DIRECTION — the one to know about:
+//
+//   * A TRAILING LINE COMMENT THAT CONTAINS `/*` IS NOT STRIPPED AS A COMMENT (see the first bullet)
+//     BUT ITS `/*` STILL OPENS THE BLOCK BRANCH, so everything up to the next `*/` — real code
+//     included — is removed from what the guard reads. That is a silent false negative, which is the
+//     worst shape a defect in a check can take, and it is exactly the class of bug this whole helper
+//     was written to fix (M-4) reappearing one layer down.
+//
+//     It is left in because closing it means teaching the line-comment branch to consume a trailing
+//     comment's text without stripping it — a real change to the deliberate first bullet, not a
+//     tweak — and because the shape needed to trigger it (a trailing `//` comment containing `/*`,
+//     with a later `*/` in the file) does not occur in either scanned tree today. The case named
+//     `pins the one place it errs UNSAFELY, so a green suite cannot be read as closing it` in
+//     `tests/caring-contacts-explained-automation.dom.test.tsx` pins the CURRENT behaviour and is
+//     labelled as pinning a limitation, so nobody can conclude from a green suite that it is closed.
+//     Tighten it deliberately, with that test rewritten to the new behaviour, or leave it alone.
 
 // Named rather than written as backslash escapes. A newline escape inside a source string is
 // exactly what a careless scripted rewrite of this file turns into a real line break, and it did —

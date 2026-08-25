@@ -1709,20 +1709,34 @@ configuration paths changed"), which is correct and fail-closed. The sanctioned 
 subset is `node scripts/run-vitest.mjs run <files>`, exactly as the existing `test:ci-workflows`
 script does.
 
-The tree-walking scans a caring-contacts diff cannot contain are nameable:
+The tree-walking scans a caring-contacts diff cannot contain are nameable, and since Task 7 round 2
+they are named **in one place only** — the `test:cc-guards` package script, alongside
+`test:ci-workflows`, which is the precedent it copies:
 
-```
-tests/caring-contacts-domain-isolation.test.ts      the sealed-domain import guard, PLAN_COLUMNS, the cap scan
-tests/caring-contacts-interface-vocabulary.test.ts  prohibited vocabulary across every workspace string
-tests/caring-contacts-retention.test.ts             the hard-coded-retention-period walk
-tests/caring-contacts-overlay-definitions.test.ts   the frozen 24-row matrix
-tests/route-reachability.test.ts                    orphan production routes
-tests/design-system-adoption.test.ts                the adoption manifest and its proof pointers
+```bash
+npm run test:cc-guards
 ```
 
-**From here: that set plus the task's own tests during iteration and every fix round; the FULL suite
-once, at the end of the task, before the report.** That is the same coverage at the moment it
+**This document deliberately does not repeat the filenames.** A prose list with nothing enforcing
+membership drifts the first time someone adds a scan and does not update a paragraph, which is the
+"a set that nothing enforces is a set that will silently shrink" failure. Read the script for the
+current membership; change the script to change it.
+
+It covers the workspace-wide scans (sealed-domain imports, interface vocabulary, retention,
+the frozen overlay matrix, orphan routes, the design-system adoption manifest, the
+`WORKSPACE_SCREENS` registry) and every caring-contacts screen suite, so a shell change is caught
+as well as a screen change.
+
+**From here: that script plus the task's own tests during iteration and every fix round; the FULL
+suite once, at the end of the task, before the report.** That is the same coverage at the moment it
 matters and removes two to three full-suite runs per task.
+
+**What the script fixes and what it does not.** It gives one copy of the list instead of two, so the
+two cannot disagree. It does NOT enforce membership: nothing fails when a new tree-walking scan is
+added and left out. A contract test over the obvious heuristic — every test file that both walks a
+directory and mentions caring-contacts — was tried and rejected during Task 7 round 2, because it
+matches the mockup route-file scan, the migrations suite and the Playwright isolation test, none of
+which a workspace UI change can reach. A membership contract needs a real signal, not that one.
 
 **MEASURED 2026-08-25, on Task 7's fix round — the first task to use it.** Guard set
 `Tests 194 passed (194)` in **53 s**; full suite `Tests 10087 passed | 74 skipped (10161)` in
