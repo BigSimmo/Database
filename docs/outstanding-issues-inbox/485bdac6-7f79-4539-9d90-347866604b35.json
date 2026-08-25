@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "485bdac6-7f79-4539-9d90-347866604b35",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Overflow menus split between a real ARIA menu and menu roles with no keyboard model",
+    "detail": "search-pins-menu.tsx declares role=menu/menuitem but implements no arrow-key, Home/End or roving-focus handling, so it promises the ARIA menu keyboard model and delivers Tab. mode-action-popup.tsx implements the model properly. answer-source-drawer.tsx was the third shape and was changed on 2026-08-25 (PR #2370) to role=group with plain buttons — a disclosure, which is what it actually is. Next action: pick one rule for the repo and apply it to search-pins-menu.tsx — either implement the keyboard model or drop the menu roles as the drawer did. No gate covers this, so it will keep diverging. Not urgent: every one of these menus is operable by Tab today; the defect is the mismatch between what is announced and what works.",
+    "source": "PR #2370 review (CodeRabbit), verified in source 2026-08-25",
+    "issueUlid": "01M0WYC9VR76GGRGJ31X3V41CP"
+  }
+}
