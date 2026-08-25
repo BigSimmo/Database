@@ -1578,3 +1578,52 @@ prose rather than reading the table. So the rule needs a second half:
 > Do not restate a count in prose — **and do not carry one forward from a document you are
 > summarising without recounting it at the source.** A count inherited is a count unverified, and a
 > brief is exactly where an unverified one acquires authority.
+
+## Owner decision, 2026-08-25 — the activation wizard keeps its in-progress answers in the browser
+
+Put to the owner before Task 7 was written, because the three ways to carry a half-finished sign-up
+across four steps differ in where a patient's name and mobile number end up, and that is not a
+technical preference.
+
+**The question:** a clinician signing a patient up goes agreement → pathway → personalisation →
+review. If interrupted partway, what happens to what they typed?
+
+**The answer: keep it in the browser, and it must survive a page refresh** — cleared when the tab
+closes. Rejected: discarding it on interruption (my recommendation), and saving a draft server-side.
+
+**I asked twice, because my first description of the chosen option was wrong.** I labelled it
+"nothing is stored". That is true only of in-memory component state, which dies on refresh — and the
+owner's own words, "vanishes when they close it", describe `sessionStorage`, which **writes the
+patient's name and mobile number to disk on the clinician's machine**. Those are materially different
+privacy properties on a clinical system, and the difference was created by my wording, not by
+anything he said. Put back to him plainly with the exposure named — a shared ward computer — and he
+chose the storing version knowingly.
+
+**The rule that produced the second question, and it is worth keeping.** An owner's answer is only
+as good as the description of the option. When a choice is made against a label that turns out to be
+inaccurate, the decision is not theirs yet — it is mine, wearing their name. **Re-ask.** The cost is
+one exchange; the alternative is patient details written to a ward machine on my say-so and his
+signature.
+
+**Ruling [109] — the wizard gets a Client Component, and it is the first deliberate one.** — Why: the
+owner's decision requires state that survives a refresh, which cannot be done from a Server Component
+or from URL parameters. And URL parameters are independently forbidden here regardless of the
+decision: `plans/route.ts` already records why — "the patient's name and mobile number travel in the
+BODY, never in the URL — a query string is logged by every proxy between here and the browser."
+Ruling 13 holds this workspace's client payload to a rounding error, not to zero; Tasks 5 and 6
+achieved zero because a list screen genuinely needs none, and a four-step data-entry form is a
+different thing. — Cost if wrong: the wizard's chunk is the workspace's largest client payload. It is
+one route, loaded only by a clinician starting a sign-up, and it must not pull the rest of the
+workspace in behind it.
+
+**Ruling [110] — `sessionStorage` only, cleared on both exits, and the clinician is told.** — Why:
+`localStorage` outlives the tab and would leave patient details on a shared ward computer
+indefinitely; the owner chose tab-lifetime, not permanence, and the storage API must enforce that
+rather than a comment promising it. The draft must be cleared explicitly on successful activation
+**and** on abandoning the flow — relying on tab close alone means a clinician who finishes and walks
+away leaves the previous patient's details behind for the next person at that machine. And because
+this is data at rest that a clinician did not ask for, **the screen says so in plain words, in
+place** — the same standard spec section 4.4 sets for the system acting on its own. — Cost if wrong:
+if the notice proves unnecessary it is one sentence removed. If the clearing is wrong, a patient's
+name and mobile number sit on a ward machine after the clinician has gone, which is the failure this
+whole ruling exists to prevent, and it must be proved by a test rather than asserted.
