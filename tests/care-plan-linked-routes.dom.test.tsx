@@ -3780,6 +3780,25 @@ describe("Care Plan Patient Plan", () => {
     // straight past this.
     goTo(carePlanRoute.patientPlanEdit("SYN-PATIENT-002"));
     await createDraft(user);
+
+    /*
+     * The authoring surface, which is where the claim would get back in.
+     *
+     * A clinician writing this copy reads these same eight headings and lead-ins
+     * as the prompt for what to type. Left on the joint wording, "These are the
+     * things you have said matter to you" would frame what they write, and what
+     * they write reaches her sheet — so the claim this wave removed would arrive
+     * on her paper by the authoring surface rather than the rendering one.
+     *
+     * The same helper as the reading surface and the paper, deliberately: one
+     * rule, one set of forbidden phrasings, checked everywhere the claim can
+     * appear.
+     */
+    expectNoClaimOfJointAuthorship(
+      screen.getByRole("region", { name: "The eight sections" }),
+      "the Patient Plan authoring form",
+    );
+
     await fillEverySection(user);
     await user.click(screen.getByRole("button", { name: "Approve patient copy" }));
 
