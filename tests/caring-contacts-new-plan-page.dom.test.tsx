@@ -225,6 +225,9 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
         // Round 1, M-2: the page resolves the governance seats to plain words, so no domain
         // identifier crosses into the client bundle or onto a clinical screen.
         approvedBy: ["the clinical programme lead", "the lived-experience representative"],
+        // Ruling [126]: this fixture's version claims no provenance, so the page passes none. The
+        // page's job is to carry what the record says, never to decide it.
+        provenanceNote: null,
       }),
     ]);
     expect(wizard.props.actorRoleLabels).toEqual(["coordinator"]);

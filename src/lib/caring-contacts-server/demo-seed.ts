@@ -35,6 +35,12 @@
 //   3. IT AUTHORS NO PATIENT-VISIBLE WORDING. See `DEMO_SEED_MESSAGE_TEXT` below, which is the
 //      single most consequential decision in this file.
 //
+//   4. IT DOES NOT LET A SCREEN PRESENT ITS GOVERNANCE AS REAL. The version it writes carries
+//      `snapshot.provenance = "syntheticDemonstration"`, so the wizard's pathway stage can say the
+//      approvals are invented. The approvals are structurally genuine -- the domain refused
+//      anything else -- and that is exactly why the record has to carry the qualifier: nothing
+//      about the shape of a correctly-approved version distinguishes one nobody approved.
+//
 // PRODUCTION NEVER SEES ANY OF THIS. `isCaringContactsDemoEnabled()` is the same predicate that
 // decides whether a demo actor can be resolved at all; where it is false, the store is returned
 // empty. That keeps this module inside the repository's standing rule that demo content is a
@@ -144,13 +150,16 @@ type DemoPersonSeed = {
 /**
  * The population.
  *
- * Every name is obviously invented, following the fixtures already in this tree ("Rowan Example",
- * "Rowan Sample"): the surname is what makes it unmistakable, so no seeded patient can be mistaken
- * for a findable person. Every mobile number is one of the two reserved fictional numbers that
- * stand for a patient's own mobile (`DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS`, derived from
- * `FICTIONAL_CONTACTS_BY_ROLE` below) -- there are two of them and three plans, so one is used
- * twice. Reusing a reserved non-connecting number is the safe outcome; inventing a third
- * number-shaped string would not be.
+ * Every name is obviously invented, following the surname convention the fixtures in this tree
+ * already use ("Rowan Sample", "Mira Example"): the surname is what makes it unmistakable, so no
+ * seeded patient can be mistaken for a findable person. The given names below are new; only the
+ * convention is borrowed.
+ *
+ * Every mobile number is one of the reserved fictional numbers that stand for a patient's own
+ * mobile (`DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS`, derived from `FICTIONAL_CONTACTS_BY_ROLE`
+ * below). There are fewer of those than there are plans here, so one is used more than once.
+ * Reusing a reserved non-connecting number is the safe outcome; inventing a number-shaped string
+ * would not be.
  *
  * The shape is chosen so every built screen has something real on it AND a coordinator can
  * complete a sign-up:
@@ -298,6 +307,13 @@ export async function createDemoWorkspaceStore(clock: Clock): Promise<CaringCont
  */
 export async function applyDemoSeed(store: CaringContactRepository, clock: Clock): Promise<DemoSeedOutcome> {
   if (!storesBuiltHere.has(store)) throw new DemoSeedForeignStoreError();
+
+  // The production boundary is checked HERE, not only at the constructor, and the difference is not
+  // stylistic. In a production process `createDemoWorkspaceStore` returns a store it built and left
+  // empty -- so that store is in `storesBuiltHere`, and a caller reaching this function with it
+  // would have passed the only other guard. Round 1, I1: the database boundary was structural and
+  // this one was conventional, while the module header claimed the stronger property for both.
+  if (!demoSeedRequested()) return { populated: false };
 
   const coordinator = demoActorForRole("coordinator");
   const clinicalProgrammeLead = demoActorForRole("clinicalProgrammeLead");
@@ -479,5 +495,10 @@ function pathwaySnapshot(dischargeAt: Date): PathwayVersionSnapshot {
   return Object.freeze({
     cadenceLabels: Object.freeze(schedule.contacts.map((contact) => contact.cadenceLabel)),
     messageTextByType: DEMO_SEED_MESSAGE_TEXT,
+    // Ruling [126]. Stage 2 of the wizard prints "Approved by the clinical programme lead and the
+    // lived-experience representative" for whatever it is offered, and for this version no person
+    // recorded either approval. The marker is what lets that screen say so without knowing a seed
+    // exists -- see PathwayVersionSnapshot.provenance.
+    provenance: "syntheticDemonstration",
   });
 }

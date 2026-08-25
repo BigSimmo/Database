@@ -11,7 +11,11 @@ import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Referral } from "@/lib/caring-contacts/model";
-import { PATHWAY_APPROVAL_ROLE_WORDING, type PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
+import {
+  PATHWAY_APPROVAL_ROLE_WORDING,
+  PATHWAY_VERSION_PROVENANCE_WORDING,
+  type PathwayVersion,
+} from "@/lib/caring-contacts/pathway-versions";
 import { CARING_CONTACT_ROLE_WORDING, canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS } from "@/lib/caring-contacts/repository";
 // Both resolved HERE rather than in the wizard, and for the reason round 1 finding M-2 settled: a
@@ -245,6 +249,15 @@ export default async function CaringContactsNewPlanPage({
         // module owns, and the interface-vocabulary scan refuses "lead" as a whole word in a
         // component. Resolving it here also keeps both domain modules out of the client bundle.
         approvedBy: version.approvals.map((approval) => PATHWAY_APPROVAL_ROLE_WORDING[approval.role]),
+        // Ruling [126]. `approvedBy` above is a claim about provenance, and a demonstration version
+        // has approvals no person gave. Resolved here for the same two reasons the role wording is:
+        // the words live in the sealed domain beside the values they name, and resolving on the
+        // server keeps that module out of this route's client chunk. Null whenever the record
+        // claims nothing -- absence is not a claim that a version was genuinely reviewed.
+        provenanceNote:
+          version.snapshot.provenance === undefined
+            ? null
+            : PATHWAY_VERSION_PROVENANCE_WORDING[version.snapshot.provenance],
         publishedAt: version.publishedAt,
       }));
 

@@ -59,7 +59,44 @@ export type PathwayVersion = {
 export type PathwayVersionSnapshot = Readonly<{
   cadenceLabels: readonly string[];
   messageTextByType: Readonly<Record<MessageType, string>>;
+  /**
+   * Present only on a version whose approvals were not given by people (Ruling [126], round 1 I2).
+   *
+   * WHY THE RECORD CARRIES THIS RATHER THAN THE SCREEN INFERRING IT. A version's approvals are
+   * rendered in plain words -- "Approved by the clinical programme lead and the lived-experience
+   * representative" -- and that sentence is a claim about provenance. A demonstration population
+   * produces a version whose approvals are structurally real (the transition below refused
+   * anything else) and whose governance is invented, and nothing in the resulting record
+   * distinguished the two. A screen cannot be asked to recognise a seed; the record has to say so.
+   *
+   * WHY IN THE SNAPSHOT. `savePathwayVersion` rebuilds every governance field server-side whatever
+   * the caller sends -- deliberately, so a version cannot arrive pre-approved -- and copies the
+   * snapshot verbatim. The snapshot is therefore the only channel an author may state anything
+   * through, and the only claim this field can make is a WEAKENING one: it can say an approval is
+   * synthetic, never that one is genuine. Absence asserts nothing.
+   */
+  provenance?: PathwayVersionProvenance;
 }>;
+
+/**
+ * What a version's provenance may say. One member today, and a union rather than a boolean so a
+ * second kind (a training copy, say) is added here rather than by overloading a flag.
+ */
+export type PathwayVersionProvenance = "syntheticDemonstration";
+
+/**
+ * Plain words for each provenance, beside the values they name -- the same reason
+ * `PATHWAY_APPROVAL_ROLE_WORDING` below lives here rather than in the component that renders it,
+ * and the same reason it must: the interface-vocabulary scan refuses `lead` as a whole word in a
+ * component, and this sentence sits directly beneath one that contains it.
+ *
+ * It says the approvals are invented. It does NOT say the pathway is invalid or unusable, because
+ * a demonstration that cannot show a governed pathway shows nothing.
+ */
+export const PATHWAY_VERSION_PROVENANCE_WORDING: Readonly<Record<PathwayVersionProvenance, string>> = Object.freeze({
+  syntheticDemonstration:
+    "Invented for demonstration: no person recorded either approval, and this version was never reviewed.",
+});
 
 export type PathwayVersionAction =
   | { type: "submitForReview" }

@@ -49,12 +49,21 @@ const PATIENT_OVERVIEW_ROUTE = `${PATIENTS_ROUTE}/${PATIENT_OVERVIEW_SYNTHETIC_I
  * The activation wizard, opened with no referral named.
  *
  * Deliberately the bare route rather than `?referral=<id>`. The wizard starts from an accepted
- * referral (Ruling [111]) and the isolated Playwright server seeds none -- `caringContactsStore()`
- * falls back to `createInMemoryRepository`, which starts empty and nothing here writes to it -- so
- * a referral id in this constant would name a referral that does not exist and would render the
- * SAME screen as no referral at all, while pretending to prove something it does not. The bare
- * route is the path this server can actually reach, and it is a real production state: the screen
- * states what it needs, in words, and offers a control that goes somewhere.
+ * referral (Ruling [111]) and this server holds none, so a referral id in this constant would name
+ * a referral that does not exist and would render the SAME screen as no referral at all, while
+ * pretending to prove something it does not. The bare route is the path this server can actually
+ * reach, and it is a real production state: the screen states what it needs, in words, and offers
+ * a control that goes somewhere.
+ *
+ * WHY IT HOLDS NONE, ACCURATELY. It is no longer that the in-memory store simply starts empty and
+ * nothing writes to it: `caring-contacts-server/demo-seed.ts` populates the in-memory branch, and
+ * `isCaringContactsDemoEnabled()` is TRUE in this server -- it is a production build carrying
+ * `PLAYWRIGHT_OFFLINE_MODE` and `NEXT_PUBLIC_DEMO_MODE`, which is the one production process where
+ * that predicate holds. This server is empty because `demoSeedRequested()` excludes it unless
+ * `CARING_CONTACTS_DEMO_SEED=on`, and it is excluded precisely so the empty-caseload assertions
+ * below keep observing a real state instead of a fixture. **Do not remove that exclusion to make a
+ * wizard journey reachable** -- it would delete those assertions rather than add one. A journey
+ * that needs the population needs its own server instance; see the Task SEED report.
  *
  * The stages themselves are not reachable from this server, so the browser proofs below cover the
  * screen's shell, its statement, and its layout. The stage bodies are proved in

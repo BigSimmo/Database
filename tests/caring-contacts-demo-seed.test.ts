@@ -60,8 +60,9 @@ import {
 import { demoActorForRole } from "@/lib/caring-contacts-server/session";
 import { CARING_CONTACTS_STORE_GLOBAL_KEY, caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { systemClock } from "@/lib/caring-contacts/clock";
-import { planId as toPlanId } from "@/lib/caring-contacts/ids";
+import { pathwayVersionId as toPathwayVersionId, planId as toPlanId } from "@/lib/caring-contacts/ids";
 import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-copy";
+import { PATHWAY_VERSION_PROVENANCE_WORDING } from "@/lib/caring-contacts/pathway-versions";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
@@ -139,6 +140,24 @@ describe("the demo seed cannot run against a database", () => {
     expect(await asked.listPlans({ actor: coordinator })).not.toHaveLength(0);
   });
 
+  // Round 1, I1. The store handed back in production IS one this module built -- built and left
+  // empty -- so the WeakSet alone would have admitted it. This is the case that says the production
+  // boundary is checked where the writes are, not only where the store is constructed.
+  it("refuses to populate a production store even though it built that store itself", async () => {
+    vi.stubEnv("CARING_CONTACTS_DATABASE_URL", "");
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "false");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
+
+    const store = await caringContactsStore();
+    const outcome = await applyDemoSeed(store, systemClock());
+
+    expect(outcome.populated).toBe(false);
+    expect(await store.listPathwayVersions({ actor: coordinator })).toHaveLength(0);
+    expect(await store.listPlans({ actor: coordinator })).toHaveLength(0);
+    expect(await store.listAuditEvents({ actor: demoActorForRole("auditor") })).toHaveLength(0);
+  });
+
   it("refuses a store it did not build, so a Postgres repository has no way in", async () => {
     const foreign = mocks.createPostgresRepository() as unknown as CaringContactRepository;
 
@@ -192,6 +211,25 @@ describe("the seeded pathway version", () => {
     expect(version.snapshot.messageTextByType.closing).toBe("");
   });
 
+  // Round 1, I2. The approvals below are structurally genuine and were given by nobody, and stage 2
+  // of the wizard prints them in plain words. The record has to say which it is, and it has to
+  // still say so after the store has copied it -- `clonePathwayVersion` enumerated the snapshot's
+  // fields and would have dropped this one.
+  it("marks its own governance as invented, and the marker survives the store's copy", async () => {
+    const store = await seededStore();
+
+    const [listed] = await store.listPathwayVersions({ actor: coordinator });
+    const fetched = await store.getPathwayVersion(toPathwayVersionId(DEMO_SEED_PATHWAY_VERSION_ID), {
+      actor: coordinator,
+    });
+
+    expect(listed.snapshot.provenance).toBe("syntheticDemonstration");
+    expect(fetched?.snapshot.provenance).toBe("syntheticDemonstration");
+    // The marker weakens a claim and never strengthens one, so the wording must not read as an
+    // endorsement of the version it sits on.
+    expect(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration).toMatch(/no person recorded/i);
+  });
+
   it("names the cadence the approved schedule really builds rather than a second copy of it", async () => {
     const store = await seededStore();
     const [version] = await store.listPathwayVersions({ actor: coordinator });
@@ -232,6 +270,10 @@ describe("the seeded population", () => {
     const names = await store.listPatientNames({ actor: coordinator });
     const plans = await store.listPlans({ actor: coordinator });
 
+    // Round 1, I4. "One name per plan" is the projection's promise, but on an empty store it is
+    // also 0 === 0 -- so a seed that produced nothing would satisfy it. The guard is what makes the
+    // comparison mean something; without it this case cannot fail on its own.
+    expect(plans).not.toHaveLength(0);
     expect(names).toHaveLength(plans.length);
     expect(names.every((entry) => entry.patientName.trim() !== "")).toBe(true);
   });
@@ -247,6 +289,11 @@ describe("the seeded population", () => {
       ),
     );
 
+    // Round 1, I4, and this is the one that mattered: without the guard, a seed that created no
+    // plans leaves `numbers` empty, the length comparison passes as 0 === 0, and the loop below
+    // iterates nothing -- so the case that exists to prove no unreserved number was ever written
+    // would go green having checked no number at all.
+    expect(plans).not.toHaveLength(0);
     expect(numbers).toHaveLength(plans.length);
     for (const number of numbers) {
       expect(DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS).toContain(number);

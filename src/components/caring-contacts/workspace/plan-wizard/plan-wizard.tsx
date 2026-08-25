@@ -122,6 +122,15 @@ export type PlanWizardPathwayOption = {
    * (round 1, M-2). Governance provenance, not a tally.
    */
   approvedBy: readonly string[];
+  /**
+   * Plain words qualifying where those approvals came from, or null when the record claims nothing.
+   *
+   * Non-null ONLY for a version whose own snapshot carries a provenance (Ruling [126]); the page
+   * resolves it through `PATHWAY_VERSION_PROVENANCE_WORDING`, exactly as it resolves `approvedBy`,
+   * so neither the wording nor the domain module enters this client chunk. A screen must never
+   * infer this -- "Approved by ..." is a claim about provenance, and only the record knows.
+   */
+  provenanceNote: string | null;
   /** AWST instant this version was published, or null. */
   publishedAt: string | null;
 };
@@ -1037,6 +1046,18 @@ function PathwayStage({
                         {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
                         {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
                       </p>
+                      {/*
+                        Ruling [126]. The line above states who approved this version, and for a
+                        demonstration version nobody did. It is rendered as its own line rather than
+                        appended to that sentence so it cannot be read as part of the approval, and
+                        it is inside the same `aria-describedby` region so a screen reader hears it
+                        with the option rather than after it.
+                      */}
+                      {option.provenanceNote === null ? null : (
+                        <p className="mt-1 text-xs leading-5 font-semibold text-[color:var(--text-heading)]">
+                          {option.provenanceNote}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );

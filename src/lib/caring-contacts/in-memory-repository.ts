@@ -177,7 +177,11 @@ function clonePathwayVersion(version: PathwayVersion): PathwayVersion {
   return Object.freeze({
     ...version,
     approvals: Object.freeze(version.approvals.map((approval) => Object.freeze({ ...approval }))),
+    // Spread FIRST, then re-freeze the two collections. Naming only the fields this function knew
+    // about is what made `provenance` disappear on the way out when it was added: an enumerating
+    // copy silently drops a field the type gained, and the caller sees a record that never held it.
     snapshot: Object.freeze({
+      ...version.snapshot,
       cadenceLabels: Object.freeze([...version.snapshot.cadenceLabels]),
       messageTextByType: Object.freeze({ ...version.snapshot.messageTextByType }),
     }),

@@ -73,11 +73,15 @@ const OTHER_PATHWAY = "SYN-PATHWAY-002";
  */
 const FICTIONAL_PATIENT_MOBILES = DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS;
 
-function pathwayOption(id: string) {
+function pathwayOption(id: string, provenanceNote: string | null = null) {
   return {
     id,
     cadenceLabels: ["Day 1", "Week 1", "Month 1"],
     approvedBy: ["the clinical programme lead", "the lived-experience representative"],
+    // Null is the ordinary case: a version whose record claims nothing about its provenance gets no
+    // extra line. Ruling [126] adds a line only where the record itself says the approvals are
+    // invented -- see the two cases at the end of this file.
+    provenanceNote,
     publishedAt: null,
   };
 }
@@ -1658,4 +1662,45 @@ describe("stage 4 — the draft survives every shape of failed write (Ruling [11
       expect(navigation.push, "the screen navigated away from a plan that was not created").not.toHaveBeenCalled();
     });
   }
+});
+
+/**
+ * Ruling [126], round 1 finding I2.
+ *
+ * Stage 2 prints "Approved by the clinical programme lead and the lived-experience representative"
+ * for whatever version it is offered. A demonstration population produces a version whose approvals
+ * are structurally genuine — the domain refused anything else — and which no person ever approved,
+ * and nothing about the shape of the record distinguishes the two. So the record carries a
+ * provenance and this screen says it. The screen never infers it: a version claiming nothing gets
+ * no extra line, which is the second case here.
+ */
+describe("the pathway stage — approvals nobody gave are not presented as approvals", () => {
+  const SYNTHETIC_NOTE = "Invented for demonstration: no person recorded either approval.";
+
+  it("prints the record's provenance beside the approval, in the option's own described region", async () => {
+    const user = userEvent.setup();
+    renderWizard({
+      pathwayOptions: [pathwayOption(NAMED_PATHWAY, SYNTHETIC_NOTE), pathwayOption(OTHER_PATHWAY)],
+    });
+    await reachPathwayStage(user);
+
+    expect(screen.getByText(SYNTHETIC_NOTE)).toBeInTheDocument();
+
+    // Tied to the OPTION, not floating in the panel: the radio's `aria-describedby` region has to
+    // contain it, or a screen reader announces an approval with no qualifier attached to it.
+    const radio = screen.getByRole("radio", { name: new RegExp(NAMED_PATHWAY) });
+    const describedBy = radio.getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    expect(document.getElementById(describedBy!)).toHaveTextContent(SYNTHETIC_NOTE);
+  });
+
+  it("says nothing extra about a version whose record claims no provenance", async () => {
+    const user = userEvent.setup();
+    renderWizard({ pathwayOptions: [pathwayOption(OTHER_PATHWAY)] });
+    const panel = await reachPathwayStage(user);
+
+    expect(panel).toHaveTextContent(/Approved by the clinical programme lead/);
+    expect(screen.queryByText(SYNTHETIC_NOTE)).toBeNull();
+    expect(panel.textContent ?? "").not.toMatch(/invented|demonstration/i);
+  });
 });
