@@ -247,11 +247,16 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
     await seedAcceptedReferral(store, "syntheticDemonstration");
 
     const element = await loadPage({ referral: REFERRAL });
-    const [option] = element.props.children.props.pathwayOptions;
+    // `loadPage` types the rendered element's props as `unknown`, which is why the cases above
+    // assert through `expect` rather than reaching in. Narrowed here rather than cast to the
+    // component's own option type: a structural read of the one field under test cannot quietly
+    // start passing because that type gained or lost something else.
+    const options = element.props.children.props.pathwayOptions as readonly { provenanceNote: unknown }[];
 
-    expect(option.provenanceNote).toBe(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration);
+    expect(options).toHaveLength(1);
+    expect(options[0].provenanceNote).toBe(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration);
     // Resolved, not forwarded: the raw domain value must not cross onto the screen.
-    expect(option.provenanceNote).not.toBe("syntheticDemonstration");
+    expect(options[0].provenanceNote).not.toBe("syntheticDemonstration");
   });
 });
 
