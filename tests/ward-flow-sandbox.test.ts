@@ -20,20 +20,23 @@ describe("Ward Flow is a developer-gated sandbox", () => {
   });
 
   it("no longer exists as a public app route", () => {
-    expect(existsSync(path.join(REPO_ROOT, "src", "app", "ward-management"))).toBe(false);
+    const oldRouteDir = path.join(REPO_ROOT, "src", "app", "ward-management");
+    expect(existsSync(oldRouteDir), `${oldRouteDir} still exists — it must be gone, not just unlinked`).toBe(false);
   });
 
   it("has no clinical tools-catalogue entry under either the old or new path — moving it back under the new path does not count as keeping it out", () => {
-    const leaks = toolCatalogRecords.filter(
-      (tool) => tool.href.startsWith("/ward-management") || tool.href.startsWith("/mockups/ward-flow"),
-    );
-    expect(leaks).toEqual([]);
+    const leaks = toolCatalogRecords
+      .filter((tool) => tool.href.startsWith("/ward-management") || tool.href.startsWith("/mockups/ward-flow"))
+      .map((tool) => `${tool.id} -> ${tool.href}`);
+    expect(leaks, "these catalogue entries leak a sandbox path into clinical discovery").toEqual([]);
   });
 
   it("the developer-hub panel says what it is, at the point the decision to open it is made", () => {
     const panel = HUB_PANELS.find((entry) => entry.href === "/mockups/ward-flow");
-    expect(panel).toBeDefined();
-    expect(panel?.summary).toContain("Synthetic prototype");
-    expect(panel?.summary).toContain("not clinical decision support");
+    expect(panel, "no developer-hub panel links to /mockups/ward-flow").toBeDefined();
+    expect(panel?.summary, `panel "${panel?.id}" summary: ${panel?.summary}`).toContain("Synthetic prototype");
+    expect(panel?.summary, `panel "${panel?.id}" summary: ${panel?.summary}`).toContain(
+      "not clinical decision support",
+    );
   });
 });
