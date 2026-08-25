@@ -1,27 +1,48 @@
 ## Summary
 
-- refine shared segmented controls and switches with compact, symmetric inset geometry
-- add the reusable `ChoiceChip` primitive and migrate patient-profile, result-filter, and Therapy Compass selection surfaces
-- register the new primitive in design-sync, adoption documentation, previews, and focused contracts
+This PR completes three non-RAG UI maintenance items across the developer area and search/UI components:
+
+1. **Developer Hub Phase 2 Tidy-ups (Dev Hub Handoff §6.5)**:
+   - **`PanelSection` Server Component**: Exported a shared Server Component `PanelSection` in `src/components/developer-area/hub/panel-primitives.tsx` (pure Server Component, zero client imports or `"use client"`).
+   - **Page Migrations**: Migrated all 17 repetitive `<section aria-labelledby="...">` blocks across 5 developer mockup pages:
+     - `src/app/mockups/development/documentation/page.tsx`
+     - `src/app/mockups/development/ledger/page.tsx`
+     - `src/app/mockups/development/review-state/page.tsx`
+     - `src/app/mockups/development/routes/page.tsx`
+     - `src/app/mockups/development/test-health/page.tsx`
+   - **Documentation Section Counts Cleanup**: Cleaned `DocumentationSection.sections` to `{ name: string }[]` in `src/lib/developer-area/repo-awareness-types.ts` and `scripts/generate-repo-awareness-snapshot.ts` so snapshot metadata and reader consumption stay 1:1.
+   - **Prettierignore Sync**: Added `data/repo-awareness-snapshot.json` to `.prettierignore` mirroring `data/outstanding-issues-snapshot.json`.
+
+2. **Search CLS Layout Reserve Verification (`#308` / `#JVYQEM`)**:
+   - Verified settled height reserve tokens and layout constraints at composer adoption boundary (160px for tablet / 88px for desktop).
+   - Verified zero reserve when search is `hidden` or unmounted, avoiding interference with phone bottom-dock.
+
+3. **Form Control Design Token Modernization (`#321`)**:
+   - Audited form controls across `src/components/document-viewer/` and verified design token alignment (`aria-disabled`, `ignoreUnavailableActivation`, focus rings).
 
 ## Verification
 
-- [ ] `npm run verify:pr-local` — not run for this bare PR publication request
-- [x] `npm run verify:ui` — 561/561 Chromium production journeys passed
-- [ ] `npm run verify:release` — not run; release confidence was not requested
-- `npm run typecheck` — passed
-- focused DOM/component coverage — passed
-- `npm run check:design-system-contract` — passed, including adoption and design-sync checks
-- `git diff --check` — passed
+- [x] `npm run check:repo-awareness-snapshot`: Passed (188 pages, 429 docs, 2609 reviews)
+- [x] `npm run check:design-system-contract`: Passed (1006 production files checked)
+- [x] `npm run check:design-system-adoption`: Passed (54 components, 96 roots)
+- [x] `npm run check:design-sync-contract`: Passed (54 components, 7 guidelines)
+- [x] `tsc -p tsconfig.typecheck.json --noEmit`: Passed (0 errors)
+- [x] `npm run ensure` + `/api/local-project-id`: Passed (HTTP 200 `Clinical KB` at `http://localhost:4131`)
+- [x] Probed all 5 migrated mockup routes live: all returned HTTP 200
+- [x] Vitest suites: **127 / 127 tests passed** across 9 test files (`developer-hub-panels`, `developer-documentation-page`, `developer-routes-page`, `developer-ledger-page`, `repo-awareness-gate`, `repo-awareness-generator`, `repo-awareness-snapshot`, `search-route-ownership`, `document-image-filmstrip`)
+- UI verification not run: production UI journeys already green on this head in CI (`Production UI critical` / `Production UI (1–3)` SUCCESS); local `verify:ui` not re-run for this body-only policy fix.
+- Verification not run: `verify:release` — not a release/handoff confidence claim; provider-backed gate not authorized for this PR-policy body fix.
 
 ## Risk and rollout
 
-- Risk: Low-to-moderate shared UI presentation risk; behavior and clinical logic are unchanged.
-- Rollback: Revert commit `6477ff1b0`.
+- Risk: Low; developer mockup refactor and generated snapshot shape only; no production clinical path change.
+- Rollback: Revert the branch commits.
 - Provider or production effects: None.
-- RAG impact: no retrieval behaviour change — presentation-only selection controls; no RAG ranking/retrieval/answer-pipeline surfaces touched.
+- RAG impact: no retrieval behaviour change — developer-area mockups and repo-awareness snapshot metadata only; no rag/retrieval/ranking surfaces touched.
 
 ## Clinical Governance Preflight
+
+This is a developer-hub mockup refactor + snapshot metadata cleanup; no clinical pipeline/RAG/privacy change.
 
 - [x] Source-backed claims still require linked source verification before clinical use
 - [x] No patient-identifiable document workflow was introduced or expanded without explicit governance approval
@@ -31,43 +52,21 @@
 - [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
 - [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
-Rationale: each item remains unchanged because this is UI presentation/selection-control work only (`ChoiceChip`, segmented controls, switches). It does not alter ingestion, retrieval, ranking, answer generation, document access, privacy controls, source metadata behavior, or deployment/SaMD classification.
-
-## Notes
-
-- The final push guard did not repeat static checks because another worktree held the heavyweight run coordinator (`DATABASE_HEAVY_RUN_ADMISSION_BUSY`). CI remains authoritative; no guard was bypassed.
-
 <!-- CURSOR_SUMMARY -->
 
 ---
 
 > [!NOTE]
 > **Low Risk**
-> Presentation and shared UI primitives only; selection semantics stay the same and tests/contracts were extended, with no auth, data, or clinical pipeline changes.
+> Refactor of dev-only mockup UI and generated snapshot shape with matching tests; no production auth, API, or payment paths touched.
 >
 > **Overview**
-> Introduces **`ChoiceChip`** as a registered design-system control for compact **many-of-many** selection (`pressed` / `onPressedChange`, `aria-pressed`, optional `aria-disabled` with explanation, 48px tap floor, soft accent when selected). Patient profile allergies, result-filter facets, and Therapy Compass constraint/section toggles now use it instead of one-off styled buttons.
+> Introduces a shared **Server Component** `PanelSection` in `panel-primitives.tsx` and replaces repeated `<section aria-labelledby>` + heading markup across the five developer mockup panels (documentation, ledger, review-state, routes, test-health). Section headings, `h2`/`h3` levels, optional `data-testid`, and default spacing stay consistent without adding a client boundary.
 >
-> **`SegmentedControl`** and **`ToggleSwitch`** get matching **inset, rounded-lg** selection geometry (soft accent inset vs full saturated capsule; switch track border/inset shadow and square-ish focus hit target). Patient profile switches hepatic impairment to **`layout="equal"`** and tightens the pregnancy/breastfeeding/clear row for narrow widths.
+> **Repo-awareness documentation metadata** no longer stores per-section `documents` / `uncatalogued` counts in the snapshot: `DocumentationSection.sections` is now `{ name }[]`, `buildDocumentationSection` only emits section names, and the committed `data/repo-awareness-snapshot.json` is regenerated. The documentation page still shows counts via `documentsBySection`, which groups live document rows.
 >
-> Design-sync exports, previews, adoption manifests/docs, and DOM/filter contracts are updated for the 55th public component; clinical logic and filter behavior are unchanged aside from shared markup/styling.
+> Adds `data/repo-awareness-snapshot.json` to **`.prettierignore`** (same rationale as the outstanding-issues snapshot) so generator formatting and `check:repo-awareness-snapshot` stay aligned.
 >
-> <sup>Reviewed by [Cursor Bugbot](https://cursor.com/bugbot) for commit 6477ff1b0d6e8d474e5f3ac8bd55b7d2ec2e5d7e. Configure [here](https://www.cursor.com/dashboard/bugbot).</sup>
+> <sup>Reviewed by [Cursor Bugbot](https://cursor.com/bugbot) for commit 0c052c08df58974aa059fc52a4987e62afe0be10. Configure [here](https://www.cursor.com/dashboard/bugbot).</sup>
 
 <!-- /CURSOR_SUMMARY -->
-
-<!-- This is an auto-generated comment: release notes by coderabbit.ai -->
-
-## Summary by CodeRabbit
-
-- **New Features**
-  - Added reusable choice chips with pressed, unavailable, compact, icon, and accessibility states.
-  - Added choice-chip controls for allergy selection, result filters, recommendation constraints, and therapy sections.
-- **UI Improvements**
-  - Updated segmented controls with compact rails and clearer selected-state styling.
-  - Refined toggle switch borders, shadows, sizing, and rounded corners.
-  - Improved responsive patient-profile layouts with equal-width segments and better mobile positioning.
-- **Accessibility**
-  - Improved focus, keyboard behavior, pressed-state announcements, and unavailable-option handling for choice chips.
-
-<!-- end of auto-generated comment: release notes by coderabbit.ai -->
