@@ -16,7 +16,6 @@ describe("tools catalog", () => {
       "documents",
       "medication-prescribing",
       "services",
-      "ward-management",
       "forms",
       "calculators",
     ]) {
@@ -28,11 +27,10 @@ describe("tools catalog", () => {
     expect(toolCatalogRecordById("calculators").href).toBe("/calculators");
   });
 
-  it("links Ward Flow to its production workspace", () => {
-    const wardFlow = toolCatalogRecordById("ward-management");
-    expect(wardFlow.href).toBe("/mockups/ward-flow");
-    expect(wardFlow.sourceBacked).toBe(false);
-  });
+  // Ward Flow is deliberately absent from this catalogue — see
+  // tests/ward-flow-sandbox.test.ts, which asserts no entry's href starts with
+  // "/ward-management" or "/mockups/ward-flow" (the old and new sandbox paths).
+  // A test here asserting it WAS reachable would fight that guard directly.
 
   it("ranks title matches above keyword-only matches", () => {
     const matches = rankToolRecords("forms");

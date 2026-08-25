@@ -6,7 +6,6 @@ import { legalFormName } from "../src/components/ward-management/ward-legal-form
 import { MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
 import { movementById, wardMovements } from "../src/components/ward-management/ward-movements";
 import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sites";
-import { toolCatalogRecordById } from "../src/lib/tools-catalog";
 
 const modesSource = readFileSync("src/components/ward-management/ward-management-modes.tsx", "utf8");
 
@@ -34,9 +33,10 @@ describe("Ward Flow synthetic prototype", () => {
     expect(thTags.every((tag) => tag.includes('scope="col"'))).toBe(true);
   });
 
-  it("keeps the production route reachable from the Tools catalogue", () => {
-    expect(toolCatalogRecordById("ward-management").href).toBe("/mockups/ward-flow");
-  });
+  // Ward Flow is deliberately absent from the Tools catalogue — see
+  // tests/ward-flow-sandbox.test.ts, which asserts no catalogue entry's href
+  // starts with "/ward-management" or "/mockups/ward-flow". Reachability here
+  // is instead through the developer-gated hub panel (also asserted there).
 
   it("maps every Ward Flow view to a distinct reachable route", () => {
     const hrefs = wardModeHrefs();

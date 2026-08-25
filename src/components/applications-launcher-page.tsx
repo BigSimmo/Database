@@ -77,9 +77,8 @@ const statusLabels: Record<LauncherStatus, string> = {
 // 8-entry copy with a different fallback, so five tools showed one glyph on the
 // launcher and a generic grid glyph in results, and every results tile was
 // painted the same purple regardless of area. Both surfaces now read the one
-// registry, so a tool looks like itself wherever it is reached — including
-// Ward Flow's `ward-management` tool, which is keyed through the same registry
-// rather than a local map.
+// registry, so a tool looks like itself wherever it is reached, rather than
+// through a local map.
 function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
   return toolCatalogRecordsForSession({
     authenticated: canAccessFavourites,
