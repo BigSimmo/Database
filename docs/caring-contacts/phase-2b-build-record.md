@@ -1627,3 +1627,47 @@ place** — the same standard spec section 4.4 sets for the system acting on its
 if the notice proves unnecessary it is one sentence removed. If the clearing is wrong, a patient's
 name and mobile number sit on a ward machine after the clinician has gone, which is the failure this
 whole ruling exists to prevent, and it must be proved by a test rather than asserted.
+
+## Rulings 111-113 — Task 7, the activation wizard's shell and stages 1-2
+
+**Ruling [111] — the wizard starts from an accepted referral, named in the URL by id.** — Why:
+`createPlanSchema` requires `referralId`, `patientId` and `pathwayVersionId`, so a plan is created
+_for_ a referral rather than from nothing. A referral id in a query string is acceptable; a patient's
+name or mobile number never is, and `plans/route.ts` already records the reason in the code — "a query
+string is logged by every proxy between here and the browser". Team ownership is validated before use,
+exactly as Task 6 validates `?plan=`, and an unseeable referral gets an honest state rather than a 404
+that would distinguish "does not exist" from "another team's". — Cost if wrong: if the flow later needs
+to start without a referral, that is an added entry point rather than a rebuild.
+
+**Ruling [112] — stage 1 shows what a referral ACTUALLY carries, and the mockup shows fields that do
+not exist.** — Why: `AgreementStage` renders an identity row (`patient.fullName · patient.id`) and a
+mobile-suitability row, both sourced "Imported referral record". `Referral` in `model.ts` is exactly
+five fields — `id`, `teamId`, `patientId`, `state`, `pathwayVersionId` — and **there is no patient name
+and no mobile number on a referral anywhere in this domain.** They arrive in
+`createPlanSchema.patientDetail`, supplied by the clinician at stage 3. So the assurances are the
+coordinator's own confirmations, not imported facts, and the wording must say which is which: **an
+interface that presents a clinician's own tick as an imported record is lying about provenance, on a
+screen whose entire purpose is assurance.** — Cost if wrong: if an assurance must be _recorded_ rather
+than confirmed in-session, there is no field for it today; the implementer reports that rather than
+inventing one or letting it live in the draft as though the draft were durable.
+
+**Ruling [113] — the pathway may already be chosen, and stage 2 must say so.** — Why:
+`transitionReferral`'s `accept` action carries a `pathwayVersionId` and `Referral.pathwayVersionId`
+holds it, so an accepted referral can already name a pathway decided by whoever accepted it. Stage 2
+shows that as the existing decision with its provenance, rather than an empty choice implying nothing
+had been decided; changing it reads as changing an earlier decision. Spec section 4.4 again. — Cost if
+wrong: if in practice the referral never names one, the branch is unreached and says nothing false.
+
+**How Rulings [112] and [113] were found, and it is the same method both times.** Neither came from
+reading the mockup or the plan. Both came from opening `model.ts` and the referrals route and reading
+what the types actually hold, before writing a line of the brief. Ruling [86]'s lesson was "before a
+brief says _build this_, open the file and look"; these are the same lesson pointed the other way —
+**before a brief says _show this_, open the file and check it exists.** A brief that mandates rendering
+a field the domain does not have costs an implementer a whole round to discover.
+
+**Task 7 dispatched.** Brief: `task-7-brief.md`. Scope is the route, the shell, and stages 1-2 only;
+stages 3-4 are left as a typed extension point for Tasks 8 and 9.
+
+**The branch was pushed for the first time before dispatching**, at the owner's instruction: 114
+commits existed only on this machine, which has destroyed working directories mid-session twice.
+Remote head `22887351e`, zero ahead. No pull request; this is a safety copy, not a handoff.
