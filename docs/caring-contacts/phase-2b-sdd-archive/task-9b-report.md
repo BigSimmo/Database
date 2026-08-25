@@ -391,3 +391,126 @@ gate runs against. **I did not run it and am not claiming it green.**
    refusals by M2 and M3, the clearance by M4 and M5, the projection by M6, the type shape by M7, and
    the migration vocabulary by M8. What after-the-fact authorship cost here was one weak assertion
    (see 5 above), found and fixed, rather than an untested branch.
+
+---
+
+# Fix round 2
+
+Five items from the re-review. All five are done; four were defects in what I wrote, and the fifth
+was a pre-existing one adjacent to it.
+
+## 1. The named refusal was on the wrong surface
+
+**The finding is right and it is the serious one.** The sentence naming which confirmation is
+outstanding reached only the `StatedReason` panel. The control a coordinator presses renders its
+reason through `unavailableReasonFor`, which consulted `state`, `patientDetail` and `preview` — and
+not the assurances. So on the exact path this task created — restored half-ticked draft, patient
+detail present, schedule ready — it fell through to the catch-all: _"Something this plan needs has
+not been settled yet, so nothing can be created. The stages behind this one say which."_
+
+That function's own doc comment promises a coordinator "is told what is missing rather than finding a
+control that does nothing", earliest missing thing first. **Stage 1 is the earliest and was absent
+from the chain**, so my fix made that comment untrue of the newest reachable path.
+
+The assurance branch is now first in the chain. It cannot race the `sending` branch below it:
+`activate` returns early on a null body, and the body is null whenever a confirmation is missing, so
+a send is never in flight while this branch is live — the ordering is the stated chain rather than a
+tie-break, and the comment says so.
+
+**Mutated, and the mutation is the proof that was asked for.** M13 disables the branch
+(`if (false)`); the new case goes red with
+`expected 'Something this plan needs has not bee…' to match /that the number this plan will use i…/i`
+— **the catch-all sentence itself, caught.** The case asserts through the control's own
+`aria-describedby` rather than searching the overlay's text, so it is an assertion about the reason
+_the control points at_ rather than about a sentence that happens to be on screen.
+
+## 2. An assertion that could not fail
+
+`expect(episode?.culturalIdentity).toBeNull()` in the clearance half ran against a fixture that sets
+`culturalIdentity: null`. Null before, null after, nothing could turn it red — decoration presented
+as proof, in the one case whose whole job is proof.
+
+`createActivePlan` now takes an optional cultural identity (opt-in, because that value lives in its
+own table in the Postgres store and most callers have no business writing a row there). The case sets
+`"Noongar"`, and every field the clearance is asserted to empty now has a positive control before it
+rather than only the name.
+
+**M14** flips the new control to `toBe(null)` and the case goes red with
+`expected 'Noongar' to be null` — the control reads a real value, so it is live.
+
+## 3. A narrowing made on a premise that did not force it
+
+`c5433b383` narrowed the no-blame check from the region to the single paragraph, because the wizard
+uses "refused" for draft storage and for service refusals. **Both premises were traced and neither
+forced it**: `DraftNotice` renders outside the stage section, and every `RefusalStatement` branch
+needs `state.status` / `preview.kind` values that fixture never reaches. The region-wide match was
+already green.
+
+The cost was real — the heading and "What changes it" of that same block fell outside the check, and
+**the heading had no assertion on it at all.** Now scoped to the `StatedReason` group by its
+accessible name, which is the heading: it keeps the stated benefit (no coupling to unrelated copy
+elsewhere on the stage) and loses neither of the other two sentences.
+
+_A check you believe is over-broad is a hypothesis too._ I had the rule and applied it in one
+direction only.
+
+## 4. A comment that overstated its own generality
+
+`unconfirmedAssuranceLabels` claimed its derivation was "the same promise `planAssurancesFrom` makes
+one function up", and that a third confirmation is "a value and a label". True of that function;
+false of the wizard. `planAssurancesFrom` is a branch per checkbox and `everyAssuranceConfirmed` is a
+hardcoded conjunction, both written against the draft's named booleans rather than the domain list —
+so a third confirmation is a value, a label, a draft field, a parser check, a branch **and** a
+conjunct. The comment now says exactly that, and names widening those two as separate work rather
+than pretending it away.
+
+## 5. Task 6b's case, adjacent and pre-existing
+
+`never puts the reason on a plan record, which is what a caseload lists` asserted only **absences**
+across four reads, so a store returning `null, null, [], []` passed a case guarding a real retention
+obligation. Same family as the M6 finding, one section away.
+
+Two controls added, because they fail differently: one proves the reason exists at all (without it
+the case is vacuous against a store that never stored one), and one proves each of the four reads
+actually returned this plan.
+
+**Both mutated, separately, because one mutation could not prove both.** M15 drops the stored reason:
+red on the first control (`expected null to be 'Patient asked to wait until she is ho…'`). M16
+empties `listPlans`: red on the second (`expected '[]' to contain 'MOVED-PLAN-3'`). Before this
+round, M16's mutation would have left the case **green** — four empty reads contain no "sister".
+
+## Round 2 mutation ledger
+
+| #   | Mutation                                                               | Predicted                                                                 | Observed                                                                                                                                                                     |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M13 | `unavailableReasonFor`'s assurance branch becomes `if (false)`         | the new overlay case red                                                  | **RED**, that case only: `expected 'Something this plan needs has not bee…' to match /that the number this plan will use i…/i` — the catch-all, which is the defect exactly. |
+| M14 | the new `culturalIdentity` control asserts `null` instead of "Noongar" | `does not stop that clearance removing what it is supposed to remove` red | **RED**, that case only: `expected 'Noongar' to be null`. The control reads a real value.                                                                                    |
+| M15 | in-memory `createPlan` stores `firstContactReason: null`               | `never puts the reason on a plan record…` red via the first control       | **RED** on that case (`expected null to be 'Patient asked to wait…'`, the new control's own line) and on five siblings — correct, the reason is gone everywhere.             |
+| M16 | in-memory `listPlans` returns an empty list                            | `never puts the reason on a plan record…` red via the second control      | **RED** on that case: `expected '[]' to contain 'MOVED-PLAN-3'`. Also red on four siblings and on the strengthened `reads back…` case, all correctly.                        |
+
+## Round 2 gates
+
+| Gate                                       | Result                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------- |
+| `npx tsc --noEmit -p tsconfig.json`        | Clean, no output.                                                 |
+| `npx eslint --no-cache` over changed files | Clean, no output.                                                 |
+| `npx prettier --write` over changed files  | All reported unchanged — already formatted.                       |
+| `npm run test:cc-guards`                   | `Test Files  18 passed (18)` / `Tests  398 passed (398)`, exit 0. |
+| `tests/caring-contacts-repository.test.ts` | `Test Files  1 passed (1)` / `Tests  130 passed (130)`, exit 0.   |
+| Full suite, browser gate                   | Not run, per the standing policy. Not claimed.                    |
+
+398 rather than round 1's 397: the one case this round added. 130 is unchanged because round 2
+strengthened existing contract cases rather than adding any.
+
+## What I take from this round
+
+Three of the five findings are the same mistake in different clothes: **a property was proven where
+it was convenient to assert rather than where it is load-bearing.** The sentence was proven in the
+panel and not on the control. The clearance was asserted on a field the fixture never populated. The
+absences were asserted with nothing establishing there was anything to be absent.
+
+Round 1's M6 finding named the shape, and three more instances of it shipped in the same diff. The
+hunt run afterwards looked for _that literal shape_ — reads compared to each other — and came back
+clean, which it was. **The shape is wider than the instance that found it**: an assertion is only
+worth what its failure mode is worth, and "could this possibly go red?" is a question to ask of every
+assertion, not only of the ones that compare two outputs.
