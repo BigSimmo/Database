@@ -10,16 +10,16 @@ typed extension point, described in full below.
 
 ## 1. What was built, file by file
 
-| File                                                                          | What it is                                                                                                       |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `src/app/caring-contacts/plans/new/page.tsx`                                  | The route. Server Component: audited reads, capability decisions, fail-closed, renders the shell.                 |
-| `src/components/caring-contacts/workspace/plan-wizard/stages.ts`              | The stage set, the stage table, and which stages are built. No React — the extension point lives here.            |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`          | The `sessionStorage` draft: read, write, clear. The only module in the wizard that touches a storage API.         |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`        | `"use client"`. The stepper, the draft notice and discard control, stage 1, stage 2, and the forward control.     |
-| `src/components/caring-contacts/workspace/plan-wizard/stated-reason.tsx`      | The "Why: … / What changes it: …" group, shared by the client wizard and the server-rendered start states.        |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-start-state.tsx`   | Every reason the wizard does not start, rendered on the server.                                                   |
-| `src/components/caring-contacts/workspace/shell.tsx`                          | The "New plan" primary control became a real `<Link>` — see §5.                                                   |
-| `src/lib/caring-contacts-routes.ts`                                           | `CARING_CONTACTS_REFERRAL_QUERY_PARAM` and `newPlanRoute(referralId)`.                                             |
+| File                                                                        | What it is                                                                                                    |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/app/caring-contacts/plans/new/page.tsx`                                | The route. Server Component: audited reads, capability decisions, fail-closed, renders the shell.             |
+| `src/components/caring-contacts/workspace/plan-wizard/stages.ts`            | The stage set, the stage table, and which stages are built. No React — the extension point lives here.        |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`        | The `sessionStorage` draft: read, write, clear. The only module in the wizard that touches a storage API.     |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`      | `"use client"`. The stepper, the draft notice and discard control, stage 1, stage 2, and the forward control. |
+| `src/components/caring-contacts/workspace/plan-wizard/stated-reason.tsx`    | The "Why: … / What changes it: …" group, shared by the client wizard and the server-rendered start states.    |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-start-state.tsx` | Every reason the wizard does not start, rendered on the server.                                               |
+| `src/components/caring-contacts/workspace/shell.tsx`                        | The "New plan" primary control became a real `<Link>` — see §5.                                               |
+| `src/lib/caring-contacts-routes.ts`                                         | `CARING_CONTACTS_REFERRAL_QUERY_PARAM` and `newPlanRoute(referralId)`.                                        |
 
 Tests added: `tests/caring-contacts-new-plan-page.dom.test.tsx`,
 `tests/caring-contacts-plan-wizard.dom.test.tsx`, `tests/caring-contacts-plan-draft.dom.test.tsx`.
@@ -81,12 +81,12 @@ already list — the same shape the patient overview uses for `?plan=`.
 
 Four honest states, none of them a 404:
 
-| Situation                                    | What renders                                                                          |
-| -------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Role cannot start a plan                     | `ListEmptyState` `"not-permitted"`, "Starting a plan is not part of this role"        |
-| No referral named                            | `ListEmptyState` `"no-data"`, "No referral named"                                     |
-| Referral not visible (absent OR another team's) | `ListEmptyState` `"not-permitted"`, "That referral is not one you can open"        |
-| Referral visible but not accepted            | A `StatedReason` group naming the referral's actual state                             |
+| Situation                                       | What renders                                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| Role cannot start a plan                        | `ListEmptyState` `"not-permitted"`, "Starting a plan is not part of this role" |
+| No referral named                               | `ListEmptyState` `"no-data"`, "No referral named"                              |
+| Referral not visible (absent OR another team's) | `ListEmptyState` `"not-permitted"`, "That referral is not one you can open"    |
+| Referral visible but not accepted               | A `StatedReason` group naming the referral's actual state                      |
 
 The third states in words that a referral that does not exist and one belonging to another team give
 the same answer on purpose. The only `notFound()` on the page is the production demo lock.
@@ -188,7 +188,7 @@ real Continue button with no edit at the call site. Three guards make a half-cha
   below.** That case calls `clearPlanDraft()` directly, so it proves the SEAM and could not fail if
   Task 9 forgot to call it; it has since been renamed accordingly. What does fail is
   `tests/caring-contacts-plan-wizard.dom.test.tsx`'s `will require the activation stage to clear the
-  draft the moment Task 9 builds it`, which arms itself the instant `stages.ts` marks the review
+draft the moment Task 9 builds it`, which arms itself the instant `stages.ts` marks the review
   stage built.
 - It must not clear the draft on a refused or failed activation — the coordinator has to be able to
   correct and retry.
@@ -201,11 +201,11 @@ real Continue button with no edit at the call site. Three guards make a half-cha
 
 No overlay is wired. The mockup opens these from stages 1 and 2, and Task 11 owns the wiring:
 
-| Overlay id         | Opened from  | What the mockup opens it for                         |
-| ------------------ | ------------ | ---------------------------------------------------- |
-| `verify-identity`  | Stage 1      | "Review identity"                                    |
-| `change-patient`   | Stage 1      | "Change patient"                                     |
-| `pathway-preview`  | Stage 2      | "Preview pathway" — the schedule and message wording |
+| Overlay id        | Opened from | What the mockup opens it for                         |
+| ----------------- | ----------- | ---------------------------------------------------- |
+| `verify-identity` | Stage 1     | "Review identity"                                    |
+| `change-patient`  | Stage 1     | "Change patient"                                     |
+| `pathway-preview` | Stage 2     | "Preview pathway" — the schedule and message wording |
 
 Note for Task 11: `verify-identity` and `change-patient` are the mockup's controls for a patient
 identity this screen does not have (Ruling [112]). Whether they belong on stage 1 at all is a design
@@ -294,7 +294,7 @@ all. Not this task's to fix, and stage 2 fails safely into an explicit statement
 
 `NEW_PLAN_ROUTE` is deliberately the bare route with no `?referral=`. The isolated Playwright server
 seeds nothing — `caringContactsStore()` falls back to an empty in-memory repository — so a fabricated
-referral id would render the *same* screen while pretending to prove a stage. The stage bodies are
+referral id would render the _same_ screen while pretending to prove a stage. The stage bodies are
 proved in `tests/caring-contacts-plan-wizard.dom.test.tsx` instead, which can supply a referral as a
 prop. I have said so in the spec's own comment so the next reader does not mistake the gap for an
 oversight.
@@ -344,19 +344,19 @@ Each mutation was applied, its presence in the tree confirmed with a separate `g
 never `&&` — `grep -c` exits non-zero on a zero count and would short-circuit the gate), the gate
 run, then reverted with `git checkout --`.
 
-| #   | Mutation                                                                   | Predicted                                                                 | Observed                                                                                                                                                                       | Verdict                    |
-| --- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
-| M1  | `clearPlanDraft` no longer calls `removeItem`                              | 4 red in the draft file, 1 in the wizard                                  | Exactly that. `the draft survived being discarded: expected '{"referralId":"SYN-REFERRAL-001","sta…' to be null`, and the same shape for activation, other-referral, unreadable | RED, prediction matched    |
-| M2  | `tabScopedStorage` returns `window.localStorage`                           | 2 red: the localStorage assertion and the source scan                     | 4 red. The source scan named `plan-draft.ts` (`expected [ Array(1) ] to deeply equal []`); the write test failed one assertion EARLIER than predicted (`the draft was not written to sessionStorage`), and two tests that seed through `writePlanDraft` fell over with it | RED, prediction partly off |
-| M3  | The wizard's discard handler no longer calls `clearPlanDraft`              | 1 red in the wizard                                                       | `the discarded draft was left on the machine: expected '{"referralId":…' to be null`                                                                                            | RED, prediction matched    |
-| M4  | Page passes `serviceState={serviceState}` to the wizard                    | 1 red, on the props key list                                              | `expected [ 'serviceState', 'referralId', …(6) ] to not include 'serviceState'`                                                                                                 | RED, prediction matched    |
-| M5  | An unseeable referral calls `notFound()` instead of stating itself          | 1 red with `NEXT_NOT_FOUND`                                               | 2 red, both `Error: NEXT_NOT_FOUND` — the second is the "does not read the pathway versions" case, which loads the same path                                                     | RED, prediction low by one |
-| M6  | Stage 2's `changedFromReferral` hardcoded to `false`                       | 1 red, group not found                                                    | `Unable to find an accessible element with the role "group" and name "You are changing an earlier decision"`                                                                     | RED, prediction matched    |
-| M7  | `personalisation` marked `{ kind: "built" }` with no body                  | 4 red incl. the runtime guard                                             | Exactly four: stepper count `expected [ <span …> ] to have a length of 2 but got 1`; forward control not found; `expected 'built' to be 'not-built'`; and the guard: `caring-contacts plan wizard: stage "personalisation" is marked built but this component renders no body for it.` | RED, prediction matched    |
-| M8  | Shell's primary control points at `patients` instead of `newPlan`          | reachability red naming the orphan                                        | `Orphan page route(s) … : /caring-contacts/plans/new: expected [ '/caring-contacts/plans/new' ] to deeply equal []`                                                              | RED, prediction matched    |
-| M9  | Stage 1's `complete` gate always true                                      | 1 red, `toBeDisabled`                                                     | `the forward control was live with nothing confirmed: expect(element).toBeDisabled()` — received element is not disabled                                                          | RED, prediction matched    |
-| M10 | The `state !== "accepted"` guard replaced with an unreachable comparison   | 1 red, group not found                                                    | `Unable to find an accessible element with the role "group" and name "This referral has not been accepted"`                                                                      | RED, prediction matched    |
-| M11 | `PLAN_DRAFT_STORAGE_KEY`'s literal value changed                           | **GREEN** — the tests use the constant, not the literal                   | `Test Files  2 passed (2) / Tests  25 passed (25)`                                                                                                                              | GREEN, as intended         |
+| #   | Mutation                                                                 | Predicted                                               | Observed                                                                                                                                                                                                                                                                               | Verdict                    |
+| --- | ------------------------------------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| M1  | `clearPlanDraft` no longer calls `removeItem`                            | 4 red in the draft file, 1 in the wizard                | Exactly that. `the draft survived being discarded: expected '{"referralId":"SYN-REFERRAL-001","sta…' to be null`, and the same shape for activation, other-referral, unreadable                                                                                                        | RED, prediction matched    |
+| M2  | `tabScopedStorage` returns `window.localStorage`                         | 2 red: the localStorage assertion and the source scan   | 4 red. The source scan named `plan-draft.ts` (`expected [ Array(1) ] to deeply equal []`); the write test failed one assertion EARLIER than predicted (`the draft was not written to sessionStorage`), and two tests that seed through `writePlanDraft` fell over with it              | RED, prediction partly off |
+| M3  | The wizard's discard handler no longer calls `clearPlanDraft`            | 1 red in the wizard                                     | `the discarded draft was left on the machine: expected '{"referralId":…' to be null`                                                                                                                                                                                                   | RED, prediction matched    |
+| M4  | Page passes `serviceState={serviceState}` to the wizard                  | 1 red, on the props key list                            | `expected [ 'serviceState', 'referralId', …(6) ] to not include 'serviceState'`                                                                                                                                                                                                        | RED, prediction matched    |
+| M5  | An unseeable referral calls `notFound()` instead of stating itself       | 1 red with `NEXT_NOT_FOUND`                             | 2 red, both `Error: NEXT_NOT_FOUND` — the second is the "does not read the pathway versions" case, which loads the same path                                                                                                                                                           | RED, prediction low by one |
+| M6  | Stage 2's `changedFromReferral` hardcoded to `false`                     | 1 red, group not found                                  | `Unable to find an accessible element with the role "group" and name "You are changing an earlier decision"`                                                                                                                                                                           | RED, prediction matched    |
+| M7  | `personalisation` marked `{ kind: "built" }` with no body                | 4 red incl. the runtime guard                           | Exactly four: stepper count `expected [ <span …> ] to have a length of 2 but got 1`; forward control not found; `expected 'built' to be 'not-built'`; and the guard: `caring-contacts plan wizard: stage "personalisation" is marked built but this component renders no body for it.` | RED, prediction matched    |
+| M8  | Shell's primary control points at `patients` instead of `newPlan`        | reachability red naming the orphan                      | `Orphan page route(s) … : /caring-contacts/plans/new: expected [ '/caring-contacts/plans/new' ] to deeply equal []`                                                                                                                                                                    | RED, prediction matched    |
+| M9  | Stage 1's `complete` gate always true                                    | 1 red, `toBeDisabled`                                   | `the forward control was live with nothing confirmed: expect(element).toBeDisabled()` — received element is not disabled                                                                                                                                                               | RED, prediction matched    |
+| M10 | The `state !== "accepted"` guard replaced with an unreachable comparison | 1 red, group not found                                  | `Unable to find an accessible element with the role "group" and name "This referral has not been accepted"`                                                                                                                                                                            | RED, prediction matched    |
+| M11 | `PLAN_DRAFT_STORAGE_KEY`'s literal value changed                         | **GREEN** — the tests use the constant, not the literal | `Test Files  2 passed (2) / Tests  25 passed (25)`                                                                                                                                                                                                                                     | GREEN, as intended         |
 
 No mutation's anchor failed to match; every one was confirmed in the tree by its own `grep -c`
 before the gate ran, and `git status` was clean after the last revert.
@@ -441,8 +441,8 @@ change's own test files, which is exactly the reason the brief insists on the fu
    comment. Proved by mutation M12 below. The wizard's own note additionally avoids naming the type
    at all, and says why.
 
-| #   | Mutation                                                                     | Predicted                                     | Observed                                                                                                                       | Verdict                 |
-| --- | ---------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| #   | Mutation                                                                                                    | Predicted                        | Observed                                                                                                                                              | Verdict                 |
+| --- | ----------------------------------------------------------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
 | M12 | `import type { ServiceState } from "@/lib/caring-contacts/service-state";` added to the wizard as real code | the narrowed scan still goes red | `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx (reached from plan-wizard/plan-wizard.tsx) references the service-state module` | RED, prediction matched |
 
 The three new test files, the shell test, route-reachability, workspace-screens,
@@ -565,7 +565,7 @@ that copies string and template literals through untouched, with four cases of i
 
 **Three deliberate conservatisms, each erring toward leaving text in** — a false alarm a human reads
 rather than a missed offence that passes silently. A line comment is stripped only when the line
-*begins* with the comment marker, so a trailing one on a real import still fires: that property was
+_begins_ with the comment marker, so a trailing one on a real import still fires: that property was
 in the regex it replaces and was kept on purpose, because hardening the block-comment case is not a
 licence to widen the line-comment one. A regular-expression literal is not modelled. An unterminated
 string ends at the newline.
@@ -598,12 +598,12 @@ that changes would mean writing a promise about a screen that does not exist.
 
 ## Round 1 mutation log — every attempt, itemised, no aggregate
 
-| #      | Mutation                                                                        | Predicted                                                  | Observed                                                                                                                                                                                                                              | Verdict                 |
-| ------ | ------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| R1-M13 | The pre-fix snapshot ordering restored (storage consulted before `memoryDraft`) | the refused-write cases go red, in both files              | `the refused write is invisible to the screen: expected null to deeply equal { Object (referralId, stage, ...) }`, plus the discard-clears-memory case and the wizard's own — three red                                                  | RED, prediction matched |
-| R1-M14 | `min-h-tap` stripped from `optionLabelClass`                                    | the per-radio tap case goes red naming the row             | `caring-contacts-pathway-SYN-PATHWAY-001's row is not a production tap target: expected 'flex w-full min-w-0 cursor-pointer it…' to contain 'min-h-tap'`                                                                                | RED, prediction matched |
-| R1-M15 | The unhardened regex restored in `strip-source-comments.ts`                     | the string-literal case goes red showing the blanked import | `a real import was hidden by a string containing a comment opener: expected 'const opener = "";' to match /ServiceState/` — the import is visibly gone from the stripped text                                                            | RED, prediction matched |
-| R1-M16 | `stages.ts` marks the review stage built, as Task 9 will                        | the self-arming case, the stepper count and the table case | Exactly three: `expected [ <span …> ] to have a length of 2 but got 1`; `expected 'built' to be 'not-built'`; and `the review stage is built but the wizard still clears the draft in only one place … expected 1 to be greater than 1` | RED, prediction matched |
+| #      | Mutation                                                                        | Predicted                                                   | Observed                                                                                                                                                                                                                                | Verdict                 |
+| ------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| R1-M13 | The pre-fix snapshot ordering restored (storage consulted before `memoryDraft`) | the refused-write cases go red, in both files               | `the refused write is invisible to the screen: expected null to deeply equal { Object (referralId, stage, ...) }`, plus the discard-clears-memory case and the wizard's own — three red                                                 | RED, prediction matched |
+| R1-M14 | `min-h-tap` stripped from `optionLabelClass`                                    | the per-radio tap case goes red naming the row              | `caring-contacts-pathway-SYN-PATHWAY-001's row is not a production tap target: expected 'flex w-full min-w-0 cursor-pointer it…' to contain 'min-h-tap'`                                                                                | RED, prediction matched |
+| R1-M15 | The unhardened regex restored in `strip-source-comments.ts`                     | the string-literal case goes red showing the blanked import | `a real import was hidden by a string containing a comment opener: expected 'const opener = "";' to match /ServiceState/` — the import is visibly gone from the stripped text                                                           | RED, prediction matched |
+| R1-M16 | `stages.ts` marks the review stage built, as Task 9 will                        | the self-arming case, the stepper count and the table case  | Exactly three: `expected [ <span …> ] to have a length of 2 but got 1`; `expected 'built' to be 'not-built'`; and `the review stage is built but the wizard still clears the draft in only one place … expected 1 to be greater than 1` | RED, prediction matched |
 
 Each mutation was confirmed present in the tree by its own `grep -c`, run as a separate command with
 `;` rather than `&&` — `grep -c` exits non-zero on a zero count and would short-circuit the gate. No
@@ -681,7 +681,7 @@ All four fixed, plus the guard-set script. Commit: `c6e3f85e8`.
 **Confirmed, and it is the worse of the two.** "Neither is stored anywhere" is simply false: every
 tick goes `update()` → `writePlanDraft()` → `sessionStorage`, and the draft notice a few lines above
 says so in as many words. The panel above the status line had the qualifier right all along —
-*nothing in this domain records either of them* — and my round 1 fix dropped it.
+_nothing in this domain records either of them_ — and my round 1 fix dropped it.
 
 M-6 overstated durability, which risks making a schema decision look unnecessary. This understated
 it, which on a shared ward computer hands a clinician a reason **not** to press Discard draft while
@@ -689,8 +689,8 @@ a patient's name and mobile number sit in that tab's storage. It was working aga
 requirement of Ruling [110], which is the requirement that exists because relying on tab-close alone
 leaves the previous patient's details for the next person at that machine.
 
-Now: *"Both confirmations are ticked, so a pathway can be chosen. Neither is recorded on the plan;
-like everything else on this screen, they are kept on this computer until you finish or discard."*
+Now: _"Both confirmations are ticked, so a pathway can be chosen. Neither is recorded on the plan;
+like everything else on this screen, they are kept on this computer until you finish or discard."_
 It names the destination rather than the act, and it points at the control that removes them.
 
 Pinned as a whole sentence with `toContain`, not a loose match — a loose match is what let the
@@ -765,8 +765,8 @@ membership contract needs a real signal. Recorded rather than faked.
 - **R1-M13's "three red" is a count and I should have said what the three were.** Under the restored
   pre-fix ordering: `keeps the draft usable when the browser takes the object but refuses the write`,
   `discards an in-memory draft too`, and the wizard's `still lets a clinician work when the browser
-  refuses to keep it`. The fourth memory case — `goes back to keeping the draft once a write lands
-  again` — stays green, because its final state has a real stored draft that the old ordering reads
+refuses to keep it`. The fourth memory case — `goes back to keeping the draft once a write lands
+again` — stays green, because its final state has a real stored draft that the old ordering reads
   correctly. Ruling [94] again: a count in prose that nobody can reconstruct is a count nobody can
   check.
 - **The vocabulary residual was framed too narrowly, and the review's correction is right.** I wrote
@@ -788,10 +788,10 @@ membership contract needs a real signal. Recorded rather than faked.
 
 ## Round 2 mutation log — every attempt, itemised, no aggregate
 
-| #      | Mutation                                                        | Predicted                                                    | Observed                                                                                                                                                    | Verdict                 |
-| ------ | --------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| R2-M17 | The round 1 wording restored ("Neither is stored anywhere")     | the exact-sentence pin goes red, fired before the negative one | `expected 'AgreementPathwayPersonalisationnot bu…' to contain 'Both confirmations are ticked, so a p…'` — the exact pin, as predicted; the `stored anywhere` refusal is armed behind it | RED, prediction matched |
-| R2-M18 | `atLineStart` short-circuited, so trailing line comments strip  | the limitation pin and the trailing-comment case both go red   | Exactly two: `expected 'import type { Thing } from "x"; ' to match /service-state lives next door/`, and `the known limitation has changed — see the header, and update it deliberately: expected 'const a = 1; \\nimport type { ServiceS…' not to match /ServiceState/` | RED, prediction matched |
+| #      | Mutation                                                       | Predicted                                                      | Observed                                                                                                                                                                                                                                                                 | Verdict                 |
+| ------ | -------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| R2-M17 | The round 1 wording restored ("Neither is stored anywhere")    | the exact-sentence pin goes red, fired before the negative one | `expected 'AgreementPathwayPersonalisationnot bu…' to contain 'Both confirmations are ticked, so a p…'` — the exact pin, as predicted; the `stored anywhere` refusal is armed behind it                                                                                  | RED, prediction matched |
+| R2-M18 | `atLineStart` short-circuited, so trailing line comments strip | the limitation pin and the trailing-comment case both go red   | Exactly two: `expected 'import type { Thing } from "x"; ' to match /service-state lives next door/`, and `the known limitation has changed — see the header, and update it deliberately: expected 'const a = 1; \\nimport type { ServiceS…' not to match /ServiceState/` | RED, prediction matched |
 
 Both confirmed present in the tree by their own `grep -c`, run as a separate command with `;`, and
 both reverted against committed files — the round 1 lesson applied, so neither revert could discard

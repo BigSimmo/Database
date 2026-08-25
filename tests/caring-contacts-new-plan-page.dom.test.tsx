@@ -119,7 +119,11 @@ async function seedApprovedVersion(store: CaringContactRepository, id: string) {
 
   for (const [step, actor, action] of [
     ["submit", author, { type: "submitForReview" as const }],
-    ["lead", programmeLead, { type: "approve" as const, role: "clinicalProgrammeLead" as const, actorId: programmeLead.id }],
+    [
+      "lead",
+      programmeLead,
+      { type: "approve" as const, role: "clinicalProgrammeLead" as const, actorId: programmeLead.id },
+    ],
     [
       "representative",
       representative,
@@ -204,10 +208,7 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
 
     // The wizard gets none of it, by any name.
     expect(Object.keys(wizard.props)).not.toContain("serviceState");
-    expect(
-      JSON.stringify(wizard.props),
-      "an incident note reached the wizard's props",
-    ).not.toContain(INCIDENT_NOTE);
+    expect(JSON.stringify(wizard.props), "an incident note reached the wizard's props").not.toContain(INCIDENT_NOTE);
     expect(JSON.stringify(wizard.props)).not.toMatch(/wrong-recipient/);
 
     // What it does get is the referral it starts from and the versions it may offer.
