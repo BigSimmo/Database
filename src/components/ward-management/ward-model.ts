@@ -266,11 +266,25 @@ export type Rejection = {
   reason: string;
 };
 
+/** Every confidence level a bed release can carry — hand-listed here (never derived) for the
+ *  same reason `DECLINE_REASONS` lives beside `DeclineReason`: a UI picker needs a runtime list,
+ *  not just the type. */
+export const BED_RELEASE_CONFIDENCE_LEVELS = ["confirmed", "likely", "possible"] as const;
+export type BedReleaseConfidence = (typeof BED_RELEASE_CONFIDENCE_LEVELS)[number];
+
+/**
+ * Task 11 (spec item 9). A bed release carries **nothing whatsoever about the departing
+ * patient** — no identifier, no timing that could identify them, no reason relating to them.
+ * That is a privacy rule from the binding spec §4 and it is not negotiable: every field below is
+ * about the BED or the confirming WARD, never about a person, and `tests/ward-flow-reducer.test.ts`
+ * asserts this structurally against the type's own field set, not just against fixture content —
+ * see that file's "bed release privacy" suite for how.
+ */
 export type BedRelease = {
   id: string;
   unitId: string;
   expectedAt: Instant;
-  confidence: "confirmed" | "likely" | "possible";
+  confidence: BedReleaseConfidence;
   blocker: string;
   confirmedAt: Instant;
   confirmedBy: string;

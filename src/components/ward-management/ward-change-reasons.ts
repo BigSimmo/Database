@@ -55,6 +55,31 @@ export const ESCALATION_CONTACTS = [
 ] as const;
 export type EscalationContact = (typeof ESCALATION_CONTACTS)[number];
 
+/**
+ * Task 11 (spec item 9): the blocker on a bed release, chosen never typed — same discipline as
+ * every fixed list above. This is the operational fact holding the bed up, and the privacy rule
+ * from the binding spec §4 is unconditional: never a blocker that describes a person, only the
+ * BED. Drawn from the wording `ward-movements.ts`'s existing `bedReleases` fixture already uses,
+ * generalised to fixed categories rather than copied as free-text sentences:
+ *   - "Awaiting clean" generalises the fixture's "Bed clean pending".
+ *   - "Awaiting pharmacy" matches the fixture's "Awaiting pharmacy" exactly.
+ *   - "Awaiting placement confirmation" generalises "Awaiting bed-management confirmation" and
+ *     "Awaiting external placement confirmation".
+ *   - "Awaiting service coordination" generalises "Awaiting external service coordination".
+ * The fixture's sixth entry, "Pending case review outcome", is deliberately NOT a source here —
+ * "case review" reads as being about the patient's own case, not the bed, so it is excluded
+ * rather than generalised. Like `ESCALATION_CONTACTS`, there is no separate label map: the
+ * values ARE the rendered text, because there is no clinical token to keep out of a label here
+ * to begin with.
+ */
+export const BED_RELEASE_BLOCKERS = [
+  "Awaiting clean",
+  "Awaiting pharmacy",
+  "Awaiting placement confirmation",
+  "Awaiting service coordination",
+] as const;
+export type BedReleaseBlocker = (typeof BED_RELEASE_BLOCKERS)[number];
+
 export const changeReasonLabels: Record<
   UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason,
   string

@@ -43,7 +43,8 @@ export function CoordinatorScreen() {
   // and `ShortlistPanel` below. It was deliberately left out here on the original claim that
   // "nothing this screen renders yet reads live unit state" — false: both child components read
   // unit capacity, and both were doing it from the frozen `ward-sites.ts` fixture instead.
-  const { movements, units, rejections, now, dispatch, focusMovementId, setFocusMovementId } = useWardFlow();
+  const { movements, units, bedReleases, rejections, now, dispatch, focusMovementId, setFocusMovementId } =
+    useWardFlow();
   // Task 12: seeded from the shared `focusMovementId` (not always `undefined`) so a coordinator
   // who switched away to answer a referral as another role and switches back finds the same
   // patient still selected — this screen remounts on every route change (it is a route
@@ -193,6 +194,7 @@ export function CoordinatorScreen() {
                   movement={selectedMovement}
                   now={now}
                   units={units}
+                  bedReleases={bedReleases}
                   selectedUnitId={selectedUnitId}
                   onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
                 />
@@ -208,6 +210,7 @@ export function CoordinatorScreen() {
                   movement={selectedMovement}
                   now={now}
                   units={units}
+                  bedReleases={bedReleases}
                   selectedUnitId={selectedUnitId}
                   onSelectUnit={(unitId) => setSelectedUnitId((current) => (current === unitId ? undefined : unitId))}
                   dispatch={dispatch}

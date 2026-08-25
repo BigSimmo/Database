@@ -1,8 +1,8 @@
 import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
-import { wardMovements } from "@/components/ward-management/ward-movements";
+import type { BedRelease, Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
+import { bedReleases, wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -34,6 +34,12 @@ export type WardFlowState = {
   referralSequence: number;
   /** Which synthetic night is seeded — `ward-scenarios.ts`'s operational-numbers-only variants. */
   scenario: WardScenario;
+  /**
+   * Task 11 (spec item 9): beds expected to free up, now live reducer state rather than a frozen
+   * fixture constant — `FLAG_BED_RELEASE` appends here, so a ward's own flag actually moves
+   * `unitCapacity()`'s `potential` figure. Seeded from `ward-movements.ts`'s `bedReleases`.
+   */
+  bedReleases: BedRelease[];
 };
 
 /**
@@ -50,6 +56,7 @@ export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlow
     clockOffsetMinutes: 0,
     referralSequence: 0,
     scenario,
+    bedReleases: structuredClone(bedReleases),
   };
 }
 
@@ -59,6 +66,7 @@ function subjectId(event: WardFlowEvent): string {
     case "RAISE_REFERRAL":
       return event.edId;
     case "CONFIRM_CAPACITY":
+    case "FLAG_BED_RELEASE":
       return event.unitId;
     case "ADVANCE_CLOCK":
     case "RESET_SCENARIO":
@@ -528,6 +536,40 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         allocatable: { ...unit.allocatable, value: event.value, source: "ward", confirmedAt: event.now },
       };
       return replaceUnit(state, unit.id, updatedUnit);
+    }
+
+    case "FLAG_BED_RELEASE": {
+      // Same claim-not-proof discipline as CONFIRM_CAPACITY (see that case's own comment in
+      // full): this compares what the caller SAID it was acting as against the unit the release
+      // is being written to, and refuses when they differ. It does not authenticate anything —
+      // `FLAG_BED_RELEASE` is `ward`-only, so unlike RELEASE_HOLD/CANCEL_TRANSPORT there is no
+      // coordinator caller to exempt, and the comparison always runs.
+      if (event.actingUnitId !== event.unitId) {
+        return reject(
+          state,
+          event,
+          `FLAG_BED_RELEASE was raised acting as unit ${event.actingUnitId} but targets unit ${event.unitId}`,
+        );
+      }
+      const flaggedUnit = findUnit(state, event.unitId);
+      if (!flaggedUnit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      const release: BedRelease = {
+        // "WR-9NN" mirrors `nextReferralId`'s own "9" prefix above — visibly distinct at a
+        // glance from the hand-authored "WR-00N" fixture ids, same reasoning as RAISE_REFERRAL's
+        // "WF-9NN".
+        id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
+        unitId: flaggedUnit.id,
+        // FLAG_BED_RELEASE carries no estimated time from its caller (see the event's own doc
+        // comment) — nothing about the departing patient's own timing is permitted onto this
+        // record (binding spec §4), so this is the moment the WARD reported the release, not a
+        // projection about the patient.
+        expectedAt: event.now,
+        confidence: event.confidence,
+        blocker: event.blocker,
+        confirmedAt: event.now,
+        confirmedBy: `NUM ${flaggedUnit.name}`,
+      };
+      return { ...state, bedReleases: [...state.bedReleases, release] };
     }
 
     case "RECORD_ESCALATION": {

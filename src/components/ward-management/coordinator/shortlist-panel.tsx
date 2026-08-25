@@ -31,6 +31,7 @@ import type { WardFlowEvent } from "@/components/ward-management/ward-flow-event
 import { legalFormName } from "@/components/ward-management/ward-legal-forms";
 import {
   PARALLEL_REFERRAL_CAP,
+  type BedRelease,
   type LegalStatus,
   type Movement,
   type Unit,
@@ -45,6 +46,7 @@ type ShortlistPanelProps = {
   movement: Movement | undefined;
   now: Instant;
   units: Unit[];
+  bedReleases: BedRelease[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
   dispatch: Dispatch<WardFlowEvent>;
@@ -91,8 +93,8 @@ const LEGAL_STATUS_OPTIONS: LegalStatus[] = [
 
 const URGENCY_OPTIONS = [1, 2, 3] as const;
 
-function capacityLine(unit: Unit) {
-  const capacity = unitCapacity(unit);
+function capacityLine(unit: Unit, bedReleases: BedRelease[]) {
+  const capacity = unitCapacity(unit, bedReleases);
   return `Ready ${capacity.available} · Held ${capacity.held} · Blocked ${capacity.blocked} · Occupied ${capacity.occupied}`;
 }
 
@@ -134,7 +136,15 @@ function legalFormLine(movement: Movement, now: Instant) {
  * driven by something other than the gate's own `pass` boolean. Every icon below reads directly
  * off `gate.pass`; nothing else is permitted to decide it (see the report's red/green proof).
  */
-export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectUnit, dispatch }: ShortlistPanelProps) {
+export function ShortlistPanel({
+  movement,
+  now,
+  units,
+  bedReleases,
+  selectedUnitId,
+  onSelectUnit,
+  dispatch,
+}: ShortlistPanelProps) {
   const shortlist = useMemo(
     () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
     [movement, units, now],
@@ -805,7 +815,9 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
                     }}
                   >
                     <span className={styles.shortlistCandidateName}>{candidate.unit.name}</span>
-                    <span className={styles.shortlistCandidateCapacity}>{capacityLine(candidate.unit)}</span>
+                    <span className={styles.shortlistCandidateCapacity}>
+                      {capacityLine(candidate.unit, bedReleases)}
+                    </span>
                     <span
                       className={
                         candidate.verdict.eligible

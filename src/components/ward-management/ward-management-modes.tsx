@@ -370,8 +370,8 @@ function QueueView({ role }: { role: WardRole }) {
 }
 
 function CapacityView() {
-  const { units, now } = useWardFlow();
-  const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit) }));
+  const { units, bedReleases, now } = useWardFlow();
+  const capacities = units.map((unit) => ({ unit, capacity: unitCapacity(unit, bedReleases) }));
   const totals = {
     available: capacities.reduce((sum, entry) => sum + entry.capacity.available, 0),
     held: capacities.reduce((sum, entry) => sum + entry.capacity.held, 0),

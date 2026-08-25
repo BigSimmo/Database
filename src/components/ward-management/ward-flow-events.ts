@@ -1,11 +1,19 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
 import type {
+  BedReleaseBlocker,
   CancelTransportReason,
   LegalStatusChangeReason,
   ReleaseHoldReason,
   UrgencyChangeReason,
 } from "@/components/ward-management/ward-change-reasons";
-import type { Cohort, DeclineReason, LegalStatus, Security, Sex } from "@/components/ward-management/ward-model";
+import type {
+  BedReleaseConfidence,
+  Cohort,
+  DeclineReason,
+  LegalStatus,
+  Security,
+  Sex,
+} from "@/components/ward-management/ward-model";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
 /**
@@ -137,6 +145,24 @@ export type WardFlowEvent =
        * constrains future callers rather than this one.
        */
       actingUnitId?: string;
+    }
+  | {
+      type: "FLAG_BED_RELEASE";
+      role: WardFlowRole;
+      now: Instant;
+      /** The unit a bed is being flagged as coming free at. */
+      unitId: string;
+      /**
+       * The unit the caller stated it was acting as, same claim-not-proof discipline as
+       * `CONFIRM_CAPACITY`'s own field (see its doc comment). `FLAG_BED_RELEASE` is `ward`-only
+       * (there is no coordinator caller to exempt), so this is always required and always
+       * compared against `unitId`.
+       */
+      actingUnitId: string;
+      confidence: BedReleaseConfidence;
+      /** Chosen from `BED_RELEASE_BLOCKERS`, never free text — an operational fact about the
+       *  BED, never about the departing patient (binding spec §4). */
+      blocker: BedReleaseBlocker;
     };
 
 /**
@@ -169,4 +195,5 @@ export const EVENT_ROLE: Record<WardFlowEvent["type"], readonly WardFlowRole[]> 
   CHANGE_LEGAL_STATUS: ["coordinator", "ed"],
   RELEASE_HOLD: ["coordinator", "ward"],
   CANCEL_TRANSPORT: ["coordinator", "ward"],
+  FLAG_BED_RELEASE: ["ward"],
 };

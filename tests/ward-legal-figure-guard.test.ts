@@ -4,6 +4,7 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import {
+  BED_RELEASE_BLOCKERS,
   CANCEL_TRANSPORT_REASONS,
   LEGAL_STATUS_CHANGE_REASONS,
   RELEASE_HOLD_REASONS,
@@ -16,7 +17,12 @@ import {
   type WardFlowState,
 } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
-import { DECLINE_REASONS, type LegalForm, type LegalStatus } from "../src/components/ward-management/ward-model";
+import {
+  BED_RELEASE_CONFIDENCE_LEVELS,
+  DECLINE_REASONS,
+  type LegalForm,
+  type LegalStatus,
+} from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { WARD_SCENARIOS } from "../src/components/ward-management/ward-scenarios";
 import { allEmergencyDepartments, NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
@@ -505,6 +511,24 @@ function candidateEvents(type: WardFlowEvent["type"], state: WardFlowState, now:
     case "CANCEL_TRANSPORT":
       return movementIds.flatMap((movementId) =>
         CANCEL_TRANSPORT_REASONS.map((reason) => ({ type, role, now, movementId, reason })),
+      );
+    case "FLAG_BED_RELEASE":
+      // `actingUnitId` mirrors `unitId`, same reasoning as CONFIRM_CAPACITY above. One candidate
+      // per confidence level crossed with every blocker — the same "one candidate per real
+      // domain value" precedent CHANGE_URGENCY/CHANGE_LEGAL_STATUS/SET_SCENARIO set, so a branch
+      // keyed on either dimension is entered rather than assumed reachable.
+      return unitIds.flatMap((unitId) =>
+        BED_RELEASE_CONFIDENCE_LEVELS.flatMap((confidence) =>
+          BED_RELEASE_BLOCKERS.map((blocker) => ({
+            type,
+            role,
+            now,
+            unitId,
+            actingUnitId: unitId,
+            confidence,
+            blocker,
+          })),
+        ),
       );
   }
 }

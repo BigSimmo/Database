@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { unitCapacity } from "../src/components/ward-management/ward-derivations";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
 import { NOW_ANCHOR } from "../src/components/ward-management/ward-sites";
@@ -1023,5 +1024,137 @@ describe("release and cancel", () => {
     expect(updated.closure).toBeUndefined();
     expect(updated.stage).toBe("handover_ready");
     expect(updated.unwinds.at(-1)).toMatchObject({ kind: "transport_cancelled" });
+  });
+});
+
+/**
+ * Task 11 (spec item 9). Bed releases move from a frozen fixture constant into reducer state so a
+ * ward can flag its own bed coming free, and `unitCapacity()`'s `potential` figure actually moves
+ * when it does. `FLAG_BED_RELEASE` is `ward`-only (see `EVENT_ROLE.FLAG_BED_RELEASE` in
+ * `ward-flow-events.ts`), so unlike `RELEASE_HOLD`/`CANCEL_TRANSPORT` there is no coordinator
+ * caller to exempt — `actingUnitId` is always required and always compared against `unitId`,
+ * exactly like `CONFIRM_CAPACITY`.
+ */
+describe("bed release flagging", () => {
+  it("appends a release for the acting unit and increases that unit's potential by one", () => {
+    const seeded = seedWardFlowState();
+    const unit = seeded.units[0];
+    const sibling = seeded.units[1];
+    const potentialBefore = unitCapacity(unit, seeded.bedReleases).potential;
+    const siblingPotentialBefore = unitCapacity(sibling, seeded.bedReleases).potential;
+
+    const after = wardFlowReducer(seeded, {
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      unitId: unit.id,
+      actingUnitId: unit.id,
+      confidence: "likely",
+      blocker: "Awaiting clean",
+    });
+
+    expect(after.rejections).toEqual([]);
+    expect(after.bedReleases.length).toBe(seeded.bedReleases.length + 1);
+    const flagged = after.bedReleases.at(-1)!;
+    expect(flagged.unitId).toBe(unit.id);
+    expect(flagged.confidence).toBe("likely");
+    expect(flagged.blocker).toBe("Awaiting clean");
+    expect(flagged.confirmedAt).toBe(NOW);
+    expect(flagged.expectedAt).toBe(NOW);
+
+    const unitAfter = after.units.find((candidate) => candidate.id === unit.id)!;
+    expect(unitCapacity(unitAfter, after.bedReleases).potential).toBe(potentialBefore + 1);
+    // Untouched: a sibling unit's own potential count must not move.
+    const siblingAfter = after.units.find((candidate) => candidate.id === sibling.id)!;
+    expect(unitCapacity(siblingAfter, after.bedReleases).potential).toBe(siblingPotentialBefore);
+  });
+
+  it("refuses a flag raised acting as one unit but targeting another, naming both", () => {
+    const seeded = seedWardFlowState();
+    const unit = seeded.units[0];
+    const otherUnit = seeded.units[1];
+
+    const after = wardFlowReducer(seeded, {
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      unitId: unit.id,
+      actingUnitId: otherUnit.id,
+      confidence: "confirmed",
+      blocker: "Awaiting pharmacy",
+    });
+
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toContain(otherUnit.id);
+    expect(after.rejections[0].reason).toContain(unit.id);
+    expect(after.rejections[0].attempted).toBe("FLAG_BED_RELEASE");
+    // Nothing was written: no release was appended for either unit.
+    expect(after.bedReleases).toEqual(seeded.bedReleases);
+  });
+
+  it("refuses a coordinator caller", () => {
+    const seeded = seedWardFlowState();
+    const unit = seeded.units[0];
+
+    const after = wardFlowReducer(seeded, {
+      type: "FLAG_BED_RELEASE",
+      role: "coordinator",
+      now: NOW,
+      unitId: unit.id,
+      actingUnitId: unit.id,
+      confidence: "possible",
+      blocker: "Awaiting service coordination",
+    });
+
+    expect(after.rejections).toHaveLength(1);
+    expect(after.rejections[0].reason).toMatch(/role/i);
+    expect(after.bedReleases).toEqual(seeded.bedReleases);
+  });
+});
+
+/**
+ * Task 11's privacy rule, from the binding spec §4, is unconditional: a bed release carries
+ * nothing whatsoever about the departing patient — no identifier, no timing that could identify
+ * them, no reason relating to them. `BedRelease` is a compile-time-only TypeScript type, so
+ * nothing can introspect it directly at runtime; the strongest available proof is structural
+ * against every REAL instance this reducer or fixture can produce — checked as an ALLOWLIST of
+ * the exact field set, not a denylist of forbidden names. A denylist (as
+ * `tests/ward-model.test.ts`'s existing "flags bed releases without any departing-patient detail"
+ * test already is, checking for `name`/`mrn`/`diagnosis` and a handful of forbidden substrings)
+ * can only catch a field whose NAME was anticipated. This allowlist instead fails on ANY
+ * unexpected field, of any name, which is what "no field capable of carrying a patient reference"
+ * actually requires — a reviewer must extend this list deliberately before a new field can ship.
+ */
+describe("bed release privacy", () => {
+  it("gives every BedRelease exactly the allowed field set — fixture and reducer-produced alike", () => {
+    const ALLOWED_BED_RELEASE_FIELDS = [
+      "id",
+      "unitId",
+      "expectedAt",
+      "confidence",
+      "blocker",
+      "confirmedAt",
+      "confirmedBy",
+    ].sort();
+
+    const seeded = seedWardFlowState();
+    const flagged = wardFlowReducer(seeded, {
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now: NOW,
+      unitId: seeded.units[0].id,
+      actingUnitId: seeded.units[0].id,
+      confidence: "likely",
+      blocker: "Awaiting clean",
+    });
+    const reducerProduced = flagged.bedReleases.at(-1)!;
+
+    // Non-vacuity: this must actually inspect both a fixture-seeded release AND a fresh
+    // reducer-produced one, never silently degrade to checking only one source.
+    expect(seeded.bedReleases.length).toBeGreaterThan(0);
+    const everyRelease = [...seeded.bedReleases, reducerProduced];
+    for (const release of everyRelease) {
+      expect(Object.keys(release).sort()).toEqual(ALLOWED_BED_RELEASE_FIELDS);
+    }
   });
 });

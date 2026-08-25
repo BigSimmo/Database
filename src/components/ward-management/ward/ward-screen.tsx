@@ -3,9 +3,11 @@
 import { useState, type FormEvent } from "react";
 
 import {
+  BED_RELEASE_BLOCKERS,
   CANCEL_TRANSPORT_REASONS,
   changeReasonLabels,
   RELEASE_HOLD_REASONS,
+  type BedReleaseBlocker,
   type CancelTransportReason,
   type ReleaseHoldReason,
 } from "@/components/ward-management/ward-change-reasons";
@@ -19,7 +21,14 @@ import {
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
-import { DECLINE_REASONS, type DeclineReason, type Movement, type Unit } from "@/components/ward-management/ward-model";
+import {
+  BED_RELEASE_CONFIDENCE_LEVELS,
+  DECLINE_REASONS,
+  type BedReleaseConfidence,
+  type DeclineReason,
+  type Movement,
+  type Unit,
+} from "@/components/ward-management/ward-model";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 import { ignoreUnavailableActivation } from "@/components/ui-primitives";
 
@@ -83,7 +92,7 @@ function holdBlockedReason(movement: Movement, unit: Unit): string | undefined {
  * anyone else reading it.
  */
 export function WardScreen({ unitId }: WardScreenProps) {
-  const { movements, units, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
   // Resolved from the provider's live `units`, not the frozen `unitById()` fixture — after
   // `CONFIRM_CAPACITY` or `HOLD_BED` updates `state.units`, this screen must show the current
   // bed counts (and gate `holdBlockedReason` on them) rather than the stale fixture value.
@@ -101,6 +110,11 @@ export function WardScreen({ unitId }: WardScreenProps) {
   const [releaseReason, setReleaseReason] = useState<ReleaseHoldReason | undefined>(undefined);
   const [cancelOpenFor, setCancelOpenFor] = useState<string | undefined>(undefined);
   const [cancelReason, setCancelReason] = useState<CancelTransportReason | undefined>(undefined);
+  // Task 11 (spec item 9): the bed-release flag. Not keyed by movement id — unlike decline,
+  // release and cancel above, this is not about any one referral, it is about this ward's own
+  // bed stock, so one form per screen is enough.
+  const [bedReleaseConfidence, setBedReleaseConfidence] = useState<BedReleaseConfidence | undefined>(undefined);
+  const [bedReleaseBlocker, setBedReleaseBlocker] = useState<BedReleaseBlocker | undefined>(undefined);
 
   if (!unit) {
     return (
@@ -118,7 +132,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
   }
 
   const site = siteByCode(unit.siteCode);
-  const capacity = unitCapacity(unit);
+  const capacity = unitCapacity(unit, bedReleases);
   // TypeScript's narrowing of `unit` above does not reach into the `submitDecline` /
   // `submitCapacity` closures defined further down (the same reason `shortlist-panel.tsx`'s
   // `handleRefer` closes over a plain `movementId` rather than re-checking `movement`), so this
@@ -172,6 +186,25 @@ export function WardScreen({ unitId }: WardScreenProps) {
       actingUnitId: unitId,
       value: Math.floor(parsed),
     });
+  }
+
+  function submitBedRelease(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!bedReleaseConfidence || !bedReleaseBlocker) return;
+    // `actingUnitId` is this screen's own route parameter, exactly like `submitCapacity` above —
+    // it states which ward the caller says it is; it does not prove it. FLAG_BED_RELEASE is
+    // ward-only, so this comparison always runs (see the reducer's own comment on the case).
+    dispatch({
+      type: "FLAG_BED_RELEASE",
+      role: "ward",
+      now,
+      unitId: wardUnitId,
+      actingUnitId: unitId,
+      confidence: bedReleaseConfidence,
+      blocker: bedReleaseBlocker,
+    });
+    setBedReleaseConfidence(undefined);
+    setBedReleaseBlocker(undefined);
   }
 
   function toggleRelease(movementId: string) {
@@ -282,6 +315,71 @@ export function WardScreen({ unitId }: WardScreenProps) {
             <p className={styles.capacityConfirmed}>
               Currently confirmed {unit.allocatable.value} at {formatInstant(unit.allocatable.confirmedAt)}. Writes to{" "}
               {unit.name} only &mdash; never any other ward.
+            </p>
+          </form>
+
+          {/* Task 11 (spec item 9): a ward can now flag its own bed coming free, rather than
+              `potential` only ever moving through the frozen fixture. Always available — unlike
+              the incoming-referral and accepted-movement controls below, FLAG_BED_RELEASE carries
+              no movement-stage precondition to gate on, so this control renders unconditionally
+              rather than checking a `blocked` reason that does not exist. */}
+          <form className={styles.capacityForm} onSubmit={submitBedRelease} data-testid="ward-flag-bed-release">
+            <span className={styles.capacityLabel}>Flag a bed coming free at {unit.name}</span>
+            <div className={styles.capacityRow}>
+              <div>
+                <label className={styles.declineLegend} htmlFor="ward-bed-release-confidence">
+                  Confidence
+                </label>
+                <select
+                  id="ward-bed-release-confidence"
+                  required
+                  className={styles.capacityInput}
+                  value={bedReleaseConfidence ?? ""}
+                  onChange={(event) => setBedReleaseConfidence(event.target.value as BedReleaseConfidence)}
+                >
+                  <option value="" disabled>
+                    Choose confidence
+                  </option>
+                  {BED_RELEASE_CONFIDENCE_LEVELS.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={styles.declineLegend} htmlFor="ward-bed-release-blocker">
+                  Blocker
+                </label>
+                <select
+                  id="ward-bed-release-blocker"
+                  required
+                  className={styles.capacityInput}
+                  value={bedReleaseBlocker ?? ""}
+                  onChange={(event) => setBedReleaseBlocker(event.target.value as BedReleaseBlocker)}
+                >
+                  <option value="" disabled>
+                    Choose blocker
+                  </option>
+                  {BED_RELEASE_BLOCKERS.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                data-testid="ward-flag-bed-release-submit"
+                className={styles.capacitySubmit}
+                disabled={!bedReleaseConfidence || !bedReleaseBlocker}
+              >
+                Flag bed coming free
+              </button>
+            </div>
+            <p className={styles.capacityConfirmed}>
+              Records confidence and blocker only &mdash; nothing about the departing patient. Writes to {unit.name}{" "}
+              only &mdash; never any other ward.
             </p>
           </form>
         </section>

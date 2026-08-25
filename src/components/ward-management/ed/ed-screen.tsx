@@ -197,7 +197,7 @@ function accessTargetLine(minutesInDepartment: number): string {
  * substituted department.
  */
 export function EdScreen({ edId }: EdScreenProps) {
-  const { movements, units, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
   const department = edById(edId);
 
   // Declared unconditionally, before the early return below — React hooks must run in the same
@@ -772,7 +772,7 @@ export function EdScreen({ edId }: EdScreenProps) {
                   units
                     .filter((unit) => siteByCode(unit.siteCode)?.service === service)
                     .map((unit) => {
-                      const capacity = unitCapacity(unit);
+                      const capacity = unitCapacity(unit, bedReleases);
                       return (
                         <tr key={unit.id}>
                           <th scope="row">{unit.name}</th>

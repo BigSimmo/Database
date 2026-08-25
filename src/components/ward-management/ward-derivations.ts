@@ -29,13 +29,13 @@ import {
 import {
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
+  type BedRelease,
   type HealthService,
   type Movement,
   type MovementStage,
   type TransportJob,
   type Unit,
 } from "@/components/ward-management/ward-model";
-import { bedReleases } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments, siteByCode } from "@/components/ward-management/ward-sites";
 import { REFERRABLE_MOVEMENT_STAGES } from "@/components/ward-management/ward-flow-reducer";
 
@@ -218,8 +218,14 @@ export function transportLeg(transport: TransportJob | undefined): TransportLeg 
  * are clamped so authored data that already over- or under-counts (e.g. a stale `unit.held`
  * literal that no longer fits once `available` is subtracted) can never push the total past
  * `unit.beds` or leave a bed unaccounted for.
+ *
+ * `bedReleases` is now a parameter rather than a module-level import (Task 11, spec item 9):
+ * releases live in `WardFlowState.bedReleases` so a ward's own `FLAG_BED_RELEASE` actually moves
+ * `potential`, and every caller passes whichever collection it currently holds — the live
+ * reducer state where one is available, or the raw fixture for a check that has no reducer state
+ * at all (`tests/ward-capacity-reconciliation.test.ts`, `tests/ward-model.test.ts`).
  */
-export function unitCapacity(unit: Unit) {
+export function unitCapacity(unit: Unit, bedReleases: BedRelease[]) {
   const available = Math.min(unit.allocatable.value, unit.empty.value);
   const held = Math.max(unit.empty.value - available, 0);
   const notEmpty = Math.max(unit.beds - unit.empty.value, 0);

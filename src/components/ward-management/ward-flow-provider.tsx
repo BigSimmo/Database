@@ -16,7 +16,7 @@ import type { Instant } from "@/components/ward-management/ward-clock";
 import { elapsedMinutesSinceMount, wallClockNow } from "@/components/ward-management/ward-clock";
 import type { WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "@/components/ward-management/ward-flow-reducer";
-import type { Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
+import type { BedRelease, Movement, Rejection, Unit } from "@/components/ward-management/ward-model";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 import type { WardScenario } from "@/components/ward-management/ward-scenarios";
 
@@ -40,6 +40,9 @@ type WardFlowContextValue = {
   movements: Movement[];
   units: Unit[];
   rejections: Rejection[];
+  /** Task 11 (spec item 9): beds expected to free up, live from reducer state so a ward's own
+   *  `FLAG_BED_RELEASE` shows up on every screen reading `unitCapacity()`'s `potential` figure. */
+  bedReleases: BedRelease[];
   now: Instant;
   /** Which synthetic night is seeded — `ward-scenarios.ts`'s `WardScenario` — so a UI surface
    *  (`ward-demo-controls.tsx`'s scenario switch) can mark the active one without guessing it
@@ -112,13 +115,14 @@ export function WardFlowProvider({ children, initialNow }: WardFlowProviderProps
       movements: state.movements,
       units: state.units,
       rejections: state.rejections,
+      bedReleases: state.bedReleases,
       now,
       scenario: state.scenario,
       dispatch,
       focusMovementId,
       setFocusMovementId,
     }),
-    [state.movements, state.units, state.rejections, now, state.scenario, dispatch, focusMovementId],
+    [state.movements, state.units, state.rejections, state.bedReleases, now, state.scenario, dispatch, focusMovementId],
   );
 
   return <WardFlowContext.Provider value={value}>{children}</WardFlowContext.Provider>;

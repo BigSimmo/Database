@@ -23,7 +23,7 @@ const TARGET_MOVEMENT_ID = "WF-308";
  * actually produce.
  */
 function ShortlistHarness() {
-  const { movements, units, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined);
   const movement = movements.find((candidate) => candidate.id === TARGET_MOVEMENT_ID);
   return (
@@ -31,6 +31,7 @@ function ShortlistHarness() {
       movement={movement}
       now={now}
       units={units}
+      bedReleases={bedReleases}
       selectedUnitId={selectedUnitId}
       onSelectUnit={setSelectedUnitId}
       dispatch={dispatch}
