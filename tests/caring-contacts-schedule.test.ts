@@ -2,7 +2,11 @@
 import { describe, expect, it } from "vitest";
 
 import { awstCalendarDay, toAwstParts } from "@/lib/caring-contacts/clock";
-import { buildApprovedSchedule, FIRST_CONTACT_REASON_MAX_LENGTH } from "@/lib/caring-contacts/schedule";
+import {
+  buildApprovedSchedule,
+  FIRST_CONTACT_REASON_MAX_LENGTH,
+  SENDING_PREFERENCE_OPTIONS,
+} from "@/lib/caring-contacts/schedule";
 
 const discharge = new Date("2026-03-10T06:30:00.000Z"); // 14:30 AWST on 2026-03-10
 
@@ -252,5 +256,44 @@ describe("buildApprovedSchedule", () => {
     );
     expect(awstCalendarDay(new Date("2026-03-10T20:00:00.000Z"))).toBe("2026-03-11");
     expect(contacts[0].calendarDay).toBe("2026-03-12");
+  });
+});
+
+describe("SENDING_PREFERENCE_OPTIONS — the wording a screen may render (Phase 2B Task 8)", () => {
+  it("offers the three preferences in the order they occur in a day", () => {
+    expect(SENDING_PREFERENCE_OPTIONS.map((option) => option.preference)).toEqual([
+      "morning",
+      "afternoon",
+      "earlyEvening",
+    ]);
+    expect(SENDING_PREFERENCE_OPTIONS.map((option) => option.label)).toEqual([
+      "Morning",
+      "Afternoon",
+      "Early evening",
+    ]);
+  });
+
+  it("states the same send time the schedule actually uses, derived rather than restated", () => {
+    // The property, not the strings. A screen writing "10:00 am AWST" beside a radio button would
+    // be a second copy of SEND_HOUR_BY_PREFERENCE, free to go on saying 10:00 after the hour moved.
+    // So each option's wording is checked against the hour the built schedule really sends at.
+    for (const option of SENDING_PREFERENCE_OPTIONS) {
+      const contacts = ok(buildApprovedSchedule({ dischargeAt: discharge, sendingPreference: option.preference }));
+      const { hour } = toAwstParts(contacts[0].sendAt);
+      const suffix = hour < 12 ? "am" : "pm";
+      const twelveHour = hour % 12 === 0 ? 12 : hour % 12;
+      expect(option.sendTime, `${option.preference} is advertised at the wrong time`).toBe(
+        `${twelveHour}:00 ${suffix} AWST`,
+      );
+    }
+  });
+
+  it("advertises every send time inside the approved window", () => {
+    // A belt-and-braces reading of the same rule from the wording side: if a preference were ever
+    // published whose advertised time fell outside 09:00-18:00, the load-time assertion in
+    // schedule.ts would already have thrown — this fails in a readable way if it ever does not.
+    for (const option of SENDING_PREFERENCE_OPTIONS) {
+      expect(option.sendTime).toMatch(/^(9|10|11|12|[1-5]):00 (am|pm) AWST$/);
+    }
   });
 });

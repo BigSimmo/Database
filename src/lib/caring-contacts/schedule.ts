@@ -50,6 +50,56 @@ const SEND_HOUR_BY_PREFERENCE: Record<SendingPreference, number> = {
   earlyEvening: 17,
 };
 
+/**
+ * A sending preference as a screen may present it: the value, its name, and the AWST wall-clock
+ * time it actually sends at.
+ *
+ * PUBLISHED HERE BECAUSE THE HOUR IS THIS MODULE'S RULE. `SEND_HOUR_BY_PREFERENCE` above is what
+ * `buildApprovedSchedule` uses, and a screen that wrote "10:00 am AWST" beside a radio button would
+ * be a second copy of it — free to go on saying 10:00 after the hour moved, on the screen where a
+ * coordinator decides when a discharged patient hears from the service. `sendTime` is DERIVED from
+ * the same constant rather than restated, so it cannot drift, and the wording sits beside the rule
+ * it names exactly as `APPROVAL_ROLE_WORDING` does in `service-state.ts`.
+ */
+export type SendingPreferenceOption = {
+  preference: SendingPreference;
+  /** The choice's name, in plain words. */
+  label: string;
+  /** The approved AWST wall-clock send time, derived from `SEND_HOUR_BY_PREFERENCE`. */
+  sendTime: string;
+};
+
+const SENDING_PREFERENCE_LABELS: Record<SendingPreference, string> = {
+  morning: "Morning",
+  afternoon: "Afternoon",
+  earlyEvening: "Early evening",
+};
+
+function awstWallClockLabel(hour: number): string {
+  const suffix = hour < 12 ? "am" : "pm";
+  const twelveHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${twelveHour}:00 ${suffix} AWST`;
+}
+
+/**
+ * The three preferences in the order they occur in a day, earliest first.
+ *
+ * The ORDER is derived from the send hours too, not chosen by whoever renders it: a list whose
+ * order was typed out separately could present early evening between morning and afternoon and
+ * nothing would say so.
+ */
+export const SENDING_PREFERENCE_OPTIONS: readonly SendingPreferenceOption[] = Object.freeze(
+  (Object.keys(SENDING_PREFERENCE_LABELS) as SendingPreference[])
+    .sort((left, right) => SEND_HOUR_BY_PREFERENCE[left] - SEND_HOUR_BY_PREFERENCE[right])
+    .map((preference) =>
+      Object.freeze({
+        preference,
+        label: SENDING_PREFERENCE_LABELS[preference],
+        sendTime: awstWallClockLabel(SEND_HOUR_BY_PREFERENCE[preference]),
+      }),
+    ),
+);
+
 /** Nothing may be scheduled before 09:00 or at/after 18:00 AWST. */
 const EARLIEST_SEND_HOUR = 9;
 const LATEST_SEND_HOUR_EXCLUSIVE = 18;
