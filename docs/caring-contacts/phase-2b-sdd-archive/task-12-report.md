@@ -564,16 +564,20 @@ Recorded so a later reader does not re-open them:
 
 ## Commits
 
-| SHA                           | What                                                                                                                    |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| _recorded in the next commit_ | The mislabelled precondition swapped for the records-based form, and the report's two counts replaced by the named set. |
+| SHA         | What                                                                                                                    |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `21a79a4e6` | The mislabelled precondition swapped for the records-based form, and the report's two counts replaced by the named set. |
 
 Every SHA written down in this report was checked to still resolve
 (`git cat-file -e <sha>^{commit}`) after the last commit of this round.
 
 ## Gate
 
-_recorded in the next commit, after the run._
+| Gate                                                     | Evidence                                                    |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`)       | `Test Files  20 passed (20)` and `Tests  427 passed (427)`  |
+| `npm run typecheck` (`GATE_RECEIPTS=refresh`)            | exit 0, zero `error TS` lines emitted                       |
+| `npx eslint --no-cache`, the one file this round changed | `files linted: 1`, `errors: 0 warnings: 0` (JSON formatter) |
 
 Run **after** the final edit of this round, not before it, so its verdict covers the tree that was
 committed. The only change made after it is this section's own gate line.
