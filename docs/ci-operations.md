@@ -1,5 +1,7 @@
 # CI Operations and Runner Usage Assessment
 
+See also [continuous-integration.md](continuous-integration.md) for pre-push safety controls and Guard 2 in-flight CI push guard details.
+
 ## Overview and Concurrency Architecture
 
 In PR #2209 (merged `af2075a`), GitHub Actions workflow concurrency for base-branch (`main`, `release/**`) pushes was changed to key on `github.run_id`:
