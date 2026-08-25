@@ -435,6 +435,14 @@ and Task 7's whole-draft fixture missing stage 4's two fields.
 **Prettier:** `npx prettier --write` over every file in this diff; the last run reports every one
 unchanged.
 
+**Which tree each gate ran against, because it matters here.** Both gates ran on the source as it
+now stands: every commit after `5f009e095` (the mutation revert) touches this report and nothing
+else, verified with `git log --name-only`. Both also ran to completion with zero failures, which a
+live mutation from the concurrent session could not have produced — that is the reason to believe the
+tree was its own during those two runs rather than an assumption about it. I did not re-run either
+afterwards, because the working tree currently carries another session's in-flight mutation and a run
+now would report their change as mine.
+
 **The full suite, `npm run test`, once, at the end — and backgrounded from the first command, which
 is Task 8's lease lesson applied rather than restated:**
 
