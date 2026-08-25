@@ -65,7 +65,26 @@ export PLAYWRIGHT_KEEP_BUILD_ROOT=true
 
 ### Dev Drive trusted package cache verification (#6SMMB4)
 
-On Windows workstations hosting worktrees on a Dev Drive (`D:`, ReFS) where `npm config get cache` resolves to `D:\.npm-cache`, register the whole volume as a trusted Dev Drive (`fsutil devdrv query D:` and `fsutil devdrv trust D:`). Trusting the volume enables Defender performance mode with asynchronous scanning; it does not disable Defender. Querying or trusting a Dev Drive requires an elevated administrator command prompt; non-elevated prompts return `Error 5: Access is denied`.
+On Windows workstations hosting worktrees on a Dev Drive (`D:`, ReFS) where `npm config get cache` resolves to `D:\.npm-cache`, register the npm package cache as a trusted Dev Drive cache to prevent Microsoft Defender real-time scanning overhead during `npm ci` extractions across worktrees.
+
+**Elevated registration command (run once in an Administrator PowerShell or CMD):**
+
+```powershell
+fsutil devdrv trust D:\.npm-cache
+```
+
+**Diagnostics & verification:**
+
+1. **Elevated Dev Drive query:**
+   ```powershell
+   fsutil devdrv query D:
+   ```
+   Inspect the output for `Developer volume is trusted: Yes` and check that filesystem filters are attached in performance mode. (Note: Non-elevated prompts return `Error 5: Access is denied`).
+2. **Fallback registry probe (non-elevated PowerShell diagnostic):**
+   ```powershell
+   Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "DevDrive*" -ErrorAction SilentlyContinue
+   ```
+   Or verify volume file system properties (`(Get-Volume -DriveLetter D).FileSystemType -eq 'ReFS'`). Trusting the volume or cache enables Defender asynchronous performance mode without disabling Defender real-time protection on untrusted files.
 
 ### PreCompact hook contract and logging (#RZQQBT)
 

@@ -119,6 +119,13 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("run: npm run check:verification-plan");
   });
 
+  it("runs Caring Contacts database tests from the changes-job outputs", () => {
+    expect(workflow).toMatch(
+      /name: Run Caring Contacts Database & RLS Tests\n\s+if: needs\.changes\.outputs\.db_changed == 'true' \|\| needs\.changes\.outputs\.static_heavy_changed == 'true'\n[\s\S]*?run: npm run caring-contacts:db:test/,
+    );
+    expect(workflow).not.toMatch(/name: Run Caring Contacts Database & RLS Tests\n\s+if: steps\.scope\.outputs/);
+  });
+
   it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
     expect(workflow).toMatch(
       /name: Medication lexicon report freshness\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-lexicon-report/,

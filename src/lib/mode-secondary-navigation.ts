@@ -1,4 +1,4 @@
-import { appModeHomeHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
+import { appModeHomeHref, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
 import { therapyWorkspaceNavigationEntries } from "@/lib/therapy-compass-navigation";
 
 export type ModeSecondaryNavigationEntry = {
@@ -74,7 +74,7 @@ export const modeSecondaryNavigationRegistry = {
   // would open the phone keyboard over the topics the user asked to see. The
   // search affordance for this mode is the Search tab.
   factsheets: [
-    { id: "search", label: "Search", href: "/factsheets/search" },
+    { id: "search", label: "Search", href: factsheetsSearchHref },
     { id: "topics", label: "Topics", href: factsheetsTopicsHref },
   ],
   // Search and Browse were one catalogue behind two destinations: the same

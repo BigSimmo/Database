@@ -26,6 +26,17 @@ afterEach(() => {
 });
 
 describe("PatientProfilePanel — physiological input validation", () => {
+  it("uses equal hepatic segments and shared choice chips for allergy selections", () => {
+    renderPanel();
+
+    expect(screen.getByRole("radiogroup", { name: "Hepatic impairment" })).toHaveAttribute("data-layout", "equal");
+    const allergy = screen.getByRole("button", { name: "Penicillin" });
+    expect(allergy).toHaveAttribute("data-choice-chip", "true");
+    expect(allergy).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(allergy);
+    expect(screen.getByRole("button", { name: "Penicillin" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("flags an out-of-range eGFR with an accessible error and never stores it", () => {
     renderPanel();
     const egfr = screen.getByTestId("patient-egfr") as HTMLInputElement;

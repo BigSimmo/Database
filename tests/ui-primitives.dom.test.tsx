@@ -107,6 +107,9 @@ describe("ToggleSwitch", () => {
     const toggle = screen.getByRole("switch", { name: "Pregnancy" });
     expect(toggle.className).toMatch(/min-h-tap/);
     expect(toggle.className).toMatch(/min-w-tap/);
+    expect(toggle).toHaveClass("rounded-lg");
+    expect(toggle).not.toHaveClass("rounded-full");
+    expect(toggle.firstElementChild).toHaveClass("box-content", "border", "shadow-[var(--shadow-inset)]");
     await userEvent.click(toggle);
     expect(onToggle).toHaveBeenCalledOnce();
   });

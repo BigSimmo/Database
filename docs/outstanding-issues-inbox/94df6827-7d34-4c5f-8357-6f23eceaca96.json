@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "94df6827-7d34-4c5f-8357-6f23eceaca96",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Ingestion panel reports 'could not reach' when it reached the endpoint but could not parse the body",
+    "detail": "A malformed JSON body on a 200 response falls into the generic catch in IngestionPanel and produces 'The panel could not reach the ingestion jobs endpoint.' It did reach it. The adjacent parseReadyPayload path gets this right and says 'returned an unexpected shape'. Small, but the panel's whole purpose is telling a reader precisely what is and is not known, so a message that misattributes the failure is off-key. Found during the ingestion panel review.",
+    "source": "Ingestion panel review, 2026-08-25",
+    "issueUlid": "01M0VM9MJCCJCH2EJD6N9BGJ2N"
+  }
+}
