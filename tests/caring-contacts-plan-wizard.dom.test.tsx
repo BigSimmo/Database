@@ -18,6 +18,9 @@
 //     with its provenance, and says so again, differently, once the coordinator changes it.
 //   * Ruling [110] — the draft survives a remount and is gone after Discard draft.
 //   * Ruling 52 — stages 3 and 4 are unavailable controls with a stated reason, never dead ends.
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -32,6 +35,8 @@ import {
   type PlanWizardProps,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
 import { planWizardStageImplementation } from "@/components/caring-contacts/workspace/plan-wizard/stages";
+
+import { stripSourceComments } from "./helpers/strip-source-comments";
 
 const REFERRAL = "SYN-REFERRAL-001";
 const PATIENT = "SYN-PATIENT-001";
@@ -413,6 +418,43 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     expect(planWizardStageImplementation("pathway")).toEqual({ kind: "built" });
     expect(planWizardStageImplementation("personalisation").kind).toBe("not-built");
     expect(planWizardStageImplementation("review").kind).toBe("not-built");
+  });
+
+  it("will require the activation stage to clear the draft the moment Task 9 builds it", () => {
+    // Round 1, finding M-1. The draft suite's "clears on successful activation" case calls
+    // `clearPlanDraft()` directly, so it proves the seam works and nothing about whether Task 9
+    // uses it. THIS is the case that arms itself: it does nothing while the review stage is
+    // unbuilt, and becomes a real requirement the moment `stages.ts` says it is built.
+    //
+    // Comments are stripped first, for the reason `tests/route-reachability.test.ts` records:
+    // documenting a rule is not obeying it, and a check that reads prose can be satisfied by a note
+    // saying the call ought to be there.
+    const wizardSource = stripSourceComments(
+      readFileSync(
+        path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard", "plan-wizard.tsx"),
+        "utf8",
+      ),
+    );
+
+    if (planWizardStageImplementation("review").kind === "not-built") {
+      // Nothing to require yet, and this states that rather than passing silently: a review body
+      // rendered while the table still calls the stage unbuilt would be its own defect.
+      expect(wizardSource, "a review stage body appeared while the table still calls it unbuilt").not.toMatch(
+        /case "review":\s*return \(/,
+      );
+      return;
+    }
+
+    // Task 9 has built it. The wizard now calls `clearPlanDraft()` once for the discard control, so
+    // an activation that clears the draft is a SECOND call. A refactor that shares one call site
+    // between the two would go red here — a false alarm a human reads, which is the safe direction
+    // for a guard about a patient's details left on a ward machine.
+    const clearCalls = [...wizardSource.matchAll(/clearPlanDraft\(\)/g)].length;
+    expect(
+      clearCalls,
+      "the review stage is built but the wizard still clears the draft in only one place — a plan " +
+        "activated without clearing leaves the patient's name and mobile number in this tab's storage",
+    ).toBeGreaterThan(1);
   });
 
   it("renders the unbuilt stage's own panel rather than an empty column, if one is ever reached", async () => {

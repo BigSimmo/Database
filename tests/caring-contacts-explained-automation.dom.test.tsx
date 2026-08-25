@@ -4,6 +4,8 @@ import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { stripSourceComments } from "./helpers/strip-source-comments";
+
 import { AutomatedState } from "@/components/caring-contacts/workspace/automated-state";
 import { ServiceStateBanner } from "@/components/caring-contacts/workspace/service-state-banner";
 import { CaringContactsShell } from "@/components/caring-contacts/workspace/shell";
@@ -411,8 +413,8 @@ function guardedModuleGraph(entry: string): string[] {
   return [...seen];
 }
 
-/**
- * `source` with its comments removed, so the scan below reads CODE rather than prose.
+/*
+ * The scan below reads CODE rather than prose.
  *
  * Narrowed in Phase 2B Task 7, and narrowing rather than weakening: a type only reaches a client
  * component through an import, an annotation or a prop — all of them code. A comment cannot carry
@@ -424,12 +426,61 @@ function guardedModuleGraph(entry: string): string[] {
  * The alternative was to delete those explanations to make a check green, which is the failure mode
  * `tests/route-reachability.test.ts` records in its own words: documenting a rule is not breaking
  * it, and a check that cannot tell the two apart is a check that gets silenced. The check still
- * fails on real usage — it did, twice, while Task 7's wizard was being added to the allowlist, and
- * `plan-wizard.tsx` still deliberately avoids naming the type at all.
+ * fails on real usage, and `plan-wizard.tsx` still deliberately avoids naming the type at all.
+ *
+ * Round 1, finding M-4: the first version stripped block comments with a regex that knew nothing
+ * about string literals, so a `"/*"` inside an ordinary string would have blanked real code up to
+ * the next terminator — a silent false negative inside a safety guard. `stripSourceComments` scans
+ * character by character and copies literals through untouched; its own proof is below.
  */
-function executableSource(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ 	]*\/\/.*$/gm, "");
-}
+
+/** A line break, named so these fixtures can be written as arrays rather than as escaped strings. */
+const NEWLINE = String.fromCharCode(10);
+
+describe("the comment stripper the two source guards are built on", () => {
+  // Round 1, finding M-4. A guard is only as good as the text it reads, and the regex this
+  // replaced would have blanked real code the moment a scanned file contained a `/*` inside a
+  // string. These are the cases that distinguish the two implementations.
+  it("removes comments", () => {
+    // A line comment on its own line, which is the only line-comment shape this strips — see the
+    // trailing-comment case below, which is deliberately left alone.
+    expect(stripSourceComments(["  // ServiceState", "const b = 2;"].join(NEWLINE))).not.toMatch(/ServiceState/);
+    expect(stripSourceComments(["  // ServiceState", "const b = 2;"].join(NEWLINE))).toMatch(/const b = 2;/);
+    expect(stripSourceComments("/* ServiceState */ const a = 1;")).not.toMatch(/ServiceState/);
+    expect(stripSourceComments("/* ServiceState */ const a = 1;")).toMatch(/const a = 1;/);
+  });
+
+  it("keeps code that follows a comment-opening sequence inside a string literal", () => {
+    // The defect, stated as a test: the regex matched from this `/*` to the NEXT `*/` anywhere in
+    // the file, so everything between — imports included — vanished from the guard's view.
+    const source = [
+      'const opener = "/*";',
+      'import type { ServiceState } from "@/lib/caring-contacts/service-state";',
+      'const closer = "*/";',
+    ].join(NEWLINE);
+
+    const stripped = stripSourceComments(source);
+
+    expect(stripped, "a real import was hidden by a string containing a comment opener").toMatch(/ServiceState/);
+    expect(stripped).toMatch(/caring-contacts\/service-state/);
+  });
+
+  it("leaves a TRAILING line comment alone, which is deliberate conservatism rather than an oversight", () => {
+    // A line comment is stripped only when the line BEGINS with `//`. That property was in the
+    // regex this replaced and was kept on purpose: hardening the block-comment case is not a
+    // licence to widen the line-comment one, and leaving text in makes a guard louder, never
+    // quieter. So `import … // service-state` still fires — and it should, because a note that a
+    // module is service-state-adjacent is worth a human reading.
+    const stripped = stripSourceComments('import type { Thing } from "x"; // service-state lives next door');
+    expect(stripped).toMatch(/service-state lives next door/);
+  });
+
+  it("copies template literals and their interpolations through untouched", () => {
+    const stripped = stripSourceComments("const a = `before ${ServiceState} // not a comment` ;");
+    expect(stripped).toMatch(/ServiceState/);
+    expect(stripped).toMatch(/not a comment/);
+  });
+});
 
 describe("the service-state path stays on the server", () => {
   it("keeps every workspace component but the allowlisted client controls a Server Component", () => {
@@ -472,7 +523,7 @@ describe("the service-state path stays on the server", () => {
 
       for (const file of guardedModuleGraph(entry)) {
         const label = path.relative(process.cwd(), file).split(path.sep).join("/");
-        const moduleSource = executableSource(readFileSync(file, "utf8"));
+        const moduleSource = stripSourceComments(readFileSync(file, "utf8"));
         expect(moduleSource, `${label} (reached from ${name}) references the service-state module`).not.toMatch(
           /service-state/,
         );

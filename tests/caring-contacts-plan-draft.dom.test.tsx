@@ -18,6 +18,8 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { stripSourceComments } from "./helpers/strip-source-comments";
+
 import {
   PLAN_DRAFT_STORAGE_KEY,
   clearPlanDraft,
@@ -34,19 +36,6 @@ const REFERRAL = "SYN-REFERRAL-001";
 const OTHER_REFERRAL = "SYN-REFERRAL-002";
 
 const WIZARD_DIRECTORY = path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard");
-
-/**
- * `source` with its comments removed.
- *
- * Load-bearing rather than tidy: `plan-draft.ts`'s own module note explains at length why
- * `localStorage` is refused, so a scan that read prose would report the EXPLANATION as the offence
- * — and the obvious way to make it green again would be to delete the explanation. Documenting a
- * rule is not breaking it, and a check that cannot tell those apart is a check that gets silenced.
- * `tests/route-reachability.test.ts` records the same trap, found the same way.
- */
-function sourceWithoutComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
-}
 
 function filledDraft(referralId = REFERRAL): PlanDraft {
   return {
@@ -116,7 +105,7 @@ describe("the caring-contacts plan draft — tab lifetime is enforced, not promi
     // would report the explanation as the offence — then be "fixed" by deleting the explanation.
     // The same trap `tests/route-reachability.test.ts` records: documenting a rule is not breaking
     // it, and a check that cannot tell the two apart is a check that will be silenced.
-    const offenders = files.filter((file) => sourceWithoutComments(readFileSync(file, "utf8")).includes("localStorage"));
+    const offenders = files.filter((file) => stripSourceComments(readFileSync(file, "utf8")).includes("localStorage"));
     expect(offenders.map((file) => path.relative(process.cwd(), file))).toEqual([]);
   });
 
@@ -136,15 +125,21 @@ describe("the caring-contacts plan draft — tab lifetime is enforced, not promi
     expect(readPlanDraft(REFERRAL)).toBeNull();
   });
 
-  it("clears on successful activation — the same seam, which is what Task 9 must call", () => {
-    // There is one clearing function deliberately, so "cleared on activation" and "cleared on
-    // abandoning" cannot drift apart. This case exists so that Task 9 has a named, failing test to
-    // point at if it ever stops calling it.
+  it("offers ONE clearing seam, which is the one Task 9 must call on a successful activation", () => {
+    // WHAT THIS PROVES, STATED EXACTLY — round 1, finding M-1. It proves the SEAM works: there is
+    // one clearing function, so "cleared on activation" and "cleared on abandoning" cannot drift
+    // apart into two implementations. It does NOT prove that Task 9 calls it, and it cannot: the
+    // activation stage does not exist yet, so this case calls `clearPlanDraft()` directly and is
+    // functionally the discard case under another name. The Task 7 report said it gave Task 9 "a
+    // named, failing test to point at", which overstated it — a placeholder is not a guard, and the
+    // claim has been corrected there rather than left standing.
+    //
+    // What DOES arm automatically when Task 9 builds the review stage is the case below.
     writePlanDraft(filledDraft());
 
     clearPlanDraft();
 
-    expect(storedRaw(), "an activated plan left its draft on the machine").toBeNull();
+    expect(storedRaw(), "the one clearing seam left the draft on the machine").toBeNull();
   });
 
   it("removes a draft belonging to a different referral rather than merely ignoring it", () => {
