@@ -1,0 +1,375 @@
+# Task 7 report — the activation wizard's route, shell, and stages 1 and 2
+
+**Branch:** `claude/browser-test-gate-handoff-d5c1db`. Committed locally; nothing pushed, no PR.
+
+**Scope built:** the route `/caring-contacts/plans/new`, the four-stage wizard shell, the
+`sessionStorage` draft, stage 1 (agreement) and stage 2 (pathway). Stages 3 and 4 are left as a
+typed extension point, described in full below.
+
+---
+
+## 1. What was built, file by file
+
+| File                                                                          | What it is                                                                                                       |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `src/app/caring-contacts/plans/new/page.tsx`                                  | The route. Server Component: audited reads, capability decisions, fail-closed, renders the shell.                 |
+| `src/components/caring-contacts/workspace/plan-wizard/stages.ts`              | The stage set, the stage table, and which stages are built. No React — the extension point lives here.            |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`          | The `sessionStorage` draft: read, write, clear. The only module in the wizard that touches a storage API.         |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`        | `"use client"`. The stepper, the draft notice and discard control, stage 1, stage 2, and the forward control.     |
+| `src/components/caring-contacts/workspace/plan-wizard/stated-reason.tsx`      | The "Why: … / What changes it: …" group, shared by the client wizard and the server-rendered start states.        |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-start-state.tsx`   | Every reason the wizard does not start, rendered on the server.                                                   |
+| `src/components/caring-contacts/workspace/shell.tsx`                          | The "New plan" primary control became a real `<Link>` — see §5.                                                   |
+| `src/lib/caring-contacts-routes.ts`                                           | `CARING_CONTACTS_REFERRAL_QUERY_PARAM` and `newPlanRoute(referralId)`.                                             |
+
+Tests added: `tests/caring-contacts-new-plan-page.dom.test.tsx`,
+`tests/caring-contacts-plan-wizard.dom.test.tsx`, `tests/caring-contacts-plan-draft.dom.test.tsx`.
+Tests changed: `tests/caring-contacts-workspace-shell.dom.test.tsx`,
+`tests/route-reachability.test.ts`, `tests/ui-caring-contacts-workspace.spec.ts`.
+Docs regenerated/updated: `docs/site-map.md` (+ its description in `scripts/generate-site-map.ts`),
+`docs/codebase-index.md`.
+
+---
+
+## 2. The rulings, and how each was implemented
+
+### Ruling [109] — the first deliberate Client Component
+
+The page is a Server Component. It resolves the actor, makes every read through `auditedRead`,
+decides the capability, fails closed, and renders `<CaringContactsShell>`. The client boundary is
+`PlanWizard` alone, imported through the same lazy `dynamic()` spelling the workspace's other routes
+use for the shell.
+
+**The service-state `note` does not cross.** The wizard's props are `referralId`, `patientId`,
+`teamId`, `actorId`, `actorRoles`, `referralPathwayVersionId` and `pathwayOptions` — nothing else.
+The page's own test stops a service with a distinctive incident note, then asserts on the element
+tree the page returns: the shell's `serviceState` prop contains the note, and the wizard's props
+contain neither the note, nor the stop reason, nor a key called `serviceState`. Mutation M4 below
+proves that check fires.
+
+### Ruling [110] — the draft, in `sessionStorage`, cleared on both exits, and stated
+
+- **`sessionStorage` only.** `plan-draft.ts` names `window.sessionStorage` and nothing else, and it
+  is the only module in the wizard directory that touches a storage API at all. That is enforced two
+  ways: a test asserts `localStorage` is empty after a write, and a source scan over the whole
+  `plan-wizard/` directory fails if the name appears anywhere in it. The scan strips comments
+  first — deliberately, because `plan-draft.ts`'s own note explains at length why `localStorage` is
+  refused, and a scan that read prose would report the explanation as the offence and then be
+  "fixed" by deleting the explanation.
+- **Cleared on successful activation.** `clearPlanDraft()` is the seam. §4 says exactly what Task 9
+  must call and when.
+- **Cleared on abandoning.** A "Discard draft" control sits beside the notice, on every stage. It
+  clears storage and resets the draft to empty, so nothing is left on screen to be written back on
+  the next keystroke.
+- **A fourth clearing, which falls out of the design:** one key holds one draft, so reading a draft
+  that belongs to a different referral removes it rather than ignoring it. Otherwise one
+  coordinator's answers would sit in storage for the rest of the tab's life, referenced by nothing.
+- **The screen says so, in place.** A `role="group"` block in the flow of the page, headed "Kept on
+  this computer until you close the tab", with `Why:` and `What changes it:` — spec §4.4's shape, not
+  a `title` attribute. Its wording follows what actually happened: if the browser refuses storage,
+  the notice says nothing is being kept and that the sign-up should be finished in one sitting,
+  rather than promising a memory the browser will not provide.
+
+### Ruling [111] — started from an accepted referral, named in the URL by id
+
+`?referral=<id>`, read server-side, parsed by shape only. A repeated `?referral=a&referral=b` names
+none rather than failing the render. The value is validated against the referrals this actor could
+already list — the same shape the patient overview uses for `?plan=`.
+
+Four honest states, none of them a 404:
+
+| Situation                                    | What renders                                                                          |
+| -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Role cannot start a plan                     | `ListEmptyState` `"not-permitted"`, "Starting a plan is not part of this role"        |
+| No referral named                            | `ListEmptyState` `"no-data"`, "No referral named"                                     |
+| Referral not visible (absent OR another team's) | `ListEmptyState` `"not-permitted"`, "That referral is not one you can open"        |
+| Referral visible but not accepted            | A `StatedReason` group naming the referral's actual state                             |
+
+The third states in words that a referral that does not exist and one belonging to another team give
+the same answer on purpose. The only `notFound()` on the page is the production demo lock.
+
+**Nothing patient-identifying goes in a URL, including as a draft key.** The draft uses one fixed
+key with the referral id inside the value, not in the key — a key is the part of storage that is
+enumerable without reading the value, and from stage 3 the value holds a name and a mobile number.
+
+**The capability is decided from the actor.** `listReferrals` answers a role without `viewReferral`
+with `[]`, exactly as it answers a team with no referrals, so a screen that counted rows would tell
+an auditor no such referral exists. The page asks `canPerformCaringContactAction` for `claimPlan`
+(the write the whole flow performs) and `viewReferral` (without which the referral cannot be read).
+
+### Ruling [112] — stage 1 shows what a referral actually carries
+
+Stage 1 is two panels, and the split is the point.
+
+**"Read from the referral"** — the referral id, the patient identifier, the owning team, and (from
+the session, labelled as such) who is acting. Each row carries its own source line. The patient
+identifier's source line says in words that a referral carries no name and no mobile number, and
+that those are entered at personalisation.
+
+**"Confirmed by you"** — two checkboxes: that the patient agreed to receive caring contacts (not
+consent to treatment, not legal consent), and that the mobile number this plan will use is the
+patient's own. The panel says, in place, that these are the coordinator's own confirmations rather
+than imported facts, and that nothing in the domain records them.
+
+The mockup's identity row (`patient.fullName · patient.id`) and its mobile-suitability row, both
+sourced "Imported referral record", are **not built**, and a test asserts the phrase "imported
+referral record" appears nowhere on the screen.
+
+**The stop-and-report Ruling [112] asks for — this is it.** See §6, finding 1.
+
+### Ruling [113] — the pathway may already be chosen
+
+Stage 2 has three shapes, decided by what the referral carries:
+
+1. **The referral names a pathway that is choosable.** A `StatedReason` group headed "Already
+   decided when the referral was accepted", naming the version, saying it travels on the referral
+   record, and saying that choosing a different version below changes that earlier decision. The
+   draft starts on that version, so the radio group opens on it rather than empty.
+2. **The coordinator then picks something else.** The same group re-heads itself "You are changing
+   an earlier decision", and its remedy becomes "choosing `<the referral's version>` again returns
+   to what was decided when the referral was accepted".
+3. **The referral names nothing.** An ordinary first choice, and nothing is said about a decision
+   that was never made.
+
+A fourth case falls out of the domain and is stated too: the referral names a version that is not
+among the approved ones — still in review, or retired. That is its own group, saying which version
+the referral named and that a version in that condition is not offered.
+
+Only `state === "approved"` versions are offered. The screen does not re-derive that rule: the
+approval count and the two-different-people requirement belong to `pathway-versions.ts`, which grants
+`approved` only on the approval that completes both required roles.
+
+---
+
+## 3. What Tasks 8 and 9 must implement, against what is left
+
+The extension point is `planWizardStageImplementation` in
+`src/components/caring-contacts/workspace/plan-wizard/stages.ts`.
+
+**Task 8 (personalisation) changes exactly two things:**
+
+1. In `stages.ts`, flip the `"personalisation"` case from `{ kind: "not-built", reason }` to
+   `{ kind: "built" }`.
+2. In `plan-wizard.tsx`'s `stageBody()` switch, replace the `case "personalisation":` fall-through
+   with a real body.
+
+Nothing else moves. The stepper reads the same table, and the forward control from stage 2 asks the
+same function whether the next stage is built — so it turns from an `UnavailableDestination` into a
+real Continue button with no edit at the call site. Three guards make a half-change loud:
+
+- `PLAN_WIZARD_STAGE_DEFINITIONS` is a `Record<PlanWizardStage, …>`: a stage added to the union with
+  no definition does not compile.
+- `planWizardStageImplementation` and `stageBody()` both have `never`-typed defaults: a stage nobody
+  handled does not compile.
+- `assertBuiltStageHasABody` throws at render time if a stage's table entry says `built` and the
+  switch still returns null — the one mistake no type can catch, because nothing relates a table
+  entry to a switch branch. Mutation M7 proves it fires, with the message
+  `caring-contacts plan wizard: stage "personalisation" is marked built but this component renders no body for it.`
+
+**What Task 8 must also do:**
+
+- Add its fields to `PlanDraft` in `plan-draft.ts` (the patient's detail, the discharge instant, the
+  sending preference, the first-contact date and its reason) **and to `parseDraft`'s validation**.
+  `parseDraft` refuses anything it does not fully recognise, so an older stored draft is discarded
+  rather than half-read; a field added to the type and not to the parser is silently dropped on every
+  reload.
+- Remember that stage 3 is where the patient's **name and mobile number** enter the draft. Everything
+  in Ruling [110] exists for that moment.
+
+**Task 9 (review and activation) changes the same two places for `"review"`, plus one obligation:**
+
+- **It must call `clearPlanDraft()` the moment `createPlan` returns success, before anything
+  navigates.** `tests/caring-contacts-plan-draft.dom.test.tsx` carries a named case
+  ("clears on successful activation") specifically so that omission has a failing test to point at.
+- It must not clear the draft on a refused or failed activation — the coordinator has to be able to
+  correct and retry.
+- The activation write needs `claimPlan` and `activatePlan`. The page already gates on `claimPlan`,
+  so a role reaching stage 4 can create a plan; `activatePlan` is not checked anywhere yet.
+
+---
+
+## 4. Seams left for Task 11 (overlays)
+
+No overlay is wired. The mockup opens these from stages 1 and 2, and Task 11 owns the wiring:
+
+| Overlay id         | Opened from  | What the mockup opens it for                         |
+| ------------------ | ------------ | ---------------------------------------------------- |
+| `verify-identity`  | Stage 1      | "Review identity"                                    |
+| `change-patient`   | Stage 1      | "Change patient"                                     |
+| `pathway-preview`  | Stage 2      | "Preview pathway" — the schedule and message wording |
+
+Note for Task 11: `verify-identity` and `change-patient` are the mockup's controls for a patient
+identity this screen does not have (Ruling [112]). Whether they belong on stage 1 at all is a design
+question, not a wiring one.
+
+The pathway preview is where the message text belongs. Stage 2 deliberately renders no message copy:
+patient-visible copy is frozen and belongs to the sealed domain's `message-copy`, and the cadence
+wording stage 2 does show comes from each version's own frozen snapshot, never from a literal.
+
+---
+
+## 5. A decision I made that goes slightly beyond the brief — please check it
+
+**I turned the shell's "New plan" primary control from an `UnavailableDestination` into a `<Link>`.**
+
+Why: `tests/route-reachability.test.ts` fails a production page route with no inbound navigation, and
+Ruling 89 says the link and the screen land together. It reads in both directions — a control lit up
+early points at a page that says nothing useful, and a control left unavailable after the screen
+exists claims the screen is not built when it is.
+
+What it costs, stated plainly:
+
+- The control carries **no referral**, so clicking it lands on "No referral named". That is an honest
+  production state, not an error, and it offers a real control back to the caseload. But it is a
+  screen a coordinator cannot start a plan from, and it will stay that way until something in this
+  workspace lists referrals. If you would rather the primary control stayed unavailable and the route
+  went on the reachability allowlist with an `/issues` note, that is a one-line change and I will make
+  it.
+- It required three test edits: `caring-contacts-workspace-shell.dom.test.tsx` (the control's kind and
+  the unavailable-control count), `route-reachability.test.ts` (its parser matched only the
+  `href: CARING_CONTACTS_ROUTES.x` table spelling, not the `href={…}` JSX spelling), and
+  `ui-caring-contacts-workspace.spec.ts` (an overlay test uses this control as a stand-in focus
+  target and looked it up by the `button` role).
+
+**Yes, this touches `tests/ui-caring-contacts-workspace.spec.ts`** — see §7.
+
+---
+
+## 6. Findings I am reporting rather than fixing
+
+**Finding 1 (Ruling [112]'s stop-and-report case). The stage-1 assurances cannot be recorded, and
+there is no field for them.**
+
+Both confirmations — that the patient agreed to receive caring contacts, and that the mobile number
+is the patient's own — are clinically meaningful assurances, and `createPlanSchema` has no field for
+either. `StoredPatientDetail` holds the name, mobile number, identifiers, cultural identity and the
+first-contact reason, and nothing else. So today those ticks live only in the draft, and the draft is
+explicitly not durable: it disappears when the tab closes.
+
+I did not invent a storage location, and I did not let the interface imply the confirmations are
+kept. The screen says in plain words that nothing in this domain records them.
+
+What this means in practice: an activated plan carries no evidence that anyone confirmed the patient
+agreed. If that evidence is wanted, it needs a decision and a field — most likely on the plan rather
+than on the patient detail, since it is a fact about a decision rather than about the person, and it
+would need to survive a retention clearance that blanks patient detail. That is a schema change and a
+governance question, so it is yours, not mine.
+
+**Finding 2. `activatePlan` is not checked by this screen.** The page gates on `claimPlan` and
+`viewReferral`. Every role holding `claimPlan` today also holds `activatePlan`, so nothing is
+reachable that shouldn't be — but Task 9 should decide deliberately whether stage 4's control checks
+it, rather than inheriting my two.
+
+**Finding 3. A referral's accepted pathway is not validated when the referral is accepted.**
+`transitionReferral`'s `accept` records whatever `pathwayVersionId` it is given; nothing checks that
+the version exists, belongs to the team, or is approved. That is why stage 2 needs its fourth case at
+all. Not this task's to fix, and stage 2 fails safely into an explicit statement, but worth knowing.
+
+---
+
+## 7. The browser gate — what I changed and what I did not run
+
+**I changed `tests/ui-caring-contacts-workspace.spec.ts`, and I could not run it.** Three changes:
+
+1. Added `NEW_PLAN_ROUTE` and a `{ name: "New plan", route: NEW_PLAN_ROUTE, heading: "New plan" }`
+   entry to `WORKSPACE_SCREENS`, plus `NEW_PLAN_SCREEN`.
+   `tests/caring-contacts-workspace-screens.test.ts` parses that array as text and passes, so the
+   registration is real rather than assumed.
+2. Changed the overlay focus test's stand-in trigger from `getByRole("button", …)` to
+   `getByRole("link", …)`, because the shell's "New plan" control is now a link (§5). Nothing in that
+   test depends on the element type — only that it is a focusable control.
+3. Added a `caring-contacts new plan` block with six cases, mirroring the patient-overview block:
+   serves the screen and states what it needs; is reachable from the primary control; holds the
+   layout at 320px with a 48px remedy target; re-resolves surfaces and ink in dark; keeps its
+   statement under forced colours; prints with the marker and the statement.
+
+`NEW_PLAN_ROUTE` is deliberately the bare route with no `?referral=`. The isolated Playwright server
+seeds nothing — `caringContactsStore()` falls back to an empty in-memory repository — so a fabricated
+referral id would render the *same* screen while pretending to prove a stage. The stage bodies are
+proved in `tests/caring-contacts-plan-wizard.dom.test.tsx` instead, which can supply a referral as a
+prop. I have said so in the spec's own comment so the next reader does not mistake the gap for an
+oversight.
+
+---
+
+## 8. Verification
+
+### Deviation from test-first, stated plainly
+
+The brief asks for test-first. **I did not do that.** I read the domain, wrote the implementation,
+then wrote the tests, ran them, and proved each one falsifiable by mutation. The falsifiability
+evidence below is real and each mutation was confirmed present in the tree before its gate ran; what
+is missing is the "watch it fail before it exists" step, and I am not claiming it.
+
+### Focused runs
+
+`npm run test:focused` refuses this change and says why:
+
+```
+Focused test selection is unsafe: test or configuration paths changed (tests/caring-contacts-plan-draft.dom.test.tsx, tests/caring-contacts-plan-wizard.dom.test.tsx, tests/caring-contacts-new-plan-page.dom.test.tsx)
+Run the full unit suite with: npm run test
+```
+
+So iteration used direct Vitest project runs, and the full suite is the gate of record.
+
+The three new files, on the final tree:
+
+```
+ Test Files  3 passed (3)
+      Tests  37 passed (37)
+```
+
+The existing suites this change touches:
+
+```
+ Test Files  1 passed (1)      # tests/caring-contacts-workspace-shell.dom.test.tsx
+      Tests  10 passed (10)
+
+ Test Files  4 passed (4)      # route-reachability, workspace-screens, interface-vocabulary, domain-isolation
+      Tests  18 passed (18)
+```
+
+### Mutation log — every attempt, itemised, with no aggregate
+
+Each mutation was applied, its presence in the tree confirmed with a separate `grep -c` (using `;`,
+never `&&` — `grep -c` exits non-zero on a zero count and would short-circuit the gate), the gate
+run, then reverted with `git checkout --`.
+
+| #   | Mutation                                                                   | Predicted                                                                 | Observed                                                                                                                                                                       | Verdict                    |
+| --- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| M1  | `clearPlanDraft` no longer calls `removeItem`                              | 4 red in the draft file, 1 in the wizard                                  | Exactly that. `the draft survived being discarded: expected '{"referralId":"SYN-REFERRAL-001","sta…' to be null`, and the same shape for activation, other-referral, unreadable | RED, prediction matched    |
+| M2  | `tabScopedStorage` returns `window.localStorage`                           | 2 red: the localStorage assertion and the source scan                     | 4 red. The source scan named `plan-draft.ts` (`expected [ Array(1) ] to deeply equal []`); the write test failed one assertion EARLIER than predicted (`the draft was not written to sessionStorage`), and two tests that seed through `writePlanDraft` fell over with it | RED, prediction partly off |
+| M3  | The wizard's discard handler no longer calls `clearPlanDraft`              | 1 red in the wizard                                                       | `the discarded draft was left on the machine: expected '{"referralId":…' to be null`                                                                                            | RED, prediction matched    |
+| M4  | Page passes `serviceState={serviceState}` to the wizard                    | 1 red, on the props key list                                              | `expected [ 'serviceState', 'referralId', …(6) ] to not include 'serviceState'`                                                                                                 | RED, prediction matched    |
+| M5  | An unseeable referral calls `notFound()` instead of stating itself          | 1 red with `NEXT_NOT_FOUND`                                               | 2 red, both `Error: NEXT_NOT_FOUND` — the second is the "does not read the pathway versions" case, which loads the same path                                                     | RED, prediction low by one |
+| M6  | Stage 2's `changedFromReferral` hardcoded to `false`                       | 1 red, group not found                                                    | `Unable to find an accessible element with the role "group" and name "You are changing an earlier decision"`                                                                     | RED, prediction matched    |
+| M7  | `personalisation` marked `{ kind: "built" }` with no body                  | 4 red incl. the runtime guard                                             | Exactly four: stepper count `expected [ <span …> ] to have a length of 2 but got 1`; forward control not found; `expected 'built' to be 'not-built'`; and the guard: `caring-contacts plan wizard: stage "personalisation" is marked built but this component renders no body for it.` | RED, prediction matched    |
+| M8  | Shell's primary control points at `patients` instead of `newPlan`          | reachability red naming the orphan                                        | `Orphan page route(s) … : /caring-contacts/plans/new: expected [ '/caring-contacts/plans/new' ] to deeply equal []`                                                              | RED, prediction matched    |
+| M9  | Stage 1's `complete` gate always true                                      | 1 red, `toBeDisabled`                                                     | `the forward control was live with nothing confirmed: expect(element).toBeDisabled()` — received element is not disabled                                                          | RED, prediction matched    |
+| M10 | The `state !== "accepted"` guard replaced with an unreachable comparison   | 1 red, group not found                                                    | `Unable to find an accessible element with the role "group" and name "This referral has not been accepted"`                                                                      | RED, prediction matched    |
+| M11 | `PLAN_DRAFT_STORAGE_KEY`'s literal value changed                           | **GREEN** — the tests use the constant, not the literal                   | `Test Files  2 passed (2) / Tests  25 passed (25)`                                                                                                                              | GREEN, as intended         |
+
+No mutation's anchor failed to match; every one was confirmed in the tree by its own `grep -c`
+before the gate ran, and `git status` was clean after the last revert.
+
+**Where my predictions were wrong, and it is worth recording.** M2 and M5 were both red for MORE
+tests than predicted, in both cases because a second test travels the same code path as the one I had
+in mind. Under-predicting a blast radius is the benign direction, but it is still a prediction that
+did not match, and the M2 case in particular shows I had not traced which assertion in that test
+fires first.
+
+### Heavy gates
+
+`npm run typecheck` and `npm run lint` are recorded below with their decisive lines. Both were
+refused several times first with `DATABASE_HEAVY_RUN_ADMISSION_BUSY` while other worktrees held the
+repository lease — a refusal is neither a pass nor a failure, and nothing was forced past another
+worktree's lease.
+
+<!-- GATE RESULTS -->
+
+### Not run, and why
+
+- `npm run verify:ui` / the Playwright workspace suite — you run that gate. See §7 for exactly what
+  changed in it.
+- `npm run verify:cheap`, `verify:pr-local`, `verify:release` — not asked for, and the last is
+  provider-backed.
+- Nothing provider-backed was run at all.
