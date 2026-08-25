@@ -377,7 +377,13 @@ export function analyzeFailureText(text = "", knownFlakes = []) {
       reason: "A completed answer-quality evaluation reported blocking threshold failures.",
     };
   }
-  if (/\btimed?\s*out\b|\btimeout\b|\betimedout\b|browser has been closed|worker.*exited/.test(lower)) {
+  // Match timeout as an identifier token (provider_timeout, model_timeout, TimeoutError)
+  // without treating camelCase config names like caseTimeoutMs=none as timeouts (#628).
+  if (
+    /(?:^|[^a-z0-9])(?:timed?\s*out|etimedout)(?:[^a-z0-9]|$)|(?:^|[^a-z])timeout(?:error)?(?:[^a-z]|$)|browser has been closed|worker.*exited/.test(
+      lower,
+    )
+  ) {
     return {
       category: "environment-or-timeout",
       confidence: "medium",

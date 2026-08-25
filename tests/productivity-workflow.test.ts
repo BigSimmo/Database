@@ -183,6 +183,19 @@ describe("productivity workflow planning", () => {
     expect(analyzeFailureText("Running 36 golden retrieval case(s). mode=quality caseTimeoutMs=none")).toMatchObject({
       category: "unclassified",
     });
+    expect(analyzeFailureText("caseTimeoutMs=none").category).toBe("unclassified");
+  });
+
+  it("recognizes underscore-delimited and camelCase timeout markers", () => {
+    expect(analyzeFailureText("generation_fallback:provider_timeout")).toMatchObject({
+      category: "environment-or-timeout",
+    });
+    expect(analyzeFailureText("model_timeout")).toMatchObject({
+      category: "environment-or-timeout",
+    });
+    expect(analyzeFailureText("TimeoutError")).toMatchObject({
+      category: "environment-or-timeout",
+    });
   });
 
   it("distinguishes historical eval-canary provider failures from a completed golden regression", () => {
