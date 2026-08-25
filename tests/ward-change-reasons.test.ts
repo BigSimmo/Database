@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   CANCEL_TRANSPORT_REASONS,
   changeReasonLabels,
+  ESCALATION_CONTACTS,
   LEGAL_STATUS_CHANGE_REASONS,
   RELEASE_HOLD_REASONS,
   URGENCY_CHANGE_REASONS,
@@ -69,6 +70,20 @@ describe("ward-change-reasons", () => {
     }
   });
 
+  // Task 6 (spec item 11): the escalation contact, chosen never typed. Pinned order matches the
+  // exact product-owner list from the brief — "Other service" is the one deliberate general
+  // entry, never a seventh entry and never reworded.
+  it("holds exactly the six escalation contacts, in this order", () => {
+    expect(ESCALATION_CONTACTS).toEqual([
+      "State bed coordination desk",
+      "Duty psychiatrist",
+      "Bed management",
+      "Nurse unit manager (destination ward)",
+      "Escort or transport provider",
+      "Other service",
+    ]);
+  });
+
   // Content-free, synthetic-data guard: none of the eight rulings in the brief permits a reason
   // describing a patient, a diagnosis, a clinical judgement or a legal requirement. This asserts
   // it structurally rather than trusting a comment — a reason string is never free text (every
@@ -90,6 +105,10 @@ describe("ward-change-reasons", () => {
       ...URGENCY_CHANGE_REASONS,
       ...LEGAL_STATUS_CHANGE_REASONS,
       ...Object.values(changeReasonLabels),
+      // Task 6: ESCALATION_CONTACTS carries no separate label map (its values ARE the rendered
+      // text — see the comment above its definition), so it is checked here directly rather than
+      // through changeReasonLabels.
+      ...ESCALATION_CONTACTS,
     ].map((value) => value.toLowerCase());
 
     for (const text of allText) {

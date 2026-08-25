@@ -36,6 +36,25 @@ export const CANCEL_TRANSPORT_REASONS = [
 ] as const;
 export type CancelTransportReason = (typeof CANCEL_TRANSPORT_REASONS)[number];
 
+/**
+ * Task 6 (spec item 11): the escalation contact, chosen never typed — the last free-text input in
+ * the escalation form becomes a fixed list, for the same reason as the four lists above. Five
+ * entries are drawn from language this model already uses; "Other service" is the one deliberate
+ * general entry — never a free-text field of its own, which would reinstate exactly what this
+ * removes. Unlike the four reason lists above, there is no separate snake_case value / label pair:
+ * the values themselves are the rendered display text, because there is no clinical token to keep
+ * out of a label here to begin with.
+ */
+export const ESCALATION_CONTACTS = [
+  "State bed coordination desk",
+  "Duty psychiatrist",
+  "Bed management",
+  "Nurse unit manager (destination ward)",
+  "Escort or transport provider",
+  "Other service",
+] as const;
+export type EscalationContact = (typeof ESCALATION_CONTACTS)[number];
+
 export const changeReasonLabels: Record<
   UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason,
   string

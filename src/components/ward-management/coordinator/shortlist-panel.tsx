@@ -6,10 +6,12 @@ import { useMemo, useState, type Dispatch, type FormEvent } from "react";
 import {
   CANCEL_TRANSPORT_REASONS,
   changeReasonLabels,
+  ESCALATION_CONTACTS,
   LEGAL_STATUS_CHANGE_REASONS,
   RELEASE_HOLD_REASONS,
   URGENCY_CHANGE_REASONS,
   type CancelTransportReason,
+  type EscalationContact,
   type LegalStatusChangeReason,
   type ReleaseHoldReason,
   type UrgencyChangeReason,
@@ -182,7 +184,10 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
   // the recorded fact itself, which lives on `movement.escalation` and is read fresh on every
   // render, the same discipline `overrideSucceeded` already holds to for the override record.
   const [escalationOpen, setEscalationOpen] = useState(false);
-  const [escalationContact, setEscalationContact] = useState("");
+  // Task 6 (spec item 11): chosen, never typed — the free-text `escalationContact` string state
+  // this replaces is gone. Defaults to the list's first entry, the same pattern every other fixed
+  // picker in this panel already uses (`urgencyDraft.reason`, `releaseHoldReason`, and so on).
+  const [escalationContact, setEscalationContact] = useState<EscalationContact>(ESCALATION_CONTACTS[0]);
   // Task 2: urgency and legal status can change mid-flight. Both a coordinator and the referring
   // ED clinician may make either change (`EVENT_ROLE.CHANGE_URGENCY`/`CHANGE_LEGAL_STATUS`), so
   // this panel dispatches as role "coordinator" — the ED screen's own controls dispatch as "ed".
@@ -219,7 +224,7 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
     setOverrideReason("");
     setReferTargets([]);
     setEscalationOpen(false);
-    setEscalationContact("");
+    setEscalationContact(ESCALATION_CONTACTS[0]);
     setUrgencyChangeOpen(false);
     setUrgencyDraft({ urgency: movement?.urgency ?? 1, reason: URGENCY_CHANGE_REASONS[0] });
     setLegalStatusChangeOpen(false);
@@ -374,24 +379,25 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
    * eligibility scan, not a record of what was actually attempted — using it would let a
    * genuinely untried unit (never referred, only eligibility-checked) be named as "tried".
    * WF-009's own pre-authored fixture escalation (`ward-movements.ts`) uses exactly this shape:
-   * its five `triedUnitIds` are its five `declines`, unit for unit. Only `contact` (a role or
-   * service, never a person — synthetic data only, the same rule every other free-text field in
-   * this prototype follows) is typed.
+   * its five `triedUnitIds` are its five `declines`, unit for unit. `contact` (a role or service,
+   * never a person) is Task 6's fixed `ESCALATION_CONTACTS` picker, not typed text — see the
+   * comment above `ward-change-reasons.ts`'s `ESCALATION_CONTACTS`.
    */
   function submitEscalation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const contact = escalationContact.trim();
-    if (contact.length === 0) return;
+    // Task 6: `escalationContact` is now always one of `ESCALATION_CONTACTS` — a `<select>` can
+    // never submit an empty or arbitrary value, so the old trim-and-check-length guard this
+    // replaced is gone along with the free-text state it protected.
     dispatch({
       type: "RECORD_ESCALATION",
       role: "coordinator",
       now,
       movementId,
       triedUnitIds: declinedUnitIds,
-      contact,
+      contact: escalationContact,
     });
     setEscalationOpen(false);
-    setEscalationContact("");
+    setEscalationContact(ESCALATION_CONTACTS[0]);
   }
 
   /**
@@ -952,14 +958,20 @@ export function ShortlistPanel({ movement, now, units, selectedUnitId, onSelectU
                   Role or service being contacted next — a role or service only, never a person&apos;s name (synthetic
                   data only)
                 </label>
-                <textarea
+                <select
                   id="ward-shortlist-escalation-contact"
                   required
                   data-testid="ward-shortlist-escalation-contact"
-                  className={styles.shortlistOverrideTextarea}
+                  className={styles.shortlistOverrideSelect}
                   value={escalationContact}
-                  onChange={(event) => setEscalationContact(event.target.value)}
-                />
+                  onChange={(event) => setEscalationContact(event.target.value as EscalationContact)}
+                >
+                  {ESCALATION_CONTACTS.map((contact) => (
+                    <option key={contact} value={contact}>
+                      {contact}
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="submit"
                   data-testid="ward-shortlist-escalation-submit"
