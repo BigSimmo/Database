@@ -420,6 +420,38 @@ describe("source drawer overflow menu", () => {
     expect(onReportSource.mock.calls[0][0].id).toBe("s1");
   });
 
+  it("does not offer the claim-mismatch report for an uncited source", async () => {
+    // "This page doesn't support the claim" presupposes a claim pointing here.
+    // An "Also found" row has none, so the report would be a citation-quality
+    // complaint about a citation nobody made. The document actions stay.
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    render(
+      <RailAndDrawer
+        sources={[
+          row({ id: "c1", title: "Cited protocol", cited: true }),
+          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
+        ]}
+        onReportSource={onReportSource}
+        onScopeDocument={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    const menu = screen.getByTestId("answer-source-drawer-menu");
+    expect(within(menu).queryByTestId("answer-source-drawer-report")).toBeNull();
+    expect(within(menu).getByRole("button", { name: "Search only this document" })).toBeInTheDocument();
+
+    // The cited row still offers it, so this is a distinction and not a removal.
+    await user.keyboard("{Escape}");
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    expect(
+      within(screen.getByTestId("answer-source-drawer-menu")).getByTestId("answer-source-drawer-report"),
+    ).toBeInTheDocument();
+  });
+
   it("closes the menu on Escape without closing the drawer underneath it", async () => {
     const user = userEvent.setup();
     await openMenu(user, { onScopeDocument: vi.fn() });

@@ -196,7 +196,9 @@ export function AnswerSourceDrawer({
         sources.length > 1 ? (
           <nav
             className="flex items-center justify-between gap-2"
-            aria-label="Move between cited sources"
+            // "answer sources", not "cited sources": the pager also steps through
+            // the retrieved-but-uncited "Also found" rows.
+            aria-label="Move between answer sources"
             data-testid="answer-source-drawer-pager"
             data-pager-variant={numbered ? "numbered" : "compact"}
           >
@@ -457,7 +459,21 @@ function SourceOverflowMenu({
     });
   }
 
-  if (!items.length && !onReportSource) return null;
+  /**
+   * The claim-mismatch report is for cited pages only.
+   *
+   * "This page doesn't support the claim" presupposes a claim pointing at this
+   * page, and an "Also found" row has none — it was retrieved, never cited, and
+   * no in-prose mark can reach it. Offering the report there invites a
+   * citation-quality complaint about a citation that was never made, which is
+   * unactionable for whoever reads the feedback and misleading for the
+   * clinician filing it. The document actions above stay: copying the passage,
+   * asking about it and scoping search to it are all statements about the
+   * document, not about a claim.
+   */
+  const reportClaimMismatch = source.cited === false ? undefined : onReportSource;
+
+  if (!items.length && !reportClaimMismatch) return null;
 
   return (
     <span className="relative">
@@ -496,7 +512,7 @@ function SourceOverflowMenu({
               {item.label}
             </button>
           ))}
-          {onReportSource ? (
+          {reportClaimMismatch ? (
             <button
               type="button"
               data-testid="answer-source-drawer-report"
@@ -508,7 +524,7 @@ function SourceOverflowMenu({
                   setConfirmingReport(true);
                   return;
                 }
-                onReportSource(source);
+                reportClaimMismatch(source);
                 setStatus("Reported. Thank you — this page is flagged for review.");
                 closeMenu();
               }}
