@@ -1226,15 +1226,21 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     await expect(toggle).toHaveText("Update escalation");
 
     await toggle.click();
-    await shortlist
-      .getByTestId("ward-shortlist-escalation-contact")
-      .fill("State-wide bed coordination line — on-call psychiatry registrar");
+    // The escalation contact became a fixed picker (Phase 4 item 11): the coordinator chooses a
+    // role or service rather than typing one, so the synthetic-data promise holds by construction
+    // instead of by a label asking nicely. This step used to `.fill()` a free-text sentence — the
+    // exact class of value the picker exists to make impossible — so it selects instead. "Duty
+    // psychiatrist" is deliberately a DIFFERENT option from the fixture's authored "State bed
+    // coordination desk", which is what makes the change below observable.
+    const NEW_CONTACT = "Duty psychiatrist";
+    expect(NEW_CONTACT, "the test must change the contact, or it proves nothing").not.toBe(wf009.escalation!.contact);
+    await shortlist.getByTestId("ward-shortlist-escalation-contact").selectOption(NEW_CONTACT);
     await shortlist.getByTestId("ward-shortlist-escalation-submit").click();
 
-    // A real dispatch, not a local echo of the typed text: the record now reads the NEW contact,
+    // A real dispatch, not a local echo of the chosen option: the record now reads the NEW contact,
     // and `triedUnitIds` is `movement.declines` (never the panel's capped `shortlist`), so the
     // count matches the real five declines exactly.
-    await expect(record).toContainText("State-wide bed coordination line");
+    await expect(record).toContainText(NEW_CONTACT);
     await expect(record).not.toContainText(wf009.escalation!.contact);
     await expect(record).toContainText(`tried ${wf009.declines.length} unit`);
 
@@ -1242,9 +1248,7 @@ test.describe("@mockup Ward Flow coordinator screen", () => {
     // (`movement.escalation`), not local component state that a re-render could lose.
     await queue.locator('[data-testid="ward-queue-row-WF-017"]').click();
     await queue.locator('[data-testid="ward-queue-row-WF-009"]').click();
-    await expect(shortlist.getByTestId("ward-shortlist-escalation-record")).toContainText(
-      "State-wide bed coordination line",
-    );
+    await expect(shortlist.getByTestId("ward-shortlist-escalation-record")).toContainText(NEW_CONTACT);
     await expect(shortlist.getByTestId("ward-shortlist-escalation-toggle")).toHaveText("Update escalation");
   });
 });
