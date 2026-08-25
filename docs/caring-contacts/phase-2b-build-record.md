@@ -2419,3 +2419,84 @@ The implementer detected it rather than absorbing it, because G1–G5 each asser
 clean on **both sides** of every mutation. Its own line: _"I only know because the discipline asserts
 cleanliness instead of assuming it."_ That is condition 2 of the "a red proves presence" argument —
 a quiet worktree — failing in practice within a day of being written down.
+
+### Ruling [124] — the schedule read derives from `listPlans`; no repository method is added
+
+The plan says "the schedule read API". It does not get one on the repository contract. Everything a
+schedule needs is already in what `listPlans` returns: each `PlanRecord` carries its contacts, and each
+of those carries `planned` (`sendAt`, `calendarDay`, `cadenceLabel`, `messageType`, `suppressed` when
+absorbed) alongside `contact.state`.
+
+Three reasons, and the third decides it. It is an **aggregation over existing rules**, not a new rule.
+**Team scoping comes free** — `listPlans` is already scoped, and a new repository read would have to
+re-derive the one thing this domain most guards against getting wrong. And **a second read surface is a
+second thing to keep honest**: there is a filed defect that `listSendableContacts` has no plan-state
+gate, so a draft plan's contacts present as sendable. Task 12 was told not to use it and not to fix it
+— that is a retrieval-surface change with its own review.
+
+**Cost if wrong:** an aggregation that outgrows the shape `listPlans` returns would need a repository
+method later, and moving it then is more work than starting there. Accepted: nothing in Group 2 needs a
+field `listPlans` does not already carry.
+
+### Ruling [125] — the schedule read is audited, and names itself honestly in the trail
+
+Every read on this workspace goes through `auditedRead` and fails closed on every bad outcome. The
+schedule read gets its **own `AccessedObjectType` member** rather than overloading an existing one, per
+Ruling [46], and Task 5b is why: `patientDirectory` already carried two different referral reads, and
+the trail's query surface filters on `objectType` with **no `objectId` filter** — so the distinction was
+visible by eye and unaskable.
+
+Adding a member obliges keeping the access-trail route's `z.enum` in sync, because it is a hand-copy of
+the union with nothing enforcing it. Task 12 was told to add the pin that closes that filed issue, which
+is what was owed for widening the union.
+
+### Ruling [126] — a contact outside the three named windows is named as MOVED, not given a fourth band
+
+Task 12 found a disagreement between the approved design and the types, and refused to resolve it
+silently — correctly. `moveContactWithinDay` accepts any hour and minute inside the approved window and
+both stores persist it, so a contact can sit at 11:30: **an approved send time belonging to no named
+window.** The design has three windows and no fourth.
+
+It refused to invent a band and routed those contacts to `outsideApprovedWindows`. That refusal stands —
+inventing a band would have added a sending window to a suicide-prevention schedule by implementation
+accident.
+
+**What the screen calls it is the part I am ruling on.** A contact outside the three windows got there
+because somebody moved it deliberately. So the screen names it as **moved**, with its time — it does not
+invent a fourth window, and it does not hide the contact among the three. That keeps the frozen
+three-window design intact and states the fact, which is what §4.4's explained-automation contract asks
+for anywhere the system's arrangement differs from the default.
+
+**This ruling has a premise the review was told to test rather than accept:** that a deliberate move is
+the only way to reach that state. If any other path produces an off-window time, the wording is wrong,
+because it would then assert an act that did not happen.
+
+**Cost if wrong:** Task 13 renders a label that has to change. Cheap, and visible.
+
+### Ruling [127] — the approved patient message is a SPECIMEN, not a template
+
+Raised by the seed task as an open question with two incompatible answers, and correctly recorded rather
+than chosen: the seed stores one pathway version's `messageTextByType` and a pathway version is shared
+across patients, so the first screen to render the standard message for a second patient's plan shows
+the first patient's greeting.
+
+Neither of the framed options is the answer, because of a fact about the artefact itself.
+`EXACT_PATIENT_VISIBLE_MESSAGE` is **one specific approved example** — greeting, sender name and all —
+measured at 252 septets against a hard two-segment ceiling **with no room left**. It has no name slot,
+and it cannot acquire one: a greeting that varies with the patient makes the segment count vary too, so
+the single measured safety fact about this message silently assumes a five-letter name.
+
+So the seed is right to store the specimen verbatim, and **no screen may present it as this patient's
+message.** It is the approved example message for that pathway version, and clinician-facing screens
+name it that way. This keeps the frozen-copy rule, keeps the septet evidence meaningful, and requires
+nothing from the owner.
+
+**What it does NOT settle, and what belongs to the owner later:** whether the real product personalises
+a greeting at all. That is a Phase 3 product question with both a schema consequence and a
+message-length consequence, and it must not be answered by an implementer interpolating a name at render
+time — that would make a screen author patient-visible copy and desynchronise rendered text from the
+approved snapshot.
+
+**The finding underneath it, which outlives this ruling:** the two-segment measurement is taken against a
+literal name. Any future personalisation makes segment count patient-dependent, and the ceiling stops
+being a property of the message. Whoever revisits §2.1 needs that in front of them.
