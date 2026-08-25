@@ -91,9 +91,18 @@ function RailLink({
  * (not the global app shell), so it is Ward Flow's own to extend rather than a shared surface
  * this task would be overreaching to touch.
  *
- * `activeMode` is optional: the patient workspace route (`/mockups/ward-flow/patients/[id]`) is
- * not one of the eight modes, so it renders the rail without the mode section at all rather than
- * forcing an arbitrary "active" choice.
+ * Task 7 (D8) ruling: `WardModeNavigation` now always renders, whether or not the caller passes
+ * `activeMode`. It used to render only when `activeMode` was set, which every one-off detail
+ * screen and board that had no natural eight-mode equivalent — the role detail screens
+ * (`ed/[edId]`, `ward/[unitId]`, the officer screen) and three boards (`handover`, `escalation`,
+ * `search`) plus the patient workspace — simply never passed, so those routes silently lost the
+ * in-page navigation other boards kept. Nine of fifteen routes behaving one way and six (later,
+ * after this file's own Task 9 rewrite, seven) behaving another is a defect a user feels: the
+ * rail alone never says which board they are on. `tests/ward-nav.test.ts`'s "Every Ward Flow
+ * route carries the 'Ward Flow views' in-page nav (D8)" suite enforces this for every route,
+ * rendered straight from the filesystem enumeration — never a hand-written list. `activeMode`
+ * stays optional: routes with no natural eight-mode equivalent still render the nav with no link
+ * marked current, rather than forcing an arbitrary "active" choice.
  */
 export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
   return (
@@ -131,12 +140,8 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
           <LayoutGrid aria-hidden="true" />
         </RailLink>
       </nav>
-      {activeMode ? (
-        <>
-          <div className={shellStyles.railRule} aria-hidden="true" />
-          <WardModeNavigation active={activeMode} />
-        </>
-      ) : null}
+      <div className={shellStyles.railRule} aria-hidden="true" />
+      <WardModeNavigation active={activeMode} />
       <div className={shellStyles.railBottom}>
         {/* Task 12: the role switcher — the one control the proof journey (spec §14) uses to
             move between all four roles without ever reloading the page. Placed first among the
@@ -218,8 +223,14 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
  * function's own source text — see that test's comment. Rendered icon-only inside `ClinicalRail`
  * now (Task 9 Ruling 4); each link still carries its own accessible name via `aria-label` since
  * its only visible content is an icon.
+ *
+ * `active` is optional (Task 7, D8): `ClinicalRail` now renders this nav unconditionally, and a
+ * route with no natural eight-mode equivalent (a role detail screen, a board, the patient
+ * workspace) passes no `activeMode` through — every `aria-current` comparison below is simply
+ * false for all eight links in that case, which is correct: the nav still orients the user
+ * without falsely claiming one of the eight views is the current page.
  */
-export function WardModeNavigation({ active }: { active: WardMode }) {
+export function WardModeNavigation({ active }: { active?: WardMode }) {
   return (
     <nav className={modeStyles.modeNavigation} aria-label="Ward Flow views">
       <Link
