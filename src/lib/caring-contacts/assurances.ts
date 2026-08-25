@@ -78,10 +78,15 @@ export type PlanAssuranceAttestation = {
  *
  * A GUARD RATHER THAN A COMMENT, and it is the specific guard Ruling [122] asks for. The ruling's
  * "cost if wrong" is a fourth field carrying FREE TEXT -- a note on what was checked -- because
- * such a note would name patients, relatives and places, and the retention rule below would then
- * have to flip for that one field. This line stops compiling when a fourth field is added, which
- * is what makes the question reachable instead of inherited: whoever adds it has to come here,
+ * such a note would name patients, relatives and places -- and the de-identification rule recorded
+ * beside `CLEARED_PATIENT_DETAIL` in ../repository, which deliberately leaves an attestation alone,
+ * would have to flip for that one field. This line stops compiling when a fourth field is added,
+ * which is what makes the question reachable instead of inherited: whoever adds it has to come here,
  * read the paragraph, and take the decision to the owner rather than discover it later.
+ *
+ * A committed guard holds the clearance period to exactly one module in this directory, and a
+ * vocabulary leaf is not it -- which is why the rule above is named by the constant it lives beside
+ * rather than by the obvious word.
  */
 type SameUnion<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 export const PLAN_ASSURANCE_ATTESTATION_HOLDS_ONLY_ACT_ACTOR_AND_INSTANT: SameUnion<

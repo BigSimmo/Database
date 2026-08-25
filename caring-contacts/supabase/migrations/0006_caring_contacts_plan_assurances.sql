@@ -53,10 +53,11 @@
 --     like one that recorded it. The instant comes from the domain clock, in the store, beside the
 --     actor it is recorded with.
 --
---   * NO UPDATE PATH. Nothing in the repository contract amends an attestation; it is written once,
---     inside the transaction that creates the plan, and read afterwards. The audit guard attached
---     below still covers UPDATE and DELETE, so a change made another way is refused unless it is
---     audited.
+--   * NO UPDATE PATH, AND NO GRANT THAT WOULD ALLOW ONE. Nothing in the repository contract amends
+--     an attestation; it is written once, inside the transaction that creates the plan, and read
+--     afterwards. The application role is granted SELECT and INSERT only -- see Privileges below --
+--     and the audit guard attached at the end still covers UPDATE and DELETE, so the two controls
+--     are independent rather than one standing behind the other.
 --
 -- WHY THE FOREIGN KEY IS COMPOSITE. The same reason 0003 gives for `plan_assignments`: a bare
 -- `plan_id references plans (id)` would accept a row written by TEAM-SOUTH against TEAM-NORTH's plan
@@ -103,13 +104,33 @@ comment on table caring_contacts.plan_assurances is
 -- ---------------------------------------------------------------------------
 -- Privileges
 --
--- 0002's `grant ... on all tables in schema` is a snapshot of the tables that existed when it ran,
--- so a table created afterwards is unreachable by the application role until this runs again. The
--- anonymous role keeps SELECT with no policy, so its denial stays row-level security's doing rather
--- than a missing GRANT.
+-- NAMED TABLE ONLY, NEVER `on all tables in schema`, AND THIS IS THE TRAP THIS FILE WALKED INTO
+-- BEFORE THE DATABASE SUITE CAUGHT IT. 0003 could re-run the blanket grant safely because it sorts
+-- BEFORE 0004; 0004 then narrows `audit_events` back down with `revoke update, delete`, and its own
+-- comment says in as many words that the replay order is what makes that work. Any migration that
+-- sorts AFTER 0004 and re-applies the blanket grant silently RESTORES update and delete on the audit
+-- trail -- the append-only guarantee gone, with nothing but a trigger left standing behind it. The
+-- first draft of this file did exactly that, and
+-- `tests/caring-contacts-migrations.test.ts` went red on both of 0004's controls. So 0007 and
+-- everything after it grants on the table it created and on nothing else.
+--
+-- SELECT AND INSERT ONLY. An attestation is written once, inside the transaction that creates its
+-- plan, and read afterwards; nothing in the repository contract amends or removes one, and the
+-- source scan in tests/caring-contacts-domain-isolation.test.ts holds the store to that. Withholding
+-- the grants is the same move 0004 makes for the audit trail, for the same reason: this row is
+-- evidence, and evidence a role cannot rewrite is a stronger guarantee than evidence nothing
+-- currently rewrites. The audit guard attached below still covers UPDATE and DELETE, so the two
+-- controls are independent rather than one behind the other.
+--
+-- The plan's `on delete cascade` is unaffected: PostgreSQL runs a referential action with the
+-- privileges of the referenced table's owner, not the deleting role. Nothing in this domain deletes
+-- a plan in any case -- an ended episode is CLEARED, not removed.
+--
+-- The anonymous role keeps SELECT with no policy, so its denial stays row-level security's doing
+-- rather than a missing GRANT -- the shape 0002 chose deliberately.
 -- ---------------------------------------------------------------------------
-grant select, insert, update, delete on all tables in schema caring_contacts to caring_contacts_app;
-grant select on all tables in schema caring_contacts to caring_contacts_anon;
+grant select, insert on caring_contacts.plan_assurances to caring_contacts_app;
+grant select on caring_contacts.plan_assurances to caring_contacts_anon;
 
 -- ---------------------------------------------------------------------------
 -- Row-level security
