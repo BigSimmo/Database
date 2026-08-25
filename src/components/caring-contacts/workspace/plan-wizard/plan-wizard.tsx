@@ -44,6 +44,7 @@ import {
   activationRefusalWording,
   createPlanRequestBody,
   planVersionFromCreateAnswer,
+  firstContactConsequence,
   firstContactReasonIsRequired,
   mintPlanSubmissionIdentity,
   planSchedulePreview,
@@ -344,10 +345,11 @@ export function PlanWizard({
     return (
       <div className="flex min-w-0 flex-col gap-5" data-testid="caring-contacts-plan-wizard">
         <section aria-label="Plan created" className={panelClass}>
-          <h2 className={headingClass}>The plan was created</h2>
+          <h2 className={headingClass}>The plan was created and started</h2>
           <p className={`mt-1 ${mutedTextClass}`}>
-            The plan, the patient&rsquo;s details and the twelve-month schedule were created and recorded. Nothing was
-            sent to any number, and nothing from this sign-up is left on this computer.
+            The plan, the patient&rsquo;s details and the twelve-month schedule were created and recorded, and the plan
+            was then started, so the schedule is running. Nothing was sent to any number, and nothing from this sign-up
+            is left on this computer.
           </p>
           <p className={`mt-2 ${mutedTextClass}`}>Taking you to the plan on the patient&rsquo;s own screen.</p>
         </section>
@@ -1467,12 +1469,18 @@ function ForwardControl({
  * attestation, which is a schema change and a later task, and wording claiming they never are would
  * have to be hunted down when it lands.
  *
- * WHAT CONFIRMING ACTUALLY DOES, said in place rather than implied by a verb. The POST creates the
- * plan, its patient detail and its whole twelve-month schedule. The store creates it in the `draft`
- * plan state; starting a created plan is `activatePlan`, a separate write on a separate route with
- * its own `expectedVersion`, and no ruling covers performing two writes from this screen. So this
- * screen performs the one write its brief names and SAYS SO — see the Task 9 report, which raises
- * the gap rather than closing it by inventing a second write here.
+ * WHAT CONFIRMING ACTUALLY DOES, said in place rather than implied by a verb. It performs TWO
+ * writes (Ruling [123]): `POST /api/caring-contacts/plans` creates the plan, its patient detail and
+ * its whole twelve-month schedule, and `POST /api/caring-contacts/plans/<id>` with
+ * `action: "activate"` then starts it. The wizard IS the activation workflow — the frozen overlay
+ * it opens is titled "Last check before the plan starts" — so a screen that created a draft nothing
+ * here could start would be doing half of what its own decision surface promises.
+ *
+ * An earlier version of this comment said the opposite, and the copy beneath it said it to the
+ * clinician. That is the `stages.ts` defect this task found and fixed — a comment describing a
+ * mechanism the code no longer has — reappearing two functions away in the same file. Finding the
+ * class did not stop me writing another instance of it. The wording below is now pinned by tests
+ * for exactly that reason: prose nothing asserts on is prose that survives the code changing.
  */
 function ReviewStage({
   referralId,
@@ -1516,6 +1524,9 @@ function ReviewStage({
   onBack: () => void;
 }) {
   const preview = planSchedulePreview({ activation, sendingPreference });
+  // The consequence of the day now chosen, answered WITHOUT waiting for the reason (round 2, I3).
+  // A clinician must see that a day costs a contact while choosing it, not after justifying it.
+  const consequence = firstContactConsequence({ activation, sendingPreference });
   const bounds = firstContactDayBounds(activation.dischargeDay.trim());
   const reasonRequired = firstContactReasonIsRequired({
     dischargeDay: activation.dischargeDay,
@@ -1649,7 +1660,11 @@ function ReviewStage({
             label="Day the patient was discharged"
             value={activation.dischargeDay}
             onChange={(value) => onActivationChange({ dischargeDay: value })}
-            hint="AWST. Every date in this plan is counted from it."
+            hint={
+              bounds === null
+                ? "AWST. Every date in this plan is counted from it, and the day of the first contact cannot be chosen until it is entered."
+                : "AWST. Every date in this plan is counted from it."
+            }
           />
           <DateField
             id="caring-contacts-first-contact-day"
@@ -1714,16 +1729,16 @@ function ReviewStage({
               ))
             : null}
           {preview.kind === "refused" ? <RefusalStatement refusal={preview.refusal} /> : null}
-          {preview.kind === "ready"
-            ? preview.absorbed.map((contact) => (
+          {consequence === null
+            ? null
+            : consequence.absorbed.map((contact) => (
                 <AutomatedState
                   key={contact.sequence}
                   state="Suppressed"
-                  because={`${contact.cadenceLabel} falls on the same calendar day as the first contact you have chosen, and two caring contacts must never land on one day, so the schedule keeps one of them. This plan will send ${preview.summary.stillToSend} messages rather than ${preview.summary.total}.`}
+                  because={`${contact.cadenceLabel} falls on the same calendar day as the first contact you have chosen, and two caring contacts must never land on one day, so the schedule keeps one of them. This plan will send ${consequence.summary.stillToSend} messages rather than ${consequence.summary.total}.`}
                   changedBy="Choosing an earlier day for the first contact puts this message back into the schedule."
                 />
-              ))
-            : null}
+              ))}
         </div>
       </div>
 
@@ -1779,17 +1794,18 @@ function ReviewStage({
 
       <div className="flex min-w-0 flex-col gap-3">
         {/*
-          WHAT CONFIRMING DOES, AND WHAT IT DOES NOT — said before the control, not after it.
+          WHAT CONFIRMING DOES, said before the control rather than after it, and PINNED BY TESTS.
 
-          `createPlan` records the plan in the `draft` plan state. Starting it is `activatePlan`, a
-          separate write on a separate route carrying its own `expectedVersion`, and this screen
-          performs the one write its brief names. Saying "activate" while doing that would be the
-          same class of overstatement as `Agreement confirmed: Yes` two panels up.
+          Both writes, named: the plan is created and then started. The previous version of this
+          told a coordinator the plan would not run and that the starting step did not exist, while
+          the control beside it did exactly that and the overlay it opens said "Last check before
+          the plan starts". Three statements on one screen disagreeing about the same fact, and no
+          test read any of them — which is why it survived the code changing underneath it.
         */}
         <StatedReason
-          heading="Creating this plan does not start it, and nothing is ever sent from here"
-          because="Confirming creates the plan, the patient's details and the whole twelve-month schedule above, and records who created it on the access trail. The plan is created in draft: its messages are scheduled and the plan is not running. This prototype is connected to no messaging provider at all, so nothing reaches any handset from this workspace whatever state a plan is in."
-          changedBy="Starting a created plan is a separate step and this workspace does not have it yet. The plan and its schedule appear on the patient's own screen as soon as it is created."
+          heading="Confirming creates this plan and starts it, and nothing is ever sent from here"
+          because="Confirming does two things, one after the other: it creates the plan, the patient's details and the whole twelve-month schedule above, and then it starts the plan so that schedule is running. Both are recorded against you on the access trail. Nothing reaches any handset either way — this prototype is connected to no messaging provider and has nothing that sends."
+          changedBy="Nothing on this screen once you confirm; the plan and its schedule are then on the patient's own screen. If the plan is created and cannot be started, this screen says so and confirming again finishes the same plan rather than creating another."
           icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
         />
 
@@ -1835,7 +1851,7 @@ function ReviewStage({
             className={primaryControlClass}
           >
             <ClipboardCheck aria-hidden="true" className="size-icon-md shrink-0" />
-            <span className="truncate">Create this plan</span>
+            <span className="truncate">Create and start this plan</span>
           </WorkspaceOverlayTrigger>
         </div>
       </div>

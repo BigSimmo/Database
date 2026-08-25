@@ -288,6 +288,43 @@ export function planSchedulePreview(input: {
   };
 }
 
+/**
+ * What choosing this first-contact day COSTS, answered before the day has been justified.
+ *
+ * ROUND 2, I3. `planSchedulePreview` refuses `first-contact-reason-required` on any moved day, so
+ * the absorbed-contact notice built from it did not appear until a reason had been typed -- the
+ * clinician learned the choice removes a contact from a suicide-prevention schedule only AFTER
+ * justifying it. Ruling [118] still technically held (it is before commitment) but the order is
+ * backwards for an explained-automation surface: the consequence is an input to the decision, not a
+ * receipt for it.
+ *
+ * So this asks the domain the same question with the reason requirement satisfied by a stand-in.
+ * THE STAND-IN IS NEVER SENT ANYWHERE: it exists inside this call, only `absorbed` and `summary`
+ * are read from the result, and the submission path still goes through `createPlanRequestBody`,
+ * which uses what the clinician actually wrote and returns null while that is missing. Nothing here
+ * can make a plan that carries this string.
+ *
+ * It answers null whenever the domain refuses for any OTHER reason -- an out-of-range day, an
+ * unreadable discharge day -- because then there is no schedule to describe a consequence of, and
+ * the refusal itself is what the screen should be showing.
+ */
+const REASON_STAND_IN = "(not yet given)";
+
+export function firstContactConsequence(input: {
+  activation: PlanActivationDraft;
+  sendingPreference: SendingPreference | null;
+}): { absorbed: readonly PlannedContact[]; summary: PlannedScheduleSummary } | null {
+  const preview = planSchedulePreview({
+    activation: {
+      ...input.activation,
+      firstContactReason: input.activation.firstContactReason.trim() || REASON_STAND_IN,
+    },
+    sendingPreference: input.sendingPreference,
+  });
+  if (preview.kind !== "ready") return null;
+  return { absorbed: preview.absorbed, summary: preview.summary };
+}
+
 /** Exactly the body `createPlanSchema` accepts. Ten keys, because `.strict()` refuses an eleventh. */
 export type CreatePlanRequestBody = {
   planId: string;
@@ -606,8 +643,30 @@ export function plannedScheduleSentence(summary: PlannedScheduleSummary): string
  * Ruling [120]'s mechanism -- the draft still holds the plan id and both keys, so the retried create
  * is a replay that returns the first attempt's own answer.
  */
+/**
+ * WHAT IS TRUE AFTER THE CREATE AND BEFORE THE START, checked against the store rather than assumed.
+ *
+ * The first version of this said "no message is scheduled to go out yet". THAT IS FALSE.
+ * `createPlan` writes every planned contact in state `scheduled` (or `suppressed` for an absorbed
+ * one) AT CREATION, and `listSendableContacts` in both stores filters on
+ * `contact.state === "scheduled"` with NO plan-state gate -- nothing in `model.ts`'s contact
+ * transitions consults `plan.state` either. So creating a plan schedules its contacts, full stop,
+ * and a reassurance to the contrary was one the code does not support, printed on the exact screen
+ * a coordinator acts on.
+ *
+ * What actually stops a message is that there is nothing that sends: this prototype is connected to
+ * no messaging provider, and the only reader of `listSendableContacts` anywhere in the tree is
+ * `simulation.ts`. That is the true statement and it is the one made here.
+ *
+ * Whether a DRAFT plan's contacts should be sendable at all is a real domain question with its own
+ * blast radius, and it is filed separately. This copy does not pre-empt it, and nothing in Task 9
+ * changes `listSendableContacts`.
+ */
 const PLAN_EXISTS =
-  "The plan was created and is on this patient's record. It has not started, so no message is scheduled to go out yet, and no second plan was created.";
+  "The plan was created and is on this patient's record, and its contacts are scheduled -- creating a plan schedules them. No second plan was created. Nothing reaches any handset either way: this prototype is connected to no messaging provider and has nothing that sends.";
+
+/** The half of the story that is only true while the plan is still waiting to be started. */
+const NOT_STARTED = " The plan has not been started.";
 
 const PRESS_AGAIN =
   "Confirming again finishes starting the same plan: this sign-up still holds its identifier, so it cannot create a second plan for this patient.";
@@ -628,54 +687,54 @@ const ACTIVATION_REFUSAL_WORDING: Readonly<Record<string, SubmissionRefusalWordi
     },
     "stale-version": {
       heading: "The plan was created, and something else changed it before it started",
-      because: `${PLAN_EXISTS} The plan moved between this screen reading it and the request to start it arriving, so the service refused rather than applying over the change.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The plan moved between this screen reading it and the request to start it arriving, so the service refused rather than applying over the change.`,
       changedBy: PRESS_AGAIN,
     },
     "not-found": {
       heading: "The plan was created, and the service will not confirm it is startable",
-      because: `${PLAN_EXISTS} The service answered that there is nothing to act on — the same answer it gives for a record another team holds, deliberately, so the two cannot be told apart.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The service answered that there is nothing to act on — the same answer it gives for a record another team holds, deliberately, so the two cannot be told apart.`,
       changedBy: `${PRESS_AGAIN} If it keeps refusing, the plan is on the patient's screen and someone with access to it can start it.`,
     },
     "permission-denied": {
       heading: "The plan was created, and this role may not start it",
-      because: `${PLAN_EXISTS} The store refused the request to start it for this actor.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The store refused the request to start it for this actor.`,
       changedBy:
         "Asking someone whose role may start a plan to open it on the patient's screen. It is the same plan; starting the sign-up again cannot create a second one.",
     },
     "action-not-granted": {
       heading: "The plan was created, and your role cannot start it",
-      because: `${PLAN_EXISTS} The role you are signed in as is granted the action that creates a plan but not the one that starts it.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The role you are signed in as is granted the action that creates a plan but not the one that starts it.`,
       changedBy:
         "Asking someone whose role may start a plan to open it on the patient's screen. It is the same plan; nothing will create a second one.",
     },
     "no-roles": {
       heading: "The plan was created, and this session carries no role to start it with",
-      because: `${PLAN_EXISTS} The session you are acting in has no caring-contacts role, so the request to start it could not be checked against one.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The session you are acting in has no caring-contacts role, so the request to start it could not be checked against one.`,
       changedBy: `Signing in again so the session carries a role, then ${PRESS_AGAIN.charAt(0).toLowerCase()}${PRESS_AGAIN.slice(1)}`,
     },
     "service-stopped": {
       heading: "The plan was created, and the service is stopped so it cannot start",
-      because: `${PLAN_EXISTS} A service-wide safety stop is in place and it holds every write, including the one that starts a plan.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} A service-wide safety stop is in place and it holds every write, including the one that starts a plan.`,
       changedBy: `Three different roles approving the restart. After that, ${PRESS_AGAIN.charAt(0).toLowerCase()}${PRESS_AGAIN.slice(1)}`,
     },
     "invalid-request": {
       heading: "The plan was created, and the request to start it was not readable",
-      because: `${PLAN_EXISTS} The request to start the plan did not become one the service could act on.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The request to start the plan did not become one the service could act on.`,
       changedBy: PRESS_AGAIN,
     },
     "request-body-too-large": {
       heading: "The plan was created, and the request to start it was too large",
-      because: `${PLAN_EXISTS} The service holds a size limit on every request and the one that starts a plan exceeded it, which should not be possible for a request this small.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The service holds a size limit on every request and the one that starts a plan exceeded it, which should not be possible for a request this small.`,
       changedBy: PRESS_AGAIN,
     },
     "access-audit-unavailable": {
       heading: "The plan was created, and the access trail could not record it starting",
-      because: `${PLAN_EXISTS} Every write here is recorded, and one that cannot be recorded does not happen — that is the bargain rather than a fault in this screen.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} Every write here is recorded, and one that cannot be recorded does not happen — that is the bargain rather than a fault in this screen.`,
       changedBy: PRESS_AGAIN,
     },
     "request-did-not-reach-the-service": {
       heading: "The plan was created, and the request to start it did not arrive",
-      because: `${PLAN_EXISTS} The second request did not complete, so the service was never asked to start it. This is what a lost connection looks like from here.`,
+      because: `${PLAN_EXISTS}${NOT_STARTED} The second request did not complete, so the service was never asked to start it. This is what a lost connection looks like from here.`,
       changedBy: PRESS_AGAIN,
     },
     "service-answered-with-something-unreadable": {
@@ -691,7 +750,7 @@ export function activationRefusalWording(refusal: string): SubmissionRefusalWord
   if (known !== undefined) return known;
   return {
     heading: "The plan was created, and the service refused to start it for a reason this screen has not been taught",
-    because: `${PLAN_EXISTS} The service refused the request to start it and named the reason "${refusal}". This screen has no plain-words explanation for that one, so the reason is given as the service gave it.`,
+    because: `${PLAN_EXISTS}${NOT_STARTED} The service refused the request to start it and named the reason "${refusal}". This screen has no plain-words explanation for that one, so the reason is given as the service gave it.`,
     changedBy: `${PRESS_AGAIN} If it keeps refusing, pass that reason on to whoever supports this service.`,
   };
 }

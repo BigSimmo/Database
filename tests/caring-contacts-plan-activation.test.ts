@@ -476,13 +476,44 @@ describe("the second write: starting the plan that was just created (Ruling [123
     // never be started.
     expect(new Set([minted.planId, minted.createIdempotencyKey, minted.activateIdempotencyKey]).size).toBe(3);
 
-    // And the activate key is not the create key with something appended — a derived key is a
-    // second copy of the first key's uniqueness, and it stops being unique the moment the
-    // derivation changes.
+    // A cheap extra, and NOT the independence pin -- see the case below for why.
     expect(minted.activateIdempotencyKey).not.toContain(minted.createIdempotencyKey.replace("PLAN-CREATE-", ""));
 
     const second = mintPlanSubmissionIdentity();
     expect(second.activateIdempotencyKey).not.toBe(minted.activateIdempotencyKey);
+  });
+
+  it("draws each of the three identifiers from its own source of randomness", () => {
+    // ROUND 2, I2. The assertion above is a SUBSTRING pin, not an independence pin: it catches
+    // literal embedding, which is what mutation N2b did, and nothing else. A hash of the create
+    // key, a reversal of it, or any other derivation passes it while leaving the activate key
+    // exactly as dependent on the create key as a copy would be.
+    //
+    // This pins the property instead: three identifiers, three independent draws. A derivation of
+    // any kind consumes fewer draws, so the call count catches every shape of it at once -- and
+    // pairwise distinctness catches the remaining case where three draws are taken and one is
+    // thrown away.
+    const draws = [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      "33333333-3333-4333-8333-333333333333",
+    ];
+    let next = 0;
+    const randomUUID = vi
+      .spyOn(globalThis.crypto, "randomUUID")
+      .mockImplementation(() => draws[next++ % draws.length] as `${string}-${string}-${string}-${string}-${string}`);
+
+    const minted = mintPlanSubmissionIdentity();
+
+    // The double IS asserted to have been used. A stub nothing calls is the shape that let a
+    // previous test in this wizard pass inert.
+    expect(randomUUID, "the mint did not draw from crypto.randomUUID at all").toHaveBeenCalledTimes(3);
+    const values = [minted.planId, minted.createIdempotencyKey, minted.activateIdempotencyKey];
+    expect(new Set(values).size, "two identifiers came from the same draw").toBe(3);
+    // Each identifier's random half differs from the others', which is what "its own draw" means
+    // once the prefixes are removed.
+    const halves = values.map((value) => value.replace(/^PLAN-(CREATE-|START-)?/, ""));
+    expect(new Set(halves).size, "two identifiers share a random half, so one was derived").toBe(3);
   });
 
   it("mints an activate key the audit trail accepts, on the same terms as the other two", () => {
@@ -564,50 +595,114 @@ describe("the second write: starting the plan that was just created (Ruling [123
 });
 
 describe("what the screen says when the plan was created but did not start (Ruling [123])", () => {
+  /**
+   * The refusals after which the plan is still sitting in draft, waiting to be started.
+   *
+   * A refusal means the write did not happen, so "it has not been started" is true of all of these.
+   */
+  const STILL_WAITING = [
+    "stale-version",
+    "not-found",
+    "permission-denied",
+    "action-not-granted",
+    "no-roles",
+    "service-stopped",
+    "invalid-request",
+    "request-body-too-large",
+    "access-audit-unavailable",
+    "request-did-not-reach-the-service",
+    "a-refusal-nobody-has-written-yet",
+  ];
+
+  /**
+   * The refusals after which the plan MAY ALREADY HAVE STARTED, so no branch may claim otherwise.
+   *
+   * ROUND 2, C3, AND THE OLD ASSERTION WAS ENFORCING A FALSEHOOD. The previous version of this walk
+   * required EVERY branch to match /not started|has not been started/, and `plan-not-draft` renders
+   * "It has not been started ... an earlier attempt already started it" -- a branch asserting and
+   * denying one fact, with a test holding it there. Relaxing that requirement for these three is
+   * not loosening a test to fit a change; it is deleting an assertion that was pinning a
+   * contradiction, and the replacement below is STRICTER than what it replaces: each of these must
+   * now positively refuse the claim and send the reader to look.
+   *
+   * The review named `plan-not-draft`. Two more have the identical defect and are included here:
+   * `plan-terminal` (a plan that has been ended may well have run first) and
+   * `service-answered-with-something-unreadable` (the write may have landed -- that branch's own
+   * heading already said "it is not clear whether it started" while the shared prefix denied it).
+   */
+  const MAY_HAVE_STARTED = ["plan-not-draft", "plan-terminal", "service-answered-with-something-unreadable"];
+
+  const ALL_REFUSALS = [...STILL_WAITING, ...MAY_HAVE_STARTED];
+
+  function whole(refusal: string): string {
+    const wording = activationRefusalWording(refusal);
+    return `${wording.heading} ${wording.because} ${wording.changedBy}`;
+  }
+
   it("never says nothing was created, because something was", () => {
     // THE FAILURE THIS EXISTS TO PREVENT. `submissionRefusalWording` says "Nothing was created" in
-    // every branch, which is true of the first write and FALSE here — the plan exists. A
-    // coordinator told nothing was created starts the sign-up again, and this patient gets a second
-    // plan, two schedules and two sets of messages.
-    for (const refusal of [
-      "plan-not-draft",
-      "plan-terminal",
-      "stale-version",
-      "not-found",
-      "permission-denied",
-      "action-not-granted",
-      "no-roles",
-      "service-stopped",
-      "invalid-request",
-      "access-audit-unavailable",
-      "request-did-not-reach-the-service",
-      "service-answered-with-something-unreadable",
-      "a-refusal-nobody-has-written-yet",
-    ]) {
-      const wording = activationRefusalWording(refusal);
-      const whole = `${wording.heading} ${wording.because} ${wording.changedBy}`;
-      expect(whole, `${refusal} says nothing was created, and a plan was`).not.toMatch(/nothing was created/i);
-      expect(whole, `${refusal} does not say the plan exists`).toMatch(
-        /the plan (was |has been )?created|plan exists/i,
+    // every branch, which is true of the first write and FALSE here. A coordinator told nothing was
+    // created starts the sign-up again, and this patient gets a second plan, two schedules and two
+    // sets of messages.
+    for (const refusal of ALL_REFUSALS) {
+      expect(whole(refusal), `${refusal} says nothing was created, and a plan was`).not.toMatch(/nothing was created/i);
+      expect(whole(refusal), `${refusal} does not say the plan exists`).toMatch(/the plan was created/i);
+      expect(whole(refusal), `${refusal} is reported as a general failure`).not.toMatch(/something went wrong/i);
+    }
+  });
+
+  it("says the contacts are scheduled, because creating a plan schedules them", () => {
+    // ROUND 2, C2. This said "no message is scheduled to go out yet", which the domain contradicts:
+    // `createPlan` writes every contact in state `scheduled` at creation, and `listSendableContacts`
+    // filters on that state with no plan-state gate in either store. What actually stops a message
+    // is that nothing sends -- there is no provider, and `simulation.ts` is the only reader of that
+    // list anywhere in the tree.
+    for (const refusal of ALL_REFUSALS) {
+      expect(whole(refusal), `${refusal} still claims nothing is scheduled`).not.toMatch(
+        /no message is scheduled|nothing is scheduled/i,
       );
-      expect(whole, `${refusal} does not say the plan has not started`).toMatch(/not started|has not been started/i);
-      // The clinician must be told that pressing again finishes it rather than duplicating it —
-      // that is the whole payoff of holding both keys in the draft.
-      expect(whole, `${refusal} does not say a retry is not a second plan`).toMatch(
+      expect(whole(refusal), `${refusal} does not say the contacts are scheduled`).toMatch(/contacts are scheduled/i);
+      expect(whole(refusal), `${refusal} does not say why nothing reaches a handset`).toMatch(
+        /no messaging provider|nothing that sends/i,
+      );
+    }
+  });
+
+  it("tells the clinician a retry finishes the same plan rather than making another", () => {
+    for (const refusal of ALL_REFUSALS) {
+      expect(whole(refusal), `${refusal} does not say a retry is not a second plan`).toMatch(
         /same plan|cannot create a second|will not create another/i,
       );
-      expect(whole, `${refusal} is reported as a general failure`).not.toMatch(/something went wrong/i);
     }
+  });
 
+  it("claims the plan has not started only where that is true", () => {
+    for (const refusal of STILL_WAITING) {
+      expect(whole(refusal), `${refusal} does not say the plan has not started`).toMatch(/has not been started/i);
+    }
+    for (const refusal of MAY_HAVE_STARTED) {
+      // The assertion that replaces the one that pinned the contradiction. A branch here must NOT
+      // claim the plan is unstarted, and must instead say the state is unknown and point at where
+      // to look -- so the defect C3 found goes red rather than green.
+      expect(whole(refusal), `${refusal} claims the plan has not started, and it may have`).not.toMatch(
+        /has not been started/i,
+      );
+      expect(whole(refusal), `${refusal} does not admit the plan's state is unknown`).toMatch(
+        /may already have started|already been ended|not clear whether it started/i,
+      );
+      expect(whole(refusal), `${refusal} does not send the reader to look at the plan`).toMatch(
+        /patient's screen|opening the plan|checking the plan/i,
+      );
+    }
+  });
+
+  it("names an unmapped refusal rather than hiding it", () => {
     expect(activationRefusalWording("a-refusal-nobody-has-written-yet").because).toContain(
       "a-refusal-nobody-has-written-yet",
     );
   });
 
   it("tells a plan that cannot be started apart from one that merely was not", () => {
-    // `plan-not-draft` on a retry usually means the FIRST attempt started it and this screen never
-    // saw the answer, which is a success wearing a refusal. Telling a coordinator to press again
-    // there would be wrong, so it is the one branch that sends them to look instead.
     const alreadyStarted = activationRefusalWording("plan-not-draft");
     const denied = activationRefusalWording("action-not-granted");
     expect(alreadyStarted.heading).not.toBe(denied.heading);

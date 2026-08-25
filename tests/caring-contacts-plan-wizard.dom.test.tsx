@@ -1111,6 +1111,24 @@ describe("stage 4 — the discharge day and the first contact, side by side (Rul
     expect(stage).toHaveTextContent(/9 still to send/i);
   });
 
+  it("shows what the day COSTS before asking the clinician to justify it (round 2, I3)", async () => {
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    const firstContact = within(stage).getByLabelText(/day of the first contact/i);
+    fireEvent.change(firstContact, { target: { value: bounds().latest } });
+
+    // NO REASON HAS BEEN TYPED. The schedule refuses `first-contact-reason-required` in this state,
+    // so a consequence built from the submittable preview did not appear until after the clinician
+    // had justified the choice -- telling them what it costs only once they had defended it. The
+    // consequence is an input to the decision, not a receipt for it.
+    expect(within(stage).getByLabelText(/why the first contact/i)).toHaveValue("");
+    await waitFor(() => expect(within(stage).getByRole("group", { name: /suppressed/i })).toBeInTheDocument());
+    expect(stage).toHaveTextContent(/Week 1/);
+    expect(stage).toHaveTextContent(/9 messages rather than 10/i);
+  });
+
   it("asks for a reason on a moved day, and names the schedule's own two refusals apart", async () => {
     const user = userEvent.setup();
     window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
@@ -1228,50 +1246,6 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
     // exists: `/caring-contacts/plans/<id>` has no page, so linking there would be a 404.
     expect(href.startsWith(patientRoute(PATIENT))).toBe(true);
     expect(href).toContain(`${CARING_CONTACTS_PLAN_QUERY_PARAM}=${minted?.planId}`);
-  });
-
-  it("keeps the whole draft when the write fails, whichever way it fails", async () => {
-    const failures = [
-      { label: "a lost connection", answer: async () => Promise.reject(new TypeError("Failed to fetch")) },
-      { label: "a permission refusal", answer: async () => jsonResponse({ refusal: "action-not-granted" }, 403) },
-      { label: "an existing plan", answer: async () => jsonResponse({ refusal: "duplicate-active-plan" }, 409) },
-      {
-        label: "a schedule refusal",
-        answer: async () => jsonResponse({ refusal: "first-contact-reason-required" }, 422),
-      },
-      { label: "an answer that is not JSON", answer: async () => new Response("<html>", { status: 200 }) },
-    ];
-
-    for (const failure of failures) {
-      const user = userEvent.setup();
-      window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
-      const fetched = stubFetch(failure.answer);
-      const view = renderWizardWithOverlays();
-      await screen.findByRole("region", { name: "Review and activation" });
-      await confirmActivation(user);
-
-      await waitFor(() => expect(fetched).toHaveBeenCalled());
-      // A clinician who has typed a name, a mobile number and identifiers and then meets a failure
-      // must lose none of it. This is the path nobody writes a test for and the one a real
-      // clinician meets first.
-      await waitFor(() =>
-        expect(
-          readPlanDraft(REFERRAL)?.patientDetail.patientName,
-          `${failure.label}: the draft was lost on a failed write`,
-        ).toBe("Rowan Example"),
-      );
-      expect(
-        navigation.push,
-        `${failure.label}: the screen navigated away from a plan that was not created`,
-      ).not.toHaveBeenCalled();
-
-      view.unmount();
-      vi.restoreAllMocks();
-      clearPlanDraft();
-      clearStagedWorkspaceOverlayCommit();
-      navigation.push.mockClear();
-      window.sessionStorage.clear();
-    }
   });
 
   it("says WHICH failure it was, in place, and never only that something went wrong", async () => {
@@ -1566,4 +1540,122 @@ describe("stage 4 — the plan is created AND started, and the gap between is a 
     expect(stage.textContent ?? "").not.toMatch(/the plan was created/i);
     expect(readPlanDraft(REFERRAL)?.patientDetail.patientName).toBe("Rowan Example");
   });
+});
+
+/**
+ * ROUND 2, C1. The sentence a coordinator reads at the moment of decision, pinned.
+ *
+ * It was false and nothing caught it: it told them the plan would not run and that the starting
+ * step did not exist, while `activate()` did both writes and the overlay beside it said "Last check
+ * before the plan starts". **No test read any of that prose**, which is exactly why it survived the
+ * code changing underneath it. These cases exist so the next change to `activate()` cannot leave
+ * the copy behind.
+ */
+describe("stage 4 — what the screen promises matches what confirming does (Ruling [123], round 2 C1)", () => {
+  it("tells the coordinator, at the control, that confirming creates AND starts the plan", async () => {
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    expect(stage).toHaveTextContent(/creates this plan and starts it/i);
+    // The three claims that were false, named individually so a partial revert is caught.
+    expect(stage.textContent ?? "", "the screen says confirming does not start the plan").not.toMatch(
+      /does not start it/i,
+    );
+    expect(stage.textContent ?? "", "the screen says the plan is created in draft").not.toMatch(/created in draft/i);
+    expect(stage.textContent ?? "", "the screen says starting is a step this workspace lacks").not.toMatch(
+      /separate step and this workspace does not have it yet/i,
+    );
+  });
+
+  it("labels the control for both writes, agreeing with the overlay it opens", async () => {
+    const user = userEvent.setup();
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+
+    // The frozen row is titled "Last check before the plan starts" and its decision reads "Confirm
+    // and activate". A control labelled "Create this plan" in front of it was the third leg of a
+    // three-way contradiction on one screen.
+    expect(screen.getByTestId("workspace-overlay-trigger")).toHaveTextContent(/create and start this plan/i);
+
+    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await screen.findByTestId("workspace-overlay-content");
+    // The frozen title is rendered by the Sheet's own header at dialog modality, which is OUTSIDE
+    // the content node -- so this reads the document rather than the overlay body.
+    expect(document.body.textContent ?? "").toMatch(/last check before the plan starts/i);
+    expect(screen.getByTestId("workspace-overlay-action")).toHaveTextContent(/confirm and activate/i);
+  });
+
+  it("says the plan was created AND started once both writes have landed", async () => {
+    const user = userEvent.setup();
+    stubFetch(async () => createdPlanAnswer());
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+    await confirmActivation(user);
+
+    // The success panel omitted the start, which understates what just happened on a screen whose
+    // whole subject is whether a suicide-prevention schedule is running.
+    const panel = await screen.findByRole("region", { name: "Plan created" });
+    expect(panel).toHaveTextContent(/created and started/i);
+    expect(panel).toHaveTextContent(/schedule is running/i);
+  });
+
+  it("carries no comment claiming this screen performs one write", () => {
+    // The `stages.ts` defect, one file over: a comment describing a mechanism the code no longer
+    // has. Comments are stripped of nothing here on purpose — the point is that the CLAIM is gone
+    // from the source, not that it is absent from the rendered output.
+    const source = readFileSync(
+      path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard", "plan-wizard.tsx"),
+      "utf8",
+    );
+    expect(source, "a comment still says this screen performs a single write").not.toMatch(
+      /the one write its brief names/i,
+    );
+    expect(source, "a comment still says no ruling covers two writes").not.toMatch(
+      /no ruling covers performing two writes/i,
+    );
+  });
+});
+
+/**
+ * ROUND 2, I1. Five refusal shapes, five cases.
+ *
+ * These were one case with a `for` loop, and M9 falsified all five through a single code path — so
+ * no individual shape was pinned and a refusal shape that stopped being handled would not have gone
+ * red. One `it` per shape is what makes each one falsifiable on its own.
+ */
+describe("stage 4 — the draft survives every shape of failed write (Ruling [117], round 2 I1)", () => {
+  const SHAPES = [
+    { label: "a lost connection", answer: () => Promise.reject(new TypeError("Failed to fetch")) },
+    { label: "a permission refusal", answer: async () => jsonResponse({ refusal: "action-not-granted" }, 403) },
+    { label: "an existing plan", answer: async () => jsonResponse({ refusal: "duplicate-active-plan" }, 409) },
+    {
+      label: "a schedule refusal",
+      answer: async () => jsonResponse({ refusal: "first-contact-reason-required" }, 422),
+    },
+    { label: "an answer that is not JSON", answer: async () => new Response("<html>", { status: 200 }) },
+  ];
+
+  for (const shape of SHAPES) {
+    it(`keeps the whole draft after ${shape.label}`, async () => {
+      const user = userEvent.setup();
+      window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+      const fetched = stubFetch(shape.answer);
+      renderWizardWithOverlays();
+      await screen.findByRole("region", { name: "Review and activation" });
+      await confirmActivation(user);
+
+      await waitFor(() => expect(fetched).toHaveBeenCalled());
+      // A clinician who has typed a name, a mobile number and identifiers and then meets a failure
+      // must lose none of it.
+      await waitFor(() =>
+        expect(readPlanDraft(REFERRAL)?.patientDetail.patientName, "the draft was lost on a failed write").toBe(
+          "Rowan Example",
+        ),
+      );
+      expect(navigation.push, "the screen navigated away from a plan that was not created").not.toHaveBeenCalled();
+    });
+  }
 });
