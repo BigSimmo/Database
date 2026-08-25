@@ -2206,3 +2206,57 @@ the largest gaps named in a table rather than summarised (the I-3 case is 4 of 8
 1 of 6; the live-region case 1 of 5). That gap is not closed and this round was deliberately scoped
 not to close it. **Recording the number is the point**: a suite described as "mutation-proved" without
 a denominator invites exactly the reading the implementer just talked itself out of.
+
+## Owner decision, 2026-08-25 — the stage-1 assurances ARE stored, as an attestation
+
+Put to the owner three times across the day: first as a stop-and-report from Task 7's implementer,
+then as three options with **no recommendation**, then — when he asked for one — with a
+recommendation. He approved storing it.
+
+**What changed my position from "no recommendation" to a clear one was one line of the approved
+design**, and it is worth recording because I had read that mockup several times without noticing it.
+The agreement row is sourced:
+
+> `"Imported source record—not legal or treatment consent"`
+
+**This system was never meant to be where consent lives.** The hospital record holds the agreement;
+the coordinator confirms they checked it. So the thing to store is not a consent record — it is an
+**attestation that a check happened**: who confirmed, what they confirmed, when. That invents no
+clinical model and commits the owner to no position on what consent to a caring-contacts programme
+should look like. It answers one question — _did anyone check?_ — and nothing more.
+
+**The lesson about my own advice, not about the decision.** I declined to recommend on the grounds
+that consent in suicide prevention is genuinely fraught. That is true of _consent_ and not of
+_recording that a clinician looked at a record_. **I had let the gravity of the surrounding subject
+set the size of the question, instead of reading what the question actually was** — and the sentence
+that settled it had been in the file the whole time. Declining to advise is sometimes right; it is not
+a safe default, because it also costs the owner the analysis he asked for.
+
+**Ruling [122] — the attestation lives on the PLAN, is a list rather than a fixed pair, and is NOT
+cleared by retention.** — Why, in three parts:
+
+- **On the plan, not in `patientDetail`.** It is an act performed by a clinician, not a fact about the
+  patient. Putting it in `patientDetail` would also make it subject to `CLEARED_PATIENT_DETAIL`, which
+  is exactly wrong — see the third part.
+- **A list, not two fields.** Stage 1's assurance set is not frozen: the design shows five rows, of
+  which two are confirmations and three are display. A fixed pair needs a schema change the first time
+  a third confirmation is added, and this programme has already paid for one of those.
+- **Retention must NOT clear it, and this inverts the reflex Ruling [105] just installed.** Ruling
+  [105] required the first-contact reason to be cleared because it is **clinician prose that will name
+  patients and places**. An attestation is `{ assurance, actorId, instant }` — no patient content at
+  all — and it is the same class as an audit event, which spec line 413 says de-identification
+  deliberately **preserves**: "removes patient fields and preserves actor, action, timestamp, object
+  type". `deidentifyAccessEvent` does precisely that. **Clearing the attestation would destroy the
+  evidence that a check happened while keeping the plan it belongs to** — the opposite of what
+  retention is for.
+
+— Cost if wrong: if the attestation later needs to carry free text (a note on what was checked), that
+text WOULD be patient-naming and the clearing rule flips for that field. Recorded so the next person
+adding a field to this structure asks the question rather than inheriting the answer.
+
+**Sequencing: this becomes Task 9b, after Task 9, not folded into it.** Task 9 is mid-build on the
+write path against the current schema. Adding fields to a `.strict()` schema, a migration, both
+stores and the shared contract is the same shape as Task 6b — a separately reviewable storage unit —
+and Task 6b is the proven precedent. Task 9 has been told only two things: keep the request body
+composable so 9b's addition is additive, and prefer wording that states today's fact ("not recorded on
+the plan") over wording that asserts a permanent property, because the property is about to change.
