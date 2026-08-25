@@ -496,7 +496,13 @@ describe("the Schedule screen — the boundaries of a day", () => {
     expect(scheduleDayLabel(MONTH_END)).toBe("Monday 31 August 2026");
     const evening = screen.getByRole("region", { name: "Early evening" });
     expect(within(evening).getAllByRole("heading", { level: 5 })).toHaveLength(1);
+    // The window's own published send time, which comes from `SENDING_PREFERENCE_OPTIONS`.
     expect(evening.textContent).toContain("5:00 pm AWST");
+    // And the ROW's send time, which is formatted from the contact's own instant. Scoped to the
+    // row rather than to the section, because the section already carries the window's send time
+    // and a section-wide `toContain` would pass on the header alone -- which it did, silently,
+    // before this line: mutation M6 broke the row's clock and only the midnight case noticed.
+    expect(within(evening).getByRole("listitem").textContent).toContain("Sends at: 5:00 pm AWST");
 
     // The day after a month end is a different day and holds nothing, which the strip must show as
     // a day rather than not show at all.
