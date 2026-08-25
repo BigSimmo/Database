@@ -144,7 +144,7 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
 });
 
 function renderRoute(entry: RouteRender): string {
-  return renderToStaticMarkup(createElement(WardFlowProvider, { initialNow: NOW_ANCHOR, children: entry.render() }));
+  return renderToStaticMarkup(createElement(WardFlowProvider, { initialNow: NOW_ANCHOR }, entry.render()));
 }
 
 describe("Every Ward Flow route has exactly one #main-content skip-link target (D5, D6)", () => {

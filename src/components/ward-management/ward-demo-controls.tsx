@@ -119,15 +119,20 @@ export function WardDemoControls() {
               +1 hour
             </button>
           </div>
-          <div className={styles.scenarioRow} role="group" aria-label="Demo scenario">
+          {/* `menuitemradio` + `aria-checked`, not `menuitem` + `aria-pressed`. The scenarios are
+              mutually exclusive — exactly one night is loaded — which is what `menuitemradio`
+              means, and `menuitem` does not support `aria-pressed` at all, so the state was being
+              announced to nobody. `role="radiogroup"` on the wrapper is what makes the set
+              coherent to a screen reader rather than two unrelated checkable items. */}
+          <div className={styles.scenarioRow} role="radiogroup" aria-label="Demo scenario">
             {WARD_SCENARIOS.map((candidate) => (
               <button
                 type="button"
-                role="menuitem"
+                role="menuitemradio"
                 key={candidate}
                 data-testid={`ward-demo-scenario-${candidate}`}
                 className={styles.scenarioButton}
-                aria-pressed={scenario === candidate}
+                aria-checked={scenario === candidate}
                 onClick={() => selectScenario(candidate)}
               >
                 {scenarioLabels[candidate]}

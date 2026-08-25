@@ -254,9 +254,7 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
 describe("Every Ward Flow route carries the 'Ward Flow views' in-page nav (D8)", () => {
   for (const entry of RENDERABLE_ROUTES) {
     it(`renders the Ward Flow views nav on ${entry.route}`, () => {
-      const markup = renderToStaticMarkup(
-        createElement(WardFlowProvider, { initialNow: NOW_ANCHOR, children: entry.render() }),
-      );
+      const markup = renderToStaticMarkup(createElement(WardFlowProvider, { initialNow: NOW_ANCHOR }, entry.render()));
       const matches = markup.match(/aria-label="Ward Flow views"/g) ?? [];
       expect(
         matches.length,
