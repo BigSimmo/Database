@@ -552,3 +552,160 @@ this round changes that inference, so the screen still reads a blank `patientNam
 two places (`NoNameHeldNotice` and the reason note). Both are correct today for the reason the review
 traced; both would go wrong together if a released episode ever held `""` without a clearance, which
 the API forbids and `createPlan` does not.
+
+---
+
+# Round 2 — review fixes
+
+**Round 2 of up to 5.** Two items, both addressed, plus one thing the mutations found on the way.
+Nothing pushed, no PR.
+
+| Commit       | Subject                                                                  |
+| ------------ | ------------------------------------------------------------------------ |
+| `2eaf76ca4`  | fix — anchor the cap scan on the expression, strike the round-0 sentence |
+| `904461e77`  | test — strip SQL comments before the cap scan reads the migration        |
+| _(this one)_ | docs — this round 2 section (a commit cannot name its own SHA)           |
+
+## 1. The cap scan's SQL anchor
+
+The finding is right, and it is the same shape as the one that opened this task: **a scan that is
+correct today and cannot stay correct by construction.** I had proved the wrong thing about it. M16
+and M17 show the scan reads the cap correctly _now_; neither shows it will keep reading the _cap_.
+
+The mechanism, restated so the fix is checkable: `plans_first_contact_reason_shape` appears **twice**
+in the migration — first in the `where c.conname = …` existence guard, then as the constraint being
+added. The regex anchored on the first occurrence and took the first `<=` after it, so anything
+numeric inserted between the two would be read as the cap.
+
+Anchored on `char_length(` instead, which appears only in the constraint body and sits immediately
+left of the comparison. And because "only" is the whole basis of that claim, the anchor's
+**uniqueness is now asserted** rather than assumed: a second `char_length(` anywhere in the scanned
+SQL fails the test instead of silently displacing the match.
+
+**M20 is the demonstration the review asked for**, and it is worth reading as a pair of numbers. The
+mutation inserts `and array_length(c.conkey, 1) <= 500` into the existence guard — a plausible future
+edit — and drifts the real cap to `900`, leaving the TypeScript constant at `500`. Both regexes were
+then run over the mutated file:
+
+```
+constant: 500 | OLD anchor: 500 AGREES (false green) | NEW anchor: 900 DISAGREES (correctly red)
+```
+
+That is the defect, executed: the old scan would have reported agreement while the real cap had
+drifted by 400 characters. The new one fails, `expected '900' to be '500'`.
+
+## The thing the mutations found: the scan was reading its own prose
+
+M21 inserts a real second `char_length(` into the guard, and the uniqueness control fired — but it
+reported `expected 3 to be 1`, not `2`. The third occurrence was **inside the mutation's own
+explanatory comment**.
+
+So the control was counting prose. In the committed file that happened to be harmless, because no
+comment mentioned `char_length(` — but it meant a future comment that merely _discussed_ the anchor
+would fail a test while changing no behaviour at all, and the regex could equally have matched a
+`<=` written in prose.
+
+This repo already had the answer, in `caring-contacts-migrations.test.ts`'s CREATE INDEX CONCURRENTLY
+scan: _"the migrations discuss the prohibition in prose, and a scan that reads its own warning as a
+violation is a scan that reports the wrong thing."_ The same precedent, applied here: `--` comments
+are stripped before the migration is scanned, with a control on the stripping itself so a silently
+broken `.replace` shows up as a failure rather than as a scan quietly reading prose again. **M22**
+proves the direction that matters for over-sensitivity: a comment mentioning `char_length(` leaves
+the raw file with two occurrences and the scan still passes.
+
+I would not have found this by inspection. It surfaced only because the mutation's failure message
+carried a number I did not expect, and I read it instead of accepting the red.
+
+## 2. The falsified sentence, struck where it stands
+
+Correct, and the inconsistency was the tell: I fixed M-3's round-0 error **in place** in the file
+table and left this one annotated only downstream. A correction 300 lines after the error leaves the
+error readable.
+
+The clause in §2 is now struck through at its own site, with a one-line note naming what was false
+(three files, not two; two mutations in `patient-overview.tsx`, not one) and pointing to the round-1
+explanation and to M9-recheck. The round-1 commit table's attribution of M-2 to `a230bba34` is fixed
+in passing — the migrations-test cases are there, the SQL edit is in `15559437f`.
+
+## The `[[:space:]]` framing
+
+Loosened, as suggested, and it cost about a line rather than a word. The comment now claims only the
+provider-independent floor — space, tab, newline, carriage return, form feed, vertical tab, "how much
+more depends on the collation provider" — and keeps U+00A0 as the named example of what escapes
+either way. The enumerated set is unchanged, because that set is the safe floor and restating it
+smaller would be the same over-claim in the other direction.
+
+## Round 2 mutations
+
+Method unchanged: exact-anchor assertion that raises rather than silently leaving an unmutated tree,
+a **separate** `grep -c` presence step joined with `;`, then the gate read from a real summary line.
+Every one reverted, every revert confirmed.
+
+Note the two intentional survivors. A mutation that _should_ leave the gate green is evidence too —
+it is how over-sensitivity gets caught — and both are labelled as such rather than buried.
+
+| #               | Mutation                                                                                                                       | Anchor matched? | Gate                       | Result                                                                                                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M20**         | Insert `and array_length(c.conkey, 1) <= 500` into the existence guard **and** drift the real cap to 900, constant left at 500 | yes (both)      | `vitest …domain-isolation` | **RED** — `expected '900' to be '500'`. Side-by-side regex run on the same bytes: old anchor `500` (false agreement), new anchor `900`. The finding, executed                                     |
+| **M21**         | Insert a real second `char_length(c.conname) <= 500` into the existence guard                                                  | yes             | `vitest …domain-isolation` | **RED** — `expected 2 to be 1`. The uniqueness control refusing to let the anchor be displaced. (First run reported `3`, which is what exposed the prose-counting bug above)                      |
+| **M22**         | Add a **comment** that merely mentions `char_length(` — raw file then holds two occurrences                                    | yes             | `vitest …domain-isolation` | **SURVIVED, intentionally** — `6 passed (6)`. Comments are stripped, so prose about the anchor is not the anchor. This is the over-sensitivity check                                              |
+| **M18-recheck** | Rename the constraint to `plans_first_contact_reason_bounds` (round 1's M18, re-aimed at the new anchor)                       | yes (2 sites)   | `vitest …domain-isolation` | **RED** — `expected '…' to contain 'plans_first_contact_reason_shape'`. The new anchor does not depend on the name, so the name is now pinned by its own control; round 1's evidence still stands |
+| **M16-recheck** | Raise `FIRST_CONTACT_REASON_MAX_LENGTH` to 800 with the SQL unchanged (round 1's M16, under the hardened scan)                 | yes             | `vitest …domain-isolation` | **RED** — `expected '500' to be '800'`. The drift case still caught after the anchor change                                                                                                       |
+
+## Round 2 gates
+
+The decisive lines, pasted:
+
+```
+# npm run test   (GATE_RECEIPTS=refresh -- a fresh run, not a reused receipt)
+ Test Files  830 passed | 3 skipped (833)
+      Tests  10037 passed | 74 skipped (10111)
+   Duration  549.21s
+[exited with code 0]
+
+# npm run caring-contacts:db:test   (Docker Postgres 17 on 54329, local and offline)
+ Test Files  2 passed (2)
+      Tests  192 passed (192)
+   Duration  194.68s
+
+# npm run lint          (GATE_RECEIPTS=refresh)
+[gate-receipts] recorded a pass for "lint:internal" (5305 input files).
+
+# npm run typecheck     (GATE_RECEIPTS=refresh)
+[gate-receipts] recorded a pass for "typecheck:internal" (5305 input files).
+```
+
+Counts unchanged from round 1 in both suites, which is what round 2 should produce: it hardened an
+existing scan rather than adding a case.
+
+The database suite was re-run even though round 2 changed only `--` comments in the migration,
+because the migration FILE changed and both database suites apply it from an empty schema. A comment
+cannot alter behaviour, but "cannot" was worth twenty seconds of proof rather than an assumption.
+
+**One reading note, so nothing in that log is mistaken for a failure.** The `npm run test` dot stream
+carries two lines reading `check:function-grants: FAIL`. Those are that guard's OWN positive-control
+output -- it feeds itself deliberately broken SQL to prove it catches it -- and the suite reports
+zero failed tests. Flagged because a later reader grepping this log for `FAIL` will find them.
+
+## Does this round touch the browser gate?
+
+**No.** Round 2 changes one test file, one SQL comment block, and this report — no rendered output, no
+component, no route, no schema behaviour. The one SQL change is prose inside `--` comments, which the
+database never parses as anything. The review noted my round-1 answer was sound and stronger than I
+stated it, since the migration is retired by the database suite independently; that holds here with
+less at stake, because round 2 does not change the constraint at all. I would still treat any
+movement off `43 passed` as a real finding.
+
+## A distinction I am carrying forward
+
+The review's note on the lease evidence is the most useful thing I was told this task, and it is not
+about locks. I identified a lease from a recorded `worktree` field plus a live PID, and that was
+**sufficient for waiting** and would **not** have been sufficient for breaking the lease — a stale
+record plus PID reuse defeats it, and reading the live process's own working directory from the OS is
+the stronger evidence that a destructive action would have required.
+
+The general form: **the strength of evidence you need scales with the destructiveness of what you do
+with it.** The same observation can be adequate proof for a reversible act and inadequate for an
+irreversible one, so "I checked" is never a complete answer on its own — what was checked has to be
+weighed against what it is being used to justify. That principle generalises well past this
+repository, and it is the one I would most want a later implementer on this programme to inherit.
