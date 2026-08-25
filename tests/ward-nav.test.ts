@@ -171,8 +171,31 @@ describe("ClinicalRail's aria-label is honest for a sandboxed prototype (D11)", 
     expect(source).not.toContain("Clinical applications");
   });
 
-  it("labels the app-switcher nav with an honest, non-clinical name", () => {
-    expect(source).toContain('aria-label="Applications"');
+  it("labels the rail's own nav for Ward Flow, not for a set of applications", () => {
+    expect(source).toContain('aria-label="Ward Flow"');
+  });
+
+  /**
+   * The sandbox rule, asserted rather than trusted. The rail used to carry Ward Flow's own copy of
+   * the clinical application's app switcher — Clinical Answers, Documents, Services, Medication,
+   * Tools, All applications — plus Favourites and Settings in the bottom block: eight links routing
+   * out of the sandbox and into the application it is meant to stand apart from. The product
+   * owner's instruction is that each prototype is "its own sandbox only interacting via the
+   * developer page, otherwise standalone app".
+   *
+   * Removing them also fixed the last red browser test. The rail is a fixed-height flex column;
+   * those eight icons pushed its content past a 1024px viewport, so `.railBottom` overlapped the
+   * final nav links and swallowed their clicks — while every link stayed in the DOM and stayed
+   * keyboard-reachable, so no unit test could see it. **That is why this guard is a source scan
+   * rather than a render assertion: the defect it prevents is invisible to rendering.**
+   */
+  it("routes nowhere in the clinical application — the developer hub is the only way out", () => {
+    const clinicalExits = ["/documents", "/services", "/medications", "/tools", "/?mode=answer"];
+    const found = clinicalExits.filter((href) => source.includes(`href="${href}"`));
+    expect(found, `the rail must not link into the clinical app, but found: ${found.join(", ")}`).toEqual([]);
+    // Non-vacuity: the one legitimate exit must still be there, or this test would also pass on a
+    // rail with no links at all.
+    expect(source).toContain('href="/mockups/development"');
   });
 });
 
