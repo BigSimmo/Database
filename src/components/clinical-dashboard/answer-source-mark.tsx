@@ -32,6 +32,13 @@ import { cn } from "@/components/ui-primitives";
  * clearing cap height needs roughly 45% more line spacing. This is as high as it
  * goes without stealing the line above.
  *
+ * The line-height is `leading-none`, a named step rather than an arbitrary
+ * bracketed value — `tests/design-token-contract.test.ts` keeps that vocabulary
+ * closed in production, and it scans the raw file, so even naming the bracketed
+ * form in a comment trips it. It must never go to zero: an inline-block with
+ * zero line-height has a zero-height padding box, which is how the box collapsed
+ * to a sliver the first time.
+ *
  * ### Colour and state
  *
  * One colour, always. Document staleness is a property of the document, not of
@@ -71,7 +78,7 @@ export function AnswerSourceMark({
       aria-label={label}
       onClick={() => onOpen(index)}
       className={cn(
-        "nums relative inline-block min-w-[1.5em] -top-[0.625em] rounded-[var(--radius-xs)] border px-[0.2em] py-[0.15em] text-center align-baseline text-[0.5em] font-semibold leading-[0.95] transition-colors",
+        "nums relative inline-block min-w-[1.5em] -top-[0.625em] rounded-[var(--radius-xs)] border px-[0.2em] py-[0.15em] text-center align-baseline text-[0.5em] font-semibold leading-none transition-colors",
         leading ? "ml-[0.28em]" : "ml-[0.34em]",
         active
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] outline outline-2 outline-offset-[1.5px] outline-[color:var(--clinical-accent)]"
@@ -99,7 +106,7 @@ export function AnswerSourceMarkOverflow({ count }: { count: number }) {
   return (
     <span
       data-testid="answer-source-mark-overflow"
-      className="nums relative -top-[0.625em] ml-[0.34em] align-baseline text-[0.5em] font-semibold leading-[0.95] text-[color:var(--text-muted)]"
+      className="nums relative -top-[0.625em] ml-[0.34em] align-baseline text-[0.5em] font-semibold leading-none text-[color:var(--text-muted)]"
     >
       <span className="sr-only">and </span>+{count}
       <span className="sr-only"> more sources</span>
