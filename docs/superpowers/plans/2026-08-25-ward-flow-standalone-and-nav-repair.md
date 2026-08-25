@@ -175,8 +175,8 @@ has both and is the correct shape to copy.
       "at least one" would not catch it.
 
       Render through the real component tree with `WardFlowProvider`, the way the existing ward DOM
-              tests do. **Enumerate the routes from the filesystem, not from a hand-written list** — a
-              hand-written list is what let three pages ship without the id in the first place.
+                  tests do. **Enumerate the routes from the filesystem, not from a hand-written list** — a
+                  hand-written list is what let three pages ship without the id in the first place.
 
 - [ ] **Step 2: Run it. It must fail naming at least four routes.** If it names fewer, the
       enumeration is wrong — fix the test before touching any component.

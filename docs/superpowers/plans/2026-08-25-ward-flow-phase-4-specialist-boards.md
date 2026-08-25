@@ -987,8 +987,8 @@ git commit -m "Ward Flow: patient search, on its own page"
       `ward-eligibility.ts`; they are simply invisible on the board whose job is capacity.
 
       **The authorisation flag is a property the model already carries about a unit. Rendering it
-              is not a legal claim and must not be dressed as one** — no explanation of what authorisation
-              requires or means.
+                  is not a legal claim and must not be dressed as one** — no explanation of what authorisation
+                  requires or means.
 
 - [ ] **Step 4: Run and watch it pass. Commit.**
 
@@ -1042,16 +1042,16 @@ git commit -m "Ward Flow: the capacity board shows the three things that actuall
 - [ ] **Step 5: Extend `GovernanceView`** with three additions:
 
       1. The **not-a-medical-device** statement. `coordinator-screen.tsx` already carries the exact
-                 wording — reuse it rather than writing a second version.
-              2. The **change audit**, newest first, with an explicit empty state.
-              3. The **two effectiveness numbers**, each rendering an explicit absence when `undefined`.
+                     wording — reuse it rather than writing a second version.
+                  2. The **change audit**, newest first, with an explicit empty state.
+                  3. The **two effectiveness numbers**, each rendering an explicit absence when `undefined`.
 
-              **The third success measure is dropped and the page says so.** The binding spec §11 lists
-              "legal deadlines passed while a patient waits" as one of three measures; it no longer exists
-              and cannot be computed. Record the drop on the page rather than silently omitting it.
+                  **The third success measure is dropped and the page says so.** The binding spec §11 lists
+                  "legal deadlines passed while a patient waits" as one of three measures; it no longer exists
+                  and cannot be computed. Record the drop on the page rather than silently omitting it.
 
-              **Neither number may be presented as evidence the prototype works.** They describe the
-              synthetic scenario and the page must say so.
+                  **Neither number may be presented as evidence the prototype works.** They describe the
+                  synthetic scenario and the page must say so.
 
 - [ ] **Step 6: DOM test, then commit.**
 
@@ -1126,10 +1126,10 @@ git commit -m "Ward Flow: the patient page carries declines, changes and the esc
       not invent a blocker that describes a person.
 
       **A bed release carries nothing whatsoever about the departing patient** — no identifier, no
-              timing that could identify them, no reason relating to them. That is a privacy rule from the
-              binding spec §4 and it is not negotiable. Add a test that asserts the `BedRelease` type has
-              no field capable of carrying a patient reference, and say plainly in your report how you
-              proved it.
+                  timing that could identify them, no reason relating to them. That is a privacy rule from the
+                  binding spec §4 and it is not negotiable. Add a test that asserts the `BedRelease` type has
+                  no field capable of carrying a patient reference, and say plainly in your report how you
+                  proved it.
 
 - [ ] **Step 5: Run and watch them pass.**
 
