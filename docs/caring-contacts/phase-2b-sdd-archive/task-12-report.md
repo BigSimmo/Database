@@ -420,6 +420,14 @@ never formatted, the sibling tasks in the other worktrees are worth the same one
 | `npm run test:cc-guards`, M19 applied                            | `Test Files  1 failed / 19 passed (20)` and `Tests  1 failed / 426 passed (427)` |
 | `npm run test:cc-guards`, M20 applied                            | `Test Files  1 failed / 19 passed (20)` and `Tests  1 failed / 426 passed (427)` |
 | `prettier --check`, the five Task 12 source and test files       | `All matched files use Prettier code style!` after `a4550fc80`                   |
+| `npm run typecheck` (`GATE_RECEIPTS=refresh`)                    | exit 0, no diagnostics emitted                                                   |
+| `npx eslint --no-cache`, the three files this round changed      | `files linted: 3`, `errors: 0 warnings: 0` (JSON formatter)                      |
+
+The ESLint cache directory was deleted before that run and `--no-cache` passed, because the per-file
+cache is exactly what hides a failure caused by a different file's change. `typecheck` prints nothing
+on success, so its row is an exit code and an absence of diagnostics rather than a summary line; the
+lint row carries a JSON count because that is the one affirmative number available, and there is no
+equivalent for `tsc`.
 
 The full `npm run test` was **not** run: the controller owns it at the merge point, and three
 concurrent worktrees starving the exclusive lease is what that policy exists to stop.
