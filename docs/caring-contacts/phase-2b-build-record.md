@@ -1874,3 +1874,47 @@ outcome.
 count 0, so the `useSyncExternalStore`/`getServerSnapshot` argument is proved in jsdom only, which has
 no RSC payload and no hydration. The implementer's reasoning for not seeding a referral is sound; the
 gap it leaves is what its report did not name.
+
+### Task 7 fix round 1 re-review — all six ADDRESSED; three new Minors sent back as round 2
+
+**The new finding worth recording is a truth defect in the OPPOSITE direction from the one it
+replaced.** M-6 was "Both confirmations are **recorded**" above a panel saying nothing records them —
+an overstatement. Its replacement reads "Neither is **stored anywhere**", which is equally untrue the
+other way: every tick goes through `writePlanDraft()` into `sessionStorage`, and the draft notice on
+the same screen says so in the same words.
+
+**And the direction matters more than the inaccuracy.** On a shared ward computer, a clinician told
+"neither is stored anywhere" has been given a reason **not** to press Discard draft — while a
+patient's name and mobile number sit in that tab's storage. The wording had begun working against
+Ruling [110]'s third requirement, which is the one the whole ruling turns on. The careful sentence
+was already there in the panel above (_"nothing in this domain records either of them"_); the fix
+dropped its qualifier.
+
+**Two corrections in a row on the same sentence, in opposite directions, is itself the finding.** The
+difficulty is not carelessness — it is that "stored", "recorded" and "kept" are near-synonyms in
+ordinary English and this system distinguishes them sharply: held in a tab's storage, versus written
+onto the plan. **A screen that must distinguish two senses of one everyday word will keep getting it
+wrong until the wording names the destination rather than the act.** "Recorded on the plan" survives
+that; "stored" does not.
+
+**The structural point the reviewer made, and I acted on it:** the guard set was a **prose list in a
+document with nothing enforcing membership**, so it would drift the first time someone added a
+tree-walking scan and did not update a paragraph. It becomes a package script alongside
+`test:ci-workflows`, which is the exact precedent, and this build record points at the script rather
+than repeating the filenames — one copy, not two. That is the same "a check that cannot fail" family
+as the guard installed where no runner could reach it: **a set that nothing enforces is a set that
+will silently shrink.**
+
+**Verified in the implementer's favour, each checked rather than accepted:** `memoryDraft` is nulled
+on both a successful `setItem` and on `clearPlanDraft`, so it can only be non-null while the last
+write failed and cannot shadow a newer stored draft; both refused-write tests are doubly armed;
+R1-M13's "three red" is corroborated by the code rather than reconstructed, because only three of the
+four memory cases go red under the restored ordering; and `stripSourceComments`'s fixture genuinely
+blanks a real import under the old regex rather than demonstrating it synthetically.
+
+**The filed vocabulary issue was cancelled and re-filed**, because the re-review found the larger
+half: `src/lib/caring-contacts/**` is outside **every** prohibited-language scan in this repository,
+so the wording moved there is unwatched rather than merely exempt. The original record understated
+it, and also omitted that the fix is a one-line reuse of `message-rules.ts`'s already-tested
+`COMMERCIAL_LEAD_PATTERN` — filing a residual without saying how small it is makes it look harder
+than it is, and rows that look hard do not get taken.
