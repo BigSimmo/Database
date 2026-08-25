@@ -123,6 +123,8 @@ export function OfficerScreen() {
     <div className={styles.screen} data-testid="ward-officer-screen">
       <ClinicalRail />
       <main id="main-content" className={styles.main}>
+        <h1 className="sr-only">Transport officer job list</h1>
+
         <div className={styles.governanceBanner} data-testid="ward-officer-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>

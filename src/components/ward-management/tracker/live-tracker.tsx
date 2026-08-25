@@ -67,6 +67,8 @@ export function LiveTracker() {
     <div className={styles.screen} data-testid="ward-mode-transport">
       <ClinicalRail activeMode="transport" />
       <main id="main-content" className={styles.main} data-testid="ward-live-tracker">
+        <h1 className="sr-only">Live tracker</h1>
+
         <div className={styles.governanceBanner} data-testid="ward-tracker-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>

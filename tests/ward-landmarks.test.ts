@@ -159,3 +159,16 @@ describe("Every Ward Flow route has exactly one #main-content skip-link target (
     });
   }
 });
+
+// Task 6 (D7). Every Ward Flow route needs a heading a screen reader can jump straight to, and
+// exactly one — a second <h1> is as much a defect as none, for the same reason a duplicated
+// #main-content landmark is (see the describe block above).
+describe("Every Ward Flow route has exactly one <h1> (D7)", () => {
+  for (const entry of RENDERABLE_ROUTES) {
+    it(`renders exactly one <h1> on ${entry.route}`, () => {
+      const markup = renderRoute(entry);
+      const matches = markup.match(/<h1\b/g) ?? [];
+      expect(matches.length, `expected exactly one <h1> on ${entry.route}, found ${matches.length}`).toBe(1);
+    });
+  }
+});
