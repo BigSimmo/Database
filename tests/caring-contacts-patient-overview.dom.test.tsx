@@ -974,6 +974,27 @@ describe("the patient overview - a plan that is not running must not read as for
     expect(screen.queryByRole("group", { name: "Draft" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Paused" })).not.toBeInTheDocument();
   });
+
+  it("adds no plan-level note to an ENDED plan, which already explains itself row by row", async () => {
+    // The `stillToSend === 0` guard, which would otherwise be an unproven check. `withdrawPlan`
+    // cancels every unsent contact, so a withdrawn plan has nothing that could read as forthcoming
+    // and `notSentExplanation` has already given each row its own reason. A second, plan-level
+    // sentence over the top of ten explained rows would be the screen saying the same thing twice
+    // in different words -- and the branch it would come from says the record disagrees with
+    // itself, which about a withdrawn plan would be false.
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    await endPlan(store, id);
+
+    await renderPage();
+
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "10 entries, and none of them will be sent.",
+    );
+    expect(screen.queryByRole("group", { name: "Withdrawn" })).not.toBeInTheDocument();
+    // The rows still carry their own reason, so nothing was lost by withholding the note.
+    expect(screen.getAllByRole("group", { name: "Cancelled" }).length).toBeGreaterThan(0);
+  });
 });
 
 /**
@@ -997,11 +1018,28 @@ describe("the patient overview - the attestation is recorded on the plan, and is
     await renderPage();
 
     const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
-    expect(card).toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed));
-    expect(card).toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientControlsMobileConfirmed));
+    // HELD TO EXPECTED CONTENT, not to `planAssuranceWording`'s own return value. Asserting the
+    // rendered text against the same function that produced it is the shape Task 9b's mutation
+    // falsified: emptying the map would move both sides together and the assertion would agree with
+    // itself. The literals are here, and the map is pinned to them separately below, so a change to
+    // either has to be made in two places by somebody who meant it.
+    expect(card).toHaveTextContent("A coordinator confirmed that the patient had agreed to receive caring contacts");
+    expect(card).toHaveTextContent("that the mobile number this plan uses is the patient's own");
+    expect(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed)).toBe(
+      "that the patient had agreed to receive caring contacts",
+    );
+    expect(planAssuranceWording(PLAN_ASSURANCES.patientControlsMobileConfirmed)).toBe(
+      "that the mobile number this plan uses is the patient's own",
+    );
+
     // "Recorded on the plan" survives; "stored", "kept" and "recorded" alone do not -- this system
     // distinguishes held in a tab's storage from written onto the plan, ordinary English does not.
-    expect(card).toHaveTextContent(/recorded on the plan/i);
+    // Asserted on the LIST rather than the card, so the claim is pinned where each attestation is
+    // read back and not satisfied by the paragraph above it.
+    const list = within(card).getByRole("list", { name: "Confirmations recorded on this plan" });
+    expect(list).toHaveTextContent(/recorded on the plan on/i);
+    // The instant is part of what an attestation is; a row without it is not one.
+    expect(list).toHaveTextContent("2026-03-02 (AWST)");
     // The claim the design's `Agreement confirmed: Yes` makes, and the one this domain cannot back.
     expect(card).not.toHaveTextContent(/consent/i);
     expect(card).toHaveTextContent(/hospital record/i);
@@ -1020,7 +1058,8 @@ describe("the patient overview - the attestation is recorded on the plan, and is
     const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
     expect(card).toHaveTextContent(/holds no record of those confirmations/i);
     expect(card).toHaveTextContent(/before this plan began recording them/i);
-    expect(card).not.toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed));
+    expect(card).not.toHaveTextContent("that the patient had agreed to receive caring contacts");
+    expect(within(card).queryByRole("list", { name: "Confirmations recorded on this plan" })).not.toBeInTheDocument();
   });
 
   it("keeps the attestation on a cleared plan while the first-contact reason has gone", async () => {
@@ -1043,9 +1082,11 @@ describe("the patient overview - the attestation is recorded on the plan, and is
     expect(reason).not.toHaveTextContent("Patient was interstate for the first week.");
     expect(reason).toHaveTextContent(/retention clearance has since removed it/i);
 
-    // Preserved: same render, same plan.
+    // Preserved: same render, same plan. Held to expected content for the reason the first case
+    // records -- a cleared plan whose attestation had ALSO gone would agree with a screen that
+    // rendered neither.
     const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
-    expect(card).toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed));
+    expect(card).toHaveTextContent("A coordinator confirmed that the patient had agreed to receive caring contacts");
     expect(card).toHaveTextContent(/no patient detail/i);
   });
 });
