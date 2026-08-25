@@ -27,6 +27,8 @@
 
 Tests added: `tests/caring-contacts-plan-patient-detail.test.ts` (11 cases).
 Tests extended: `tests/caring-contacts-plan-wizard.dom.test.tsx` (+10), `tests/caring-contacts-plan-draft.dom.test.tsx` (+3), `tests/caring-contacts-schedule.test.ts` (+3).
+`docs/scripts-index.md`: one regenerated line, written by the pre-commit documentation sync when
+`test:cc-guards` gained files (round 1, M-5 — it was in the diff and absent from this table).
 `package.json`: `test:cc-guards` now also carries `tests/caring-contacts-plan-patient-detail.test.ts`
 (this task's own) and `tests/caring-contacts-schedule.test.ts` (pre-existing, but this task edits
 `schedule.ts`). See §6 for why.
@@ -432,10 +434,16 @@ for 906 s and then refused:
 
 ```
 Error: Another Database heavyweight command is active (PID 55448, worktree
-D:\Repos\Database\.claude\worktreesrowser-test-gate-handoff-d5c1db, started
+D:/Repos/Database/.claude/worktrees/browser-test-gate-handoff-d5c1db, started
 2026-08-25T07:12:07.831Z): vitest run --reporter=dot
 [test] exit=1 elapsed=906s
 ```
+
+**The path above is written with forward slashes deliberately (corrected in round 1).** The original
+paste kept the record's Windows separators, and `` in `\worktreesrowser-…` is a BACKSPACE
+escape — it survived into the committed Markdown as a literal control byte, so the displayed field
+read `worktrees` with the `b` eaten. The evidence that actually carried the ownership argument was
+the process ancestry, not that path; a corrupted paste is a good reason not to lean on one.
 
 **A refusal is neither a pass nor a failure, and I treated it as neither.** I proved ownership from
 the lease record rather than from a live PID, exactly as the brief requires: its `worktree` field is
@@ -477,3 +485,151 @@ has not been seen by anything. It cannot be closed until that server seeds a ref
 - `npm run verify:cheap`, `verify:pr-local`, `verify:release` — not asked for; the last is
   provider-backed.
 - Nothing provider-backed was run at all. No Supabase, no OpenAI, no GitHub, no CI.
+
+---
+
+# Round 1 — the review's findings, addressed
+
+Every item fixed. Commits: `d275c02c4` (M-1, M-2), `473abfc96` (M-3, M-4), `61f1f93c5` (item 1 and
+I-3), `a78baf138` (I-2), `1064839b7` (I-1), `6be44f71c` (item 5), plus this report.
+
+## Item 1 — the cultural-identity field is removed, and the screen says why
+
+Done, and the reasoning is now in the code rather than only in the instruction. The input is gone;
+`createPlanPatientDetail` sends `null`; the field stays nullable in the schema and in the draft; the
+storage, the column and `cultural_identity_reports` are untouched.
+
+**Not replaced with a category picker**, because choosing the categories is precisely the deferred
+decision. That is the part it would have been easiest to get wrong while looking helpful.
+
+**The absence is stated in place**, in spec §4.4's shape, because an absent field with no explanation
+reads as an oversight:
+
+> **Cultural identity is not asked for here.** _Why:_ The design for this service records cultural
+> identity as something read from the hospital record, and used only for counting how many people the
+> programme reaches — never for who is eligible, the timing of anything, which pathway runs, or what a
+> message says. This prototype is connected to no hospital record, so the only way to have it would be
+> to ask you to type it, and typed free text cannot support the small-number suppression that
+> reporting would depend on. _What changes it:_ Nothing on this screen. It needs the record it is
+> meant to be read from, and a decision about which identities are recorded — neither of which has
+> been made. Until then the plan records nothing here.
+
+**I-3 is resolved by the same change, and the reviewer's framing of it is the part worth keeping.**
+The removed panel said the field _"is used for aggregate reporting on programme reach"_ — present
+tense, for a report nobody has built. I had refused to reproduce §2.5's false "imported from the
+source record" and then reproduced §2.5's equally unbuilt "is used for", **one sentence later**. The
+lesson generalises past this fix: I treated §2.5 as one claim to check rather than as a document
+every sentence of which describes an unbuilt capability. A test now refuses both strings by name, so
+the pair travels together.
+
+## I-1 — "validate before advancing" was present and dead
+
+**Confirmed exactly as described.** `ForwardControl` returns an `UnavailableDestination` whenever the
+next stage is unbuilt and never reads `ready` on that path, so stage 3's `ready={complete}` was
+unreachable, and **no test asserted that an incomplete stage 3 cannot advance.** Task 9 could have
+flipped `review` to built, shipped a Continue that ignores `ready`, and had every gate stay green —
+with a plan submittable carrying no patient name and no mobile number.
+
+My report claimed Ruling [115] satisfied without naming this. That was the report's defect as much as
+the code's: I described the mechanism ("`ready` is passed, and it arms when Task 9 builds review")
+accurately enough for it to sound covered, and did not follow the sentence to its end — "so nothing
+tests it today".
+
+Two halves, because either alone leaves a hole:
+
+1. **Live now.** Stage 2's forward control — whose next stage _is_ built — must be `disabled` with no
+   pathway chosen, and must use native `disabled` rather than `aria-disabled`, because awaiting
+   validity is transient inertness. That proves the `ready` → `disabled` mechanism is wired at all.
+2. **Self-arming**, in Task 7's shape. Inert while `review` is `not-built` (asserting only that no
+   enabled Continue has appeared behind the table's back), and a hard requirement the instant that
+   entry flips. R1-M14 proves it arms, and it names Ruling [115] in its own failure message.
+
+## I-2 — the caution nobody would hear
+
+**Confirmed, and it is the finding I am least comfortable about**, because the whole reason the
+accept-with-caution decision is defensible is that the caution arrives — and I had built it so that
+it might not. The `<p role="status">` was created along with its content; a live region has to be on
+the page already for a change inside it to be announced.
+
+The region is now always rendered with its children toggled, and its id is named in the input's
+`aria-describedby`, so it is reachable from the control rather than only as a region someone has to
+go and find. `TextField` gained an optional `describedBy` that is **joined** with the requirement
+rather than replacing it — a field can be both incomplete and cautioned, and an implementation that
+overwrote one with the other would have traded one silent string for another.
+
+## The minors
+
+- **M-1 and M-2 — fixed, and the reviewer's observation about where they came from is the useful
+  part.** Both are the tautology of my own finding 3, written twice more in the same diff. The
+  schedule case named "advertises every send time inside the approved window" asserted a regex that
+  accepts `"5:00 am AWST"`; it now parses the advertised wording back to a 24-hour hour and compares
+  it against `APPROVED_SEND_WINDOW`. The patient-detail case named "names only the two reserved
+  PATIENT mobiles" asserted `toHaveLength(2)`; it now checks the list against
+  `FICTIONAL_CONTACTS_BY_ROLE` and separately refuses each service line. R1-M11 and R1-M12 prove both.
+
+  **What I take from it.** I found the pattern by mutation and then wrote it up as a property of one
+  assertion, which let me file it as handled. It is not a property of an assertion, it is a habit —
+  asserting the shape of a value instead of the rule that produces it — and finding one instance does
+  not interrupt a habit. The check that would have caught all three is the one that caught the first:
+  for every assertion, name the wrong value it is supposed to reject, then confirm it rejects it.
+
+- **M-3 — fixed.** The comment argued `""` and `null` would be indistinguishable from a cleared
+  record; they are distinguishable (a clearance writes `null`), merely meaningless. The decisive fact
+  is that `z.string().min(1).nullable()` **refuses `""` outright**, so a plan carrying one could not
+  be created at all. Kept, as instructed, even though the field is gone — the shape rule still governs
+  the stored value, and Task 9 reads this function.
+
+- **M-4 — fixed.** The draft suite carried a reserved number as a literal three times. It now reads
+  `DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS`, and the replacement comment does not quote the number
+  either: a copy in prose is still a copy, which the first draft of that comment demonstrated by
+  tripping my own "no literals left" check on its own text.
+
+- **M-5 — fixed.** `docs/scripts-index.md` is now in the file table, named as what it is: one line
+  regenerated by the pre-commit documentation sync when `test:cc-guards` gained files.
+
+## Item 5 — the draft notice names what it holds
+
+**Overruled and implemented, and the overrule is right.** My reasoning was that the notice already
+named the destination and pointed at Discard draft, so the stage panel could carry the rest. What it
+missed is that a clinician cannot weigh the Discard-draft decision the same sentence offers them
+without knowing what is being held — and the sentence was written for a draft of two checkboxes.
+
+The held and pending wordings now say "what you enter here — including the patient's name and mobile
+number — is written to this computer's storage for this tab only". "Name the destination, not the
+act" is unchanged; this adds the content to it rather than replacing it. A test pins the phrase, and
+R1-M15 proves the pin fires.
+
+## The mangled lease path
+
+Corrected at its own site. `\b` in `\worktrees\browser-…` is a backspace escape and reached the
+committed Markdown as a literal control byte, so the displayed field read `worktrees` with the `b`
+eaten. The path is now written with forward slashes and the corruption is noted where it happened.
+The ownership argument never rested on it — the process ancestry did — which is the reason to say so
+rather than silently repair it.
+
+## Round 1 mutation log — every attempt, itemised, no aggregate
+
+Same discipline: each mutation applied, presence confirmed by its own `grep -c` run as a separate
+command with `;` (never `&&`), the gate run, then reverted with `git checkout --` against a committed
+file, so no revert could discard a fix.
+
+| #      | Mutation                                                                       | Predicted                                                                                                                                                                                                                                                   | Observed                                                                                                                                                                                                                                                       | Verdict                 |
+| ------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| R1-M11 | `awstWallClockLabel`'s meridiem hardcoded to `"am"`                            | 2 red in the schedule suite, and the window case must be one of them                                                                                                                                                                                        | Exactly 2: `afternoon is advertised at the wrong time: expected '2:00 am AWST' to be '2:00 pm AWST'`, and the window case firing for the first time — `afternoon is advertised before the earliest permitted send: expected 2 to be greater than or equal to 9` | RED, prediction matched |
+| R1-M12 | `crisisSupportContact` swapped in for `rowanPatientMobile` in the reserved list | 1 red, the exact-equality half firing before the not-contains loop                                                                                                                                                                                          | 1 red: `expected [ Array(2) ] to deeply equal [ Array(2) ]` — the case that passed this exact swap before the fix                                                                                                                                               | RED, prediction matched |
+| R1-M13 | `ForwardControl`'s `disabled={!ready}` → `disabled={false}`                     | 1 red: the live half. The self-arming half stays GREEN, because it is still inert                                                                                                                                                                           | 1 red, the live half; the self-arming half green as predicted                                                                                                                                                                                                  | RED, prediction matched |
+| R1-M14 | `stages.ts` marks `review` built **and** `disabled={false}` kept                | 7 red: the self-arming case naming Ruling [115], the live half, the stepper count, the table case, the review unavailable-control case, the unbuilt-panel case, and Task 7's draft-clearing self-arming case                                                 | Exactly 7, and the self-arming case fired its own message: `stage 3 could advance with no patient name and no mobile number — Ruling [115] requires the mobile number to be validated BEFORE the wizard advances: expect(element).toBeDisabled()`                | RED, prediction matched |
+| R1-M15 | The pre-round-1 draft-notice sentence restored                                  | 1 red on the content pin                                                                                                                                                                                                                                    | `the notice does not say what it is holding: expect(element).toHaveTextContent()`                                                                                                                                                                               | RED, prediction matched |
+
+No anchor failed to match, and `git status` was clean after each revert.
+
+**One process note, since the brief asks for unmatched anchors too.** Two *edits* in this round failed
+their `assert old in s` on the first attempt — the caution paragraph and one comment — both because
+Prettier had reflowed those lines between my writing the anchor and applying it. Nothing green was
+reported on an unmutated tree, because these were edits rather than mutations and they aborted loudly.
+But it is the same hazard the brief names for mutations, met from the other side: **an anchor written
+against unformatted text does not match formatted text.** Anchor against the file as it stands, not as
+you last typed it. One of those aborts left a half-applied edit that broke every stage-3 case until
+the remaining hunks landed, which is exactly why each piece was committed before the next began.
+
+## Round 1 gates
