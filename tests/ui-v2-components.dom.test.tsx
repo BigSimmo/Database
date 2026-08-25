@@ -227,13 +227,19 @@ describe("ChoiceChip", () => {
     expect(chip).toHaveClass("min-h-tap", "rounded-lg");
     expect(chip).toHaveAttribute("data-choice-chip", "true");
     expect(chip).not.toHaveClass("border", "shadow-[var(--shadow-inset)]");
-    expect(chip.querySelector("[data-choice-chip-surface='true']")).toHaveClass(
+    const surface = chip.querySelector("[data-choice-chip-surface='true']");
+    expect(surface).toHaveClass(
       "absolute",
       "inset-1",
+      "z-[var(--z-base)]",
       "border",
       "shadow-[var(--shadow-inset)]",
       "group-hover:border-[color:var(--border-strong)]",
       "group-hover:bg-[color:var(--surface-subtle)]",
+    );
+    expect(chip.querySelector("[data-choice-chip-content='true']")).toHaveClass(
+      "relative",
+      "z-[var(--z-raised)]",
     );
     await userEvent.click(chip);
     expect(onPressedChange).toHaveBeenCalledWith(true);

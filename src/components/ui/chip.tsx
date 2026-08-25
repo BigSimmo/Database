@@ -146,7 +146,7 @@ export function ChoiceChip({
         onPressedChange(!pressed);
       }}
       className={cn(
-        "group relative isolate inline-flex min-h-tap max-w-full items-center justify-center gap-1.5 rounded-lg font-semibold leading-none transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        "group relative isolate inline-flex min-h-tap max-w-full items-center justify-center rounded-lg font-semibold leading-none transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         size === "compact" ? "px-2.5 text-2xs" : "px-3 text-xs",
         contentAppearance,
         pressed && "font-bold forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]",
@@ -157,12 +157,17 @@ export function ChoiceChip({
         aria-hidden="true"
         data-choice-chip-surface="true"
         className={cn(
-          "pointer-events-none absolute inset-1 -z-10 rounded-lg border shadow-[var(--shadow-inset)]",
+          "pointer-events-none absolute inset-1 z-[var(--z-base)] rounded-lg border shadow-[var(--shadow-inset)]",
           surfaceAppearance,
         )}
       />
-      {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
-      {typeof children === "string" ? <span className="min-w-0 truncate">{children}</span> : children}
+      <span
+        data-choice-chip-content="true"
+        className="relative z-[var(--z-raised)] inline-flex min-w-0 items-center justify-center gap-1.5"
+      >
+        {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
+        {typeof children === "string" ? <span className="min-w-0 truncate">{children}</span> : children}
+      </span>
     </button>
   );
 }
