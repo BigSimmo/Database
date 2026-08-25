@@ -227,3 +227,92 @@ describe("the caring-contacts plan draft — tab lifetime is enforced, not promi
     expect(planDraftStorageAvailable()).toBe(true);
   });
 });
+
+describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
+  it("starts a fresh draft with nothing typed and no sending preference chosen", () => {
+    // Nothing in this domain holds a patient's name or mobile number (Ruling [112]), so there is
+    // nothing to prefill from. And nothing holds a sending preference either: the draft starts at
+    // null rather than defaulting to "morning", because a default would make a choice about when a
+    // discharged patient hears from the service and present it as though the coordinator had made
+    // it. Stage 2's pathway differs only because a referral genuinely does carry one.
+    const draft = emptyPlanDraft(REFERRAL, null);
+    expect(draft.patientDetail).toEqual({
+      patientName: "",
+      patientMobileNumber: "",
+      patientIdentifiers: "",
+      culturalIdentity: "",
+    });
+    expect(draft.sendingPreference).toBeNull();
+  });
+
+  it("keeps a patient's name, number, identifiers and cultural identity across a reload", () => {
+    // The whole reason this workspace has a Client Component at all (Ruling [109]) — and the moment
+    // Ruling [110]'s notice is about, because these are the values it is warning the clinician are
+    // being held on this computer.
+    const draft: PlanDraft = {
+      ...filledDraft(),
+      stage: "personalisation",
+      patientDetail: {
+        patientName: "Rowan Example",
+        patientMobileNumber: "+61 491 570 156",
+        patientIdentifiers: ["SYN-MRN-4471", "SYN-URN-90210"].join("\n"),
+        culturalIdentity: "Noongar",
+      },
+      sendingPreference: "earlyEvening",
+    };
+    expect(writePlanDraft(draft)).toBe(true);
+
+    // Read back through the module's own PARSER, exactly as a reload would. `writePlanDraft`
+    // primes the snapshot cache with the object it was handed -- that is what keeps the snapshot
+    // referentially stable -- so a read straight after a write never touches `parseDraft` and would
+    // prove only that the object is still in memory. Clearing the cache first is what makes this
+    // about what SURVIVES storage.
+    const serialised = JSON.stringify(draft);
+    clearPlanDraft();
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, serialised);
+
+    const read = readPlanDraft(REFERRAL);
+    expect(read?.patientDetail).toEqual(draft.patientDetail);
+    expect(read?.sendingPreference).toBe("earlyEvening");
+  });
+
+  it("discards a draft whose patient detail or sending preference is the wrong shape", () => {
+    // `parseDraft` refuses anything it does not fully recognise, so a draft stored by an earlier
+    // build — one with no patient detail at all — is discarded rather than half-read with the
+    // clinician's typing silently defaulted away.
+    const base = {
+      referralId: REFERRAL,
+      stage: "personalisation",
+      assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+      pathwayVersionId: "SYN-PATHWAY-001",
+    };
+
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(base));
+    expect(readPlanDraft(REFERRAL), "a draft from before stage 3 existed was accepted").toBeNull();
+
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        ...base,
+        patientDetail: { patientName: "Rowan Example", patientMobileNumber: "+61 491 570 156" },
+        sendingPreference: null,
+      }),
+    );
+    expect(readPlanDraft(REFERRAL), "a draft missing half its patient detail was accepted").toBeNull();
+
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        ...base,
+        patientDetail: {
+          patientName: "Rowan Example",
+          patientMobileNumber: "+61 491 570 156",
+          patientIdentifiers: "",
+          culturalIdentity: "",
+        },
+        sendingPreference: "whenever",
+      }),
+    );
+    expect(readPlanDraft(REFERRAL), "a draft naming no real sending preference was accepted").toBeNull();
+  });
+});

@@ -30,11 +30,14 @@ import {
   clearPlanDraft,
   readPlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
+import { createPlanPatientDetail } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
 import {
   PlanWizard,
   type PlanWizardProps,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
 import { planWizardStageImplementation } from "@/components/caring-contacts/workspace/plan-wizard/stages";
+import { SENDING_PREFERENCE_OPTIONS } from "@/lib/caring-contacts/schedule";
+import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 import { stripSourceComments } from "./helpers/strip-source-comments";
 
@@ -43,6 +46,14 @@ const PATIENT = "SYN-PATIENT-001";
 const TEAM = "SYN-TEAM-001";
 const NAMED_PATHWAY = "SYN-PATHWAY-001";
 const OTHER_PATHWAY = "SYN-PATHWAY-002";
+
+/**
+ * The reserved fictional patient mobiles, read from the sealed domain rather than written out.
+ *
+ * A literal here would be a second copy of `synthetic-contacts.ts`'s list, so a test asserting the
+ * screen names "the reserved numbers" could go on passing after the reserved numbers changed.
+ */
+const FICTIONAL_PATIENT_MOBILES = DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS;
 
 function pathwayOption(id: string) {
   return {
@@ -62,6 +73,11 @@ function renderWizard(overrides: Partial<PlanWizardProps> = {}) {
     actorRoleLabels: ["coordinator"],
     referralPathwayVersionId: NAMED_PATHWAY,
     pathwayOptions: [pathwayOption(NAMED_PATHWAY), pathwayOption(OTHER_PATHWAY)],
+    // Both resolved on the server in production, for the reason round 1 finding M-2 established:
+    // a screen must never re-derive a rule a module owns, and resolving here keeps the domain
+    // modules out of the client bundle.
+    sendingPreferenceOptions: SENDING_PREFERENCE_OPTIONS,
+    fictionalPatientMobileNumbers: FICTIONAL_PATIENT_MOBILES,
     ...overrides,
   };
   return { ...render(<PlanWizard {...props} />), props };
@@ -72,6 +88,14 @@ async function reachPathwayStage(user: ReturnType<typeof userEvent.setup>) {
   for (const box of screen.getAllByRole("checkbox")) await user.click(box);
   await user.click(screen.getByRole("button", { name: /Continue to pathway/ }));
   return screen.getByRole("region", { name: "Pathway" });
+}
+
+/** Ticks the confirmations, chooses a pathway, and moves to stage 3. */
+async function reachPersonalisationStage(user: ReturnType<typeof userEvent.setup>) {
+  await reachPathwayStage(user);
+  await user.click(screen.getByRole("radio", { name: new RegExp(NAMED_PATHWAY) }));
+  await user.click(screen.getByRole("button", { name: /Continue to personalisation/ }));
+  return screen.getByRole("region", { name: "Personalisation" });
 }
 
 beforeEach(() => {
@@ -263,6 +287,15 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
       stage: "pathway",
       assurances: { patientAgreed: true, mobileIsPatientControlled: true },
       pathwayVersionId: OTHER_PATHWAY,
+      // Stage 3's fields are present and empty from the first render: nothing in this domain holds
+      // a patient's name, mobile number or sending preference, so there is nothing to prefill.
+      patientDetail: {
+        patientName: "",
+        patientMobileNumber: "",
+        patientIdentifiers: "",
+        culturalIdentity: "",
+      },
+      sendingPreference: null,
     });
 
     // A remount is what a page refresh looks like from this component's point of view.
@@ -394,15 +427,16 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     for (const label of ["Agreement", "Pathway", "Personalisation", "Review and activation"]) {
       expect(within(stepper).getByText(label)).toBeInTheDocument();
     }
-    expect(within(stepper).getAllByText("not built yet")).toHaveLength(2);
+    // One, not two: Task 8 built personalisation, and Task 9 builds review and activation.
+    expect(within(stepper).getAllByText("not built yet")).toHaveLength(1);
   });
 
-  it("offers personalisation as an unavailable control with a stated reason, never a dead end", async () => {
+  it("offers review and activation as an unavailable control with a stated reason, never a dead end", async () => {
     const user = userEvent.setup();
     renderWizard();
-    await reachPathwayStage(user);
+    await reachPersonalisationStage(user);
 
-    const forward = screen.getByRole("button", { name: /^Personalisation/ });
+    const forward = screen.getByRole("button", { name: /^Review and activation/ });
     // Ruling 52 and docs/wiring-conventions.md: `aria-disabled` plus an inert handler, never the
     // native attribute, so the stated reason stays reachable by keyboard.
     expect(forward).toHaveAttribute("aria-disabled", "true");
@@ -412,9 +446,9 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     expect(describedBy).toBeTruthy();
     expect(document.getElementById(describedBy!)?.textContent ?? "").toContain("is not built yet");
 
-    // And the way back from stage 2 is a real control.
-    await user.click(screen.getByRole("button", { name: /Back to agreement/ }));
-    expect(screen.getByRole("region", { name: "Agreement" })).toBeInTheDocument();
+    // And the way back from stage 3 is a real control.
+    await user.click(screen.getByRole("button", { name: /Back to pathway/ }));
+    expect(screen.getByRole("region", { name: "Pathway" })).toBeInTheDocument();
   });
 
   it("keeps the stage table and the wizard's own bodies in step", () => {
@@ -423,7 +457,7 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     // tasks can actually make — flipping an entry to `built` and not writing the body.
     expect(planWizardStageImplementation("agreement")).toEqual({ kind: "built" });
     expect(planWizardStageImplementation("pathway")).toEqual({ kind: "built" });
-    expect(planWizardStageImplementation("personalisation").kind).toBe("not-built");
+    expect(planWizardStageImplementation("personalisation")).toEqual({ kind: "built" });
     expect(planWizardStageImplementation("review").kind).toBe("not-built");
   });
 
@@ -471,15 +505,200 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
       PLAN_DRAFT_STORAGE_KEY,
       JSON.stringify({
         referralId: REFERRAL,
-        stage: "personalisation",
+        stage: "review",
         assurances: { patientAgreed: true, mobileIsPatientControlled: true },
         pathwayVersionId: NAMED_PATHWAY,
+        patientDetail: {
+          patientName: "Rowan Example",
+          patientMobileNumber: FICTIONAL_PATIENT_MOBILES[1],
+          patientIdentifiers: "",
+          culturalIdentity: "",
+        },
+        sendingPreference: "morning",
       }),
     );
     renderWizard();
 
-    expect(await screen.findByRole("group", { name: "Personalisation is not built yet" })).toBeInTheDocument();
-    const region = screen.getByRole("region", { name: "Personalisation" });
+    expect(await screen.findByRole("group", { name: "Review and activation is not built yet" })).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "Review and activation" });
     expect(within(region).getByRole("button", { name: "Back" })).toBeInTheDocument();
+  });
+});
+
+describe("the caring-contacts plan wizard — stage 3, personalisation (Ruling [114])", () => {
+  it("asks the clinician to TYPE the patient's name and mobile number, and ticks nothing", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    // The approved mockup renders four read-only rows with green ticks, sourced "Imported from the
+    // synthetic referral". A `Referral` is five fields and holds neither a name nor a number
+    // (Ruling [112]), so there is nothing to import and nothing to tick — presenting a clinician's
+    // own typing as an imported governed value would be a lie about provenance on the screen that
+    // decides where messages physically go.
+    expect(within(stage).getByLabelText(/patient.s name/i)).toHaveValue("");
+    expect(within(stage).getByLabelText(/mobile number/i)).toHaveValue("");
+    expect(stage.textContent ?? "").not.toMatch(/imported from the synthetic referral/i);
+    expect(stage.textContent ?? "").not.toMatch(/governed value present/i);
+  });
+
+  it("keeps what was typed in the draft, so a reload does not lose a patient's details", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderWizard();
+    await reachPersonalisationStage(user);
+
+    await user.type(screen.getByLabelText(/patient.s name/i), "Rowan Example");
+    await user.type(screen.getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
+
+    const draft = readPlanDraft(REFERRAL);
+    expect(draft?.patientDetail.patientName).toBe("Rowan Example");
+    expect(draft?.patientDetail.patientMobileNumber).toBe(FICTIONAL_PATIENT_MOBILES[1]);
+
+    // A remount is what a page refresh looks like from this component's point of view.
+    unmount();
+    renderWizard();
+    expect(await screen.findByRole("region", { name: "Personalisation" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/patient.s name/i)).toHaveValue("Rowan Example");
+    expect(screen.getByLabelText(/mobile number/i)).toHaveValue(FICTIONAL_PATIENT_MOBILES[1]);
+  });
+
+  it("says what is still missing, in words, tied to the control it is about", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    const name = within(stage).getByLabelText(/patient.s name/i);
+    const mobile = within(stage).getByLabelText(/mobile number/i);
+    for (const field of [name, mobile]) {
+      const described = (field.getAttribute("aria-describedby") ?? "")
+        .split(/\s+/)
+        .map((id) => document.getElementById(id)?.textContent ?? "")
+        .join(" ");
+      expect(described, "a required field states nothing about what is missing").toMatch(/cannot be created without/i);
+      expect(field).toHaveAttribute("aria-invalid", "true");
+    }
+
+    await user.type(name, "Rowan Example");
+    expect(within(stage).getByLabelText(/patient.s name/i)).toHaveAttribute("aria-invalid", "false");
+  });
+});
+
+describe("stage 3 — the mobile number is required and nothing here connects (Ruling [115])", () => {
+  it("states, where the number is entered, that nothing is ever sent to it", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    // "A clinician who believes this field reaches a real handset is the single most dangerous
+    // misunderstanding this interface can create." The statement is in the flow of the page, in the
+    // shape spec §4.4 sets, beside the field it is about — never a `title` attribute.
+    const group = within(stage).getByRole("group", { name: /is ever sent to any number/i });
+    expect(group).toHaveTextContent(/Why:/);
+    expect(group).toHaveTextContent(/What changes it:/);
+    // The reserved fictional numbers come from `synthetic-contacts.ts`, not from a literal here.
+    for (const reserved of FICTIONAL_PATIENT_MOBILES) {
+      expect(group).toHaveTextContent(reserved);
+    }
+  });
+
+  it("says when the number typed is not one of the reserved fictional ones, and still accepts it", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+    const mobile = within(stage).getByLabelText(/mobile number/i);
+
+    await user.type(mobile, "+61 400 000 000");
+    expect(stage.textContent ?? "").toMatch(/not one of the reserved fictional numbers/i);
+    // A STATEMENT, not a refusal. This domain holds no format rule for a mobile number at all, so
+    // refusing anything outside a two-item list would invent an authority that does not exist —
+    // and `createPlanSchema` would still take the value.
+    expect(mobile).toHaveAttribute("aria-invalid", "false");
+
+    await user.clear(mobile);
+    await user.type(mobile, FICTIONAL_PATIENT_MOBILES[0]);
+    expect(stage.textContent ?? "").not.toMatch(/not one of the reserved fictional numbers/i);
+  });
+});
+
+describe("stage 3 — cultural identity is optional and the screen says why it is asked (Ruling [116])", () => {
+  it("states the recorded purpose from the spec, and what it never does", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    // Spec §2.5: used for aggregate reporting on programme reach ONLY. It never affects
+    // eligibility, ordering, timing, pathway assignment, message content or any ranking, and never
+    // appears on a worklist row. Asking without saying why erodes the trust the service exists to
+    // build, so the purpose is stated in place rather than left to a policy document.
+    const group = within(stage).getByRole("group", { name: /why this is asked/i });
+    expect(group).toHaveTextContent(/reporting on programme reach/i);
+    expect(group).toHaveTextContent(/never/i);
+  });
+
+  it("lets the whole stage be completed without it", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    await user.type(within(stage).getByLabelText(/patient.s name/i), "Rowan Example");
+    await user.type(within(stage).getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
+    await user.click(within(stage).getByRole("radio", { name: /Morning/ }));
+
+    expect(within(stage).getByLabelText(/cultural identity/i)).toHaveValue("");
+    expect(stage.textContent ?? "").toMatch(/nothing else is needed/i);
+    // Stored as null rather than "" — `Episode` types it `string | null` and a retention clearance
+    // blanks it to null, so "" would be a third state nothing could tell from a cleared record.
+    expect(createPlanPatientDetail(readPlanDraft(REFERRAL)!.patientDetail)?.culturalIdentity).toBeNull();
+  });
+});
+
+describe("stage 3 — the sending preference (kept from the mockup, minus its count)", () => {
+  it("offers the three approved preferences with the time each actually sends at", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    const fieldset = within(stage).getByRole("group", { name: /when in the day/i });
+    for (const option of SENDING_PREFERENCE_OPTIONS) {
+      const radio = within(fieldset).getByRole("radio", { name: new RegExp(option.label) });
+      expect(radio).not.toBeChecked();
+      // The time is the schedule module's, resolved on the server and passed in — never a literal
+      // written beside a radio button, which would go on saying 10:00 after the hour moved.
+      expect(fieldset).toHaveTextContent(option.sendTime);
+    }
+
+    await user.click(within(fieldset).getByRole("radio", { name: /Early evening/ }));
+    expect(readPlanDraft(REFERRAL)?.sendingPreference).toBe("earlyEvening");
+  });
+
+  it("states the invariant rather than a number of contacts (Rulings [94] and [98])", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    // The mockup's legend reads "One preference applies to all 10 contacts". The count is derived
+    // and conditional — Week 1 is absorbed when the first contact is set to discharge + 7 — so the
+    // property is stated and the number is not.
+    expect(stage.textContent ?? "").toMatch(/applies to every contact in this plan/i);
+    expect(stage.textContent ?? "").not.toMatch(/\b(10|ten|nine|9) contacts\b/i);
+  });
+
+  it("keeps every activation surface at the production tap floor", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    // Round 1, finding I-2: `min-h-tap` must sit on the element a tap actually activates. A 48px
+    // wrapper around a 20px radio is 48px of layout and 20px of activation surface, and the rest of
+    // the row is dead space that looks tappable.
+    for (const radio of within(stage).getAllByRole("radio")) {
+      const label = radio.closest("label");
+      expect(label, "a radio in stage 3 is not inside a label").not.toBeNull();
+      expect(label!.className, `${label!.textContent?.trim()} is not a production tap target`).toContain("min-h-tap");
+      expect(label!.className).not.toContain("min-h-11");
+    }
+    for (const control of within(stage).getAllByRole("button")) {
+      expect(control.className, `${control.textContent?.trim()} is not a production tap target`).toContain("min-h-tap");
+    }
   });
 });

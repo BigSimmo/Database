@@ -36,6 +36,9 @@
 // here degrades to "there is no draft" rather than throwing. The wizard asks
 // `planDraftStorageAvailable()` and tells the clinician which of the two is true, because a notice
 // promising the page will remember is false when the browser refused.
+import { SENDING_PREFERENCES, type SendingPreference } from "@/lib/caring-contacts/model";
+
+import { EMPTY_PLAN_PATIENT_DETAIL, type PlanPatientDetailDraft } from "./patient-detail";
 import { isPlanWizardStage, type PlanWizardStage } from "./stages";
 
 /**
@@ -74,10 +77,14 @@ export type PlanDraftAssurances = {
 /**
  * What the wizard holds between stages.
  *
- * Stages 3 and 4 add their own fields here — the patient's detail, the discharge instant, the
- * sending preference, the first-contact date and its reason. Adding them is additive: `parseDraft`
- * below validates field by field and treats anything it does not recognise as an unusable draft,
- * so an older stored draft is discarded rather than half-read.
+ * `parseDraft` below validates field by field and treats anything it does not fully recognise as
+ * an unusable draft, so a draft stored by an earlier build is discarded rather than half-read.
+ * A field added to this type and NOT to that parser is silently dropped on every reload.
+ *
+ * STAGE 3'S FIELDS ARE THE ONES THIS WHOLE MODULE'S CAUTION IS ABOUT. `patientDetail` holds a
+ * patient's name and mobile number, on what in practice is a shared ward computer. Everything in
+ * Ruling [110] — one key, tab lifetime, cleared on both exits, and the notice that says so in
+ * plain words — exists for this field rather than for a pair of checkboxes.
  */
 export type PlanDraft = {
   /** Which accepted referral this sign-up is for. Checked on read; never a patient identifier. */
@@ -86,6 +93,17 @@ export type PlanDraft = {
   assurances: PlanDraftAssurances;
   /** The pathway version this plan will run, or null while nothing has been chosen. */
   pathwayVersionId: string | null;
+  /** Stage 3's typed values, as typed. See `patient-detail.ts` for why they are held verbatim. */
+  patientDetail: PlanPatientDetailDraft;
+  /**
+   * When in the day every contact in this plan goes out, or null while nothing has been chosen.
+   *
+   * Null rather than a default. Nothing in this domain carries a sending preference, so defaulting
+   * to "morning" would decide when a discharged patient hears from the service and then present
+   * that decision as the coordinator's. Stage 2's pathway starts filled only because a referral
+   * genuinely does carry one (Ruling [113]).
+   */
+  sendingPreference: SendingPreference | null;
 };
 
 /**
@@ -101,6 +119,8 @@ export function emptyPlanDraft(referralId: string, pathwayVersionId: string | nu
     stage: "agreement",
     assurances: { patientAgreed: false, mobileIsPatientControlled: false },
     pathwayVersionId,
+    patientDetail: { ...EMPTY_PLAN_PATIENT_DETAIL },
+    sendingPreference: null,
   };
 }
 
@@ -252,13 +272,16 @@ function parseDraft(raw: string): PlanDraft | null {
   }
   if (!isRecord(parsed)) return null;
 
-  const { referralId, stage, assurances, pathwayVersionId } = parsed;
+  const { referralId, stage, assurances, pathwayVersionId, patientDetail, sendingPreference } = parsed;
   if (typeof referralId !== "string" || referralId === "") return null;
   if (!isPlanWizardStage(stage)) return null;
   if (!isRecord(assurances)) return null;
   if (typeof assurances.patientAgreed !== "boolean") return null;
   if (typeof assurances.mobileIsPatientControlled !== "boolean") return null;
   if (pathwayVersionId !== null && typeof pathwayVersionId !== "string") return null;
+  const detail = parsePatientDetail(patientDetail);
+  if (detail === null) return null;
+  if (sendingPreference !== null && !isSendingPreference(sendingPreference)) return null;
 
   return {
     referralId,
@@ -268,7 +291,40 @@ function parseDraft(raw: string): PlanDraft | null {
       mobileIsPatientControlled: assurances.mobileIsPatientControlled,
     },
     pathwayVersionId,
+    patientDetail: detail,
+    sendingPreference,
   };
+}
+
+/**
+ * Stage 3's four fields, or null if any is missing or the wrong type.
+ *
+ * Every field is REQUIRED to be present as a string, including the two that may legitimately be
+ * empty. A draft written before stage 3 existed carries none of them, and reading it as "the
+ * clinician typed nothing" would be a guess about a record this module cannot see the age of. The
+ * module's own rule applies: half a clinician's answers with the other half silently defaulted is
+ * worse than asking again.
+ */
+function parsePatientDetail(value: unknown): PlanPatientDetailDraft | null {
+  if (!isRecord(value)) return null;
+  const { patientName, patientMobileNumber, patientIdentifiers, culturalIdentity } = value;
+  if (typeof patientName !== "string") return null;
+  if (typeof patientMobileNumber !== "string") return null;
+  if (typeof patientIdentifiers !== "string") return null;
+  if (typeof culturalIdentity !== "string") return null;
+  return { patientName, patientMobileNumber, patientIdentifiers, culturalIdentity };
+}
+
+/**
+ * Whether a stored value is one of the three approved sending preferences.
+ *
+ * Checked against the sealed domain's own `SENDING_PREFERENCES` rather than a list written out
+ * here. A local list would be a second copy of the union, free to go on accepting a preference the
+ * domain had dropped — and the value being checked came out of a browser's storage, so it is
+ * exactly the kind of value that can be older than the code reading it.
+ */
+function isSendingPreference(value: unknown): value is SendingPreference {
+  return (SENDING_PREFERENCES as readonly string[]).includes(value as string);
 }
 
 /**

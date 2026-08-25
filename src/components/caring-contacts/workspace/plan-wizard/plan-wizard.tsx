@@ -1,7 +1,20 @@
 "use client";
 
-import { CircleAlert, ClipboardCheck, FileCheck2, IdCard, ShieldCheck, Trash2, UserRoundCheck } from "lucide-react";
+import {
+  CircleAlert,
+  ClipboardCheck,
+  FileCheck2,
+  IdCard,
+  MessageSquareText,
+  PhoneOff,
+  ShieldCheck,
+  Trash2,
+  UserRoundCheck,
+} from "lucide-react";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+
+import type { SendingPreference } from "@/lib/caring-contacts/model";
+import type { SendingPreferenceOption } from "@/lib/caring-contacts/schedule";
 
 import { ListEmptyState } from "../list-empty-state";
 import { UnavailableDestination } from "../unavailable-destination";
@@ -16,6 +29,12 @@ import {
   writePlanDraft,
   type PlanDraft,
 } from "./plan-draft";
+import {
+  mobileIsDesignatedFictional,
+  personalisationIssues,
+  type PersonalisationField,
+  type PlanPatientDetailDraft,
+} from "./patient-detail";
 import {
   PLAN_WIZARD_STAGES,
   PLAN_WIZARD_STAGE_DEFINITIONS,
@@ -95,6 +114,26 @@ export type PlanWizardProps = {
   referralPathwayVersionId: string | null;
   /** The approved versions this actor may choose between. Read on the server. */
   pathwayOptions: readonly PlanWizardPathwayOption[];
+  /**
+   * The three sending preferences with the AWST time each actually sends at, resolved on the server
+   * from `SENDING_PREFERENCE_OPTIONS` in `@/lib/caring-contacts/schedule`.
+   *
+   * PASSED IN RATHER THAN IMPORTED HERE, for the reason round 1 finding M-2 settled: the send hour
+   * is the schedule module's rule, and a time written beside a radio button in this file would be a
+   * second copy of it — free to go on saying 10:00 after the hour moved, on the screen where a
+   * coordinator decides when a discharged patient hears from the service. Resolving it on the
+   * server also keeps that module out of this route's client chunk.
+   */
+  sendingPreferenceOptions: readonly SendingPreferenceOption[];
+  /**
+   * The reserved fictional patient mobiles (`synthetic-contacts.ts`), resolved on the server.
+   *
+   * Stage 3 uses them to STATE which numbers this prototype's own material uses, and to say when
+   * the number typed is not one of them. It never refuses a value: this domain holds no format rule
+   * for a mobile number at all (`createPlanSchema` takes `z.string().min(1)`), so a refusal here
+   * would be an authority invented on this screen and enforced nowhere else.
+   */
+  fictionalPatientMobileNumbers: readonly string[];
 };
 
 const panelClass =
@@ -123,6 +162,14 @@ const optionLabelClass = "flex min-h-tap w-full min-w-0 cursor-pointer items-cen
 
 const mutedTextClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]";
 
+/**
+ * A text input or textarea. `min-h-tap` for the same reason every other control here carries it:
+ * a production tap target is 48px, and never `min-h-11` — 44px hit a sub-pixel rounding flake in
+ * `ui-smoke`, so this repo's floor exceeds even the AAA-level criterion deliberately.
+ */
+const fieldClass =
+  "min-h-tap w-full min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border-[CanvasText]";
+
 const headingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
 
 /** One fact, with where it came from. The source line is the whole point — see Ruling [112]. */
@@ -147,6 +194,8 @@ export function PlanWizard({
   actorRoleLabels,
   referralPathwayVersionId,
   pathwayOptions,
+  sendingPreferenceOptions,
+  fictionalPatientMobileNumbers,
 }: PlanWizardProps) {
   // THE DRAFT IS NOT REACT STATE. It is `plan-draft.ts`'s store, subscribed to here — see that
   // module's note for why: a lazy `useState` initialiser that read `sessionStorage` would make the
@@ -241,9 +290,25 @@ export function PlanWizard({
           />
         );
       case "personalisation":
+        return (
+          <PersonalisationStage
+            detail={draft.patientDetail}
+            sendingPreference={draft.sendingPreference}
+            sendingPreferenceOptions={sendingPreferenceOptions}
+            fictionalPatientMobileNumbers={fictionalPatientMobileNumbers}
+            onDetailChange={(change) =>
+              update((current) => ({ ...current, patientDetail: { ...current.patientDetail, ...change } }))
+            }
+            onSendingPreferenceChange={(preference) =>
+              update((current) => ({ ...current, sendingPreference: preference }))
+            }
+            onBack={goBack}
+            onContinue={() => goTo("review")}
+          />
+        );
       case "review":
-        // Task 7 built no body for these. The panel above states it; this returns nothing rather
-        // than a placeholder that would have to be found and deleted later.
+        // Task 9 builds this one. The panel above states it; this returns nothing rather than a
+        // placeholder that would have to be found and deleted later.
         return null;
       default: {
         const unrendered: never = stage;
@@ -707,6 +772,311 @@ function PathwayStage({
         <ForwardControl from="pathway" ready={chosen !== null} onContinue={onContinue} />
       </div>
     </section>
+  );
+}
+
+/**
+ * Stage 3 — the patient's details, and when in the day messages go out.
+ *
+ * RULING [114], AND IT IS THE WHOLE SHAPE OF THIS STAGE. The approved mockup draws this screen as a
+ * CONFIRMATION: four read-only rows — preferred name, message variant, team identity, coordinator
+ * signature — each with a green tick and the source line "Imported from the synthetic referral".
+ * Not one of them is reproducible. `createPlanSchema.patientDetail` requires the clinician to
+ * SUPPLY `patientName` and `patientMobileNumber` (both `min(1)`), plus identifiers and cultural
+ * identity, and a `Referral` is five fields holding none of them (Ruling [112]). There is nothing
+ * to import and nothing to tick, so this is a DATA ENTRY stage: it is where a clinician types a
+ * person's name and mobile number. Presenting that typing as an imported governed value would be a
+ * lie about provenance on the screen that decides where messages physically go.
+ *
+ * This is the third stage of this wizard whose approved design pictures a system reading from a
+ * hospital record it is not connected to. The design is a specification for the product; the types
+ * are a specification for what exists. Where they disagree the types win.
+ *
+ * WHAT IS KEPT FROM THE MOCKUP: the sending-preference fieldset, which matches
+ * `sendingPreference: z.enum(["morning", "afternoon", "earlyEvening"])` exactly. Its legend does
+ * not survive: "One preference applies to all 10 contacts" restates a count that is derived and
+ * conditional (Ruling [98] — Week 1 is absorbed when the first contact falls on discharge + 7), so
+ * the property is stated and the number is not (Ruling [94]).
+ *
+ * NO MESSAGE PREVIEW IS RENDERED HERE. The mockup puts a preview card on this stage. Patient-visible
+ * copy is frozen and belongs to the sealed domain's `message-copy`; a screen that hardcoded one of
+ * those strings would be a defect even with the string correct, because it would put the owner's
+ * pending decisions in two places. The preview is an overlay, and Task 11 owns this group's overlay
+ * wiring — see the Task 8 report for the four seams left here.
+ *
+ * AND NOTHING IS VALIDATED TWICE. The decisions about a value — what is required, what is trimmed,
+ * what reaches a plan as null — live in `patient-detail.ts`, because Task 9 needs the identical
+ * decisions when it assembles the create call.
+ */
+function PersonalisationStage({
+  detail,
+  sendingPreference,
+  sendingPreferenceOptions,
+  fictionalPatientMobileNumbers,
+  onDetailChange,
+  onSendingPreferenceChange,
+  onBack,
+  onContinue,
+}: {
+  detail: PlanPatientDetailDraft;
+  sendingPreference: SendingPreference | null;
+  sendingPreferenceOptions: readonly SendingPreferenceOption[];
+  fictionalPatientMobileNumbers: readonly string[];
+  onDetailChange: (change: Partial<PlanPatientDetailDraft>) => void;
+  onSendingPreferenceChange: (preference: SendingPreference) => void;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  const issues = personalisationIssues({ detail, sendingPreference });
+  const issueFor = (field: PersonalisationField) => issues.find((issue) => issue.field === field) ?? null;
+  const complete = issues.length === 0;
+
+  // The number is accepted whatever it is; this only decides what the screen SAYS about it.
+  const mobileEntered = detail.patientMobileNumber.trim() !== "";
+  const mobileIsReserved = mobileIsDesignatedFictional(detail.patientMobileNumber, fictionalPatientMobileNumbers);
+
+  return (
+    <section aria-label="Personalisation" className="flex min-w-0 flex-col gap-5">
+      <div className={panelClass}>
+        <h2 className={headingClass}>Entered by you</h2>
+        <p className={`mt-1 ${mutedTextClass}`}>
+          A referral carries no name and no mobile number, so nothing on this screen can fill these
+          in and nothing here was read from a record. What you type is what the plan will hold, and
+          until you finish or discard it is kept on this computer — the notice above this stage says
+          exactly where.
+        </p>
+
+        <div className="mt-4 flex min-w-0 flex-col gap-5">
+          <TextField
+            id="caring-contacts-patient-name"
+            label="Patient&rsquo;s name"
+            value={detail.patientName}
+            requirement={issueFor("patientName")?.message ?? null}
+            onChange={(value) => onDetailChange({ patientName: value })}
+            autoComplete="off"
+          />
+
+          <div className="flex min-w-0 flex-col gap-3">
+            <TextField
+              id="caring-contacts-patient-mobile"
+              label="Mobile number this plan will use"
+              value={detail.patientMobileNumber}
+              requirement={issueFor("patientMobileNumber")?.message ?? null}
+              onChange={(value) => onDetailChange({ patientMobileNumber: value })}
+              inputMode="tel"
+              autoComplete="off"
+            />
+            {/*
+              RULING [115]. This is the field that decides where a message physically goes, and a
+              clinician who believes it reaches a real handset is the single most dangerous
+              misunderstanding this interface can create. So the statement is in the flow of the
+              page, in spec §4.4's shape, beside the field it is about — never a `title` attribute,
+              which has not been stated to anyone who does not hover.
+            */}
+            <StatedReason
+              heading="Nothing typed here is ever sent to any number"
+              because={`This is a prototype and it is connected to no messaging provider, so no message leaves this workspace for any handset. The numbers its own material uses are reserved fictional ones that can never connect to a real person: ${fictionalPatientMobileNumbers.join(" and ")}.`}
+              changedBy="Nothing on this screen. Sending would need a provider this prototype does not have, and a governance decision that has not been made."
+              icon={<PhoneOff aria-hidden="true" className="size-icon-md shrink-0" />}
+            />
+            {mobileEntered && !mobileIsReserved ? (
+              <p role="status" className={mutedTextClass}>
+                The number entered is not one of the reserved fictional numbers listed above. It is
+                accepted — this prototype holds no rule about what a mobile number looks like — but
+                a number belonging to a real person would be recorded on the plan.
+              </p>
+            ) : null}
+          </div>
+
+          <TextAreaField
+            id="caring-contacts-patient-identifiers"
+            label="Other identifiers this service uses"
+            hint="One per line. Leave it blank if there are none — the plan then records no others."
+            value={detail.patientIdentifiers}
+            onChange={(value) => onDetailChange({ patientIdentifiers: value })}
+          />
+
+          <div className="flex min-w-0 flex-col gap-3">
+            <TextField
+              id="caring-contacts-cultural-identity"
+              label="Cultural identity (optional)"
+              value={detail.culturalIdentity}
+              requirement={null}
+              onChange={(value) => onDetailChange({ culturalIdentity: value })}
+              autoComplete="off"
+            />
+            {/*
+              RULING [116]. `culturalIdentity` is the only nullable field in `patientDetail`,
+              deliberately, and asking a distressed person's cultural identity without saying why
+              erodes exactly the trust this service exists to build. The purpose below is not
+              invented for this screen: spec §2.5 records it — aggregate reporting on programme
+              reach, and nothing else — and what the field NEVER does is quoted from the same place.
+              The one thing §2.5 says that is not reproduced is "imported from the source record":
+              there is no import path in this domain, which is Ruling [114] over again and is
+              reported rather than papered over.
+            */}
+            <StatedReason
+              heading="Why this is asked, and what it is used for"
+              because="Aboriginal and Torres Strait Islander people in Western Australia experience substantially higher suicide rates, and a programme that cannot report whether it reaches them cannot answer the first equity question a governance board asks. It is used for aggregate reporting on programme reach and for nothing else: it never affects who is eligible, the order or timing of anything, which pathway runs, what a message says, or any ranking, and it never appears on a worklist row."
+              changedBy="Leaving it blank is a complete answer and nothing on this stage waits for it. The plan then records nothing here, and no report counts this patient."
+              icon={<MessageSquareText aria-hidden="true" className="size-icon-md shrink-0" />}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={panelClass}>
+        <fieldset className="min-w-0 border-0 p-0">
+          <legend className={headingClass}>When in the day messages go out</legend>
+          {/*
+            Ruling [94] and Ruling [98]: the mockup's "One preference applies to all 10 contacts"
+            restates a count that is DERIVED and CONDITIONAL, so the invariant is stated instead.
+          */}
+          <p className={`mt-1 ${mutedTextClass}`}>
+            One choice applies to every contact in this plan. The times are the approved AWST send
+            times this programme uses; nothing here can put a message outside them.
+          </p>
+          <div className="mt-3 min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)]">
+            {sendingPreferenceOptions.map((option) => {
+              const inputId = `caring-contacts-sending-${option.preference}`;
+              const detailId = `${inputId}-detail`;
+              return (
+                <div key={option.preference} className={optionRowClass}>
+                  {/*
+                    `min-h-tap` on the LABEL, which is what a tap activates — round 1, finding I-2.
+                    The send time sits outside it and is tied on with `aria-describedby`, so the
+                    radio's accessible name stays the choice rather than the choice plus a time.
+                  */}
+                  <label htmlFor={inputId} className={optionLabelClass}>
+                    <input
+                      type="radio"
+                      id={inputId}
+                      name="caring-contacts-sending-preference"
+                      value={option.preference}
+                      checked={sendingPreference === option.preference}
+                      onChange={() => onSendingPreferenceChange(option.preference)}
+                      aria-describedby={detailId}
+                      className="size-5 shrink-0 accent-[color:var(--clinical-accent)]"
+                    />
+                    <span className="min-w-0 break-words text-sm font-semibold text-[color:var(--text-heading)]">
+                      {option.label}
+                    </span>
+                  </label>
+                  <p id={detailId} className="min-w-0 pb-1 pl-8 text-sm leading-6 text-[color:var(--text-muted)]">
+                    {option.sendTime}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          {issueFor("sendingPreference") === null ? null : (
+            <p className={`mt-2 ${mutedTextClass}`}>{issueFor("sendingPreference")?.message}</p>
+          )}
+        </fieldset>
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-2">
+        <p role="status" className={mutedTextClass}>
+          {complete
+            ? "The name, the mobile number and the sending preference are all entered, so nothing else is needed on this stage. None of it is recorded on a plan yet; like everything else on this screen it is kept on this computer until you finish or discard."
+            : `Before this plan can be reviewed: ${issues.map((issue) => issue.message).join(" ")}`}
+        </p>
+        <div className="flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <button type="button" onClick={onBack} className={secondaryControlClass}>
+            <span className="truncate">Back to pathway</span>
+          </button>
+          <ForwardControl from="personalisation" ready={complete} onContinue={onContinue} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * One labelled single-line field, with its requirement stated beneath it.
+ *
+ * THE REQUIREMENT IS ALWAYS RENDERED, not revealed once the clinician has touched the field and
+ * left it empty. It is written as a requirement rather than a rebuke ("a plan cannot be created
+ * without one"), so it reads correctly before anything has been typed — and a "touched" flag would
+ * mean a screen-reader user who tabs past the field learns nothing about why the forward control is
+ * inert. `aria-invalid` follows the same fact, so the two can never disagree.
+ */
+function TextField({
+  id,
+  label,
+  value,
+  requirement,
+  onChange,
+  inputMode,
+  autoComplete,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  /** Plain words: what this field is for and why it cannot be left empty. Null when optional. */
+  requirement: string | null;
+  onChange: (value: string) => void;
+  inputMode?: "tel";
+  autoComplete?: "off";
+}) {
+  const requirementId = `${id}-requirement`;
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-[color:var(--text-heading)]">
+        {label}
+      </label>
+      <input
+        type="text"
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        aria-invalid={requirement !== null}
+        aria-describedby={requirement === null ? undefined : requirementId}
+        className={fieldClass}
+      />
+      {requirement === null ? null : (
+        <p id={requirementId} className={mutedTextClass}>
+          {requirement}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The same, for a value that is a list the clinician writes one line at a time. */
+function TextAreaField({
+  id,
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const hintId = `${id}-hint`;
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-[color:var(--text-heading)]">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        rows={3}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-describedby={hintId}
+        className={fieldClass}
+      />
+      <p id={hintId} className={mutedTextClass}>
+        {hint}
+      </p>
+    </div>
   );
 }
 

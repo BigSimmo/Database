@@ -19,7 +19,20 @@ export type ContactState =
   | "cancelled";
 export type PathwayVersionState = "draft" | "inReview" | "approved" | "retired";
 export type MessageType = "standard" | "first" | "closing";
-export type SendingPreference = "morning" | "afternoon" | "earlyEvening";
+/**
+ * The three approved sending preferences, as a value rather than only a type.
+ *
+ * Exported for the same reason `TERMINAL_PLAN_STATES` below is: the union was needed at RUNTIME —
+ * by the activation wizard's draft, which has to decide whether a value read back out of a
+ * browser's storage is still one of them — and a list written out at that call site would be a
+ * second copy of this union, free to go on accepting a preference this domain had dropped. The
+ * type is derived from the array so the two cannot disagree.
+ *
+ * The approved AWST send hour for each, and the order they occur in a day, belong to `./schedule`
+ * (`SENDING_PREFERENCE_OPTIONS`) — this names the set, not the timing.
+ */
+export const SENDING_PREFERENCES = Object.freeze(["morning", "afternoon", "earlyEvening"] as const);
+export type SendingPreference = (typeof SENDING_PREFERENCES)[number];
 
 /**
  * The plan states that end an episode.

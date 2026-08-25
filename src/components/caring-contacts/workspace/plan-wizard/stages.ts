@@ -66,7 +66,11 @@ export const PLAN_WIZARD_STAGE_DEFINITIONS: Record<PlanWizardStage, PlanWizardSt
   },
   personalisation: {
     label: "Personalisation",
-    purpose: "The patient's details, the day of the first contact, and when in the day messages go out.",
+    // The DAY of the first contact is deliberately not named here any more. Task 8 built the
+    // patient's details and the sending preference; the first-contact date is what the mockup's
+    // "Adjust schedule" overlay is for, and Task 11 owns this group's overlay wiring. A purpose
+    // line naming something the stage does not collect would be a promise the screen breaks.
+    purpose: "The patient's details, and when in the day messages go out.",
   },
   review: {
     label: "Review and activation",
@@ -86,12 +90,8 @@ export function planWizardStageImplementation(stage: PlanWizardStage): PlanWizar
   switch (stage) {
     case "agreement":
     case "pathway":
-      return { kind: "built" };
     case "personalisation":
-      return {
-        kind: "not-built",
-        reason: PLAN_WIZARD_STAGE_DEFINITIONS.personalisation.purpose,
-      };
+      return { kind: "built" };
     case "review":
       return {
         kind: "not-built",

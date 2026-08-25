@@ -14,6 +14,13 @@ import type { Referral } from "@/lib/caring-contacts/model";
 import { PATHWAY_APPROVAL_ROLE_WORDING, type PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
 import { CARING_CONTACT_ROLE_WORDING, canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS } from "@/lib/caring-contacts/repository";
+// Both resolved HERE rather than in the wizard, and for the reason round 1 finding M-2 settled: a
+// screen must never re-derive a rule a module owns, and resolving on the server keeps both domain
+// modules out of this route's client chunk. The send times are derived from the hours
+// `buildApprovedSchedule` really uses; the reserved fictional numbers are the ones this prototype's
+// own material uses, which stage 3 states beside the field where a number is entered.
+import { SENDING_PREFERENCE_OPTIONS } from "@/lib/caring-contacts/schedule";
+import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 /**
@@ -250,6 +257,8 @@ export default async function CaringContactsNewPlanPage({
         actorRoleLabels={actor.roles.map((role) => CARING_CONTACT_ROLE_WORDING[role])}
         referralPathwayVersionId={referral.pathwayVersionId}
         pathwayOptions={pathwayOptions}
+        sendingPreferenceOptions={SENDING_PREFERENCE_OPTIONS}
+        fictionalPatientMobileNumbers={DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS}
       />
     );
   }
