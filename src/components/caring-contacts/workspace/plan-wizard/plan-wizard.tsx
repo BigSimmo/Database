@@ -1441,7 +1441,13 @@ function ReviewStage({
   submission: PlanSubmissionIdentity | null;
   state: PlanSubmissionState;
   onActivationChange: (change: Partial<PlanActivationDraft>) => void;
-  onActivate: () => void;
+  /**
+   * Typed as returning a promise because it does. `WorkspaceOverlayCommit.record` admits one
+   * deliberately -- the host can then observe a rejection rather than leave it unhandled -- and
+   * narrowing this to bare `void` here would have hidden that from the type system while the
+   * runtime went on returning one.
+   */
+  onActivate: () => void | Promise<void>;
   onBack: () => void;
 }) {
   const preview = planSchedulePreview({ activation, sendingPreference });
