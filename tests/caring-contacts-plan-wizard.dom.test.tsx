@@ -1617,13 +1617,13 @@ describe("stage 4 — what the screen promises matches what confirming does (Rul
     // passes — and that limitation is stated here rather than left for the next reader to find, in
     // the same spirit as `strip-source-comments.ts`'s pinned known limitation.
     const singleWriteClaims = [
-      /the one write/i,
-      /one write its brief names/i,
-      /no ruling covers performing two writes/i,
-      /performs (?:the|a) single write/i,
-      /this screen performs one write/i,
-      /created in draft/i,
-      /does not start it/i,
+      /\bthe one write\b/i,
+      /\bone write its brief names\b/i,
+      /\bno ruling covers performing two writes\b/i,
+      /\bperforms (?:the|a) single write\b/i,
+      /\bthis screen performs one write\b/i,
+      /\bcreated in draft\b/i,
+      /\bdoes not start it\b/i,
     ];
 
     for (const name of ["plan-wizard.tsx", "plan-activation.ts"]) {
