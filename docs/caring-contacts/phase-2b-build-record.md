@@ -2524,8 +2524,8 @@ time.** That is a fact the system can attest from the value it holds. "Moved" is
 that this record does not carry.
 
 **The general form, which is the reason this is written up rather than quietly amended:** I verified the
-premise and then read the label off it in the wrong direction. "Only X produces Y" licenses *"Y implies
-X"* and nothing else — it does not license naming the Y-group after X, because that name also claims
+premise and then read the label off it in the wrong direction. "Only X produces Y" licenses _"Y implies
+X"_ and nothing else — it does not license naming the Y-group after X, because that name also claims
 **"not-Y implies not-X"**, which is a different proposition and was false here. A label is a claim about
 the whole partition, not only about the members it is attached to. Where a state has one cause but the
 cause has more than one outcome, **name the state, not the cause.**
@@ -2534,3 +2534,60 @@ cause has more than one outcome, **name the state, not the cause.**
 record cannot evidence, on a suicide-prevention surface, while the moved contacts it was meant to
 surface stayed invisible inside the three windows. Caught before Task 13 was dispatched; the brief was
 corrected rather than the code.
+
+## Branch and worktree state, 2026-08-26 — read this first after a context reset
+
+Four branches, none pushed, none merged. **`claude/browser-test-gate-handoff-d5c1db` is the trunk** and
+everything merges into it. It is ~31 commits behind `origin/main`; that merge is owed and has not been
+attempted.
+
+| Worktree                                             | Branch                               | Holds                      | State                                                                                    |
+| ---------------------------------------------------- | ------------------------------------ | -------------------------- | ---------------------------------------------------------------------------------------- |
+| `.claude/worktrees/browser-test-gate-handoff-d5c1db` | `…-d5c1db` (trunk)                   | Groups 0–1 through Task 9b | **Idle and clean.** Task 9b complete after three fix rounds.                             |
+| `D:\Worktrees\Database\cc-templates`                 | `claude/caring-contacts-demo-seed`   | The demo seed              | Seed complete after three rounds; **Task 15 (templates library) building on top of it**  |
+| `D:\Worktrees\Database\cc-schedule`                  | `claude/caring-contacts-schedule`    | Task 12, the schedule read | Task 12 complete after three rounds; **Task 13 (schedule screen) building on top of it** |
+| `D:\Worktrees\Database\cc-plan-detail`               | `claude/caring-contacts-plan-detail` | —                          | **Task 10 (plan and contact detail) building**                                           |
+
+**The merges are pre-checked and nearly free.** `git merge-tree --write-tree` against the trunk showed the
+only conflict is `STANDING-DISCIPLINE.md` (add/add, no common ancestor — the trunk's consolidated version
+is the resolution). **`package.json` does NOT conflict**: four branches edit the `test:cc-guards` line but
+at different positions within it, and the merged tree was read and its paths counted rather than trusting
+the absence of a marker. Compute the union at merge time; do not carry a count.
+
+**Provisioning a new worktree takes seconds, not an hour.** `node scripts/setup-codex-worktree.mjs` reuses
+a byte-identical install from another registered worktree. Never `npm ci` here.
+
+### Briefs written and ready to dispatch
+
+`task-13-brief.md` and `task-15-brief.md` are committed on the branches building them. **`task-19-brief.md`
+(Guidance and Reports) is written and NOT yet in the tree** — it is in the session scratchpad. It is
+deliberately undispatched for two reasons: three implementers already exceed the two concurrent focused
+test leases, and Tasks 13, 15 and 19 all edit `shell.tsx`, with 19 changing the shape of
+`MORE_DESTINATIONS` while the other two only add an `href`.
+
+### Still to build
+
+Task 11 (Group 1 overlay wiring, needs Task 10), Task 14 (contact/delivery exception, needs Task 13),
+Task 16 (template detail, needs Task 15), Task 19, Task 20 (every remaining overlay against all 24 matrix
+rows), Task 21 (responsive and accessibility proof). **Group 4 — Tasks 17 and 18, the team roster — is
+deferred by the owner** and is not to be revived without him.
+
+### Owner decisions still owed, neither blocking today
+
+1. **The small-cell suppression threshold has nowhere to live.** Spec §2.5 requires a
+   governance-configured threshold and a non-inferable `Suppressed` state for reach reporting. I searched
+   the sealed domain and every caring-contacts migration: **no such configuration surface exists.**
+   `caring_contacts.cultural_identity_reports` is a real table (created in `0001`, RLS in `0002`) and it
+   is empty, and the sign-up no longer collects the field. Task 19's brief instructs its implementer to
+   **stop and report rather than invent a constant** — a hardcoded threshold on a disclosure control is a
+   governance decision made by an implementer, which is the thing the owner refused on 2026-08-25.
+2. **Whether the product personalises the patient greeting** — see Ruling [127]. Not needed for Phase 2B;
+   it carries both a schema and a message-length consequence.
+
+### The full suite has not run on any of these branches
+
+Implementers now run `test:cc-guards` only, by policy, because concurrent worktrees starved the exclusive
+heavy lease and one task's mutation ledger came back ten of twelve unrun. **The full `npm run test` and
+the Chromium gate are the controller's, at the merge point, and are still owed.** Formatting is in none of
+`test`, `typecheck` or `lint` — a `prettier --check` across each branch's changed files found the trunk
+and the seed branch clean, and caught two unformatted files that Task 12 had created.
