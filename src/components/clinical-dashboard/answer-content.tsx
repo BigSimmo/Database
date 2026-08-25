@@ -431,20 +431,23 @@ export function NaturalLanguageAnswer({
   if (!fragments.length) return null;
   const railSources = railRows ?? buildAnswerSourceRows(bestSource, sources, sourceLinks);
   /**
-   * Marks may only point at CITED rows. `buildAnswerSourceRows` puts those first
-   * and the also-found rows after, so an index into this prefix is already the
-   * right index into the rail — and a claim citing a chunk that only made the
-   * retrieved set resolves to nothing rather than to a card the rail shows
-   * unnumbered.
+   * Marks may only point at CITED rows: an uncited card carries a dashed em-dash
+   * badge rather than a number, so a mark leading to one would show a number the
+   * rail does not.
+   *
+   * Masked to an empty id rather than filtered out. Filtering would renumber
+   * every row after an uncited one, which is the silent wrong-page attribution
+   * this whole surface exists to prevent — and it would depend on cited rows
+   * happening to sort first, which is true today and is not a contract.
    */
-  const citedSourceIds = railSources.filter((row) => row.cited !== false).map((row) => row.id);
+  const markableSourceIds = railSources.map((row) => (row.cited === false ? "" : row.id));
   // A historical turn mounts no drawer, so a mark there would advertise a panel
   // that never opens. Those turns render the prose unmarked.
   const clusters = onOpenSource
     ? resolveClaimMarks({
         fragments: fragments.map((fragment) => ({ text: fragment.raw, truncated: fragment.truncated })),
         claims,
-        sourceIds: citedSourceIds,
+        sourceIds: markableSourceIds,
       })
     : fragments.map(() => null);
   return (

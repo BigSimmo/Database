@@ -105,6 +105,9 @@ function targetsForChunkIds(chunkIds: readonly string[], sourceIds: readonly str
   const targets: ClaimMarkTarget[] = [];
   const seen = new Set<number>();
   for (const chunkId of chunkIds) {
+    // An empty id is the caller masking a row a mark may not point at; it must
+    // never match, and a real chunk id is never empty.
+    if (!chunkId) continue;
     const index = sourceIds.indexOf(chunkId);
     // A citation the rail does not list has nowhere to open, so it is dropped
     // rather than renumbered onto a neighbouring row.
@@ -171,7 +174,9 @@ function consecutiveClaimsFor(normalized: string, claims: NormalizedClaim[], sta
  *
  * @param fragments - The displayed sentences, in order, as split for display.
  * @param claims - `answer.supportedClaims`, in the order the answer carries them.
- * @param sourceIds - Chunk ids of the rail rows, in rail order. A mark's index is an index into this.
+ * @param sourceIds - Chunk ids of the rail rows, **in rail order and the same length as the rail**. A mark's
+ *   index is an index into this, so a row a mark may not point at (an uncited one) is passed as an empty
+ *   string rather than omitted — dropping it would shift every later row's number.
  * @returns One entry per fragment, aligned by position.
  */
 export function resolveClaimMarks({
@@ -184,7 +189,7 @@ export function resolveClaimMarks({
   sourceIds: readonly string[];
 }): Array<ClaimMarkCluster | null> {
   const empty = fragments.map(() => null);
-  if (!claims.length || !sourceIds.length) return empty;
+  if (!claims.length || !sourceIds.some(Boolean)) return empty;
 
   const normalizedClaims: NormalizedClaim[] = claims.map((claim) => ({
     claim,

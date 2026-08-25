@@ -181,12 +181,32 @@ describe("resolveClaimMarks", () => {
     expect(claimMarkCoverage(clusters)).toEqual({ marked: 0, total: 3 });
   });
 
+  it("never renumbers around a row a mark may not point at", () => {
+    // The caller masks an uncited rail card to an empty id instead of dropping
+    // it. Dropping would shift every later card's number, which is the silent
+    // wrong-page attribution this whole surface exists to prevent.
+    const [cluster] = resolveClaimMarks({
+      fragments: fragments("Check FBC weekly."),
+      claims: [claim({ claimId: "claim-1", text: "Check FBC weekly", supportingChunkIds: ["chunk-c"] })],
+      sourceIds: ["chunk-a", "", "chunk-c"],
+    });
+    expect(cluster?.marks).toEqual([{ index: 2, sourceId: "chunk-c" }]);
+
+    expect(
+      resolveClaimMarks({
+        fragments: fragments("Check FBC weekly."),
+        claims: [claim({ claimId: "claim-1", text: "Check FBC weekly", supportingChunkIds: ["chunk-b"] })],
+        sourceIds: ["chunk-a", "", "chunk-c"],
+      }),
+    ).toEqual([null]);
+  });
+
   it("returns one null per sentence when there are no cited sources to point at", () => {
     expect(
       resolveClaimMarks({
         fragments: fragments("Check FBC weekly."),
         claims: [claim({ claimId: "claim-1", text: "Check FBC weekly" })],
-        sourceIds: [],
+        sourceIds: ["", ""],
       }),
     ).toEqual([null]);
   });
