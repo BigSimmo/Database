@@ -476,11 +476,43 @@ Both controls were single-line stylesheet mutations, applied one at a time with 
 flight, and both stylesheet edits are fully reverted — `git diff` on
 `src/components/care-plan/mockups/care-plan.module.css` is empty at the recorded HEAD.
 
-**Still owed after the controls, and not claimed as done.** The green `30 passed` run above was
-taken _before_ the two mutations. A fourth run, to confirm the suite is green again _after_
-both reverts, was started and did not finish: it was killed by a ten-minute tool timeout. The
-reverts themselves are verified by `git diff` rather than by a re-run, which is weaker evidence
-and is recorded as such.
+**The confirmation run — taken after both reverts and after D1 landed.** The green
+`30 passed (1.6m)` above describes a tree that no longer exists: it predates the two mutations
+and predates D1 entirely, so it is kept here as history and is **not** the number that vouches
+for this branch. The run that does is below.
+
+An earlier attempt at this confirmation was killed by a ten-minute tool timeout, and the tree
+then stopped being safe to measure at all — see the hazard note that follows. Once D1 committed
+and the tree came back clean at `db6167a10`, three checks were taken in order.
+
+1. **Both reverts confirmed against commits, not a working tree.** `git diff HEAD` and
+   `git diff 64b6f2e43`, each scoped to
+   `src/components/care-plan/mockups/care-plan.module.css`, are both empty — byte-identical to
+   the pre-probe state across four intervening commits by two agents. `git status` clean.
+2. **The focused Vitest set of seven files** — `care-plan-domain`,
+   `care-plan-linked-routes.dom`, `care-plan-patient-plan`, `care-plan-prototype-state`,
+   `care-plan-route-files`, `playwright-project-isolation`, `developer-hub-panels` (the last
+   because this branch's `docs/codebase-index.md` edit put `/mockups/care-plan/**` on the
+   developer-gate row). Result: `Test Files 7 passed (7)`, `Tests 524 passed (524)`,
+   `Duration 103.52s`. Reached on the fourth attempt; the first three were lease refusals, one
+   naming its holder outright — `Database focused-test capacity is full (current owner PID
+60080, worktree …\browser-test-gate-handoff-d5c1db): playwright
+tests/ui-caring-contacts-workspace.spec.ts` — a _third_ worktree, neither mine nor D1's. No
+   refusal was scored.
+3. **One full browser run** through the repository wrapper. Result: **`30 passed (1.5m)`,
+   1 skipped**, first attempt, no failures. Genuinely executed rather than memoised: the log
+   carries its own production build (`Compiled successfully in 74s`) and `Running 31 tests`,
+   and contains no receipt-reuse marker.
+
+**What these numbers cover, stated because the tree is shared.** They cover this branch's
+Task 11 work **and both of D1's commits** — `be6edb968`, the shared status line across four
+Management Plan surfaces, and `db6167a10`, the safety plan's confirmation row and printed
+sheet sourced from the recorded participation moment and gated on the person having actually
+confirmed. The passing count is unchanged at 30 because the suite still has 30 executable
+cases, not because the same tree was measured twice; the durations differ and the builds are
+distinct. **Nothing in `ui-care-plan-mockup.spec.ts` pins D1's new wording**, so this run
+proves D1 broke none of the existing journeys — it does **not** prove the new status-line
+copy. That copy is jsdom-proven only, and it is the obvious next browser assertion to write.
 
 That confirmation run then became unsafe to simply retry, for a reason worth recording as an
 environment hazard rather than a test result. Immediately afterwards, `git status` showed six
@@ -493,11 +525,27 @@ raises and leaves for decision D1. **The coordinator has since confirmed this is
 agent it dispatched, building D1 — the separate recorded moment for when a patient's part was
 written — and not an unrelated intruder.** That was not knowable from inside this session, and
 the handling would be the same either way. Its work was left untouched: not committed, not
-reverted, not run against. Only my own two report files were staged by explicit path. **Any suite result
-produced in this worktree from now on measures that session's in-progress edits mixed with
-mine, and must not be attributed to this branch's committed state.**
+reverted, not run against. Only my own two report files were staged by explicit path. While
+that work was in flight, **any suite result produced in this worktree would have measured
+another session's uncommitted edits mixed with mine**, so none was taken. **Resolved:** D1
+committed at `db6167a10`, the tree returned clean, and the three checks above were then run
+against a settled tree whose contents are fully accounted for.
 
-Also still not run, and unchanged from the first round: `npm run typecheck` and `npm run lint`
-**through the coordinator wrapper** — the underlying compiler and linter were run directly
-instead, which is the same check without the lease — the full focused Vitest set of seven
-files, and the evidence capture.
+Also still not run, and honestly owed:
+
+- `npm run typecheck` and `npm run lint` **through the coordinator wrapper**. The underlying
+  compiler and linter were run directly, which is the same check without the lease, so this is
+  a provenance gap rather than an unchecked surface — but it is not the same evidence and is
+  not reported as such.
+- **The evidence capture, which has still never executed.** It is the one skipped case in the
+  browser run above (`captures the Care Plan handoff atlas`), skipped for want of
+  `CARE_PLAN_CAPTURE_EVIDENCE=1`. Every visual claim in this report therefore rests on
+  assertions, not on a stored image anyone can look at.
+- `workflow:clinical-proof`.
+- **Browser proof for drafting and submitting a Management Plan Version.** The suite proves
+  the draft is reachable and that returning from it lands on the draft outcome; it does not
+  drive a version from blank to submitted. That is the largest uncovered journey in the
+  prototype.
+- **A browser assertion pinning D1's status-line wording** on the four Management Plan
+  surfaces, the safety-plan reading surface and the printed sheet — new debt created by D1,
+  recorded here so it is not lost.
