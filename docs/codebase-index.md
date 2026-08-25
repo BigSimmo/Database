@@ -381,7 +381,7 @@ visible reasons and a human confirms or overrides.
   officer identity" notice), `ed/ed-screen.tsx` (Task 11: one emergency department's own view —
   `/ward-management/ed/[edId]`, resolved via `ward-sites.ts`'s `edById`; both clocks (time in
   department from `openedAt`, the legal clock from `formedAt` where earlier, marked
-  `data-community-formed`), the four-hour `ED_ACCESS_TARGET_MINUTES` departmental access target
+  `data-community-formed`), the 24-hour `ED_ACCESS_TARGET_MINUTES` departmental access target
   — labelled and computed so it can never be mistaken for a legal deadline and never touches a
   `LegalForm`/`dueAt` — a police-attendance flag, and each movement's single outstanding item; a
   raise-referral form (`RAISE_REFERRAL`), a record-examination form (`RECORD_EXAMINATION`), and
@@ -403,7 +403,17 @@ visible reasons and a human confirms or overrides.
   still has nowhere eligible. Unlike the handover, this page is NOT frozen: it reads the live clock on
   every render, since a coordinator working this board wants the current picture. Records and shows
   only — it computes no near-miss, no least-bad option, and no statement of what would need to change
-  for a ward to work)
+  for a ward to work), `search/patient-search.tsx` (Phase 4 Task 7: patient search — `/ward-management/search`;
+  product owner's choice: its own page, reached from the left-hand menu, rather than a box on the
+  coordinator screen. A single live filter over `ward-derivations.ts`'s `searchMovements` — a free-text
+  field matching movement id, `originEdId`, the resolved destination unit's id/name, the stage's own
+  display label and `owner`, plus an exact-match stage `<select>` and department `<select>`, all three
+  combining as AND. Scoped to OPEN movements only (`isOpen`, applied before any other filter, so a
+  closed movement can never surface even when the query is its own id verbatim) and, like the
+  escalation board and unlike the frozen handover, reads the live `useWardFlow()` clock on every
+  render. Renders an explicit "No matches" note rather than an empty table when nothing fits. This is
+  the page's own single search composer — Ward Flow routes never mount the shared global shell
+  composer, so nothing else on the page competes with it)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)
@@ -412,7 +422,10 @@ visible reasons and a human confirms or overrides.
   (`handoverSnapshot`), `tests/ward-handover.dom.test.tsx` (the freeze and every section's empty
   state), `tests/ward-escalation.test.ts` (`escalationBoard`, including the standard-night
   `WF-009`/`WF-308` and scarce-night nine-movement measurements), `tests/ward-escalation.dom.test.tsx`
-  (both sections and their empty states)
+  (both sections and their empty states), `tests/ward-patient-search.test.ts` (`searchMovements`,
+  including the closed-movement exclusion proven against both a real and a constructed fixture case),
+  `tests/ward-patient-search.dom.test.tsx` (the single-composer shape, live results, and the
+  "No matches" empty state)
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 

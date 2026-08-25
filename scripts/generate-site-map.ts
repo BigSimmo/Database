@@ -165,6 +165,8 @@ const routeDescriptions: Record<string, string> = {
   "/ward-management/network": "Psychiatric bed network status and regional catchment map.",
   "/ward-management/patients/[patientId]": "Synthetic patient placement and transfer trajectory detail.",
   "/ward-management/queue": "Priority referral queue and triage waiting list.",
+  "/ward-management/search":
+    "Synthetic patient search — find an open Ward Flow movement by id, department, destination, stage or owner.",
   "/ward-management/transport": "Patient inter-hospital transfer and transport logistics.",
   "/ward-management/transport/officer": "Synthetic transport-officer phone screen for in-flight jobs.",
   "/ward-management/ward/[unitId]": "Synthetic ward-manager screen for one inpatient unit.",

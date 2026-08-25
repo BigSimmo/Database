@@ -16,6 +16,7 @@ import {
   MessageSquarePlus,
   Pill,
   Route,
+  Search,
   Settings,
   ShieldCheck,
   Siren,
@@ -197,6 +198,24 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
           className={shellStyles.railLink}
         >
           <TriangleAlert aria-hidden="true" />
+        </Link>
+        {/* Task 7: `/ward-management/search` — same shape as the Handover and Escalation links
+            immediately above and for the exact same reason (see the Officer link's own comment):
+            a raw `<Link>` with a literal string `href`, never `RailLink`, because `RailLink`
+            passes its `href` through as a destructured prop, which reads as a plain `Identifier`
+            to `tests/route-reachability.test.ts`'s AST scan and would leave this route invisible
+            to it. It also sits outside the eight-link `WardModeNavigation` strip on purpose, for
+            the same reason the Officer link's comment already explains. "Patient search" collides
+            with no other accessible name in this rail or in `WardModeNavigation` as a substring,
+            so Playwright's default substring accessible-name match cannot resolve it to more than
+            one element. */}
+        <Link
+          href="/ward-management/search"
+          aria-label="Patient search"
+          title="Patient search"
+          className={shellStyles.railLink}
+        >
+          <Search aria-hidden="true" />
         </Link>
         <RailLink href="/?mode=answer" label="Favourites">
           <HeartPulse aria-hidden="true" />

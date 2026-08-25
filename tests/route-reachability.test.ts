@@ -657,6 +657,16 @@ describe("route reachability", () => {
     expect(isReachable(route.route, route.file)).toBe(true);
   });
 
+  // Task 7 (Ward Flow patient search): same narrowing as the handover and escalation assertions
+  // immediately above, and for the same reason — the generic orphan sweep covers this route too,
+  // but a failure there does not name which route regressed.
+  it("/ward-management/search is linked from the clinical rail", () => {
+    const route = staticPageRoutes.find((entry) => entry.route === "/ward-management/search");
+    expect(route, "/ward-management/search must exist as a static page route").toBeDefined();
+    if (!route) return;
+    expect(isReachable(route.route, route.file)).toBe(true);
+  });
+
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));
     for (const route of REACHABILITY_ALLOWLIST.keys()) {

@@ -3458,6 +3458,7 @@
         "src/app/ward-management/page.tsx",
         "src/app/ward-management/patients/[patientId]/page.tsx",
         "src/app/ward-management/queue/page.tsx",
+        "src/app/ward-management/search/page.tsx",
         "src/app/ward-management/transport/officer/page.tsx",
         "src/app/ward-management/transport/page.tsx",
         "src/app/ward-management/ward/[unitId]/page.tsx"
@@ -3618,6 +3619,16 @@
           "sanctionedPatternsPresent": ["WardModeWorkspace"]
         },
         {
+          "file": "src/app/ward-management/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
           "file": "src/app/ward-management/transport/officer/page.tsx",
           "exists": true,
           "imports": [],
@@ -3689,6 +3700,16 @@
         },
         {
           "file": "src/components/ward-management/officer/officer-screen.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ClinicalRail"]
+        },
+        {
+          "file": "src/components/ward-management/search/patient-search.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4084,6 +4105,7 @@
       "src/app/ward-management/page.tsx",
       "src/app/ward-management/patients/[patientId]/page.tsx",
       "src/app/ward-management/queue/page.tsx",
+      "src/app/ward-management/search/page.tsx",
       "src/app/ward-management/transport/officer/page.tsx",
       "src/app/ward-management/transport/page.tsx",
       "src/app/ward-management/ward/[unitId]/page.tsx"
@@ -4167,6 +4189,7 @@
       "src/app/ward-management/page.tsx",
       "src/app/ward-management/patients/[patientId]/page.tsx",
       "src/app/ward-management/queue/page.tsx",
+      "src/app/ward-management/search/page.tsx",
       "src/app/ward-management/transport/officer/page.tsx",
       "src/app/ward-management/transport/page.tsx",
       "src/app/ward-management/ward/[unitId]/page.tsx"
@@ -4177,7 +4200,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 97,
+    "inheritedCkbV2RootCount": 99,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 17,
     "declaredV2SurfaceCount": 17
@@ -4186,8 +4209,8 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 34,
-    "rootCount": 98,
-    "productionRouteCount": 81,
-    "nextUiEntryCount": 142
+    "rootCount": 100,
+    "productionRouteCount": 82,
+    "nextUiEntryCount": 143
   }
 }

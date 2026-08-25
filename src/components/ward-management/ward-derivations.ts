@@ -605,6 +605,53 @@ export function escalationBoard(movements: Movement[], units: Unit[], now: Insta
   return { escalated, nowhereEligible };
 }
 
+/**
+ * Task 7 (spec item 5): patient search — a plain, pure, case-insensitive filter over the OPEN
+ * caseload. Pure and synchronous: no clock read, no debounce, no fetch — the page component owns
+ * the query state and calls this on every keystroke/select change.
+ *
+ * `stage` and `edId` are exact-value filters (a coordinator picking a stage or a department wants
+ * that stage or that department, not a substring of it); `text` is the only substring match, and
+ * it is checked against five real fields: the movement id, `originEdId`, the resolved destination
+ * unit's `id` and `name` (via `destinationUnit`, so this reads the same "actual destination" every
+ * other screen does — never a mere shortlist candidate), the stage's own display label (via
+ * `stageCopy`, so a coordinator can type what the results table actually shows, e.g. "Bed held",
+ * rather than the raw enum `bed_held`), and `owner`. An empty (or whitespace-only) `text` matches
+ * every open movement, so the stage/department selects can filter alone with no text typed.
+ *
+ * ABSOLUTE RULE, enforced first and unconditionally: `isOpen` is applied before anything else.
+ * A closed movement can never reach the result set, even when every other field of the query
+ * — including the movement's own id typed verbatim — would otherwise match it. Search existing
+ * for a patient who has already left the system must read as "not found", not as a stale hit.
+ */
+export type MovementSearchQuery = {
+  text: string;
+  stage?: MovementStage;
+  edId?: string;
+};
+
+export function searchMovements(movements: Movement[], units: Unit[], query: MovementSearchQuery): Movement[] {
+  const needle = query.text.trim().toLowerCase();
+
+  return movements
+    .filter(isOpen)
+    .filter((movement) => query.stage === undefined || movement.stage === query.stage)
+    .filter((movement) => query.edId === undefined || movement.originEdId === query.edId)
+    .filter((movement) => {
+      if (needle === "") return true;
+      const destination = destinationUnit(movement, units);
+      const haystack = [
+        movement.id,
+        movement.originEdId,
+        destination?.id,
+        destination?.name,
+        stageCopy[movement.stage].label,
+        movement.owner,
+      ].filter((value): value is string => value !== undefined);
+      return haystack.some((value) => value.toLowerCase().includes(needle));
+    });
+}
+
 /** A real, per-movement audit trail built from actual fields — never generic flavour text. */
 export function movementTimeline(movement: Movement) {
   const events: Array<{ at: Instant; label: string }> = [{ at: movement.openedAt, label: "Movement opened" }];

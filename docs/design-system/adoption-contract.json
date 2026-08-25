@@ -595,6 +595,7 @@
         "src/app/ward-management/network/page.tsx",
         "src/app/ward-management/patients/[patientId]/page.tsx",
         "src/app/ward-management/queue/page.tsx",
+        "src/app/ward-management/search/page.tsx",
         "src/app/ward-management/transport/page.tsx",
         "src/app/ward-management/transport/officer/page.tsx",
         "src/app/ward-management/ward/[unitId]/page.tsx"
@@ -606,6 +607,7 @@
         "src/components/ward-management/escalation/escalation-board.tsx",
         "src/components/ward-management/handover/handover-page.tsx",
         "src/components/ward-management/officer/officer-screen.tsx",
+        "src/components/ward-management/search/patient-search.tsx",
         "src/components/ward-management/ward-management-console.tsx",
         "src/components/ward-management/ward-management-modes.tsx",
         "src/components/ward-management/ward-management-navigation.tsx",
