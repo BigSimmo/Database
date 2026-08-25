@@ -220,11 +220,18 @@ before formatting, and `npm run format` then reflowed three lines — a JSX sent
 `patient-overview.tsx`, the `ScheduleResult` union in `schedule.ts`, and one assertion in the
 schedule test. None of them is a mutation anchor, so no result above was invalidated. But
 "none of them is an anchor" is a claim, and the trap is precisely that a stale anchor prints a green
-summary on an unmutated tree — so it was checked rather than asserted. **M4** and **M10**, the two
-mutations in the two source files Prettier touched, were re-applied at the formatted tip `3be680990`:
-both anchor assertions matched, both presence checks returned 1, and the gate went
-`3 failed | 166 passed (169)` with exactly the three expected cases red. Reverted, the same three
-files run `169 passed (169)`.
+summary on an unmutated tree — so it was checked rather than asserted. **M4** and **M10** were
+re-applied at the formatted tip `3be680990`: both anchor assertions matched, both presence checks
+returned 1, and the gate went `3 failed | 166 passed (169)` with exactly the three expected cases red.
+Reverted, the same three files run `169 passed (169)`.
+
+> **Correction (round 1).** ~~"M4 and M10, the two mutations in the two source files Prettier
+> touched"~~ — that clause, struck above, was false twice: Prettier touched **three** files, and
+> `patient-overview.tsx` carries **two** mutations, M9 and M10, of which only M10 was re-run here.
+> M9 was re-run in round 1 (**M9-recheck**) and is red at the shipped bytes, so the ledger below
+> stands. See "The correction to my mutation ledger" in the round 1 section. Struck at its own site
+> rather than only explained downstream: a correction 300 lines later leaves the error readable
+> here.
 
 **I also got this wrong once and am recording it.** I read `git status` while `npm run format` was
 still running in the background, saw a clean tree, and wrote into an earlier draft of this report
@@ -353,10 +360,10 @@ Two smaller observations, not concerns:
 **Round 1 of up to 5.** Two IMPORTANTs, three minors, and one correction to this report. All
 addressed. Nothing pushed, no PR.
 
-| Commit       | Subject                                                                   |
-| ------------ | ------------------------------------------------------------------------- |
-| `a230bba34`  | fix — move the guard where it can fire, cover the fourth branch, M-1, M-2 |
-| _(this one)_ | docs — this round 1 section, M-3, and the mutation-ledger correction      |
+| Commit       | Subject                                                                                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `a230bba34`  | fix — move the guard where it can fire, cover the fourth branch, M-1, and M-2's migrations-test cases (M-2's SQL edit is in `15559437f`; see the correction below) |
+| _(this one)_ | docs — this round 1 section, M-3, and the mutation-ledger correction                                                                                               |
 
 The browser gate held at `43 passed (1.1m)` on the round-0 tip, as predicted. My answer for this
 round is at the end.

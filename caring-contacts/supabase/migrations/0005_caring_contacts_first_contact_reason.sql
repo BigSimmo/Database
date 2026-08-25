@@ -39,10 +39,11 @@
 --
 -- "BLANK" HERE MEANS POSIX WHITESPACE, WHICH IS NOT QUITE WHAT THE DOMAIN MEANS, and the difference
 -- is stated rather than glossed. The domain trims with JavaScript's `String.prototype.trim`, which
--- strips the whole Unicode whitespace set; this check classifies with `[[:space:]]`, which in a
--- UTF-8 locale covers space, tab, newline, carriage return, form feed and vertical tab but not
--- exotica such as a non-breaking space. So a value consisting solely of U+00A0 would satisfy this
--- constraint and would never have reached it through the domain. That residual is accepted: this is
+-- strips the whole Unicode whitespace set; this check classifies with `[[:space:]]`, which always
+-- covers at least space, tab, newline, carriage return, form feed and vertical tab -- how much more
+-- it covers depends on the collation provider, so that floor is what this comment claims and no
+-- more. What escapes either way is the wider Unicode set: a value consisting solely of U+00A0 would
+-- satisfy this constraint and would never have reached it through the domain. That residual is accepted: this is
 -- a backstop against a write that bypassed the domain entirely, not a second implementation of the
 -- domain's rule, and narrowing it further would mean encoding a Unicode table in a check constraint.
 -- What matters is that the constraint and this comment describe the same behaviour. An earlier

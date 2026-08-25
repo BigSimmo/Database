@@ -145,11 +145,33 @@ describe("caring-contacts properties that only a source scan can hold", () => {
     // pattern by construction, so drift there can only ever make the SQL redundant. Here the two are
     // the same rule written twice: RAISING the constant without raising the constraint turns a named
     // refusal into a raw constraint violation on a clinical write -- a regression, not a redundancy.
+    const migration = firstContactReasonMigration();
     const constant = /FIRST_CONTACT_REASON_MAX_LENGTH = (\d+)/.exec(schedule());
-    const sql = /plans_first_contact_reason_shape[\s\S]*?<=\s*(\d+)/.exec(firstContactReasonMigration());
 
-    // Positive control: both literals were found. Without this, a rename in either file would make
-    // the comparison below vacuously true -- two undefineds are equal.
+    // ANCHORED ON `char_length(`, NOT ON THE CONSTRAINT NAME, and the difference is the whole
+    // robustness of this scan (review round 2).
+    //
+    // The first version anchored on `plans_first_contact_reason_shape` and took the first `<=` after
+    // it. But the FIRST occurrence of that name is the `where c.conname = ...` existence guard, not
+    // the constraint body -- so any numeric `<=` inserted between the two would have been read as the
+    // cap. That scan reads the right literal today and cannot stay right by construction: a later
+    // edit adding, say, `and array_length(c.conkey, 1) <= 500` to the guard would have it compare a
+    // number that is not the cap, and agree with the constant while the real cap had drifted. Proving
+    // it reads correctly today (M16/M17) is a different claim from proving it will keep reading the
+    // right thing.
+    //
+    // `char_length(` appears only in the constraint body, immediately left of the comparison, so it
+    // anchors on the expression that IS the cap rather than on a name that is mentioned twice.
+    const sql = /char_length\([\s\S]*?<=\s*(\d+)/.exec(migration);
+
+    // Positive controls, three of them, because each covers a different way this scan could go green
+    // while meaning nothing:
+    //   * the constraint is still the one this test thinks it is (a rename fails loudly);
+    //   * the anchor is UNIQUE -- a second `char_length(` anywhere in the file, including one added
+    //     to the existence guard, would silently displace the match, so it must fail instead;
+    //   * both literals were actually found, or the comparison is two undefineds being equal.
+    expect(migration).toContain("plans_first_contact_reason_shape");
+    expect(migration.split("char_length(").length - 1).toBe(1);
     expect(constant?.[1]).toBeDefined();
     expect(sql?.[1]).toBeDefined();
 
