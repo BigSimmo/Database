@@ -10,9 +10,9 @@ import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text"
 import {
   answerSourceRailRowId,
   type AnswerSourceRow,
-  sourceBadgeLabel,
+  sourceBadgeDisplay,
   sourceCapsuleDisplay,
-  sourceSpokenLabel,
+  sourceSpokenName,
   sourceStatusShortLabel,
   sourceSupportLabel,
 } from "@/components/clinical-dashboard/answer-source-rows";
@@ -185,7 +185,7 @@ function AnswerSourceCard({
         )}
         aria-hidden="true"
       >
-        {cited ? sourceBadgeLabel(index) : "—"}
+        {sourceBadgeDisplay(source, index)}
       </span>
       <span className="grid min-w-0 gap-0.5 text-left">
         <span className="block max-w-[158px] truncate text-xs font-semibold leading-tight text-[color:var(--text-heading)]">
@@ -256,9 +256,7 @@ function AnswerSourceCard({
  */
 function cardLabel(source: AnswerSourceRow, index: number) {
   return [
-    source.cited === false
-      ? `Also found: ${cleanDisplayTitle(source.title)}`
-      : `${sourceSpokenLabel(index)}: ${cleanDisplayTitle(source.title)}`,
+    `${sourceSpokenName(source, index)}: ${cleanDisplayTitle(source.title)}`,
     `page ${source.pageNumber ?? "not available"}`,
     sourceSupportLabel(source),
     sourceStatusShortLabel(source.metadata),

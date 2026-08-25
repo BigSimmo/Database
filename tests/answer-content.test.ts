@@ -131,6 +131,48 @@ describe("primaryAnswerDisplayFragments", () => {
     ["an empty answer", "", {}],
   ];
 
+  /**
+   * The loop below cannot fail on its own. `primaryAnswerDisplayText` IS
+   * `fragments.map(f => f.display).join(" ")`, so comparing the two is an
+   * identity: it documents the definition and would keep passing through any
+   * change to the prose the selector produces. These literals are what actually
+   * hold the displayed text still — the loop then carries that guarantee across
+   * every other branch.
+   */
+  it("splits prose at sentence ends and changes not one character", () => {
+    const answer =
+      "Check the full blood count weekly for the first eighteen weeks. Record every result in the clinical notes.";
+    expect(primaryAnswerDisplayFragments(answer).map((fragment) => fragment.display)).toEqual([
+      "Check the full blood count weekly for the first eighteen weeks.",
+      "Record every result in the clinical notes.",
+    ]);
+    expect(primaryAnswerDisplayText(answer)).toBe(answer);
+  });
+
+  it("leaves a preformatted answer whole rather than splitting its lines", () => {
+    const answer = "Local formulary 2025\nSection 4.2 — clozapine titration";
+    expect(primaryAnswerDisplayFragments(answer, { preformatted: true }).map((fragment) => fragment.display)).toEqual([
+      answer,
+    ]);
+  });
+
+  /**
+   * Pinned because it surprises: the selector drops a short sentence that
+   * `clinicalProseUsefulness` does not judge useful and that falls under the
+   * eight-word floor. That is long-standing behaviour — `main` drops the same
+   * sentence — and the fragment split inherited it unchanged rather than
+   * introducing it. It is recorded here so the next reader of a "missing"
+   * sentence finds the rule instead of suspecting the marks.
+   */
+  it("keeps dropping the short non-clinical opener it dropped before the split", () => {
+    const answer =
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the plan in the notes.";
+    expect(primaryAnswerDisplayFragments(answer).map((fragment) => fragment.display)).toEqual([
+      "Review the observations hourly overnight.",
+      "Document the plan in the notes.",
+    ]);
+  });
+
   for (const [label, answer, options] of cases) {
     it(`joins back to the displayed text for ${label}`, () => {
       const joined = primaryAnswerDisplayFragments(answer, options)

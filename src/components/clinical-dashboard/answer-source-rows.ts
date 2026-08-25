@@ -116,6 +116,28 @@ export function sourceSpokenLabel(index: number) {
   return `Source ${index + 1}`;
 }
 
+/**
+ * What a surface prints where a source number would go.
+ *
+ * A retrieved-but-uncited row takes an em-dash instead of a digit. The numbers
+ * are the same numbers the in-prose marks use, and `answer-content` masks
+ * uncited rows out of the markable ids, so a digit here would name a source no
+ * mark can reach — a reference the reader can look for and never find.
+ *
+ * This lives beside {@link sourceBadgeLabel} rather than in any one component
+ * because three surfaces print it — the rail card, the drawer's title pill and
+ * the drawer's pager — and the rail alone having the rule is how the drawer came
+ * to number an "Also found" row that the card beside it dashed.
+ */
+export function sourceBadgeDisplay(source: AnswerSourceRow, index: number) {
+  return source.cited === false ? "—" : sourceBadgeLabel(index);
+}
+
+/** The spoken counterpart, so an uncited row is never announced as "Source 4". */
+export function sourceSpokenName(source: AnswerSourceRow, index: number) {
+  return source.cited === false ? "Also found" : sourceSpokenLabel(index);
+}
+
 export function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
   if (metadata.document_status === "review_due" || metadata.document_status === "outdated") {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";

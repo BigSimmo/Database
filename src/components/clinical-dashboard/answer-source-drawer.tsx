@@ -23,9 +23,9 @@ import {
   answerSourceRailRowId,
   type AnswerSourceRow,
   imagesForSource,
-  sourceBadgeLabel,
+  sourceBadgeDisplay,
   sourceRowIsStale,
-  sourceSpokenLabel,
+  sourceSpokenName,
   sourceStatusShortLabel,
   sourceSupportSentence,
   tablesForSource,
@@ -149,10 +149,14 @@ export function AnswerSourceDrawer({
       title={source ? cleanDisplayTitle(source.title) : "Source"}
       description="Check the answer against the cited passage."
       closeLabel="Close source detail"
+      // The number here is the same number the in-prose marks and the rail cards
+      // use, so it goes through `sourceBadgeDisplay` and dashes for an uncited
+      // "Also found" row. The compact pager's "3 of 6" is left as a digit: it
+      // states a position within the list, not a source's name.
       titleAccessory={
         source ? (
           <span className={cn(subtleStatusPill, "nums min-h-6 whitespace-nowrap px-2 text-2xs")}>
-            {sourceBadgeLabel(openIndex ?? 0)} · p. {source.pageNumber ?? "n/a"}
+            {sourceBadgeDisplay(source, openIndex ?? 0)} · p. {source.pageNumber ?? "n/a"}
           </span>
         ) : null
       }
@@ -213,7 +217,7 @@ export function AnswerSourceDrawer({
                     type="button"
                     onClick={() => onOpenIndexChange(index)}
                     aria-current={index === openIndex ? "true" : undefined}
-                    aria-label={`Show ${sourceSpokenLabel(index).toLowerCase()}: ${cleanDisplayTitle(row.title)}`}
+                    aria-label={`Show ${sourceSpokenName(row, index).toLowerCase()}: ${cleanDisplayTitle(row.title)}`}
                     className={cn(
                       "nums grid h-12 min-w-12 place-items-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index === openIndex
@@ -221,7 +225,7 @@ export function AnswerSourceDrawer({
                         : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
-                    {sourceBadgeLabel(index)}
+                    {sourceBadgeDisplay(row, index)}
                   </button>
                 ))}
               </span>
@@ -462,7 +466,6 @@ function SourceOverflowMenu({
         type="button"
         data-testid="answer-source-drawer-menu-trigger"
         aria-expanded={open}
-        aria-haspopup="menu"
         aria-label="More actions for this source"
         onClick={() => (open ? closeMenu() : setOpen(true))}
         className={drawerHeaderActionClass}
@@ -473,7 +476,13 @@ function SourceOverflowMenu({
       {open ? (
         <div
           ref={menuRef}
-          role="menu"
+          // A disclosure, not an ARIA menu. It was `role="menu"` with
+          // `role="menuitem"` children and no roving focus or Arrow/Home/End
+          // handling, which tells a screen-reader user to expect the menu
+          // keyboard model and then gives them Tab. Naming it a labelled group
+          // matches what it actually is and what Escape and Tab already do here;
+          // promising the menu pattern would mean implementing it.
+          role="group"
           data-testid="answer-source-drawer-menu"
           aria-label="Source actions"
           className={cn(
@@ -482,7 +491,7 @@ function SourceOverflowMenu({
           )}
         >
           {items.map((item) => (
-            <button key={item.id} type="button" role="menuitem" onClick={item.onActivate} className={menuItemClass}>
+            <button key={item.id} type="button" onClick={item.onActivate} className={menuItemClass}>
               <item.icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
               {item.label}
             </button>
@@ -490,7 +499,6 @@ function SourceOverflowMenu({
           {onReportSource ? (
             <button
               type="button"
-              role="menuitem"
               data-testid="answer-source-drawer-report"
               // Two steps on purpose: this writes a citation-quality report
               // against a named page, so it must not be reachable by one stray
