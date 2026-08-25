@@ -26,13 +26,17 @@ import {
   NOT_RECORDED,
   PROTOTYPE_OUTCOME_TONE,
   PROTOTYPE_ROLE_LABEL,
+  ParticipationMarker,
   SectionFrame,
   StatusMark,
   SyntheticMarker,
+  claimsJointAuthorship,
   formatPerthDate,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
 import type {
+  ManagementPlanVersion,
+  ParticipationState,
   Patient,
   PatientPlanVersion,
   PatientResource,
@@ -76,6 +80,56 @@ import type {
 function displayName(users: readonly PrototypeUser[], id: SyntheticId | null): string | undefined {
   if (id === null) return undefined;
   return users.find((user) => user.id === id)?.displayName;
+}
+
+/**
+ * The Management Plan Version this copy was written from.
+ *
+ * Every fact about how the plan came to be written lives on that version, not
+ * on the copy: `PatientPlanVersion` records who approved the copy and when, and
+ * nothing at all about whether the person took part in writing the plan it
+ * carries. Both surfaces below therefore have to resolve it before they say
+ * anything about authorship.
+ */
+function sourceManagementVersion(
+  versions: readonly ManagementPlanVersion[],
+  copy: PatientPlanVersion,
+): ManagementPlanVersion | null {
+  return versions.find((version) => version.id === copy.derivedFromManagementVersionId) ?? null;
+}
+
+/**
+ * The first thing the person reads on their own sheet.
+ *
+ * There are two of these, and which one prints is decided by the record rather
+ * than assumed. A version may be approved at `declined` or `patient_unavailable`
+ * — sometimes a plan has to be written for somebody who cannot or will not take
+ * part, and the tool must not refuse the situation it exists for. What it must
+ * not do is hand that person a sheet opening "the plan you and your team wrote
+ * together", which is the one thing on the page they are in a position to know
+ * is untrue, on a document whose whole claim is that it is honest with them.
+ *
+ * The second sentence is not a softer way of saying they did not turn up.
+ * Non-participation is never labelled non-compliance here, and a person who was
+ * unwell, or who did not want to, has done nothing that belongs on their own
+ * plan. So it says who wrote it, says plainly that they can change it, and
+ * stops. No reason is given, no absence is mentioned, and nothing is asked of
+ * them beyond an invitation.
+ */
+const PATIENT_PLAN_PAPER_INTRO_TOGETHER =
+  "This is your copy of the plan you and your team wrote together. Keep it somewhere you can find it quickly, and " +
+  "bring it with you if you can. If something in it stops fitting, tell someone on your team so you can write it " +
+  "again together.";
+
+const PATIENT_PLAN_PAPER_INTRO_WRITTEN_BY_THE_TEAM =
+  "This is your copy of the plan your team wrote for you. It is yours, and it is not fixed: read it whenever you " +
+  "like, and tell someone on your team anything you would like changed, so the next one can be written with you. " +
+  "Keep it somewhere you can find it quickly, and bring it with you if you can.";
+
+function patientPlanPaperIntro(participationState: ParticipationState | null): string {
+  return claimsJointAuthorship(participationState)
+    ? PATIENT_PLAN_PAPER_INTRO_TOGETHER
+    : PATIENT_PLAN_PAPER_INTRO_WRITTEN_BY_THE_TEAM;
 }
 
 /**
@@ -282,6 +336,7 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
   const current = plan === null ? null : getCurrentPatientPlanVersion(state.patientPlanVersions, plan.id);
   const draft = plan === null ? null : getOpenPatientPlanDraft(state.patientPlanVersions, plan.id);
   const stale = isPatientPlanVersionStale(current, managementPlan?.currentVersionId ?? null);
+  const sourceVersion = current === null ? null : sourceManagementVersion(state.managementPlanVersions, current);
 
   const actor = state.users.find((user) => user.id === state.activeUserId) ?? null;
   const mayAuthor = actor !== null && canPerformAction(actor.role, "approve_patient_plan");
@@ -391,15 +446,22 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
             <div className={styles.metadataMarks}>
               <StatusMark tone="success" label={`Version ${current.version}`} />
               {stale ? <StatusMark tone="warning" label="Needs updating" /> : null}
+              {/*
+                The same marker the clinician sees on every Management Plan
+                surface, on the copy derived from that version. A clinician about
+                to hand this over has to know the plan inside it was written
+                without this person, because the sheet itself will not say so in
+                those words — it addresses the person rather than describing them.
+              */}
+              {sourceVersion === null ? null : (
+                <ParticipationMarker participationState={sourceVersion.participationState} />
+              )}
             </div>
             <dl className={styles.definitionGrid}>
               <DefinitionRow term="Approved by">{displayName(state.users, current.approvedBy)}</DefinitionRow>
               <DefinitionRow term="Approved on">{formatPerthDate(current.approvedAt)}</DefinitionRow>
               <DefinitionRow term="Written from Management Plan version">
-                {String(
-                  state.managementPlanVersions.find((version) => version.id === current.derivedFromManagementVersionId)
-                    ?.version ?? NOT_RECORDED,
-                )}
+                {String(sourceVersion?.version ?? NOT_RECORDED)}
               </DefinitionRow>
             </dl>
           </SectionFrame>
@@ -510,6 +572,7 @@ export function PatientPlanPrintSurface({
     patientId: patient.id,
   });
   const stale = isPatientPlanVersionStale(version, managementPlan?.currentVersionId ?? null);
+  const sourceVersion = sourceManagementVersion(state.managementPlanVersions, version);
 
   return (
     <section
@@ -517,6 +580,23 @@ export function PatientPlanPrintSurface({
       data-testid="care-plan-patient-plan-print-surface"
       className={styles.workspace}
     >
+      {/*
+        Off the paper deliberately, and on the screen deliberately. The clinician
+        standing at the printer is the reader who needs this fact in these words;
+        the sheet carries the same fact in the second person, in its opening
+        sentence, because a document handed to somebody must not describe them in
+        the third person as an absence.
+      */}
+      {sourceVersion === null ? null : (
+        <div
+          data-testid="care-plan-patient-plan-print-participation"
+          data-print-hide="true"
+          className={styles.metadataMarks}
+        >
+          <ParticipationMarker participationState={sourceVersion.participationState} />
+        </div>
+      )}
+
       <div className={styles.printControls} data-print-hide="true">
         {blockedReason !== null ? (
           <Button
@@ -602,12 +682,21 @@ export function PatientPlanPrintSurface({
             <DefinitionRow term="Name">{patient.preferredName}</DefinitionRow>
             <DefinitionRow term="Record number">{patient.mrn}</DefinitionRow>
             <DefinitionRow term="Version">{String(version.version)}</DefinitionRow>
-            <DefinitionRow term="Agreed on">{formatPerthDate(version.approvedAt)}</DefinitionRow>
+            {/*
+              `Written on`, not `Agreed on`. `approvedAt` is the moment a
+              clinician pressed *Approve patient copy* and nothing else:
+              `PatientPlanVersion` holds no participation or confirmation field,
+              so this application has never recorded a moment at which this
+              person agreed to anything. Dating a clinician's action as the
+              person's own act is the defect user decision D1 was taken about,
+              one document further on. If this sheet should one day show a
+              genuine agreement, that needs its own recorded moment, as D1 gave
+              the Personal Safety Plan — not this one relabelled back.
+            */}
+            <DefinitionRow term="Written on">{formatPerthDate(version.approvedAt)}</DefinitionRow>
           </dl>
           <p data-testid="care-plan-patient-plan-paper-intro" className={styles.patientPlanPaperIntro}>
-            This is your copy of the plan you and your team wrote together. Keep it somewhere you can find it quickly,
-            and bring it with you if you can. If something in it stops fitting, tell someone on your team so you can
-            write it again together.
+            {patientPlanPaperIntro(sourceVersion?.participationState ?? null)}
           </p>
           {stale ? <PrintedStaleBanner /> : null}
         </PrintSection>

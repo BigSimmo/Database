@@ -1124,6 +1124,40 @@ describe("Patient Plan lifecycle", () => {
     },
   );
 
+  /**
+   * The record does not claim a document reached somebody's hands.
+   *
+   * Approving a copy is the whole of what this application observed; handing it
+   * over happens in a room nothing here can see, and History's own line for this
+   * same event already hedges to "may be holding". An Audit Event that says the
+   * copy *was* given contradicts the one surface a reader would check it
+   * against, and it is the same overclaim, inverted, as the wrong-name
+   * attribution Task 10 found.
+   *
+   * The forbidden and required phrasings are spelled out rather than read from
+   * the reducer, because an expectation taken from the string its subject
+   * renders can never disagree with it.
+   */
+  it("never records that an approved copy was given to anyone", () => {
+    const { state, draft } = stateWithDraft(ROWAN);
+    const approved = run(
+      state,
+      {
+        type: "save-patient-plan-draft",
+        versionId: draft.id,
+        input: { sections: filled(draft.sections), resources: [...draft.resources] },
+      },
+      { type: "approve-patient-plan-version", versionId: draft.id },
+    );
+
+    const event = approved.auditEvents.find((candidate) => candidate.type === "patient_plan_approved");
+    expect(event, "approving a patient copy recorded no audit event").toBeDefined();
+    expect(event?.evidence).toContain("is now the copy to be given to this person");
+    expect(event?.evidence).not.toMatch(/is now the copy given to/i);
+    expect(event?.evidence).not.toMatch(/\bhas been (?:given|handed)\b/i);
+    expect(event?.evidence).not.toMatch(/\bwas (?:given|handed) to\b/i);
+  });
+
   it("refuses the non-clinical plan coordinator", () => {
     expect(canPerformAction("plan_coordinator", "approve_patient_plan")).toBe(false);
     const { state, draft } = stateWithDraft(ROWAN);

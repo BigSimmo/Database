@@ -1565,10 +1565,14 @@
     font-size: 14pt;
   }
 
-  /* Nothing a reader needs is split across a page break. */
+  /* Nothing a reader needs is split across a page break — the stale banner
+   * included. Half of it on the previous sheet is worse than none of it: the
+   * clause a reader would lose is the one saying the sheet is still theirs to
+   * keep, leaving a fragment that says only that it may be out of date. */
   .appRoot .patientPlanSection,
   .appRoot .patientPlanResourceGroup,
-  .appRoot .patientPlanResource {
+  .appRoot .patientPlanResource,
+  .appRoot .patientPlanPaperStale {
     break-inside: avoid;
     border-color: CanvasText;
     background: none;
@@ -1577,8 +1581,7 @@
   }
 
   .appRoot .patientPlanPaper,
-  .appRoot .patientPlanPaperHead,
-  .appRoot .patientPlanPaperStale {
+  .appRoot .patientPlanPaperHead {
     border-color: CanvasText;
     background: none;
   }

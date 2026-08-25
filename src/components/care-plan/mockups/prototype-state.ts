@@ -1634,7 +1634,12 @@ export function prototypeReducer(
           type: "patient_plan_approved",
           patientId: plan.patientId,
           objectId: version.id,
-          evidence: `Patient Plan version ${version.version} approved by ${approver.displayName} and is now the copy given to this person. Any earlier copy is superseded and stays readable in history.`,
+          // "to be given", not "given". Approving a copy is the only thing this
+          // application has observed; whether it ever reached the person's hands
+          // happens in a room nothing here can see. History's own line for this
+          // event already hedges to "may be holding", and the record must not
+          // contradict itself about the one fact it cannot know.
+          evidence: `Patient Plan version ${version.version} approved by ${approver.displayName} and is now the copy to be given to this person. Any earlier copy is superseded and stays readable in history.`,
         }),
         lastOutcome: {
           kind: "success",

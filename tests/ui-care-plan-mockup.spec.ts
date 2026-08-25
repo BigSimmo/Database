@@ -930,6 +930,35 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await expect(page.getByTestId("care-plan-patient-plan-stale")).toContainText(/needs updating/i);
     await expect(page.getByTestId("care-plan-patient-plan-sections")).toBeVisible();
     await expect(page.getByTestId("care-plan-patient-plan-version")).toContainText("Version 1");
+
+    /*
+     * And it prints. Until now the printed stale banner had been asserted in
+     * jsdom and against the stylesheet as text, so "it reaches the paper" was
+     * inference rather than observation — and the paper is the artefact that
+     * outlives everything, read months later by somebody with no other way to
+     * know the plan behind it has moved on. Task 9 recorded this observation as
+     * owed and it stayed owed; this is it.
+     */
+    await page.getByRole("link", { name: "Print this copy" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Print Patient Plan" })).toBeVisible();
+    await page.emulateMedia({ media: "print" });
+
+    const stalePaper = printPaper(page);
+    const printedStale = page.getByTestId("care-plan-patient-plan-paper-stale");
+    await expect(printedStale).toBeVisible();
+    await expect(printedStale).toContainText("Some of this may have changed.");
+    await expect(printedStale).toContainText("It is still yours to keep.");
+    // Never that anyone updated anything, and never an estimate of how much of
+    // the sheet is still right: staleness includes the plan being withdrawn.
+    await expect(stalePaper).not.toContainText(/updated/i);
+    await expect(stalePaper).not.toContainText(/most of it will still be right/i);
+    // The screen notice is worded for a clinician and stays off the sheet.
+    await expect(stalePaper).not.toContainText(/go through it with them/i);
+    // Kept whole on paper, so a reader cannot lose the half that says the copy
+    // is still theirs — the rule the print stylesheet declares, measured here.
+    await expect(printedStale).toHaveCSS("break-inside", "avoid");
+
+    await page.emulateMedia({ media: "screen" });
   });
 
   test("a Personal Safety Plan is written, made current, and printed without touching the clinical plan", async ({

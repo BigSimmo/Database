@@ -314,6 +314,24 @@ describe("Care Plan route registration", () => {
 });
 
 describe("Care Plan synthetic, memory-only boundary", () => {
+  /**
+   * A quantity, in either of the two ways English writes one.
+   *
+   * The absence of an approved numeric threshold is a clinical-governance
+   * boundary of this prototype rather than a house style: local governance has
+   * not decided who is offered a Management Plan, and until it does, nothing
+   * here may encode an answer. A guard for that boundary that reads only digits
+   * is a guard a sentence walks straight past — `Refer for review after four
+   * presentations in three months` survived every check in this file, and reads
+   * to a clinician exactly as `after 4 presentations in 3 months` would.
+   *
+   * This is the mirror image of the deferred minor recorded against Task 1's
+   * count guard, which matched spelled numbers only and let a digit-form claim
+   * through. One form is never enough on its own.
+   */
+  const COUNT =
+    "(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty)";
+
   const banned: readonly { label: string; pattern: RegExp }[] = [
     { label: "network fetch", pattern: /\bfetch\s*\(/ },
     { label: "XMLHttpRequest", pattern: /\bXMLHttpRequest\b/ },
@@ -339,7 +357,31 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       pattern: /frequent flyer|high utili[sz]er|problem patient|frequent[- ]presenter|frequent[- ]attender/i,
     },
     { label: "quantified risk or severity verdict", pattern: /risk score|severity score|acuity score/i },
-    { label: "numeric identification threshold", pattern: /identification threshold|threshold\s*[:=]\s*\d/i },
+    {
+      label: "identification threshold",
+      pattern: new RegExp(`identification threshold|threshold\\s*[:=]\\s*${COUNT}`, "i"),
+    },
+    {
+      label: "identification threshold written as a count over a lookback window",
+      pattern: new RegExp(
+        `${COUNT}\\s+(?:or more\\s+)?(?:ed\\s+)?presentations?\\s+(?:in|within|over|across)\\s+${COUNT}\\s+(?:day|week|month|year)s?`,
+        "i",
+      ),
+    },
+    {
+      label: "identification threshold written as a rule with a count",
+      pattern: new RegExp(
+        `\\b(?:refer|refers|referred|eligib\\w*|enrol\\w*|includ\\w*|identif\\w*|flag|flags|flagged|qualif\\w*|trigger|triggers)\\b[^.\\n]{0,40}?${COUNT}\\s+(?:or more\\s+)?(?:ed\\s+)?presentations?`,
+        "i",
+      ),
+    },
+    {
+      label: "identification threshold written as an at-least count",
+      pattern: new RegExp(
+        `(?:at least|more than|no fewer than|${COUNT}\\s+or more)\\s+(?:${COUNT}\\s+)?(?:or more\\s+)?(?:ed\\s+)?presentations?`,
+        "i",
+      ),
+    },
     ...BANNED_ADMISSION_CONSTRUCTIONS.map((phrase) => ({
       label: `prohibitive admission construction ("${phrase}")`,
       pattern: new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
@@ -695,7 +737,17 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       ).toBeGreaterThanOrEqual(11);
     }
 
-    for (const className of ["safetySection", "crisisEntry", "patientPlanSection", "patientPlanResource"]) {
+    // `patientPlanPaperStale` is the line that stops a months-old sheet lying by
+    // omission, and it was the one printed element this guard never named. Split
+    // across a page break it can lose the clause saying the copy is still theirs
+    // to keep, leaving a fragment that says only that it may be wrong.
+    for (const className of [
+      "safetySection",
+      "crisisEntry",
+      "patientPlanSection",
+      "patientPlanResource",
+      "patientPlanPaperStale",
+    ]) {
       expect(
         declarationsFor(className, printRules).get("break-inside"),
         `.${className} may be split across a page break, so half of it can be lost on the previous sheet`,
@@ -1208,8 +1260,7 @@ describe("Care Plan synthetic, memory-only boundary", () => {
       // declaration standing and the line invisible; the shorthand can carry
       // the same colour, so both are checked.
       const decoration = declared.get("text-decoration-resolved") ?? "";
-      const invisible =
-        paintsNothing(decoration) || paintsNothing(declared.get("text-decoration-color") ?? "");
+      const invisible = paintsNothing(decoration) || paintsNothing(declared.get("text-decoration-color") ?? "");
       const underline = invisible ? "" : decoration;
       expect(
         underline,

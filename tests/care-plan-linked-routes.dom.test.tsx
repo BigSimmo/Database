@@ -665,7 +665,16 @@ describe("Care Plan clinical snapshot", () => {
     expect(band).toHaveTextContent("North River Health Service");
     expect(band).toHaveTextContent(/Current Plan.*version 2/i);
     expect(band).toHaveTextContent(/Personal Safety Plan/i);
-    expect(band).toHaveTextContent(/verified/i);
+    /*
+     * Spelled out, and both halves of it. This assertion used to read
+     * `/verified/i`, which `Not verified since …` satisfies just as well — so it
+     * could not tell a team whose contact details were checked three weeks ago
+     * from one nobody has checked since, on the band a clinician reads before
+     * ringing the number. Rowan's team is `SYN-CMHT-001`, verified 21 days
+     * before `PROTOTYPE_NOW`.
+     */
+    expect(band).toHaveTextContent("Verified on 30/07/2026");
+    expect(band.textContent ?? "").not.toMatch(/Not verified since/i);
     expect(band).toHaveTextContent(/in the 12 months to 20\/08\/2026/i);
     expect(within(band).getByText("Synthetic prototype — fictional people, teams, and hospitals")).toBeInTheDocument();
   });
@@ -3296,6 +3305,43 @@ describe("Care Plan Patient Plan", () => {
     "your team to go through it with you, and they can write a new one with you.";
 
   /**
+   * The two opening sentences of the printed sheet, spelled out literally rather
+   * than imported, for the same reason as everything else in this block: a
+   * content check that reads the constant its subject renders from can never
+   * disagree with what is on the page.
+   *
+   * The first may be printed only when the record says the person took part in
+   * writing the plan this copy carries. The second is what prints otherwise, and
+   * it says who wrote the plan and that the person may change it — it does not
+   * mention their absence, give a reason, or ask anything of them.
+   */
+  const PAPER_INTRO_TOGETHER =
+    "This is your copy of the plan you and your team wrote together. Keep it somewhere you can find it quickly, and " +
+    "bring it with you if you can. If something in it stops fitting, tell someone on your team so you can write it " +
+    "again together.";
+
+  const PAPER_INTRO_WRITTEN_BY_THE_TEAM =
+    "This is your copy of the plan your team wrote for you. It is yours, and it is not fixed: read it whenever you " +
+    "like, and tell someone on your team anything you would like changed, so the next one can be written with you. " +
+    "Keep it somewhere you can find it quickly, and bring it with you if you can.";
+
+  /**
+   * Non-participation is never labelled non-compliance, and the sheet a person
+   * is handed is the last place it could be. These are the shapes that would
+   * turn an honest sentence into a reproach, spelled out so no future rewording
+   * can reintroduce one by accident.
+   */
+  function expectNoReproach(paper: HTMLElement) {
+    const text = paper.textContent ?? "";
+    expect(text).not.toMatch(/declined/i);
+    expect(text).not.toMatch(/unavailable/i);
+    expect(text).not.toMatch(/without (?:your|this person's) involvement/i);
+    expect(text).not.toMatch(/were not (?:available|able to)/i);
+    expect(text).not.toMatch(/did not (?:take part|attend|want)/i);
+    expect(text).not.toMatch(/refused|non-?compliance|non-?compliant|disengaged/i);
+  }
+
+  /**
    * The claim this banner used to make, and must never make again: the plan may
    * have been withdrawn rather than updated, in which case nothing was updated
    * and there may be no plan in use at all.
@@ -3633,6 +3679,100 @@ describe("Care Plan Patient Plan", () => {
     expect(within(paper).getAllByRole("heading", { level: 3 }).length).toBeGreaterThanOrEqual(8);
     expect(paper.textContent ?? "").not.toContain("go through it with them");
     expect(paper.textContent ?? "").not.toContain("Go through it with them");
+  });
+
+  /**
+   * Rowan's Current Plan is `co_produced`, so the sheet may say so. This is the
+   * pair to the test below, and it is here to prove the two branches are
+   * genuinely distinguished rather than one of them being unreachable.
+   *
+   * It also pins the date label. `approvedAt` on a `PatientPlanVersion` is the
+   * moment a clinician pressed *Approve patient copy* — the type carries no
+   * participation or confirmation field at all — so `Agreed on` would date a
+   * clinician's action as this person's own act, which is the defect user
+   * decision D1 was taken about, one document further on.
+   */
+  it("prints the joint-authorship sentence, dated as written rather than as agreed", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderJourney(carePlanRoute.patientPlanEdit("SYN-PATIENT-001"));
+    await createDraft(user);
+    await fillEverySection(user);
+    await user.click(screen.getByRole("button", { name: "Approve patient copy" }));
+
+    // Nothing on the reading surface says otherwise.
+    goTo(carePlanRoute.patientPlan("SYN-PATIENT-001"));
+    expect(
+      within(screen.getByTestId("care-plan-patient-plan-version")).queryByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeNull();
+
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-001"));
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    expect(screen.getByTestId("care-plan-patient-plan-paper-intro")).toHaveTextContent(PAPER_INTRO_TOGETHER);
+
+    const text = paper.textContent ?? "";
+    expect(text).toContain("Written on");
+    expect(text).not.toContain("Agreed on");
+    expect(text).not.toMatch(/\bagreed\s+on\b/i);
+  });
+
+  /**
+   * The defect this closes, and the sharpest one this build produced: a sheet
+   * handed to a person, opening with the claim that they helped write it, on a
+   * plan the record says was written without them. Mira's version 2 is approved
+   * at `patient_unavailable`, which puts the clinician's marker on every
+   * Management Plan surface — and the copy derived from it said the opposite, in
+   * the second person, to the one reader in a position to know it was untrue.
+   *
+   * Two things are asserted, and they are different things. The clinician's
+   * marker appears on both Patient Plan surfaces, in the words the rest of the
+   * product uses. The sheet itself never carries that third-person wording: it
+   * addresses the person, so it says who wrote the plan and that they may change
+   * it, and mentions no absence, reason, or failure of any kind.
+   */
+  it("never tells a person they helped write a plan the record says was written without them", async () => {
+    const user = userEvent.setup();
+    const { goTo } = renderJourney(carePlanRoute.managementPlanReview("SYN-PATIENT-002"));
+    await signInAs(user, "SYN-USER-SENIOR-001");
+    await user.click(screen.getByRole("button", { name: /^Approve version/ }));
+    await user.click(screen.getByRole("button", { name: "Approve and make Current" }));
+
+    // The copy is made *after* that approval, so it is written from the version
+    // approved without her. Making it first is why the existing journeys walk
+    // straight past this.
+    goTo(carePlanRoute.patientPlanEdit("SYN-PATIENT-002"));
+    await createDraft(user);
+    await fillEverySection(user);
+    await user.click(screen.getByRole("button", { name: "Approve patient copy" }));
+
+    goTo(carePlanRoute.patientPlan("SYN-PATIENT-002"));
+    expect(
+      within(screen.getByTestId("care-plan-patient-plan-version")).getByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeInTheDocument();
+
+    goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
+    expect(
+      within(screen.getByTestId("care-plan-patient-plan-print-participation")).getByText(
+        "Written without this person's involvement",
+      ),
+    ).toBeInTheDocument();
+
+    const paper = screen.getByTestId("care-plan-patient-plan-print-output");
+    const intro = screen.getByTestId("care-plan-patient-plan-paper-intro");
+    expect(intro).toHaveTextContent(PAPER_INTRO_WRITTEN_BY_THE_TEAM);
+
+    const introText = intro.textContent ?? "";
+    expect(introText).not.toContain("you and your team wrote together");
+    expect(introText).not.toMatch(/wrote (?:it )?together/i);
+    expect(introText).not.toContain(PAPER_INTRO_TOGETHER);
+
+    // The clinician's third-person marker stays off the sheet, and so does every
+    // shape that would read as a reproach.
+    expect(paper.textContent ?? "").not.toContain("Written without this person's involvement");
+    expectNoReproach(paper);
   });
 });
 
@@ -4497,8 +4637,20 @@ describe("Care Plan Governance", () => {
     expect(within(surface).queryAllByRole("slider")).toEqual([]);
     expect(within(surface).queryAllByRole("textbox")).toEqual([]);
     expect(within(surface).queryAllByRole("combobox")).toEqual([]);
+    /*
+     * Digits and number words alike. A threshold a governance page states in
+     * words — "a threshold of four presentations in three months" — is the same
+     * rule to the clinician reading it as one stated in digits, and this page is
+     * the one place in the product whose entire purpose is to say that no such
+     * rule exists.
+     */
+    const COUNT =
+      "(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|twenty)";
     expect(surface.textContent ?? "").not.toMatch(
-      /threshold of \d|at least \d|\d\+? or more presentations|more than \d presentation/i,
+      new RegExp(
+        `threshold of ${COUNT}|at least ${COUNT}|${COUNT}\\+? or more presentations|more than ${COUNT} presentation|${COUNT}\\s+presentations?\\s+(?:in|within|over|across)\\s+${COUNT}\\s+(?:day|week|month|year)s?`,
+        "i",
+      ),
     );
   });
 
