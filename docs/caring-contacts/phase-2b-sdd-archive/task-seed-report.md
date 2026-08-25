@@ -309,8 +309,11 @@ suite and in both screen suites is covered above.
 ### Gates
 
 Every run below used `GATE_RECEIPTS=refresh`, so none is a restored-tree receipt exiting 0 with no
-summary line. Lease refusals were frequent — the exclusive heavy lease was held by other worktrees
-for long stretches — and every one was retried, never forced past.
+summary line. Lease contention was severe: another worktree held the exclusive lease almost
+continuously, and two of my runs were killed while queued rather than refused — the failure mode the
+updated standing discipline documents, where a queued run blocks inside the child process with no
+refusal to retry around. Every refusal was retried and none was forced past. **Nothing below is
+reported from an exit code**; each line is the run's own summary.
 
 - `npm run typecheck` — clean. It **caught a real error**: the page join case was added after an
   earlier typecheck had passed, and `loadPage` types the rendered props as `unknown`, so destructuring
@@ -319,14 +322,19 @@ for long stretches — and every one was retried, never forced past.
   `tests/caring-contacts-empty-state.dom.test.tsx`, which is untouched by this branch. The reviewer
   has established these were a stale eslint cache masking a real error, already fixed on another
   branch; nothing here to do. **No error in any file this task adds or changes.**
-- Focused suites, after the restore below:
-  `tests/caring-contacts-demo-seed.test.ts`, `-plan-wizard.dom`, `-new-plan-page.dom`, `-repository`,
-  `-pathway-versions` — see the final line pasted at the end of this section.
+- `tests/caring-contacts-demo-seed.test.ts`, run last of all, **after** the restore described below:
+  `Test Files  1 passed (1)` / `Tests  16 passed (16)`.
+- `npm run test:cc-guards` — the task gate, also after the restore:
+  `Test Files  18 passed (18)` / `Tests  394 passed (394)`. It carries both screen suites this round
+  changed (`-plan-wizard.dom`, `-new-plan-page.dom`) as well as the vocabulary, workspace-screens and
+  route-reachability scans a diff cannot contain.
 - `npm run test`, the full offline suite — run **before** the standing discipline was updated to
   reserve it for the controller at the merge point. Its last result was
   `Test Files 1 failed | 835 passed | 3 skipped (839)` / `Tests 1 failed | 10205 passed | 74 skipped`,
   and that single failure is the contamination described immediately below, now fixed. **I have not
-  re-run it**, per the updated discipline; the focused suites are the evidence for the fix.
+  re-run it**, per the updated discipline reserving it for the controller at the merge point; the two
+  runs above are the evidence for the fix, and the controller's merge-point run is what should
+  confirm nothing crosses files.
 
 **A mutation was committed by mistake, and the full suite is what caught it.** `git add -A` run while
 the round-3 driver held the tree captured N1 — the wizard's referral left `awaitingHandover` — into
