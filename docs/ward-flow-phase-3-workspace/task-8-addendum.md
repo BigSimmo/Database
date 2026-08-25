@@ -170,9 +170,9 @@ red — which is the guard working. Run it and quote its output.
 ## R39b — the adoption contract entry
 
 `docs/design-system/adoption-contract.json` has a `ward-management` surface starting around line 490
-listing route files under `"src/app/ward-management/..."` and component files under
+listing route files under `"src/app/mockups/ward-flow/..."` and component files under
 `"src/components/ward-management/..."`. Add your new route
-(`src/app/ward-management/ward/[unitId]/page.tsx`) and your new component
+(`src/app/mockups/ward-flow/ward/[unitId]/page.tsx`) and your new component
 (`src/components/ward-management/ward/ward-screen.tsx`) to the matching arrays, keeping the existing
 ordering convention, then run `npm run design-system:adoption:update` and commit whatever it
 regenerates.
