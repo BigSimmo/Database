@@ -514,3 +514,105 @@ hunt run afterwards looked for _that literal shape_ — reads compared to each o
 clean, which it was. **The shape is wider than the instance that found it**: an assertion is only
 worth what its failure mode is worth, and "could this possibly go red?" is a question to ask of every
 assertion, not only of the ones that compare two outputs.
+
+---
+
+# Fix round 3
+
+Two items. The first is a real defect and it is a defect in an argument I made, not only in code.
+
+## 1. My no-race argument proved entry into `sending`, not the state during it
+
+I wrote that the assurance branch "cannot race the `sending` branch … a send is never in flight while
+this branch is live", and gave as proof that `activate` returns early on a null body. **That proof
+establishes that a send cannot START with a confirmation outstanding. It says nothing about whether
+the confirmations stay complete while a send is in flight** — and they need not.
+
+Verified at source rather than accepted:
+
+- `state.status` is component state; the draft is a separate external store read through
+  `useSyncExternalStore`.
+- The review stage's `Back to personalisation` control is rendered with **no guard on
+  `submissionState`**.
+- `update()` and `onAssuranceChange` are likewise ungated.
+
+So during an in-flight create a coordinator can go back, untick a box, and return — and with the
+branches in my order the control read **"Still to confirm: …"** on a screen where **a plan may
+already exist.** The `role="status"` line above still said a create was running, so the screen was
+not wholly wrong; the control was, and it was wrong in the direction that tells a coordinator the
+plan was never submitted at the exact moment it may have been. On this screen that is not cosmetic —
+it is the sentence that invites a second sign-up for the same patient.
+
+**`sending` is now first**, and the comment states the real principle rather than a stage number: a
+write in flight is **not a missing thing at all**, so no sentence about a missing stage is safe to
+print while it holds. Everything below it is a missing thing, ordered by the stage a coordinator
+would go back to.
+
+**Pinned, because the reorder was invisible to every existing case.** The round-2 overlay case renders
+at `status: "idle"` and stays green either way — so as it stood, this would have been a one-line
+change no test could distinguish. The new case drives a create that never answers, confirms the
+in-flight state from the screen's own status line, unticks a confirmation through `writePlanDraft`
+(the exact call `onAssuranceChange` makes), and asserts the sending message wins.
+
+**M17 mutates the order back** — `sending` guarded on `everyAssuranceConfirmed`, which reproduces the
+old precedence exactly — and the result is the discrimination that was missing:
+
+- the new case goes **RED**: `expected 'This plan cannot be created until eve…' to match /the plan is being created now/i`;
+- the round-2 overlay case stays **GREEN**, which is the whole point.
+
+## 2. The ordering comment asserted more than the chain delivers
+
+"Earliest missing thing to latest" is only approximately true. Stage 2's `pathwayVersionId` and
+`sendingPreference` have **no branch at all**: with either missing, the body is null, no branch
+matches, and the catch-all speaks — **last, not in stage order.**
+
+That hole predates this task and this round did not widen it, but my comment had turned a
+pre-existing gap into a false statement in the code. The comment now scopes its claim to the stages
+that are branched — stage 1 here, stage 3's patient detail, then stage 4's own dates — and names the
+stage-2 gap as outstanding separate work. **The stage-2 branches are deliberately not built**; that
+was not scoped to me and inventing it here would be the same over-reach in the other direction.
+
+## Round 3 mutation ledger
+
+| #   | Mutation                                                                                  | Predicted                                                         | Observed                                                                                                                                                                                   |
+| --- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M17 | the `sending` guard gains `&& everyAssuranceConfirmed(...)`, restoring the old precedence | the new sending-outranks case RED; the round-2 overlay case GREEN | **Exactly that.** `1 failed \| 72 passed`. Red: `expected 'This plan cannot be created until eve…' to match /the plan is being created now/i`. The round-2 case is not among the failures. |
+
+## Round 3 gates
+
+| Gate                                       | Result                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------- |
+| `npx tsc --noEmit -p tsconfig.json`        | Clean, no output.                                                 |
+| `npx eslint --no-cache` over changed files | Clean, no output.                                                 |
+| `npx prettier --write` over changed files  | Both reported unchanged — already formatted.                      |
+| `npm run test:cc-guards`                   | `Test Files  18 passed (18)` / `Tests  399 passed (399)`, exit 0. |
+| Full suite, browser gate                   | Not run, per the standing policy. Not claimed.                    |
+
+399 rather than round 2's 398: the one case this round added. The contract suite is untouched by this
+round and was not re-run; the last recorded run of it stands at `Tests 130 passed (130)`.
+
+## An incident worth recording, because it nearly contaminated a ledger
+
+The mutation driver I had been running from the session scratchpad **was replaced by another task's
+driver at the same path.** Running it produced Task 10's output — a different worktree, a different
+suite, `407` tests — and, because that driver takes its ledger filename as an argument, my `M17`
+argument caused it to write **Task 10's ledger into a file called `M17` in this worktree's root.**
+
+Nothing was corrupted: that driver carries its own `REPO` constant pointing elsewhere, so it never
+touched this tree, and `git status` confirmed clean before and after. The stray file was removed.
+**The near miss is that a mutation result from another task could have been read as mine** — the
+output arrived in response to my command, and only the test count and suite name made it obviously
+foreign.
+
+The driver now lives at a path carrying this worktree's own suffix. The generalisable form: **a
+session scratchpad is not private when several tasks share a machine, and a tool that reports results
+should be identified by something other than the fact that you were the one who ran it.**
+
+## What this round adds to the standing lessons
+
+Round 1's M6 lesson was about assertions. This one is about **arguments**: I did not merely fail to
+test the ordering, I wrote a proof for it, and the proof was of the wrong proposition. "A send cannot
+start with X" and "X holds throughout a send" differ by a quantifier, and the second is the one the
+code needed. A comment asserting an invariant deserves the same question a test does — **what would
+have to be true for this to be false, and can that state be reached?** Here it could, through a
+control on the very same screen.
