@@ -37,6 +37,7 @@
   --ward-radius-round: 50%;
   --ward-z-base: 1;
   --ward-z-phone: 20;
+
   display: grid;
   height: 100dvh;
   min-height: 44rem;
