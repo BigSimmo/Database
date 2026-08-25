@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "35e30e329ad470ad99f1641e82bd2dd3e048e821",
-    "committed_at": "2026-08-25T16:06:18+00:00"
+    "sha": "7b81183fcb6f380db8d6c287edf0264581dc6d8b",
+    "committed_at": "2026-08-25T16:41:47+00:00"
   },
   "routes": {
     "modes": [
@@ -2134,6 +2134,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/continuous-integration.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/current-clinical-work-brief.md",
         "section": "root",
         "catalogued": true
@@ -3596,8 +3601,8 @@
       }
     ],
     "counts": {
-      "documents": 430,
-      "catalogued": 101,
+      "documents": 431,
+      "catalogued": 102,
       "uncatalogued": 329,
       "sections": 18
     }

@@ -157,7 +157,7 @@ const routeDescriptions: Record<string, string> = {
   "/ward-management": "Statewide psychiatry ward demand, bed capacity, and patient flow console.",
   "/ward-management/capacity": "Ward bed availability, unit occupancy, and staffing capacity.",
   "/ward-management/constellation":
-    "Compatibility redirect to `/ward-management/network`. Phase 2 retired the constellation command view.",
+    "Intentional, unlinked backwards-compatibility redirect to `/ward-management/network` (pointing to the current Ward Management home). Phase 2 retired the constellation command view.",
   "/ward-management/ed/[edId]": "Synthetic emergency-department role screen for one origin department.",
   "/ward-management/exceptions": "Patient flow exceptions, delays, and escalation alerts.",
   "/ward-management/governance": "Ward coordination governance, compliance, and audit log.",
