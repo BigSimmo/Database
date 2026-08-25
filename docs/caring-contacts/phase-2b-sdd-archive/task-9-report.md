@@ -404,12 +404,20 @@ and Task 7's whole-draft fixture missing stage 4's two fields.
 **Prettier:** `npx prettier --write` over every file in this diff; the last run reports every one
 unchanged.
 
-**The full suite, `npm run test`: QUEUED AND NOT RUN, and it is reported as neither a pass nor a
-failure.** It was started in the background from the first command, per Task 8's lease lesson, and it
-never obtained the exclusive lease: `D:\Worktrees\Database\care-plan-impl` held it continuously
-with repeated `playwright --project=chromium-mockups` runs, re-acquiring within seconds of each
-release. I proved ownership from the lease record's own `worktree` field rather than from a live PID,
-exactly as the brief requires, and **nothing was forced** — no lock file was touched and no other
+**The full suite, `npm run test`, once, at the end — and backgrounded from the first command, which
+is Task 8's lease lesson applied rather than restated:**
+
+```
+ Test Files  835 passed | 3 skipped (838)
+      Tests  10160 passed | 74 skipped (10234)
+   Duration  694.30s (transform 70.50s, setup 120.72s, import 312.56s, tests 1391.85s, environment 455.68s)
+```
+
+**Clean, and it took four attempts to get a lease at all.** The exclusive lease was held for a long
+stretch by `D:\Worktrees\Database\care-plan-impl`, re-acquiring for `playwright
+--project=chromium-mockups` within seconds of each release. Every refusal was treated as neither a
+pass nor a failure and retried; ownership was read from the lease record's own `worktree` field
+rather than from a live PID, and **nothing was forced** — no lock file was touched and no other
 worktree's process was signalled.
 
 ```
@@ -418,14 +426,13 @@ D:/Worktrees/Database/care-plan-impl, started 2026-08-25T13:17:23.740Z):
 playwright --project=chromium-mockups tests/ui-care-plan-mockup.spec.ts
 ```
 
-**What that leaves unproved, stated rather than glossed:** the guard set is a SELECTED eighteen
-files, and the full suite is what confirms the selection was correct. This task touches
-`src/lib/caring-contacts/schedule.ts`, which is domain code with importers outside the guard set —
+This matters beyond the wait, and it is why it is recorded rather than mentioned: the guard set is a
+SELECTED eighteen files, and the full suite is what confirms the selection was right. This task
+touches `src/lib/caring-contacts/schedule.ts`, whose importers include
 `tests/caring-contacts-hospital-events.test.ts`, `tests/caring-contacts-repository.test.ts` and
-`tests/caring-contacts-postgres-repository.test.ts` all exercise `buildApprovedSchedule` and none of
-them is in `test:cc-guards`. The change there is a pure addition and nothing existing was touched, so
-I do not expect a regression; **I have not proved there is none, and the full suite is the thing that
-would.** It is the first check to run when the machine is free.
+`tests/caring-contacts-postgres-repository.test.ts` — none of which is in `test:cc-guards`. The
+addition there is pure and touches nothing existing, but "I do not expect a regression" is not
+evidence and the run above is.
 
 ### The browser gate
 
