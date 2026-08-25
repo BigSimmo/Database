@@ -53,9 +53,12 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/clinical-trust",
   },
-  // Kept, unlike the five removed above: this is being reconsidered as a
-  // clinical-safety surface rather than a developer-tooling one, not dropped
-  // for restating an already-guaranteed fact.
+  // Kept, unlike the five removed above, and settled: the owner ruled on
+  // 2026-08-26 that the hazard register belongs in the developer hub rather
+  // than as a separate clinical-safety surface. It was never a removal
+  // candidate on the Ruling R1 ground the five removed entries failed on --
+  // it restates no fact an existing green gate already guarantees. Do not
+  // drop it in a later placeholder sweep; it is unbuilt, not unwanted.
   {
     id: "hazard-register",
     name: "Hazard register",
@@ -136,10 +139,10 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "ward-flow",
     name: "Ward flow",
-    summary: "Queue, capacity, transport, movements",
+    summary: "Synthetic prototype, not clinical decision support: queue, capacity, transport, movements",
     group: "reference",
     phase: 1,
-    href: "/ward-management",
+    href: "/mockups/ward-flow",
   },
 ];
 

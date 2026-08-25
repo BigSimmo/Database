@@ -1956,7 +1956,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByRole("button", { name: "Ask a question" })).toHaveCount(0);
-    const questionEcho = page.getByTestId("answer-card-query");
+    // The current turn's question is a chat bubble, the same shape every prior
+    // turn uses; it was a muted echo inside the answer card header until the
+    // answer surface became one conversation.
+    const questionEcho = page.getByTestId("user-question-bubble");
     await expect(questionEcho).toBeVisible();
     await expect(questionEcho).toContainText(question);
 
@@ -1967,19 +1970,54 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Demo", { exact: true })).toHaveCount(0);
     await expect(plainAnswer.locator("ul, ol, li")).toHaveCount(0);
     await expect(plainAnswer.getByTestId("plain-answer-prose").locator("svg")).toHaveCount(0);
+
+    // The numbered marks in the prose. They are the reason the whole surface
+    // exists, so this asserts the three things that make one trustworthy: it
+    // stays inside the line box, it opens the source it names, and the sentence
+    // it belongs to is still findable while the drawer covers the screen.
+    const marks = plainAnswer.getByTestId("answer-source-mark");
+    await expect(marks.first()).toBeVisible();
+    const markGeometry = await plainAnswer.getByTestId("plain-answer-prose").evaluate((prose) => {
+      const nodes = [...prose.querySelectorAll('[data-testid="answer-source-mark"]')];
+      const boxes = nodes.map((node) => node.getBoundingClientRect());
+      let minGap = Number.POSITIVE_INFINITY;
+      for (let index = 1; index < boxes.length; index += 1) {
+        const previous = boxes[index - 1];
+        const current = boxes[index];
+        if (Math.abs(previous.top - current.top) > 2) continue;
+        minGap = Math.min(minGap, current.left - previous.right);
+      }
+      return { count: boxes.length, minGap };
+    });
+    expect(markGeometry.count).toBeGreaterThan(0);
+    // Two marks in one cluster must not touch. An earlier shape painted the box
+    // from a pseudo-element wider than the control, so "2" and "3" overlapped.
+    if (markGeometry.count > 1) expect(markGeometry.minGap).toBeGreaterThan(0);
+
+    await marks.first().click();
+    const claimDrawer = page.getByTestId("answer-source-drawer");
+    await expect(claimDrawer).toBeVisible();
+    // Opened from a claim, so the drawer speaks about the claim — not the
+    // "opened from the source list" wording a rail card produces.
+    await expect(claimDrawer.getByTestId("answer-source-drawer-support")).toContainText(
+      /states the claim|part of the claim/,
+    );
+    await expect(page.getByTestId("answer-claim").first()).toHaveAttribute("data-claim-lit", "true");
+    await page.keyboard.press("Escape");
+    await expect(claimDrawer).toHaveCount(0);
+    await expect(marks.first()).toBeFocused();
+
     // The source rail replaced the "Sources" capsule and its popover/sheet pair:
     // the cited list is on the page rather than one tap behind a chip, and each
-    // row opens the per-source drawer.
+    // card opens the per-source drawer. Cards scroll sideways so six sources cost
+    // one row of phone scroll rather than six.
     const sourceRail = page.getByTestId("answer-source-rail");
     await expect(sourceRail).toBeVisible();
     const railRows = sourceRail.getByTestId("answer-source-rail-row");
     await expect(railRows).toHaveCount(2);
     const firstRailRow = railRows.first();
     await expectMinTouchTarget(firstRailRow);
-    await expect(sourceRail.getByRole("link", { name: /Open S1 source page/i })).toHaveAttribute(
-      "href",
-      /\/documents\/.+chunk=/,
-    );
+    await expect(firstRailRow).toHaveAccessibleName(/^Source 1: /);
     await firstRailRow.click();
     const sourceDrawer = page.getByTestId("answer-source-drawer");
     await expect(sourceDrawer).toBeVisible();
@@ -1988,7 +2026,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Paging is the drawer's whole navigation model; at two sources it is numbered.
     const pager = sourceDrawer.getByTestId("answer-source-drawer-pager");
     await expect(pager).toHaveAttribute("data-pager-variant", "numbered");
-    await pager.getByRole("button", { name: /Source S2/ }).click();
+    await pager.getByRole("button", { name: /^Show source 2/ }).click();
     await expect(sourceDrawer.getByRole("link", { name: "View original PDF" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
     await page.keyboard.press("Escape");
@@ -2105,7 +2143,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Document order on the answer surface: question, prose, the rail that cites
     // it, then the answer-level support strip.
     const hierarchy = await page.evaluate(() => {
-      const question = document.querySelector('[data-testid="answer-card-query"]');
+      const question = document.querySelector('[data-testid="user-question-bubble"]');
       const plainAnswer = document.querySelector('[data-testid="plain-answer-response"]');
       const rail = document.querySelector('[data-testid="answer-source-rail"]');
       const support = document.querySelector('[data-testid="answer-support-card"]');
@@ -2863,7 +2901,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
-    const questionEcho = page.getByTestId("answer-card-query");
+    const questionEcho = page.getByTestId("user-question-bubble");
     await expect(questionEcho).toBeVisible({ timeout: uiAssertionTimeoutMs });
     await expect(questionEcho).toContainText(question);
     await expect(page.getByTestId("plain-answer-response")).toContainText("synthetic clozapine table image highlights");
@@ -2971,10 +3009,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
 
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    // Live answer owns the query echo via AnswerCard; prior turns keep UserQuestionBubble.
-    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
-    await expect(page.getByTestId("answer-card-query")).toContainText(firstQuestion);
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(0);
+    // One chat: every question in the thread is a bubble, the newest included.
+    // The card no longer carries a muted echo of its own question.
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
+    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
+    await expect(page.getByTestId("answer-card-query")).toHaveCount(0);
     await expect(visibleAnswerFollowUpSuggestions(page)).toBeVisible();
 
     const composer = visibleQuestionInput(page);
@@ -2985,10 +3024,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, followUp);
     await visibleAnswerSubmitButton(page).click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
-    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
-    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
+    const questionBubbles = page.getByTestId("user-question-bubble");
+    await expect(questionBubbles).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(questionBubbles.first()).toContainText(firstQuestion);
+    await expect(questionBubbles.last()).toContainText(followUp);
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(1);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
     await expect(composer).toHaveValue("");
@@ -2999,11 +3038,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.reload();
     await waitForDemoDashboardReady(page);
     await expect(async () => {
-      await expect(page.getByTestId("user-question-bubble")).toHaveCount(1);
-      await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
+      await expect(page.getByTestId("user-question-bubble")).toHaveCount(2);
     }).toPass({ timeout: 15_000 });
-    await expect(page.getByTestId("user-question-bubble")).toContainText(firstQuestion);
-    await expect(page.getByTestId("answer-card-query")).toContainText(followUp);
+    await expect(page.getByTestId("user-question-bubble").first()).toContainText(firstQuestion);
+    await expect(page.getByTestId("user-question-bubble").last()).toContainText(followUp);
     await expect(page.locator('[data-dashboard-stage="answer-thread-turn"][data-collapsed="true"]')).toHaveCount(1);
   });
 
@@ -3022,9 +3060,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(suggestionText).toBeTruthy();
     await suggestion.click();
 
-    await expect(page.getByTestId("user-question-bubble")).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
-    await expect(page.getByTestId("answer-card-query")).toHaveCount(1);
-    await expect(page.getByTestId("answer-card-query")).toContainText(suggestionText ?? "");
+    await expect(page.getByTestId("user-question-bubble")).toHaveCount(2, { timeout: uiAssertionTimeoutMs });
+    await expect(page.getByTestId("user-question-bubble").last()).toContainText(suggestionText ?? "");
   });
 
   test("quote follow-up stages a composer draft from evidence quotes", async ({ page }) => {
@@ -3144,10 +3181,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(rail).toBeVisible();
       const railRow = rail.getByTestId("answer-source-rail-row").first();
       await expectMinTouchTarget(railRow);
-      await expect(rail.getByRole("link", { name: /Open S1 source page/i })).toHaveAttribute(
-        "href",
-        /\/documents\/.+chunk=/,
-      );
+      // The card is one control that opens the drawer; the two routes to the PDF
+      // itself live in the drawer (its header link and "View original PDF"), so
+      // the card does not carry a second competing target at this width.
+      await expect(railRow).toHaveAccessibleName(/open source detail$/);
       await railRow.click();
       const drawer = page.getByTestId("answer-source-drawer");
       await expect(drawer).toBeVisible();

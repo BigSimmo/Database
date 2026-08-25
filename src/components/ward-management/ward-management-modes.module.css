@@ -32,13 +32,16 @@
   --ward-leading-body: 1.4;
   --ward-leading-relaxed: 1.45;
   --ward-leading-prose: 1.5;
+  --ward-stroke-thin: 0.0625rem;
+  --ward-stroke-accent: 0.1875rem;
   --ward-radius-round: 50%;
   --ward-z-base: 1;
   --ward-z-phone: 20;
+
   display: grid;
   height: 100dvh;
   min-height: 44rem;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   /* Task 9 Ruling 4: the nav row this used to reserve for the horizontal `WardModeNavigation`
      strip is gone — those eight links now live inside `ClinicalRail` (grid-column 1), so
      `.modeContent` is the second and last row. */
@@ -699,6 +702,131 @@
   line-height: var(--ward-leading-prose);
 }
 
+/* Task 9 (spec item 7): the not-a-medical-device banner. Same visual language as
+ * coordinator.module.css's own `.governanceBanner` — a bordered strip with the prototype badge
+ * and the shared statement text — expressed with this file's own `--ward-*` tokens. */
+.governanceBanner {
+  display: flex;
+  min-height: var(--spacing-tap);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-12);
+  border: var(--ward-stroke-thin) solid var(--ward-blue-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-blue-soft);
+  padding: var(--ward-space-10) var(--ward-space-14);
+  margin-bottom: var(--ward-space-10);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 calc(var(--spacing-tap) * 4);
+  margin: 0;
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.governanceBanner strong {
+  color: var(--ward-heading);
+}
+
+/* Explicit-absence note, shared by the change audit's empty state and any other "nothing
+ * recorded yet" panel on this view. */
+.emptyNote {
+  border: var(--ward-stroke-thin) dashed var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.effectivenessList {
+  display: grid;
+  gap: var(--ward-space-10);
+}
+
+.effectivenessList > div {
+  border: var(--ward-stroke-thin) solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10) var(--ward-space-12);
+}
+
+.effectivenessList dt {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-6);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.effectivenessList dt svg {
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
+  color: var(--ward-blue);
+}
+
+.effectivenessList dd {
+  margin-top: var(--ward-space-4);
+}
+
+/* Fix round 1 (Task 9): the figure and its basis are one visual unit, always rendered together —
+ * never a tooltip, never a footnote elsewhere on the page. */
+.effectivenessLine {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ward-space-2);
+}
+
+.effectivenessValue {
+  color: var(--ward-heading);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.effectivenessValue small {
+  margin-left: var(--ward-space-4);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+}
+
+.effectivenessUnknown {
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.effectivenessBasis {
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+  font-weight: 500;
+}
+
+/* The dropped-third-measure notice. Warning tone (not the blue `.notice` tone) because this is
+ * flagging an absence the reader must not mistake for a clean two-out-of-two report. */
+.droppedMeasureNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  margin-top: var(--ward-space-12);
+  border-left: var(--ward-stroke-accent) solid var(--ward-warning);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.droppedMeasureNote svg {
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
+  flex: 0 0 auto;
+  margin-top: var(--ward-space-2);
+  color: var(--ward-warning);
+}
+
 @media (max-width: 78rem) {
   .headerMeta > span:not(.prototypeBadge) {
     display: none;
@@ -706,10 +834,6 @@
 }
 
 @media (max-width: 62rem) {
-  .modeShell {
-    grid-template-columns: 4rem minmax(0, 1fr);
-  }
-
   .modeHeader,
   .modeContent {
     display: block;
@@ -754,9 +878,15 @@
  * get the phone-specific sticky/compact treatment below.
  */
 @media (max-width: 40rem) {
+  /* Reserve the fixed phone bar (ward-sidebar.module.css) and push this shell's own sticky
+     header down below it, rather than letting the bar cover it. */
+  .modeShell {
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+
   .modeHeader {
     position: sticky;
-    top: 0;
+    top: var(--spacing-ward-phone-bar);
     z-index: var(--ward-z-phone);
     display: grid;
     min-height: 4.25rem;
