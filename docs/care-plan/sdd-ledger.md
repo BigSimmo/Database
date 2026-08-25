@@ -98,20 +98,20 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 
 ## Progress
 
-| Task                                           | State                             | Commits                | Evidence                                                                                                                                                                      |
-| ---------------------------------------------- | --------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Domain, fixtures, selectors                 | **complete, review clean**        | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                                                                                                                |
-| 2. Reducer, provider, lifecycle                | **complete, review clean**        | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                                                                                                         |
-| 3. Routes, gate, shell                         | **complete, review clean**        | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                                                                                                         |
-| 4. Snapshot, search, contacts                  | **complete, review clean**        | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                                                                                         |
-| 5. Plan reading, boundary, print               | **complete, review clean**        | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                                                                                        |
-| 6. Authoring, approval, withdrawal             | **complete, review clean**        | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent                                                               |
-| 7. ED presentations, amendments                | **complete, review clean**        | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                                                                                             |
-| 8. Personal Safety Plan, print                 | **complete, review clean**        | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                                                                                             |
-| 9. Patient Plan, transform, print              | **complete, review clean**        | `73d004095..7f19e1a1b` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed                                                                    |
-| 10. Reviews, Team, Governance, History, states | **complete, 9 parked at the cap** | `996cbc407..d7861e815` | 495/495 + 24/24 route-files, typecheck + lint clean, 24 mutations all killed, 5 fix rounds, 4 re-reviews                                                                      |
-| 11. Browser journeys, docs, handoff            | **complete, review clean**        | `157c48f33..40a9fae64` | Browser `30 passed (1.5m)`; focused Vitest `524 passed (524)` across 7 files; 3 wiring defects found on first rendering and fixed; 1 task review, 1 fix round                          |
-| D1. Participation moment (user decision)       | **complete**                      | `be6edb968..db6167a10` | `510 passed (510)`, typecheck + lint clean, 6 controls all killed including the ungated-repoint case                                                                                   |
+| Task                                           | State                             | Commits                | Evidence                                                                                                                                                                                |
+| ---------------------------------------------- | --------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Domain, fixtures, selectors                 | **complete, review clean**        | `8a2e6a6d1..8652e73ff` | 58/58 passing, typecheck clean                                                                                                                                                          |
+| 2. Reducer, provider, lifecycle                | **complete, review clean**        | `8652e73ff..def541e6a` | 121/121 passing, typecheck + lint clean, 32 mutations / 32 red suites                                                                                                                   |
+| 3. Routes, gate, shell                         | **complete, review clean**        | `d421bc2dc..bb68ea8da` | 209/209 passing, typecheck + lint clean, 39 mutations / 39 red suites                                                                                                                   |
+| 4. Snapshot, search, contacts                  | **complete, review clean**        | `f2f6389fa..d66e7a38b` | 232/232 passing, typecheck + lint clean, 62 mutations / 62 red suites                                                                                                                   |
+| 5. Plan reading, boundary, print               | **complete, review clean**        | `9bab6ad44..90c1d01a3` | 291/291 passing + Therapy Compass 25/25, typecheck + lint clean, 61 mutations / 61 red                                                                                                  |
+| 6. Authoring, approval, withdrawal             | **complete, review clean**        | `f0ab0d41b..2113fe97f` | 306/306 passing + form-field consumers 161/161, typecheck + lint clean, 28 mutations / 27 killed + 1 equivalent                                                                         |
+| 7. ED presentations, amendments                | **complete, review clean**        | `e02a03ab9..a8a8264be` | 335/335 passing, typecheck + lint clean, 40 mutations / 40 killed                                                                                                                       |
+| 8. Personal Safety Plan, print                 | **complete, review clean**        | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                                                                                                       |
+| 9. Patient Plan, transform, print              | **complete, review clean**        | `73d004095..7f19e1a1b` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed                                                                              |
+| 10. Reviews, Team, Governance, History, states | **complete, 9 parked at the cap** | `996cbc407..d7861e815` | 495/495 + 24/24 route-files, typecheck + lint clean, 24 mutations all killed, 5 fix rounds, 4 re-reviews                                                                                |
+| 11. Browser journeys, docs, handoff            | **complete, review clean**        | `157c48f33..40a9fae64` | Browser `30 passed (1.5m)`; focused Vitest `524 passed (524)` across 7 files; 3 wiring defects found on first rendering and fixed; 1 task review, 1 fix round                           |
+| D1. Participation moment (user decision)       | **complete**                      | `be6edb968..db6167a10` | `510 passed (510)`, typecheck + lint clean, 6 controls all killed including the ungated-repoint case                                                                                    |
 | Final. Whole-branch review + fix wave          | **in progress**                   | `40a9fae64..`          | Verdict **ready with conditions**: 1 Critical, 2 Important, 3 Minor, plus 3 deferred minors triaged must-fix. Fix wave `530 passed (530)`, Chromium `30 passed`, 11 controls all killed |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
@@ -1182,7 +1182,7 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     saying 03/09/2025 and the safety plan 04/09/2025. Two confident dates for one event is a worse
     record than one wrong date.
 
-    **The gate is the substance of this ruling.** After D1 a person who *declined* also holds a
+    **The gate is the substance of this ruling.** After D1 a person who _declined_ also holds a
     recorded moment, so repointing the timestamp alone would have printed a confirmation line on a
     declining patient's own sheet — a new defect worse than the one being fixed. The row is
     therefore gated on `patientConfirmation === "confirmed"` **and** the moment being present, and
@@ -1191,13 +1191,13 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     wording is provisional pending the user's copy pass; the dating is not.
 
 64. **The whole-branch review's Critical was fixed before handing the branch to the user, rather
-    than reported to them.** It found the patient's own copy printing, unconditionally, *"This is
-    your copy of the plan you and your team wrote together"* on a Management Plan Version approved
+    than reported to them.** It found the patient's own copy printing, unconditionally, _"This is
+    your copy of the plan you and your team wrote together"_ on a Management Plan Version approved
     at `declined` or `patient_unavailable` — states that carry `ParticipationMarker` on every
     clinician surface. Neither Patient Plan surface read `participationState` at all. Reachable in a
     journey the suite already walked.
 
-    Held items on this branch are things the user must *choose*; this was not a choice, it was the
+    Held items on this branch are things the user must _choose_; this was not a choice, it was the
     product telling a person something untrue about their own care, on paper. It is the sharpest
     instance of the class that produced this build's two worst defects, both of which broke no rule
     and failed no gate. The fix reuses the existing `ParticipationMarker` and a single
@@ -1283,8 +1283,19 @@ done nothing wrong, and the glossary is explicit that non-participation is never
 non-compliance. All replacement wording is **provisional**, pending the user's patient-facing copy
 pass.
 
-`discussed_not_confirmed` deliberately keeps the joint wording, mirroring `PARTICIPATION_MARKER_STATES`:
-a plan discussed with someone who did not confirm it is not a plan written without them.
+The `discussed` participation state deliberately keeps the joint wording, mirroring
+`PARTICIPATION_MARKER_STATES`: a plan discussed with someone who did not confirm it is not a plan
+written without them.
+
+**A naming slip corrected here, because the two are easy to confuse and one of them is a different
+concept entirely.** Earlier drafts of this entry and of the task reports called that state
+`discussed_not_confirmed`. That is a **`PatientConfirmationState`** (`types.ts:21`) — it belongs to
+the Personal Safety Plan and records whether the person confirmed _their own_ document. The state
+this decision is about is `discussed`, a **`ParticipationState`** (`types.ts:20`), which records how
+the person took part in the _Management Plan_. The code uses the right one and behaves as D4
+intends; only the prose was wrong. Found by the closing re-review, and worth correcting rather than
+leaving, because a later reader tracing "which state keeps the joint wording" would have gone to
+the wrong type and drawn the wrong conclusion about a patient-facing claim.
 
 ---
 
