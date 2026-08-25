@@ -187,9 +187,31 @@ async function confirmActivation(user: ReturnType<typeof userEvent.setup>) {
   return action;
 }
 
-/** One `fetch` answer, recording the call order against the draft clear and the navigation. */
+/**
+ * One `fetch` answer for the CREATE, and a successful start for the activate that follows it.
+ *
+ * Stage 4 performs two writes (Ruling [123]), so a stub answering one shape for both would make a
+ * refused create look like a refused start. The cases about the second write stub it themselves.
+ */
 function stubFetch(answer: () => Promise<Response>) {
-  return vi.spyOn(globalThis, "fetch").mockImplementation(async () => answer());
+  return vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async (input) =>
+      String(input).endsWith("/api/caring-contacts/plans")
+        ? answer()
+        : jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "active", version: 2 } } }),
+    );
+}
+
+/**
+ * What a successful create answers with: the `PlanRecord` `writeHandler` wraps in `{ value }`.
+ *
+ * Named rather than written inline because the second write reads `plan.version` out of it, so
+ * `{ value: null }` is not a stand-in for success any more -- it is a plan that exists and whose
+ * version nothing can name, which is its own case below.
+ */
+function createdPlanAnswer(version = 1): Response {
+  return jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "draft", version } } });
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -1124,7 +1146,7 @@ describe("stage 4 — the identifiers are minted once and reused (Ruling [120])"
     const minted = readPlanDraft(REFERRAL)?.submission ?? null;
     expect(minted).not.toBeNull();
     expect(minted?.planId).toBeTruthy();
-    expect(minted?.idempotencyKey).toBeTruthy();
+    expect(minted?.createIdempotencyKey).toBeTruthy();
 
     // Back to stage 3 and forward again is exactly the shape a clinician takes after a failure, and
     // it must not mint a second identity: a fresh plan id on the retry is how one patient ends up
@@ -1141,7 +1163,7 @@ describe("stage 4 — the identifiers are minted once and reused (Ruling [120])"
 describe("stage 4 — the write, and the three orderings (Ruling [117])", () => {
   it("writes nothing until the confirmation overlay's own decision control is used", async () => {
     const user = userEvent.setup();
-    const fetched = stubFetch(async () => jsonResponse({ value: null }));
+    const fetched = stubFetch(async () => createdPlanAnswer());
     window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
     renderWizardWithOverlays();
     await screen.findByRole("region", { name: "Review and activation" });
@@ -1154,7 +1176,9 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
     expect(fetched).not.toHaveBeenCalled();
 
     await user.click(screen.getByTestId("workspace-overlay-action"));
-    await waitFor(() => expect(fetched).toHaveBeenCalledTimes(1));
+    // Two writes now (Ruling [123]); the property here is that neither happened before the
+    // decision control was used, not how many there are.
+    await waitFor(() => expect(fetched).toHaveBeenCalled());
   });
 
   it("confirms the plan was created, THEN clears the draft, THEN navigates", async () => {
@@ -1165,7 +1189,10 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
       // The draft is still here at the moment the answer arrives: clearing before the response
       // would lose a clinician's typing on any failure.
       order.push(readPlanDraft(REFERRAL) === null ? "draft-already-cleared" : "draft-still-held");
-      return jsonResponse({ value: null });
+      // A create answer carrying the version the second write needs. `{ value: null }` is no longer
+      // a stand-in for success (Ruling [123]) -- it is a plan whose version nothing can name, which
+      // has its own case further down.
+      return createdPlanAnswer();
     });
     navigation.push.mockImplementation(() => {
       order.push(readPlanDraft(REFERRAL) === null ? "navigate-after-clear" : "navigate-before-clear");
@@ -1177,7 +1204,7 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
     await confirmActivation(user);
 
     await waitFor(() => expect(navigation.push).toHaveBeenCalledTimes(1));
-    expect(fetched).toHaveBeenCalledTimes(1);
+    expect(fetched).toHaveBeenCalledTimes(2);
     // Navigating before clearing leaves a patient's name and mobile number in that tab's storage on
     // a shared ward computer, with the screen already gone — which is what Ruling [110]'s third
     // requirement exists to prevent.
@@ -1188,7 +1215,7 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
 
   it("navigates to the plan it just created, on the patient's own screen", async () => {
     const user = userEvent.setup();
-    stubFetch(async () => jsonResponse({ value: null }));
+    stubFetch(async () => createdPlanAnswer());
     window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
     renderWizardWithOverlays();
     await screen.findByRole("region", { name: "Review and activation" });
@@ -1279,14 +1306,14 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
 
   it("retries with the SAME plan identifier, so a second press cannot create a second plan", async () => {
     const user = userEvent.setup();
-    const bodies: { planId: string; idempotencyKey: string }[] = [];
+    const bodies: Record<string, unknown>[] = [];
     let answered = 0;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
       bodies.push(JSON.parse(String((init as RequestInit).body)));
       answered += 1;
       // The first attempt is refused for a reason that clears by itself, which is exactly when a
       // clinician presses again.
-      return answered === 1 ? jsonResponse({ refusal: "service-stopped" }, 423) : jsonResponse({ value: null });
+      return answered === 1 ? jsonResponse({ refusal: "service-stopped" }, 423) : createdPlanAnswer();
     });
 
     window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
@@ -1296,9 +1323,10 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
     await confirmActivation(user);
     await waitFor(() => expect(bodies).toHaveLength(1));
     await confirmActivation(user);
-    await waitFor(() => expect(bodies).toHaveLength(2));
+    await waitFor(() => expect(bodies.filter((body) => "referralId" in body)).toHaveLength(2));
 
-    const [first, second] = bodies;
+    const creates = bodies.filter((body) => "referralId" in body);
+    const [first, second] = creates as { planId: string; idempotencyKey: string }[];
     // THE WHOLE POINT of a caller-supplied key. Reused, the second attempt is refused as a replay
     // and returns the first attempt's own answer; minted fresh, it creates a second plan for one
     // patient — two schedules, two sets of messages, found by the patient rather than the system.
@@ -1308,7 +1336,7 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
 
   it("offers no decision control at all while the plan could not be created", async () => {
     const user = userEvent.setup();
-    const fetched = stubFetch(async () => jsonResponse({ value: null }));
+    const fetched = stubFetch(async () => createdPlanAnswer());
     window.sessionStorage.setItem(
       PLAN_DRAFT_STORAGE_KEY,
       JSON.stringify(
@@ -1348,5 +1376,194 @@ describe("stage 4 — the write, and the three orderings (Ruling [117])", () => 
       expect(control.className, `${name} is not a production tap target`).toContain("min-h-tap");
       expect(control.className, `${name} uses the 44px step`).not.toContain("min-h-11");
     }
+  });
+});
+
+describe("stage 4 — the plan is created AND started, and the gap between is a real state (Ruling [123])", () => {
+  /** Both writes answered in order, recording the URL each one went to. */
+  function stubBothWrites(answers: { create: () => Promise<Response>; activate: () => Promise<Response> }) {
+    const calls: { url: string; body: Record<string, unknown> }[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input);
+      calls.push({ url, body: JSON.parse(String((init as RequestInit).body)) });
+      return url.endsWith("/api/caring-contacts/plans") ? answers.create() : answers.activate();
+    });
+    return calls;
+  }
+
+  it("creates the plan and then starts it, in that order, from the create's own version", async () => {
+    const user = userEvent.setup();
+    const calls = stubBothWrites({
+      create: async () => jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "draft", version: 3 } } }),
+      activate: async () => jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "active", version: 4 } } }),
+    });
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+    const minted = readPlanDraft(REFERRAL)?.submission ?? null;
+    await confirmActivation(user);
+
+    await waitFor(() => expect(calls).toHaveLength(2));
+    // The wizard IS the activation workflow: the frozen overlay's own title is "Last check before
+    // the plan starts", and a create alone leaves a plan in `draft` that nothing in this workspace
+    // can start.
+    expect(calls[0].url).toBe("/api/caring-contacts/plans");
+    expect(calls[1].url).toBe(`/api/caring-contacts/plans/${minted?.planId}`);
+    expect(calls[1].body.action).toBe("activate");
+    // Read out of the create's answer, never assumed to be 1: guessing would be right today and
+    // wrong the moment anything touches the plan between the two writes.
+    expect(calls[1].body.expectedVersion).toBe(3);
+    // A SECOND key. The create's key here would be refused as a replay of a different request, so
+    // the plan would exist and could never be started.
+    expect(calls[1].body.idempotencyKey).toBe(minted?.activateIdempotencyKey);
+    expect(calls[1].body.idempotencyKey).not.toBe(minted?.createIdempotencyKey);
+  });
+
+  it("clears the draft and navigates only after BOTH writes have succeeded", async () => {
+    const user = userEvent.setup();
+    const order: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      const stage = url.endsWith("/api/caring-contacts/plans") ? "create" : "activate";
+      order.push(`${stage}-answered`);
+      order.push(readPlanDraft(REFERRAL) === null ? `draft-cleared-before-${stage}` : `draft-held-at-${stage}`);
+      return jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "draft", version: 1 } } });
+    });
+    navigation.push.mockImplementation(() => {
+      order.push(readPlanDraft(REFERRAL) === null ? "navigate-after-clear" : "navigate-before-clear");
+    });
+
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+    await confirmActivation(user);
+
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledTimes(1));
+    // The draft is still held at the SECOND write, not only the first: it carries the plan id and
+    // both keys, which is the only thing that makes the second write a retry rather than a new plan.
+    expect(order).toEqual([
+      "create-answered",
+      "draft-held-at-create",
+      "activate-answered",
+      "draft-held-at-activate",
+      "navigate-after-clear",
+    ]);
+    expect(readPlanDraft(REFERRAL)).toBeNull();
+  });
+
+  it("KEEPS the draft when the plan was created and could not be started", async () => {
+    const user = userEvent.setup();
+    stubBothWrites({
+      create: async () => jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "draft", version: 1 } } }),
+      activate: async () => jsonResponse({ refusal: "service-stopped" }, 423),
+    });
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+    const minted = readPlanDraft(REFERRAL)?.submission ?? null;
+    await confirmActivation(user);
+
+    // THE ONE PLACE "clear on success" NEEDS REFINING, and Ruling [120]'s mechanism is the reason:
+    // the draft holds the plan id and both keys, and that is exactly what distinguishes "try again"
+    // from "create a second plan for this patient". Clearing it here would throw that away.
+    await waitFor(() => expect(stage).toHaveTextContent(/has not started/i));
+    expect(
+      readPlanDraft(REFERRAL)?.submission,
+      "the draft was cleared after a partial write, so a retry would create a second plan",
+    ).toEqual(minted);
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("says the plan exists rather than reporting a partial write as a total failure", async () => {
+    const user = userEvent.setup();
+    stubBothWrites({
+      create: async () => jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "draft", version: 1 } } }),
+      activate: async () => jsonResponse({ refusal: "service-stopped" }, 423),
+    });
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+    await confirmActivation(user);
+
+    await waitFor(() => expect(stage).toHaveTextContent(/has not started/i));
+    // A coordinator told "nothing was created" starts the sign-up again, and this patient gets a
+    // second plan, two schedules and two sets of messages. So the screen must say the opposite of
+    // what a total failure says.
+    expect(stage.textContent ?? "").not.toMatch(/nothing was created/i);
+    expect(stage).toHaveTextContent(/the plan was created/i);
+    expect(stage).toHaveTextContent(/same plan|cannot create a second|will not create another/i);
+  });
+
+  it("finishes a half-done submission on the next press, without creating a second plan", async () => {
+    const user = userEvent.setup();
+    let activateAttempts = 0;
+    const calls = stubBothWrites({
+      create: async () => jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "draft", version: 1 } } }),
+      activate: async () => {
+        activateAttempts += 1;
+        // Refused once for a reason that clears by itself, which is exactly when a coordinator
+        // presses again.
+        return activateAttempts === 1
+          ? jsonResponse({ refusal: "service-stopped" }, 423)
+          : jsonResponse({ value: { plan: { id: "SYN-PLAN-X", state: "active", version: 2 } } });
+      },
+    });
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+    const minted = readPlanDraft(REFERRAL)?.submission ?? null;
+
+    await confirmActivation(user);
+    await waitFor(() => expect(stage).toHaveTextContent(/has not started/i));
+    await confirmActivation(user);
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledTimes(1));
+
+    // Four calls: create, activate, create again, activate again. The second create is a REPLAY —
+    // same plan id, same key — so the store answers with the first one's result rather than making
+    // a second plan. That is the entire reason the key is caller-supplied.
+    expect(calls).toHaveLength(4);
+    expect(calls[2].url).toBe("/api/caring-contacts/plans");
+    expect(calls[2].body.planId).toBe(minted?.planId);
+    expect(calls[2].body.idempotencyKey).toBe(minted?.createIdempotencyKey);
+    expect(calls[3].body.idempotencyKey).toBe(minted?.activateIdempotencyKey);
+    expect(readPlanDraft(REFERRAL)).toBeNull();
+  });
+
+  it("treats a create that answers without a version as created-but-not-started", async () => {
+    const user = userEvent.setup();
+    const calls = stubBothWrites({
+      create: async () => jsonResponse({ value: null }),
+      activate: async () => jsonResponse({ value: null }),
+    });
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+    await confirmActivation(user);
+
+    // The plan was created — the create answered 200 — but nothing here can name the version the
+    // second write needs, so the second write is not attempted rather than sent with a guess.
+    await waitFor(() => expect(stage).toHaveTextContent(/has not started/i));
+    expect(calls).toHaveLength(1);
+    expect(readPlanDraft(REFERRAL)).not.toBeNull();
+    expect(navigation.push).not.toHaveBeenCalled();
+  });
+
+  it("still reports a create that failed as nothing created at all", async () => {
+    const user = userEvent.setup();
+    const calls = stubBothWrites({
+      create: async () => jsonResponse({ refusal: "duplicate-active-plan" }, 409),
+      activate: async () => jsonResponse({ value: null }),
+    });
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+    await confirmActivation(user);
+
+    // The second write must not be attempted against a plan that does not exist, and the wording
+    // must not claim one does — this is the branch the partial-failure wording would be false in.
+    await waitFor(() => expect(stage).toHaveTextContent(/already has a plan/i));
+    expect(calls).toHaveLength(1);
+    expect(stage.textContent ?? "").not.toMatch(/the plan was created/i);
+    expect(readPlanDraft(REFERRAL)?.patientDetail.patientName).toBe("Rowan Example");
   });
 });

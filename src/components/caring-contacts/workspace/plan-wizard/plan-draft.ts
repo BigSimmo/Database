@@ -352,18 +352,23 @@ function parseActivation(value: unknown): PlanActivationDraft | null {
  * cannot also be the way this function reports a value it refuses. `undefined` is the refusal, and
  * the caller discards the whole draft on it.
  *
- * HALF AN IDENTITY IS REFUSED OUTRIGHT rather than repaired by minting the missing half. The pair
- * is the retry contract: a plan id without its key, or a key without its plan id, would submit a
- * write whose replay could not be recognised, which is the exact condition that creates two plans
- * for one patient.
+ * PART OF AN IDENTITY IS REFUSED OUTRIGHT rather than repaired by minting the missing piece. The
+ * three together are the retry contract: a plan id without its create key, or either key without
+ * the plan id, would submit a write whose replay could not be recognised, which is the exact
+ * condition that creates two plans for one patient. A missing ACTIVATE key is the same failure one
+ * write later -- the plan is created and can never be started.
  */
 function parseSubmission(value: unknown): PlanSubmissionIdentity | null | undefined {
   if (value === null || value === undefined) return null;
   if (!isRecord(value)) return undefined;
-  const { planId, idempotencyKey } = value;
+  const { planId, createIdempotencyKey, activateIdempotencyKey } = value;
   if (typeof planId !== "string" || planId === "") return undefined;
-  if (typeof idempotencyKey !== "string" || idempotencyKey === "") return undefined;
-  return { planId, idempotencyKey };
+  if (typeof createIdempotencyKey !== "string" || createIdempotencyKey === "") return undefined;
+  // THE THIRD VALUE IS REQUIRED TOO, and it is the one a draft written before Ruling [123] lacks.
+  // Accepting a two-key identity would leave the second write with no key of its own on exactly the
+  // drafts most likely to be mid-flight during a redeploy.
+  if (typeof activateIdempotencyKey !== "string" || activateIdempotencyKey === "") return undefined;
+  return { planId, createIdempotencyKey, activateIdempotencyKey };
 }
 
 /**

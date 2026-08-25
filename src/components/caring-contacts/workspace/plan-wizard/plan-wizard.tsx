@@ -40,7 +40,10 @@ import {
   type PlanDraftAssurances,
 } from "./plan-draft";
 import {
+  activatePlanRequestBody,
+  activationRefusalWording,
   createPlanRequestBody,
+  planVersionFromCreateAnswer,
   firstContactReasonIsRequired,
   mintPlanSubmissionIdentity,
   planSchedulePreview,
@@ -48,6 +51,7 @@ import {
   PLANNED_MESSAGE_TYPE_LABELS,
   submissionRefusalWording,
   TRANSPORT_REFUSALS,
+  type SubmissionRefusalWording,
   type PlanActivationDraft,
   type PlanSchedulePreview,
   type PlanSubmissionIdentity,
@@ -216,6 +220,11 @@ const headingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
  */
 const CREATE_PLAN_ENDPOINT = "/api/caring-contacts/plans";
 
+/** The lifecycle endpoint for one plan, which is where the second write goes. */
+function startPlanEndpoint(planIdentifier: string): string {
+  return `${CREATE_PLAN_ENDPOINT}/${encodeURIComponent(planIdentifier)}`;
+}
+
 /**
  * Where the one write has got to.
  *
@@ -227,7 +236,18 @@ const CREATE_PLAN_ENDPOINT = "/api/caring-contacts/plans";
 type PlanSubmissionState =
   | { status: "idle" }
   | { status: "sending" }
+  /** The first write was refused. Nothing exists, and the wording says so. */
   | { status: "refused"; refusal: string }
+  /**
+   * THE PLAN EXISTS AND HAS NOT STARTED -- a real, reachable, recoverable state rather than a
+   * failure (Ruling [123]).
+   *
+   * It has its own status because the two failures need two vocabularies: telling a coordinator
+   * "nothing was created" here sends them to start the sign-up again, and this patient gets a
+   * second plan. The draft is deliberately KEPT in this state; it holds the plan id and both keys,
+   * which is the only thing that makes the next press a retry rather than a duplicate.
+   */
+  | { status: "created-not-started"; planId: string; refusal: string }
   | { status: "created"; planId: string };
 
 /** One fact, with where it came from. The source line is the whole point — see Ruling [112]. */
@@ -358,13 +378,18 @@ export function PlanWizard({
   }
 
   /**
-   * The one write in this workspace, and the three orderings Ruling [117] is about.
+   * The two writes this screen performs, and the orderings Rulings [117] and [123] are about.
    *
-   *   1. CONFIRM SUCCESS, then clear the draft, then navigate. Clearing before the answer loses a
-   *      clinician's typing on a failure; navigating before clearing leaves a patient's name and
-   *      mobile number in this tab's storage on a shared ward computer with the screen already gone.
-   *   2. ON ANY FAILURE THE DRAFT SURVIVES -- a lost connection, a refusal, an unreadable answer
-   *      alike. Nothing below touches the draft on any path but the successful one.
+   *   1. CONFIRM SUCCESS, then clear the draft, then navigate -- and success means BOTH writes
+   *      (Ruling [123]). Clearing before the answer loses a clinician's typing on a failure;
+   *      navigating before clearing leaves a patient's name and mobile number in this tab's storage
+   *      on a shared ward computer with the screen already gone.
+   *   2. ON ANY FAILURE THE DRAFT SURVIVES -- a lost connection, a refusal, an unreadable answer,
+   *      AND the half-done case where the plan exists but did not start. That last one is where
+   *      "clear on success" needed refining rather than repeating: the draft holds the plan id and
+   *      both keys, and that is exactly what distinguishes "try again" from "create a second plan
+   *      for this patient". Nothing below touches the draft on any path but the fully successful
+   *      one.
    *   3. THE REFUSAL SAYS WHICH FAILURE IT WAS, in words, in place. `writeHandler`'s codes
    *      distinguish "you may not", "this already exists" and "the schedule could not be built", and
    *      `submissionRefusalWording` is total over every one of them.
@@ -374,8 +399,9 @@ export function PlanWizard({
    * draft still in hand.
    */
   async function activate() {
+    const submission = draft.submission;
     const body = createPlanRequestBody({
-      submission: draft.submission,
+      submission,
       referralId,
       patientId,
       pathwayVersionId: draft.pathwayVersionId,
@@ -385,43 +411,82 @@ export function PlanWizard({
     });
     // Unreachable through the interface: the trigger's commit is `unavailable` whenever the body
     // cannot be built, so the overlay refuses in place rather than opening a control that would land
-    // here. Guarded rather than asserted, because a caller is one edit away.
-    if (body === null) return;
+    // here. Guarded rather than asserted, because a caller is one edit away. `submission` is
+    // re-checked for the type system's benefit -- `createPlanRequestBody` already refused a null one.
+    if (body === null || submission === null) return;
 
     setSubmissionState({ status: "sending" });
 
+    const created = await post(CREATE_PLAN_ENDPOINT, body);
+    if (!created.ok) {
+      // Nothing exists. This is the only path that may say so.
+      setSubmissionState({ status: "refused", refusal: created.refusal });
+      return;
+    }
+
+    // FROM HERE ON THE PLAN EXISTS, and no path below may report otherwise.
+    const notStarted = (refusal: string) =>
+      setSubmissionState({ status: "created-not-started", planId: body.planId, refusal });
+
+    const expectedVersion = planVersionFromCreateAnswer(created.payload);
+    if (expectedVersion === null) {
+      // The second write is NOT attempted with a guessed version. A guess would earn a refusal
+      // about concurrency instead of about the answer this screen could not read, and the plan is
+      // recoverable either way.
+      notStarted(TRANSPORT_REFUSALS.unreadableAnswer);
+      return;
+    }
+
+    const started = await post(
+      startPlanEndpoint(body.planId),
+      activatePlanRequestBody({ submission, expectedVersion }),
+    );
+    if (!started.ok) {
+      notStarted(started.refusal);
+      return;
+    }
+
+    // Both writes are confirmed. Only now, and in this order.
+    clearPlanDraft();
+    setSubmissionState({ status: "created", planId: body.planId });
+    router.push(patientPlanRoute(patientId, body.planId));
+  }
+
+  /**
+   * One write, and every way it can fail turned into a named refusal rather than a thrown error.
+   *
+   * Shared by both writes because the transport failures are identical for each -- what DIFFERS is
+   * what a failure means, and that is decided by the caller, which knows whether a plan exists yet.
+   * Folding that decision in here is how "nothing was created" would end up printed over a plan
+   * that had just been created.
+   */
+  async function post(
+    url: string,
+    requestBody: unknown,
+  ): Promise<{ ok: true; payload: unknown } | { ok: false; refusal: string }> {
     let answer: Response;
     try {
-      answer = await fetch(CREATE_PLAN_ENDPOINT, {
+      answer = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
     } catch {
-      setSubmissionState({ status: "refused", refusal: TRANSPORT_REFUSALS.didNotReach });
-      return;
+      return { ok: false, refusal: TRANSPORT_REFUSALS.didNotReach };
     }
 
     let payload: unknown;
     try {
       payload = await answer.json();
     } catch {
-      // The plan MAY have been created -- an unreadable answer says nothing about what the service
-      // did. So the draft is kept and the wording refuses to claim either way; retrying is harmless
-      // because the identifiers are reused.
-      setSubmissionState({ status: "refused", refusal: TRANSPORT_REFUSALS.unreadableAnswer });
-      return;
+      // The write MAY have landed -- an unreadable answer says nothing about what the service did.
+      // The caller keeps the draft either way, and retrying is harmless because the identifiers are
+      // reused.
+      return { ok: false, refusal: TRANSPORT_REFUSALS.unreadableAnswer };
     }
 
-    if (!answer.ok) {
-      setSubmissionState({ status: "refused", refusal: refusalNameFrom(payload) });
-      return;
-    }
-
-    // Success is confirmed. Only now, and in this order.
-    clearPlanDraft();
-    setSubmissionState({ status: "created", planId: body.planId });
-    router.push(patientPlanRoute(patientId, body.planId));
+    if (!answer.ok) return { ok: false, refusal: refusalNameFrom(payload) };
+    return { ok: true, payload };
   }
 
   function goBack() {
@@ -1729,13 +1794,23 @@ function ReviewStage({
         />
 
         {state.status === "refused" ? <RefusalStatement refusal={state.refusal} /> : null}
+        {/*
+          THE HALF-DONE STATE IS RENDERED AS ITS OWN THING (Ruling [123]). It reads from
+          `activationRefusalWording`, whose every branch says the plan exists, that it has not
+          started, and that pressing again finishes the same plan rather than making another.
+        */}
+        {state.status === "created-not-started" ? (
+          <RefusalStatement refusal={state.refusal} wording={activationRefusalWording} />
+        ) : null}
 
         <p role="status" className={mutedTextClass}>
           {state.status === "sending"
-            ? "Creating the plan. Nothing has been created until this says so."
+            ? "Creating the plan and starting it. Nothing is finished until this says so."
             : state.status === "refused"
               ? "The plan was not created. Everything you entered is still on this computer."
-              : ""}
+              : state.status === "created-not-started"
+                ? "The plan was created and has not started. This sign-up is still on this computer, so confirming again finishes the same plan."
+                : ""}
         </p>
 
         <div className="flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:justify-between">
@@ -1796,9 +1871,22 @@ function unavailableReasonFor(input: {
   return "Something this plan needs has not been settled yet, so nothing can be created. The stages behind this one say which.";
 }
 
-/** One refusal, in the three-part shape §4.4 sets, with the wording resolved from its name. */
-function RefusalStatement({ refusal }: { refusal: string }) {
-  const wording = submissionRefusalWording(refusal);
+/**
+ * One refusal, in the three-part shape §4.4 sets, with the wording resolved from its name.
+ *
+ * `wording` is a parameter because the SAME refusal name means two different things depending on
+ * which write produced it: `service-stopped` before the create means nothing exists, and after it
+ * means a plan exists and is waiting to be started. One lookup table for both would have to print a
+ * sentence that is false in one of the two cases.
+ */
+function RefusalStatement({
+  refusal,
+  wording: resolve = submissionRefusalWording,
+}: {
+  refusal: string;
+  wording?: (refusal: string) => SubmissionRefusalWording;
+}) {
+  const wording = resolve(refusal);
   return (
     <StatedReason
       heading={wording.heading}

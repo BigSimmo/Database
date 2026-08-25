@@ -406,7 +406,11 @@ describe("what stage 4 adds to the draft (Phase 2B Task 9)", () => {
         firstContactDay: "2026-03-17",
         firstContactReason: "The ward agreed this day with the patient before discharge.",
       },
-      submission: { planId: "PLAN-abcdef", idempotencyKey: "PLAN-CREATE-abcdef" },
+      submission: {
+        planId: "PLAN-abcdef",
+        createIdempotencyKey: "PLAN-CREATE-abcdef",
+        activateIdempotencyKey: "PLAN-START-abcdef",
+      },
     };
     expect(writePlanDraft(draft)).toBe(true);
 
@@ -470,7 +474,11 @@ describe("what stage 4 adds to the draft (Phase 2B Task 9)", () => {
       JSON.stringify({
         ...base,
         activation: { dischargeDay: "2026-03-10", firstContactDay: "", firstContactReason: "" },
-        submission: { planId: "", idempotencyKey: "PLAN-CREATE-abcdef" },
+        submission: {
+          planId: "",
+          createIdempotencyKey: "PLAN-CREATE-abcdef",
+          activateIdempotencyKey: "PLAN-START-abcdef",
+        },
       }),
     );
     expect(readPlanDraft(REFERRAL), "a draft carrying an empty plan identifier was accepted").toBeNull();

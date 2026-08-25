@@ -80,7 +80,21 @@ export const EMPTY_PLAN_ACTIVATION: PlanActivationDraft = Object.freeze({
  */
 export type PlanSubmissionIdentity = {
   planId: string;
-  idempotencyKey: string;
+  /** The key that makes retrying the CREATE a replay rather than a second plan. */
+  createIdempotencyKey: string;
+  /**
+   * The key for the second write, and it is a THIRD independent value rather than the first one
+   * reused or derived.
+   *
+   * `runWrite` scopes a key to `(team, key)` and fingerprints the method and input under it, so a
+   * key that answered the create and is then sent with the activate is refused outright as
+   * `idempotency-key-reused-for-a-different-write`. The plan would exist and could never be
+   * started -- the exact half-done state this second key exists to make recoverable.
+   *
+   * Not derived from the create key either. A derivation is a second copy of that key's
+   * uniqueness, and it stops being unique the moment the derivation changes.
+   */
+  activateIdempotencyKey: string;
 };
 
 /**
@@ -104,11 +118,13 @@ function lettersFromRandomIdentifier(): string {
 }
 
 export function mintPlanSubmissionIdentity(): PlanSubmissionIdentity {
-  // Two independent values. A key that WAS the plan id would collide with any later write on the
-  // same plan that reused it, and one key answers one write.
+  // Three independent values, minted together, once. One key answers one write, so the create and
+  // the activate cannot share one; and a key that WAS the plan id would collide with any later
+  // write on the same plan that reused it.
   return {
     planId: `PLAN-${lettersFromRandomIdentifier()}`,
-    idempotencyKey: `PLAN-CREATE-${lettersFromRandomIdentifier()}`,
+    createIdempotencyKey: `PLAN-CREATE-${lettersFromRandomIdentifier()}`,
+    activateIdempotencyKey: `PLAN-START-${lettersFromRandomIdentifier()}`,
   };
 }
 
@@ -336,8 +352,58 @@ export function createPlanRequestBody(input: {
     firstContactDate: preview.firstContactDay,
     ...(reason === "" ? {} : { firstContactReason: reason }),
     patientDetail: input.patientDetail,
-    idempotencyKey: input.submission.idempotencyKey,
+    idempotencyKey: input.submission.createIdempotencyKey,
   };
+}
+
+/** Exactly the body the plan lifecycle route accepts for `activate`. */
+export type ActivatePlanRequestBody = {
+  action: "activate";
+  expectedVersion: number;
+  idempotencyKey: string;
+};
+
+/**
+ * The second write's body.
+ *
+ * `expectedVersion` is an optimistic-concurrency check and it comes from the CREATE'S OWN ANSWER,
+ * never from a constant. Writing `1` would be right today and wrong the moment anything touches the
+ * plan between the two writes -- and the store would then refuse `stale-version` on a plan created
+ * seconds earlier, which is the least explicable failure this screen could produce.
+ */
+export function activatePlanRequestBody(input: {
+  submission: PlanSubmissionIdentity;
+  expectedVersion: number;
+}): ActivatePlanRequestBody {
+  return {
+    action: "activate",
+    expectedVersion: input.expectedVersion,
+    idempotencyKey: input.submission.activateIdempotencyKey,
+  };
+}
+
+/**
+ * The version the created plan is at, read out of what the create answered, or null.
+ *
+ * NULL RATHER THAN A DEFAULT, and the difference is the whole point. A default would be a guess
+ * wearing a number: it would send a version nobody read, and the refusal it earned would be about
+ * concurrency rather than about the answer this screen could not understand. Null means the second
+ * write is not attempted at all, and the screen says the plan exists and has not started -- which
+ * is true, and recoverable, and what a guess would have obscured.
+ *
+ * `writeHandler` answers a successful write with `{ value: <result> }`, and `createPlan`'s result is
+ * a `PlanRecord`. Everything about that shape is checked here rather than assumed, because it
+ * arrives over the wire.
+ */
+export function planVersionFromCreateAnswer(payload: unknown): number | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const value = (payload as { value?: unknown }).value;
+  if (typeof value !== "object" || value === null) return null;
+  const plan = (value as { plan?: unknown }).plan;
+  if (typeof plan !== "object" || plan === null) return null;
+  const version = (plan as { version?: unknown }).version;
+  if (typeof version !== "number" || !Number.isInteger(version) || version < 1) return null;
+  return version;
 }
 
 /**
@@ -524,6 +590,110 @@ export function plannedScheduleSentence(summary: PlannedScheduleSummary): string
   const entries = `${summary.total} ${summary.total === 1 ? "entry" : "entries"}`;
   if (summary.willNotBeSent === 0) return `${entries}, and every one of them will be sent.`;
   return `${entries}: ${summary.stillToSend} still to send, and ${summary.willNotBeSent} that will not be sent.`;
+}
+
+/**
+ * What the screen says when the plan WAS created and could not be started.
+ *
+ * A SEPARATE MAPPING FROM `submissionRefusalWording`, AND THAT IS THE POINT RATHER THAN TIDINESS.
+ * Every branch of that one says "Nothing was created", which is true of the first write and FALSE
+ * here. A coordinator told nothing was created starts the sign-up again -- and this patient gets a
+ * second plan, two schedules and two sets of messages, which is the worst outcome available on this
+ * screen. So the two failures get two vocabularies and neither can borrow the other's.
+ *
+ * Every branch says three things, and the test walks all of them: the plan was created, it has not
+ * started, and pressing again finishes it rather than duplicating it. The third is the payoff of
+ * Ruling [120]'s mechanism -- the draft still holds the plan id and both keys, so the retried create
+ * is a replay that returns the first attempt's own answer.
+ */
+const PLAN_EXISTS =
+  "The plan was created and is on this patient's record. It has not started, so no message is scheduled to go out yet, and no second plan was created.";
+
+const PRESS_AGAIN =
+  "Confirming again finishes starting the same plan: this sign-up still holds its identifier, so it cannot create a second plan for this patient.";
+
+const ACTIVATION_REFUSAL_WORDING: Readonly<Record<string, SubmissionRefusalWording>> = Object.freeze(
+  Object.assign(Object.create(null) as Record<string, SubmissionRefusalWording>, {
+    "plan-not-draft": {
+      heading: "The plan was created, and it may already have started",
+      because: `${PLAN_EXISTS} The service answered that the plan is not waiting to be started, which usually means an earlier attempt already started it and this screen never saw the answer.`,
+      changedBy:
+        "Opening the plan on the patient's screen and looking at whether it is running. Do not start the sign-up again — it is the same plan, and starting over cannot create a second one but will not tell you anything either.",
+    },
+    "plan-terminal": {
+      heading: "The plan was created, and it has already been ended",
+      because: `${PLAN_EXISTS} The service answered that this plan has reached an end state, so it cannot be started.`,
+      changedBy:
+        "Opening the plan on the patient's screen to see what ended it. It is the same plan; nothing here will create a second one.",
+    },
+    "stale-version": {
+      heading: "The plan was created, and something else changed it before it started",
+      because: `${PLAN_EXISTS} The plan moved between this screen reading it and the request to start it arriving, so the service refused rather than applying over the change.`,
+      changedBy: PRESS_AGAIN,
+    },
+    "not-found": {
+      heading: "The plan was created, and the service will not confirm it is startable",
+      because: `${PLAN_EXISTS} The service answered that there is nothing to act on — the same answer it gives for a record another team holds, deliberately, so the two cannot be told apart.`,
+      changedBy: `${PRESS_AGAIN} If it keeps refusing, the plan is on the patient's screen and someone with access to it can start it.`,
+    },
+    "permission-denied": {
+      heading: "The plan was created, and this role may not start it",
+      because: `${PLAN_EXISTS} The store refused the request to start it for this actor.`,
+      changedBy:
+        "Asking someone whose role may start a plan to open it on the patient's screen. It is the same plan; starting the sign-up again cannot create a second one.",
+    },
+    "action-not-granted": {
+      heading: "The plan was created, and your role cannot start it",
+      because: `${PLAN_EXISTS} The role you are signed in as is granted the action that creates a plan but not the one that starts it.`,
+      changedBy:
+        "Asking someone whose role may start a plan to open it on the patient's screen. It is the same plan; nothing will create a second one.",
+    },
+    "no-roles": {
+      heading: "The plan was created, and this session carries no role to start it with",
+      because: `${PLAN_EXISTS} The session you are acting in has no caring-contacts role, so the request to start it could not be checked against one.`,
+      changedBy: `Signing in again so the session carries a role, then ${PRESS_AGAIN.charAt(0).toLowerCase()}${PRESS_AGAIN.slice(1)}`,
+    },
+    "service-stopped": {
+      heading: "The plan was created, and the service is stopped so it cannot start",
+      because: `${PLAN_EXISTS} A service-wide safety stop is in place and it holds every write, including the one that starts a plan.`,
+      changedBy: `Three different roles approving the restart. After that, ${PRESS_AGAIN.charAt(0).toLowerCase()}${PRESS_AGAIN.slice(1)}`,
+    },
+    "invalid-request": {
+      heading: "The plan was created, and the request to start it was not readable",
+      because: `${PLAN_EXISTS} The request to start the plan did not become one the service could act on.`,
+      changedBy: PRESS_AGAIN,
+    },
+    "request-body-too-large": {
+      heading: "The plan was created, and the request to start it was too large",
+      because: `${PLAN_EXISTS} The service holds a size limit on every request and the one that starts a plan exceeded it, which should not be possible for a request this small.`,
+      changedBy: PRESS_AGAIN,
+    },
+    "access-audit-unavailable": {
+      heading: "The plan was created, and the access trail could not record it starting",
+      because: `${PLAN_EXISTS} Every write here is recorded, and one that cannot be recorded does not happen — that is the bargain rather than a fault in this screen.`,
+      changedBy: PRESS_AGAIN,
+    },
+    "request-did-not-reach-the-service": {
+      heading: "The plan was created, and the request to start it did not arrive",
+      because: `${PLAN_EXISTS} The second request did not complete, so the service was never asked to start it. This is what a lost connection looks like from here.`,
+      changedBy: PRESS_AGAIN,
+    },
+    "service-answered-with-something-unreadable": {
+      heading: "The plan was created, and it is not clear whether it started",
+      because: `${PLAN_EXISTS} Something came back that this screen could not read, so it will not claim the plan started and it will not claim it did not.`,
+      changedBy: `${PRESS_AGAIN} Checking the plan on the patient's screen first will tell you whether it is already running.`,
+    },
+  }),
+);
+
+export function activationRefusalWording(refusal: string): SubmissionRefusalWording {
+  const known = ACTIVATION_REFUSAL_WORDING[refusal];
+  if (known !== undefined) return known;
+  return {
+    heading: "The plan was created, and the service refused to start it for a reason this screen has not been taught",
+    because: `${PLAN_EXISTS} The service refused the request to start it and named the reason "${refusal}". This screen has no plain-words explanation for that one, so the reason is given as the service gave it.`,
+    changedBy: `${PRESS_AGAIN} If it keeps refusing, pass that reason on to whoever supports this service.`,
+  };
 }
 
 /** The refusal names this screen uses for a failure that never reached the service. */

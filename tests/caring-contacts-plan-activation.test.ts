@@ -35,7 +35,10 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
 
 import {
   EMPTY_PLAN_ACTIVATION,
+  activatePlanRequestBody,
+  activationRefusalWording,
   createPlanRequestBody,
+  planVersionFromCreateAnswer,
   dischargeInstantFor,
   firstContactReasonIsRequired,
   mintPlanSubmissionIdentity,
@@ -103,11 +106,11 @@ describe("minting the plan id and the idempotency key (Ruling [120])", () => {
     // signed up on this machine collide with the first, and the collision is refused as a replay —
     // so the second clinician's plan would silently never be created.
     expect(first.planId).not.toBe(second.planId);
-    expect(first.idempotencyKey).not.toBe(second.idempotencyKey);
+    expect(first.createIdempotencyKey).not.toBe(second.createIdempotencyKey);
     // And the two halves of one pair are not the same value either: one key covering one plan is
     // the contract, but a key that IS the plan id would make a retry of a different write on the
     // same plan collide with the create.
-    expect(first.planId).not.toBe(first.idempotencyKey);
+    expect(first.planId).not.toBe(first.createIdempotencyKey);
   });
 
   it("mints identifiers the audit trail itself accepts", () => {
@@ -118,7 +121,7 @@ describe("minting the plan id and the idempotency key (Ruling [120])", () => {
     // hexadecimal identifier can produce.
     for (let attempt = 0; attempt < 200; attempt += 1) {
       const minted = mintPlanSubmissionIdentity();
-      for (const value of [minted.planId, minted.idempotencyKey]) {
+      for (const value of [minted.planId, minted.createIdempotencyKey]) {
         expect(() =>
           buildAccessAuditEvent(
             {
@@ -462,3 +465,154 @@ function daysFrom(from: string, to: string): string[] {
   }
   return days;
 }
+
+describe("the second write: starting the plan that was just created (Ruling [123])", () => {
+  it("mints a SECOND idempotency key, independent of the first and of the plan id", () => {
+    const minted = mintPlanSubmissionIdentity();
+
+    // Three values, not two, and none derived from another. One key answers one write: a second
+    // write carrying the first write's key would be refused as a replay of a different request
+    // (`idempotency-key-reused-for-a-different-write`), so the plan would be created and could
+    // never be started.
+    expect(new Set([minted.planId, minted.createIdempotencyKey, minted.activateIdempotencyKey]).size).toBe(3);
+
+    // And the activate key is not the create key with something appended — a derived key is a
+    // second copy of the first key's uniqueness, and it stops being unique the moment the
+    // derivation changes.
+    expect(minted.activateIdempotencyKey).not.toContain(minted.createIdempotencyKey.replace("PLAN-CREATE-", ""));
+
+    const second = mintPlanSubmissionIdentity();
+    expect(second.activateIdempotencyKey).not.toBe(minted.activateIdempotencyKey);
+  });
+
+  it("mints an activate key the audit trail accepts, on the same terms as the other two", () => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const value = mintPlanSubmissionIdentity().activateIdempotencyKey;
+      expect(() =>
+        buildAccessAuditEvent(
+          {
+            actorId: actorId("demo-coordinator"),
+            actorRoles: ["coordinator"],
+            teamId: teamId("SYN-TEAM-001"),
+            kind: "mutation",
+            objectType: "plan",
+            objectId: value,
+            outcome: "denied",
+          },
+          fixedClock(NOW),
+        ),
+      ).not.toThrow();
+      expect(value, "the activate key carries a digit, so it could one day read as a number").not.toMatch(/\d/);
+    }
+  });
+
+  it("reads the version to start from out of the create's own answer, never a guess", () => {
+    // `expectedVersion` is an optimistic-concurrency check. Guessing 1 would be right today and
+    // wrong the moment anything else touches the plan between the two writes, and the store would
+    // then refuse `stale-version` on a plan that had just been created.
+    expect(planVersionFromCreateAnswer({ value: { plan: { id: "SYN-PLAN-001", version: 4 } } })).toBe(4);
+
+    // Anything this screen cannot read a version out of is null, not a default. A default would be
+    // a guess wearing a number.
+    expect(planVersionFromCreateAnswer({ value: { plan: { id: "SYN-PLAN-001" } } })).toBeNull();
+    expect(planVersionFromCreateAnswer({ value: null })).toBeNull();
+    expect(planVersionFromCreateAnswer({})).toBeNull();
+    expect(planVersionFromCreateAnswer("not an object")).toBeNull();
+    expect(planVersionFromCreateAnswer({ value: { plan: { version: 0 } } })).toBeNull();
+    expect(planVersionFromCreateAnswer({ value: { plan: { version: 1.5 } } })).toBeNull();
+  });
+
+  it("builds a body the real lifecycle route accepts, and the plan really starts", async () => {
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "coordinator" } };
+    const store = createInMemoryRepository(fixedClock(NOW));
+    mocks.store.current = store;
+
+    const minted = mintPlanSubmissionIdentity();
+    const created = await store.createPlan(
+      {
+        planId: planId(minted.planId),
+        referralId: referralId("SYN-REFERRAL-001"),
+        patientId: patientId("SYN-PATIENT-001"),
+        pathwayVersionId: pathwayVersionId("SYN-PATHWAY-001"),
+        dischargeAt: dischargeInstantFor(DISCHARGE_DAY)!,
+        sendingPreference: "morning",
+        patientDetail: PATIENT_DETAIL,
+      },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey(minted.createIdempotencyKey) },
+    );
+    if (!created.ok) throw new Error(`the store refused the create: ${created.reason}`);
+
+    const body = activatePlanRequestBody({ submission: minted, expectedVersion: created.value.plan.version });
+    const { POST } = await import("@/app/api/caring-contacts/plans/[planId]/route");
+    const response = await POST(
+      new NextRequest(`http://localhost/api/caring-contacts/plans/${minted.planId}`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ planId: minted.planId }) },
+    );
+
+    // The lifecycle schema is a `.strict()` discriminated union, so a wrong key or a missing one is
+    // a 400 rather than something this screen could paper over.
+    expect(response.status, `the route refused the body: ${await response.clone().text()}`).toBe(200);
+
+    // And the plan really started. A 200 that left the plan in draft would be the exact failure
+    // this whole second write exists to prevent.
+    const record = await store.getPlan(planId(minted.planId), { actor: demoActorForRole("coordinator") });
+    expect(record?.plan.state).toBe("active");
+  });
+});
+
+describe("what the screen says when the plan was created but did not start (Ruling [123])", () => {
+  it("never says nothing was created, because something was", () => {
+    // THE FAILURE THIS EXISTS TO PREVENT. `submissionRefusalWording` says "Nothing was created" in
+    // every branch, which is true of the first write and FALSE here — the plan exists. A
+    // coordinator told nothing was created starts the sign-up again, and this patient gets a second
+    // plan, two schedules and two sets of messages.
+    for (const refusal of [
+      "plan-not-draft",
+      "plan-terminal",
+      "stale-version",
+      "not-found",
+      "permission-denied",
+      "action-not-granted",
+      "no-roles",
+      "service-stopped",
+      "invalid-request",
+      "access-audit-unavailable",
+      "request-did-not-reach-the-service",
+      "service-answered-with-something-unreadable",
+      "a-refusal-nobody-has-written-yet",
+    ]) {
+      const wording = activationRefusalWording(refusal);
+      const whole = `${wording.heading} ${wording.because} ${wording.changedBy}`;
+      expect(whole, `${refusal} says nothing was created, and a plan was`).not.toMatch(/nothing was created/i);
+      expect(whole, `${refusal} does not say the plan exists`).toMatch(
+        /the plan (was |has been )?created|plan exists/i,
+      );
+      expect(whole, `${refusal} does not say the plan has not started`).toMatch(/not started|has not been started/i);
+      // The clinician must be told that pressing again finishes it rather than duplicating it —
+      // that is the whole payoff of holding both keys in the draft.
+      expect(whole, `${refusal} does not say a retry is not a second plan`).toMatch(
+        /same plan|cannot create a second|will not create another/i,
+      );
+      expect(whole, `${refusal} is reported as a general failure`).not.toMatch(/something went wrong/i);
+    }
+
+    expect(activationRefusalWording("a-refusal-nobody-has-written-yet").because).toContain(
+      "a-refusal-nobody-has-written-yet",
+    );
+  });
+
+  it("tells a plan that cannot be started apart from one that merely was not", () => {
+    // `plan-not-draft` on a retry usually means the FIRST attempt started it and this screen never
+    // saw the answer, which is a success wearing a refusal. Telling a coordinator to press again
+    // there would be wrong, so it is the one branch that sends them to look instead.
+    const alreadyStarted = activationRefusalWording("plan-not-draft");
+    const denied = activationRefusalWording("action-not-granted");
+    expect(alreadyStarted.heading).not.toBe(denied.heading);
+    expect(`${alreadyStarted.because} ${alreadyStarted.changedBy}`).toMatch(
+      /may already have started|already started/i,
+    );
+  });
+});
