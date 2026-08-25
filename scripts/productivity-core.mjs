@@ -329,6 +329,11 @@ export function analyzeFailureText(text = "", knownFlakes = []) {
   const goldenCaseCount = Number.parseInt(lower.match(/(?:^|\n)\s*cases=(\d+)/)?.[1] ?? "", 10);
   const goldenFailureCount = Number.parseInt(lower.match(/(?:^|\n)\s*failed_cases=(\d+)/)?.[1] ?? "", 10);
   const retrievalLayers = lower.match(/(?:^|\n)\s*retrieval_layer_counts=(\{[^\n]*\})/)?.[1];
+  const answerQualityBlockingSection = lower
+    .match(
+      /(?:^|\n)blocking failures:\s*\n([\s\S]*?)(?=\naccepted metadata-debt failures:|\nall threshold failures:|$)/,
+    )?.[1]
+    ?.trim();
   const knownFlake = knownFlakes.find((entry) => entry.pattern && lower.includes(String(entry.pattern).toLowerCase()));
   if (knownFlake) return { category: "known-flake", confidence: "high", reason: knownFlake.id || knownFlake.pattern };
   if (/module_not_found|cannot find module|enoent|not recognized as an internal|command not found/.test(lower)) {
@@ -365,7 +370,14 @@ export function analyzeFailureText(text = "", knownFlakes = []) {
       reason: `A completed golden evaluation reported ${goldenFailureCount} failed case(s).`,
     };
   }
-  if (/timed? out|timeout|etimedout|browser has been closed|worker.*exited/.test(lower)) {
+  if (answerQualityBlockingSection && !/^(?:-\s*)?none[.!]?$/.test(answerQualityBlockingSection)) {
+    return {
+      category: "probable-regression",
+      confidence: "high",
+      reason: "A completed answer-quality evaluation reported blocking threshold failures.",
+    };
+  }
+  if (/\btimed?\s*out\b|\btimeout\b|\betimedout\b|browser has been closed|worker.*exited/.test(lower)) {
     return {
       category: "environment-or-timeout",
       confidence: "medium",

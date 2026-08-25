@@ -156,6 +156,33 @@ describe("productivity workflow planning", () => {
     expect(analyzeFailureText("OPENAI_API_KEY missing").category).toBe("provider-or-configuration");
     expect(analyzeFailureText("AssertionError: expected 2 received 3").category).toBe("probable-regression");
     expect(analyzeFailureText("TypeError: value is not iterable").category).toBe("probable-regression");
+    expect(analyzeFailureText("Error: worker timed out after 300000ms").category).toBe("environment-or-timeout");
+  });
+
+  it("does not misclassify a completed answer-quality regression as a timeout from configuration text", () => {
+    const completedAnswerQualityRegression = [
+      "Running 36 golden retrieval case(s). mode=quality caseTimeoutMs=none",
+      "# Retrieval Quality Report",
+      "",
+      "## Threshold Status",
+      "",
+      "Blocking failures:",
+      "",
+      "- RAG source_backed_review_fallback unaccounted: clozapine-monitoring",
+      "",
+      "Accepted metadata-debt failures:",
+      "",
+      "- None",
+    ].join("\n");
+
+    expect(analyzeFailureText(completedAnswerQualityRegression)).toMatchObject({
+      category: "probable-regression",
+      confidence: "high",
+      reason: "A completed answer-quality evaluation reported blocking threshold failures.",
+    });
+    expect(analyzeFailureText("Running 36 golden retrieval case(s). mode=quality caseTimeoutMs=none")).toMatchObject({
+      category: "unclassified",
+    });
   });
 
   it("distinguishes historical eval-canary provider failures from a completed golden regression", () => {
