@@ -673,21 +673,29 @@ const PRESS_AGAIN =
  * screen. So the two failures get two vocabularies and neither can borrow the other's.
  *
  * WHAT EVERY BRANCH SAYS, and what only some do -- because an earlier version of this comment
- * claimed three things of all of them and TWO of the three were false:
+ * asserted a short list of things as true of all of them, and most of that list was not:
  *
  *   * ALL: the plan was created, its contacts are scheduled, and nothing reaches a handset because
  *     there is no provider and nothing that sends (see `PLAN_EXISTS`).
  *   * ALL: what to do next, and that it concerns THE SAME PLAN rather than a second one -- the
  *     payoff of Ruling [120]'s mechanism, since the draft still holds the plan id and both keys.
- *   * ONLY WHERE IT IS TRUE: that the plan has not been started (`NOT_STARTED`). Three branches
- *     withhold it because the plan may already have started -- `plan-not-draft`, `plan-terminal`
- *     and `service-answered-with-something-unreadable` -- and they say the state is unknown and
- *     send the reader to look instead. Two of those three tell the clinician NOT to press again,
- *     so "pressing again finishes it" was never true of every branch either.
+ *   * ONLY WHERE IT IS TRUE: that the plan has not been started (`NOT_STARTED`). It is withheld by
+ *     `plan-not-draft`, `plan-terminal` and `service-answered-with-something-unreadable`, where the
+ *     plan may already be running, so those say the state is unknown and send the reader to look
+ *     instead.
+ *   * NOT UNIFORM, AND NOT SUMMARISABLE: what to do about pressing again. Those same branches each
+ *     say something different -- `plan-not-draft` tells the clinician not to, `plan-terminal` says
+ *     nothing either way, and `service-answered-with-something-unreadable` invites it after a look.
+ *     So "pressing again finishes it" was never true of every branch, and neither is any single
+ *     sentence about what the withholding branches advise. Read them.
  *
- * The counts are deliberately not restated in prose here (Ruling [94] applies to source as much as
- * to a screen): `tests/caring-contacts-plan-activation.test.ts` holds the two lists, and a branch
- * added to the wrong one goes red there rather than disagreeing with a sentence nobody re-reads.
+ * No tally appears above, and that is deliberate rather than terse (Ruling [94] applies to source as
+ * much as to a screen). The previous version of this bullet counted the withholding branches and
+ * then counted how many of them warn against pressing again -- and that second tally was wrong, in
+ * the direction that matters: it credited branches with a warning only `plan-not-draft` gives. A
+ * number in a comment is a claim nobody re-derives, which is how a paragraph written to CORRECT an
+ * over-claim came to make one. `tests/caring-contacts-plan-activation.test.ts` holds the lists, so a
+ * branch added to the wrong one goes red there instead of quietly disagreeing with this paragraph.
  */
 const ACTIVATION_REFUSAL_WORDING: Readonly<Record<string, SubmissionRefusalWording>> = Object.freeze(
   Object.assign(Object.create(null) as Record<string, SubmissionRefusalWording>, {

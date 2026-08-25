@@ -1640,9 +1640,22 @@ describe("stage 4 — what the screen promises matches what confirming does (Rul
       // 2's own C3 edit falsified the middle one for three branches while the third had never been
       // true of two others. Ruling [94] — state the invariant, not the count — applies to source as
       // much as to a screen, because a comment is not re-read when the code beneath it changes.
+      // ROUND 4 WIDENING. The two patterns above matched neither of the counts that survived round
+      // 3 -- "Three branches withhold it" and "Two of those three tell the clinician NOT to press
+      // again" -- which sat directly above the sentence saying counts are not restated here. Worse,
+      // the second was FALSE: only `plan-not-draft` says not to press; `plan-terminal` says nothing
+      // either way and `service-answered-with-something-unreadable` invites it. A tally nobody
+      // re-derives is how a paragraph written to correct an over-claim came to make one.
+      //
+      // Deliberately narrow. A general "<numeral> of those" pattern collides with ordinary prose in
+      // these files ("one of them", "one of the two confirmations", "every one of them"), so it
+      // would fail on sentences that are fine and teach the next author to disable it. These two
+      // shapes match the defect and nothing currently in either file.
       for (const claim of [
         /every branch says (?:one|two|three|four|five|\d+) things/i,
         /all (?:thirteen|\d+) branches say/i,
+        /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|\d+)\s+branches\b/i,
+        /\b(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen)\s+of\s+(?:those|the)\s+(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen)\b/i,
       ]) {
         expect(source, `${name} restates a branch count in prose, which decays`).not.toMatch(claim);
       }
