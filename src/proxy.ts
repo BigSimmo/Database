@@ -52,10 +52,12 @@ const staticRouteRedirects: Record<string, string> = {
   // thing there, so the query string travels unchanged.
   "/dictionary/browse": "/dictionary/search",
   // Ward Flow Constellation was retired in Phase 2; keep
-  // /ward-management/constellation as an intentional unlinked compatibility
-  // redirect to /ward-management/network so historical deep-links match the
-  // page backstop (PR #2303).
-  "/ward-management/constellation": "/ward-management/network",
+  // /mockups/ward-flow/constellation as an intentional unlinked compatibility
+  // redirect to /mockups/ward-flow/network so historical deep-links match the
+  // page backstop (PR #2303). Ward Flow moved under the developer-gated
+  // /mockups/ward-flow prefix in the sandbox move (see
+  // src/lib/developer-area/headers.ts); the constellation redirect moved with it.
+  "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
 
 const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);

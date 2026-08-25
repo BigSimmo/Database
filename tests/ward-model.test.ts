@@ -75,7 +75,7 @@ describe("ward sites", () => {
     // divergent reading (`occupants + empty + blocked === beds`) that put held beds nowhere
     // and let the real UI formula double-count them without failing.
     for (const unit of allUnits()) {
-      const capacity = unitCapacity(unit);
+      const capacity = unitCapacity(unit, bedReleases);
       expect(capacity.available, `${unit.id} available is negative`).toBeGreaterThanOrEqual(0);
       expect(capacity.held, `${unit.id} held is negative`).toBeGreaterThanOrEqual(0);
       expect(capacity.blocked, `${unit.id} blocked is negative`).toBeGreaterThanOrEqual(0);

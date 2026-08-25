@@ -118,6 +118,8 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
   --spacing-phone-frame: 52.75rem;
+  /* Ward Flow's fixed phone navigation bar and the matching content reserve. */
+  --spacing-ward-phone-bar: 3.5rem;
 
   /* Shared reading measure, wide mockup study canvas, and Factsheets phone geometry. */
   --container-reading: 64rem;

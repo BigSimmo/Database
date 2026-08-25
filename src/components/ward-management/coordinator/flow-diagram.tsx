@@ -11,7 +11,12 @@ import {
   unitCapacity,
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
-import { PARALLEL_REFERRAL_CAP, type Movement, type Unit } from "@/components/ward-management/ward-model";
+import {
+  PARALLEL_REFERRAL_CAP,
+  type BedRelease,
+  type Movement,
+  type Unit,
+} from "@/components/ward-management/ward-model";
 import { edPressure } from "@/components/ward-management/ward-pressure";
 import { siteByCode } from "@/components/ward-management/ward-sites";
 
@@ -21,6 +26,7 @@ type FlowDiagramProps = {
   movement: Movement | undefined;
   now: Instant;
   units: Unit[];
+  bedReleases: BedRelease[];
   selectedUnitId: string | undefined;
   onSelectUnit: (unitId: string) => void;
 };
@@ -137,7 +143,7 @@ function hubStatusText(movement: Movement | undefined, shortlist: ShortlistCandi
  * and reruns on a `ResizeObserver` plus a window resize listener, so the diagram survives a
  * resize rather than only ever being screenshotted once.
  */
-export function FlowDiagram({ movement, now, units, selectedUnitId, onSelectUnit }: FlowDiagramProps) {
+export function FlowDiagram({ movement, now, units, bedReleases, selectedUnitId, onSelectUnit }: FlowDiagramProps) {
   const pressure = useMemo(() => edPressure(now), [now]);
   const shortlist = useMemo(
     () => (movement ? eligibleCandidatesAmong(movement, units, now, PARALLEL_REFERRAL_CAP) : []),
@@ -400,6 +406,7 @@ export function FlowDiagram({ movement, now, units, selectedUnitId, onSelectUnit
                     <UnitNode
                       key={unit.id}
                       unit={unit}
+                      bedReleases={bedReleases}
                       movement={movement}
                       candidate={shortlistByUnitId.get(unit.id)}
                       selected={selectedUnitId === unit.id}
@@ -439,6 +446,7 @@ export function FlowDiagram({ movement, now, units, selectedUnitId, onSelectUnit
 
 function UnitNode({
   unit,
+  bedReleases,
   movement,
   candidate,
   selected,
@@ -446,13 +454,14 @@ function UnitNode({
   registerUnitNode,
 }: {
   unit: Unit;
+  bedReleases: BedRelease[];
   movement: Movement | undefined;
   candidate: ShortlistCandidate | undefined;
   selected: boolean;
   onSelectUnit: (unitId: string) => void;
   registerUnitNode: (id: string, node: HTMLButtonElement | null) => void;
 }) {
-  const capacity = unitCapacity(unit);
+  const capacity = unitCapacity(unit, bedReleases);
   const routed = candidate !== undefined;
   // `destinationUnit(movement)` (`acceptedUnitId ?? referredUnitIds[0]`) conflates two different
   // facts into one badge and only ever looks at the first referral (review Important 2) -- WF-017

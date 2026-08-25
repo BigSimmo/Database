@@ -10,6 +10,13 @@ import {
   wardServiceOrder,
 } from "@/components/ward-management/ward-derivations";
 import { splitDuration, type Instant } from "@/components/ward-management/ward-clock";
+import {
+  changeReasonLabels,
+  LEGAL_STATUS_CHANGE_REASONS,
+  URGENCY_CHANGE_REASONS,
+  type LegalStatusChangeReason,
+  type UrgencyChangeReason,
+} from "@/components/ward-management/ward-change-reasons";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { legalFormName, SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
@@ -190,7 +197,7 @@ function accessTargetLine(minutesInDepartment: number): string {
  * substituted department.
  */
 export function EdScreen({ edId }: EdScreenProps) {
-  const { movements, units, now, dispatch } = useWardFlow();
+  const { movements, units, bedReleases, now, dispatch } = useWardFlow();
   const department = edById(edId);
 
   // Declared unconditionally, before the early return below — React hooks must run in the same
@@ -201,12 +208,27 @@ export function EdScreen({ edId }: EdScreenProps) {
   const [examinationOutcome, setExaminationOutcome] = useState<
     "inpatient_order" | "community_order" | "revoked" | undefined
   >(undefined);
+  // Task 2: urgency and legal status can change mid-flight. Both a coordinator and the referring
+  // ED clinician may make either change (`EVENT_ROLE.CHANGE_URGENCY`/`CHANGE_LEGAL_STATUS`), so
+  // this screen dispatches as role "ed" — the shortlist panel's own control dispatches as
+  // "coordinator". Each control keeps its own open-for/draft state, the same shape the
+  // examination toggle above already uses.
+  const [urgencyChangeOpenFor, setUrgencyChangeOpenFor] = useState<string | undefined>(undefined);
+  const [urgencyDraft, setUrgencyDraft] = useState<{ urgency: 1 | 2 | 3; reason: UrgencyChangeReason }>({
+    urgency: 1,
+    reason: URGENCY_CHANGE_REASONS[0],
+  });
+  const [legalStatusChangeOpenFor, setLegalStatusChangeOpenFor] = useState<string | undefined>(undefined);
+  const [legalStatusDraft, setLegalStatusDraft] = useState<{
+    legalStatus: LegalStatus;
+    reason: LegalStatusChangeReason;
+  }>({ legalStatus: "Voluntary", reason: LEGAL_STATUS_CHANGE_REASONS[0] });
 
   if (!department) {
     return (
       <div className={styles.screen} data-testid="ward-ed-screen">
         <ClinicalRail />
-        <main className={styles.main}>
+        <main id="main-content" className={styles.main}>
           <h1 className={styles.notFoundHeading}>Emergency department not found</h1>
           <p className={styles.notFoundBody} data-testid="ward-ed-unresolved">
             No synthetic emergency department matches &ldquo;{edId}&rdquo;. It may have been renamed or removed, or the
@@ -250,10 +272,46 @@ export function EdScreen({ edId }: EdScreenProps) {
     setExaminationOutcome(undefined);
   }
 
+  function toggleUrgencyChange(movementId: string, currentUrgency: 1 | 2 | 3) {
+    setUrgencyChangeOpenFor((current) => (current === movementId ? undefined : movementId));
+    setUrgencyDraft({ urgency: currentUrgency, reason: URGENCY_CHANGE_REASONS[0] });
+  }
+
+  function submitUrgencyChange(event: FormEvent<HTMLFormElement>, movementId: string) {
+    event.preventDefault();
+    dispatch({
+      type: "CHANGE_URGENCY",
+      role: "ed",
+      now,
+      movementId,
+      urgency: urgencyDraft.urgency,
+      reason: urgencyDraft.reason,
+    });
+    setUrgencyChangeOpenFor(undefined);
+  }
+
+  function toggleLegalStatusChange(movementId: string, currentLegalStatus: LegalStatus) {
+    setLegalStatusChangeOpenFor((current) => (current === movementId ? undefined : movementId));
+    setLegalStatusDraft({ legalStatus: currentLegalStatus, reason: LEGAL_STATUS_CHANGE_REASONS[0] });
+  }
+
+  function submitLegalStatusChange(event: FormEvent<HTMLFormElement>, movementId: string) {
+    event.preventDefault();
+    dispatch({
+      type: "CHANGE_LEGAL_STATUS",
+      role: "ed",
+      now,
+      movementId,
+      legalStatus: legalStatusDraft.legalStatus,
+      reason: legalStatusDraft.reason,
+    });
+    setLegalStatusChangeOpenFor(undefined);
+  }
+
   return (
     <div className={styles.screen} data-testid="ward-ed-screen">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-ed-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
@@ -417,6 +475,8 @@ export function EdScreen({ edId }: EdScreenProps) {
                 const examBlocked = examinationBlockedReason(movement);
                 const handoverBlocked = handoverBlockedReason(movement);
                 const examOpen = examinationOpenFor === movement.id;
+                const urgencyChangeOpen = urgencyChangeOpenFor === movement.id;
+                const legalStatusChangeOpen = legalStatusChangeOpenFor === movement.id;
                 // Whole-branch review Critical 1: resolved from the live `units`, not `unitById`.
                 const acceptedUnit = movement.acceptedUnitId
                   ? units.find((unit) => unit.id === movement.acceptedUnitId)
@@ -513,6 +573,24 @@ export function EdScreen({ edId }: EdScreenProps) {
                       >
                         Mark handover ready
                       </button>
+                      <button
+                        type="button"
+                        data-testid={`ward-change-urgency-toggle-${movement.id}`}
+                        aria-expanded={urgencyChangeOpen}
+                        className={styles.declineButton}
+                        onClick={() => toggleUrgencyChange(movement.id, movement.urgency)}
+                      >
+                        Change urgency
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`ward-change-legal-status-toggle-${movement.id}`}
+                        aria-expanded={legalStatusChangeOpen}
+                        className={styles.declineButton}
+                        onClick={() => toggleLegalStatusChange(movement.id, movement.legalStatus)}
+                      >
+                        Change legal status
+                      </button>
                     </div>
                     {examBlocked ? (
                       <span id={`ward-ed-examine-unavailable-${movement.id}`} className="sr-only">
@@ -557,6 +635,114 @@ export function EdScreen({ edId }: EdScreenProps) {
                         </button>
                       </form>
                     ) : null}
+
+                    {urgencyChangeOpen ? (
+                      <form
+                        className={styles.declineForm}
+                        onSubmit={(event) => submitUrgencyChange(event, movement.id)}
+                        data-testid={`ward-change-urgency-${movement.id}`}
+                      >
+                        <label className={styles.referralField} htmlFor={`ward-change-urgency-tier-${movement.id}`}>
+                          Urgency tier for {movement.id}
+                          <select
+                            id={`ward-change-urgency-tier-${movement.id}`}
+                            value={urgencyDraft.urgency}
+                            onChange={(event) =>
+                              setUrgencyDraft((current) => ({
+                                ...current,
+                                urgency: Number(event.target.value) as 1 | 2 | 3,
+                              }))
+                            }
+                          >
+                            {URGENCY_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className={styles.referralField} htmlFor={`ward-change-urgency-reason-${movement.id}`}>
+                          Reason
+                          <select
+                            id={`ward-change-urgency-reason-${movement.id}`}
+                            required
+                            value={urgencyDraft.reason}
+                            onChange={(event) =>
+                              setUrgencyDraft((current) => ({
+                                ...current,
+                                reason: event.target.value as UrgencyChangeReason,
+                              }))
+                            }
+                          >
+                            {URGENCY_CHANGE_REASONS.map((reason) => (
+                              <option key={reason} value={reason}>
+                                {changeReasonLabels[reason]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button type="submit" className={styles.declineSubmit}>
+                          Record urgency change
+                        </button>
+                      </form>
+                    ) : null}
+
+                    {legalStatusChangeOpen ? (
+                      <form
+                        className={styles.declineForm}
+                        onSubmit={(event) => submitLegalStatusChange(event, movement.id)}
+                        data-testid={`ward-change-legal-status-${movement.id}`}
+                      >
+                        <label
+                          className={styles.referralField}
+                          htmlFor={`ward-change-legal-status-value-${movement.id}`}
+                        >
+                          Legal status for {movement.id}
+                          <select
+                            id={`ward-change-legal-status-value-${movement.id}`}
+                            value={legalStatusDraft.legalStatus}
+                            onChange={(event) =>
+                              setLegalStatusDraft((current) => ({
+                                ...current,
+                                legalStatus: event.target.value as LegalStatus,
+                              }))
+                            }
+                          >
+                            {LEGAL_STATUS_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label
+                          className={styles.referralField}
+                          htmlFor={`ward-change-legal-status-reason-${movement.id}`}
+                        >
+                          Reason
+                          <select
+                            id={`ward-change-legal-status-reason-${movement.id}`}
+                            required
+                            value={legalStatusDraft.reason}
+                            onChange={(event) =>
+                              setLegalStatusDraft((current) => ({
+                                ...current,
+                                reason: event.target.value as LegalStatusChangeReason,
+                              }))
+                            }
+                          >
+                            {LEGAL_STATUS_CHANGE_REASONS.map((reason) => (
+                              <option key={reason} value={reason}>
+                                {changeReasonLabels[reason]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button type="submit" className={styles.declineSubmit}>
+                          Record legal status change
+                        </button>
+                      </form>
+                    ) : null}
                   </li>
                 );
               })}
@@ -586,7 +772,7 @@ export function EdScreen({ edId }: EdScreenProps) {
                   units
                     .filter((unit) => siteByCode(unit.siteCode)?.service === service)
                     .map((unit) => {
-                      const capacity = unitCapacity(unit);
+                      const capacity = unitCapacity(unit, bedReleases);
                       return (
                         <tr key={unit.id}>
                           <th scope="row">{unit.name}</th>

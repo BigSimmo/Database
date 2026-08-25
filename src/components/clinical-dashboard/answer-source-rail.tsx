@@ -188,10 +188,15 @@ function AnswerSourceCard({
         {sourceBadgeDisplay(source, index)}
       </span>
       <span className="grid min-w-0 gap-0.5 text-left">
-        <span className="block max-w-[158px] truncate text-xs font-semibold leading-tight text-[color:var(--text-heading)]">
+        <span
+          className={cn(
+            "block truncate text-xs font-semibold leading-tight text-[color:var(--text-heading)]",
+            cardTextWidth,
+          )}
+        >
           {cleanDisplayTitle(source.title)}
         </span>
-        <span className={cn("flex max-w-[158px] items-center gap-1.5 truncate text-2xs leading-tight", textMuted)}>
+        <span className={cn("flex items-center gap-1.5 truncate text-2xs leading-tight", cardTextWidth, textMuted)}>
           {/* Tabular figures keep page numbers aligned between cards; the mono
               face the old list row used opened a visible gap after "p." at this
               size. */}
@@ -265,3 +270,4 @@ function cardLabel(source: AnswerSourceRow, index: number) {
 
 const cardClass =
   "inline-flex min-h-12 min-w-0 items-center gap-2.5 rounded-[var(--radius-lg)] border bg-[color:var(--surface-raised)] px-3 py-1.5 text-left shadow-[var(--shadow-inset)] transition-[border-color,box-shadow] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const cardTextWidth = "max-w-[158px]";

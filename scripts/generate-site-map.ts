@@ -80,7 +80,7 @@ const documentedRedirectTargets: Record<string, string> = {
   // Pinned because the page forwards the incoming query string, so its
   // `redirect()` argument is a template literal the regex above cannot read.
   "/dictionary/browse": "/dictionary/search",
-  "/ward-management/constellation": "/ward-management/network",
+  "/mockups/ward-flow/constellation": "/mockups/ward-flow/network",
 };
 
 const routeDescriptions: Record<string, string> = {
@@ -154,20 +154,11 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
   "/therapy-compass/search": "Therapy library search surface.",
   "/tools": "Clinical tools and applications launcher directory.",
-  "/ward-management": "Statewide psychiatry ward demand, bed capacity, and patient flow console.",
-  "/ward-management/capacity": "Ward bed availability, unit occupancy, and staffing capacity.",
-  "/ward-management/constellation":
-    "Intentional, unlinked backwards-compatibility redirect to `/ward-management/network` (pointing to the current Ward Management home). Phase 2 retired the constellation command view.",
-  "/ward-management/ed/[edId]": "Synthetic emergency-department role screen for one origin department.",
-  "/ward-management/exceptions": "Patient flow exceptions, delays, and escalation alerts.",
-  "/ward-management/governance": "Ward coordination governance, compliance, and audit log.",
-  "/ward-management/movements": "Scheduled and completed patient transfers and bed movements.",
-  "/ward-management/network": "Psychiatric bed network status and regional catchment map.",
-  "/ward-management/patients/[patientId]": "Synthetic patient placement and transfer trajectory detail.",
-  "/ward-management/queue": "Priority referral queue and triage waiting list.",
-  "/ward-management/transport": "Patient inter-hospital transfer and transport logistics.",
-  "/ward-management/transport/officer": "Synthetic transport-officer phone screen for in-flight jobs.",
-  "/ward-management/ward/[unitId]": "Synthetic ward-manager screen for one inpatient unit.",
+  // Ward Flow's routes moved under /mockups/ward-flow/** in the sandbox move (see
+  // src/lib/developer-area/headers.ts). Mockup routes deliberately carry no curated
+  // description here — Care Plan and Caring Contacts, the two other developer-gated
+  // prototypes, have none either — so they render with the generic "Route discovered
+  // from app directory" fallback in the Mockup/prototype routes section below.
 };
 
 const publicRouteHandlerDescriptions: Record<string, string> = {
@@ -242,7 +233,6 @@ const routeOwnershipRows = [
   ["Therapy Compass", "src/app/(search-app)/therapy-compass, src/lib/therapies.ts"],
   ["Factsheets", "src/app/(search-app)/factsheets, src/components/factsheets"],
   ["Dictionary", "src/app/(search-app)/dictionary, src/lib/dictionary.ts"],
-  ["Ward Management", "src/app/ward-management, src/components/ward-management"],
   ["Safety Plan", "src/app/safety-plan, src/components/patient-safety-plan.tsx"],
   ["Privacy", "src/app/privacy"],
   ["Tools", "src/components/applications-launcher-page.tsx"],
@@ -572,7 +562,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/dictionary/[slug]",
         "/dictionary/topics/[slug]",
         "/factsheets/[slug]",
-        "/ward-management/patients/[patientId]",
       ].includes(route.route),
   );
   const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
@@ -664,12 +653,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
       bullet(
         "/documents/[id]",
         "Document viewer/detail page. Individual document IDs are intentionally not enumerated in this sitemap.",
-      ),
-    ]),
-    ...section("Ward management patient route", [
-      bullet(
-        "/ward-management/patients/[patientId]",
-        "Synthetic patient placement and transfer trajectory detail. Synthetic patient IDs are generated runtime data and intentionally not enumerated in this sitemap.",
       ),
     ]),
     ...section("Mockup/prototype routes", [

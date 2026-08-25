@@ -1,9 +1,10 @@
-import { EVENT_ROLE, type WardFlowEvent, type WardFlowRole } from "@/components/ward-management/ward-flow-events";
+import { EVENT_ROLE, type WardFlowEvent } from "@/components/ward-management/ward-flow-events";
 import { SELECTABLE_LEGAL_FORMS } from "@/components/ward-management/ward-legal-forms";
 import { PARALLEL_REFERRAL_CAP } from "@/components/ward-management/ward-model";
-import type { Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
-import { wardMovements } from "@/components/ward-management/ward-movements";
-import { allEmergencyDepartments, allUnits } from "@/components/ward-management/ward-sites";
+import type { BedRelease, Movement, MovementStage, Rejection, Unit } from "@/components/ward-management/ward-model";
+import { bedReleases, wardMovements } from "@/components/ward-management/ward-movements";
+import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
+import { scenarioUnits, type WardScenario } from "@/components/ward-management/ward-scenarios";
 
 /**
  * Stages `REFER_TO_UNITS` accepts, exported so a UI surface can pre-check referability and gate
@@ -31,16 +32,31 @@ export type WardFlowState = {
   clockOffsetMinutes: number;
   /** Deterministic id source for referrals raised through RAISE_REFERRAL. No Math.random(). */
   referralSequence: number;
+  /** Which synthetic night is seeded — `ward-scenarios.ts`'s operational-numbers-only variants. */
+  scenario: WardScenario;
+  /**
+   * Task 11 (spec item 9): beds expected to free up, now live reducer state rather than a frozen
+   * fixture constant — `FLAG_BED_RELEASE` appends here, so a ward's own flag actually moves
+   * `unitCapacity()`'s `potential` figure. Seeded from `ward-movements.ts`'s `bedReleases`.
+   */
+  bedReleases: BedRelease[];
 };
 
-/** Deep-copies the frozen fixture so tests (and later, screens) never alias or mutate it. */
-export function seedWardFlowState(): WardFlowState {
+/**
+ * Deep-copies the frozen fixture so tests (and later, screens) never alias or mutate it.
+ * Defaults to the standard night so `RESET_SCENARIO` (which calls this with no argument) always
+ * returns to the standard night rather than staying on whichever scenario was active — an
+ * explicit product-owner decision, not an oversight.
+ */
+export function seedWardFlowState(scenario: WardScenario = "standard"): WardFlowState {
   return {
     movements: structuredClone(wardMovements),
-    units: structuredClone(allUnits()),
+    units: scenarioUnits(scenario),
     rejections: [],
     clockOffsetMinutes: 0,
     referralSequence: 0,
+    scenario,
+    bedReleases: structuredClone(bedReleases),
   };
 }
 
@@ -50,9 +66,11 @@ function subjectId(event: WardFlowEvent): string {
     case "RAISE_REFERRAL":
       return event.edId;
     case "CONFIRM_CAPACITY":
+    case "FLAG_BED_RELEASE":
       return event.unitId;
     case "ADVANCE_CLOCK":
     case "RESET_SCENARIO":
+    case "SET_SCENARIO":
       return "none";
     default:
       return event.movementId;
@@ -107,14 +125,21 @@ function nextReferralId(sequence: number): string {
 
 export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): WardFlowState {
   // 1. Role check first, before the event's payload is inspected at all.
-  const requiredRole: WardFlowRole = EVENT_ROLE[event.type];
-  if (requiredRole !== event.role) {
-    return reject(state, event, `${event.type} requires role ${requiredRole}, but was raised by role ${event.role}`);
+  const permittedRoles = EVENT_ROLE[event.type];
+  if (!permittedRoles.includes(event.role)) {
+    return reject(
+      state,
+      event,
+      `${event.type} requires role ${permittedRoles.join(" or ")}, but was raised by role ${event.role}`,
+    );
   }
 
   switch (event.type) {
     case "RESET_SCENARIO":
       return seedWardFlowState();
+
+    case "SET_SCENARIO":
+      return seedWardFlowState(event.scenario);
 
     case "ADVANCE_CLOCK":
       return { ...state, clockOffsetMinutes: state.clockOffsetMinutes + event.minutes };
@@ -153,12 +178,14 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         // own source and must not become mutable state hanging off a movement.
         legalForm: chosenForm === undefined ? undefined : { ...chosenForm },
         statusChanges: [],
+        urgencyChanges: [],
         stage: "placement_requested",
         owner: department.name,
         referredUnitIds: [],
         declines: [],
         blocker: "Awaiting coordinator referral",
         withdrawnReferrals: [],
+        unwinds: [],
         // `formedAt` is deliberately left unset. It used to be stamped in this same branch, on
         // the strength of the status-derived Form 1A that has now been deleted; with that
         // derivation gone there is no rule left to hang it on, and inventing a replacement one
@@ -301,6 +328,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updated: Movement = {
         ...movement,
         acceptedUnitId: event.unitId,
+        // Fix round 1 (Task 9): the instant this acceptance happened, recorded directly rather
+        // than left to survive only as an incidental `withdrawnReferrals` side effect of a
+        // multi-unit referral. See `Movement.acceptedAt`'s own doc comment.
+        acceptedAt: event.now,
         stage: "accepted_awaiting_bed",
         referredUnitIds: [],
         withdrawnReferrals: [...movement.withdrawnReferrals, ...withdrawn],
@@ -487,7 +518,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // What this check does: it compares the unit the caller said it was acting as against the
       // unit being written to, and refuses the event when they differ. What it does not do: prove
       // the claim. `actingUnitId` is whatever the call site put on the event — the ward screen
-      // reads it from its own `/ward-management/ward/[unitId]` route, but nothing here verifies
+      // reads it from its own `/mockups/ward-flow/ward/[unitId]` route, but nothing here verifies
       // that, and this prototype carries no authenticated actor identity to verify it against.
       // This is a recorded assertion by the caller, not an authorisation decision, and must not
       // be described or extended as one.
@@ -507,6 +538,40 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       return replaceUnit(state, unit.id, updatedUnit);
     }
 
+    case "FLAG_BED_RELEASE": {
+      // Same claim-not-proof discipline as CONFIRM_CAPACITY (see that case's own comment in
+      // full): this compares what the caller SAID it was acting as against the unit the release
+      // is being written to, and refuses when they differ. It does not authenticate anything —
+      // `FLAG_BED_RELEASE` is `ward`-only, so unlike RELEASE_HOLD/CANCEL_TRANSPORT there is no
+      // coordinator caller to exempt, and the comparison always runs.
+      if (event.actingUnitId !== event.unitId) {
+        return reject(
+          state,
+          event,
+          `FLAG_BED_RELEASE was raised acting as unit ${event.actingUnitId} but targets unit ${event.unitId}`,
+        );
+      }
+      const flaggedUnit = findUnit(state, event.unitId);
+      if (!flaggedUnit) return reject(state, event, `no unit found for id ${event.unitId}`);
+      const release: BedRelease = {
+        // "WR-9NN" mirrors `nextReferralId`'s own "9" prefix above — visibly distinct at a
+        // glance from the hand-authored "WR-00N" fixture ids, same reasoning as RAISE_REFERRAL's
+        // "WF-9NN".
+        id: `WR-9${String(state.bedReleases.length).padStart(2, "0")}`,
+        unitId: flaggedUnit.id,
+        // FLAG_BED_RELEASE carries no estimated time from its caller (see the event's own doc
+        // comment) — nothing about the departing patient's own timing is permitted onto this
+        // record (binding spec §4), so this is the moment the WARD reported the release, not a
+        // projection about the patient.
+        expectedAt: event.now,
+        confidence: event.confidence,
+        blocker: event.blocker,
+        confirmedAt: event.now,
+        confirmedBy: `NUM ${flaggedUnit.name}`,
+      };
+      return { ...state, bedReleases: [...state.bedReleases, release] };
+    }
+
     case "RECORD_ESCALATION": {
       const movement = findMovement(state, event.movementId);
       if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
@@ -518,6 +583,151 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         escalation: { at: event.now, triedUnitIds: [...event.triedUnitIds], contact: event.contact },
       };
       return replaceMovement(state, movement.id, updated);
+    }
+
+    case "CHANGE_URGENCY": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot change urgency for a closed movement (${movement.closure.reason})`);
+      }
+      // Nothing auto-allocates. This records who changed the tier, when and why; it never
+      // re-sorts, re-suggests, un-accepts or re-refers the patient — that rule does not bend
+      // because the trigger was a status change (Global Constraint 3, spec D2).
+      const updated: Movement = {
+        ...movement,
+        urgency: event.urgency,
+        urgencyChanges: [
+          ...movement.urgencyChanges,
+          { at: event.now, from: movement.urgency, to: event.urgency, by: event.role, reason: event.reason },
+        ],
+      };
+      return replaceMovement(state, movement.id, updated);
+    }
+
+    case "CHANGE_LEGAL_STATUS": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot change legal status for a closed movement (${movement.closure.reason})`);
+      }
+      // A legal status change can make an already-accepted destination unlawful — see
+      // `destinationNoLongerLawful` in ward-derivations.ts, which surfaces that as an exception
+      // for a human. This handler NEVER reacts to that itself: it records the change and nothing
+      // else. `stage`, `acceptedUnitId`, `referredUnitIds`, `declines`, `transport`, `legalForm`
+      // and `bedHeldUntil` are all untouched.
+      const updated: Movement = {
+        ...movement,
+        legalStatus: event.legalStatus,
+        statusChanges: [
+          ...movement.statusChanges,
+          { at: event.now, from: movement.legalStatus, to: event.legalStatus, by: event.role, reason: event.reason },
+        ],
+      };
+      return replaceMovement(state, movement.id, updated);
+    }
+
+    case "RELEASE_HOLD": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot release a hold for a closed movement (${movement.closure.reason})`);
+      }
+      if (movement.stage !== "bed_held") {
+        return reject(state, event, `cannot release a hold while the movement is ${movement.stage}`);
+      }
+      // Same claim-not-proof discipline as CONFIRM_CAPACITY: this compares what the caller SAID
+      // it was acting as against the unit actually holding the bed, and refuses when they differ.
+      // Unused for a coordinator caller, who may act on behalf of any unit.
+      if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId) {
+        return reject(
+          state,
+          event,
+          `RELEASE_HOLD was raised acting as unit ${event.actingUnitId} but movement ${movement.id}'s bed is held at ${movement.acceptedUnitId}`,
+        );
+      }
+      if (!movement.acceptedUnitId) {
+        return reject(state, event, `movement ${movement.id} has no accepted unit holding a bed`);
+      }
+      const unit = findUnit(state, movement.acceptedUnitId);
+      if (!unit) return reject(state, event, `no unit found for id ${movement.acceptedUnitId}`);
+
+      // The EXACT inverse of HOLD_BED's own writes (ruling P4-1) — every field HOLD_BED sets,
+      // undone, and nothing else touched. HOLD_BED writes four fields: `unit.allocatable.value`
+      // (-1), `unit.allocatable.confirmedAt` (event.now), `movement.stage` ("bed_held") and
+      // `movement.bedHeldUntil` (event.now + 60). It does NOT touch `Unit.held` — that field is
+      // seed-only data; the live held count on every screen is `unitCapacity()`'s own derivation
+      // from `empty` and `allocatable`, so giving back the bed by raising `allocatable.value` is
+      // the whole correction, on both fields HOLD_BED actually wrote to the unit.
+      const releasedUnit: Unit = {
+        ...unit,
+        allocatable: { ...unit.allocatable, value: unit.allocatable.value + 1, confirmedAt: event.now },
+      };
+      // Never closes the movement, never clears `legalForm`, never touches `referredUnitIds` —
+      // the patient survives and keeps their acceptance; only the hold itself unwinds.
+      const updatedMovement: Movement = {
+        ...movement,
+        stage: "accepted_awaiting_bed",
+        bedHeldUntil: undefined,
+        unwinds: [...movement.unwinds, { at: event.now, kind: "hold_released", by: event.role, reason: event.reason }],
+      };
+      const withUnit = replaceUnit(state, unit.id, releasedUnit);
+      return replaceMovement(withUnit, movement.id, updatedMovement);
+    }
+
+    case "CANCEL_TRANSPORT": {
+      const movement = findMovement(state, event.movementId);
+      if (!movement) return reject(state, event, `no movement found for id ${event.movementId}`);
+      if (movement.closure) {
+        return reject(state, event, `cannot cancel transport for a closed movement (${movement.closure.reason})`);
+      }
+      if (!movement.transport) {
+        return reject(state, event, `movement ${movement.id} has no transport job to cancel`);
+      }
+      if (movement.transport.cancelledAt !== undefined) {
+        return reject(state, event, `transport for movement ${movement.id} was already cancelled`);
+      }
+      if (movement.transport.arrivedAt !== undefined) {
+        return reject(state, event, `cannot cancel transport for movement ${movement.id} — the patient has arrived`);
+      }
+      if (movement.transport.collectedAt !== undefined) {
+        return reject(state, event, `cannot cancel transport for movement ${movement.id} — the patient has departed`);
+      }
+      // Same claim-not-proof discipline as CONFIRM_CAPACITY: this compares what the caller SAID
+      // it was acting as against the unit the movement is accepted at, and refuses when they
+      // differ. Unused for a coordinator caller, who may act on behalf of any unit.
+      if (event.role === "ward" && event.actingUnitId !== movement.acceptedUnitId) {
+        return reject(
+          state,
+          event,
+          `CANCEL_TRANSPORT was raised acting as unit ${event.actingUnitId} but movement ${movement.id} is accepted at ${movement.acceptedUnitId ?? "no unit"}`,
+        );
+      }
+      // Never closes the movement — the patient stays open, only the transport job unwinds. The
+      // cancelled job remains named in the audit trail while a clean replacement follows the
+      // ordinary acceptance path. The bed itself is untouched by this handler.
+      const cancelledTransport = movement.transport;
+      const updatedMovement: Movement = {
+        ...movement,
+        stage: "handover_ready",
+        transport: {
+          id: `${cancelledTransport.id}-replacement-${movement.unwinds.filter((entry) => entry.kind === "transport_cancelled").length + 1}`,
+          provider: cancelledTransport.provider,
+          escortRequired: cancelledTransport.escortRequired,
+          ...(cancelledTransport.formRequired ? { formRequired: cancelledTransport.formRequired } : {}),
+        },
+        unwinds: [
+          ...movement.unwinds,
+          {
+            at: event.now,
+            kind: "transport_cancelled",
+            by: event.role,
+            reason: event.reason,
+            transportId: cancelledTransport.id,
+          },
+        ],
+      };
+      return replaceMovement(state, movement.id, updatedMovement);
     }
   }
 }
