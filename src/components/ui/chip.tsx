@@ -109,7 +109,7 @@ export function ChoiceChip({
       ? appearanceClasses(appearance)
       : pressed
         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
-        : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)]";
+        : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] group-hover:border-[color:var(--border-strong)] group-hover:bg-[color:var(--surface-subtle)]";
   const contentAppearance = unavailable
     ? "cursor-default text-[color:var(--text-muted)]"
     : appearance
@@ -134,7 +134,7 @@ export function ChoiceChip({
         if (!unavailable) onPressedChange(!pressed);
       }}
       className={cn(
-        "relative isolate inline-flex min-h-tap max-w-full items-center justify-center gap-1.5 rounded-lg font-semibold leading-none transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        "group relative isolate inline-flex min-h-tap max-w-full items-center justify-center gap-1.5 rounded-lg font-semibold leading-none transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         size === "compact" ? "px-2.5 text-2xs" : "px-3 text-xs",
         contentAppearance,
         pressed && "font-bold forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]",
