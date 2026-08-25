@@ -241,3 +241,154 @@ push, no pull request, no merge.
    "every view, print, and queue entry". One line either way.
 6. Everything the whole-branch review triaged as standing, and the deferred minors this wave did not
    name, are unchanged in `docs/care-plan/sdd-ledger.md`.
+
+---
+
+# Second wave — the section headings and lead-ins
+
+**Decided by the user**, 25 August 2026, in their own words: _"yes please stop saying that they helped
+write it."_ This wave is theirs, not a ruling taken on their behalf.
+
+The first wave made the opening sentence honest and left the eight headings and lead-ins beneath it
+still claiming she took part. That was the worse outcome of the two available: one careful line
+surrounded by eight casual contradictions of it. This closes it.
+
+## What changed
+
+**One predicate, not a second notion.** `claimsJointAuthorship` moved from `prototype-ui.tsx` to
+`domain.ts:501` so the pure transform can reach it without importing React, and
+`PARTICIPATION_MARKER_STATES` moved with it. The clinician's `ParticipationMarker`, the paper's
+opening sentence, and now every heading and lead-in all read that one function. They cannot drift
+apart, because there is nothing to drift from.
+
+Five strings, and only five. Where the predicate returns true, today's copy is untouched — for a
+co-produced plan the claim is true, warm and already reviewed.
+
+| `file:line`                         | Joint wording (unchanged, still printed when the person took part)     | Team-written wording (printed otherwise)                                          |
+| ----------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `patient-plan-transform.ts:73→105`  | `Why we wrote this together`                                           | `Why this plan was written`                                                       |
+| `patient-plan-transform.ts:77→106`  | `What we agreed will happen when you come to the emergency department` | `What your team has agreed will happen when you come to the emergency department` |
+| `patient-plan-transform.ts:135→169` | `This is what we wrote down about why this plan exists.`               | `This is what your team wrote down about why this plan exists.`                   |
+| `patient-plan-transform.ts:136→170` | `These are the things you have said matter to you.`                    | `This is your team's understanding of what matters to you.`                       |
+| `patient-plan-transform.ts:139→171` | `This is the approach you and your team agreed for when you come in.`  | `This is the approach your team has agreed for when you come in.`                 |
+
+**All five wordings are provisional, awaiting the user's copy pass**, alongside the intro sentence
+from the first wave.
+
+**Three deliberate boundaries, stated rather than assumed.**
+
+- **`discussed_not_confirmed` keeps the joint wording**, mirroring `PARTICIPATION_MARKER_STATES`. A
+  plan discussed with somebody who did not confirm it is not a plan written without them, and the
+  user's instruction is about the case where the person took no part at all. Pinned by its own test.
+- **The other six headings are untouched** — `What matters to you`, `What helps you`, `What makes
+things harder`, `If something new is happening`, `Who's involved in your care`, `Things that might
+help`. None of them ever claimed the person contributed, and rewording an honest line is churn.
+  A test pins the replacement sets at exactly two headings and three lead-ins so nobody later
+  "finishes the set".
+- **`What makes things harder`'s lead-in keeps its "we"** — _"so we can try to avoid them"_. That
+  "we" is the care relationship going forward, not a claim about who wrote the page. It promises the
+  team will try, which stays true however the plan was written, and removing it would cost the
+  person a commitment for no gain in honesty.
+
+**`whatWeAgreedWillHappen` keeps the word "agreed" deliberately.** The section is about an approach
+somebody agreed; the honest fix is to say _who_ agreed it, not to strip the agreement out and leave
+the person a bare list of what will be done to them.
+
+**Where the wording is selected.** The heading is chosen in the transform, from
+`version.participationState`, and stored on the section — so the draft form, the reading surface and
+the paper all show it without deciding anything. The lead-in is chosen at render, from the same
+predicate, at both surfaces: `patient-plan-pages.tsx:165` and `patient-plan-form.tsx:409`. The form
+reads the draft's own `derivedFromManagementVersionId` rather than whatever is Current now, because a
+draft written from one version must not change its account of itself when another is approved
+underneath it.
+
+## Controls — seven mutations, seven kills, every one reverted
+
+One at a time, `GATE_RECEIPTS=refresh` throughout, none left applied while a run was in flight.
+
+| #   | Mutation                                                                                              | Full `FAIL` line and message                                                                                                                                                                                                                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | Heading `whyWeWroteThis` restored to `Why we wrote this together`                                     | `FAIL \|jsdom\| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Patient Plan > never tells a person they helped write a plan the record says was written without them` — `AssertionError: the Patient Plan reading surface still claims joint authorship: /we wrote this together/i: expected true to be false` |
+| B   | Heading `whatWeAgreedWillHappen` restored                                                             | same `FAIL … > never tells a person they helped write a plan the record says was written without them` — `the Patient Plan reading surface still claims joint authorship: /what we agreed will happen/i: expected true to be false`                                                                                    |
+| C   | Lead-in `whyWeWroteThis` restored                                                                     | same `FAIL … > never tells a person they helped write a plan the record says was written without them` — `the Patient Plan reading surface still claims joint authorship: /what we wrote down/i: expected true to be false`                                                                                            |
+| D   | Lead-in `whatMattersToYou` restored to `These are the things you have said …`                         | same `FAIL … > never tells a person they helped write a plan the record says was written without them` — `the Patient Plan reading surface still claims joint authorship: /you have said/i: expected true to be false`                                                                                                 |
+| E   | Lead-in `whatWeAgreedWillHappen` restored                                                             | same `FAIL … > never tells a person they helped write a plan the record says was written without them` — `the Patient Plan reading surface still claims joint authorship: /you and your team agreed/i: expected true to be false`                                                                                      |
+| F   | A **second notion** of the rule: `participationState !== "declined"` in place of the shared predicate | `FAIL \|node\| tests/care-plan-patient-plan.test.ts > Patient Plan transformation > stops saying the person helped write it when the record says they took no part` — `AssertionError: expected [ 'Why we wrote this together', …(7) ] to deeply equal [ 'Why this plan was written', …(7) ]`                          |
+| G   | The **printed** sections pinned to `"co_produced"` while the screen stayed correct                    | `FAIL \|jsdom\| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Patient Plan > never tells a person they helped write a plan the record says was written without them` — `AssertionError: the printed Patient Plan still claims joint authorship: /what we wrote down/i: expected true to be false`             |
+
+Control F is the one worth keeping: it proves the wording follows the shared predicate rather than
+a hand-rolled restatement of it, which is precisely how a marker and a sentence come apart. Control G
+proves screen and paper are separately guarded, not one assertion counted twice.
+
+The forbidden phrasings are spelled out literally in `JOINT_AUTHORSHIP_CLAIMS`
+(`care-plan-linked-routes.dom.test.tsx:3350`) and applied to both surfaces; the generative assertion
+that compared a rendered heading against the map it renders from is gone from
+`care-plan-patient-plan.test.ts:178`, replaced by the eight literal headings.
+
+## Mira's sheet, read end to end as her
+
+Captured from the rendered DOM in reading order, `patient_unavailable`, then read straight through.
+The capture harness was a scratch file, deleted afterwards.
+
+It reads as a document written **for** her, and it does not remind her she was absent. Nothing on the
+page mentions an absence, a decline, a reason, or a failure — the words "declined", "unavailable",
+"did not" and "were not" appear nowhere on it.
+
+The opening is now consistent with everything under it. `My plan`, her preferred name, her record
+number, `Written on 20/08/2026`, then _"This is your copy of the plan your team wrote for you. It is
+yours, and it is not fixed…"_ — and the first heading beneath it is `Why this plan was written`,
+followed by _"This is what your team wrote down about why this plan exists."_ In the first wave that
+same sentence read "what we wrote down", two lines under an intro that had just carefully avoided
+saying so. That contradiction is gone.
+
+`This is your team's understanding of what matters to you.` is the line I was least sure of, and
+reading it in place it does the right thing: it is honest that this is their understanding, it is
+still addressed to her, and being visibly an understanding rather than a transcript is itself the
+invitation to correct it. It does not apologise, and it asks nothing of her.
+
+`What your team has agreed will happen when you come to the emergency department` is longer than the
+original and worth the words. Keeping "agreed" matters — without it the section would read as a list
+of things that will be done to her, which is a worse document, not a more honest one.
+
+The six untouched headings carry the page. `What helps you`, `What makes things harder`, `Who's
+involved in your care`, `Things that might help` — read in sequence they are simply about her, and
+they do not need an authorship claim to be warm. `What makes things harder` still ends _"so we can
+try to avoid them"_, which reads as the team undertaking something rather than as a claim about who
+wrote the sheet.
+
+Then her own resources — her CMHT with Devon named, the pain clinic that will come to her, the
+door-to-door bus with _"tell them if you need help getting down the front step"_, carer support for
+Daniel, a large-print booklet — the crisis block with its real numbers and their real limits, the
+printed-at stamp, and the shortened footer.
+
+**Honest answer to the question asked:** it reads as her plan, written by her team, that she is
+welcome to change. The one thing I would still put in front of the user is the tension between the
+sheet's title, `My plan`, and the fact that she did not write it — the title is not false, since it
+is hers to hold and hers to change, but it is the last place on the page where "my" is doing work the
+record does not support. It is a title, not a claim about authorship, so I have not touched it.
+
+## Gates — second wave
+
+| Gate                                | Result                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| Care Plan + primitive Vitest        | `Test Files  6 passed (6)` / `Tests  533 passed (533)` (283.92s)         |
+| `npm run typecheck`                 | real `tsc` invocation, exit 0, zero diagnostics, `GATE_RECEIPTS=refresh` |
+| `npm run lint`                      | real `eslint … --max-warnings 0`, exit 0, `GATE_RECEIPTS=refresh`        |
+| `npx prettier --check` (7 changed)  | `All matched files use Prettier code style!`                             |
+| `npm run test:e2e:care-plan-mockup` | `30 passed`, `1 skipped` (the opt-in evidence atlas)                     |
+| Byte scan, 7 changed files          | CR=0, control bytes=0, `git ls-files --eol` reports `i/lf w/lf`          |
+
+Not run, by user instruction (D2): `verify:pr-local`, `verify:cheap`, `verify:release`, `build`,
+`check:production-readiness`, `docs:update`, whole-tree `format`, every provider-backed gate. No
+push, no pull request, no merge.
+
+## Still owed after this wave
+
+1. **All five new wordings are provisional**, awaiting the user's patient-facing copy pass, together
+   with the first wave's opening sentence. The footer remains the only patient-facing copy the user
+   has settled.
+2. **The sheet's title `My plan`** on a plan the person took no part in — noted above, not changed.
+3. `discussed_not_confirmed` on the joint wording is a deliberate boundary, now pinned by a test
+   rather than left implicit.
+4. The remaining first-wave items are unchanged: a genuine agreement moment for the Patient Plan, and
+   the marker's placement on the paper as a reading of spec line 404.
