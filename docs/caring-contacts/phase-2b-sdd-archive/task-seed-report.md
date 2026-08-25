@@ -112,15 +112,31 @@ links to it with an id. The seed therefore publishes a stable one,
 `/caring-contacts/plans/new?referral=demo-seed-referral-wren`. That is a workaround for a missing
 screen, not a substitute for one: a coordinator with no referral list still cannot find their way in.
 
-**F3 — The seed records a governance approval that no person gave.**
+**F3 — The seed records a governance approval that no person gave, and stage 2 shows it. Fixed in
+round 1; recorded here because the original report got both the timing and the mitigation wrong.**
 
-The pathway version is approved by `demo-clinicalProgrammeLead` and
-`demo-livedExperienceRepresentative`. Those are demo role-switcher identities, not people, and the
-approval is real as a record while being fictional as an act of governance. This is unavoidable if
-the demo is to have a pathway at all, and it is the same fiction the role switcher already is — but
-when the templates library later shows "approved by the clinical programme lead and the
-lived-experience representative", it will be showing this. Every actor id is `demo-` prefixed,
-so the record says what it is. so the record is self-identifying.
+I filed this as a risk for when the templates library arrives. It was already on a screen:
+`plans/new/page.tsx` resolves `version.approvals` through `PATHWAY_APPROVAL_ROLE_WORDING` and
+`plan-wizard.tsx` prints `Approved by {…}` at **stage 2**, so a coordinator choosing a pathway read
+an unqualified _"Approved by the clinical programme lead and the lived-experience representative"_
+for an approval nobody gave. And the mitigation I claimed — that every actor id is `demo-` prefixed —
+never reaches the viewer at all: the screen renders role wording, never actor ids.
+
+The fix is Ruling [126] applied directly, not a new decision: **the record carries the provenance**,
+so a screen can say the approval is invented without having to know a seed exists.
+`PathwayVersionSnapshot.provenance` is optional, and the only claim it can make is a weakening one —
+it can say an approval is synthetic, never that one is genuine, and absence asserts nothing. Stage 2
+prints the wording on its own line inside the option's `aria-describedby` region, so it is heard with
+the option rather than after it. The approval is **not** hidden: a demonstration that cannot show a
+governed pathway shows nothing.
+
+Two things worth knowing about the placement. It lives in the snapshot because `savePathwayVersion`
+rebuilds every governance field server-side whatever the caller sends, and copies the snapshot
+verbatim — the snapshot is the only channel an author may state anything through, and a top-level
+field would have needed a Postgres column and a migration. And the in-memory store's
+`clonePathwayVersion` enumerated the snapshot's two fields, so the marker was silently dropped on the
+way out until that copy was changed to spread; mutation R6 below is that line's proof. The Postgres
+store persists the snapshot as JSONB, so it round-trips there by construction.
 
 **F4 — `culturalIdentity` is recorded as "Not stated" for every seeded patient.** A cultural identity
 attributed to an invented person is an invention about culture. "Not stated" is a value already used
@@ -140,10 +156,29 @@ no route, so this is pre-existing rather than caused here. I have deliberately n
 belongs to another task's file and fixing it unasked would put an unrelated change in this diff — but
 it will block CI on the branch, so somebody has to.
 
+**F7 — One snapshot, three patients, and a greeting that names one of them.**
+
+`EXACT_PATIENT_VISIBLE_MESSAGE` hardcodes "Hi Rowan, …", and the seed applies that one approved
+snapshot to Mira's and Ari's plans as well. Nothing renders `messageTextByType` today, so nothing is
+visibly wrong — but a per-version snapshot and a personalised greeting are in disagreement, and the
+snapshot is the thing that is frozen and approved. Either the greeting is not part of governed
+content, or a version cannot be shared across patients. Recorded rather than fixed: it is a question
+about what the snapshot is for, and that is not an implementer's to answer.
+
 ## What a browser test would now need to do to reach stage 4
 
-Assuming F1 is resolved so the server is populated (`CARING_CONTACTS_DEMO_SEED=on`, or whatever the
-owner decides):
+**The owner's resolution of F1 is a second Playwright server, not moving the assertion.** The
+empty-caseload observation is an HTTP-level fact — served as a page rather than as a missing resource
+— which a DOM test cannot make, and it is a real production state: a newly onboarded team has no
+patients on day one. Moving it loses the evidence.
+
+**That second server is a separate task and is not built here.** What it needs: `run-playwright.mjs`
+owns the server, so it is a second instance on a second port, reusing the same isolated build, with
+`CARING_CONTACTS_DEMO_SEED=on` in its environment, plus a Playwright project with its own `baseURL`
+pointing at it — so the existing empty-caseload project keeps its own unseeded server and its
+assertions stay exactly as they are. The journey below then belongs to that project alone.
+
+With such a server:
 
 1. Go to `/caring-contacts/plans/new?referral=demo-seed-referral-wren`. The referral is accepted and
    has no plan, so the page renders the wizard rather than a `PlanStartStateNotice`.
