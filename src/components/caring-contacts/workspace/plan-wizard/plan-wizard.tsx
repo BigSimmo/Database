@@ -1904,20 +1904,36 @@ function ReviewStage({
  *
  * Rendered by the overlay itself, as the reason its decision control points at — so a coordinator
  * who opens the confirmation is told what is missing rather than finding a control that does
- * nothing. Ordered from the earliest missing thing to the latest, because the first sentence is the
- * one that gets read.
+ * nothing.
  *
- * STAGE 1 IS THE EARLIEST AND IT WAS MISSING FROM THIS CHAIN. Until the confirmations were recorded,
- * a half-ticked draft changed nothing about the plan and could not block a create, so there was
- * nothing here to say. Task 9b made a create depend on them — and this function still consulted only
- * the state, the patient detail and the preview, so a restored half-ticked draft with detail present
- * and a ready schedule fell through to the catch-all: "The stages behind this one say which." The
- * comment above promises the opposite of that, and the promise was the newer of the two.
+ * THE ORDER, AND WHAT IT ACTUALLY IS. A write in flight comes first, because it is not a missing
+ * thing at all: while a create may already have happened, no sentence about a missing stage is safe
+ * to print. Everything after it IS a missing thing, and those are ordered by the stage a coordinator
+ * would go back to, earliest first, because the first sentence is the one that gets read.
  *
- * The assurance branch is FIRST because stage 1 is first. It cannot race the `sending` branch below:
- * `activate` returns early on a null body and the body is null whenever a confirmation is missing,
- * so a send is never in flight while this branch is live. The ordering is the stated chain, not a
- * tie-break.
+ * STAGE 1 WAS MISSING FROM THIS CHAIN. Until the confirmations were recorded, a half-ticked draft
+ * changed nothing about the plan and could not block a create, so there was nothing here to say.
+ * Task 9b made a create depend on them — and this function still consulted only the state, the
+ * patient detail and the preview, so a restored half-ticked draft with detail present and a ready
+ * schedule fell through to the catch-all: "The stages behind this one say which."
+ *
+ * WHY THE ASSURANCE BRANCH IS BELOW `sending` AND NOT ABOVE IT (fix round 3). It was above, on the
+ * argument that the two cannot coexist: `activate` returns early on a null body, and the body is
+ * null whenever a confirmation is missing, so a send cannot START with one outstanding. **That
+ * proves entry into `sending`, not the state during it, and they are different claims.** The status
+ * is component state while the draft is a separate external store, and nothing gates the review
+ * stage's Back control, `update`, or `onAssuranceChange` on a send being in flight. So a coordinator
+ * can go back mid-create, untick a box, and return — and the control would have said "Still to
+ * confirm" on a screen where a plan may already exist. The status line above it says a create is
+ * running, so the screen was not wholly wrong; the control was, at the one moment it matters most.
+ *
+ * WHAT THIS CHAIN DOES NOT COVER, stated because the paragraph above would otherwise imply it does.
+ * Stage 2's pathway version and sending preference have no branch here: with either missing, the
+ * body is null, none of the branches match, and the catch-all speaks — last, not in stage order. So
+ * the ordering claim holds for the stages that ARE branched (stage 1 here, stage 3's patient detail,
+ * then stage 4's own dates) and not for the chain as a whole. That gap predates this task and
+ * closing it is separate work; it is named here rather than papered over by a comment that describes
+ * a chain this function does not have.
  */
 function unavailableReasonFor(input: {
   assurances: PlanDraftAssurances;
@@ -1925,11 +1941,11 @@ function unavailableReasonFor(input: {
   state: PlanSubmissionState;
   patientDetail: ReturnType<typeof createPlanPatientDetail>;
 }): string {
-  if (!everyAssuranceConfirmed(input.assurances)) {
-    return unconfirmedAssuranceSentence(input.assurances);
-  }
   if (input.state.status === "sending") {
     return "The plan is being created now. Nothing else can be confirmed until that finishes.";
+  }
+  if (!everyAssuranceConfirmed(input.assurances)) {
+    return unconfirmedAssuranceSentence(input.assurances);
   }
   if (input.patientDetail === null) {
     return "The patient's name and mobile number are needed before a plan can be created. They are entered on the personalisation stage.";

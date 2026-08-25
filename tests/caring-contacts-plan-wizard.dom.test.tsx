@@ -39,6 +39,7 @@ import {
   PLAN_DRAFT_STORAGE_KEY,
   clearPlanDraft,
   readPlanDraft,
+  writePlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
 import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
@@ -1125,6 +1126,53 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
     // The catch-all this branch replaces. If it is still reached, the branch is not wired -- and the
     // negative is what makes the mutation red rather than merely differently worded.
     expect(reason?.textContent ?? "").not.toMatch(/the stages behind this one say which/i);
+  });
+
+  it("says a create is running, not that a confirmation is missing, when both are true at once", async () => {
+    // THE ORDER OF TWO BRANCHES, AND THE RACE I ARGUED COULD NOT HAPPEN (fix round 3).
+    //
+    // I put the assurance branch above `sending` on the argument that they cannot coexist: `activate`
+    // returns early on a null body, and the body is null whenever a confirmation is missing, so a
+    // send cannot START with one outstanding. That proves ENTRY into `sending` and says nothing about
+    // the state DURING it. The status is component state; the draft is a separate external store; and
+    // nothing gates the review stage's Back control, `update`, or `onAssuranceChange` on a send being
+    // in flight. So a coordinator can go back mid-create, untick a box, and come back.
+    //
+    // With the branches the wrong way round the control then reads "Still to confirm: ..." on a
+    // screen where A PLAN MAY ALREADY EXIST -- telling a coordinator the plan was never submitted at
+    // the one moment that claim is most dangerous.
+    //
+    // The untick is made through `writePlanDraft`, which is the exact call `onAssuranceChange` makes.
+    // Walking Back through three stages and forward again would exercise the wizard's navigation
+    // rather than this function's ordering, and the reachability of that path is established at the
+    // source: the Back control on this very stage carries no `submissionState` guard.
+    const user = userEvent.setup();
+    // A create that never answers, so the component stays in `sending` for the whole case.
+    stubFetch(() => new Promise<Response>(() => {}));
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+
+    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    await user.click(await screen.findByTestId("workspace-overlay-action"));
+    // Positive control on the premise: the create really is in flight, or the two branches are not
+    // both live and this case proves nothing about their order.
+    await screen.findByText(/creating the plan and starting it/i);
+
+    const held = readPlanDraft(REFERRAL);
+    expect(held, "the draft is gone, so the untick below would prove nothing").not.toBeNull();
+    writePlanDraft({
+      ...(held as NonNullable<typeof held>),
+      assurances: { patientAgreed: true, mobileIsPatientControlled: false },
+    });
+
+    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    const reason = document.getElementById(action.getAttribute("aria-describedby") as string);
+
+    expect(reason?.textContent ?? "").toMatch(/the plan is being created now/i);
+    // The sentence that must NOT win here, and the one the wrong order produces.
+    expect(reason?.textContent ?? "").not.toMatch(/still to confirm/i);
   });
 
   it("states no contact count it did not measure", async () => {
