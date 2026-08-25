@@ -226,6 +226,13 @@ describe("ChoiceChip", () => {
     expect(chip).toHaveAttribute("aria-pressed", "false");
     expect(chip).toHaveClass("min-h-tap", "rounded-lg");
     expect(chip).toHaveAttribute("data-choice-chip", "true");
+    expect(chip).not.toHaveClass("border", "shadow-[var(--shadow-inset)]");
+    expect(chip.querySelector("[data-choice-chip-surface='true']")).toHaveClass(
+      "absolute",
+      "inset-1",
+      "border",
+      "shadow-[var(--shadow-inset)]",
+    );
     await userEvent.click(chip);
     expect(onPressedChange).toHaveBeenCalledWith(true);
 
@@ -249,6 +256,21 @@ describe("ChoiceChip", () => {
     );
 
     const chip = screen.getByRole("button", { name: "Archived" });
+    expect(chip).toHaveAttribute("aria-disabled", "true");
+    expect(chip).not.toBeDisabled();
+    await userEvent.click(chip);
+    expect(onPressedChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps an explained dead end focusable when both disabled inputs are set", async () => {
+    const onPressedChange = vi.fn();
+    render(
+      <ChoiceChip disabled ariaDisabled pressed={false} onPressedChange={onPressedChange}>
+        Unavailable
+      </ChoiceChip>,
+    );
+
+    const chip = screen.getByRole("button", { name: "Unavailable" });
     expect(chip).toHaveAttribute("aria-disabled", "true");
     expect(chip).not.toBeDisabled();
     await userEvent.click(chip);
