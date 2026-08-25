@@ -164,6 +164,13 @@ const optionLabelClass = "flex min-h-tap w-full min-w-0 cursor-pointer items-cen
 const mutedTextClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]";
 
 /**
+ * The mobile field's caution region. One constant because three places name it: the region's own
+ * `id`, the input's `aria-describedby`, and the test that proves the region exists before it has
+ * anything to say (round 1, I-2).
+ */
+const MOBILE_CAUTION_ID = "caring-contacts-patient-mobile-caution";
+
+/**
  * A text input or textarea. `min-h-tap` for the same reason every other control here carries it:
  * a production tap target is 48px, and never `min-h-11` — 44px hit a sub-pixel rounding flake in
  * `ui-smoke`, so this repo's floor exceeds even the AAA-level criterion deliberately.
@@ -873,6 +880,7 @@ function PersonalisationStage({
               onChange={(value) => onDetailChange({ patientMobileNumber: value })}
               inputMode="tel"
               autoComplete="off"
+              describedBy={MOBILE_CAUTION_ID}
             />
             {/*
               RULING [115]. This is the field that decides where a message physically goes, and a
@@ -887,13 +895,26 @@ function PersonalisationStage({
               changedBy="Nothing on this screen. Sending would need a provider this prototype does not have, and a governance decision that has not been made."
               icon={<PhoneOff aria-hidden="true" className="size-icon-md shrink-0" />}
             />
-            {mobileEntered && !mobileIsReserved ? (
-              <p role="status" className={mutedTextClass}>
-                The number entered is not one of the reserved fictional numbers listed above. It is accepted — this
-                prototype holds no rule about what a mobile number looks like — but a number belonging to a real person
-                would be recorded on the plan.
-              </p>
-            ) : null}
+            {/*
+              THE REGION IS ALWAYS RENDERED AND ITS CHILDREN CHANGE — round 1, finding I-2.
+
+              The first version created this whole `<p role="status">` when the condition became
+              true. A live region inserted along with its content is unreliably announced: the
+              region must already be on the page for a content change to be spoken. So the caution
+              telling a clinician the number they typed is not a reserved fictional one was the one
+              string on this screen a screen-reader user might never hear — on the field that
+              decides where a message physically goes. It is also named in the input's
+              `aria-describedby`, so it is reachable from the control rather than only as a region
+              somebody has to go and find.
+
+              This is what makes ACCEPTING a non-reserved number the right call rather than a soft
+              one: the whole protection is the statement, so the statement has to actually arrive.
+            */}
+            <p id={MOBILE_CAUTION_ID} data-testid={MOBILE_CAUTION_ID} role="status" className={mutedTextClass}>
+              {mobileEntered && !mobileIsReserved
+                ? "The number entered is not one of the reserved fictional numbers listed above. It is accepted — this prototype holds no rule about what a mobile number looks like — but a number belonging to a real person would be recorded on the plan."
+                : ""}
+            </p>
           </div>
 
           <TextAreaField
@@ -1024,6 +1045,7 @@ function TextField({
   onChange,
   inputMode,
   autoComplete,
+  describedBy,
 }: {
   id: string;
   label: string;
@@ -1033,8 +1055,17 @@ function TextField({
   onChange: (value: string) => void;
   inputMode?: "tel";
   autoComplete?: "off";
+  /**
+   * An extra element id to name in `aria-describedby`, for a statement that lives outside this
+   * component — today, the mobile field's caution region (round 1, I-2). Joined with the
+   * requirement rather than replacing it: a field can be both incomplete and cautioned.
+   */
+  describedBy?: string;
 }) {
   const requirementId = `${id}-requirement`;
+  const described = [requirement === null ? null : requirementId, describedBy ?? null].filter(
+    (entry): entry is string => entry !== null,
+  );
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="text-sm font-medium text-[color:var(--text-heading)]">
@@ -1048,7 +1079,7 @@ function TextField({
         inputMode={inputMode}
         autoComplete={autoComplete}
         aria-invalid={requirement !== null}
-        aria-describedby={requirement === null ? undefined : requirementId}
+        aria-describedby={described.length === 0 ? undefined : described.join(" ")}
         className={fieldClass}
       />
       {requirement === null ? null : (

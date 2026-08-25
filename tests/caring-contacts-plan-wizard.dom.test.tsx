@@ -598,6 +598,30 @@ describe("stage 3 — the mobile number is required and nothing here connects (R
     }
   });
 
+  it("keeps the caution's live region on the page from the start, so it can be announced (I-2)", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+    const mobile = within(stage).getByLabelText(/mobile number/i);
+
+    // ROUND 1, I-2. The caution used to be an entire `<p role="status">` CREATED when the condition
+    // became true. A live region inserted along with its content is unreliably announced — the
+    // region has to be on the page already for a content change to be spoken. That made the one
+    // string telling a clinician their number is not a reserved fictional one the single string on
+    // this screen a screen-reader user might never hear, on the field that decides where a message
+    // physically goes. A caution nobody hears is not a caution.
+    const caution = within(stage).getByTestId("caring-contacts-patient-mobile-caution");
+    expect(caution).toHaveAttribute("role", "status");
+    expect(caution).toHaveTextContent("");
+
+    await user.type(mobile, "+61 400 000 000");
+    expect(caution).toHaveTextContent(/not one of the reserved fictional numbers/i);
+
+    // And it is reachable from the input itself, not only as a region a reader has to find.
+    expect(mobile.getAttribute("aria-describedby") ?? "").toContain(caution.id);
+    expect(caution.id).not.toBe("");
+  });
+
   it("says when the number typed is not one of the reserved fictional ones, and still accepts it", async () => {
     const user = userEvent.setup();
     renderWizard();
