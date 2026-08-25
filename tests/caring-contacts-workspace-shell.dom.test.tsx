@@ -91,7 +91,8 @@ describe("caring-contacts workspace shell", () => {
       // Patients became a link in Phase 2B Task 5, in the same change as its page (Ruling 89).
       { label: "Patients", kind: "link" },
       { label: "Schedule", kind: "unavailable" },
-      { label: "Templates", kind: "unavailable" },
+      // Templates became a link in Phase 2B Task 15, in the same change as its page (Ruling 89).
+      { label: "Templates", kind: "link" },
     ]);
   });
 
@@ -116,10 +117,15 @@ describe("caring-contacts workspace shell", () => {
     const { container } = renderShell();
     const internalHrefs = [...container.querySelectorAll("a[href^='/']")].map((anchor) => anchor.getAttribute("href"));
     expect(internalHrefs.length).toBeGreaterThan(0);
-    // `today`, `patients` and `newPlan` are the Caring Contacts routes with a page. Every other
-    // declared destination is an unavailable control until Plan 2B builds its page.
+    // `today`, `patients`, `newPlan` and `templates` are the Caring Contacts routes with a page.
+    // Every other declared destination is an unavailable control until Plan 2B builds its page.
     expect(new Set(internalHrefs)).toEqual(
-      new Set([CARING_CONTACTS_ROUTES.today, CARING_CONTACTS_ROUTES.patients, CARING_CONTACTS_ROUTES.newPlan]),
+      new Set([
+        CARING_CONTACTS_ROUTES.today,
+        CARING_CONTACTS_ROUTES.patients,
+        CARING_CONTACTS_ROUTES.newPlan,
+        CARING_CONTACTS_ROUTES.templates,
+      ]),
     );
   });
 
@@ -153,9 +159,10 @@ describe("caring-contacts workspace shell", () => {
     expect(destinationKind(primary!)).toBe("link");
     expect(primary).toHaveAttribute("href", CARING_CONTACTS_ROUTES.newPlan);
     expect(primary).toHaveAttribute("data-internal-link", "true");
-    // 2 unbuilt rail destinations + 1 on the phone bar + 10 in the More panel.
+    // 1 unbuilt rail destination + 1 on the phone bar + 10 in the More panel. Templates left the
+    // rail's unbuilt set in Phase 2B Task 15; Schedule is what remains there.
     expect([...container.querySelectorAll("button")].filter((c) => destinationKind(c) === "unavailable")).toHaveLength(
-      13,
+      12,
     );
   });
 
@@ -164,7 +171,7 @@ describe("caring-contacts workspace shell", () => {
     const unavailable = [...container.querySelectorAll("button")].filter(
       (control) => destinationKind(control) === "unavailable",
     );
-    // Two unbuilt rail destinations, one more on the phone bar, plus the More panel.
+    // One unbuilt rail destination, one more on the phone bar, plus the More panel.
     // The floor stays at 5: it was written as a floor rather than a count, the exact count is
     // asserted above, and lowering a floor a change did not breach is loosening for its own sake.
     expect(unavailable.length).toBeGreaterThanOrEqual(5);

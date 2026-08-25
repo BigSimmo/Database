@@ -36,8 +36,9 @@ type WorkspaceDestination = {
  * A destination carries an `href` once — and only once — it has a page. The
  * rest render as unavailable controls that state their reason rather than as
  * links into a not-found page (Ruling 52). Plan 2B gives them pages, and adding
- * an `href` here is the whole of that change; `Today` (Phase 2A) and `Patients`
- * (Phase 2B Task 5) have theirs.
+ * an `href` here is the whole of that change. Each entry below says in a comment
+ * which task built its screen, so the table states that per row rather than
+ * carrying a list somewhere else that a later task has to remember to extend.
  *
  * Ruling 89: the link and the real screen land together. A navigation entry lit
  * up ahead of its screen would point at a page that says "No patients yet"
@@ -49,6 +50,7 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
     id: "today",
     label: "Today",
     icon: LayoutDashboard,
+    // A link since Phase 2A built the Today screen.
     href: CARING_CONTACTS_ROUTES.today,
     reason: "The day's caring-contact work for this team.",
   },
@@ -56,6 +58,7 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
     id: "patients",
     label: "Patients",
     icon: Users,
+    // A link since Phase 2B Task 5 built the caseload, in the same change (Ruling 89).
     href: CARING_CONTACTS_ROUTES.patients,
     reason: "Every patient with a caring-contact plan, and where each plan has got to.",
   },
@@ -64,6 +67,8 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
     id: "templates",
     label: "Templates",
     icon: FileText,
+    // A link since Phase 2B Task 15 built the library behind it, in the same change (Ruling 89).
+    href: CARING_CONTACTS_ROUTES.templates,
     reason: "Governed pathways, message wording and approval history.",
   },
 ];

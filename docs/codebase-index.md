@@ -78,6 +78,7 @@ Smaller top-level directories that are easy to miss:
 | `/caring-contacts/patients` (the team's caseload: one row per plan, URL-driven state/identifier filter, no patient-identifying detail)                                                         | `src/app/caring-contacts/patients/page.tsx`                                               |
 | `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                  | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                   |
 | `/caring-contacts/plans/new` (the activation wizard: agreement, pathway, personalisation, review; started for one accepted referral named by `?referral=`)                                     | `src/app/caring-contacts/plans/new/page.tsx`                                              |
+| `/caring-contacts/templates` (the governed pathway versions this team holds: lifecycle, publication and retirement facts, and the approvals behind each one, qualified by the record's provenance) | `src/app/caring-contacts/templates/page.tsx`                                              |
 | `/applications`                                                                                                                                                                                | `src/app/applications/route.ts`                                                           |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                   | `src/app/(search-app)/differentials/`                                                     |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                 | `src/app/(search-app)/dsm/`                                                               |
@@ -213,10 +214,18 @@ Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns 
 destination set: a destination carries an `href` only once its page exists, and every other one
 renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
 (Today), `/caring-contacts/patients` (the caseload), `/caring-contacts/patients/[patientId]`
-(one patient's episode) and `/caring-contacts/plans/new` (the activation wizard) are what is built
-so far. Every one of them is a page that reads the store through `auditedRead` rather than over
-HTTP, using the same access identity the matching API route records; filtering and, on the patient
-overview, the choice of which plan to open are carried in the URL and read by the Server Component.
+(one patient's episode), `/caring-contacts/plans/new` (the activation wizard) and
+`/caring-contacts/templates` (the governed pathway versions) are what is built so far. Every one of
+them is a page that reads the store through `auditedRead` rather than over HTTP, using the same
+access identity the matching API route records; filtering and, on the patient overview, the choice
+of which plan to open are carried in the URL and read by the Server Component.
+
+`/caring-contacts/templates` is a governance record viewer and shows no message wording at all.
+Ruling [127]: the one patient-visible message that exists is a specimen rather than a template, and
+there is no per-version message content anywhere, so a library that printed wording beside a version
+would claim a relationship the data does not have. What it does carry is
+`PathwayVersionSnapshot.provenance`, resolved through `pathwayVersionProvenanceWording` so that an
+approval line can never stand unqualified over a record nobody approved.
 
 `/caring-contacts/plans/new` is the one screen with a deliberate client boundary (Ruling [109]).
 The page itself is still a Server Component -- it makes the audited reads, decides the actor's

@@ -72,6 +72,25 @@ const PATIENT_OVERVIEW_ROUTE = `${PATIENTS_ROUTE}/${PATIENT_OVERVIEW_SYNTHETIC_I
 const NEW_PLAN_ROUTE = `${WORKSPACE_ROUTE}/plans/new`;
 
 /**
+ * The templates library -- the governed pathway versions this team holds, and their approvals.
+ *
+ * On this server it renders its empty state, for the same reason the wizard renders its own:
+ * `demoSeedRequested()` excludes the isolated Playwright server unless `CARING_CONTACTS_DEMO_SEED`
+ * is `on`, so the store holds no pathway version. That is a real production state and the screen's
+ * honest statement of it -- "No governed versions yet" -- not a fixture.
+ *
+ * NO PROOF BLOCK IS WRITTEN AGAINST THIS ROUTE YET, and that is stated rather than left to be
+ * inferred. Phase 2B Task 15 added the entry because
+ * `tests/caring-contacts-workspace-screens.test.ts` requires every production workspace route to
+ * appear here, and being in the array proves nothing on its own -- see the note on
+ * `WORKSPACE_SCREENS` below. The screen's behaviour is proved offline by
+ * `tests/caring-contacts-templates-library.dom.test.tsx` and
+ * `tests/caring-contacts-templates-page.dom.test.tsx`; what is still owed here is the browser half
+ * -- forced-colors, 320px, and the service-stop banner on this screen.
+ */
+const TEMPLATES_ROUTE = `${WORKSPACE_ROUTE}/templates`;
+
+/**
  * Every production screen this workspace serves, with the `h1` it must render.
  *
  * The header above states the rule this list exists to keep true: the adoption
@@ -119,6 +138,7 @@ const WORKSPACE_SCREENS = [
   { name: "Patients", route: PATIENTS_ROUTE, heading: "Patients" },
   { name: "Patient overview", route: PATIENT_OVERVIEW_ROUTE, heading: "Patient" },
   { name: "New plan", route: NEW_PLAN_ROUTE, heading: "New plan" },
+  { name: "Templates", route: TEMPLATES_ROUTE, heading: "Templates" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
