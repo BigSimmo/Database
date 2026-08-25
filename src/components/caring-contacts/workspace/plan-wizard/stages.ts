@@ -18,8 +18,14 @@
 //     union with no definition does not compile;
 //   * `planWizardStageImplementation` is a switch with a `never`-typed default — a stage added to
 //     the union and left unclassified does not compile either;
-//   * the wizard's own render switch has the same `never` default, so a stage that claims to be
-//     built with no body does not compile.
+//   * the wizard's own render switch has the same `never` default, so a stage nobody handled does
+//     not compile there either.
+//
+// The one mistake no type can catch is the OPPOSITE one, and it is the one Tasks 8 and 9 can
+// actually make: flipping an entry below to `built` and not writing the body. Nothing about the
+// types relates a table entry to a switch branch, so that is a runtime guard instead —
+// `assertBuiltStageHasABody` in the wizard throws rather than rendering a stepper over an empty
+// column, and `tests/caring-contacts-plan-wizard.dom.test.tsx` proves it fires.
 //
 // `contactSendability` in `src/lib/caring-contacts/model.ts` is the local precedent for this shape,
 // and its note says why an exhaustive switch beats a list: a list is something a person has to

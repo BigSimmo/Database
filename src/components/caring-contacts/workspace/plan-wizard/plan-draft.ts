@@ -14,7 +14,7 @@
 // would leave a patient's details on a ward machine indefinitely, for whoever sits down next. The
 // owner chose tab lifetime. The distinction is enforced HERE, by this module being the only place
 // in the wizard that touches a storage API at all and by naming exactly one of them — a comment
-// promising tab lifetime is not an enforcement, and `tests/caring-contacts-plan-draft.test.ts`
+// promising tab lifetime is not an enforcement, and `tests/caring-contacts-plan-draft.dom.test.tsx`
 // scans this whole directory for the other name so that a later edit cannot quietly widen it.
 //
 // THREE WAYS THE DRAFT GOES AWAY, and the tab closing is only one of them:
