@@ -1072,7 +1072,7 @@ jobs:
         uses: ./.github/actions/setup-node-cached
 
       - name: Run Caring Contacts Database & RLS Tests
-        if: steps.scope.outputs.db_changed == 'true' || steps.scope.outputs.static_heavy_changed == 'true'
+        if: needs.changes.outputs.db_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         env:
           CARING_CONTACTS_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run caring-contacts:db:test
