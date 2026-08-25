@@ -239,7 +239,9 @@ function daysBetween(fromCalendarDay: string, toCalendarDay: string): number {
 
 function calendarDaysFrom(fromCalendarDay: string, count: number): string[] {
   const start = middayOf(fromCalendarDay);
-  return Array.from({ length: count }, (_unused, offset) => awstCalendarDay(new Date(start + offset * MILLISECONDS_PER_DAY)));
+  return Array.from({ length: count }, (_unused, offset) =>
+    awstCalendarDay(new Date(start + offset * MILLISECONDS_PER_DAY)),
+  );
 }
 
 function notSendingReasonFor(stored: StoredContact): ScheduleNotSendingReason | null {
@@ -310,7 +312,13 @@ function countsFor(entries: readonly ScheduleEntry[], stored: readonly StoredCon
 
 function groupOf(pairs: readonly { entry: ScheduleEntry; stored: StoredContact }[]): ScheduleGroup {
   const entries = ordered(pairs.map((pair) => pair.entry));
-  return { entries, counts: countsFor(entries, pairs.map((pair) => pair.stored)) };
+  return {
+    entries,
+    counts: countsFor(
+      entries,
+      pairs.map((pair) => pair.stored),
+    ),
+  };
 }
 
 function dispositionOf(counts: ScheduleCounts): ScheduleDayDisposition {

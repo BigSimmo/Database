@@ -248,7 +248,11 @@ describe("the access trail's object-type filter", () => {
     // member added to one and not the other is an access the trail can never be filtered to --
     // which is exactly what Ruling 46 added members to prevent, so the copy has to be checked.
     const union = membersOf("src/lib/caring-contacts/access-audit.ts", "export type AccessedObjectType =", ";");
-    const enumerated = membersOf("src/app/api/caring-contacts/access-trail/route.ts", "objectType: z\n      .enum([", "])");
+    const enumerated = membersOf(
+      "src/app/api/caring-contacts/access-trail/route.ts",
+      "objectType: z\n      .enum([",
+      "])",
+    );
     expect(enumerated).toEqual(union);
     expect(union).toContain("contactSchedule");
   });
