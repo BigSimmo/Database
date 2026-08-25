@@ -2116,3 +2116,48 @@ is a habit, not an instance, and finding one instance does not interrupt a habit
 verified to catch all three. **The dependency worth recording: the check draws "the wrong value" from
 the case's name, so it is only as good as the naming discipline.** A vaguely named case yields nothing
 to name.
+
+### Task 8 rounds 1-2 re-reviewed — all ADDRESSED; one residual sent back as round 3
+
+**N-1 was the finding that mattered and it is genuinely closed on both boundaries.** With the input
+removed, `null` reached the schema **because the UI could no longer write a value, not because
+anything enforced it** — a property of state, not of code. A `sessionStorage` draft written before the
+change would have survived `parseDraft` intact and been submitted at Task 9 into
+`cultural_identity_reports`, **while the screen stated nothing is recorded there.** The implementer's
+own draft suite still round-tripped `"Noongar"` through storage, which is how live the path was.
+
+The fix defends two independent boundaries rather than making one rule twice: `parseDraft` **blanks**
+a stored value so it cannot re-enter the application, and `createPlanPatientDetail` returns `null`
+**unconditionally** so the function Task 9 calls cannot emit one whatever it is handed — including a
+hand-built object that never went near storage. **Blanked rather than refused**, because refusing
+would discard the patient's name and mobile number to remove a field they were never offered. The
+reviewer confirmed the deleted read, ran the raw-storage round trip, and confirmed schema, column and
+reports table untouched.
+
+**The generalisation this task produced, and its correction.** The implementer found that one of its
+own mutations proved nothing: re-adding a removed input went red on a **sibling** assertion that fires
+first and short-circuits the case, leaving the assertion it was written to prove unreached. Its rule:
+_"An assertion behind a sibling that fails first is not proved by a mutation that trips the sibling —
+one mutation per case is not enough when a case holds two."_
+
+**The reviewer then found the same genus one test above, unflagged and reported as covered.** Two
+closing assertions, one mutation, and the report claiming all parts fire. That case is _not_
+order-masked — the two are different substrings of one sentence — so it is an **unproven** assertion
+rather than a **provably unreachable** one. Which is the point:
+
+> **A mutation proves the assertion it makes fail — not the case it makes red.** A case with N
+> assertions needs N mutations, or it needs splitting. "Not order-masked" and "proved" are different
+> claims, and only the first is cheap to check.
+
+**The asymmetry is what made it a round rather than a note.** The same round that established the rule
+disclosed the analogous limitation for its regex family ("a fourth phrasing outside the family still
+passes") and did not disclose this one. **Discovering a rule and then exempting your own work from it
+one test away is the specific failure**, and it is the third time in this phase that finding a pattern
+has not been enough to interrupt it — Task 8's own words: _"It is a habit, not an instance, and
+finding one instance does not interrupt a habit."_
+
+**Also verified:** no assertion deleted or loosened, the only other test-file change being pure
+Prettier reflow with the incident-note boundary assertion intact; eight mutations itemised with
+predicted and observed messages and no aggregate total; `sessionStorage` still the only storage
+mechanism; and N-3's arithmetic taken from the actual `it()` diff — four added, three of them renames,
+net one new case, matching 324 → 325 exactly.
