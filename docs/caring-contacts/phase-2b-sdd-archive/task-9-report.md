@@ -310,9 +310,9 @@ existed:**
 
 **Run, and its result:**
 
-| #   | Mutation                                                             | Predicted                                                                     | Observed                                                                                                                                                                    | Verdict                 |
-| --- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| M1  | `mintPlanSubmissionIdentity` returns a constant pair, `PLAN-constant` | 1 red in the activation suite, on "mints a different pair every time"          | `Tests 1 failed \| 15 passed (16)`, and it is that case: `FAIL … minting the plan id and the idempotency key (Ruling [120]) > mints a different pair every time it is called` | RED, prediction matched |
+| #   | Mutation                                                              | Predicted                                                             | Observed                                                                                                                                                                      | Verdict                 |
+| --- | --------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| M1  | `mintPlanSubmissionIdentity` returns a constant pair, `PLAN-constant` | 1 red in the activation suite, on "mints a different pair every time" | `Tests 1 failed \| 15 passed (16)`, and it is that case: `FAIL … minting the plan id and the idempotency key (Ruling [120]) > mints a different pair every time it is called` | RED, prediction matched |
 
 **Prepared, applied, and NOT RUN, because the repository's exclusive test lease was held throughout
 by another worktree.** This is the part I most want read as what it is. The mutations below are
@@ -324,24 +324,24 @@ I stopped the driver rather than leave it running unattended, and that is a deli
 reason: a mutation sitting in a shared worktree is a mutation somebody else's `git add -A` can
 commit. That is not hypothetical — see the second half of this section.
 
-| #     | Mutation                                                                            | Predicted                                                                                                | Status                     |
-| ----- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------- |
-| M2    | `lettersFromRandomIdentifier` returns the raw UUID, digits and all                  | 1 red on `not.toMatch(/\d/)`; the `buildAccessAuditEvent` sibling passes, so this is the tail assertion  | applied, queued, never ran |
-| M3    | `dischargeInstantFor` drops the domain parse and keeps only the round-trip guard    | 1 red on "answers null for anything that is not a real AWST calendar day", as a thrown `RangeError`      | not reached                |
-| M4    | `planSchedulePreview` reports `stillToSend` as every entry                          | 3 red: the discharge + 7 case, the store-agreement pin, and the wizard's "9 still to send"               | not reached                |
-| M5    | `firstContactReasonIsRequired` compares against `earliest` rather than `usual`       | 1 red on the day-by-day property, naming the first day the two disagree on                               | not reached                |
-| M6    | `createPlanRequestBody` sends `firstContactReason: ""` rather than omitting it       | 2 red: the key-set case, and the real-route case with a 422 instead of a 200                             | not reached                |
-| M7    | `submissionRefusalWording`'s default heading becomes "Something went wrong"          | 1 red on the unnamed refusal in "never says only that something went wrong"                              | not reached                |
-| M8    | `sendableContacts` replaced by a local "not the closing message" filter              | 2 red: the usual-day counts, and the store-agreement pin                                                 | not reached                |
-| M9    | `activate()` clears the draft BEFORE the fetch                                      | 2 red: the ordering case reading `draft-already-cleared`, and every failure shape losing the draft       | not reached                |
-| M10   | `activate()` navigates BEFORE clearing                                              | 1 red: the ordering case reading `navigate-before-clear`                                                 | not reached                |
-| M11   | `goTo` mints on every arrival at review                                             | 2 red: "mints … and keeps them", and the retry case's `planId` differing                                 | not reached                |
-| M12   | The first-contact field's `min`/`max` dropped                                       | 1 red on "offers exactly the days the schedule accepts"                                                  | not reached                |
-| M13   | The absorbed-contact `AutomatedState` never rendered                                | 1 red on the `getByRole("group", { name: /suppressed/i })` wait                                          | not reached                |
-| M14   | `parseSubmission` answers `null` instead of `undefined` for a malformed identity     | 1 red on "a draft carrying half a minted identity was accepted"                                          | not reached                |
-| M15   | `parseActivation` returns an empty activation instead of null                       | 1 red on "a draft from before stage 4 existed was accepted"                                              | not reached                |
-| M16   | `firstContactDayBounds.latest` is one day too late                                   | 1 red in the schedule suite: the advertised latest day refused as out of range                           | not reached                |
-| M17\* | **Control.** The schedule summary's `data-testid` renamed                            | **GREEN** — nothing asserts on it, so a green line in this log is labelled rather than left to be read as an oversight | not reached                |
+| #     | Mutation                                                                         | Predicted                                                                                                              | Status                     |
+| ----- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| M2    | `lettersFromRandomIdentifier` returns the raw UUID, digits and all               | 1 red on `not.toMatch(/\d/)`; the `buildAccessAuditEvent` sibling passes, so this is the tail assertion                | applied, queued, never ran |
+| M3    | `dischargeInstantFor` drops the domain parse and keeps only the round-trip guard | 1 red on "answers null for anything that is not a real AWST calendar day", as a thrown `RangeError`                    | not reached                |
+| M4    | `planSchedulePreview` reports `stillToSend` as every entry                       | 3 red: the discharge + 7 case, the store-agreement pin, and the wizard's "9 still to send"                             | not reached                |
+| M5    | `firstContactReasonIsRequired` compares against `earliest` rather than `usual`   | 1 red on the day-by-day property, naming the first day the two disagree on                                             | not reached                |
+| M6    | `createPlanRequestBody` sends `firstContactReason: ""` rather than omitting it   | 2 red: the key-set case, and the real-route case with a 422 instead of a 200                                           | not reached                |
+| M7    | `submissionRefusalWording`'s default heading becomes "Something went wrong"      | 1 red on the unnamed refusal in "never says only that something went wrong"                                            | not reached                |
+| M8    | `sendableContacts` replaced by a local "not the closing message" filter          | 2 red: the usual-day counts, and the store-agreement pin                                                               | not reached                |
+| M9    | `activate()` clears the draft BEFORE the fetch                                   | 2 red: the ordering case reading `draft-already-cleared`, and every failure shape losing the draft                     | not reached                |
+| M10   | `activate()` navigates BEFORE clearing                                           | 1 red: the ordering case reading `navigate-before-clear`                                                               | not reached                |
+| M11   | `goTo` mints on every arrival at review                                          | 2 red: "mints … and keeps them", and the retry case's `planId` differing                                               | not reached                |
+| M12   | The first-contact field's `min`/`max` dropped                                    | 1 red on "offers exactly the days the schedule accepts"                                                                | not reached                |
+| M13   | The absorbed-contact `AutomatedState` never rendered                             | 1 red on the `getByRole("group", { name: /suppressed/i })` wait                                                        | not reached                |
+| M14   | `parseSubmission` answers `null` instead of `undefined` for a malformed identity | 1 red on "a draft carrying half a minted identity was accepted"                                                        | not reached                |
+| M15   | `parseActivation` returns an empty activation instead of null                    | 1 red on "a draft from before stage 4 existed was accepted"                                                            | not reached                |
+| M16   | `firstContactDayBounds.latest` is one day too late                               | 1 red in the schedule suite: the advertised latest day refused as out of range                                         | not reached                |
+| M17\* | **Control.** The schedule summary's `data-testid` renamed                        | **GREEN** — nothing asserts on it, so a green line in this log is labelled rather than left to be read as an oversight | not reached                |
 
 **What stands in their place, and it is not nothing.** Every piece in this task was written
 test-first and seen red before its code existed, with the failure message read rather than the count
@@ -360,7 +360,7 @@ Recorded in full because it is the failure the brief warns about, met from the o
 
 `b5e21f2cf` — a documentation commit — carried **M1 in the tree**: `mintPlanSubmissionIdentity`
 returning the constant pair. I had run `git add -A && git commit` for a report edit while the
-mutation driver had M1 applied. Reverted in `f39d5ba0e`, and the tree was verified clean afterwards
+mutation driver had M1 applied. Reverted in `5f009e095`, and the tree was verified clean afterwards
 rather than assumed.
 
 The brief's rule is "commit each piece before you mutate the file it lives in", and its reason is
@@ -374,7 +374,58 @@ it (see §0), which is why the recommendation there is worth acting on.
 
 ### Gates
 
-_(filled in below)_
+**The guard set, `npm run test:cc-guards`** — run during iteration and at the end:
+
+```
+ Test Files  18 passed (18)
+      Tests  364 passed (364)
+   Duration  98.24s (transform 6.47s, setup 4.79s, import 16.21s, tests 115.96s, environment 22.49s)
+```
+
+Membership grew by one, `tests/caring-contacts-plan-activation.test.ts`, which is this task's own.
+The set went from 17 files and 325 cases to 18 and 364.
+
+**Typecheck and lint.** Both were run directly (`npx tsc --noEmit -p tsconfig.json`, `npx eslint …`)
+rather than through the npm wrappers, because the wrappers take the repository's heavy lease and it
+was held throughout by another worktree. Both are clean, and lint was not clean the first time — it
+found an unused `userEvent.setup()` in the discharge-day case, fixed in `54d96b3af`.
+
+```
+$ npx tsc --noEmit -p tsconfig.json
+(no output)
+
+$ npx eslint src/components/caring-contacts/workspace/plan-wizard src/lib/caring-contacts/schedule.ts     tests/caring-contacts-plan-activation.test.ts tests/caring-contacts-plan-wizard.dom.test.tsx
+(no output)
+```
+
+Two typecheck failures were found and fixed on the way: branded `ActorId`/`TeamId` in the new test,
+and Task 7's whole-draft fixture missing stage 4's two fields.
+
+**Prettier:** `npx prettier --write` over every file in this diff; the last run reports every one
+unchanged.
+
+**The full suite, `npm run test`: QUEUED AND NOT RUN, and it is reported as neither a pass nor a
+failure.** It was started in the background from the first command, per Task 8's lease lesson, and it
+never obtained the exclusive lease: `D:\Worktrees\Database\care-plan-impl` held it continuously
+with repeated `playwright --project=chromium-mockups` runs, re-acquiring within seconds of each
+release. I proved ownership from the lease record's own `worktree` field rather than from a live PID,
+exactly as the brief requires, and **nothing was forced** — no lock file was touched and no other
+worktree's process was signalled.
+
+```
+Error: Database focused-test capacity is full (current owner PID 61748, worktree
+D:/Worktrees/Database/care-plan-impl, started 2026-08-25T13:17:23.740Z):
+playwright --project=chromium-mockups tests/ui-care-plan-mockup.spec.ts
+```
+
+**What that leaves unproved, stated rather than glossed:** the guard set is a SELECTED eighteen
+files, and the full suite is what confirms the selection was correct. This task touches
+`src/lib/caring-contacts/schedule.ts`, which is domain code with importers outside the guard set —
+`tests/caring-contacts-hospital-events.test.ts`, `tests/caring-contacts-repository.test.ts` and
+`tests/caring-contacts-postgres-repository.test.ts` all exercise `buildApprovedSchedule` and none of
+them is in `test:cc-guards`. The change there is a pure addition and nothing existing was touched, so
+I do not expect a regression; **I have not proved there is none, and the full suite is the thing that
+would.** It is the first check to run when the machine is free.
 
 ### The browser gate
 
