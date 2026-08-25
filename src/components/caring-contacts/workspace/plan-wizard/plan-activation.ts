@@ -31,7 +31,7 @@
 // scans the wizard's whole client module graph for exactly that name, because the service-state
 // record carries a free-text incident note that must never cross this boundary. So the function is
 // used where it can be: in the test, against the store, as the pin on what is derived here.
-import { PLAN_ASSURANCES, type PlanAssurance } from "@/lib/caring-contacts/assurances";
+import { PLAN_ASSURANCES, PLAN_ASSURANCE_VALUES, type PlanAssurance } from "@/lib/caring-contacts/assurances";
 import { sendableContacts } from "@/lib/caring-contacts/hospital-events";
 import { awstCalendarDay, awstWallTimeToInstant } from "@/lib/caring-contacts/clock";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
@@ -394,6 +394,58 @@ export function planAssurancesFrom(assurances: PlanDraftAssurances): PlanAssuran
  */
 export function everyAssuranceConfirmed(assurances: PlanDraftAssurances): boolean {
   return assurances.patientAgreed && assurances.mobileIsPatientControlled;
+}
+
+/**
+ * How each confirmation is named back to a coordinator who has not made it.
+ *
+ * SCREEN VOCABULARY, HELD BY THE SCREEN. The domain owns the closed values and says nothing about
+ * how they read; a `Record<PlanAssurance, string>` is what makes that pairing exhaustive, so adding
+ * a value to `PLAN_ASSURANCES` stops this object compiling until it is given words. That is the
+ * whole reason it is a keyed record rather than a switch with a default.
+ *
+ * Each phrase names WHAT WAS TO BE CONFIRMED, and never asserts it. "that the patient agreed to
+ * receive caring contacts" is the thing a coordinator confirms they checked; a plan that cannot say
+ * anybody checked it must not word the gap as though the patient had refused.
+ */
+const PLAN_ASSURANCE_LABELS: Readonly<Record<PlanAssurance, string>> = Object.freeze({
+  [PLAN_ASSURANCES.patientAgreementConfirmed]: "that the patient agreed to receive caring contacts",
+  [PLAN_ASSURANCES.patientControlsMobileConfirmed]: "that the number this plan will use is the patient's own",
+});
+
+/**
+ * The confirmations still to be made, named rather than counted.
+ *
+ * DERIVED BY SUBTRACTING what has been confirmed from the domain's own list, not by a branch per
+ * checkbox. A third confirmation is then a value and a label, which is the same promise
+ * `planAssurancesFrom` makes one function up — and it is why this returns a LIST rather than a
+ * ready-made sentence with "one" or "both" baked into it.
+ */
+export function unconfirmedAssuranceLabels(assurances: PlanDraftAssurances): string[] {
+  const confirmed = new Set<PlanAssurance>(planAssurancesFrom(assurances));
+  return PLAN_ASSURANCE_VALUES.filter((assurance) => !confirmed.has(assurance)).map(
+    (assurance) => PLAN_ASSURANCE_LABELS[assurance],
+  );
+}
+
+/**
+ * What stage 4 says when it will not create the plan yet, naming WHICH confirmation is missing.
+ *
+ * "At least one of the confirmations is not ticked" was the first version and it is the defect this
+ * function exists to remove: it tells a coordinator they are blocked without telling them by what,
+ * on the screen where the only remedy is to go back a stage and find it themselves.
+ *
+ * No tally appears in the returned sentence (Ruling [94]). The items are listed, and a list does not
+ * decay when a third confirmation is added the way "both" and "one of the two" do.
+ */
+export function unconfirmedAssuranceSentence(assurances: PlanDraftAssurances): string {
+  const missing = unconfirmedAssuranceLabels(assurances);
+  const listed =
+    missing.length > 1 ? `${missing.slice(0, -1).join("; ")}; and ${missing[missing.length - 1]}` : missing[0];
+  return (
+    `This plan cannot be created until every confirmation at the start of this sign-up is ticked. Still to confirm: ${listed}. ` +
+    "The plan records each confirmation as yours, and a confirmation nobody made is not something it can record."
+  );
 }
 
 /**

@@ -1058,6 +1058,28 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
     expect(stage).toHaveTextContent(/changes what the plan will record/i);
   });
 
+  it("names the missing confirmation on a restored draft that skipped one, and refuses to create", async () => {
+    // A draft restored from this tab's storage is parsed input, not a promise: stage 1 will not
+    // advance half-ticked, but a stored draft can arrive at stage 4 that way. It must not create a
+    // plan attesting a confirmation nobody made, and it must say WHICH one is outstanding rather
+    // than that "at least one" is -- this is the screen whose only remedy is to go back and hunt.
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify(reviewReadyDraft({ assurances: { patientAgreed: true, mobileIsPatientControlled: false } })),
+    );
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    expect(stage).toHaveTextContent(/still to confirm/i);
+    expect(stage).toHaveTextContent(/that the number this plan will use is the patient.s own/i);
+    // The one already made is not listed as outstanding; without this the screen could list every
+    // confirmation every time and still satisfy the assertion above.
+    expect(stage).not.toHaveTextContent(/still to confirm:[^.]*agreed to receive caring contacts/i);
+    // It says what is outstanding, never that the patient refused. A coordinator who has not made a
+    // confirmation has not learned anything about the patient.
+    expect(stage.textContent ?? "").not.toMatch(/did not agree|refused|declined/i);
+  });
+
   it("states no contact count it did not measure", async () => {
     window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
     renderWizard();

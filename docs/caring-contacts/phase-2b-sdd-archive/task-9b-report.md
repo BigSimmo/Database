@@ -136,6 +136,26 @@ at Discard draft is untouched.
 touched files rather than by grepping the screen phrase — the scope rule, and it found the fifth site
 the brief's four did not name.
 
+### Confirmed: each now says what is true, and none overshoots
+
+Stated explicitly because it is the whole shape of the task.
+
+- **Each of the four now states a true fact.** The plan does record the confirmations, so the
+  screens say so, and each says it in the form the wizard's own rule requires — naming the
+  destination ("recorded on the plan") rather than the bare act.
+- **None of the four claims the patient consented.** What every one of them says is that the
+  COORDINATOR confirmed a check. Stage 1's panel says it outright — "not that the patient consented.
+  Agreement is held in the patient's hospital record; what you are confirming here is that you
+  checked it." Stage 4 says "What is recorded is that you confirmed the patient agreed — not the
+  agreement itself".
+- **The overshoot is pinned, not merely avoided.** Each site carries an assertion against the
+  opposite error: the stage-1 status line rejects `consent is recorded|records the patient's
+consent`, the stage-1 panel asserts `not that the patient consented` and `hospital record` are
+  present, and stage 4 asserts the old "not recorded on the plan" sentence is GONE while
+  `records each of those on the plan as your confirmation` is present. That last pair is what would
+  have caught a stale sentence surviving the change.
+- **The fifth site**, `plan-draft.ts`'s type comment, carries the same distinction in prose.
+
 ---
 
 ## A decision the brief did not name, which I took and am flagging
@@ -150,6 +170,26 @@ stays "at least one, no repeats"; the screen's rule lives in `everyAssuranceConf
 
 Conservative — a plan that cannot honestly be created is not created — but it is a behaviour change
 on a reachable path, so it is named here rather than folded in.
+
+**Upheld by the coordinator, and now pinned and worded.** Two things were added on that ruling:
+
+- **A test pins it.** `refuses to build a body while any stage-1 confirmation is missing, not merely
+all of them` in `caring-contacts-plan-activation.test.ts` covers each half-ticked combination and
+  carries a positive control, so the nulls are the confirmations rather than some other missing
+  field. A second case pins the derivation itself: with none confirmed, the outstanding list is
+  exactly as long as the domain's own value list, which is what would go red if the derivation were
+  replaced by two hardcoded strings.
+- **The refusal now names WHICH confirmation is missing.** "At least one of the confirmations is not
+  ticked" told a coordinator they were blocked without telling them by what, on the one screen whose
+  only remedy is to go back a stage and hunt for it. `unconfirmedAssuranceSentence` subtracts what
+  was confirmed from `PLAN_ASSURANCE_VALUES` and lists the rest by name, so a third confirmation is a
+  value and a label rather than a new branch. `PLAN_ASSURANCE_LABELS` is a
+  `Record<PlanAssurance, string>`, so adding a value to the domain stops it compiling until it is
+  given words.
+
+**And the wording states what is outstanding, never that the patient refused.** A coordinator who has
+not yet confirmed a check has not learned anything about the patient, and both the unit case and the
+DOM case assert against `did not agree|refused|declined`.
 
 ---
 
@@ -226,6 +266,19 @@ Every line below was read from the run's own output. No gate is reported from an
 | `npm run test` (full offline suite)                          | Ran to completion with exactly one failure, mine, described below. The wrapper's `tail` truncated the summary, so I have the failure text and inner exit `1` but **no quotable `N passed` line for that run** — I am not reporting a number I did not read. |
 | `tests/caring-contacts-api-handler.test.ts` after the fix    | `Test Files  1 passed (1)` / `Tests  37 passed (37)`, inner exit 0.                                                                                                                                                                                         |
 
+### Gate policy in force from fix round 1
+
+The coordinator changed this mid-task after the lease starvation, and it is recorded here because it
+explains the shape of the evidence above:
+
+- **`npm run test:cc-guards` only**, plus focused single-file runs. Both take a _shared_ lease and
+  two are permitted concurrently, so neither starves the way an exclusive full-suite run does.
+- **No full `npm run test`** from a task worktree. It runs once per branch at the merge point, when
+  the other worktrees are idle -- its value is catching cross-file breakage, and that matters at
+  merge rather than per task. The one run recorded above happened before this policy.
+- **Mutations run against the guard set**, for the same reason.
+- **No browser gate** from here; it is not run and not claimed.
+
 ### Two failures the gates caught that reading had not
 
 Both were mine, and both are why the gates are worth their runtime.
@@ -239,7 +292,19 @@ it. Both of 0004's own controls in `caring-contacts-migrations.test.ts` went red
 the table it created and nothing else, and grants **SELECT and INSERT only** — the same move 0004
 makes, for the same reason. The trap is written into the file so 0007 does not repeat it.
 
-Nothing in typecheck, lint or the offline suite can see this. Only the database suite could.
+**This is the sharpest argument yet for the filed issue that CI never runs the caring-contacts
+database suite.** Nothing in typecheck, lint, or the whole offline unit suite can see this defect —
+they went green on it. A migration that quietly re-grants DELETE on an audit trail is exactly the
+class of defect that suite exists to catch, and today it runs only when a human happens to have
+Docker up and remembers to invoke it. Had this branch been handed off on a machine without a
+container running, an append-only clinical audit trail would have become deletable by the application
+role and every gate would have reported green.
+
+**The general form is worth naming, because the next migration will face it.** _A migration copied
+from an earlier one inherits that migration's assumptions about what had not happened yet._ 0003's
+blanket grant was correct when nothing had revoked anything. The identical line placed after 0004
+undoes 0004. Copying SQL forward carries the ordering it was written for, and that ordering is
+invisible in the copied text.
 
 **2. A POST body predating the schema change turned a 409 privacy assertion into a 400.** The
 api-handler case that posts a duplicate plan and asserts the refusal body carries no patient data was
@@ -261,23 +326,45 @@ gate runs against. **I did not run it and am not claiming it green.**
 1. **The retention pair is unproven by mutation.** See the ledger. This is the largest gap and it
    sits on the requirement the brief singled out. M4 and M5 are the first thing to run.
 
-2. **`listPlans` grew a query, and Task 12 has just been pointed at it.** Ruling [124], committed to
-   this branch while I was working, has Task 12 derive its schedule from `listPlans` rather than
-   adding a repository method. That makes the third grouped query slightly more consequential than it
-   was when I chose it. It is still the right home for the attestation; the fix if it ever matters is
-   narrowing `PLAN_COLUMNS`, which already has its own filed concern, not moving the attestation off
-   the record.
+2. **`listPlans` grew a query, and Task 12 has just been pointed at it — recorded, NOT optimised.**
+   Ruling [124], committed to this branch while I was working, has Task 12 derive its schedule from
+   `listPlans` rather than adding a repository method, which makes the third grouped query more
+   consequential than it was when I chose it. **The coordinator's direction is to leave it, and I
+   have.** No speculative change was made here. It is still the right home for the attestation; if
+   Task 12's read turns out to be slow, the measurement will exist there and the decision belongs
+   there. The narrowing lever, if one is ever wanted, is `PLAN_COLUMNS`, which already carries its
+   own filed concern.
 
-3. **The stage-4 gate change.** `createPlanRequestBody` now refuses unless EVERY stage-1 confirmation
-   is made, not merely one. Conservative, but a behaviour change on a path a restored draft can
-   reach, and not something the brief asked for.
+3. **The stage-4 gate change — upheld, pinned, and now naming the missing confirmation.**
+   `createPlanRequestBody` refuses unless EVERY stage-1 confirmation is made. See "A decision the
+   brief did not name" above for the test that pins it and the wording that names which one is
+   outstanding. A restored draft attesting a confirmation that never passed the gate would be an
+   attestation of something that did not happen, which is the one outcome this whole task exists to
+   prevent.
 
 4. **`plan-activation.ts` type-imports from `plan-draft.ts`, which value-imports from it.** A
    type-only cycle, erased at build; `tsc` and `eslint` are both clean on it. I chose it so the
    assurance shape has exactly one declaration. If the repo later adopts `import/no-cycle`, move the
    type rather than drop the import.
 
-5. **Test-first was not followed for the store behaviour.** The types and both stores were written
-   before the contract cases. I disclose it as a fact about how this was built rather than as an
-   ordering detail — and the mitigation I would normally offer, the mutation ledger, is itself mostly
-   unrun.
+5. **Test-first was not followed for the store behaviour — and here is exactly where to look.**
+   Task 7 disclosed the same and it cost one real bug: an in-memory fallback branch unreachable in
+   the exact case its own comment claimed it handled, which nobody had written an assertion about.
+   Mutation testing can only falsify tests that exist, so the review needs the specific list rather
+   than the admission.
+
+   **Covered only by after-the-fact tests** (implementation written first, assertion written to
+   match it):
+   - the attestation minted at creation — actor from the write context, instant from the domain
+     clock, one instant for the whole set;
+   - `admitPlanAssurances` and both of its named refusals;
+   - the attestation surviving a retention clearance in BOTH stores;
+   - `toPlanRecord` copying attestations out rather than handing the stored object out;
+   - the Postgres store's third grouped read in `listPlans`, and `readPlanRecord`'s widened shape;
+   - the migration's column shape, closed value set, and composite same-team foreign key.
+
+   **Written test-first, and the exception rather than the rule:** the stage-4 gate's named-missing
+   wording (`unconfirmedAssuranceSentence` and `unconfirmedAssuranceLabels`), added in fix round 1 —
+   the cases were written from the coordinator's requirement before the helper existed.
+
+   Run mutations on the after-the-fact list first, after M4 and M5.

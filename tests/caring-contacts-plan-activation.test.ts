@@ -38,6 +38,8 @@ import {
   activatePlanRequestBody,
   activationRefusalWording,
   createPlanRequestBody,
+  unconfirmedAssuranceLabels,
+  unconfirmedAssuranceSentence,
   planVersionFromCreateAnswer,
   dischargeInstantFor,
   firstContactReasonIsRequired,
@@ -399,6 +401,78 @@ describe("the body stage 4 sends", () => {
     expect(createPlanRequestBody({ ...common, sendingPreference: null })).toBeNull();
     expect(createPlanRequestBody({ ...common, activation: EMPTY_PLAN_ACTIVATION })).toBeNull();
     expect(createPlanRequestBody({ ...common, pathwayVersionId: null })).toBeNull();
+  });
+
+  it("refuses to build a body while any stage-1 confirmation is missing, not merely all of them", () => {
+    // THE REACHABLE PATH THIS GUARDS, and it only became reachable when the confirmations started
+    // being recorded. Stage 1 will not advance until every confirmation is made, so a coordinator
+    // walking the wizard cannot arrive here half-ticked. A DRAFT RESTORED FROM A TAB'S STORAGE can:
+    // it is parsed input, not a promise. Without this, such a draft creates a plan attesting one
+    // confirmation that never passed the gate -- an attestation of something that did not happen,
+    // which is the single outcome this whole feature exists to prevent.
+    //
+    // The domain's own rule is deliberately weaker (at least one, no repeats) because WHICH
+    // confirmations are asked for belongs to the screen that asks. This is the screen asserting its
+    // own rule, and the case is here rather than in the contract for that reason.
+    const common = {
+      submission: mintPlanSubmissionIdentity(),
+      referralId: "SYN-REFERRAL-001",
+      patientId: "SYN-PATIENT-001",
+      pathwayVersionId: "SYN-PATHWAY-001" as string | null,
+      activation: activation(),
+      sendingPreference: "morning" as const,
+      patientDetail: PATIENT_DETAIL,
+      assurances: BOTH_CONFIRMED,
+    };
+
+    // Positive control: with both made, this same input DOES build a body -- so the nulls below are
+    // the confirmations and not some other missing field.
+    expect(createPlanRequestBody(common)).not.toBeNull();
+
+    expect(
+      createPlanRequestBody({ ...common, assurances: { patientAgreed: true, mobileIsPatientControlled: false } }),
+    ).toBeNull();
+    expect(
+      createPlanRequestBody({ ...common, assurances: { patientAgreed: false, mobileIsPatientControlled: true } }),
+    ).toBeNull();
+    expect(
+      createPlanRequestBody({ ...common, assurances: { patientAgreed: false, mobileIsPatientControlled: false } }),
+    ).toBeNull();
+  });
+
+  it("names which confirmation is still to be made, rather than saying one of them is missing", () => {
+    // "At least one of the confirmations is not ticked" tells a coordinator they are blocked without
+    // telling them by what, on the one screen whose only remedy is to go back a stage and hunt.
+    const both = unconfirmedAssuranceSentence({ patientAgreed: false, mobileIsPatientControlled: false });
+    expect(both).toContain("that the patient agreed to receive caring contacts");
+    expect(both).toContain("that the number this plan will use is the patient's own");
+
+    const mobileOnly = unconfirmedAssuranceSentence({ patientAgreed: true, mobileIsPatientControlled: false });
+    expect(mobileOnly).toContain("that the number this plan will use is the patient's own");
+    // The one already made is NOT listed as outstanding. Without this the sentence could name every
+    // confirmation every time and still pass the assertion above.
+    expect(mobileOnly).not.toContain("that the patient agreed to receive caring contacts");
+
+    const agreementOnly = unconfirmedAssuranceSentence({ patientAgreed: false, mobileIsPatientControlled: true });
+    expect(agreementOnly).toContain("that the patient agreed to receive caring contacts");
+    expect(agreementOnly).not.toContain("that the number this plan will use is the patient's own");
+
+    // It states what is outstanding, never that the patient refused. A coordinator who has not yet
+    // confirmed a check has not learned anything about the patient.
+    for (const sentence of [both, mobileOnly, agreementOnly]) {
+      expect(sentence).not.toMatch(/did not agree|refused|declined|does not consent/i);
+    }
+  });
+
+  it("lists every assurance the domain knows as outstanding when none has been made", () => {
+    // The list is DERIVED by subtracting what was confirmed from `PLAN_ASSURANCE_VALUES`, not
+    // branched per checkbox -- so a third confirmation added to the domain appears here without this
+    // module being touched. This case is what would go red if someone replaced the derivation with a
+    // pair of hardcoded strings.
+    expect(unconfirmedAssuranceLabels({ patientAgreed: false, mobileIsPatientControlled: false })).toHaveLength(
+      PLAN_ASSURANCE_VALUES.length,
+    );
+    expect(unconfirmedAssuranceLabels(BOTH_CONFIRMED)).toEqual([]);
   });
 });
 

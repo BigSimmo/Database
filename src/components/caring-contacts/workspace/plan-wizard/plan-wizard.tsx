@@ -44,6 +44,7 @@ import {
   activationRefusalWording,
   createPlanRequestBody,
   everyAssuranceConfirmed,
+  unconfirmedAssuranceSentence,
   planVersionFromCreateAnswer,
   firstContactConsequence,
   firstContactReasonIsRequired,
@@ -1671,12 +1672,16 @@ function ReviewStage({
         heading={
           everyAssuranceConfirmed(assurances)
             ? "Both confirmations were made by you, and the plan will record them"
-            : "The confirmations at the start of this sign-up are not both ticked"
+            : "The confirmations at the start of this sign-up are not all ticked"
         }
         because={
           everyAssuranceConfirmed(assurances)
             ? "You confirmed that the patient agreed to receive caring contacts, and that the number is the patient's own. Creating the plan records each of those on the plan as your confirmation, with who you are acting as and the time. What is recorded is that you confirmed the patient agreed — not the agreement itself, which is held in the patient's hospital record and not here."
-            : "At least one of the confirmations at the start of this sign-up is not ticked. This plan cannot be created until every one of them is: the plan records each confirmation as yours, and a confirmation nobody made is not something it can record."
+            : // NAMES WHICH ONE IS MISSING, and that is the point of the helper rather than a phrasing
+              // preference. The first version said "at least one of the confirmations is not ticked",
+              // which tells a coordinator they are blocked without telling them by what — on the one
+              // screen whose only remedy is to go back a stage and hunt for it.
+              unconfirmedAssuranceSentence(assurances)
         }
         changedBy="Going back to the agreement stage changes what you confirmed, and so changes what the plan will record."
         icon={<ClipboardCheck aria-hidden="true" className="size-icon-md shrink-0" />}
