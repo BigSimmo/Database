@@ -613,17 +613,17 @@ Same discipline: each mutation applied, presence confirmed by its own `grep -c` 
 command with `;` (never `&&`), the gate run, then reverted with `git checkout --` against a committed
 file, so no revert could discard a fix.
 
-| #      | Mutation                                                                       | Predicted                                                                                                                                                                                                                                                   | Observed                                                                                                                                                                                                                                                       | Verdict                 |
-| ------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| R1-M11 | `awstWallClockLabel`'s meridiem hardcoded to `"am"`                            | 2 red in the schedule suite, and the window case must be one of them                                                                                                                                                                                        | Exactly 2: `afternoon is advertised at the wrong time: expected '2:00 am AWST' to be '2:00 pm AWST'`, and the window case firing for the first time — `afternoon is advertised before the earliest permitted send: expected 2 to be greater than or equal to 9` | RED, prediction matched |
-| R1-M12 | `crisisSupportContact` swapped in for `rowanPatientMobile` in the reserved list | 1 red, the exact-equality half firing before the not-contains loop                                                                                                                                                                                          | 1 red: `expected [ Array(2) ] to deeply equal [ Array(2) ]` — the case that passed this exact swap before the fix                                                                                                                                               | RED, prediction matched |
-| R1-M13 | `ForwardControl`'s `disabled={!ready}` → `disabled={false}`                     | 1 red: the live half. The self-arming half stays GREEN, because it is still inert                                                                                                                                                                           | 1 red, the live half; the self-arming half green as predicted                                                                                                                                                                                                  | RED, prediction matched |
-| R1-M14 | `stages.ts` marks `review` built **and** `disabled={false}` kept                | 7 red: the self-arming case naming Ruling [115], the live half, the stepper count, the table case, the review unavailable-control case, the unbuilt-panel case, and Task 7's draft-clearing self-arming case                                                 | Exactly 7, and the self-arming case fired its own message: `stage 3 could advance with no patient name and no mobile number — Ruling [115] requires the mobile number to be validated BEFORE the wizard advances: expect(element).toBeDisabled()`                | RED, prediction matched |
-| R1-M15 | The pre-round-1 draft-notice sentence restored                                  | 1 red on the content pin                                                                                                                                                                                                                                    | `the notice does not say what it is holding: expect(element).toHaveTextContent()`                                                                                                                                                                               | RED, prediction matched |
+| #      | Mutation                                                                        | Predicted                                                                                                                                                                                                    | Observed                                                                                                                                                                                                                                                        | Verdict                 |
+| ------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| R1-M11 | `awstWallClockLabel`'s meridiem hardcoded to `"am"`                             | 2 red in the schedule suite, and the window case must be one of them                                                                                                                                         | Exactly 2: `afternoon is advertised at the wrong time: expected '2:00 am AWST' to be '2:00 pm AWST'`, and the window case firing for the first time — `afternoon is advertised before the earliest permitted send: expected 2 to be greater than or equal to 9` | RED, prediction matched |
+| R1-M12 | `crisisSupportContact` swapped in for `rowanPatientMobile` in the reserved list | 1 red, the exact-equality half firing before the not-contains loop                                                                                                                                           | 1 red: `expected [ Array(2) ] to deeply equal [ Array(2) ]` — the case that passed this exact swap before the fix                                                                                                                                               | RED, prediction matched |
+| R1-M13 | `ForwardControl`'s `disabled={!ready}` → `disabled={false}`                     | 1 red: the live half. The self-arming half stays GREEN, because it is still inert                                                                                                                            | 1 red, the live half; the self-arming half green as predicted                                                                                                                                                                                                   | RED, prediction matched |
+| R1-M14 | `stages.ts` marks `review` built **and** `disabled={false}` kept                | 7 red: the self-arming case naming Ruling [115], the live half, the stepper count, the table case, the review unavailable-control case, the unbuilt-panel case, and Task 7's draft-clearing self-arming case | Exactly 7, and the self-arming case fired its own message: `stage 3 could advance with no patient name and no mobile number — Ruling [115] requires the mobile number to be validated BEFORE the wizard advances: expect(element).toBeDisabled()`               | RED, prediction matched |
+| R1-M15 | The pre-round-1 draft-notice sentence restored                                  | 1 red on the content pin                                                                                                                                                                                     | `the notice does not say what it is holding: expect(element).toHaveTextContent()`                                                                                                                                                                               | RED, prediction matched |
 
 No anchor failed to match, and `git status` was clean after each revert.
 
-**One process note, since the brief asks for unmatched anchors too.** Two *edits* in this round failed
+**One process note, since the brief asks for unmatched anchors too.** Two _edits_ in this round failed
 their `assert old in s` on the first attempt — the caution paragraph and one comment — both because
 Prettier had reflowed those lines between my writing the anchor and applying it. Nothing green was
 reported on an unmutated tree, because these were edits rather than mutations and they aborted loudly.
@@ -633,3 +633,82 @@ you last typed it. One of those aborts left a half-applied edit that broke every
 the remaining hunks landed, which is exactly why each piece was committed before the next began.
 
 ## Round 1 gates
+
+**The guard set, `npm run test:cc-guards`** — run after every fix in this round:
+
+```
+[cc-guards] exit=0 elapsed=56s
+ Test Files  17 passed (17)
+      Tests  324 passed (324)
+   Duration  52.68s (transform 2.67s, setup 3.09s, import 9.87s, tests 51.53s, environment 10.31s)
+```
+
+324 cases, up from 319: five added this round (three for the removed field, one for the live region,
+two for I-1, one for the notice's content pin, less the two cultural-identity cases removed).
+
+**The full suite, once, at the end — and started in the background from the first command, which is
+the lesson from my own lease incident:**
+
+```
+[test] exit=0
+ Test Files  834 passed | 3 skipped (837)
+      Tests  10120 passed | 74 skipped (10194)
+   Duration  503.06s (transform 49.88s, setup 76.66s, import 266.17s, tests 990.78s, environment 315.91s)
+```
+
+**Clean, and `tests/codex-cloud-setup.test.ts` passed in it.** That is the base round's failure, and
+it going green here on an unchanged file with no orphaned lease competing for the machine is the
+confirmation of the load diagnosis rather than an assumption about it. The suite also finished in
+503 s against the base round's 768 s, on the same tree plus this round's changes — same cause.
+
+(The `check:function-grants: FAIL` lines mid-run are one test's own positive-control fixtures
+printing their expected refusals, not failures.)
+
+**Typecheck and lint:**
+
+```
+[typecheck] exit=0 elapsed=17s
+[gate-receipts] recorded a pass for "typecheck:internal" (5326 input files).
+
+[lint] exit=0 elapsed=12s
+[gate-receipts] recorded a pass for "lint:internal" (5326 input files).
+```
+
+**One lease refusal this round, and it is the good kind.** A typecheck attempted while the full suite
+held the exclusive lease returned the documented blocked-not-red code:
+
+```
+DATABASE_HEAVY_RUN_ADMISSION_BUSY
+Database focused-test capacity is full (current owner PID 76076, worktree
+D:/Repos/.../browser-test-gate-handoff-d5c1db, ...): vitest run --reporter=dot
+[typecheck] exit=75 elapsed=36s
+```
+
+`75`, not `1`. Reported as neither a pass nor a failure, retried on the message once the suite
+finished, and nothing forced. That the holder was a suite I had deliberately backgrounded — rather
+than one I had orphaned — is the whole difference from the base round.
+
+**Prettier: my own file only.** `npx prettier --check .` across the whole tree reports four files,
+and **three of them are not in this task's diff**: `docs/caring-contacts/phase-2b-sdd-archive/task-7-report.md`,
+`docs/codebase-index.md` and `tests/caring-contacts-new-plan-page.dom.test.tsx`. I verified they were
+already unformatted at this task's base commit (`git show 9f659863e:<path>` piped to
+`prettier --check`), so they are pre-existing rather than mine, and I have not touched them —
+formatting files outside the diff would sweep unrelated changes into this task. **Worth knowing
+before anyone pushes this branch**, because the pre-push guard checks the whole tree when prettier
+policy changes and the changed-file CI check would catch them the moment anything else edits them.
+
+## Does round 1 touch the browser gate?
+
+**No, and I do not disagree with your expectation.** Every change is inside stage 3 or its tests, and
+`tests/ui-caring-contacts-workspace.spec.ts` is unchanged in this round and in the base task's fix
+rounds. The reason no Playwright case can reach a stage is unchanged too: that server seeds no
+referral. The removed field and the always-rendered live region are both inside that gap, which means
+the 320px, dark, forced-colours and print behaviour of the changed markup is still unseen — the same
+coverage gap already filed, not a new one.
+
+## One thing observed, not caused
+
+`eb32ba403` — "docs(caring-contacts): Ruling 121 — dischargeAt collected on stage 4", touching only
+`docs/caring-contacts/phase-2b-build-record.md` — landed on this branch during this round. That is
+the ruling on my concern 2, recorded where it belongs; nothing about it conflicts with this task and
+I have left it exactly as it is.
