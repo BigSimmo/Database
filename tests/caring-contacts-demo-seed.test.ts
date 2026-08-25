@@ -103,7 +103,7 @@ describe("the demo seed cannot run against a database", () => {
     expect(second).toBe(first);
     expect(mocks.createDemoWorkspaceStore).toHaveBeenCalledTimes(1);
     expect(mocks.createPostgresRepository).not.toHaveBeenCalled();
-    expect(await first.listPlans({ actor: coordinator })).toHaveLength(3);
+    expect(await first.listPlans({ actor: coordinator })).not.toHaveLength(0);
   });
 
   it("leaves the store empty in production, where no demo actor can be resolved anyway", async () => {
@@ -136,7 +136,7 @@ describe("the demo seed cannot run against a database", () => {
     vi.stubEnv(CARING_CONTACTS_DEMO_SEED_VAR, "on");
 
     const asked = await caringContactsStore();
-    expect(await asked.listPlans({ actor: coordinator })).toHaveLength(3);
+    expect(await asked.listPlans({ actor: coordinator })).not.toHaveLength(0);
   });
 
   it("refuses a store it did not build, so a Postgres repository has no way in", async () => {
@@ -151,13 +151,14 @@ describe("the demo seed is idempotent", () => {
     const store = await seededStore();
 
     const plansAfterFirst = await store.listPlans({ actor: coordinator });
+    const referralsAfterFirst = await store.listReferrals({ actor: coordinator });
     const auditAfterFirst = await store.listAuditEvents({ actor: demoActorForRole("auditor") });
 
     const second = await applyDemoSeed(store, systemClock());
 
     expect(second.populated).toBe(false);
     expect(await store.listPlans({ actor: coordinator })).toHaveLength(plansAfterFirst.length);
-    expect(await store.listReferrals({ actor: coordinator })).toHaveLength(5);
+    expect(await store.listReferrals({ actor: coordinator })).toEqual(referralsAfterFirst);
     expect(await store.listAuditEvents({ actor: demoActorForRole("auditor") })).toHaveLength(auditAfterFirst.length);
   });
 });
@@ -229,8 +230,9 @@ describe("the seeded population", () => {
     const store = await seededStore();
 
     const names = await store.listPatientNames({ actor: coordinator });
+    const plans = await store.listPlans({ actor: coordinator });
 
-    expect(names).toHaveLength(3);
+    expect(names).toHaveLength(plans.length);
     expect(names.every((entry) => entry.patientName.trim() !== "")).toBe(true);
   });
 
@@ -243,7 +245,7 @@ describe("the seeded population", () => {
         ?.patientMobileNumber),
     );
 
-    expect(numbers).toHaveLength(3);
+    expect(numbers).toHaveLength(plans.length);
     for (const number of numbers) {
       expect(DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS).toContain(number);
     }

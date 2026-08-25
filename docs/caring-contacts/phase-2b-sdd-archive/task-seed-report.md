@@ -11,9 +11,10 @@ observed end to end.
 `src/lib/caring-contacts-server/demo-seed.ts`, reached from exactly one place: the in-memory branch
 of `caringContactsStore()`.
 
-The population is one approved, published pathway version; five referrals; and three plans, left
-running, paused and stopped. Every record was written through the repository's own methods, with a
-demo actor from `session.ts` and a fixed idempotency key. Nothing was written into a Map.
+The population is one approved and published pathway version, a referral for every seeded patient,
+and a plan in each of the three states a coordinator has to be able to tell apart. Every record was
+written through the repository's own methods, with a demo actor from `session.ts` and a fixed
+idempotency key. Nothing was written into a Map.
 
 The shape is chosen so that each built screen has something on it **and** a sign-up can be
 completed:
@@ -21,7 +22,7 @@ completed:
 | What                        | Why it is there                                                                                              |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | One approved pathway version | Without one, `createPlan` has nothing to name and stage 2 of the wizard has nothing to choose.                |
-| Four accepted referrals      | One of them has **no plan**, which is what the wizard needs — a patient with a live plan is refused a second. |
+| Accepted referrals           | One of them has **no plan**, which is what the wizard needs — a patient with a live plan is refused a second. |
 | One awaiting handover        | So the two referral states are distinguishable on a screen rather than inferred.                              |
 | A running plan               | The ordinary caseload row.                                                                                   |
 | A paused plan                | The state a coordinator has to be able to tell apart from a stopped one.                                      |
@@ -71,9 +72,10 @@ second change. Above both of those, `caringContactsStore()` memoises on `globalT
 `next dev` the seed runs once per process however many times the store is asked for.
 
 **Names and numbers.** Every mobile number is one of the two reserved fictional numbers that stand
-for a patient's own mobile (`DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS`). There are two of them and
-three plans, so one is used twice — reusing a reserved non-connecting number is the safe outcome, and
-inventing a third number-shaped string would not have been. Every name follows the fixtures already
+for a patient's own mobile (`DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS`). There are fewer reserved
+patient numbers than there are seeded plans, so one is used more than once — reusing a reserved
+non-connecting number is the safe outcome, and inventing a number-shaped string would not have
+been. Every name follows the fixtures already
 in this tree (`Rowan Example`, `Rowan Sample`): the surname is what makes it unmistakably invented.
 
 ## Findings
@@ -163,6 +165,15 @@ seed at all. The one suite that exercises the real function,
 — all unaffected by the store having content.
 
 The offline suites are therefore unaffected, and the browser gate is unaffected because of F1.
+
+**F6 — `npm run lint` is already red on this branch, for something outside this task.**
+
+`tests/caring-contacts-empty-state.dom.test.tsx` raises two
+`@next/next/no-html-link-for-pages` errors (lines 32 and 93: `<a href>` to `/caring-contacts/patients/new/`
+and `/caring-contacts/patients/`). That file is byte-identical to my branch base and my diff touches
+no route, so this is pre-existing rather than caused here. I have deliberately not fixed it — it
+belongs to another task's file and fixing it unasked would put an unrelated change in this diff — but
+it will block CI on the branch, so somebody has to.
 
 ## Files
 
