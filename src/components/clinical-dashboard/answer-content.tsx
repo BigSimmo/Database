@@ -323,16 +323,23 @@ function AnswerProseSentence({
       {split ? (
         <>
           <SafeBoldText text={split.head} />{" "}
+          {/* The last word and the whole cluster travel together, so a number
+              cannot fall alone onto the next line as a footnote to nothing. */}
           <span className="whitespace-nowrap">
             <SafeBoldText text={split.tail} />
             {marks}
           </span>
         </>
       ) : (
-        <span className="whitespace-nowrap">
+        <>
+          {/* The split was refused because a bold run crosses the last space.
+              Only the cluster is held together here — never the whole sentence.
+              An unbreakable sentence is a horizontal-overflow bug on a phone,
+              which is a far worse outcome than a mark that occasionally starts
+              the next line. */}
           <SafeBoldText text={fragment.display} />
-          {marks}
-        </span>
+          <span className="whitespace-nowrap">{marks}</span>
+        </>
       )}
     </span>
   );

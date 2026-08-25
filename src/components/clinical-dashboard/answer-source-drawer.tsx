@@ -373,25 +373,37 @@ function SourceOverflowMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Every route out of the menu, in one place.
+   *
+   * The report action is deliberately two-step, and the second step must not
+   * outlive the first step's dismissal: arm confirm, press Escape, reopen, and a
+   * single tap would otherwise file a citation report the reader never meant to
+   * send. Escape, an outside click, the trigger toggle and activating an item
+   * all come through here so that cannot happen.
+   *
+   * Deliberately a handler and not an effect on `open`. Clearing the flag in an
+   * effect body is a cascading-render setState that `react-hooks/set-state-in-effect`
+   * rejects, and it would also clear the flag one render late.
+   */
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setConfirmingReport(false);
+  }, []);
+
   useEffect(() => {
-    if (!open) {
-      // Escape, outside click, and the trigger only flip `open`. Leaving
-      // confirm armed after those dismissals would make the next open a
-      // one-tap report — the two-step guard exists to stop exactly that.
-      setConfirmingReport(false);
-      return undefined;
-    }
+    if (!open) return undefined;
     function handlePointerDown(event: PointerEvent) {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
-      setOpen(false);
+      closeMenu();
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
-      setOpen(false);
+      closeMenu();
       triggerRef.current?.focus();
     }
     document.addEventListener("pointerdown", handlePointerDown, true);
@@ -400,12 +412,7 @@ function SourceOverflowMenu({
       document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open]);
-
-  function close() {
-    setOpen(false);
-    setConfirmingReport(false);
-  }
+  }, [closeMenu, open]);
 
   const items: Array<{ id: string; label: string; icon: typeof Copy; onActivate: () => void }> = [];
   if (passage) {
@@ -417,7 +424,7 @@ function SourceOverflowMenu({
         void copyTextToClipboard(passage)
           .then(() => setStatus("Passage copied."))
           .catch(() => setStatus("Copy failed — select the passage and copy it manually."));
-        close();
+        closeMenu();
       },
     });
   }
@@ -428,7 +435,7 @@ function SourceOverflowMenu({
       icon: Search,
       onActivate: () => {
         onFollowUpQuote(quoteCard);
-        close();
+        closeMenu();
         onCloseDrawer();
       },
     });
@@ -440,7 +447,7 @@ function SourceOverflowMenu({
       icon: Filter,
       onActivate: () => {
         onScopeDocument(source.documentId);
-        close();
+        closeMenu();
         onCloseDrawer();
       },
     });
@@ -457,7 +464,7 @@ function SourceOverflowMenu({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="More actions for this source"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => (open ? closeMenu() : setOpen(true))}
         className={drawerHeaderActionClass}
       >
         <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
@@ -495,7 +502,7 @@ function SourceOverflowMenu({
                 }
                 onReportSource(source);
                 setStatus("Reported. Thank you — this page is flagged for review.");
-                close();
+                closeMenu();
               }}
               className={cn(
                 menuItemClass,

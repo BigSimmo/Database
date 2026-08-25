@@ -290,6 +290,33 @@ describe("in-prose source marks", () => {
     await vi.waitFor(() => expect(mark).toHaveFocus());
   });
 
+  it("never makes a whole sentence unbreakable when a bold run blocks the trailing-word split", () => {
+    // `splitTrailingWord` refuses to cut inside a `**…**` run. The fallback used
+    // to nowrap the ENTIRE sentence, which on a phone column is a horizontal
+    // overflow bug — a much worse outcome than a mark starting the next line.
+    const bolded = "Withhold the dose and escalate to the on-call registrar **immediately today**.";
+    render(
+      <NaturalLanguageAnswer
+        text={bolded}
+        sourceOnly={false}
+        bestSource={null}
+        sources={[]}
+        sourceLinks={[]}
+        railRows={ROWS}
+        claims={[claim({ claimId: "claim-1", text: bolded })]}
+        copied={false}
+        onCopy={vi.fn()}
+        onOpenSource={vi.fn()}
+      />,
+    );
+
+    const claimSpan = screen.getByTestId("answer-claim");
+    for (const node of claimSpan.querySelectorAll(".whitespace-nowrap")) {
+      // Only the mark cluster may be held together.
+      expect(node.textContent?.replace(/\s/g, "")).toBe("1");
+    }
+  });
+
   it("does not mark a historical turn, whose rail links out instead of opening a drawer", () => {
     render(
       <NaturalLanguageAnswer
