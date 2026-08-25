@@ -308,69 +308,100 @@ existed:**
 
 ### Mutation log — every attempt, itemised, no aggregate
 
-**Run, and its result:**
+**Read the next section first.** Another session is running its own mutation round in this same
+worktree, concurrently, and it corrupted most of this one. What survives is the four mutations whose
+failure message names the mutated value itself, so no interleaving could have produced it.
 
-| #   | Mutation                                                              | Predicted                                                             | Observed                                                                                                                                                                      | Verdict                 |
-| --- | --------------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| M1  | `mintPlanSubmissionIdentity` returns a constant pair, `PLAN-constant` | 1 red in the activation suite, on "mints a different pair every time" | `Tests 1 failed \| 15 passed (16)`, and it is that case: `FAIL … minting the plan id and the idempotency key (Ruling [120]) > mints a different pair every time it is called` | RED, prediction matched |
+**Trustworthy — the failure message identifies the mutation, not merely a red test:**
 
-**Prepared, applied, and NOT RUN, because the repository's exclusive test lease was held throughout
-by another worktree.** This is the part I most want read as what it is. The mutations below are
-written, their anchors match the tree, and the driver applies and reverts each one; M2 sat applied
-and queued for a long stretch and never got a lease. **A queued mutation is not a passed mutation
-and not a failed one**, and none of them may be counted as coverage.
+| #   | Mutation                                                                        | Predicted                                                                                                             | Observed                                                                                                                                                                                    | Verdict                 |
+| --- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| M1  | `mintPlanSubmissionIdentity` returns a constant pair                            | 1 red on "mints a different pair every time"                                                                          | `Tests 1 failed \| 15 passed (16)`, `AssertionError: expected 'PLAN-constant' not to be 'PLAN-constant'` — the mutated literal is in the message. Reproduced identically on a second run    | RED, prediction matched |
+| M2  | `lettersFromRandomIdentifier` returns the raw UUID, digits and all              | 1 red on the digit assertion; its `buildAccessAuditEvent` sibling passes first                                        | `AssertionError: a minted identifier carries a digit, so it could one day read as a number: expected 'PLAN-376a19682f254501ad634ee804bae620' not to match /\d/`                             | RED, prediction matched |
+| M3  | `dischargeInstantFor` drops the domain parse, keeping only the round-trip guard | 1 red on "answers null for anything that is not a real AWST calendar day", as a thrown error rather than an assertion | `FAIL … answers null for anything that is not a real AWST calendar day`, `RangeError: Invalid time value` — thrown from `toAwstParts` on the `Invalid Date` the missing parse let through   | RED, prediction matched |
+| M4  | `planSchedulePreview` reports `stillToSend` as every entry                      | 3 red: the discharge + 7 case, the store-agreement pin, and the wizard's in-place consequence                         | Exactly 3, with the exact numbers: `expected 10 to be 9`, `discharge + 7: the preview promises a different number of messages: expected 10 to be 9`, and the wizard's `toHaveTextContent()` | RED, prediction matched |
 
-I stopped the driver rather than leave it running unattended, and that is a deliberate choice with a
-reason: a mutation sitting in a shared worktree is a mutation somebody else's `git add -A` can
-commit. That is not hypothetical — see the second half of this section.
+**M4 is the one worth pausing on**, because it is the assertion this task leans hardest on. The
+second of its three failures is the store-agreement pin — the preview disagreeing with
+`summariseStoredContacts` over a plan the in-memory store really built. That is the pin doing exactly
+what it exists to do, and it is the only one in the task that could not have been satisfied by the
+preview agreeing with itself.
 
-| #     | Mutation                                                                         | Predicted                                                                                                              | Status                     |
-| ----- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| M2    | `lettersFromRandomIdentifier` returns the raw UUID, digits and all               | 1 red on `not.toMatch(/\d/)`; the `buildAccessAuditEvent` sibling passes, so this is the tail assertion                | applied, queued, never ran |
-| M3    | `dischargeInstantFor` drops the domain parse and keeps only the round-trip guard | 1 red on "answers null for anything that is not a real AWST calendar day", as a thrown `RangeError`                    | not reached                |
-| M4    | `planSchedulePreview` reports `stillToSend` as every entry                       | 3 red: the discharge + 7 case, the store-agreement pin, and the wizard's "9 still to send"                             | not reached                |
-| M5    | `firstContactReasonIsRequired` compares against `earliest` rather than `usual`   | 1 red on the day-by-day property, naming the first day the two disagree on                                             | not reached                |
-| M6    | `createPlanRequestBody` sends `firstContactReason: ""` rather than omitting it   | 2 red: the key-set case, and the real-route case with a 422 instead of a 200                                           | not reached                |
-| M7    | `submissionRefusalWording`'s default heading becomes "Something went wrong"      | 1 red on the unnamed refusal in "never says only that something went wrong"                                            | not reached                |
-| M8    | `sendableContacts` replaced by a local "not the closing message" filter          | 2 red: the usual-day counts, and the store-agreement pin                                                               | not reached                |
-| M9    | `activate()` clears the draft BEFORE the fetch                                   | 2 red: the ordering case reading `draft-already-cleared`, and every failure shape losing the draft                     | not reached                |
-| M10   | `activate()` navigates BEFORE clearing                                           | 1 red: the ordering case reading `navigate-before-clear`                                                               | not reached                |
-| M11   | `goTo` mints on every arrival at review                                          | 2 red: "mints … and keeps them", and the retry case's `planId` differing                                               | not reached                |
-| M12   | The first-contact field's `min`/`max` dropped                                    | 1 red on "offers exactly the days the schedule accepts"                                                                | not reached                |
-| M13   | The absorbed-contact `AutomatedState` never rendered                             | 1 red on the `getByRole("group", { name: /suppressed/i })` wait                                                        | not reached                |
-| M14   | `parseSubmission` answers `null` instead of `undefined` for a malformed identity | 1 red on "a draft carrying half a minted identity was accepted"                                                        | not reached                |
-| M15   | `parseActivation` returns an empty activation instead of null                    | 1 red on "a draft from before stage 4 existed was accepted"                                                            | not reached                |
-| M16   | `firstContactDayBounds.latest` is one day too late                               | 1 red in the schedule suite: the advertised latest day refused as out of range                                         | not reached                |
-| M17\* | **Control.** The schedule summary's `data-testid` renamed                        | **GREEN** — nothing asserts on it, so a green line in this log is labelled rather than left to be read as an oversight | not reached                |
+**Void — applied, run, and NOT trustworthy:**
 
-**What stands in their place, and it is not nothing.** Every piece in this task was written
-test-first and seen red before its code existed, with the failure message read rather than the count
-— which the Task 8 record itself calls stronger evidence than a mutation. The three assertions that
-carry the most weight are additionally structural rather than incidental: the store-agreement pin
-compares against `summariseStoredContacts` over a plan the in-memory store really built, the
-request-body case POSTs to the real route handler, and the reason-required property is checked day by
-day against `buildApprovedSchedule`. None of those can pass while agreeing only with itself.
+| #     | Mutation                                                                       | Status                                                                                                    |
+| ----- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| M5    | `firstContactReasonIsRequired` compares against `earliest` not `usual`         | ran; reported M3's failure, which its own change cannot cause                                             |
+| M6    | `createPlanRequestBody` sends `firstContactReason: ""` rather than omitting it | ran; reported M4's failure                                                                                |
+| M7    | `submissionRefusalWording`'s default heading becomes "Something went wrong"    | ran; reported M5's predicted failure                                                                      |
+| M8    | `sendableContacts` replaced by a local "not the closing message" filter        | ran; reported M6's predicted failure                                                                      |
+| M9    | `activate()` clears the draft BEFORE the fetch                                 | ran; 4 red, all explainable by M9 — but see below, and "explainable" is not proof                         |
+| M10   | `activate()` navigates BEFORE clearing                                         | ran; 2 red, one of them M13's                                                                             |
+| M11   | `goTo` mints on every arrival at review                                        | ran; its own failure appeared, and its mutation was still in the tree afterwards                          |
+| M12   | The first-contact field's `min`/`max` dropped                                  | ran; its own case did NOT fail, which is the clearest sign of contamination                               |
+| M13   | The absorbed-contact `AutomatedState` never rendered                           | ran; its own failure appeared, alongside M11's                                                            |
+| M14   | `parseSubmission` answers `null` instead of `undefined`                        | ran; its own failure appeared                                                                             |
+| M15   | `parseActivation` returns an empty activation instead of null                  | ran; its own failure appeared                                                                             |
+| M16   | `firstContactDayBounds.latest` is one day too late                             | ran; its own failure appeared, naming `2026-03-18`                                                        |
+| M17\* | **Control.** The schedule summary's `data-testid` renamed — expected GREEN     | ran; came back RED with M11's and M13's failures, which is contamination, not a finding about the control |
 
-**What is nonetheless unproved, stated plainly:** that each of those assertions FAILS when the thing
-it guards is broken. That is exactly what M2–M17 exist to establish, and it has not been established.
+Several of the void rows probably did fire correctly. **That is exactly why they are void rather
+than reported:** on a tree a second process is editing, "the right test went red" and "some test went
+red" are indistinguishable, and reporting the first when you have only established the second is the
+failure this programme keeps catching. They should be re-run in a worktree nobody else is writing to;
+the table above is written so a reviewer can do that without rebuilding it.
+
+### The finding that voided them: two sessions mutating one worktree
+
+**Proved rather than inferred, and the proof is two consecutive commands.** After my batch had
+finished and its driver had exited, `git status` reported
+`M src/lib/caring-contacts/schedule.ts`; the very next command reported
+`M src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx` and nothing else. Nothing of
+mine was running. A third check found `plan-activation.ts` modified. **Another session is applying
+and reverting mutations in this worktree, right now, interleaved with mine.**
+
+That also explains the first batch's shape, which I had wrongly begun to diagnose as my own
+off-by-one: from M5 onward each run reported the previous-but-one mutation's failure, and after the
+batch `plan-wizard.tsx` still carried M11's mutation — a revert of mine that another process had
+overwritten in between.
+
+**What I did about it, and what I deliberately did not.** I rewrote the driver to revert with
+`git checkout --` rather than from an in-memory copy, to assert `git diff --quiet` after every
+revert, and to prove each mutation visible **to a separate process** with `grep -c` before running
+the gate — because a driver comparing its own write against its own read proves nothing about what
+node reads. That driver refused to start on a dirty tree, which is how the leftover was caught, and
+then stopped itself at M1 with `reverted, git says clean = False` rather than continuing on a tree it
+could not vouch for. **Stopping was the correct outcome and the driver is right, not broken.**
+
+What I did NOT do is keep running `git checkout -- .` to clear the way. I did it three times before I
+understood what was happening, and each of those may have discarded the other session's in-flight
+mutation mid-run — the same harm to them that theirs did to me. Once the cause was clear I left their
+working-tree state alone.
+
+**The committed content is unaffected, and I checked rather than assumed.** `git show HEAD:<file>`
+for all four changed source files finds no mutation marker from my table; the two regex hits are
+`total: schedule.contacts.length` (correct code) and the phrase "Something went wrong" inside the
+comment that forbids it. The two gates below both ran to completion with zero failures, which a live
+mutation in the tree could not have produced.
+
+**The recommendation from §0 is now stronger than a preference.** One worktree, one session. Two
+sessions sharing a worktree cannot both do mutation testing, cannot both trust `git status`, and
+cannot both use `git add -A` — and today all three went wrong.
 
 ### A mutation I committed, by my own hand
 
 Recorded in full because it is the failure the brief warns about, met from the other side.
 
 `b5e21f2cf` — a documentation commit — carried **M1 in the tree**: `mintPlanSubmissionIdentity`
-returning the constant pair. I had run `git add -A && git commit` for a report edit while the
-mutation driver had M1 applied. Reverted in `5f009e095`, and the tree was verified clean afterwards
-rather than assumed.
+returning the constant pair. I had run `git add -A && git commit` for a report edit while a mutation
+driver had M1 applied. Reverted in `5f009e095`, and the tree was verified clean afterwards rather
+than assumed.
 
 The brief's rule is "commit each piece before you mutate the file it lives in", and its reason is
 that `git checkout --` discards an uncommitted fix. **This is its converse and it needs the opposite
 discipline: never `git add -A` while a mutation is live.** The two together are one rule — the
 working tree during a mutation round is not yours to stage — and I had internalised only the half the
 brief spelled out.
-
-It is also the second time today this worktree's tree was committed by something that did not write
-it (see §0), which is why the recommendation there is worth acting on.
 
 ### Gates
 
