@@ -17,6 +17,7 @@ const visualExports = [
   "Button",
   "Checkbox",
   "Chip",
+  "ChoiceChip",
   "Citation",
   "CitationList",
   "ConfirmDialog",
@@ -83,6 +84,8 @@ describe("design-sync visual exports", () => {
   it("records the final high-drift API contracts", () => {
     expect(config.dtsPropsFor.Chip).toContain("appearance?: ChipAppearance");
     expect(config.dtsPropsFor.Chip).toContain("size?: ChipSize");
+    expect(config.dtsPropsFor.ChoiceChip).toContain("pressed: boolean");
+    expect(config.dtsPropsFor.ChoiceChip).toContain("onPressedChange: (pressed: boolean) => void");
     expect(config.dtsPropsFor.SegmentedControl).toContain("options: readonly SegmentedControlOption<string>[]");
     expect(config.dtsPropsFor.OverlayRoot).toBe("");
     expect(config.dtsPropsFor.EmptyState).toContain('live?: "off" | "assertive" | "polite"');

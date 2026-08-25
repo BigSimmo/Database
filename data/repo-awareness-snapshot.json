@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "49642d65e7d916143dd9bf4eb3159a713f7d9bd5",
-    "committed_at": "2026-08-24T22:49:42Z"
+    "sha": "e265a187027a9c566734d73e50f68c4f2cd1af48",
+    "committed_at": "2026-08-25T03:42:15+00:00"
   },
   "routes": {
     "modes": [
@@ -3617,6 +3617,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-25",
+        "ref": "backup/pr-2333-prelinear-20260824",
+        "head": "7c5bb84e45d6925c6950cf5b96fff3a8cc479a7b",
+        "scope": "pr-ci-fix",
+        "outcome": "Fixed: prettier format:changed; PR_POLICY_BODY sync for Clinical Governance Preflight; empty commit retriggered PR Policy after body sync race. Review threads already resolved (fb8adf92). Required checks green (PR policy, Static PR, PR required). mergeStateStatus BEHIND vs moving main — merge-tree clean.",
+        "checks": "vitest:54/54; prettier:pass; pr-policy:pass; static-pr:pass; pr-required:pass"
+      },
       {
         "date": "2026-08-24",
         "ref": "2354",
@@ -24491,8 +24499,8 @@
       }
     ],
     "counts": {
-      "records": 2609,
-      "refs": 1591
+      "records": 2610,
+      "refs": 1592
     }
   }
 }

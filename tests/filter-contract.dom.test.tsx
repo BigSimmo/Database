@@ -44,13 +44,14 @@ describe("filter contract and density rendering", () => {
     expect(buttonA.className).toContain("inline-flex");
     expect(buttonA.className.split(/\s+/)).not.toContain("w-full");
     expect(buttonA.className).toContain("min-h-tap");
+    expect(buttonA).toHaveAttribute("data-choice-chip", "true");
   });
 
   // A chip carrying a count is wide enough that four of them wrap one per line
   // and leave most of each row empty — documents' Source status (4 options) and
   // Clinical validation (3) were exactly that. Counted groups of 2–5 therefore
   // use the row renderer in two columns instead. See docs/filter-contract.md §5.
-  it("renders facet groups with 2–5 COUNTED options as two-column rows, not chips", () => {
+  it("renders facet groups with 2–5 COUNTED options as full-width two-column choices", () => {
     const onToggle = vi.fn();
     const group = resultFilterFacetGroup({
       id: "counted-facet",
@@ -84,10 +85,11 @@ describe("filter contract and density rendering", () => {
 
     const current = screen.getByRole("button", { name: /^Current/ });
     expect(current.className).toContain("w-full");
-    expect(current.className.split(/\s+/)).not.toContain("inline-flex");
-    // The phone floor is 48px and the pointer floor is the filter system's 40px.
+    expect(current.className).toContain("justify-between");
+    // The selection-system floor stays 48px at every breakpoint.
     expect(current.className).toContain("min-h-tap");
-    expect(current.className).toContain("sm:min-h-10");
+    expect(current.className).not.toContain("sm:min-h-10");
+    expect(current).toHaveAttribute("data-choice-chip", "true");
 
     // The announced name keeps the unit; only the visible column is shortened.
     expect(current).toHaveAccessibleName("Current (12 loaded sources)");
