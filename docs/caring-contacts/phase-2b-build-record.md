@@ -1488,3 +1488,9 @@ budget expired long ago and the hook is doing exactly what it was built to do. I
 denies `Monitor` for a purely local test-gate wait, which is the gap `docs/pr-handoff-stop-cross-agent-gap.md`
 already names — but **deleting a safety marker to make an unrelated wait more convenient is not a
 trade I will make unasked**, and the implementer completed the wait without it. Left in place.
+
+### Task 6b fix round 1 browser gate
+
+`43 passed (1.1m)`, exit 0, unmoved. The implementer predicted no movement and gave its reasoning
+(two test files, one SQL check expression, one migration comment; no rendered output). Second
+prediction it has made about this gate and second time it held.
