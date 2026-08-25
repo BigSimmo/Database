@@ -336,10 +336,17 @@ describe("the templates library's empty lists are four different facts", () => {
   });
 
   it("holds all four apart from one another, so no two may collapse into the same words", () => {
+    // BOTH FILTERED CASES USE THE SAME LIFECYCLE FILTER, and that is the whole strength of this
+    // check rather than a tidiness choice. Every filtered empty state interpolates its filter's
+    // label, so two branches holding word-for-word identical prose still render DIFFERENT text when
+    // the fixtures ask for different filters -- and this comparison passed while the all-retired
+    // branch had been overwritten with the ordinary one, which a mutation found. Pinning both to
+    // `pending` removes the label as a source of difference, so the only thing left that can differ
+    // is the prose the branches were written to say.
     const facts = {
       "no data": textFor([], NO_FILTER),
       filtered: textFor(mixed, { lifecycle: "pending" }),
-      "all retired": textFor(retiredOnly, { lifecycle: "current" }),
+      "all retired": textFor(retiredOnly, { lifecycle: "pending" }),
       "not permitted": textFor(mixed, NO_FILTER, false),
     };
 
