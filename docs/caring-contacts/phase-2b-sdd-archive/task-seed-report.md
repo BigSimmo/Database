@@ -19,13 +19,13 @@ idempotency key. Nothing was written into a Map.
 The shape is chosen so that each built screen has something on it **and** a sign-up can be
 completed:
 
-| What                        | Why it is there                                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| One approved pathway version | Without one, `createPlan` has nothing to name and stage 2 of the wizard has nothing to choose.                |
-| Accepted referrals           | One of them has **no plan**, which is what the wizard needs — a patient with a live plan is refused a second. |
-| One awaiting handover        | So the two referral states are distinguishable on a screen rather than inferred.                              |
-| A running plan               | The ordinary caseload row.                                                                                   |
-| A paused plan                | The state a coordinator has to be able to tell apart from a stopped one.                                      |
+| What                         | Why it is there                                                                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One approved pathway version | Without one, `createPlan` has nothing to name and stage 2 of the wizard has nothing to choose.                                                       |
+| Accepted referrals           | One of them has **no plan**, which is what the wizard needs — a patient with a live plan is refused a second.                                        |
+| One awaiting handover        | So the two referral states are distinguishable on a screen rather than inferred.                                                                     |
+| A running plan               | The ordinary caseload row.                                                                                                                           |
+| A paused plan                | The state a coordinator has to be able to tell apart from a stopped one.                                                                             |
 | A withdrawn plan             | Task 9 found the screen once told a coordinator a stopped plan would still send. A demo that cannot show a stopped plan cannot demonstrate that fix. |
 
 ## The safety boundary
@@ -193,17 +193,17 @@ The tree was committed before each, and restored from git after. **Every mutatio
 `1 failed | 13 passed`** — so each one isolates a single assertion rather than making a whole case
 red — and every failure matched its prediction.
 
-| Mutation | Predicted | Observed |
-| --- | --- | --- |
-| M1 the Postgres branch calls the seed | the "never reached from the Postgres branch" spy assertion fails | `AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times` |
-| M2 the `WeakSet` guard is removed | no `DemoSeedForeignStoreError` | `expected TypeError: store.listPathwayVersions is n… to be an instance of DemoSeedForeignStoreError` |
-| M3 the standard message is copied into the closing slot | closing is no longer empty | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''` |
-| M8 the standard message is blanked | standard is empty | `expected '' to be 'Hi Rowan, Alex from Example Aftercare…'` |
-| M4a the already-seeded return reports a population | `populated` is true on the second call | `expected true to be false` |
-| M4b the already-seeded guard is removed entirely | the second call re-writes and is refused | the idempotency case fails (the seed throws `DemoSeedRefusedError`) |
-| M5 a seeded mobile number is not a reserved one | an unreserved number is present | `expected [ Array(2) ] to include '+61 400 000 000'` |
-| M6 the isolated Playwright exclusion is removed | that server holds 3 plans unasked | `expected [ … ] to have a length of +0 but got 3` |
-| M9 the cadence labels are typed out instead of derived | the lists differ | `expected [ 'Day 1' ] to deeply equal [ 'Day 1', 'Week 1', 'Month 1', …(7) ]` |
+| Mutation                                                | Predicted                                                        | Observed                                                                                             |
+| ------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| M1 the Postgres branch calls the seed                   | the "never reached from the Postgres branch" spy assertion fails | `AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times`       |
+| M2 the `WeakSet` guard is removed                       | no `DemoSeedForeignStoreError`                                   | `expected TypeError: store.listPathwayVersions is n… to be an instance of DemoSeedForeignStoreError` |
+| M3 the standard message is copied into the closing slot | closing is no longer empty                                       | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                         |
+| M8 the standard message is blanked                      | standard is empty                                                | `expected '' to be 'Hi Rowan, Alex from Example Aftercare…'`                                         |
+| M4a the already-seeded return reports a population      | `populated` is true on the second call                           | `expected true to be false`                                                                          |
+| M4b the already-seeded guard is removed entirely        | the second call re-writes and is refused                         | the idempotency case fails (the seed throws `DemoSeedRefusedError`)                                  |
+| M5 a seeded mobile number is not a reserved one         | an unreserved number is present                                  | `expected [ Array(2) ] to include '+61 400 000 000'`                                                 |
+| M6 the isolated Playwright exclusion is removed         | that server holds 3 plans unasked                                | `expected [ … ] to have a length of +0 but got 3`                                                    |
+| M9 the cadence labels are typed out instead of derived  | the lists differ                                                 | `expected [ 'Day 1' ] to deeply equal [ 'Day 1', 'Week 1', 'Month 1', …(7) ]`                        |
 
 **One assertion is not mutation-proven, and it should be read as weaker for it.** "approved by two
 different people" cannot be falsified by mutating the seed, because the domain refuses the mutation:
@@ -221,4 +221,3 @@ forced past.
 - `node scripts/run-vitest.mjs run --reporter=dot tests/caring-contacts-demo-seed.test.ts`
   — `Test Files  1 passed (1)` / `Tests  14 passed (14)`
 - `npm run typecheck` — clean; `[gate-receipts] recorded a pass for "typecheck:internal" (5338 input files).`
-

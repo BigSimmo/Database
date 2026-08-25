@@ -52,11 +52,7 @@ import { EXACT_PATIENT_VISIBLE_MESSAGE } from "@/lib/caring-contacts/message-cop
 import type { MessageType, SendingPreference, TransitionResult } from "@/lib/caring-contacts/model";
 import type { PathwayVersion, PathwayVersionSnapshot } from "@/lib/caring-contacts/pathway-versions";
 import type { Actor } from "@/lib/caring-contacts/permissions";
-import type {
-  CaringContactRepository,
-  EpisodePatientDetail,
-  WriteContext,
-} from "@/lib/caring-contacts/repository";
+import type { CaringContactRepository, EpisodePatientDetail, WriteContext } from "@/lib/caring-contacts/repository";
 import { buildApprovedSchedule } from "@/lib/caring-contacts/schedule";
 import { FICTIONAL_CONTACTS_BY_ROLE } from "@/lib/caring-contacts/synthetic-contacts";
 

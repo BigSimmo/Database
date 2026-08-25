@@ -241,8 +241,10 @@ describe("the seeded population", () => {
     const plans = await store.listPlans({ actor: coordinator });
 
     const numbers = await Promise.all(
-      plans.map(async (record) => (await store.getEpisode(toPlanId(record.plan.id), { actor: coordinator }))
-        ?.patientMobileNumber),
+      plans.map(
+        async (record) =>
+          (await store.getEpisode(toPlanId(record.plan.id), { actor: coordinator }))?.patientMobileNumber,
+      ),
     );
 
     expect(numbers).toHaveLength(plans.length);
