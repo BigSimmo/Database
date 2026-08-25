@@ -639,7 +639,7 @@ and I repeated it. Re-anchored against the file as it stands and re-run; the res
 
 ### What this proves, counted rather than described
 
-I own **52 cases** across four files. Of those:
+I own **52 cases** across three files in the review range (round 2, M1 -- the three cases landed in the swept commit before the base, so they are outside it). Of those:
 
 - **31 are proved alive** — at least one assertion in them was made to fail by a mutation.
 - **21 were not touched by any mutation at all.** They are green and they are unfalsified.
@@ -741,3 +741,209 @@ preview, the confirmation overlay's `full-screen-stage` phone modality with this
 **and a two-write submission whose middle state is a screen a clinician can act on**. The half-done
 state is the one I would most want seen in a real browser, because it is the only screen in this
 workspace that asks someone to press a writing control a second time.
+
+---
+
+# Fix round 2
+
+All three Criticals, all three Importants and both Minors. Commit `2ef2ba882`.
+
+**The three Criticals were all prose, and that is the finding rather than a coincidence.** Every
+mechanism in this task is pinned by a test; none of the sentences a clinician actually reads was.
+The copy drifted the moment the code underneath it changed, and nothing went red.
+
+---
+
+## C1 — the sentence above the write control was false
+
+Fixed and pinned. `activate()` performs both writes, and the screen now says so:
+
+- The `StatedReason` at the control: **"Confirming creates this plan and starts it, and nothing is
+  ever sent from here"**, with the two writes named in order and both recorded on the access trail.
+- The control: **"Create and start this plan"**, which agrees with the overlay's own
+  "Confirm and activate" and its title "Last check before the plan starts".
+- The success panel: **"The plan was created and started"**, and it says the schedule is running.
+  Omitting the start understated what had happened on a screen whose whole subject is whether a
+  suicide-prevention schedule is live.
+- Both doc comments asserting the one-write design are gone.
+
+**Four cases pin it now**, and one of them reads the SOURCE rather than the DOM — `carries no
+comment claiming this screen performs one write` — because the two stale comments were not visible
+in any rendered output and so no DOM assertion could ever have caught them. R1–R4 prove all four.
+
+**On this being the `stages.ts` defect two functions away.** You are right, and the count is right:
+third time this phase that finding a pattern has not interrupted it. What I take from it is narrower
+than "look harder". `stages.ts` was found by a mutation — R1-round-1's self-arming case pointed at
+it — and I fixed the instance the tooling handed me. **I never searched for siblings**, because the
+finding arrived as a test failure rather than as a question, and a test failure names one site.
+The habit that would have caught this: when a mutation reveals a comment describing a mechanism the
+code no longer has, grep the diff's own files for the same claim before moving on. That is now what
+the source-reading test does mechanically for this file.
+
+## C2 — the claim the domain contradicts
+
+Fixed. `PLAN_EXISTS` said "no message is scheduled to go out yet"; I checked your reading against
+the code rather than accepting it, and it holds:
+
+- `createPlan` writes every planned contact in state `scheduled` (or `suppressed` for an absorbed
+  one) **at creation**;
+- `listSendableContacts` in **both** stores filters on `contact.state === "scheduled"` with no
+  plan-state gate;
+- nothing in `model.ts`'s contact transitions consults `plan.state`.
+
+**Your reading of the true statement is correct, and I can add one thing to it.** The plan exists,
+its contacts are scheduled, and nothing dispatches because there is no sender — and the sharper
+version of "no sender" is that **`simulation.ts` is the only reader of `listSendableContacts`
+anywhere in the tree.** There is no dispatcher, no provider, and no route that sends; the
+reconciliation route reads dispatch records, it does not create them. So the copy now reads:
+
+> The plan was created and is on this patient's record, and its contacts are scheduled — creating a
+> plan schedules them. No second plan was created. Nothing reaches any handset either way: this
+> prototype is connected to no messaging provider and has nothing that sends.
+
+`listSendableContacts` is untouched, and the reasoning is recorded at the constant so the next
+reader does not re-derive it.
+
+**Two new assertions pin it**, and they are a pair on purpose: one refuses the false claim by name,
+one requires the true one. R5 and R6 prove both halves separately.
+
+## C3 — a branch asserting and denying one fact, with a test holding it there
+
+Fixed, and **the assertion that was enforcing the falsehood is gone.** Recording that plainly,
+because it is the one change in this round that removes a check:
+
+> The thirteen-name walk required **every** branch to match `/not started|has not been started/`.
+> `plan-not-draft` renders "It has not been started … an earlier attempt already started it". The
+> test was not failing to catch the contradiction; it was **requiring** it.
+
+The replacement is stricter, not looser. The names are split into two lists:
+
+- **`STILL_WAITING` (eleven)** — a refusal means the write did not happen, so "has not been started"
+  is true and is required.
+- **`MAY_HAVE_STARTED` (three)** — must **not** claim the plan is unstarted, **must** admit the
+  state is unknown, and **must** point at where to look.
+
+**You named one branch; there are three, and the other two have the identical defect:**
+
+- `plan-terminal` — a plan that has been ended may well have run first.
+- `service-answered-with-something-unreadable` — the write may have landed. That branch's own
+  heading already said "it is not clear whether it started" while the shared prefix denied it, so it
+  was self-contradictory in the same way and one sentence apart.
+
+R7 proves the new assertion catches exactly the defect C3 reported: putting `NOT_STARTED` back into
+`plan-not-draft` goes red with `plan-not-draft claims the plan has not started, and it may have`.
+R8 proves the eleven-branch half, R9 the "send the reader to look" half.
+
+---
+
+## Important
+
+**I1 — five shapes, five cases.** The `for` loop became five `it`s. R15 is the proof that the split
+bought something: clearing the draft on the lost-connection path now reddens **only** "keeps the
+whole draft after a lost connection", and the other four stay green. Under the old single case, M9
+reddened all five through one path and none was individually pinned.
+
+**I2 — independence pinned by draw count, not by substring.** You are right that
+`not.toContain(...)` catches literal embedding and nothing else. The new case stubs
+`crypto.randomUUID` to a fixed three-draw sequence and asserts **three calls**, three distinct
+identifiers, and three distinct random halves. A hash, a reversal or any other derivation consumes
+fewer draws, so the call count catches every shape at once. **R12 is a reversal derivation and it
+now goes red** — `expected "randomUUID" to be called 3 times, but got 2 times` — which is precisely
+the mutation the old assertion would have passed. The double is asserted to have been used, so it
+cannot pass inert.
+
+**I3 — the consequence now arrives with the date, not after the justification.** `firstContactConsequence`
+asks the domain the same question with the reason requirement satisfied by a stand-in, and the
+absorbed-contact notice is built from it. The stand-in never leaves that function: only `absorbed`
+and `summary` are read, and the submission path still goes through `createPlanRequestBody`, which
+uses what the clinician wrote and returns null while it is missing. R13 and R14 prove it from both
+sides — reverting to the submittable preview, and removing the stand-in — and the new case asserts
+the reason field is still **empty** when the consequence appears, which is the ordering itself.
+
+Your framing is the part I want to keep: _the consequence is an input to the decision, not a receipt
+for it._ Ruling [118] said "before the choice is committed" and I implemented the letter of it.
+
+## Minor
+
+- **M1 — fixed.** 52 cases across **three** files in the review range; the three schedule cases
+  landed in the swept commit before the base. The arithmetic was right and the phrasing was not.
+- **M2 — fixed, by moving the reason onto the control that can deliver it.** A natively `disabled`
+  input cannot announce its own `aria-describedby`, so the prerequisite now also appears on the
+  **discharge day** field's hint — the control a clinician can actually act on to unblock the other
+  one. The visible paragraph stays for anyone reading in document order.
+
+---
+
+## Coverage: your reordering accepted, and acted on this round
+
+`activationRefusalWording` is first, and it is no longer unproved. **Six mutations now land inside
+that table** — R5, R6, R7, R8, R9, R10 — plus R11 on its unnamed default. They pin, separately: that
+the plan is said to exist, that the contacts are said to be scheduled, that the reason nothing sends
+is given, that the not-started claim appears where it is true, that it does **not** appear where it
+is false, that the reader is sent to look, and that a retry is described as finishing the same plan.
+
+That C3 was a live defect inside exactly that walk is the argument, and I had the diagnosis and did
+not act on it. The remaining order stands: (2) the store-agreement pin, (3) I1's five shapes — now
+split, so this one is discharged — (4) `planVersionFromCreateAnswer`.
+
+## The `grep -c` false negative — your cause is right, and there is a second one underneath it
+
+The reviewer's finding is correct: under `-E`/`-P`, `{…}` is an interval quantifier and GNU grep
+declines to match rather than erroring. **But `-F` did not fix it in my driver, and switching to
+`-F` is what let me find why.** Measured here, passing the marker through Python's `subprocess`
+argv into MSYS2 grep:
+
+```
+caring-contacts-activation-schedule-summary                  -> 1  (rc 0)
+data-testid="caring-contacts-activation-schedule-summary"    -> 0  (rc 1)   double quotes
+min={bounds?.earliest}                                       -> 0  (rc 1)   braces, under -F
+```
+
+The Windows and MSYS2 command-line conventions disagree about **both** double quotes and braces, so
+the pattern grep receives is not the pattern that was sent. Interactively — `sed` then `grep` in one
+bash — the same marker counts 1, which is why the hand check disagreed with the driver.
+
+**Both our diagnoses were partial.** Yours explains the interactive `-E` case exactly; mine ("the
+brace is the suspect") was right about the character and wrong about the mechanism. The fix is to
+stop crossing that boundary: the visibility check is now a fresh `python -c` that reads the file and
+counts, with the marker travelling on **stdin** rather than argv. Still a separate process, which is
+the property being established.
+
+Two more driver defects fell out of chasing it, and both could have produced a false green:
+
+- **The write was never flushed.** `io.open(...).write(...)` as one expression leaves the close to
+  refcounting. Now `with` + `flush()` + `os.fsync()`. On a ReFS Dev Drive this is exactly the shape
+  that makes a run execute a file other than the one the driver believes it wrote — which is what
+  round 1 looked like from the outside, alongside the concurrent session.
+- **A mutation run could reuse a gate receipt.** `gate-receipts.mjs` memoises a passing Vitest run,
+  and a reused receipt exits 0 printing **no summary line** — indistinguishable from a green
+  mutation except by the absence the brief names ("no summary line means no run"). R16's control
+  came back empty for exactly that reason and I re-ran it by hand with `GATE_RECEIPTS=refresh`
+  before believing it. The driver now sets that for every mutation run.
+
+---
+
+## Round 2 mutation log — every attempt, itemised, no aggregate
+
+| #     | Mutation                                                          | Predicted                                                         | Observed                                                                                                                                                      | Verdict                                                                    |
+| ----- | ----------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| R1    | the control's heading restored to "does not start it"             | 1 red, the promise case                                           | `tells the coordinator, at the control, that confirming creates AND starts the plan`                                                                          | RED, matched                                                               |
+| R2    | the control relabelled "Create this plan"                         | 1 red, the label case                                             | `labels the control for both writes, agreeing with the overlay it opens`                                                                                      | RED, matched                                                               |
+| R3    | the success panel drops "and started"                             | 1 red                                                             | `says the plan was created AND started once both writes have landed`                                                                                          | RED, matched                                                               |
+| R4    | the "one write its brief names" comment restored                  | 1 red, the source-reading case                                    | `a comment still says this screen performs a single write`                                                                                                    | RED, matched                                                               |
+| R5    | `PLAN_EXISTS` restored to "no message is scheduled to go out yet" | 1 red                                                             | `stale-version still claims nothing is scheduled`                                                                                                             | RED, matched                                                               |
+| R6    | the "nothing that sends" half removed                             | 1 red                                                             | `stale-version does not say why nothing reaches a handset`                                                                                                    | RED, matched                                                               |
+| R7    | **the C3 defect put back** — `NOT_STARTED` into `plan-not-draft`  | 1 red on the branch that may have started                         | `plan-not-draft claims the plan has not started, and it may have`                                                                                             | RED, matched — the replacement assertion catches what the old one required |
+| R8    | `NOT_STARTED` emptied                                             | 1 red on the eleven-branch half                                   | `stale-version does not say the plan has not started`                                                                                                         | RED, matched                                                               |
+| R9    | `plan-not-draft`'s remedy replaced with "Try again"               | 1 red on "sends the reader to look"                               | `plan-not-draft does not send the reader to look at the plan`                                                                                                 | RED, matched                                                               |
+| R10   | `PRESS_AGAIN` drops the same-plan guarantee                       | 1 red                                                             | `stale-version does not say a retry is not a second plan`                                                                                                     | RED, matched                                                               |
+| R11   | the unnamed default stops naming the refusal                      | 1 red                                                             | `expected 'The plan was created and is on this p…' to contain 'a-refusal-nobody-has-written-yet'`                                                             | RED, matched                                                               |
+| R12   | the activate key derived by REVERSING the create key              | 1 red on the draw count — the shape the old substring pin allowed | `the mint did not draw from crypto.randomUUID at all: expected "randomUUID" to be called 3 times, but got 2 times`                                            | RED, matched                                                               |
+| R13   | the consequence read from the submittable preview again           | 1 red on the I3 case                                              | `Unable to find role="group" and name /suppressed/i`                                                                                                          | RED, matched                                                               |
+| R14   | the reason stand-in removed                                       | 1 red on the I3 case                                              | same, from the other side                                                                                                                                     | RED, matched                                                               |
+| R15   | the draft cleared on the lost-connection path                     | **1 red, and only one** — the split's whole point                 | `keeps the whole draft after a lost connection`; the other four shapes stayed green                                                                           | RED, matched                                                               |
+| R16\* | **Control.** the schedule summary's `data-testid` renamed         | **GREEN** — nothing asserts on it                                 | first attempt returned no summary line at all (a reused receipt); re-run with `GATE_RECEIPTS=refresh` and the mutation proved present: `Tests 70 passed (70)` | **GREEN, as designed — on the second, believable run**                     |
+
+Sixteen attempts, one anchor miss (R9, reflowed by Prettier between writing the anchor and applying
+it — the same hazard as round 1's N6, met a second time), and one result I refused to believe until
+it was re-run.
