@@ -36,8 +36,9 @@ type WorkspaceDestination = {
  * A destination carries an `href` once — and only once — it has a page. The
  * rest render as unavailable controls that state their reason rather than as
  * links into a not-found page (Ruling 52). Plan 2B gives them pages, and adding
- * an `href` here is the whole of that change; `Today` (Phase 2A) and `Patients`
- * (Phase 2B Task 5) have theirs.
+ * an `href` here is the whole of that change. `Today` (Phase 2A), `Patients`
+ * (Phase 2B Task 5) and `Schedule` (Phase 2B Task 13) have theirs; `Templates`
+ * does not.
  *
  * Ruling 89: the link and the real screen land together. A navigation entry lit
  * up ahead of its screen would point at a page that says "No patients yet"
@@ -59,7 +60,13 @@ const PRIMARY_DESTINATIONS: readonly WorkspaceDestination[] = [
     href: CARING_CONTACTS_ROUTES.patients,
     reason: "Every patient with a caring-contact plan, and where each plan has got to.",
   },
-  { id: "schedule", label: "Schedule", icon: CalendarDays, reason: "Contacts due, day by day." },
+  {
+    id: "schedule",
+    label: "Schedule",
+    icon: CalendarDays,
+    href: CARING_CONTACTS_ROUTES.schedule,
+    reason: "Contacts due, day by day.",
+  },
   {
     id: "templates",
     label: "Templates",

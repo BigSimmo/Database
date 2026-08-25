@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
 import { awstCalendarDay } from "@/lib/caring-contacts/clock";
 import type { Episode } from "@/lib/caring-contacts/episode";
-import { contactSendability, type ContactState, type MessageType, type PlanState } from "@/lib/caring-contacts/model";
+import { contactSendability, type PlanState } from "@/lib/caring-contacts/model";
 import {
   summariseStoredContacts,
   type PatientNameProjection,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/caring-contacts/repository";
 
 import { AutomatedState } from "./automated-state";
+import { CONTACT_STATE_LABELS, MESSAGE_TYPE_LABELS } from "./contact-vocabulary";
 import { ListEmptyState } from "./list-empty-state";
 import { UnavailableDestination } from "./unavailable-destination";
 
@@ -123,39 +124,6 @@ const PLAN_OUTCOME_LABELS: Readonly<Record<PlanOutcome, string>> = Object.freeze
   withdrawn: "Withdrawn",
   cancelled: "Cancelled",
   completed: "Completed",
-});
-
-/**
- * What each kind of message in the schedule is called.
- *
- * The closing message has its own label because it is its own kind: it ends the plan and is not
- * one more caring contact. Naming it "Caring contact" would overstate the plan by one.
- */
-const MESSAGE_TYPE_LABELS: Readonly<Record<MessageType, string>> = Object.freeze({
-  first: "First message",
-  standard: "Caring contact",
-  closing: "Closing message",
-});
-
-/**
- * Plain words for a contact's state.
- *
- * Every provider-reported state is labelled as a transport receipt, because that is the whole of
- * what it is: "Delivered" says the message provider accepted and reported the message, and says
- * nothing whatever about the patient. It is never a patient-state label.
- */
-const CONTACT_STATE_LABELS: Readonly<Record<ContactState, string>> = Object.freeze({
-  scheduled: "Scheduled",
-  processing: "Being sent",
-  sent: "Sent",
-  delivered: "Delivered (transport receipt)",
-  notDelivered: "Not delivered (transport receipt)",
-  numberInvalid: "Number invalid (transport receipt)",
-  contactChanged: "Number changed (transport receipt)",
-  statusUnavailable: "Transport receipt unavailable",
-  missed: "Missed",
-  suppressed: "Suppressed",
-  cancelled: "Cancelled",
 });
 
 /** The programme's usual first contact: the day after discharge. */
