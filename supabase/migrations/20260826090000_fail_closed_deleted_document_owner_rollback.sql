@@ -1,12 +1,11 @@
--- Keep the reversible corpus switch on the authoritative document access row.
--- The filename matches the version recorded by the hosted migration operation.
+-- Replace the corpus access switch through a new migration because the earlier
+-- function versions were already recorded by the hosted migration operation.
 --
--- The initial implementation also aligned high-volume derived artifact owner
--- columns. Production contains hundreds of thousands of those rows, while the
--- server authorizes a document before loading its derived records. Mutating
--- them is unnecessary for document visibility, makes the switch too slow for a
--- synchronous operational call, and expands the rollback surface. Preserve
--- those derived owners exactly as they are and change only documents.
+-- A snapshot deliberately keeps its original owner UUID without an auth.users
+-- foreign key. If that user is deleted while public mode is active, private
+-- rollback cannot restore the stale UUID to documents.owner_id. Keep the row
+-- ownerless in that case and remove the public marker so the authorization
+-- invariant (owner_id is null AND metadata.public_corpus is true) fails closed.
 
 create or replace function public.set_document_corpus_access_mode(p_mode text)
 returns jsonb
@@ -111,8 +110,12 @@ begin
     execute 'alter table public.documents disable trigger documents_require_publication_approval';
     update public.documents d
     set
-      owner_id = snapshot.owner_id,
+      owner_id = existing_owner.id,
       metadata = case
+        -- Restoring a public marker without its former owner would turn an
+        -- owner-scoped row into a public row. Remove the marker instead.
+        when snapshot.owner_id is not null and existing_owner.id is null then
+          coalesce(d.metadata, '{}'::jsonb) - 'public_corpus'
         when snapshot.public_corpus_present then
           pg_catalog.jsonb_set(
             coalesce(d.metadata, '{}'::jsonb),
@@ -124,6 +127,7 @@ begin
       end,
       updated_at = now()
     from public.document_corpus_access_snapshots snapshot
+    left join auth.users existing_owner on existing_owner.id = snapshot.owner_id
     where snapshot.activation_id = v_activation_id and snapshot.document_id = d.id;
     execute 'alter table public.documents enable trigger documents_require_publication_approval';
 
@@ -157,7 +161,8 @@ end;
 $$;
 
 comment on function public.set_document_corpus_access_mode(text) is
-  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows; private mode restores them without rewriting derived artifacts.';
+  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows; private mode restores surviving owners and leaves deleted-owner rows non-public without rewriting derived artifacts.';
 
-revoke all on function public.set_document_corpus_access_mode(text) from public, anon, authenticated;
+revoke all on function public.set_document_corpus_access_mode(text)
+  from public, anon, authenticated, service_role;
 grant execute on function public.set_document_corpus_access_mode(text) to service_role;

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-08-23T08:52:32.433Z",
+  "generated_at": "2026-08-25T16:16:23.255Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "33eb07e0797e3605aec88ecdd130ed3a6a88e68ffb2c96f1bd7c1e6a4d3005dd",
-  "replay_seconds": 18,
+  "schema_sha256": "02084a9b88d97778dbcb961d60d257d61606806529ac54207f74463b8d334ce9",
+  "replay_seconds": 38,
   "snapshot": {
     "views": [
       {
@@ -1010,6 +1010,118 @@
           "autovacuum_vacuum_scale_factor=0.05",
           "autovacuum_vacuum_threshold=1000"
         ],
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=r/postgres"
+        ],
+        "name": "document_corpus_access_snapshots",
+        "columns": [
+          {
+            "name": "activation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "captured_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "public_corpus_present",
+            "type": "boolean",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "public_corpus_value",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=r/postgres"
+        ],
+        "name": "document_corpus_access_state",
+        "columns": [
+          {
+            "name": "activated_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "activation_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "mode",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "singleton",
+            "type": "boolean",
+            "default": "true",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
         "rls_forced": false,
         "rls_enabled": true
       },
@@ -5169,6 +5281,24 @@
         "def_hash": "89b1e9c636e8e3228a1bf4bcb416a931"
       },
       {
+        "def": "CREATE INDEX document_corpus_access_snapshots_document_id_idx ON public.document_corpus_access_snapshots USING btree (document_id)",
+        "name": "document_corpus_access_snapshots_document_id_idx",
+        "table": "document_corpus_access_snapshots",
+        "def_hash": "a0a2903411efc0859f5bc27cab3269c7"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX document_corpus_access_snapshots_pkey ON public.document_corpus_access_snapshots USING btree (activation_id, document_id)",
+        "name": "document_corpus_access_snapshots_pkey",
+        "table": "document_corpus_access_snapshots",
+        "def_hash": "0ab2d736c5c599a4358e7c2e80252fb6"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX document_corpus_access_state_pkey ON public.document_corpus_access_state USING btree (singleton)",
+        "name": "document_corpus_access_state_pkey",
+        "table": "document_corpus_access_state",
+        "def_hash": "97bb274c865d8e3bc00c23f3b299ad2c"
+      },
+      {
         "def": "CREATE UNIQUE INDEX document_embedding_fields_dedup_idx ON public.document_embedding_fields USING btree (document_id, source_chunk_id, field_type, content_hash)",
         "name": "document_embedding_fields_dedup_idx",
         "table": "document_embedding_fields",
@@ -7766,6 +7896,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "d6f79be035be4cb601208a4b7c5b75da",
+        "signature": "public.set_document_corpus_access_mode(text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "937a3e85da84f673d32b7a8f30acc654",
         "signature": "public.set_document_embedding_field_content_hash()"
       },
@@ -8115,6 +8253,41 @@
         "def": "PRIMARY KEY (id)",
         "name": "document_chunks_pkey",
         "table": "document_chunks"
+      },
+      {
+        "def": "CHECK ((public_corpus_present OR (public_corpus_value IS NULL)))",
+        "name": "document_corpus_access_snapshots_check",
+        "table": "document_corpus_access_snapshots"
+      },
+      {
+        "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
+        "name": "document_corpus_access_snapshots_document_id_fkey",
+        "table": "document_corpus_access_snapshots"
+      },
+      {
+        "def": "PRIMARY KEY (activation_id, document_id)",
+        "name": "document_corpus_access_snapshots_pkey",
+        "table": "document_corpus_access_snapshots"
+      },
+      {
+        "def": "CHECK (((mode = 'public'::text) = (activation_id IS NOT NULL)))",
+        "name": "document_corpus_access_state_check",
+        "table": "document_corpus_access_state"
+      },
+      {
+        "def": "CHECK ((mode = ANY (ARRAY['private'::text, 'public'::text])))",
+        "name": "document_corpus_access_state_mode_check",
+        "table": "document_corpus_access_state"
+      },
+      {
+        "def": "PRIMARY KEY (singleton)",
+        "name": "document_corpus_access_state_pkey",
+        "table": "document_corpus_access_state"
+      },
+      {
+        "def": "CHECK (singleton)",
+        "name": "document_corpus_access_state_singleton_check",
+        "table": "document_corpus_access_state"
       },
       {
         "def": "CHECK ((length(btrim(content)) > 0))",

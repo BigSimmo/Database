@@ -5,12 +5,16 @@ const installMigration = readFileSync(
   new URL("../supabase/migrations/20260825025032_reversible_document_corpus_access_mode.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
-const effectiveMigration = readFileSync(
+const recordedScopeMigration = readFileSync(
   new URL("../supabase/migrations/20260825025717_scope_document_corpus_access_mode_to_documents.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const hardeningMigration = readFileSync(
   new URL("../supabase/migrations/20260825030411_harden_document_corpus_access_state.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const effectiveMigration = readFileSync(
+  new URL("../supabase/migrations/20260826090000_fail_closed_deleted_document_owner_rollback.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 
@@ -50,10 +54,19 @@ describe("document corpus access mode migration", () => {
     );
   });
 
-  it("restores the snapshot instead of inventing replacement ownership", () => {
+  it("uses a new forward migration after the recorded hosted function version", () => {
+    expect(recordedScopeMigration).toContain("set owner_id = snapshot.owner_id");
+    expect(recordedScopeMigration).not.toContain("left join auth.users existing_owner");
+    expect(effectiveMigration).not.toContain("set owner_id = snapshot.owner_id");
+  });
+
+  it("restores surviving owners and fails closed when the snapshotted owner was deleted", () => {
     expect(effectiveMigration).toContain("set owner_id = existing_owner.id");
     expect(effectiveMigration).toContain(
       "left join auth.users existing_owner on existing_owner.id = snapshot.owner_id",
+    );
+    expect(effectiveMigration).toContain(
+      "when snapshot.owner_id is not null and existing_owner.id is null then coalesce(d.metadata, '{}'::jsonb) - 'public_corpus'",
     );
     expect(effectiveMigration).toContain("when snapshot.public_corpus_present then pg_catalog.jsonb_set");
     expect(effectiveMigration).toContain("else coalesce(d.metadata, '{}'::jsonb) - 'public_corpus'");
