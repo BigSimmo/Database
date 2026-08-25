@@ -4,8 +4,8 @@
 
 **Commits:**
 
-| SHA         | What                                                                                          |
-| ----------- | --------------------------------------------------------------------------------------------- |
+| SHA         | What                                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------------- |
 | `12f8e0ad1` | **Not mine, and this is a finding.** Another session's docs commit swept in my first two files |
 | `1cb79ad5d` | `plan-activation.ts` — the pure half — and its 16 cases                                        |
 | `399904cd8` | The draft carries `activation` and `submission`, in the type, the empty draft and the parser   |
@@ -38,14 +38,14 @@ explicitly rather than `git add -A`.
 
 ## 1. What was built, file by file
 
-| File                                                                       | What changed                                                                                                       |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-activation.ts`  | **New.** What stage 4 collects, what it derives, the body it sends, and the words for every refusal. Pure.         |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`     | `ReviewStage`, the `activate()` write, the minting, the created state, `DateField`, `RefusalStatement`.            |
-| `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`       | `activation` and `submission` added to `PlanDraft`, to `emptyPlanDraft` **and to `parseDraft`**.                   |
-| `src/components/caring-contacts/workspace/plan-wizard/stages.ts`           | `review` flipped to `{ kind: "built" }`; the false coverage claim about `assertBuiltStageHasABody` corrected.      |
-| `src/lib/caring-contacts/schedule.ts`                                      | `firstContactDayBounds` — the days a screen may offer, derived from the three constants the refusal is enforced by. |
-| `package.json`                                                             | `test:cc-guards` gains `tests/caring-contacts-plan-activation.test.ts`.                                            |
+| File                                                                      | What changed                                                                                                        |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-activation.ts` | **New.** What stage 4 collects, what it derives, the body it sends, and the words for every refusal. Pure.          |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`    | `ReviewStage`, the `activate()` write, the minting, the created state, `DateField`, `RefusalStatement`.             |
+| `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`      | `activation` and `submission` added to `PlanDraft`, to `emptyPlanDraft` **and to `parseDraft`**.                    |
+| `src/components/caring-contacts/workspace/plan-wizard/stages.ts`          | `review` flipped to `{ kind: "built" }`; the false coverage claim about `assertBuiltStageHasABody` corrected.       |
+| `src/lib/caring-contacts/schedule.ts`                                     | `firstContactDayBounds` — the days a screen may offer, derived from the three constants the refusal is enforced by. |
+| `package.json`                                                            | `test:cc-guards` gains `tests/caring-contacts-plan-activation.test.ts`.                                             |
 
 Tests added: `tests/caring-contacts-plan-activation.test.ts` (16 cases).
 Tests extended: `tests/caring-contacts-plan-wizard.dom.test.tsx`, `tests/caring-contacts-plan-draft.dom.test.tsx`,
@@ -269,13 +269,13 @@ fail there rather than silently.
 
 **For Task 11 — the seams stage 4 leaves.** No overlay but `final-activation` is wired.
 
-| Overlay id             | What the mockup opens it for from this stage | Note                                                                                                            |
-| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `message-preview`      | The `MessagePreviewCard`                     | Patient-visible copy belongs to the sealed `message-copy`. Stage 4 renders none and says the wording comes from the pathway version. |
-| `adjust-date-time`     | "Adjust schedule"                            | **Now built into the stage** as the first-contact control (Ruling [118]). This overlay and that control would be the same thing twice. |
-| `activation-success`   | After a successful activation                | Stage 4 renders an in-flow created panel and navigates instead. If this overlay is wanted, it replaces that panel. |
-| `save-draft`           | "Save draft"                                 | Task 8's recommendation stands: there is nothing to wire, the draft saves on every keystroke, and a control implying otherwise is worse than none. |
-| `discard-changes`      | A discard confirmation                       | The wizard's real "Discard draft" control is unconfirmed. If this becomes a confirmation, it wraps that control.  |
+| Overlay id           | What the mockup opens it for from this stage | Note                                                                                                                                               |
+| -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message-preview`    | The `MessagePreviewCard`                     | Patient-visible copy belongs to the sealed `message-copy`. Stage 4 renders none and says the wording comes from the pathway version.               |
+| `adjust-date-time`   | "Adjust schedule"                            | **Now built into the stage** as the first-contact control (Ruling [118]). This overlay and that control would be the same thing twice.             |
+| `activation-success` | After a successful activation                | Stage 4 renders an in-flow created panel and navigates instead. If this overlay is wanted, it replaces that panel.                                 |
+| `save-draft`         | "Save draft"                                 | Task 8's recommendation stands: there is nothing to wire, the draft saves on every keystroke, and a control implying otherwise is worse than none. |
+| `discard-changes`    | A discard confirmation                       | The wizard's real "Discard draft" control is unconfirmed. If this becomes a confirmation, it wraps that control.                                   |
 
 ---
 

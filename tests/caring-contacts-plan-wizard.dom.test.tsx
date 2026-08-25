@@ -50,7 +50,11 @@ import {
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
 import { planWizardStageImplementation } from "@/components/caring-contacts/workspace/plan-wizard/stages";
 import { CARING_CONTACTS_PLAN_QUERY_PARAM, patientRoute } from "@/lib/caring-contacts-routes";
-import { firstContactDayBounds, FIRST_CONTACT_REASON_MAX_LENGTH, SENDING_PREFERENCE_OPTIONS } from "@/lib/caring-contacts/schedule";
+import {
+  firstContactDayBounds,
+  FIRST_CONTACT_REASON_MAX_LENGTH,
+  SENDING_PREFERENCE_OPTIONS,
+} from "@/lib/caring-contacts/schedule";
 import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 import { stripSourceComments } from "./helpers/strip-source-comments";
@@ -578,7 +582,9 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     // every stage is built, so no render reaches the not-built branch at all and the claim could
     // never have been checked by accident either. Proved directly now, which is why the function is
     // exported.
-    expect(() => assertBuiltStageHasABody(null, "review")).toThrow(/is marked built but this component renders no body/);
+    expect(() => assertBuiltStageHasABody(null, "review")).toThrow(
+      /is marked built but this component renders no body/,
+    );
     // And it is not a throw-for-everything: a body that exists passes straight through.
     expect(assertBuiltStageHasABody("a body", "review")).toBe("a body");
   });
@@ -1044,9 +1050,7 @@ describe("stage 4 — the discharge day and the first contact, side by side (Rul
     // to "" as it is typed, so a controlled one cannot be typed into character by character at all.
     // What a browser delivers is one change carrying the finished date, which is this.
     fireEvent.change(discharge, { target: { value: DISCHARGE_DAY } });
-    await waitFor(() =>
-      expect(within(stage).getByLabelText(/day of the first contact/i)).toHaveValue(bounds().usual),
-    );
+    await waitFor(() => expect(within(stage).getByLabelText(/day of the first contact/i)).toHaveValue(bounds().usual));
   });
 
   it("offers exactly the days the schedule accepts, defaulting to the usual one", async () => {

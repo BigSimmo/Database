@@ -1526,7 +1526,9 @@ function ReviewStage({
           <SourcedFact
             icon={<MessageSquareText aria-hidden="true" className="size-icon-md" />}
             label="When in the day messages go out"
-            value={chosenPreference === null ? "Not chosen" : `${chosenPreference.label} — ${chosenPreference.sendTime}`}
+            value={
+              chosenPreference === null ? "Not chosen" : `${chosenPreference.label} — ${chosenPreference.sendTime}`
+            }
             source="Chosen by you at personalisation. One choice applies to every contact in this plan."
           />
         </div>

@@ -38,11 +38,7 @@
 // promising the page will remember is false when the browser refused.
 import { SENDING_PREFERENCES, type SendingPreference } from "@/lib/caring-contacts/model";
 
-import {
-  EMPTY_PLAN_ACTIVATION,
-  type PlanActivationDraft,
-  type PlanSubmissionIdentity,
-} from "./plan-activation";
+import { EMPTY_PLAN_ACTIVATION, type PlanActivationDraft, type PlanSubmissionIdentity } from "./plan-activation";
 import { EMPTY_PLAN_PATIENT_DETAIL, type PlanPatientDetailDraft } from "./patient-detail";
 import { isPlanWizardStage, type PlanWizardStage } from "./stages";
 

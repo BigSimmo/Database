@@ -168,9 +168,7 @@ export type PlannedScheduleSummary = {
 };
 
 export type PlanActivationIssueCode =
-  | "discharge-day-required"
-  | "discharge-day-invalid"
-  | "sending-preference-required";
+  "discharge-day-required" | "discharge-day-invalid" | "sending-preference-required";
 
 export type PlanActivationIssue = {
   code: PlanActivationIssueCode;
