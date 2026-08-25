@@ -293,26 +293,45 @@ suite and in both screen suites is covered above.
 
 ### Gates
 
-Every line below is from a run made with `GATE_RECEIPTS=refresh`, so none is a restored-tree receipt
-exiting 0 with no summary. A lease refusal was hit repeatedly — one exclusive heavy job runs at a
-time across every worktree and another implementer was active — and every one was retried, never
-forced past.
+Every run below used `GATE_RECEIPTS=refresh`, so none is a restored-tree receipt exiting 0 with no
+summary line. Lease refusals were frequent — the exclusive heavy lease was held by other worktrees
+for long stretches — and every one was retried, never forced past.
 
-- `npm run typecheck` — clean.
-  `[gate-receipts] recorded a pass for "typecheck:internal" (5338 input files).`
-- `npm run lint` — **`2 problems (2 errors, 0 warnings)`**, both pre-existing and both in
-  `tests/caring-contacts-empty-state.dom.test.tsx`. See F6. No error anywhere in the files this task
-  added or changed, which is what that run establishes for this diff.
-- `npm run test`, the full offline suite, once:
-  `Test Files  836 passed | 3 skipped (839)` / `Tests  10201 passed | 74 skipped (10275)`,
-  `Duration 620.80s`. (The `check:function-grants: FAIL` lines in that output are printed by the
-  guard-under-test exercising its own failure path, not by a failing case — the counts above are the
-  verdict.)
-- `node scripts/run-vitest.mjs run --reporter=dot tests/caring-contacts-demo-seed.test.ts`, re-run
-  last against the final tree because formatting landed close to the full suite's start:
-  `Test Files  1 passed (1)` / `Tests  14 passed (14)`.
+- `npm run typecheck` — clean. It **caught a real error**: the page join case was added after an
+  earlier typecheck had passed, and `loadPage` types the rendered props as `unknown`, so destructuring
+  them did not compile. Fixed by narrowing structurally to the one field under test.
+- `npm run lint` — `2 problems (2 errors, 0 warnings)`, both in
+  `tests/caring-contacts-empty-state.dom.test.tsx`, which is untouched by this branch. The reviewer
+  has established these were a stale eslint cache masking a real error, already fixed on another
+  branch; nothing here to do. **No error in any file this task adds or changes.**
+- Focused suites, after the restore below:
+  `tests/caring-contacts-demo-seed.test.ts`, `-plan-wizard.dom`, `-new-plan-page.dom`, `-repository`,
+  `-pathway-versions` — see the final line pasted at the end of this section.
+- `npm run test`, the full offline suite — run **before** the standing discipline was updated to
+  reserve it for the controller at the merge point. Its last result was
+  `Test Files 1 failed | 835 passed | 3 skipped (839)` / `Tests 1 failed | 10205 passed | 74 skipped`,
+  and that single failure is the contamination described immediately below, now fixed. **I have not
+  re-run it**, per the updated discipline; the focused suites are the evidence for the fix.
 
-**Not run, and why.** `npm run format` whole-tree — Prettier was run over the four changed files and
-they are clean, but the repository-wide check the pre-push guard performs was not, and this task does
-not push. `npm run verify:ui` — no component, route, style or chrome change here; the browser gate's
-inputs are untouched, which F1 exists to keep true. No provider-backed gate was run or needed.
+**A mutation was committed by mistake, and the full suite is what caught it.** `git add -A` run while
+the round-3 driver held the tree captured N1 — the wizard's referral left `awaitingHandover` — into
+commit `c6c5ed535`. That is not a cosmetic slip: `DEMO_SEED_UNSTARTED_REFERRAL_ID` is the demo's only
+entry point into the wizard, so with it committed the sign-up could not be started at all. Restored in
+`c61cf12b9`, and every other mutation site was then audited individually and is clean: the store's
+`??=` memoisation, the wizard's `=== null` condition, `CULTURAL_IDENTITY_NOT_STATED`, all three message
+slots, the `provenance` line, the clone's spread, the demo predicate, and the production gate.
+
+The rule this breaks is one the brief already states — commit before mutating, and do not let a driver
+and a commit hold the tree at once — and I broke the second half of it. Recorded rather than tidied
+away, because the mutation ledger and the commit history are the only places it would show.
+
+**Not run, and why.** Whole-tree `npm run format` — Prettier was run over every changed file and they
+are clean, but the repository-wide check the pre-push guard performs was not, and this task does not
+push. `npm run verify:ui` — the browser gate's inputs are deliberately unchanged (F1), and no route,
+chrome or shared style changed; the stage-2 line added here is proved in the DOM suite. No
+provider-backed gate was run or needed.
+
+**One file in the worktree is not mine and was left alone.**
+`docs/caring-contacts/phase-2b-sdd-archive/STANDING-DISCIPLINE.md` carries an uncommitted edit I did
+not make — the update reserving the full suite for the controller. I have neither committed nor
+reverted it.
