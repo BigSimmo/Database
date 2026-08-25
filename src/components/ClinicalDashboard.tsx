@@ -170,7 +170,12 @@ import {
   StagedAnswerResultSurface,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
-import { clearLegacyRecentQueries, loadRecentQueries, saveRecentQueries } from "@/lib/recent-query-storage";
+import {
+  clearLegacyRecentQueries,
+  loadRecentQueries,
+  recentQueriesChangeEvent,
+  saveRecentQueries,
+} from "@/lib/recent-query-storage";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
@@ -814,12 +819,15 @@ function ClinicalDashboardContent({
       return;
     }
     let cancelled = false;
-    queueMicrotask(() => {
+    const reload = () => {
       if (cancelled) return;
       setRecentQueries(loadRecentQueries(answerThreadOwnerId));
-    });
+    };
+    queueMicrotask(reload);
+    window.addEventListener(recentQueriesChangeEvent, reload);
     return () => {
       cancelled = true;
+      window.removeEventListener(recentQueriesChangeEvent, reload);
     };
   }, [answerThreadOwnerId]);
 

@@ -5,6 +5,7 @@ import {
   clearRecentQueries,
   demoRecentQueryOwnerId,
   loadRecentQueries,
+  recentQueriesChangeEvent,
   recentQueryStorageKey,
 } from "@/lib/recent-query-storage";
 
@@ -97,5 +98,16 @@ describe("recent query storage", () => {
     expect(localStore.has(recentQueryStorageKey)).toBe(false);
     expect([...sessionStore.keys()].some((key) => key.startsWith(recentQueryStorageKey))).toBe(false);
     expect(sessionStore.get("unrelated-key")).toBe("untouched");
+  });
+
+  it("clearRecentQueries notifies listeners so visible lists can refresh", () => {
+    sessionStore.set(`${recentQueryStorageKey}:user-a`, JSON.stringify(["a"]));
+    const listener = vi.fn();
+    window.addEventListener(recentQueriesChangeEvent, listener);
+
+    clearRecentQueries();
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    window.removeEventListener(recentQueriesChangeEvent, listener);
   });
 });

@@ -1,5 +1,7 @@
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
 
+export const recentQueriesChangeEvent = "clinical-kb-recent-queries-change";
+
 export const demoRecentQueryOwnerId = "local-demo-session";
 
 export function loadRecentQueries(ownerId: string | null): string[] {
@@ -24,6 +26,7 @@ export function saveRecentQueries(ownerId: string | null, queries: string[]) {
   if (typeof window === "undefined" || !ownerId) return;
   try {
     window.sessionStorage.setItem(`${recentQueryStorageKey}:${ownerId}`, JSON.stringify(queries));
+    window.dispatchEvent(new Event(recentQueriesChangeEvent));
   } catch {
     // Recent questions are a convenience only; ignore storage failures.
   }
@@ -85,6 +88,7 @@ export function clearRecentQueries() {
         window.sessionStorage.removeItem(key);
       }
     }
+    window.dispatchEvent(new Event(recentQueriesChangeEvent));
   } catch {
     // Recent queries are a convenience only.
   }

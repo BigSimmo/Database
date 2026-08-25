@@ -118,6 +118,18 @@ const APP_PREFERENCE_RESET_KEYS: ReadonlyArray<keyof AppPreferences> = [
   "compactCitations",
 ];
 
+/** Every preference the full reset covers. Excludes the `saveRecentSearches`
+ *  privacy opt-out, which the reset confirmation promises not to change. */
+const FULL_RESET_KEYS: ReadonlyArray<keyof AppPreferences> = [
+  ...APP_PREFERENCE_RESET_KEYS,
+  "jurisdiction",
+  "population",
+  "answerStyle",
+  "notifyGuidelineUpdates",
+  "notifyProductNews",
+  "notifySavedChanges",
+];
+
 /**
  * Whether scripted scrolling in this surface should jump rather than animate.
  *
@@ -638,7 +650,10 @@ export function SettingsDialog({
   function handleResetPreferences(scope: "section" | "all") {
     setPendingConfirm(null);
     if (scope === "all") {
-      resetPreferences();
+      // `saveRecentSearches` is a privacy opt-out, not an appearance choice, and
+      // the confirmation promises recent searches are untouched. Reset every
+      // other key explicitly so the switch survives.
+      resetPreferences(FULL_RESET_KEYS);
       setThemePreference("system");
       setPrivacyNotice("Every preference reset to defaults.");
       return;
