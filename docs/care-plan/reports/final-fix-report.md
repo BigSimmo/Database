@@ -461,3 +461,210 @@ terminated as a refusal; corrected here rather than left standing.
    than left implicit. Not a defect; listed so the user sees the line that was drawn.
 7. Everything the whole-branch review triaged as standing, and the deferred minors neither wave
    named, are unchanged in `docs/care-plan/sdd-ledger.md`.
+
+---
+
+# Third wave — closing the three verification gaps
+
+**Date:** 25 August 2026. **Base:** `da9745deb`, tree clean at start.
+
+Evidence work, not product work: everything below proves something that already existed. No
+production file was changed and no patient-facing copy was touched. The whole diff is two test
+files and one new test-support module.
+
+## Gap 1 — the team-written sheet now prints in a real browser
+
+`tests/ui-care-plan-mockup.spec.ts:1106` **extends** the staleness journey rather than
+reordering it, and the distinction matters. Reordering would have bought the team-written
+proof by spending the staleness proof, and the "still owed" note had assumed that trade was
+necessary. It is not. The journey now runs the clinician's actual next move: the copy is
+stale, the banner it has just printed tells the person to ask somebody to write a new one, and
+this is that new one — written from `SYN-MGMT-VERSION-004`, which is now Current and which the
+record says was written without her.
+
+Asserted on the rendered page: the authoring form carries no claim of joint authorship
+(`:1143`), the copy resolves to Management Plan version **2** (`:1165`, the sequencing pin),
+the clinician's third-person marker is on the screen beside it, and on the paper — none of the
+five forbidden phrasings, nothing that reads as a reproach, the team-written opening sentence
+in full, and the two team-written headings and three lead-ins present (`:1185`–`:1206`).
+
+**The forbidden phrasings are now one list, not two.** `JOINT_AUTHORSHIP_CLAIMS` and the
+reproach shapes moved out of `care-plan-linked-routes.dom.test.tsx`, where only jsdom could
+reach them, into `tests/helpers/care-plan-patient-copy-claims.ts`, and both suites import
+them. A second hand-written list beside the first is how a rule about a patient-facing claim
+comes apart: two lists drift, and the one nobody edits is the one guarding the printed page.
+
+**The assertion order was wrong, and a probe is what showed it.** The first shape put the
+positive "these headings are present" checks ahead of the forbidden-phrasing check. Probe C
+below reddened on a _missing_ team-written line, and `expectNoClaimOfJointAuthorship` — the
+assertion that actually carries user decision D4 — was never reached, so it could not be shown
+to fail at all. In a guard block the first assertion to fail is the only one anybody sees. The
+forbidden check runs first now, and the same probe reddens on it.
+
+## Gap 2 — drafting and submitting a version now has browser proof
+
+`tests/ui-care-plan-mockup.spec.ts:903`, `a replacement version is drafted and submitted
+without displacing the Current Plan`. As the liaison clinician — the emergency physician
+deliberately cannot author one — it drafts a replacement for Rowan, fills the single field a
+new version does not inherit from the Current Plan, submits for senior approval, and confirms.
+
+The assertion it exists for is the specification guarantee: **the Current Plan is not
+displaced while the submission is pending.** The metadata block is captured _before_ the draft
+exists and compared afterwards (`:952`), so "unchanged" is measured against what was on the
+page rather than against an expectation. The submitted version is then shown as
+`Awaiting Approval version 3`, painted **below** the plan in use — measured from painted boxes
+rather than document order — and the pinned safety boundary still sits above the approved
+content.
+
+Approval, return-for-changes and withdrawal already had coverage in this file and are
+deliberately not repeated.
+
+## Gap 3 — the evidence capture has now executed
+
+`CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup` → **`32 passed (1.9m)`**,
+with no `1 skipped`, which is how the atlas test reports itself when it actually runs. It
+wrote 26 screenshots, a `manifest.json` stamped with the source commit, and the three
+`paper-*.txt` files, all under git-ignored `.local/care-plan/atlas`. `git status` shows
+nothing untracked beyond the three intended test files, and `git check-ignore -v` confirms
+`.gitignore:21 /.local/` covers them. The capture's own assertions — 26 images, exactly three
+`paper-` files — passed for the first time, having never executed before.
+
+## Positive controls — five mutations, five kills, every one reverted
+
+Every one a real production change, built and run through the wrapper, then reverted with the
+tree confirmed clean. Every result read from that run's own summary line.
+
+| #   | Mutation                                                                                                                                                  | Full `FAIL` line and message                                                                                                                                                                                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | `patientPlanPaperIntro` returns the joint sentence on both branches (`patient-plan-pages.tsx:129`)                                                        | `1 failed` — `[chromium-mockups] › tests\ui-care-plan-mockup.spec.ts:1039:7 › @mockup Care Plan synthetic prototype › a Patient Plan is marked as needing updating, and its replacement never claims she helped write it` — `Error: expect(locator).toHaveText(expected) failed`, `Received: "This is your copy of the plan you and your team wrote together…"` |
+| B   | `patientPlanSectionLeadIn` ignores the team-written map (`patient-plan-transform.ts:185`)                                                                 | same `FAIL … › a Patient Plan is marked as needing updating, and its replacement never claims she helped write it` — `Error: the Patient Plan authoring form still claims joint authorship: /what we wrote down/i`                                                                                                                                              |
+| C   | The **printed** sections pinned to `participationState="co_produced"` while the screen and the authoring form stay correct (`patient-plan-pages.tsx:713`) | same `FAIL … › a Patient Plan is marked as needing updating, and its replacement never claims she helped write it` — `Error: the printed team-written Patient Plan still claims joint authorship: /what we wrote down/i`                                                                                                                                        |
+| D   | The reading surface renders the open draft in the Current Plan card (`management-plan-read.tsx:495`)                                                      | `1 failed` — `[chromium-mockups] › tests\ui-care-plan-mockup.spec.ts:903:7 › @mockup Care Plan synthetic prototype › a replacement version is drafted and submitted without displacing the Current Plan` — `the Current Plan moved when nothing in this journey should have moved it`, `- Current version 2` / `+ Current version 3`                            |
+| E   | The copy misreports its source as version 1 (`patient-plan-pages.tsx:470`)                                                                                | same `FAIL … › a Patient Plan is marked as needing updating…` — `Error: the new copy was not written from the Management Plan version approved without her`, `Expected pattern: /Written from Management Plan version 2/i`                                                                                                                                      |
+
+Control C is the one worth keeping. B kills at the authoring form and short-circuits there, so
+without a mutation that leaves the form and the screen correct and moves only the paper, the
+printed-sheet guard would never have been shown to fail at all. C was run twice — once before
+the assertion reorder and once after — and those two runs are the reason the reorder happened.
+
+**Not controlled, and said rather than implied.** `expectNoReproach` on the paper, the
+`Awaiting Approval version 3` text, and the two geometry assertions have no mutation of their
+own. The first shares its code path with `expectNoClaimOfJointAuthorship`, which control C
+killed; the other three do not. They are asserted, not demonstrated falsifiable.
+
+## Reading the three printed sheets as the people who receive them
+
+The first time anybody has read what this application would actually hand over, as text,
+rather than asserting things about it.
+
+**The clinician's Management Plan — the 3am sheet.** The strongest of the three, and it is
+ordered the way a sheet read under pressure has to be. The fictional-data marker, the identity
+block, then `Do not rely on this plan if today is different — assess afresh`, then the warning
+that this is a printed copy and may already be out of date, with an instruction to check the
+electronic record for a newer version, for anything withdrawn, and for what has happened
+since. Only then the plan's currency — version, owner, approver, approval date, next review,
+team, and the linked Personal Safety Plan — and the sentence that it never replaces fresh
+triage, physical assessment, mental-state assessment, immediate risk assessment, clinical
+judgement, or legal obligations. Then the five numbered sections. Section 4 names who agreed
+the default and when, says admission remains available whenever the treating team judges it
+necessary, and says plainly that it does not set a ceiling on care and does not bind the
+clinician in front of the patient. Section 5 is concrete rather than hedged: chest pain, head
+injury, a first episode of confusion, an attempt before arrival, a safeguarding concern about
+a child or dependent adult. The contact block closes with `Checked details are not a guarantee
+that the service is available`, which is the true claim rather than the comfortable one. **One
+observation for the user:** the boundary at the top of the paper reads `What would make this
+presentation different (5 listed)` — a count, with the five items themselves forty lines below
+in section 5. On a screen the pointer is a scroll away; on paper, if the sheet breaks between
+them, the reader is holding a pointer with no referent. `break-inside: avoid` keeps each block
+whole and says nothing about the distance between two of them.
+
+**Rowan's Personal Safety Plan — confirmed, and unmistakably theirs.** This is the sheet that
+reads best as a document belonging to a person. `My Personal Safety Plan`, their name, their
+record number, `Confirmed with you on 03/09/2025` — a genuine recorded moment since user
+decision D1 — and then their own words under their own headings: two or three nights of broken
+sleep in a row, not answering messages from Jess for more than a day, Jess keeping the spare
+medicines at her place, the allotment especially in spring, cold water on the wrists and face,
+the podcast so the room is not silent, the late-opening library. Nothing on it is written
+_about_ them. Then named people with their numbers, the professional and emergency block, and
+the crisis numbers with each service's own limitation attached. **Two observations, both the
+user's call.** The crisis contacts appear twice — once inside the person's own
+`Professional and emergency support` section and again in the `If you need help now` block —
+with MHERL and `000` repeated in slightly different words each time. Repeating a crisis number
+is defensible and probably right; it is still redundancy on a sheet meant to be read quickly.
+And the confirmation date is nearly eleven months before the printed date. The sheet states
+that date honestly and this prototype has no staleness notion for a safety plan, so nothing is
+wrong — but a person holding it is not told that what they have was last confirmed a long time
+ago.
+
+**Rowan's Patient Plan — and the one thing wrong with the artefact rather than the product.**
+The frame reads well. `My plan`, preferred name, record number, `Written on`, the co-produced
+opening sentence, then the eight headings each with a plain lead-in, then their own resources:
+the after-hours drop-in you can turn up to without ringing first, financial counselling that
+will ring a company on your behalf and ask for more time to pay, help with the cost of getting
+to appointments and a taxi voucher home if you come in at night, a line for Jess or anyone
+else who supports them, peer support who will sit with you in the emergency department if you
+would like that. Then the crisis numbers, the printed-at stamp and the shortened footer.
+Nothing clinical is on it, and `Not recorded` appears nowhere.
+
+**But the body of all eight sections is the same sentence, eight times over:** `We wrote this
+together at the bedside, in your words.` That is the test harness's fill text, not the
+product's wording. A Patient Plan has no fixture — a copy exists only once somebody writes one
+— so the capture writes one, and it writes identical filler into every field. The consequence
+is that `paper-patient-plan.txt` is honest evidence of the sheet's **structure, framing and
+resources** and no evidence whatsoever of its **content**. Anybody reading the atlas as "what
+a patient would be handed" would be misled about the single thing the atlas exists to show.
+This is the most useful finding of the wave, and it is a limitation of the evidence rather
+than a defect in the product — recorded as owed below rather than fixed, because filling those
+eight sections means writing patient-facing clinical prose, which is the user's and not mine.
+
+## Gates — third wave
+
+Every result read from a real summary line in that run's own output, never from an exit code.
+
+| Gate                                                                      | Result                                                                   |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `npm run test:e2e:care-plan-mockup` (with `CARE_PLAN_CAPTURE_EVIDENCE=1`) | **`32 passed (1.9m)`**, no skips                                         |
+| Care Plan + primitive Vitest, 6 files                                     | `Test Files  6 passed (6)` / `Tests  533 passed (533)` (105.28s)         |
+| `npm run typecheck`                                                       | real `tsc` invocation, exit 0, zero diagnostics, `GATE_RECEIPTS=refresh` |
+| `npm run lint`                                                            | real `eslint … --max-warnings 0`, exit 0, `GATE_RECEIPTS=refresh`        |
+| `npx prettier --check` (3 changed)                                        | `All matched files use Prettier code style!`                             |
+| Byte scan, 3 changed files                                                | CR=0, control bytes=0, no BOM                                            |
+
+Not run, by user instruction (D2): `verify:pr-local`, `verify:cheap`, `verify:release`,
+`build`, `check:*`, `docs:update`, whole-tree `format`, every provider-backed gate. No push, no
+pull request, no merge.
+
+**A sixth refusal shape, and the worst yet, because this one was a genuine red.** The first
+full browser run of this wave reported `1 failed` / `1 skipped` / `30 passed (10.0m)` and the
+surrounding shell reported **exit code 0** — the compound command ended in `tail`, so the exit
+code belonged to `tail` rather than to Playwright. Every earlier instance recorded on this
+branch was a _refusal_ wearing green. This was a _failure_ wearing green, which is strictly
+worse, and it was caught only because the summary line was read.
+
+That failure was mine rather than the product's, and it is worth recording as a fact about the
+product: the journey treated a search result as a link. A row in the synthetic patient
+directory is a **button** that loads the person into the snapshot beside it, and the link to
+the full record belongs to that snapshot. The test waited eight minutes for an element the
+product has never had. Fixed at `:1128`, with the reason written beside it.
+
+## Still owed after this wave
+
+1. **`paper-patient-plan.txt` shows the frame, not the words.** All eight section bodies are
+   the harness's filler, so the atlas cannot answer the question it was built to answer.
+   Closing it means either writing eight plausible patient-facing sections into the capture —
+   which is copy, and the user's — or capturing a sheet whose content came from the transform
+   rather than from a clinician typing. Recorded rather than reached for.
+2. **The team-written sheet is not in the atlas.** The capture writes Rowan's co-produced
+   copy. Mira's is now proven by assertion in a real browser, but it is not one of the three
+   files a person can sit down and read. Ruling 62 pins the capture at three papers, so adding
+   a fourth is a decision rather than an edit.
+3. **The clinician sheet's top-of-page boundary gives a count, not the five items**, and the
+   items sit far enough below that a page break can separate the pointer from what it points
+   at. Observation, not a defect.
+4. **The Personal Safety Plan repeats its crisis contacts**, and states a confirmation date
+   nearly a year old without remarking on it. Both are the user's call.
+5. Everything the first two waves left owed — the provisional patient-facing wording, the
+   Patient Plan's absent agreement moment, the participation marker's placement against
+   specification line 404, `discussed` keeping the joint wording, and the pre-existing
+   clinician-facing overclaim at `patient-plan-pages.tsx:254` — is unchanged. Nothing in this
+   wave touched any of them.

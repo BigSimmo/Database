@@ -384,6 +384,11 @@ tab stops on one surface rather than the whole family.
 
 ## Evidence capture — attempted, not completed
 
+> **Superseded on 25 August 2026: the capture has since run.** The account below is kept as
+> the record of three blocked attempts, because "blocked, retry" three times over is itself
+> evidence. The result, and what the captured papers actually read like, are in
+> **"Third wave — the three owed gaps, closed"** at the foot of this file.
+
 `CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup -- -g handoff` was started
 three times and **no attempt produced a single screenshot**.
 
@@ -498,3 +503,47 @@ appear in this run. That does not clear the underlying defect — the file still
 by this branch, it is repository-wide, and it was not fixed here — but "on every run" is not
 what this run showed, and the difference should not be reported as if it were. The
 `Prototype role` select has no placeholder, which is the likely reason.
+
+---
+
+## Third wave — the three owed gaps, closed
+
+25 August 2026. Evidence work only: no production file changed, no patient-facing copy
+touched. Full account, including the five positive controls and a straight reading of the
+three printed sheets, in `docs/care-plan/reports/final-fix-report.md`.
+
+| Previously owed                                                                                                                                                                                      | Now                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **The team-written Patient Plan was proven in jsdom only.** The one Chromium journey printing Mira's sheet made her copy before `SYN-MGMT-VERSION-004` was approved, so it printed the joint wording | **Closed.** `tests/ui-care-plan-mockup.spec.ts:1106` extends that journey — the staleness proof is kept, not traded — with a replacement copy written from the version approved without her, then printed. Asserted on the rendered page: no joint-authorship claim on the authoring form, on the screen, or on the paper; the team-written opening, headings and lead-ins present; nothing that reads as a reproach; and the copy's source pinned to Management Plan version 2, so a future reordering reddens instead of silently reverting |
+| **Drafting and submitting a Management Plan Version had no browser proof at all** — the largest uncovered journey, and the authoring path for the document the application exists to serve           | **Closed.** `tests/ui-care-plan-mockup.spec.ts:903` drafts a replacement as the liaison clinician, submits it for senior approval, and proves the Current Plan is not displaced while it waits — metadata captured before the draft existed and compared after, plus painted-box geometry and the pinned boundary still above the approved content                                                                                                                                                                                            |
+| **The evidence capture had never executed**, so its own assertions were untested and every visual claim rested on assertions rather than an artefact                                                 | **Closed.** `CARE_PLAN_CAPTURE_EVIDENCE=1 npm run test:e2e:care-plan-mockup` → `32 passed (1.9m)`, no skips. 26 screenshots, `manifest.json`, and the three `paper-*.txt` files written under git-ignored `.local/care-plan/atlas`; `git status` clean of them, `git check-ignore -v` confirms `.gitignore:21 /.local/`. Its image-count and file-name assertions passed for the first time                                                                                                                                                   |
+
+**Third-wave gates.** `32 passed (1.9m)` (Chromium, capture enabled) · `Test Files 6 passed (6)`
+/ `Tests 533 passed (533)` (Vitest) · `typecheck` and `lint` real invocations, exit 0, under
+`GATE_RECEIPTS=refresh` · `prettier --check` on the three changed files clean · byte scan CR=0,
+control bytes=0, no BOM. Nothing else was run, per user decision D2.
+
+**A refusal shape worse than the five already recorded.** The wave's first full browser run
+reported `1 failed` / `1 skipped` / `30 passed (10.0m)` while the shell reported **exit code
+0**, because the command ended in `tail`. Every previous instance on this branch was a
+_refusal_ wearing green; this was a _failure_ wearing green. Reading the summary line is the
+only reason it was caught, and it is the strongest argument yet for that rule.
+
+### Still owed after the third wave
+
+1. **`paper-patient-plan.txt` shows the sheet's frame, not its words.** All eight section
+   bodies hold the capture harness's filler sentence, because a Patient Plan has no fixture and
+   the capture has to write one. The artefact is honest evidence of structure, framing and
+   resources, and no evidence at all of content — so the atlas cannot yet answer the question it
+   was built to answer. Closing it means writing patient-facing prose, which is the user's.
+2. **Mira's team-written sheet is not in the atlas.** It is proven by assertion in a real
+   browser but is not one of the three papers a person can sit down and read. Ruling 62 pins the
+   capture at three, so a fourth is a decision rather than an edit.
+3. **The clinician sheet's top-of-page boundary prints a count, not the five items**, which sit
+   far enough below that a page break can separate the pointer from its referent.
+4. **The Personal Safety Plan repeats its crisis contacts** and states a confirmation date
+   nearly eleven months old without remarking on it.
+5. `expectNoReproach` on the paper, the `Awaiting Approval version 3` assertion, and the two
+   geometry assertions have **no positive control of their own** — asserted, not demonstrated
+   falsifiable.
+6. Everything the earlier waves left owed is unchanged; nothing in this wave touched any of it.
