@@ -2833,13 +2833,22 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         await createPlanParents(store, COORDINATOR_A);
         const created = unwrap(await store.createPlan(createInput(), writeContext(COORDINATOR_A, "att-read")));
 
+        // CONTENT FIRST, THEN AGREEMENT -- and that order is a mutation finding rather than a
+        // preference. The first version asserted only that the three reads matched each other, so a
+        // mutation emptying `toPlanRecord` for every read left it GREEN: three empty lists agree
+        // perfectly. An assertion that only compares reads to one another cannot see a fault they
+        // share. Each read is now held to the attestations the plan actually carries, and the
+        // agreement assertion sits on top of that.
+        const expected = ASSURANCES.length;
+
         const fetched = await store.getPlan(PLAN_ID, { actor: COORDINATOR_A });
+        expect(fetched?.assuranceAttestations).toHaveLength(expected);
         expect(fetched?.assuranceAttestations).toEqual(created.assuranceAttestations);
 
         const listed = await store.listPlans({ actor: COORDINATOR_A });
-        expect(listed.find((record) => record.plan.id === PLAN_ID)?.assuranceAttestations).toEqual(
-          created.assuranceAttestations,
-        );
+        const fromList = listed.find((record) => record.plan.id === PLAN_ID)?.assuranceAttestations;
+        expect(fromList).toHaveLength(expected);
+        expect(fromList).toEqual(created.assuranceAttestations);
       });
 
       it("refuses a plan that would carry no attestation, and stores no plan at all", async () => {
