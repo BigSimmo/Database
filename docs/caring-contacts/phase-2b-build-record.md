@@ -2500,3 +2500,37 @@ approved snapshot.
 **The finding underneath it, which outlives this ruling:** the two-segment measurement is taken against a
 literal name. Any future personalisation makes segment count patient-dependent, and the ceiling stops
 being a property of the message. Whoever revisits §2.1 needs that in front of them.
+
+### Ruling [126] CORRECTED — name the off-window contact by its TIME, not by an act
+
+**Superseding the wording half of Ruling [126] above.** The refusal to invent a fourth band stands
+unchanged and was right. **The label I chose was wrong**, and the way it was wrong is worth more than the
+correction.
+
+I ruled that a contact outside the three named windows should be called **moved**, reasoning that a
+deliberate move is the only way to reach that state. I told the review to test that premise rather than
+accept it, and it did — tracing every writer of `sendAt`: `buildApprovedSchedule` always uses an approved
+hour with minute 0, `changeContactDate` can only carry an already-moved wall clock to another day, the
+Postgres store reads back what was written, and no migration seeds contact rows. **The premise is true.**
+
+**The converse is false, and that is what breaks the label.** A morning plan's contact moved to 14:00
+lands silently inside the afternoon window, indistinguishable from a contact that was always afternoon,
+because nothing in `PlanRecord` records that a move happened. So `outsideApprovedWindows` means **"not at
+an approved send time"**. It does not mean "moved": the label would be true of every member of the group
+and would silently miss every moved contact that happened to land on an approved hour.
+
+**The screen therefore says the contact sits at a time none of the named windows covers, and shows the
+time.** That is a fact the system can attest from the value it holds. "Moved" is a fact about history
+that this record does not carry.
+
+**The general form, which is the reason this is written up rather than quietly amended:** I verified the
+premise and then read the label off it in the wrong direction. "Only X produces Y" licenses *"Y implies
+X"* and nothing else — it does not license naming the Y-group after X, because that name also claims
+**"not-Y implies not-X"**, which is a different proposition and was false here. A label is a claim about
+the whole partition, not only about the members it is attached to. Where a state has one cause but the
+cause has more than one outcome, **name the state, not the cause.**
+
+**Cost of the original error, had it shipped:** a schedule screen asserting a clinician action that the
+record cannot evidence, on a suicide-prevention surface, while the moved contacts it was meant to
+surface stayed invisible inside the three windows. Caught before Task 13 was dispatched; the brief was
+corrected rather than the code.
