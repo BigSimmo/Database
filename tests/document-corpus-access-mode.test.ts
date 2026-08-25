@@ -51,7 +51,10 @@ describe("document corpus access mode migration", () => {
   });
 
   it("restores the snapshot instead of inventing replacement ownership", () => {
-    expect(effectiveMigration).toContain("set owner_id = snapshot.owner_id");
+    expect(effectiveMigration).toContain("set owner_id = existing_owner.id");
+    expect(effectiveMigration).toContain(
+      "left join auth.users existing_owner on existing_owner.id = snapshot.owner_id",
+    );
     expect(effectiveMigration).toContain("when snapshot.public_corpus_present then pg_catalog.jsonb_set");
     expect(effectiveMigration).toContain("else coalesce(d.metadata, '{}'::jsonb) - 'public_corpus'");
   });

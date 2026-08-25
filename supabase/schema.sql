@@ -9777,9 +9777,11 @@ begin
     v_activation_id := v_state.activation_id;
 
     execute 'alter table public.documents disable trigger documents_require_publication_approval';
+    -- Snapshots keep a bare owner UUID. Reattach it only when auth.users still
+    -- has that row so a deleted owner cannot abort the private-mode restore.
     update public.documents d
     set
-      owner_id = snapshot.owner_id,
+      owner_id = existing_owner.id,
       metadata = case
         when snapshot.public_corpus_present then
           pg_catalog.jsonb_set(
@@ -9792,6 +9794,7 @@ begin
       end,
       updated_at = now()
     from public.document_corpus_access_snapshots snapshot
+    left join auth.users existing_owner on existing_owner.id = snapshot.owner_id
     where snapshot.activation_id = v_activation_id and snapshot.document_id = d.id;
     execute 'alter table public.documents enable trigger documents_require_publication_approval';
 
