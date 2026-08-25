@@ -7,7 +7,11 @@ import {
   getOpenPatientPlanDraft,
   isPatientPlanVersionStale,
 } from "@/components/care-plan/mockups/domain";
-import { publicCrisisContacts, syntheticPatients } from "@/components/care-plan/mockups/fixtures";
+import {
+  publicCrisisContacts,
+  syntheticManagementPlanVersions,
+  syntheticPatients,
+} from "@/components/care-plan/mockups/fixtures";
 import {
   PATIENT_RESOURCE_CATEGORY_ORDER,
   getPatientResources,
@@ -20,7 +24,9 @@ import {
   PATIENT_PLAN_GAP_REASON,
   PATIENT_PLAN_OMITTED_CONTENT_KEYS,
   PATIENT_PLAN_SECTION_HEADING,
+  PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN,
   PATIENT_PLAN_SECTION_LEAD_IN,
+  PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN,
   PATIENT_PLAN_SECTION_SOURCES,
   PLAIN_LANGUAGE_TERMS,
   THIRD_PERSON_VERBS,
@@ -175,13 +181,84 @@ describe("Patient Plan transformation", () => {
     expect(JSON.stringify({ version, patient, resources: syntheticPatientResources })).toBe(before);
   });
 
+  /**
+   * The eight headings spelled out literally rather than compared against
+   * `PATIENT_PLAN_SECTION_HEADING`.
+   *
+   * There are now two sets, chosen by whether the record says the person took
+   * part in writing the plan. An assertion that reads the map the transform
+   * renders from cannot tell which set was chosen — it passes for whichever one
+   * appeared, which is the generative shape this project has shipped twice.
+   *
+   * Rowan's Current Plan is `co_produced`, so this is the joint set.
+   */
+  const JOINT_HEADINGS = [
+    "Why we wrote this together",
+    "What matters to you",
+    "What helps you",
+    "What makes things harder",
+    "What we agreed will happen when you come to the emergency department",
+    "If something new is happening",
+    "Who's involved in your care",
+    "Things that might help",
+  ];
+
+  /**
+   * The user's decision, 25 August 2026: _"yes please stop saying that they
+   * helped write it."_
+   *
+   * Mira's version 2 is approved at `patient_unavailable`. Exactly two headings
+   * claimed she took part; the other six never did, and are unchanged.
+   */
+  const TEAM_WRITTEN_HEADINGS = [
+    "Why this plan was written",
+    "What matters to you",
+    "What helps you",
+    "What makes things harder",
+    "What your team has agreed will happen when you come to the emergency department",
+    "If something new is happening",
+    "Who's involved in your care",
+    "Things that might help",
+  ];
+
+  function versionById(id: string) {
+    const version = syntheticManagementPlanVersions.find((candidate) => candidate.id === id);
+    expect(version, `${id} is no longer in the fixtures`).toBeDefined();
+    return version!;
+  }
+
   it("produces the eight approved sections, in order, generated from the domain keys", () => {
     const draft = draftFor(ROWAN);
     expect(draft.sections.map((section) => section.key)).toEqual([...PATIENT_PLAN_SECTION_KEYS]);
     expect(draft.sections).toHaveLength(8);
-    for (const section of draft.sections) {
-      expect(section.heading).toBe(PATIENT_PLAN_SECTION_HEADING[section.key]);
-    }
+    expect(draft.sections.map((section) => section.heading)).toEqual(JOINT_HEADINGS);
+  });
+
+  it("stops saying the person helped write it when the record says they took no part", () => {
+    const version = versionById("SYN-MGMT-VERSION-004");
+    expect(version.participationState, "SYN-MGMT-VERSION-004 is no longer the non-participatory fixture").toBe(
+      "patient_unavailable",
+    );
+
+    const draft = buildPatientPlanDraft(version, patientBy(MIRA), syntheticPatientResources);
+    expect(draft.sections.map((section) => section.heading)).toEqual(TEAM_WRITTEN_HEADINGS);
+
+    // The two joint claims are gone outright, not reworded around.
+    const headings = draft.sections.map((section) => section.heading).join(" | ");
+    expect(headings).not.toMatch(/we wrote this together/i);
+    expect(headings).not.toMatch(/what we agreed/i);
+    // And nothing replaced them with a reproach.
+    expect(headings).not.toMatch(/declined|unavailable|without you|were not|did not/i);
+  });
+
+  it("keeps a version discussed with the person on the joint wording", () => {
+    // `discussed` mirrors `PARTICIPATION_MARKER_STATES`: a plan discussed with
+    // somebody who did not confirm it is not a plan written without them, and
+    // the user's instruction is about the case where they took no part at all.
+    const version = versionById("SYN-MGMT-VERSION-003");
+    expect(version.participationState).toBe("discussed");
+    const draft = buildPatientPlanDraft(version, patientBy(MIRA), syntheticPatientResources);
+    expect(draft.sections.map((section) => section.heading)).toEqual(JOINT_HEADINGS);
   });
 
   /**
@@ -222,7 +299,14 @@ describe("Patient Plan transformation", () => {
   });
 
   it("carries no ninth section and no physical-health heading", () => {
-    const headings = Object.values(PATIENT_PLAN_SECTION_HEADING).join(" ").toLowerCase();
+    // Both sets of headings: an alternative wording is still a heading a person
+    // reads, and gets the same sweep.
+    const headings = [
+      ...Object.values(PATIENT_PLAN_SECTION_HEADING),
+      ...Object.values(PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN),
+    ]
+      .join(" ")
+      .toLowerCase();
     expect(PATIENT_PLAN_SECTION_KEYS).toHaveLength(8);
     for (const forbidden of ["medication", "medicine", "physical health", "allergy", "dose"]) {
       expect(headings).not.toContain(forbidden);
@@ -699,6 +783,11 @@ describe("Patient Plan reads as something a person can be handed", () => {
       ...draft.sections.flatMap((section) => [section.heading, ...section.body]),
       ...resources.flatMap((resource) => [resource.name, resource.detail]),
       ...Object.values(PATIENT_PLAN_SECTION_LEAD_IN),
+      // The wording a non-participatory plan prints instead. It goes through
+      // the same language sweep as everything else, so a replacement written to
+      // stop one claim cannot introduce a stigmatising or blaming one.
+      ...Object.values(PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN),
+      ...Object.values(PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN),
     ];
   }
 
@@ -869,6 +958,48 @@ describe("Patient Plan reads as something a person can be handed", () => {
     expect(PATIENT_PLAN_SECTION_HEADING.ifSomethingNewIsHappening).toBe("If something new is happening");
     expect(PATIENT_PLAN_SECTION_HEADING.whoIsInvolved).toBe("Who's involved in your care");
     expect(PATIENT_PLAN_SECTION_HEADING.thingsThatMightHelp).toBe("Things that might help");
+  });
+
+  /**
+   * The alternative wording, pinned literally too, and pinned as *exactly* two
+   * headings and three lead-ins. A later hand tempted to "finish the set" by
+   * writing an alternative for all eight would be rewording six lines that were
+   * never dishonest — and every extra variant is one more thing that can drift
+   * out of step with the marker.
+   */
+  it("replaces only the wording that claimed the person took part", () => {
+    expect(Object.keys(PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN).sort()).toEqual([
+      "whatWeAgreedWillHappen",
+      "whyWeWroteThis",
+    ]);
+    expect(PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN.whyWeWroteThis).toBe("Why this plan was written");
+    expect(PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN.whatWeAgreedWillHappen).toBe(
+      "What your team has agreed will happen when you come to the emergency department",
+    );
+
+    expect(Object.keys(PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN).sort()).toEqual([
+      "whatMattersToYou",
+      "whatWeAgreedWillHappen",
+      "whyWeWroteThis",
+    ]);
+    expect(PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN.whyWeWroteThis).toBe(
+      "This is what your team wrote down about why this plan exists.",
+    );
+    expect(PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN.whatMattersToYou).toBe(
+      "This is your team's understanding of what matters to you.",
+    );
+    expect(PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN.whatWeAgreedWillHappen).toBe(
+      "This is the approach your team has agreed for when you come in.",
+    );
+
+    // Neutral, not negative: none of them narrates the person's absence.
+    const replacements = [
+      ...Object.values(PATIENT_PLAN_SECTION_HEADING_TEAM_WRITTEN),
+      ...Object.values(PATIENT_PLAN_SECTION_LEAD_IN_TEAM_WRITTEN),
+    ].join(" ");
+    expect(replacements).not.toMatch(/without you|you were not|you did not|declined|unavailable|instead of/i);
+    // And still addressed to them, not about them.
+    expect(replacements).toMatch(/\byou\b/i);
   });
 });
 

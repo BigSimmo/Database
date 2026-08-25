@@ -16,7 +16,7 @@ import {
 } from "./domain";
 import { PROTOTYPE_NOW } from "./fixtures";
 import { PATIENT_RESOURCE_CATEGORY_LABEL, getPatientResources } from "./patient-plan-fixtures";
-import { PATIENT_PLAN_SECTION_LEAD_IN } from "./patient-plan-transform";
+import { patientPlanSectionLeadIn } from "./patient-plan-transform";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
@@ -200,6 +200,20 @@ export function PatientPlanFormSurface({
   const actor = state.users.find((user) => user.id === state.activeUserId) ?? null;
   const mayAuthor = actor !== null && canPerformAction(actor.role, "approve_patient_plan");
   const available = getPatientResources(state.patientResources, patient.id);
+
+  /*
+   * How the source Management Plan Version was written. The clinician writing
+   * this draft reads the same headings and lead-ins the person eventually will,
+   * so the authorship wording has to be decided here too — and from the draft's
+   * own `derivedFromManagementVersionId` rather than from whatever is Current
+   * now, because a draft written from one version does not change its account
+   * of itself when another version is approved underneath it.
+   */
+  const draftParticipationState =
+    draft === null
+      ? null
+      : (state.managementPlanVersions.find((version) => version.id === draft.derivedFromManagementVersionId)
+          ?.participationState ?? null);
 
   const outcome =
     state.lastOutcome === null ? null : (
@@ -393,7 +407,7 @@ export function PatientPlanFormSurface({
               <PlanTextArea
                 id={patientPlanFieldId(section.key)}
                 label={section.heading}
-                hint={PATIENT_PLAN_SECTION_LEAD_IN[section.key]}
+                hint={patientPlanSectionLeadIn(section.key, draftParticipationState)}
                 value={values.sections[section.key] ?? ""}
                 onChange={(value) =>
                   setValues((previous) => ({

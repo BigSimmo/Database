@@ -7,6 +7,7 @@ import { FormField } from "@/components/ui/form-field";
 import { cn, fieldControlPlain, semanticChipTone, type SemanticChipTone } from "@/components/ui-primitives";
 
 import styles from "./care-plan.module.css";
+import { PARTICIPATION_MARKER_STATES } from "./domain";
 import { SYNTHETIC_DATA_MARKER } from "./fixtures";
 import {
   FIRST_MINUTE_CONTENT_KEYS,
@@ -493,32 +494,14 @@ export function PlanTextArea({
   );
 }
 
-const PARTICIPATION_MARKER_STATES: readonly ParticipationState[] = ["declined", "patient_unavailable"];
-
-/**
- * True when the record says this version was written without the person taking
- * part in writing it.
- *
- * Exported because two different surfaces have to agree about it and must not
- * each decide for themselves: the clinician's marker below, and the sentence at
- * the head of the person's own printed copy. Those two disagreeing is exactly
- * the defect this predicate exists to prevent — a clinician reading `Written
- * without this person's involvement` on screen while the sheet in their hand
- * tells the person they helped write it.
- *
- * `null` means the source version could not be resolved, and is deliberately
- * *not* treated as involvement. Not knowing is not the same as knowing they
- * took part, and the conservative direction on a document handed to somebody is
- * to claim nothing about how it was written.
- */
-export function claimsJointAuthorship(participationState: ParticipationState | null): boolean {
-  return participationState !== null && !PARTICIPATION_MARKER_STATES.includes(participationState);
-}
-
 /**
  * A version may be approved without the person taking part — sometimes a plan
  * has to be written for someone who cannot or will not engage. It is never
  * invisible that this happened, on any view, print, or queue entry.
+ *
+ * `PARTICIPATION_MARKER_STATES` moved to `domain.ts` once the person's own copy
+ * began deciding its headings and lead-ins from the same fact. One predicate,
+ * one truth: this marker and that copy cannot drift apart.
  */
 export function ParticipationMarker({ participationState }: { participationState: ParticipationState }) {
   if (!PARTICIPATION_MARKER_STATES.includes(participationState)) return null;

@@ -16,6 +16,7 @@ import {
   type EdPresentation,
   type PresentationAmendment,
   type ManagementPlanVersion,
+  type ParticipationState,
   type Patient,
   type PatientPlanVersion,
   type PatientSnapshot,
@@ -496,6 +497,36 @@ export function deriveReviewState(reviewDueAt: string, now: string): ReviewState
   if (nowMs > dueMs) return "overdue";
   if (dueMs - nowMs <= REVIEW_DUE_SOON_DAYS * MILLISECONDS_PER_DAY) return "due_soon";
   return "within_review";
+}
+
+/**
+ * The two participation states that mean the person took no part in writing the
+ * version.
+ *
+ * It lives here, in the pure domain module, because three layers now depend on
+ * it and none of them may decide for itself: the clinician's
+ * `ParticipationMarker`, the opening sentence of the person's printed copy, and
+ * the section headings and lead-ins that copy is built from. A second notion of
+ * when the claim is allowed is exactly how a marker and a sentence drift apart.
+ */
+export const PARTICIPATION_MARKER_STATES: readonly ParticipationState[] = ["declined", "patient_unavailable"];
+
+/**
+ * True when the record says this version was written *with* the person, so a
+ * document may say so.
+ *
+ * `null` means the source version could not be resolved, and is deliberately
+ * **not** treated as involvement. Not knowing is not the same as knowing they
+ * took part, and the conservative direction on a document handed to somebody is
+ * to claim nothing about how it was written.
+ *
+ * `discussed` counts as joint authorship, mirroring `PARTICIPATION_MARKER_STATES`
+ * above. A plan discussed with somebody who did not confirm it is not a plan
+ * written without them, and the user's instruction is about the case where the
+ * person took no part at all.
+ */
+export function claimsJointAuthorship(participationState: ParticipationState | null): boolean {
+  return participationState !== null && !PARTICIPATION_MARKER_STATES.includes(participationState);
 }
 
 /** Approval must produce exactly one Current version per plan. This guards that

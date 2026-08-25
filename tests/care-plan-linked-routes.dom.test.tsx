@@ -3342,6 +3342,32 @@ describe("Care Plan Patient Plan", () => {
   }
 
   /**
+   * Every claim of joint authorship the eight headings and lead-ins used to
+   * make, spelled out literally rather than derived from the maps the component
+   * renders from.
+   *
+   * The user's decision on 25 August 2026 was _"yes please stop saying that they
+   * helped write it"_, and the opening sentence alone does not satisfy it: one
+   * careful line surrounded by eight casual contradictions of it is worse than
+   * either. None of these may survive anywhere on a `declined` or
+   * `patient_unavailable` copy, on screen or on paper.
+   */
+  const JOINT_AUTHORSHIP_CLAIMS: readonly RegExp[] = [
+    /we wrote this together/i,
+    /what we agreed will happen/i,
+    /what we wrote down/i,
+    /you have said/i,
+    /you and your team agreed/i,
+  ];
+
+  function expectNoClaimOfJointAuthorship(element: HTMLElement, where: string) {
+    const text = element.textContent ?? "";
+    for (const claim of JOINT_AUTHORSHIP_CLAIMS) {
+      expect(claim.test(text), `${where} still claims joint authorship: ${claim}`).toBe(false);
+    }
+  }
+
+  /**
    * The claim this banner used to make, and must never make again: the plan may
    * have been withdrawn rather than updated, in which case nothing was updated
    * and there may be no plan in use at all.
@@ -3715,6 +3741,17 @@ describe("Care Plan Patient Plan", () => {
     expect(text).toContain("Written on");
     expect(text).not.toContain("Agreed on");
     expect(text).not.toMatch(/\bagreed\s+on\b/i);
+
+    /*
+     * For a co-produced plan the joint wording is true, warm and reviewed, and
+     * nothing about this wave touches it. Asserted so the alternative wording
+     * cannot quietly become the only wording.
+     */
+    expect(text).toContain("Why we wrote this together");
+    expect(text).toContain("What we agreed will happen when you come to the emergency department");
+    expect(text).toContain("This is what we wrote down about why this plan exists.");
+    expect(text).toContain("These are the things you have said matter to you.");
+    expect(text).toContain("This is the approach you and your team agreed for when you come in.");
   });
 
   /**
@@ -3753,6 +3790,21 @@ describe("Care Plan Patient Plan", () => {
       ),
     ).toBeInTheDocument();
 
+    /*
+     * On screen too, not only on paper. A clinician reads these same eight
+     * headings while deciding whether to hand the copy over, and the reading
+     * surface and the sheet must not disagree about who wrote the plan.
+     */
+    const onScreen = screen.getByTestId("care-plan-patient-plan-sections");
+    expectNoClaimOfJointAuthorship(onScreen, "the Patient Plan reading surface");
+    expect(onScreen).toHaveTextContent("Why this plan was written");
+    expect(onScreen).toHaveTextContent(
+      "What your team has agreed will happen when you come to the emergency department",
+    );
+    expect(onScreen).toHaveTextContent("This is what your team wrote down about why this plan exists.");
+    expect(onScreen).toHaveTextContent("This is your team's understanding of what matters to you.");
+    expect(onScreen).toHaveTextContent("This is the approach your team has agreed for when you come in.");
+
     goTo(carePlanRoute.patientPlanPrint("SYN-PATIENT-002"));
     expect(
       within(screen.getByTestId("care-plan-patient-plan-print-participation")).getByText(
@@ -3773,6 +3825,34 @@ describe("Care Plan Patient Plan", () => {
     // shape that would read as a reproach.
     expect(paper.textContent ?? "").not.toContain("Written without this person's involvement");
     expectNoReproach(paper);
+
+    /*
+     * And the eight headings and lead-ins agree with the opening sentence. This
+     * is the half the first wave left undone: the intro was made honest while
+     * `Why we wrote this together` and "These are the things you have said
+     * matter to you" still sat under it, on a plan she took no part in.
+     */
+    expectNoClaimOfJointAuthorship(paper, "the printed Patient Plan");
+    const printed = paper.textContent ?? "";
+    expect(printed).toContain("Why this plan was written");
+    expect(printed).toContain("What your team has agreed will happen when you come to the emergency department");
+    expect(printed).toContain("This is what your team wrote down about why this plan exists.");
+    expect(printed).toContain("This is your team's understanding of what matters to you.");
+    expect(printed).toContain("This is the approach your team has agreed for when you come in.");
+
+    // The six headings that never made a claim are untouched — this is a
+    // wording change within the eight sections, not a restructure.
+    for (const unchanged of [
+      "What matters to you",
+      "What helps you",
+      "What makes things harder",
+      "If something new is happening",
+      "Who's involved in your care",
+      "Things that might help",
+    ]) {
+      expect(printed, `${unchanged} was reworded although it never claimed anything`).toContain(unchanged);
+    }
+    expect(within(paper).getAllByRole("heading", { level: 3 }).length).toBeGreaterThanOrEqual(8);
   });
 });
 

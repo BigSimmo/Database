@@ -11,6 +11,7 @@ import styles from "./care-plan.module.css";
 import {
   buildPatientSnapshot,
   canPerformAction,
+  claimsJointAuthorship,
   getCurrentPatientPlanVersion,
   getOpenPatientPlanDraft,
   isPatientPlanVersionStale,
@@ -18,7 +19,7 @@ import {
 import { PROTOTYPE_NOW } from "./fixtures";
 import { PatientNavigation } from "./patient-navigation";
 import { groupPatientResources } from "./patient-plan-fixtures";
-import { PATIENT_PLAN_SECTION_LEAD_IN } from "./patient-plan-transform";
+import { patientPlanSectionLeadIn } from "./patient-plan-transform";
 import { useCarePlanPrototype } from "./prototype-provider";
 import { getPrototypeMutationBlockReason } from "./prototype-state";
 import {
@@ -30,7 +31,6 @@ import {
   SectionFrame,
   StatusMark,
   SyntheticMarker,
-  claimsJointAuthorship,
   formatPerthDate,
 } from "./prototype-ui";
 import { carePlanRoute } from "./routes";
@@ -147,9 +147,15 @@ function patientPlanPaperIntro(participationState: ParticipationState | null): s
  */
 function PatientPlanSections({
   sections,
+  participationState,
   gaps = "state",
 }: {
   sections: readonly PatientPlanVersion["sections"][number][];
+  /** How the source Management Plan Version was written. The heading is already
+   *  stored on the section, chosen from this same fact when the draft was built;
+   *  the lead-in beneath it is chosen here, from the same predicate, so a heading
+   *  and its own sentence cannot make opposite claims. */
+  participationState: ParticipationState | null;
   /** `state` — the working copy: a gap is shown with its reason.
    *  `omit` — the person's own copy: a gap is not printed at all. */
   gaps?: "state" | "omit";
@@ -162,7 +168,7 @@ function PatientPlanSections({
           <h3 id={`care-plan-patient-plan-section-${section.key}`} className={styles.patientPlanSectionHeading}>
             {section.heading}
           </h3>
-          <p className={styles.patientPlanLeadIn}>{PATIENT_PLAN_SECTION_LEAD_IN[section.key]}</p>
+          <p className={styles.patientPlanLeadIn}>{patientPlanSectionLeadIn(section.key, participationState)}</p>
           {/*
             The converted points and the flag are shown together, not one or the
             other. A section may hold some of its points and still be waiting on
@@ -467,7 +473,10 @@ export function PatientPlanSurface({ patientId, scenario }: { patientId: string 
           </SectionFrame>
 
           <SectionFrame id="care-plan-patient-plan-content" heading={`${patient.preferredName}'s copy`}>
-            <PatientPlanSections sections={current.sections} />
+            <PatientPlanSections
+              sections={current.sections}
+              participationState={sourceVersion?.participationState ?? null}
+            />
           </SectionFrame>
 
           <SectionFrame id="care-plan-patient-plan-resource-list" heading="Resources on this copy">
@@ -701,7 +710,11 @@ export function PatientPlanPrintSurface({
           {stale ? <PrintedStaleBanner /> : null}
         </PrintSection>
 
-        <PatientPlanSections sections={version.sections} gaps="omit" />
+        <PatientPlanSections
+          sections={version.sections}
+          participationState={sourceVersion?.participationState ?? null}
+          gaps="omit"
+        />
 
         <PatientPlanResources resources={version.resources} />
       </PrintOutput>
