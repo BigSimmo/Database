@@ -132,9 +132,14 @@ function ModeHeader({
   return (
     <header className={styles.modeHeader}>
       <div className={styles.modeIdentity}>
+        {/* Ward Flow's own identity, not the host application's. This read "Clinical KB /
+            Source-backed clinical search" on every board of a sandboxed synthetic prototype that
+            does no searching and is not source-backed. Found by looking at a screenshot — every
+            measurement run against this codebase missed it, because nothing was structurally
+            wrong with it. */}
         <span>
-          <strong>Clinical KB</strong>
-          <small>Source-backed clinical search</small>
+          <strong>Ward Flow</strong>
+          <small>Synthetic patient-flow prototype</small>
         </span>
         <div className={styles.modeTitle}>
           <h1>{copy.title}</h1>

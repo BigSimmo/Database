@@ -190,7 +190,11 @@ describe("ClinicalRail's aria-label is honest for a sandboxed prototype (D11)", 
    * rather than a render assertion: the defect it prevents is invisible to rendering.**
    */
   it("routes nowhere in the clinical application — the developer hub is the only way out", () => {
-    const clinicalExits = ["/documents", "/services", "/medications", "/tools", "/?mode=answer"];
+    // `"/"` is the clinical application's home, and it is in this list because it was the NINTH
+    // exit — the logo. Eight were found by reading the source; the logo was missed, because a
+    // brand mark linking to `/` looks completely unremarkable in source and only reads as wrong
+    // once you see it sitting above a sandboxed prototype's own rail.
+    const clinicalExits = ["/", "/documents", "/services", "/medications", "/tools", "/?mode=answer"];
     const found = clinicalExits.filter((href) => source.includes(`href="${href}"`));
     expect(found, `the rail must not link into the clinical app, but found: ${found.join(", ")}`).toEqual([]);
     // Non-vacuity: the one legitimate exit must still be there, or this test would also pass on a

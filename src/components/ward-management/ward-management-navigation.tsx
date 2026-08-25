@@ -99,8 +99,13 @@ function RailLink({
  */
 export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
   return (
-    <aside className={shellStyles.clinicalRail} aria-label="Clinical KB">
-      <Link href="/" className={shellStyles.railBrand} aria-label="Clinical KB home">
+    <aside className={shellStyles.clinicalRail} aria-label="Ward Flow">
+      {/* The NINTH link out of the sandbox, and the most prominent one: the logo pointed at `/`,
+          the clinical application's home. I removed eight others by reading the source and did not
+          see this one, because a logo linking home looks entirely normal in source. It showed up
+          the moment a screenshot was looked at. It now points at Ward Flow's own home, which is
+          what a standalone application's logo does. */}
+      <Link href="/mockups/ward-flow" className={shellStyles.railBrand} aria-label="Ward Flow home">
         <BrandMark className={shellStyles.brandGlyph} />
       </Link>
       <div className={shellStyles.railRule} aria-hidden="true" />
