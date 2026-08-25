@@ -38,7 +38,7 @@
   display: grid;
   height: 100dvh;
   min-height: 44rem;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   /* Task 9 Ruling 4: the nav row this used to reserve for the horizontal `WardModeNavigation`
      strip is gone — those eight links now live inside `ClinicalRail` (grid-column 1), so
      `.modeContent` is the second and last row. */
@@ -831,10 +831,6 @@
 }
 
 @media (max-width: 62rem) {
-  .modeShell {
-    grid-template-columns: 4rem minmax(0, 1fr);
-  }
-
   .modeHeader,
   .modeContent {
     display: block;
@@ -879,9 +875,15 @@
  * get the phone-specific sticky/compact treatment below.
  */
 @media (max-width: 40rem) {
+  /* Reserve the fixed phone bar (ward-sidebar.module.css) and push this shell's own sticky
+     header down below it, rather than letting the bar cover it. */
+  .modeShell {
+    padding-top: 3.5rem;
+  }
+
   .modeHeader {
     position: sticky;
-    top: 0;
+    top: 3.5rem;
     z-index: var(--ward-z-phone);
     display: grid;
     min-height: 4.25rem;

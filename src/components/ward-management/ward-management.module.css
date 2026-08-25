@@ -82,11 +82,45 @@
   z-index: var(--ward-z-sticky);
   display: flex;
   min-height: 0;
+  /* The rail's own width is now what decides the shell's first grid track: every Ward Flow shell
+     declares that track `auto`, so the sidebar has one width in one place across its three
+     shapes (icon rail here, 17rem panel in ward-sidebar.module.css, nothing at all on a phone)
+     instead of a `4.5rem` literal repeated in ten stylesheets. */
+  width: 4.5rem;
   flex-direction: column;
   align-items: center;
   border-right: 0.0625rem solid var(--ward-border);
   background: var(--ward-chrome);
   padding: var(--ward-space-10) var(--ward-space-8) var(--ward-space-12);
+}
+
+/*
+ * Below 40rem the rail does not exist: `ward-sidebar.module.css`'s fixed phone bar and its
+ * drawer take over, the same way the clinical application drops to `ClinicalMobileSidebar`
+ * below md. Until this rule the 4.5rem desktop icon column rendered unchanged on a 390px
+ * phone — 18% of the viewport — because this file's four media queries were
+ * `prefers-reduced-motion`, `forced-colors`, and two width rules that named `.workspaceGrid`
+ * and `.patientWorkspace`. Not one of them touched the rail.
+ */
+@media (max-width: 40rem) {
+  .clinicalRail {
+    display: none;
+  }
+}
+
+/*
+ * Applied alongside `.clinicalRail` when the user has expanded the labelled panel. The panel
+ * only exists from 64rem, so the rail must stay put below that width — mirroring
+ * `ClinicalCollapsedRail`'s `lg:hidden`, which is the same trade for the same reason.
+ */
+.railHiddenOnDesktop {
+  grid-column: 1;
+}
+
+@media (min-width: 64rem) {
+  .railHiddenOnDesktop {
+    display: none;
+  }
 }
 
 .railBrand {
@@ -96,6 +130,64 @@
   height: 3rem;
   place-items: center;
   border-radius: var(--radius-lg);
+}
+
+/*
+ * From 64rem the brand mark becomes the expand control and the plain home link steps aside,
+ * exactly as the clinical sidebar does: hovering or focusing the mark swaps it for
+ * `PanelLeftOpen`. Below 64rem there is nothing to expand into, so the link stays a link and
+ * this button is not rendered at all — a dead control is worse than no control.
+ */
+@media (min-width: 64rem) {
+  .railBrand {
+    display: none;
+  }
+}
+
+.railExpand {
+  display: none;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: var(--ward-muted);
+  cursor: pointer;
+}
+
+@media (min-width: 64rem) {
+  .railExpand {
+    display: grid;
+  }
+}
+
+.railExpand:hover {
+  border-color: var(--ward-border);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.railExpandBrand {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.railExpandIcon {
+  display: none;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.railExpand:hover .railExpandBrand,
+.railExpand:focus-visible .railExpandBrand {
+  display: none;
+}
+
+.railExpand:hover .railExpandIcon,
+.railExpand:focus-visible .railExpandIcon {
+  display: block;
 }
 
 .brandGlyph {
@@ -356,7 +448,7 @@
 .patientWorkspace {
   display: grid;
   min-height: 100dvh;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: 4.5rem minmax(0, 1fr);
   background: var(--background);
 }
@@ -686,6 +778,8 @@
     min-height: 100dvh;
     height: auto;
     overflow: visible;
+    /* Reserve the fixed phone bar (ward-sidebar.module.css). */
+    padding-top: 3.5rem;
   }
 
   /*
@@ -703,7 +797,7 @@
 
   .workspaceHeader {
     position: sticky;
-    top: 0;
+    top: 3.5rem;
     z-index: var(--ward-z-phone);
     min-height: 4rem;
     border-bottom: 0.0625rem solid var(--ward-border);

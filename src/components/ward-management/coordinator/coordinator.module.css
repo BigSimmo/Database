@@ -35,7 +35,7 @@
   display: grid;
   height: 100dvh;
   min-height: 44rem;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   overflow: hidden;
   background: var(--surface);
   color: var(--text);
@@ -1927,5 +1927,16 @@
   .diagramUnit[data-routed="true"][data-eligible="false"],
   .diagramUnitSelected[data-routed="true"][data-eligible="false"] {
     outline-color: Highlight;
+  }
+}
+
+/*
+ * Below 40rem the icon rail is gone and `ward-sidebar.module.css`'s fixed phone bar takes its
+ * place. The bar is fixed rather than sticky because it has to sit above ten different shells
+ * whose scroll containers are all in a different place, so each shell reserves its 3.5rem here.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: 3.5rem;
   }
 }

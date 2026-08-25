@@ -40,7 +40,12 @@ import { WardScreen } from "@/components/ward-management/ward/ward-screen";
 import { WardPatientWorkspace } from "@/components/ward-management/ward-management-console";
 import { NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
-import { WARD_NAV, WARD_NAV_INTENTIONALLY_UNLISTED } from "../src/components/ward-management/ward-nav";
+import {
+  WARD_DEVELOPER_HUB_HREF,
+  WARD_NAV,
+  WARD_NAV_INTENTIONALLY_UNLISTED,
+  WARD_VIEWS,
+} from "../src/components/ward-management/ward-nav";
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const WARD_FLOW_ROOT = path.join(REPO_ROOT, "src", "app", "mockups", "ward-flow");
@@ -105,6 +110,9 @@ describe("Ward Flow route enumeration (sanity check on the scan itself)", () => 
 });
 
 describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
+  // Every destination the rail, the panel and the drawer render, from the one file all three read.
+  const navHrefs = new Set([...WARD_VIEWS, ...WARD_NAV].map((item) => item.href));
+
   // Direction 1: every WARD_NAV href must be a real route (static or one instance of a dynamic
   // route). This is the direction a purely "does every link work" check would already cover.
   it("every WARD_NAV href resolves to a real route under src/app/mockups/ward-flow/", () => {
@@ -117,17 +125,38 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
   // Direction 2: every real STATIC route must appear in WARD_NAV or be recorded as intentionally
   // unlisted with a reason. This is the direction a one-way "is every link real" check cannot
   // see — and its absence is exactly how D8 shipped three boards with no rail entry.
-  it("every static Ward Flow route appears in WARD_NAV or is recorded as intentionally unlisted", () => {
-    const navHrefs = new Set(WARD_NAV.map((item) => item.href));
+  it("every static Ward Flow route appears in the navigation or is recorded as intentionally unlisted", () => {
     const missing = staticRoutes.filter((route) => !navHrefs.has(route) && !WARD_NAV_INTENTIONALLY_UNLISTED.has(route));
     expect(
       missing,
-      `Static Ward Flow route(s) in neither WARD_NAV nor WARD_NAV_INTENTIONALLY_UNLISTED: ${missing.join(", ")}`,
+      `Static Ward Flow route(s) in neither the nav arrays nor WARD_NAV_INTENTIONALLY_UNLISTED: ${missing.join(", ")}`,
     ).toEqual([]);
   });
 
-  it("WARD_NAV_INTENTIONALLY_UNLISTED has no stale entries, no empty reasons, and never overlaps WARD_NAV", () => {
-    const navHrefs = new Set(WARD_NAV.map((item) => item.href));
+  // The eight views moved out of eight literal `<Link>` blocks and into `WARD_VIEWS` so the
+  // labelled panel and drawer could render the same destinations the icon rail renders. Direction
+  // 1 has to cover them too, or half the navigation would be unchecked.
+  it("every WARD_VIEWS href resolves to a real static route, and ids and hrefs are unique", () => {
+    const unresolved = WARD_VIEWS.filter((view) => !staticRoutes.includes(view.href)).map((view) => view.href);
+    expect(unresolved, `WARD_VIEWS href(s) with no matching route: ${unresolved.join(", ")}`).toEqual([]);
+    expect(new Set(WARD_VIEWS.map((view) => view.id)).size).toBe(WARD_VIEWS.length);
+    expect(new Set(WARD_VIEWS.map((view) => view.href)).size).toBe(WARD_VIEWS.length);
+    expect(WARD_VIEWS).toHaveLength(8);
+  });
+
+  it("no route is listed in both WARD_VIEWS and WARD_NAV", () => {
+    const viewHrefs = new Set(WARD_VIEWS.map((view) => view.href));
+    const overlap = WARD_NAV.filter((item) => viewHrefs.has(item.href)).map((item) => item.href);
+    expect(overlap, `href(s) in both WARD_VIEWS and WARD_NAV — pick one: ${overlap.join(", ")}`).toEqual([]);
+  });
+
+  it("every destination carries a non-empty label, so the panel and drawer can name it", () => {
+    for (const item of [...WARD_VIEWS, ...WARD_NAV]) {
+      expect(item.label.trim().length, `${item.href} has an empty label`).toBeGreaterThan(0);
+    }
+  });
+
+  it("WARD_NAV_INTENTIONALLY_UNLISTED has no stale entries, no empty reasons, and never overlaps the nav", () => {
     for (const [route, reason] of WARD_NAV_INTENTIONALLY_UNLISTED) {
       expect(
         staticRoutes,
@@ -162,10 +191,20 @@ describe("Ward Flow navigation — single source (ward-nav.ts)", () => {
 });
 
 describe("ClinicalRail's aria-label is honest for a sandboxed prototype (D11)", () => {
-  const source = readFileSync(
-    path.join(REPO_ROOT, "src/components/ward-management/ward-management-navigation.tsx"),
-    "utf8",
-  );
+  /**
+   * Every file that can put a link on a Ward Flow screen, concatenated. The sidebar is now three
+   * surfaces (icon rail, labelled panel, phone drawer) across three files plus the data they all
+   * read, so scanning only `ward-management-navigation.tsx` would leave two of the three
+   * unguarded — and a link out of the sandbox added to the drawer is exactly as wrong as one
+   * added to the rail.
+   */
+  const source = [
+    "src/components/ward-management/ward-management-navigation.tsx",
+    "src/components/ward-management/ward-sidebar-content.tsx",
+    "src/components/ward-management/ward-nav.ts",
+  ]
+    .map((file) => readFileSync(path.join(REPO_ROOT, file), "utf8"))
+    .join("\n");
 
   it("no longer claims Ward Flow is a clinical application", () => {
     expect(source).not.toContain("Clinical applications");
@@ -195,11 +234,16 @@ describe("ClinicalRail's aria-label is honest for a sandboxed prototype (D11)", 
     // brand mark linking to `/` looks completely unremarkable in source and only reads as wrong
     // once you see it sitting above a sandboxed prototype's own rail.
     const clinicalExits = ["/", "/documents", "/services", "/medications", "/tools", "/?mode=answer"];
-    const found = clinicalExits.filter((href) => source.includes(`href="${href}"`));
-    expect(found, `the rail must not link into the clinical app, but found: ${found.join(", ")}`).toEqual([]);
+    const found = clinicalExits.filter(
+      (href) => source.includes(`href="${href}"`) || source.includes(`"${href}",`),
+    );
+    expect(found, `the sidebar must not link into the clinical app, but found: ${found.join(", ")}`).toEqual([]);
     // Non-vacuity: the one legitimate exit must still be there, or this test would also pass on a
-    // rail with no links at all.
-    expect(source).toContain('href="/mockups/development"');
+    // sidebar with no links at all. The href is now a named constant shared by the rail and the
+    // drawer, so both its value and its use are asserted.
+    expect(WARD_DEVELOPER_HUB_HREF).toBe("/mockups/development");
+    expect(source).toContain("WARD_DEVELOPER_HUB_HREF");
+    expect(source).toContain('"/mockups/development"');
   });
 });
 

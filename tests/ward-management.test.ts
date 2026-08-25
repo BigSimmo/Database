@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+import { WARD_VIEWS } from "@/components/ward-management/ward-nav";
+
 import { elapsedLabel } from "../src/components/ward-management/ward-derivations";
 import { legalFormName } from "../src/components/ward-management/ward-legal-forms";
 import { MOVEMENT_STAGES, PARALLEL_REFERRAL_CAP } from "../src/components/ward-management/ward-model";
@@ -10,14 +12,17 @@ import { NOW_ANCHOR, allUnits } from "../src/components/ward-management/ward-sit
 const modesSource = readFileSync("src/components/ward-management/ward-management-modes.tsx", "utf8");
 
 /**
- * The mode strip renders one literal `<Link href="...">` per view so
- * `tests/route-reachability.test.ts` can find the hrefs by static AST scan. Reading the
- * source back is therefore the only way to assert the strip and the routes agree.
+ * The eight views, read from the data the rail, the panel and the drawer all render from.
+ *
+ * This used to be a regex over `WardModeNavigation`'s own source text, because the eight
+ * destinations only existed as eight literal `<Link href="...">` blocks inside that function.
+ * They now live in `WARD_VIEWS` (`ward-nav.ts`), which is both a stronger check — it reads what
+ * ships rather than what the source happens to spell — and the reason a labelled sidebar was
+ * possible at all: a panel cannot read a rail's icon-only JSX, and a second hand-maintained copy
+ * of the same eight destinations is the exact defect `ward-nav.ts` exists to prevent.
  */
 function wardModeHrefs() {
-  const source = readFileSync("src/components/ward-management/ward-management-navigation.tsx", "utf8");
-  const modeStrip = source.slice(source.indexOf("export function WardModeNavigation"));
-  return [...modeStrip.matchAll(/href="(\/mockups\/ward-flow[^"]*)"/g)].map((match) => match[1]);
+  return WARD_VIEWS.map((view) => view.href);
 }
 
 function routeFileFor(href: string) {
