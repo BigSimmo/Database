@@ -69,32 +69,33 @@ Smaller top-level directories that are easy to miss:
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                             | File                                                                                                                                                                           |
-| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/`                                                                                                               | `src/app/(search-app)/page.tsx`                                                                                                                                                |
-| Shared mode-home route group (`/(search-app)`)                                                                    | `src/app/(search-app)/`                                                                                                                                                        |
-| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                               | `src/app/(search-app)/` shared shell group                                                                                                                                     |
-| `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                            | `src/app/caring-contacts/`                                                                                                                                                     |
-| `/applications`                                                                                                   | `src/app/applications/route.ts`                                                                                                                                                |
-| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                      | `src/app/(search-app)/differentials/`                                                                                                                                          |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                    | `src/app/(search-app)/dsm/`                                                                                                                                                    |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                              | `src/app/(search-app)/documents/`                                                                                                                                              |
-| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                         | `src/app/(search-app)/factsheets/`                                                                                                                                             |
-| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare, Sources | `src/app/(search-app)/dictionary/`                                                                                                                                             |
-| `/favourites`                                                                                                     | `src/app/(search-app)/favourites/page.tsx`                                                                                                                                     |
-| `/forms`, `/forms/[slug]`                                                                                         | `src/app/(search-app)/forms/`                                                                                                                                                  |
-| `/medications`, `/medications/[slug]`                                                                             | `src/app/(search-app)/medications/`                                                                                                                                            |
-| `/privacy`                                                                                                        | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx`                                                                                      |
-| `/reference/colour-coding`                                                                                        | `src/app/reference/`                                                                                                                                                           |
-| `/safety-plan`                                                                                                    | `src/app/safety-plan/page.tsx`                                                                                                                                                 |
-| `/calculators`, `/calculators/search`                                                                             | `src/app/(search-app)/calculators/`                                                                                                                                            |
-| `/services`, `/services/[slug]`                                                                                   | `src/app/(search-app)/services/`                                                                                                                                               |
-| `/therapy-compass`                                                                                                | `src/app/(search-app)/therapy-compass/`                                                                                                                                        |
-| `/tools`                                                                                                          | `src/app/(search-app)/tools/`                                                                                                                                                  |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`              | `src/app/(search-app)/specifiers/`                                                                                                                                             |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`         | `src/app/(search-app)/formulation/`                                                                                                                                            |
-| `/mockups/*`                                                                                                      | `src/app/mockups/` (404 in production; `/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, `/mockups/ward-flow` are developer-gated instead — see below) |
-| `/auth/callback`                                                                                                  | `src/app/auth/callback/route.ts`                                                                                                                                               |
+| Route                                                                                                                                                                  | File                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                                                                                                                                                    | `src/app/(search-app)/page.tsx`                                                                                                                                                    |
+| Shared mode-home route group (`/(search-app)`)                                                                                                                         | `src/app/(search-app)/`                                                                                                                                                            |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                    | `src/app/(search-app)/` shared shell group                                                                                                                                         |
+| `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                 | `src/app/caring-contacts/`                                                                                                                                                         |
+| `/caring-contacts/patients` (permission-scoped caseload: one row per plan plus an authorised names-only projection; URL state filter and local name/identifier search) | `src/app/caring-contacts/patients/page.tsx`                                                                                                                                        |
+| `/applications`                                                                                                                                                        | `src/app/applications/route.ts`                                                                                                                                                    |
+| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                           | `src/app/(search-app)/differentials/`                                                                                                                                              |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                         | `src/app/(search-app)/dsm/`                                                                                                                                                        |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                                   | `src/app/(search-app)/documents/`                                                                                                                                                  |
+| `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`                                                                                        | `src/app/(search-app)/factsheets/`                                                                                                                                                 |
+| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare, Sources                                                      | `src/app/(search-app)/dictionary/`                                                                                                                                                 |
+| `/favourites`                                                                                                                                                          | `src/app/(search-app)/favourites/page.tsx`                                                                                                                                         |
+| `/forms`, `/forms/[slug]`                                                                                                                                              | `src/app/(search-app)/forms/`                                                                                                                                                      |
+| `/medications`, `/medications/[slug]`                                                                                                                                  | `src/app/(search-app)/medications/`                                                                                                                                                |
+| `/privacy`                                                                                                                                                             | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx`                                                                                          |
+| `/reference/colour-coding`                                                                                                                                             | `src/app/reference/`                                                                                                                                                               |
+| `/safety-plan`                                                                                                                                                         | `src/app/safety-plan/page.tsx`                                                                                                                                                     |
+| `/calculators`, `/calculators/search`                                                                                                                                  | `src/app/(search-app)/calculators/`                                                                                                                                                |
+| `/services`, `/services/[slug]`                                                                                                                                        | `src/app/(search-app)/services/`                                                                                                                                                   |
+| `/therapy-compass`                                                                                                                                                     | `src/app/(search-app)/therapy-compass/`                                                                                                                                            |
+| `/tools`                                                                                                                                                               | `src/app/(search-app)/tools/`                                                                                                                                                      |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                                   | `src/app/(search-app)/specifiers/`                                                                                                                                                 |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                              | `src/app/(search-app)/formulation/`                                                                                                                                                |
+| `/mockups/*`                                                                                                                                                           | `src/app/mockups/` (404 in production; `/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, and `/mockups/ward-flow` are developer-gated instead — see below) |
+| `/auth/callback`                                                                                                                                                       | `src/app/auth/callback/route.ts`                                                                                                                                                   |
 
 ### API routes (`src/app/api/`)
 
@@ -204,6 +205,18 @@ repositories. `src/lib/caring-contacts-server/` is the server-side seam for the 
 and optional separate database connection. It must fail closed in production and must never
 connect to the Clinical KB Supabase project. The standalone `src/app/caring-contacts/` workspace
 is noindex, visibly marked synthetic, and has a single inbound entry from the Tools catalogue.
+
+Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
+destination set: a destination carries an `href` only once its page exists, and every other one
+renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
+(Today) and `/caring-contacts/patients` (the caseload) are the two built so far. Screens are
+Server Components that read the store through `auditedRead` rather than over HTTP, using the same
+access identity the matching API route records; filtering is carried in the URL and read by the
+Server Component, so a new screen adds no client boundary of its own. Ruling 94: do not restate
+that as a count of client components — this paragraph has carried two such counts and both were
+wrong. What holds Ruling 13 is the module boundary, which does not decay as files are added:
+nothing outside the `/caring-contacts` route segment imports the workspace (the tools catalogue
+names it by href, never by import), so the dashboard references no chunk exclusive to it.
 
 ---
 
@@ -441,13 +454,32 @@ it) from clinical discovery entirely.
 
 Login-gated internal hub for repository/task state, reachable only to a signed-in administrator
 account (`DeveloperAreaGate`, `src/components/developer-area/developer-area-gate.tsx`; gate helpers
-`src/lib/developer-area/access.ts` + `headers.ts` — see the Supabase/auth/env table above). Phase 1
-ships one live panel; the rest of the registry is declared placeholders.
+`src/lib/developer-area/access.ts` + `headers.ts` — see the Supabase/auth/env table above). Phase 2
+shipped four more live panels (routes and modes, documentation, test health, review state) on top
+of Phase 1's task ledger. Phase 3 shipped the ingestion panel (below) and pruned four placeholder
+registry entries (`errors`, `budgets`, `commands`, `decision-log`) that each restated a fact a gate
+or another document already guarantees — see the removal comment in `hub-panels.ts`. `hazard-register`
+(clinical) is the one remaining phase-4 placeholder, kept deliberately as a clinical-safety surface
+under reconsideration rather than developer tooling; `database-drift` (system) is deliberately not
+built — `live-drift.yml` already creates and updates a GitHub issue on drift, so a panel would restate
+what that gate guarantees (`docs/superpowers/plans/2026-08-25-developer-hub-ingestion-panel.md` §2).
 
 - **Panel registry:** `src/lib/developer-area/hub-panels.ts` (`HUB_PANELS`, `panelsInGroup`) — one
   entry per panel with its `group` (`work` | `clinical` | `system` | `reference`) and delivery
   `phase` (1 = built now; 2–4 = declared placeholder with no `href` yet). Shipping a later-phase
-  panel is flipping its phase and adding an `href`.
+  panel is flipping its phase and adding an `href`. The `work-in-flight` id is kept stable across
+  its Phase 2 rename to "Review state" — the id is the extension mechanism, not the label.
+- **Repo awareness snapshot:** `src/lib/developer-area/repo-awareness-types.ts` declares the
+  snapshot's shape (`RepoAwarenessSnapshot`, `REPO_AWARENESS_SNAPSHOT_VERSION`), shared by the
+  generator and the reader. `scripts/generate-repo-awareness-snapshot.ts` builds
+  `data/repo-awareness-snapshot.json` from the route walker, the docs tree, the flake ledger, and
+  the review records; it runs as the last step of `npm run docs:update`. `src/lib/developer-area/
+repo-awareness-snapshot.ts` (`loadRepoAwarenessSnapshot`) is the typed reader, with a version
+  guard that throws loudly on an unrecognised snapshot rather than silently under-reporting the
+  repository. `scripts/check-repo-awareness-snapshot.ts` (`npm run check:repo-awareness-snapshot`)
+  fails when the committed snapshot is behind the repository it describes. `src/lib/developer-area/
+freshness.ts` is the label-agnostic content-age helper both the ledger and the repo-awareness
+  pages use to render their freshness stamp.
 - **Task ledger data:** `src/lib/developer-area/ledger-snapshot.ts` imports the generated
   `data/outstanding-issues-snapshot.json` (never hand-edited; listed in `.prettierignore`) rather
   than reading `docs/outstanding-issues.md` at runtime — the production Docker image never copies
@@ -476,15 +508,46 @@ ships one live panel; the rest of the registry is declared placeholders.
   group. `/mockups/development/ledger` (`ledger/page.tsx`, Server Component) — the task ledger
   page: freshness stamp, count tiles, a "blocking now" callout, the recommended running order
   (acuity — urgency, kept deliberately separate from priority), open items grouped by priority,
-  and pending inbox requests. Both inherit `DeveloperAreaGate` from `layout.tsx`.
+  and pending inbox requests. `/mockups/development/routes` — every page and all 15 modes, from
+  the repo awareness snapshot's route walk. `/mockups/development/documentation` — every tracked
+  document, its area, and whether the codebase index lists it. `/mockups/development/test-health`
+  — unstable and quarantined tests, from the flake ledger. `/mockups/development/review-state` —
+  which branches were reviewed, at which head, with what outcome, from the committed review
+  records; deliberately scoped to that recorded history rather than live pull-request/CI state,
+  which the repository has no access to without a network call. `/mockups/development/ingestion`
+  (`page.tsx`, Server Component rendering the client `IngestionPanel`) — whether an uploaded
+  document actually indexed: queued, processing, finished, or stuck, polled live from
+  `/api/ingestion/jobs` rather than a build-time snapshot (the one panel that cannot use one — a
+  stuck-job snapshot could be stale within seconds). Distinguishes four reasons the endpoint can
+  return nothing (demo mode, unauthenticated/non-administrator `401`/`403` — the normal local
+  experience, since `DeveloperAreaGate` no-ops outside production while the endpoint still enforces
+  administrator auth everywhere — genuinely zero jobs, and the fetch itself failing) and buckets any
+  job `status` this panel does not recognise (the column is a plain `string`, not an enum) under its
+  own "Other status" section, verbatim, rather than dropping it. All six inherit `DeveloperAreaGate`
+  from `layout.tsx`.
 - **Components:** `src/components/developer-area/developer-hub-nav-header.tsx` (`"use client"`,
   owns the hub's in-page section table and mounts `InPageNavHeader`) and
   `src/components/developer-area/hub/` — `freshness-stamp.tsx`, `environment-strip.tsx`,
   `panel-card.tsx` (a Client Component because it renders an inert click handler for
-  not-yet-built panels), `ledger-item.tsx`.
+  not-yet-built panels), `ledger-item.tsx`, `panel-page-shell.tsx` (back link, title, and a
+  required `freshnessLabel` so a page can never silently inherit the stamp's "Ledger" default),
+  `panel-primitives.tsx` (renamed from `count-tile.tsx` once it outgrew tile-only scope — the
+  shared `CountTile`, the `CARD_CLASS`/`ROW_CLASS`/`MONO_CLASS`/`SECTION_HEADING_CLASS`/
+  `META_CLASS` building blocks the developer sub-pages render their headline numbers and record
+  cards with), `quarantine-list.tsx` (the quarantined-test list, kept outside `test-health/page.tsx`
+  because a page module may only export the framework's reserved names), `ingestion-panel.tsx`
+  (`"use client"`, `IngestionPanel` — fetch-on-mount plus a `pollAfterMs`-driven re-fetch that stops
+  the moment the server reports no active jobs; renders its own live "last checked" stamp via
+  `resolveFreshnessFrom`, since `PanelPageShell`'s own stamp is filled in server-side before any
+  client fetch happens and therefore says "revision unknown" on this one page by design).
 - **Tests:** `tests/developer-area-access.test.ts`, `tests/developer-hub-panels.test.ts`,
   `tests/developer-ledger-snapshot.test.ts`, `tests/developer-hub-components.dom.test.tsx`,
-  `tests/developer-hub-page.dom.test.tsx`, `tests/developer-ledger-page.dom.test.tsx`.
+  `tests/developer-hub-page.dom.test.tsx`, `tests/developer-ledger-page.dom.test.tsx`,
+  `tests/repo-awareness-generator.test.ts`, `tests/repo-awareness-gate.test.ts`,
+  `tests/repo-awareness-snapshot.test.ts`, `tests/developer-panel-page-shell.dom.test.tsx`,
+  `tests/developer-routes-page.dom.test.tsx`, `tests/developer-documentation-page.dom.test.tsx`,
+  `tests/developer-test-health-page.dom.test.tsx`, `tests/developer-review-state-page.dom.test.tsx`,
+  `tests/developer-ingestion-page.dom.test.tsx`.
 
 ### Global search composer placement rules
 

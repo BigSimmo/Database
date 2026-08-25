@@ -52,13 +52,9 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { ClinicalAskSessionProvider } from "@/components/clinical-dashboard/clinical-ask-session-context";
 import {
   type ClinicalDashboardProps,
-  clinicalAskComposerChromeEnabled,
   useClinicalAskDashboardChrome,
 } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
-import {
-  ClinicalAskComposerActions,
-  ClinicalAskWorkspace,
-} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { useScopeFilterRelax } from "@/components/clinical-dashboard/use-scope-filter-relax";
 import { useApplyFilters } from "@/components/clinical-dashboard/use-apply-filters";
@@ -99,7 +95,6 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { AnswerEvidencePreview } from "@/components/clinical-dashboard/answer-evidence-preview";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
-import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import {
@@ -175,7 +170,13 @@ import {
   StagedAnswerResultSurface,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
-import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
+import {
+  clearLegacyRecentQueries,
+  loadRecentQueries,
+  recentQueriesChangeEvent,
+  saveRecentQueries,
+} from "@/lib/recent-query-storage";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -465,7 +466,10 @@ function ClinicalDashboardContent({
   const [scopeFilters, setScopeFilters] = useState<SearchScopeFilters>(initialSearchNavigationContext.scopeFilters);
   const [searchScope, setSearchScope] = useState<SearchScopeSummary | null>(null);
   const [sourceGovernanceWarnings, setSourceGovernanceWarnings] = useState<SourceGovernanceWarning[]>([]);
-  const [answerViewMode, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
+  // Write-only for now: the clinical-notes panel was its only reader and the source
+  // drawer replaced that panel. The state and its resets stay until the panel itself
+  // is removed (handover §8), so re-wiring a view mode does not have to be rebuilt.
+  const [, setAnswerViewMode] = useState<AnswerViewMode>("high_yield");
   const [bulkActionStatus, setBulkActionStatus] = useState<string | null>(null);
   const [bulkActionBusy, setBulkActionBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -562,7 +566,7 @@ function ClinicalDashboardContent({
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const auth = useAuthSession();
-  const { clinicalAskSession, clinicalAskOnline, clinicalAskMode, runModeClinicalAsk } = useClinicalAskDashboardChrome({
+  const { clinicalAskSession } = useClinicalAskDashboardChrome({
     accountId: auth.session?.user.id,
     searchMode,
     query,
@@ -804,29 +808,26 @@ function ClinicalDashboardContent({
     clearLegacyRecentQueries();
   }, []);
 
+  // Authenticated account preference bootstrap + recent-search recording gate.
+  // canRecordRecentSearches stays false until bootstrap settles, so we never
+  // leak queries against a remote opt-out while local defaults still say on.
+  const { canRecordRecentSearches } = useAppPreferences();
+
   useEffect(() => {
     if (!answerThreadOwnerId) {
       queueMicrotask(() => setRecentQueries([]));
       return;
     }
     let cancelled = false;
-    queueMicrotask(() => {
+    const reload = () => {
       if (cancelled) return;
-      try {
-        const stored = JSON.parse(
-          window.sessionStorage.getItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`) ?? "[]",
-        );
-        setRecentQueries(
-          Array.isArray(stored)
-            ? stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5)
-            : [],
-        );
-      } catch {
-        setRecentQueries([]);
-      }
-    });
+      setRecentQueries(loadRecentQueries(answerThreadOwnerId));
+    };
+    queueMicrotask(reload);
+    window.addEventListener(recentQueriesChangeEvent, reload);
     return () => {
       cancelled = true;
+      window.removeEventListener(recentQueriesChangeEvent, reload);
     };
   }, [answerThreadOwnerId]);
 
@@ -834,22 +835,19 @@ function ClinicalDashboardContent({
     (value: string) => {
       const trimmedValue = value.trim();
       if (!trimmedValue) return;
+      // "Save recent searches" off (or bootstrap still in flight) means nothing
+      // is recorded at all, so bail before touching state too.
+      if (!canRecordRecentSearches) return;
       setRecentQueries((current) => {
         const next = [
           trimmedValue,
           ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase()),
         ].slice(0, 5);
-        try {
-          if (answerThreadOwnerId) {
-            window.sessionStorage.setItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`, JSON.stringify(next));
-          }
-        } catch {
-          // Recent questions are a convenience only; ignore storage failures.
-        }
+        saveRecentQueries(answerThreadOwnerId, next);
         return next;
       });
     },
-    [answerThreadOwnerId],
+    [answerThreadOwnerId, canRecordRecentSearches],
   );
 
   usePersistedAnswerThread({
@@ -2895,11 +2893,6 @@ function ClinicalDashboardContent({
       })
       .filter((section): section is AnswerSection & { citationSources: SearchResult[] } => section !== null);
   }, [answer?.answerSections, answerPreformatted, sourceLookup]);
-  const answerEvidenceMapRows = useMemo(() => {
-    if (!answerRenderModel?.allowedBlocks.includes("evidenceMap")) return [];
-    return evidenceMapRowsFromRenderModel(answerRenderModel).slice(0, answerRenderModel.trust === "high" ? 8 : 6);
-  }, [answerRenderModel]);
-
   const showSystemNotice = Boolean(setupWarning && !demoMode);
   const groupedGovernanceWarningCount = useMemo(
     () =>
@@ -3093,10 +3086,6 @@ function ClinicalDashboardContent({
   // Prescribing submitted searches render here (there is no standalone results
   // route), so this is where the Patient details pill docks for that mode.
   const patientDetailsAddonActive = searchMode === "prescribing" && modeSearchSubmitted && Boolean(query.trim());
-  // Therapy never mounts Ask / Dictate, so it must not take the taller reserve.
-  const showClinicalAskDockChrome =
-    clinicalAskComposerChromeEnabled(clinicalAskMode) &&
-    (!showDesktopHomeComposer || modeSearchSubmitted || Boolean(query.trim()));
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -3108,7 +3097,6 @@ function ClinicalDashboardContent({
           differentialsCompareAddonActive,
           patientDetailsAddonActive,
           heroOwnsPhoneComposer,
-          clinicalAskActionsVisible: showClinicalAskDockChrome,
         }),
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
@@ -3341,19 +3329,6 @@ function ClinicalDashboardContent({
           canAccessFavourites={favouritesAccessible}
           onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
-          clinicalAskActive={clinicalAskSession.submitted}
-          clinicalAskActions={
-            showClinicalAskDockChrome && clinicalAskMode ? (
-              <ClinicalAskComposerActions
-                mode={clinicalAskMode}
-                draft={query}
-                active={clinicalAskSession.submitted}
-                offline={!clinicalAskOnline}
-                onDraftChange={setQuery}
-                onAsk={runModeClinicalAsk}
-              />
-            ) : undefined
-          }
           onClearQuery={() => {
             setQuery("");
             if (!answer) setModeSearchSubmitted(false);
@@ -3812,12 +3787,8 @@ function ClinicalDashboardContent({
                         sourceSummary={sourceSummary}
                         renderModel={answerRenderModel}
                         weakEvidence={weakEvidence}
-                        answerViewMode={answerViewMode}
-                        answerEvidenceMapRows={answerEvidenceMapRows}
-                        onScopeDocument={handleScopeDocument}
                         answerGrounded={answerGrounded}
                         sources={answerRenderModel.reviewSources}
-                        demoMode={demoMode}
                         safeAnswerSections={safeAnswerSections}
                         safetyFindings={safetyFindings}
                         copiedAnswer={copiedAction === "answer"}
@@ -3830,6 +3801,7 @@ function ClinicalDashboardContent({
                         followUpSuggestionsDisabled={loading}
                         crossModeQueries={crossModeQueries}
                         onCrossModeSearch={handleCrossModeSearch}
+                        onScopeDocument={handleScopeDocument}
                       />
                     </>
                   ) : null

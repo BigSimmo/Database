@@ -204,6 +204,8 @@ export type UnwindRecord = {
   kind: "hold_released" | "transport_cancelled";
   by: string;
   reason: string;
+  /** The cancelled job retained in the audit trail when a replacement becomes active. */
+  transportId?: string;
 };
 
 export type Movement = {

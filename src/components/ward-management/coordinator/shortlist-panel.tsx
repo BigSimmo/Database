@@ -265,6 +265,7 @@ export function ShortlistPanel({
   const canCancelTransport =
     movement.transport !== undefined &&
     movement.transport.cancelledAt === undefined &&
+    movement.transport.collectedAt === undefined &&
     movement.transport.arrivedAt === undefined;
 
   const originEd = allEmergencyDepartments().find((ed) => ed.id === movement.originEdId);

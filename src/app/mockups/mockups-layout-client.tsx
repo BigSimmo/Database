@@ -133,6 +133,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
+  // Draws its own phone frames with ModeNav Search | Topics and a docked composer,
+  // so shared chrome would read as a second real header and a second search bar.
+  const isFactsheetsTopicsPhoneMockup = pathname === "/mockups/factsheets-topics-phone";
+
   return (
     <GlobalMockupSearchShell
       initialMode={
@@ -183,7 +187,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isCarePlanMockup &&
         !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
-        !isDictionaryControlRowMockup
+        !isDictionaryControlRowMockup &&
+        !isFactsheetsTopicsPhoneMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -213,7 +218,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isCarePlanMockup &&
         !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
-        !isDictionaryControlRowMockup
+        !isDictionaryControlRowMockup &&
+        !isFactsheetsTopicsPhoneMockup
       }
     >
       {children}

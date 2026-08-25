@@ -418,14 +418,18 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expect(page.getByRole("button", { name: "Copy answer with citations" })).toHaveCount(0);
       await expect(page.getByTestId("evidence-rail")).toHaveCount(0);
       await expect(page.getByTestId("evidence-summary-card")).toHaveCount(0);
-      const evidenceDrawer = page.locator("#answer-evidence-drawer-mobile-trigger");
-      await expect(evidenceDrawer).toBeVisible();
-      await evidenceDrawer.click();
-      const evidenceSheet = page.getByRole("dialog", { name: "Evidence" });
-      await expect(evidenceSheet).toBeVisible();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-tabs")).toBeVisible();
-      await expect(evidenceSheet.getByTestId("mobile-evidence-tab-claims")).toHaveAttribute("aria-selected", "true");
-      await expect(evidenceSheet.getByTestId("mobile-evidence-panel-claims")).toBeVisible();
+      // The evidence sheet gave way to the source rail and its per-source drawer;
+      // under long titles and narrow viewports neither may overflow.
+      await expect(page.locator("#answer-evidence-drawer-mobile-trigger")).toHaveCount(0);
+      const sourceRail = page.getByTestId("answer-source-rail");
+      await expect(sourceRail).toBeVisible();
+      await sourceRail.getByTestId("answer-source-rail-row").first().click();
+      const sourceDrawer = page.getByTestId("answer-source-drawer");
+      await expect(sourceDrawer).toBeVisible();
+      await expect(sourceDrawer.getByTestId("answer-source-drawer-support")).toBeVisible();
+      await expectNoPageHorizontalOverflow(page);
+      await page.keyboard.press("Escape");
+      await expect(sourceDrawer).toHaveCount(0);
       await expect(page.locator('[data-testid="evidence-support-panel"]:visible')).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });

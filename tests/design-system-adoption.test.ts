@@ -1353,14 +1353,20 @@ describe("design-system adoption manifest", () => {
     // reference-only; the assertion is a snapshot of adoption state, so moving a
     // component out of it is the expected shape of an adoption change, not a
     // weakened guard.
-    for (const name of ["ConfirmDialog"]) {
+    // `ConfirmDialog` left this list on 23 Aug 2026 when the settings surface put
+    // its two destructive privacy actions ("Clear saved items", "Reset
+    // preferences") behind a real confirmation instead of a single tap. Nothing
+    // in the reference-only set is reference-only any more, so the guard now
+    // rests entirely on the adopted half below.
+    const referenceOnlyComponents: string[] = [];
+    for (const name of referenceOnlyComponents) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles, `${name} should remain reference-only`).toEqual([]);
       expect(component.v2ShellMounted, `${name} should not claim a production v2 mount`).toBe(false);
     }
     // The other half of the same guard: an adopted component must actually be mounted,
     // so "adopted" can never mean an import with no production shell behind it.
-    for (const name of ["AnswerCard", "Quantity", "Button"]) {
+    for (const name of ["AnswerCard", "Quantity", "Button", "ConfirmDialog"]) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles.length, `${name} should be product-adopted`).toBeGreaterThan(0);
       expect(component.v2ShellMounted, `${name} should carry a production v2 mount`).toBe(true);
@@ -1404,9 +1410,9 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 66 = 59 + 6 + 1: the 59 production pages that preceded both changes, the six
+    // 68 = 59 + 6 + 2 + 1: the 59 production pages that preceded both changes, the six
     // `<mode>/search` routes home consolidation split out of the bare paths, and the Caring
-    // Contacts workspace. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
+    // Contacts workspace's two screens plus `/factsheets/topics`. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
     // home, eight remaining workspace routes, ED/ward/officer role screens, the per-patient
     // detail route, the Phase 4 shift handover, escalation board and patient search, and the
     // retired constellation redirect) that used to bring this to 82 left the production census
@@ -1415,7 +1421,7 @@ describe("design-system adoption manifest", () => {
     // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
     // resolving and still count as declared routes. This is a census, so a route nobody
     // intended to add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(66);
+    expect(manifest.routeCoverage.discovered).toHaveLength(68);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

@@ -40,6 +40,7 @@ const staticKnownRoutes = new Set([
   "/documents/source",
   "/documents/source/evidence",
   "/factsheets/search",
+  "/factsheets/topics",
 ]);
 
 const acceptedDynamicPatterns = [

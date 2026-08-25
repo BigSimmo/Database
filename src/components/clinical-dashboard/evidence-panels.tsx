@@ -12,8 +12,8 @@ import {
   ExternalLink,
   FileText,
   Filter,
-  Layers,
   Loader2,
+  MessageSquareWarning,
   Plus,
   Quote,
   RefreshCw,
@@ -168,34 +168,39 @@ export function answerSupportPriority(
   };
 }
 
+/**
+ * The answer-level strip under the prose.
+ *
+ * Since the source rail and drawer took over every per-source surface, this card
+ * carries only what belongs to the answer rather than to any one document: the
+ * safety/priority row, the evidence gaps, and the feedback control.
+ *
+ * The safety row is not optional chrome. `answerSupportPriority` returns a
+ * safety-findings priority ahead of everything else, and the trigger below is
+ * the only route to the safety-critical findings sheet — so this card renders
+ * whenever `priority` is set, and removing it would remove that route.
+ */
 export function AnswerSupportSummaryCard({
   priority,
-  clinicalCount,
-  evidenceSummary,
-  clinicalAvailable,
-  evidenceAvailable,
-  clinicalTriggerRef,
-  evidenceTriggerRef,
+  warnings = [],
   safetyTriggerRef,
   safetyFindingsCount = 0,
-  onOpenClinicalNotes,
-  onOpenEvidence,
   onOpenSafetyFindings,
+  pendingFeedback = null,
+  onSubmitFeedback,
 }: {
   priority: AnswerSupportPriority | null;
-  clinicalCount: number;
-  evidenceSummary: string;
-  clinicalAvailable: boolean;
-  evidenceAvailable: boolean;
-  clinicalTriggerRef?: RefObject<HTMLButtonElement | null>;
-  evidenceTriggerRef?: RefObject<HTMLButtonElement | null>;
+  /** Answer-level evidence gaps (`renderModel.warnings`); they belong to no single source. */
+  warnings?: string[];
   safetyTriggerRef?: RefObject<HTMLButtonElement | null>;
   safetyFindingsCount?: number;
-  onOpenClinicalNotes: () => void;
-  onOpenEvidence: () => void;
   onOpenSafetyFindings?: () => void;
+  pendingFeedback?: AnswerFeedbackType | null;
+  onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
 }) {
-  const supportRowCount = Number(clinicalAvailable) + Number(evidenceAvailable);
+  const [gapsOpen, setGapsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const supportRowCount = Number(warnings.length > 0) + Number(Boolean(onSubmitFeedback));
   const supportButtonClass =
     "grid min-h-[56px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-2 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
   const safetyInteractive = Boolean(onOpenSafetyFindings && safetyFindingsCount > 0);
@@ -268,49 +273,79 @@ export function AnswerSupportSummaryCard({
       ) : null}
 
       {supportRowCount > 0 ? (
-        <div
-          className={cn(
-            "grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]",
-            supportRowCount === 2 && "sm:grid-cols-2 sm:divide-x sm:divide-y-0",
-          )}
-        >
-          {clinicalAvailable ? (
-            <button
-              ref={clinicalTriggerRef}
-              id="answer-clinical-notes-drawer-mobile-trigger"
-              data-testid="answer-clinical-notes-trigger"
-              type="button"
-              onClick={onOpenClinicalNotes}
-              className={supportButtonClass}
-              aria-label="Open clinical notes"
-            >
-              <ClipboardCheck aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Clinical notes</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>
-                  {clinicalCount} note{clinicalCount === 1 ? "" : "s"}
+        <div className="grid divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
+          {warnings.length > 0 ? (
+            <div>
+              <button
+                id="answer-evidence-gaps-trigger"
+                data-testid="answer-evidence-gaps-trigger"
+                type="button"
+                onClick={() => setGapsOpen((current) => !current)}
+                className={cn(supportButtonClass, "w-full")}
+                aria-expanded={gapsOpen}
+                aria-controls={gapsOpen ? "answer-evidence-gaps-detail" : undefined}
+              >
+                <CircleAlert aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--warning)]" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence gaps</span>
+                  <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                    {warnings.length} note{warnings.length === 1 ? "" : "s"} about this answer
+                  </span>
                 </span>
-              </span>
-              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                    gapsOpen ? "rotate-0" : "-rotate-90",
+                  )}
+                />
+              </button>
+              {gapsOpen ? (
+                <div id="answer-evidence-gaps-detail" className="grid gap-2 px-3 pb-3">
+                  {warnings.map((warning, index) => (
+                    <p
+                      key={`${warning}:${index}`}
+                      className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+                    >
+                      {warning}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : null}
-          {evidenceAvailable ? (
-            <button
-              ref={evidenceTriggerRef}
-              id="answer-evidence-drawer-mobile-trigger"
-              data-testid="answer-evidence-trigger"
-              type="button"
-              onClick={onOpenEvidence}
-              className={supportButtonClass}
-              aria-label="Open evidence"
-            >
-              <Layers aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Evidence</span>
-                <span className={cn("mt-1 block truncate text-xs", textMuted)}>{evidenceSummary}</span>
-              </span>
-              <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-            </button>
+          {onSubmitFeedback ? (
+            <div>
+              <button
+                id="answer-feedback-trigger"
+                data-testid="answer-feedback-trigger"
+                type="button"
+                onClick={() => setFeedbackOpen((current) => !current)}
+                className={cn(supportButtonClass, "w-full")}
+                aria-expanded={feedbackOpen}
+                aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
+              >
+                <MessageSquareWarning aria-hidden="true" className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-[color:var(--text-heading)]">Report a problem</span>
+                  <span className={cn("mt-1 block truncate text-xs", textMuted)}>
+                    Record whether the evidence supports this answer
+                  </span>
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    "h-4 w-4 text-[color:var(--text-muted)] transition-transform",
+                    feedbackOpen ? "rotate-0" : "-rotate-90",
+                  )}
+                />
+              </button>
+              {feedbackOpen ? (
+                <div id="answer-feedback-detail" className="px-3 pb-3">
+                  <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} />
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

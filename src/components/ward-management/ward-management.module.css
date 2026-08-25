@@ -803,7 +803,7 @@
     height: auto;
     overflow: visible;
     /* Reserve the fixed phone bar (ward-sidebar.module.css). */
-    padding-top: 3.5rem;
+    padding-top: var(--spacing-ward-phone-bar);
   }
 
   /*
@@ -821,7 +821,7 @@
 
   .workspaceHeader {
     position: sticky;
-    top: 3.5rem;
+    top: var(--spacing-ward-phone-bar);
     z-index: var(--ward-z-phone);
     min-height: 4rem;
     border-bottom: 0.0625rem solid var(--ward-border);

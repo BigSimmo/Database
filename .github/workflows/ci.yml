@@ -362,6 +362,10 @@ jobs:
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run sitemap:check
 
+      - name: Repo awareness snapshot
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:repo-awareness-snapshot
+
       - name: Therapy data index drift
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:therapy-data-index
@@ -1066,6 +1070,12 @@ jobs:
       # than asking contributors to edit a catalog inventory by hand.
       - name: Setup Node and dependencies for drift manifest
         uses: ./.github/actions/setup-node-cached
+
+      - name: Run Caring Contacts Database & RLS Tests
+        if: needs.changes.outputs.db_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
+        env:
+          CARING_CONTACTS_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run caring-contacts:db:test
 
       - name: Pull the pinned drift manifest image
         run: docker pull supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83

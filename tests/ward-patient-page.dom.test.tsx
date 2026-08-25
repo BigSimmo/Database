@@ -161,7 +161,7 @@ describe("ward patient page — declines, changes, and escalation", () => {
     // raises it to 1 with reason "reassessed" -> label "Reassessed", never the raw code.
     expect(changesAfter).toHaveTextContent("Tier 2 → Tier 1");
     expect(changesAfter).toHaveTextContent("Reassessed");
-    expect(changesAfter.textContent).not.toContain('reassessed"');
+    expect(changesAfter.textContent).not.toContain("reassessed");
   });
 
   it("renders an explicit absence line in all three sections for a movement with none of these — not a hidden section", () => {
