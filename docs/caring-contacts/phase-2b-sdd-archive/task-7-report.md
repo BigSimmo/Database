@@ -626,14 +626,39 @@ design-system-adoption and workspace-screens. It caught a real regression on its
 an otherwise-green tree — the M-2 vocabulary failure above — so it is doing work rather than passing
 by never looking.
 
-<!-- R1 FULL SUITE -->
+**The full suite, once, at the end:**
+
+```
+[test] exit=0 elapsed=590s
+ Test Files  833 passed | 3 skipped (836)
+      Tests  10087 passed | 74 skipped (10161)
+   Duration  583.32s (transform 63.35s, setup 89.13s, import 314.85s, tests 1133.98s, environment 362.34s)
+```
+
+**The number, since I am the first to measure it: 53 seconds against 590.** Eleven times faster, and
+on a machine where the repository lease is contended that understates it — the guard set waits once
+for a lease it holds for under a minute, while the full suite holds one for ten. (The
+`check:function-grants: FAIL` lines mid-run are one test's own positive-control fixtures printing
+their expected refusals, not failures.)
 
 **It is worth stating what the comparison does and does not say.** The guard set is the smaller
 number by a wide margin and it caught this round's one regression, but it is a selected set: it
 covers the files this change can plausibly reach, and the full suite is what proves that selection
 was right. Both were run.
 
-<!-- R1 TYPECHECK AND LINT -->
+**Typecheck and lint:**
+
+```
+[typecheck] exit=0 elapsed=20s
+[gate-receipts] recorded a pass for "typecheck:internal" (5319 input files).
+
+[lint] exit=0 elapsed=13s
+[gate-receipts] recorded a pass for "lint:internal" (5319 input files).
+```
+
+Both were refused with a lease message on earlier attempts during this round, several times. A
+refusal is neither a pass nor a failure; every one was retried on its own message rather than its
+exit code, and no other worktree's lease was broken.
 
 **Does this round touch the browser gate?** **No.** I-2 changes markup the browser suite cannot
 reach, for the reason recorded above, and `tests/ui-caring-contacts-workspace.spec.ts` is unchanged
