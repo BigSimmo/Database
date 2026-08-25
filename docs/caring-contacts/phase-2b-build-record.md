@@ -1973,3 +1973,57 @@ refuse.** Recorded as an open gap rather than faked.
 lease, touches no file) alongside Task 8's implementer. That is the overlap lever from the speed
 review, applied where it is safe — Task 8 consumes the wizard shell and stage plumbing, which was
 settled two rounds earlier, not round 2's wording, comment and script changes.
+
+## Rulings 117-120 — Task 9, stage 4 review and activation
+
+Written while Task 8 was still running. **This is the first screen in the workspace that creates
+anything**; everything before it reads. Most of the brief is therefore about failure rather than
+success, which is the correct proportion and was not obvious until the rulings were written out.
+
+**Ruling [117] — three orderings, each a defect if reversed.** — Why: (1) confirm success, then clear
+the draft, then navigate. Clearing early loses a clinician's typing on failure; navigating early
+leaves a patient's name and mobile number in that tab's storage on a shared ward computer, which is
+what Ruling [110]'s third requirement exists to prevent. (2) On **any** failure the draft survives —
+network error, validation refusal, permission denial alike. (3) The refusal names which failure it
+was, in place: `writeHandler`'s codes distinguish "you may not", "already exists" and "the schedule
+could not be built", and "something went wrong" is not acceptable on the screen that creates a
+suicide-prevention contact plan. — Cost if wrong: each reversal is silent. A clinician loses ten
+minutes of typing, or a ward machine keeps a patient's number after the tab looked finished, and
+neither produces an error anyone sees.
+
+**Ruling [120] — the plan id and the idempotency key are minted ONCE, together, and held in the
+draft.** — Why: `createPlanSchema` requires both and nothing upstream mints either. `handler.ts`'s
+own comment is the authority — _"Only the caller knows whether this request is a retry of the last
+one."_ **If a fresh `planId` is minted per attempt, a clinician who presses Activate twice after a
+timeout creates two plans for one patient — two schedules, two sets of messages.** Minted once and
+reused, the second attempt is correctly refused as a replay. That is the entire reason the key is
+caller-supplied rather than derived. — Cost if wrong: duplicate plans are the worst available outcome
+on this screen and would be discovered by the patient, not by the system.
+
+**Ruling [118] — the first-contact-date control lands here, and must show its consequence before the
+choice is committed.** — Why: Ruling [96] moved it off the patient overview because spec section 2.3
+names "the review-and-activation screen". The domain half is built (Ruling [86]) — default discharge
+
+- 1, movable discharge day to +7 inclusive, any non-default value requiring a reason, with Task 6b's
+  storage, cap and named refusals. **The part that is new, and is in no mockup: moving the date to
+  discharge + 7 collides with the Week 1 contact, which is then suppressed, so the plan sends nine
+  caring contacts instead of ten.** The system is about to remove a contact from a suicide-prevention
+  schedule as a side effect of a date choice, and section 4.4 requires that stated in place, before the
+  choice is committed rather than after. — Cost if wrong: a coordinator moves a date for a good reason
+  and silently drops a contact.
+
+**Ruling [119] — the schedule preview is derived; `"10-contact schedule"` and `Agreement confirmed:
+Yes` are both literals and both wrong.** — Why: the same finding as Ruling [98], at its most
+consequential because this is the last screen before the plan exists. Counts come from Task 6's
+`contactSendability()` and `summariseStoredContacts()` rather than being counted again, and sendable,
+suppressed and closing are distinguished. **`Agreement confirmed: Yes` must not be presented as a
+stored fact** — it is not stored, that gap is with the owner and unresolved, and this screen is the
+last place a false reassurance could be introduced before activation. — Cost if wrong: the screen
+tells a coordinator the consent question is handled at the exact moment the owner is deciding it is
+not.
+
+**One overlay is wired here and only one.** Task 11 owns this group's overlay wiring, but an Activate
+control that writes with no confirmation step is not something to ship and fix later, and Task 3 built
+`overlay-trigger.tsx` to require a commit handler **at the type level** precisely so a screen cannot
+open a decision surface it has not wired. The final-activation confirmation is wired by Task 9; every
+other seam is named in its report for Task 11.
