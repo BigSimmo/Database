@@ -618,7 +618,13 @@ describe("stage 3 — the mobile number is required and nothing here connects (R
     // physically goes. A caution nobody hears is not a caution.
     const caution = within(stage).getByTestId("caring-contacts-patient-mobile-caution");
     expect(caution).toHaveAttribute("role", "status");
-    expect(caution).toHaveTextContent("");
+    // `toBeEmptyDOMElement`, not `toHaveTextContent("")`. The reviewer checked the matcher source and
+    // the latter IS behaviourally correct here — `checkingWithEmptyString` makes it pass only on a
+    // genuinely empty element — but the message it prints on failure reads "Checking with empty
+    // string will always match, use `.toBeEmptyDOMElement()`", which would tell a future reader this
+    // assertion is vacuous when it is not. A true assertion with a lying failure message is worse
+    // than it looks: the reader who acts on that message deletes a real check (round 2, item 3).
+    expect(caution).toBeEmptyDOMElement();
 
     await user.type(mobile, "+61 400 000 000");
     expect(caution).toHaveTextContent(/not one of the reserved fictional numbers/i);
@@ -696,8 +702,38 @@ describe("stage 3 — cultural identity is NOT asked for (owner decision, round 
     // I-3, and it is the same class of defect one sentence apart: the screen correctly refused to
     // reproduce §2.5's false "imported from the source record", then reproduced §2.5's equally
     // unbuilt "It IS used for aggregate reporting on programme reach". No reporting exists.
-    expect(text).not.toMatch(/is used for aggregate reporting/i);
-    expect(text).not.toMatch(/imported from the (synthetic referral|source record)/i);
+    //
+    // THIS IS A SHAPE-PIN, NOT THE RULE, AND SAYING SO IS THE POINT (round 2, item 2).
+    // The rule is "the screen makes no affirmative present-tense claim about a reach-reporting
+    // capability nobody has built". That is a semantic property, and no regular expression expresses
+    // it: the first version rejected two exact phrasings, so "provides aggregate reach reporting" or
+    // "reach figures are produced from this" would both have passed — the same habit the round 1
+    // review named, one level up, pinning a wrong SENTENCE instead of the rule.
+    //
+    // What is done about it: the refusal below covers a FAMILY of affirmative constructions rather
+    // than two sentences, and a positive assertion pins the counterfactual framing the honest
+    // wording depends on ("would depend on" / "not asked for"), so a rewrite into an affirmative
+    // claim has to defeat both. What is NOT claimed: a third phrasing outside the family still
+    // passes. This is recorded as an open limitation rather than treated as closed, in the same
+    // spirit as `strip-source-comments.ts`'s pinned known limitation.
+    const AFFIRMATIVE_REACH_CLAIM = [
+      /\b(?:is|are)\s+used\s+for\b/i,
+      /\bprovides?\b[^.]{0,40}\breport/i,
+      /\breach\s+(?:figures|numbers|counts|data)\b/i,
+      /\breport(?:s|ing)?\b[^.]{0,40}\b(?:is|are)\s+(?:produced|generated|collected|counted)\b/i,
+      /\bwe\s+(?:collect|record|report|count)\b/i,
+      /\bimported\s+from\s+the\b/i,
+    ];
+    for (const claim of AFFIRMATIVE_REACH_CLAIM) {
+      expect(text, `the stage makes an affirmative claim about an unbuilt capability: ${claim}`).not.toMatch(claim);
+    }
+
+    // The positive half. The honest wording is counterfactual — it describes what the design INTENDS
+    // and then says the prototype cannot do it — so the counterfactual has to still be there. A
+    // rewrite that dropped it would be the defect even if it dodged every regex above.
+    const absence = within(stage).getByRole("group", { name: /not asked for/i });
+    expect(absence).toHaveTextContent(/would depend on/i);
+    expect(absence).toHaveTextContent(/connected to no hospital record/i);
   });
 
   it("sends null for it, so the plan records nothing where nothing was asked", async () => {
