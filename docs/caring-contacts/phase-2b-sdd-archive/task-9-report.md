@@ -991,3 +991,247 @@ writing control a second time. Round 2 adds one item to it: the M2 fix moves a p
 discharge field's hint precisely because a natively `disabled` control cannot announce its own
 description, and **whether that lands for a real screen-reader user is exactly the kind of thing
 jsdom cannot answer.**
+
+---
+
+# Fix round 3
+
+Commits `6d2fe0806` (comments and the widened pin) and `463bec549` (the pin was inert; repaired).
+
+---
+
+## 1. Stale doc comments — you named two, the rule found four
+
+I applied your scope rule rather than my phrase rule, which meant reading all **78 doc comments**
+across the two files this diff touches (33 in `plan-activation.ts`, 45 in `plan-wizard.tsx`) and
+asking of each whether it still describes the code beneath it. It took a few minutes and it found
+**two more than the review named**, both older than the two:
+
+| Where                                    | Claimed                                                                                    | False since        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------ |
+| `plan-wizard.tsx` module doc             | _"Stage 4 … is still an explicit, typed extension point"_ and _"NO OVERLAY IS WIRED HERE"_ | the base task      |
+| `CREATE_PLAN_ENDPOINT`                   | _"The one endpoint this workspace writes to"_ — there are two                              | fix round 1        |
+| `PlanSubmissionState` (you named)        | _"Where the one write has got to"_                                                         | fix round 1        |
+| `ACTIVATION_REFUSAL_WORDING` (you named) | _"Every branch says three things"_                                                         | fix round 2, by me |
+
+A fifth was ambiguous rather than false: `SubmissionRefusalWording` is now the shared shape for two
+tables and said so nowhere, so a reader would reasonably think there is one.
+
+**The `ACTIVATION_REFUSAL_WORDING` one was also orphaned**, which I had not noticed and which is its
+own small lesson: round 2 replaced the `PLAN_EXISTS` line with a doc comment plus the const, leaving
+the table's doc floating above a different symbol's doc. It now sits on the table it describes, and
+it states the invariant per class instead of a count:
+
+- **all** branches say the plan was created, that its contacts are scheduled, and what to do next
+  about _the same plan_;
+- **only where true** — eleven of them — that it has not been started; the three that withhold it are
+  named, with the reason.
+
+And it no longer restates a count in prose, because **Ruling [94] applies to source as much as to a
+screen**: the two lists live in the test, so a branch added to the wrong one goes red there rather
+than disagreeing with a sentence nobody re-reads.
+
+## 2. The pin, widened both ways — **and it was inert, and mutations caught it**
+
+Widened as asked: both files, and a **family** of single-write claims rather than two literal
+phrases, plus a second family for a count restated in prose. Its own limitation is stated at the
+site — a fourth phrasing outside the family still passes — in the spirit of
+`strip-source-comments.ts`'s pinned known limitation.
+
+**Then S3 and S4 came back GREEN.** Putting _"Where the one write has got to"_ back into
+`plan-wizard.tsx`, and _"This screen performs one write"_ into `plan-activation.ts`, changed nothing.
+The cause:
+
+```
+'singleWriteClaims = [\n      /\x08the one write\x08/i,\n      /\x08one write its brief names\x08/i, …'
+```
+
+**Fourteen literal `0x08` bytes.** Every `\b` I wrote reached the file as a backspace escape, so the
+patterns read `/<BS>the one write<BS>/i` and matched nothing. **The pin I wrote in this round to
+catch stale claims could not fail.**
+
+Three things about that, in order of how much they matter:
+
+1. **It is Task 8's own recorded hazard**, met a third time in this programme: that report describes
+   `\b` in a lease path eating the `b` and reaching committed Markdown as a control byte. I read that
+   report at the start of this task. Knowing a hazard is not the same as recognising it.
+2. **Only the mutations found it.** The case passes either way; the guard set, the full suite,
+   typecheck, lint and Prettier were all green with an inert assertion in place. This is the repo's
+   "checks that cannot fail" class, and what caught it is the discipline the review has been
+   pressing: _a mutation proves the assertion it makes fail._ S3 and S4 existed only because you
+   asked for mutations on the branches R7 did not cover; they found a different defect than the one
+   they were written for.
+3. **Every file this task touches is now scanned for control bytes** — ten files, zero found.
+
+Repaired and re-run: S3 now fails with `plan-wizard.tsx still carries a single-write claim matching
+/\bthe one write\b/i`, and **S4 fails naming `plan-activation.ts`**, which is the proof that the pin
+reads the second file rather than only claiming to.
+
+## 3. The corrected generalisation — the thing I am carrying out of this task
+
+Yours, adopted verbatim, because I tested mine against the three instances and it catches one:
+
+> **When a diff changes what a mechanism does, read every doc comment in the files it touches and ask
+> whether each still describes the code beneath it.**
+
+**A phrase grep is the mechanised subset of that: useful as a regression pin, not as the habit.**
+
+What I had — _"grep the diff's own files for the same claim"_ — fails because "the same claim" in
+practice means "the same phrase", and two of three instances shared no phrase with the one that was
+found. The trigger half of my diagnosis survives and is worth keeping beside yours: **the fix arrived
+as a test failure, and a test failure names one site**, so the missing step is a search rather than
+more care. Your rule supplies the search's _scope_; the trigger says when to run it.
+
+Round 3 is evidence for it in both directions: the scope rule found four where the phrase rule found
+— and could only ever find — one, and the phrase pin I built as its mechanised subset was itself
+broken in a way only mutation testing could see. **The habit is the rule; the pin is the regression
+net; neither substitutes for the other.**
+
+## 4. R7 proved one branch of three — the other two now have their own mutations
+
+Correct, and it is the rule this phase already bought. Both added:
+
+- **S1** — `NOT_STARTED` put back into `plan-terminal`:
+  `plan-terminal claims the plan has not started, and it may have`.
+- **S2** — the same into `service-answered-with-something-unreadable`:
+  `service-answered-with-something-unreadable claims the plan has not started, and it may have`.
+
+Each names its own branch in the failure message, so the three are proved separately rather than as a
+class.
+
+---
+
+## Round 3 mutation log — every attempt, itemised, no aggregate
+
+| #    | Mutation                                                         | Predicted                                          | Observed                                                                                                                                     | Verdict                                  |
+| ---- | ---------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| S1   | `NOT_STARTED` restored to `plan-terminal`                        | 1 red naming that branch                           | `plan-terminal claims the plan has not started, and it may have`                                                                             | RED, matched                             |
+| S2   | `NOT_STARTED` restored to the unreadable-answer branch           | 1 red naming that branch                           | `service-answered-with-something-unreadable claims the plan has not started, and it may have`                                                | RED, matched                             |
+| S3   | _"Where the one write has got to"_ restored in `plan-wizard.tsx` | 1 red on the widened pin                           | **GREEN — the pin was inert.** After repair: `plan-wizard.tsx still carries a single-write claim matching /\bthe one write\b/i`              | GREEN exposed a defect; RED after repair |
+| S4   | a single-write claim added to `plan-activation.ts`               | 1 red, proving the pin reads the second file       | **GREEN — same cause.** After repair: `plan-activation.ts still carries a single-write claim matching /\bthis screen performs one write\b/i` | GREEN exposed a defect; RED after repair |
+| S5   | the branch-count claim restored to the table's doc               | 1 red on the count family                          | `plan-activation.ts restates a branch count in prose, which decays`                                                                          | RED, matched                             |
+| S6\* | **Control.** `REASON_STAND_IN` reworded                          | **GREEN** — nothing asserts on the stand-in's text | `Tests 97 passed (97)`, mutation present (count 1), run with `GATE_RECEIPTS=refresh`                                                         | **GREEN, as designed**                   |
+
+S5 is worth a second look: it went red first time while S3 and S4 did not, and the difference is that
+its regexes contained no `\b`. **The count family was sound by accident and the single-write family
+was broken by accident**, in the same array literal, written in the same edit.
+
+---
+
+## The retroactive presence-check audit
+
+Every marker from rounds 1 and 2, checked for a character the Windows→MSYS2 argv boundary re-parses
+(`"`, `{`, `}`, `?`, `[`, `]`, `*`):
+
+| Round             | Markers | Carrying a boundary-sensitive character          |
+| ----------------- | ------- | ------------------------------------------------ |
+| 1 (M1–M17, N1–N7) | 25      | **17** — sound: M3, M4, M5, M6, M10, M16, N1, N7 |
+| 2 (R1–R16)        | 16      | **14** — sound: R6, R14                          |
+
+**31 of 41 were exposed. Two actually manifested, and only one conclusion is affected.**
+
+- **M12** (round 1) reported `0`, and **R16-control** (round 2) reported `0`. Everything else
+  reported a real count despite the exposure, because manifestation depends on how MSYS2 re-parses
+  the specific string, not merely on containing the character.
+- **M12's conclusion stands.** Its run went red on the exact assertion it targeted
+  (`toHaveAttribute("min", …)`), and **a red proves presence by itself** — a mutation that never
+  reached disk cannot make its own target assertion fail.
+- **That is the general answer, and it bounds the damage sharply.** A presence check is load-bearing
+  only for a GREEN. Every red result in rounds 1–3 carries a failure message naming the mutated
+  behaviour, so all of them are self-proving.
+- **R16-control is the one compromised result**, because a control's whole content is its green. It
+  was re-run under the fixed driver with `GATE_RECEIPTS=refresh` and the mutation proved present.
+- The other two greens are independently sound: **N2** was diagnosed as an ineffective mutation on
+  its own merits (stripping a prefix off a random value leaves it random), and **M17-control**
+  reported a count of 1 and produced a real summary line.
+
+**Scope, as you bound it:** the rule is "do not pass data through the Windows→MSYS2 argv boundary",
+not "do not use grep". On a Linux CI runner none of this applies, and grep in a bash-to-bash pipeline
+is unaffected — which is exactly why my hand check disagreed with the driver.
+
+## Receipt reuse, corrected by your analysis
+
+Your decomposition is right and mine was too alarmed: the signature is over **working-tree bytes**, so
+a mutation that reached disk changes the hash, misses the cache and runs. **Mutation results were
+never threatened.** A restore returns previously-seen bytes, hits, and exits silently — the control
+case, and it fails safe.
+
+The composite is the dangerous one: an unflushed write leaves the _unmutated_ signature, which hits a
+receipt and prints nothing — a false green on a mutation. Both defects were in my driver and could
+have composed.
+
+**They did not, and the reason is a rule rather than luck:** the observable is identical either way —
+**no summary line** — and the brief's own "no summary line means no run" is what stopped me reporting
+R16's first attempt. A check that catches two unrelated defects through one observable is worth
+keeping.
+
+## The "copy only is inert" counterexample
+
+Taken. Round 2's overlay test-id made a DOM test file an adoption-manifest root, so a copy change did
+move a non-test artifact. Caught by the guard set and regenerated with
+`node scripts/generate-design-system-adoption.mjs --write` rather than hand-edited. Not a browser
+risk, but **"copy only" is not a safety argument** and I used it as one.
+
+## The inbox record
+
+Thank you for committing it. You are right that an uncommitted record is not a disposition — C2's
+whole defence was that the draft-plan sendability question is filed separately, and it was sitting
+untracked in a worktree this machine has destroyed before. **The record was the load-bearing half of
+that argument and I left it unversioned.**
+
+## Round 3 gates
+
+**The guard set, `npm run test:cc-guards`:**
+
+```
+ Test Files  18 passed (18)
+      Tests  391 passed (391)
+   Duration  63.61s (transform 3.10s, setup 2.54s, import 10.81s, tests 70.57s, environment 10.61s)
+```
+
+391, unchanged from round 2: round 3 rewrote comments and repaired assertions inside an existing
+case rather than adding cases.
+
+**The full suite, `npm run test`, once, at the end, backgrounded from the first command — and it was
+RED on one test that is not this task's:**
+
+```
+ Test Files  1 failed | 834 passed | 3 skipped (838)
+      Tests  1 failed | 10186 passed | 74 skipped (10261)
+   Duration  635.61s (transform 65.73s, setup 99.23s, import 303.95s, tests 1254.63s, environment 394.77s)
+```
+
+```
+FAIL |jsdom| tests/document-viewer-page-virtualization.dom.test.tsx
+  > PDF reader page virtualization > reads exactly one page ahead and one behind, and only once idle
+AssertionError: expected [ 4 ] to deeply equal [ 3, 4, 5 ]
+```
+
+**Reported as red rather than re-run until green**, which is Task 8's precedent and the right one: a
+re-run would hide the load condition and prove nothing about the diff. The evidence that it is not
+mine, gathered rather than asserted:
+
+- **It passes alone on the same tree** — `Tests 9 passed (9)`.
+- **This task touches no `document-viewer` file at all** — `git log --name-only` across every commit
+  from the base to HEAD returns zero.
+- **The assertion is a timing one** — a prefetch window that should hold three pages once the reader
+  is idle held one, which is what an idle callback that has not fired yet looks like.
+- **The run was 635s against round 2's 494s on the same machine**, ~30% slower, so it was under
+  heavier load. `import` alone rose from 265s to 304s.
+
+I have not touched that test, raised its timeout, or quarantined it. If it recurs on an idle machine
+it is a real flake worth the ledger; one observation under load is not enough to file it as one.
+
+**Typecheck, lint and Prettier: clean.**
+
+## Does round 3 touch the browser gate?
+
+**No.** It changes doc comments, one test case's assertions, and nothing a browser renders — the
+copy a clinician reads is byte-identical to round 2, which you measured at `49 passed (1.3m)`,
+exit 0. `tests/ui-caring-contacts-workspace.spec.ts` is unchanged.
+
+I will not repeat "strictly less than" as a safety argument, per the counterexample above: what I can
+say is narrower and checkable. Round 3's diff is two source files and one test file; the two source
+changes are inside comment blocks, verified by `git diff` carrying no change to any string literal or
+JSX text node; and the adoption manifest is unchanged this round because no new test id was
+introduced.
