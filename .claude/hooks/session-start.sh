@@ -10,6 +10,8 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
+payload="$(cat 2>/dev/null || true)"
+
 NODE_VERSION="24.19.0"
 # Keep in step with the floor in package.json engines.node. A matching major is
 # not enough: dev dependencies (jsdom) carry a minor-level floor, so a 24.13 on
@@ -102,12 +104,22 @@ if [ ! -d node_modules ]; then
   mkdir -p "$(dirname "$LOCK_STAMP")"
   echo "$lock_hash" > "$LOCK_STAMP"
   echo "[session-start] Dependencies installed"
+  status_msg="Dependencies installed"
 elif [ ! -f "$LOCK_STAMP" ] || [ "$(cat "$LOCK_STAMP")" != "$lock_hash" ]; then
   echo "[session-start] node_modules is stale for the current lockfile, reinstalling"
   npm ci --no-audit --no-fund
   mkdir -p "$(dirname "$LOCK_STAMP")"
   echo "$lock_hash" > "$LOCK_STAMP"
   echo "[session-start] Dependencies reinstalled"
+  status_msg="Dependencies reinstalled"
 else
   echo "[session-start] node_modules matches the lockfile, skipping install"
+  status_msg="node_modules matches the lockfile, skipping install"
+fi
+
+if [ -n "${CLAUDE_ENV_FILE:-}" ] || printf '%s' "$payload" | grep -Eq '"(hook_event_name|hookEventName)"[[:space:]]*:[[:space:]]*"SessionStart"'; then
+  node_v="$(node -v 2>/dev/null || echo 'unknown')"
+  npm_v="$(npm -v 2>/dev/null || echo 'unknown')"
+  context="[session-start] Node ${node_v} / npm ${npm_v} ready. ${status_msg}."
+  printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$context"
 fi

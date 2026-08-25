@@ -170,7 +170,13 @@ import {
   StagedAnswerResultSurface,
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
-import { clearLegacyRecentQueries, recentQueryStorageKey } from "@/lib/recent-query-storage";
+import {
+  clearLegacyRecentQueries,
+  loadRecentQueries,
+  recentQueriesChangeEvent,
+  saveRecentQueries,
+} from "@/lib/recent-query-storage";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -802,29 +808,26 @@ function ClinicalDashboardContent({
     clearLegacyRecentQueries();
   }, []);
 
+  // Authenticated account preference bootstrap + recent-search recording gate.
+  // canRecordRecentSearches stays false until bootstrap settles, so we never
+  // leak queries against a remote opt-out while local defaults still say on.
+  const { canRecordRecentSearches } = useAppPreferences();
+
   useEffect(() => {
     if (!answerThreadOwnerId) {
       queueMicrotask(() => setRecentQueries([]));
       return;
     }
     let cancelled = false;
-    queueMicrotask(() => {
+    const reload = () => {
       if (cancelled) return;
-      try {
-        const stored = JSON.parse(
-          window.sessionStorage.getItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`) ?? "[]",
-        );
-        setRecentQueries(
-          Array.isArray(stored)
-            ? stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5)
-            : [],
-        );
-      } catch {
-        setRecentQueries([]);
-      }
-    });
+      setRecentQueries(loadRecentQueries(answerThreadOwnerId));
+    };
+    queueMicrotask(reload);
+    window.addEventListener(recentQueriesChangeEvent, reload);
     return () => {
       cancelled = true;
+      window.removeEventListener(recentQueriesChangeEvent, reload);
     };
   }, [answerThreadOwnerId]);
 
@@ -832,22 +835,19 @@ function ClinicalDashboardContent({
     (value: string) => {
       const trimmedValue = value.trim();
       if (!trimmedValue) return;
+      // "Save recent searches" off (or bootstrap still in flight) means nothing
+      // is recorded at all, so bail before touching state too.
+      if (!canRecordRecentSearches) return;
       setRecentQueries((current) => {
         const next = [
           trimmedValue,
           ...current.filter((item) => item.toLowerCase() !== trimmedValue.toLowerCase()),
         ].slice(0, 5);
-        try {
-          if (answerThreadOwnerId) {
-            window.sessionStorage.setItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`, JSON.stringify(next));
-          }
-        } catch {
-          // Recent questions are a convenience only; ignore storage failures.
-        }
+        saveRecentQueries(answerThreadOwnerId, next);
         return next;
       });
     },
-    [answerThreadOwnerId],
+    [answerThreadOwnerId, canRecordRecentSearches],
   );
 
   usePersistedAnswerThread({

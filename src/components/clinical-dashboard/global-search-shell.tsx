@@ -17,7 +17,12 @@ import {
 import dynamic from "next/dynamic";
 
 import { SettingsStateProvider } from "@/components/clinical-dashboard/SettingsStateProvider";
-import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
+import {
+  clearLegacyRecentQueries,
+  demoRecentQueryOwnerId,
+  loadRecentQueries,
+  recentQueriesChangeEvent,
+} from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -610,12 +615,15 @@ function GlobalStandaloneSearchShellBody({
 
   useEffect(() => {
     let cancelled = false;
-    const frame = window.requestAnimationFrame(() => {
+    const reload = () => {
       if (!cancelled) setRecentQueries(loadRecentQueries(recentQueriesOwnerId));
-    });
+    };
+    const frame = window.requestAnimationFrame(reload);
+    window.addEventListener(recentQueriesChangeEvent, reload);
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
+      window.removeEventListener(recentQueriesChangeEvent, reload);
     };
   }, [recentQueriesOwnerId]);
 

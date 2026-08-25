@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "70bfa8ff-9850-45dd-8aeb-5b4dfcb0a1be",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Live freshness readouts round to whole hours, so a fresh fetch reads '0 hours ago'",
+    "detail": "resolveFreshnessFrom rounds ageHours to an integer, which suits a build-time stamp measured in hours or days. The ingestion panel's CheckedAt reuses it for a live fetch time, so a check two minutes old reads '0 hours ago' rather than 'just now'. Not misleading, but weak on the one page whose entire question is 'is it done yet'. Worth a minutes-and-seconds branch on the shared helper rather than a local workaround, since any future live panel will want the same.",
+    "source": "Ingestion panel review, 2026-08-25",
+    "issueUlid": "01M0VMAE7YFDST2Q0W39V59SEW"
+  }
+}

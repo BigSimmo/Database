@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   ACTIVE_INDEXING_POLL_MS,
-  countActiveRows,
   emptyPagination,
   indexingListResponse,
   offsetPagination,
@@ -16,7 +15,7 @@ import { optionalUuidQuery, parseRequestQuery, queryInteger } from "@/lib/valida
 
 export const runtime = "nodejs";
 
-const ACTIVE_JOB_STATUSES = new Set(["pending", "processing"]);
+const ACTIVE_JOB_STATUSES = ["pending", "processing"];
 
 const ingestionJobsQuerySchema = z.object({
   batchId: optionalUuidQuery(),
@@ -26,8 +25,7 @@ const ingestionJobsQuerySchema = z.object({
 
 type JobRow = StatusRow;
 
-function jobsResponse(jobs: JobRow[], extra: Record<string, unknown> = {}) {
-  const activeJobCount = countActiveRows(jobs, ACTIVE_JOB_STATUSES);
+function jobsResponse(jobs: JobRow[], activeJobCount: number, extra: Record<string, unknown> = {}) {
   const hasActiveJobs = activeJobCount > 0;
   const pollAfterMs = hasActiveJobs ? ACTIVE_INDEXING_POLL_MS : null;
   return indexingListResponse(
@@ -50,7 +48,7 @@ export async function GET(request: Request) {
       "Invalid ingestion jobs query.",
     );
     if (isDemoMode()) {
-      return jobsResponse([], {
+      return jobsResponse([], 0, {
         demoMode: true,
         pagination: emptyPagination(limit, offset),
       });
@@ -65,13 +63,28 @@ export async function GET(request: Request) {
       .eq("documents.owner_id", user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
+    let activeCountQuery = supabase
+      .from("ingestion_jobs")
+      .select("id, documents!inner(owner_id)", { count: "exact", head: true })
+      .eq("documents.owner_id", user.id)
+      .in("status", ACTIVE_JOB_STATUSES);
 
-    if (batchId) query = query.eq("batch_id", batchId);
+    if (batchId) {
+      query = query.eq("batch_id", batchId);
+      activeCountQuery = activeCountQuery.eq("batch_id", batchId);
+    }
 
-    const { data, error, count } = await query;
+    const [{ data, error, count }, { error: activeCountError, count: activeJobCount }] = await Promise.all([
+      query,
+      activeCountQuery,
+    ]);
     if (error) throw new Error(error.message);
+    if (activeCountError) throw new Error(activeCountError.message);
+    if (typeof activeJobCount !== "number" || !Number.isInteger(activeJobCount) || activeJobCount < 0) {
+      throw new Error("The active ingestion job count was unavailable.");
+    }
     const jobs = parseStatusRows(data);
-    return jobsResponse(jobs, {
+    return jobsResponse(jobs, activeJobCount, {
       pagination: offsetPagination({ limit, offset, pageLength: jobs.length, count }),
     });
   } catch (error) {
