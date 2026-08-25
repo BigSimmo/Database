@@ -90,17 +90,14 @@ test.describe("@mockup Ward Flow command view", () => {
   });
 
   /**
-   * Task 9 review Critical 1: `.modeNavigation` (ward-management-modes.module.css) is a flex
-   * column, and flex items shrink by default even with an explicit `height` unless
-   * `flex-shrink: 0` is set. Without it, the eight rail mode links compressed to as little as
-   * 22px on narrow viewports — under half the mandated 3rem/48px tap-target floor — while a
-   * check run only at 1440x1024 (where the rail had room to spare) stayed green. 320x640 is
-   * short enough on both axes to force the rail's mode-link section into its scrollable
-   * fallback, which is exactly the condition that exposed the regression.
+   * Task 9 review Critical 1: the eight mode links must retain the 3rem/48px tap-target floor on
+   * the shortest supported phone viewport. The phone sidebar now lives in a drawer, so open the
+   * owning menu before measuring the same shared links.
    */
   test("keeps every rail mode link at the 3rem tap-target floor on a short, narrow viewport", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await gotoWardFlow(page);
+    await page.getByRole("button", { name: "Open Ward Flow menu" }).click();
 
     const nav = page.getByRole("navigation", { name: "Ward Flow views" });
     const links = await nav.getByRole("link").all();
