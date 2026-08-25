@@ -46,7 +46,11 @@ import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { idempotencyKey, pathwayVersionId, patientId, referralId } from "@/lib/caring-contacts/ids";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
-import type { PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
+import {
+  PATHWAY_VERSION_PROVENANCE_WORDING,
+  type PathwayVersion,
+  type PathwayVersionProvenance,
+} from "@/lib/caring-contacts/pathway-versions";
 import type { CaringContactRepository } from "@/lib/caring-contacts/repository";
 
 let mockCookies: Record<string, { value: string } | undefined> = {};
@@ -90,7 +94,7 @@ function inMemoryStoreWithSpy(role = "coordinator"): {
  * neither of them the author. A fixture that bypassed that would prove the page against a version
  * shape the domain cannot produce.
  */
-async function seedApprovedVersion(store: CaringContactRepository, id: string) {
+async function seedApprovedVersion(store: CaringContactRepository, id: string, provenance?: PathwayVersionProvenance) {
   const author = demoActorForRole("coordinator");
   const programmeLead = demoActorForRole("clinicalProgrammeLead");
   const representative = demoActorForRole("livedExperienceRepresentative");
@@ -110,6 +114,7 @@ async function seedApprovedVersion(store: CaringContactRepository, id: string) {
         snapshot: {
           cadenceLabels: CADENCE_LABELS,
           messageTextByType: { standard: "standard", first: "first", closing: "closing" },
+          ...(provenance === undefined ? {} : { provenance }),
         },
       } satisfies PathwayVersion,
     },
@@ -139,11 +144,11 @@ async function seedApprovedVersion(store: CaringContactRepository, id: string) {
 }
 
 /** A referral this team has accepted, on an approved pathway version. */
-async function seedAcceptedReferral(store: CaringContactRepository) {
+async function seedAcceptedReferral(store: CaringContactRepository, provenance?: PathwayVersionProvenance) {
   const actor = demoActorForRole("coordinator");
   const write = (key: string) => ({ actor, idempotencyKey: idempotencyKey(key) });
 
-  await seedApprovedVersion(store, PATHWAY);
+  await seedApprovedVersion(store, PATHWAY, provenance);
 
   const created = await store.createReferral(
     { referralId: referralId(REFERRAL), patientId: patientId(PATIENT) },
@@ -231,6 +236,22 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
       }),
     ]);
     expect(wizard.props.actorRoleLabels).toEqual(["coordinator"]);
+  });
+
+  // Ruling [126], round 1 finding I2. `approvedBy` above is a claim about provenance, and a
+  // demonstration version's approvals were given by nobody. This is the join: the page must carry
+  // what the RECORD says into the prop the wizard prints, and must resolve it to words here so the
+  // domain module stays out of the client chunk -- the same treatment `approvedBy` gets.
+  it("carries a version's own provenance into the wizard, resolved to plain words", async () => {
+    const { store } = inMemoryStoreWithSpy();
+    await seedAcceptedReferral(store, "syntheticDemonstration");
+
+    const element = await loadPage({ referral: REFERRAL });
+    const [option] = element.props.children.props.pathwayOptions;
+
+    expect(option.provenanceNote).toBe(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration);
+    // Resolved, not forwarded: the raw domain value must not cross onto the screen.
+    expect(option.provenanceNote).not.toBe("syntheticDemonstration");
   });
 });
 
