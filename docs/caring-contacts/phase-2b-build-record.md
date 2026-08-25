@@ -2339,3 +2339,46 @@ browser at any width.
 
 **Task 9b brief written** (`task-9b-brief.md`) while the Task 9 review ran — brief-writing holds no
 lease, so it belongs in the gap rather than after it.
+
+## FINDING — the running prototype is empty and cannot be driven end to end
+
+Found 2026-08-26 while preparing Group 3's brief, by reading what actually populates a pathway
+version. It is not a defect anyone introduced; it is the accumulated consequence of Ruling [104]
+(the synthetic caseload is Phase 3) meeting a governance decision made correctly in Phase 2A. But it
+was not written down anywhere, and it changes what "finished" means for this phase.
+
+**Established by reading, not inferred:**
+
+- `caringContactsStore()` returns the in-memory store when no database is configured, and **nothing
+  seeds it.** Its module comment says the in-memory branch "holds the workspace's only copy of its
+  data" — Maps that start empty.
+- `messageTextByType` — per-version message content — is populated **only in tests**. No production
+  code constructs a `PathwayVersionSnapshot`.
+- **No route can create a pathway version at all.** `pathway-versions/route.ts` says so deliberately:
+  _"Deliberately no 'save a draft' method here. `savePathwayVersion` takes a whole `PathwayVersion`,
+  including its state and its recorded approvals, and accepting that shape from the wire would let a
+  caller post a version that arrives already approved."_ **That reasoning is right.** The consequence
+  is that there is no authoring surface anywhere.
+- A referral can only be created by `POST /api/caring-contacts/referrals`. **No screen calls it** and
+  `CARING_CONTACTS_ROUTES` has no referrals destination.
+- `simulation.ts` is the only production module that calls `createPlan`, and it is a harness.
+
+**Therefore: in a running demo, no plan can be created by any means the product offers.** The
+activation wizard needs a referral (API only, no screen) and a pathway version (no route at all). Every
+list screen correctly shows its empty state, because every list is genuinely empty.
+
+**This is the root of the browser-coverage gap**, and it is deeper than the three implementers who hit
+it were able to see from inside their tasks. Each reported "the isolated server seeds no referral".
+The fuller statement is that **even with a referral there would be nothing to choose at stage 2**, so
+no browser case could complete the wizard however the fixture was arranged. All three were right to
+refuse to fabricate an id; none could see that fabricating one would not have been enough.
+
+**What it does NOT mean.** Every screen built in this phase works, is tested, and states its empty
+condition honestly — that was Task 1's whole purpose and it is doing its job. The system is correct
+and unpopulated, not broken.
+
+**What it does mean, and why it is the owner's call:** the remaining screens can all be built to the
+same standard, and none of them can be demonstrated. If the prototype's purpose is to be clicked
+through — by the owner, by colleagues, by a governance board — then a synthetic seed is not Phase 3
+polish, it is the thing that makes Phase 2B's output visible at all. Put to him with a recommendation
+rather than decided here, because the answer changes what the parallel track should build first.
