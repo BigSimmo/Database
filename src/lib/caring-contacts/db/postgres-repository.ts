@@ -94,6 +94,7 @@ import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type Tr
 import {
   CLEARED_PATIENT_DETAIL,
   PATHWAY_VERSION_READ_ACTIONS,
+  PATIENT_NAME_READ_ACTIONS,
   READ_ACTIONS,
   REPOSITORY_REFUSALS,
   SERVICE_STATE_UNSET_TEAM,
@@ -453,6 +454,11 @@ export function createPostgresRepository(
   /** The team is the actor's own: a read of another team's row returns nothing, never a refusal. */
   function mayReadOwnTeam(context: ReadContext, action: CaringContactAction): boolean {
     return mayRead(context.actor, action, context.actor.teamId);
+  }
+
+  /** True only if the actor holds EVERY one of the given read capabilities for their own team. */
+  function mayReadAllOwnTeam(context: ReadContext, actions: readonly CaringContactAction[]): boolean {
+    return actions.every((action) => mayReadOwnTeam(context, action));
   }
 
   /** True if the actor holds ANY of the given read capabilities for their own team. */
@@ -2118,6 +2124,29 @@ export function createPostgresRepository(
           else byPlan.set(key, [row]);
         }
         return plans.rows.map((row) => toPlanRecord(row, byPlan.get(textOf(row.id)) ?? []));
+      });
+    },
+
+    /**
+     * The names projection (Ruling 91).
+     *
+     * `runRead` is what makes this team-scoped AT ALL: it opens the transaction that emits
+     * `set_config('caring_contacts.team_id', ...)` and `set local role caring_contacts_app`, so
+     * row-level security applies and the migration role's policy bypass does not. A query issued
+     * outside it would read EVERY team's names and fail no test that is not looking for it.
+     *
+     * The select names two columns rather than reusing `PLAN_COLUMNS`, so the mobile number and the
+     * identifier list are never fetched into this process in the first place -- the narrowing is in
+     * the query, not only in the mapping afterwards.
+     */
+    async listPatientNames(context: ReadContext) {
+      if (!mayReadAllOwnTeam(context, PATIENT_NAME_READ_ACTIONS)) return [];
+      return runRead(context, async (connection) => {
+        const result = await connection.query("select id, patient_name from caring_contacts.plans order by id");
+        return result.rows.map((row) => ({
+          planId: textOf(row.id) as PlanId,
+          patientName: textOf(row.patient_name),
+        }));
       });
     },
 

@@ -12,9 +12,12 @@ import {
   buildReviewStateSection,
   buildRoutesSection,
   buildTestHealthSection,
+  generate,
   listDocumentPaths,
+  readCapturedRevision,
   readFlakeLedger,
   readReviewRecordRows,
+  SNAPSHOT_VERSION,
   type SiteMapInput,
 } from "../scripts/generate-repo-awareness-snapshot";
 
@@ -348,10 +351,21 @@ describe("buildReviewStateSection", () => {
     expect(buildReviewStateSection([abbreviated]).records[0].head).toBe("1a2b3c4");
   });
 
+  it("normalises Markdown code spans around legacy heads", () => {
+    const codeSpanned = {
+      file: "docs/branch-review-ledger.md",
+      line: "| 2026-01-02 | r | `0d47141fc030684299dcb265e3d853c93b9e2a91` | s | o | c |",
+    };
+    expect(buildReviewStateSection([codeSpanned]).records[0].head).toBe("0d47141fc030684299dcb265e3d853c93b9e2a91");
+  });
+
   it("names the file when a record carries no parsable row", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "review-records-empty-"));
     try {
+      const run = (args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+      run(["init", "-b", "main"]);
       writeFileSync(path.join(dir, "fff.record.md"), "# not a table row\n", "utf8");
+      run(["add", "fff.record.md"]);
       expect(() => readReviewRecordRows(dir)).toThrow(/fff\.record\.md: no review record row found/);
     } finally {
       removePathSync(dir, { recursive: true });
@@ -365,15 +379,114 @@ describe("the real review record corpus", () => {
     // not have caught the escaped pipes that actually appear in the corpus.
     const { readReviewRecordRows, buildReviewStateSection: build } =
       await import("../scripts/generate-repo-awareness-snapshot");
-    const section = build(readReviewRecordRows());
-    expect(section.counts.records).toBeGreaterThan(400);
+    const rows = readReviewRecordRows();
+    const section = build(rows);
+    expect(rows.some((row) => row.file === "docs/branch-review-ledger.md")).toBe(true);
+    expect(rows.some((row) => row.file.startsWith("docs/archive/branch-review-ledger-"))).toBe(true);
+    expect(rows.some((row) => row.file.startsWith("docs/branch-review-records/"))).toBe(true);
+    expect(section.counts.records).toBeGreaterThan(2_500);
+    expect(section.records.some((record) => record.ref === "claude/latency-findings-impl-s8g01v")).toBe(true);
     for (const record of section.records) {
       expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(record.ref.length).toBeGreaterThan(0);
-      expect(record.head).toMatch(/^[0-9a-f]{7,40}$/);
+      // Frozen pre-contract rows include descriptive placeholder heads. The
+      // ledger guard permits those historical rows but enforces SHAs for new
+      // immutable records, so this projection only promises a populated cell.
+      expect(record.head.length).toBeGreaterThan(0);
       expect(record.checks).not.toMatch(/\\\|/);
       expect(record.scope.length).toBeGreaterThan(0);
       expect(record.outcome.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("generate", () => {
+  it("assembles all four sections under the declared version", () => {
+    const snapshot = generate();
+    expect(snapshot.version).toBe(SNAPSHOT_VERSION);
+    expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
+    expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
+    expect(snapshot.review_state.counts.records).toBeGreaterThan(2_500);
+    expect(snapshot.test_health.counts.quarantined).toBeGreaterThanOrEqual(0);
+  });
+
+  it("records the revision of the last commit that touched its own inputs", () => {
+    const snapshot = generate();
+    expect(snapshot.captured_revision?.sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(Number.isNaN(new Date(snapshot.captured_revision!.committed_at).getTime())).toBe(false);
+  });
+
+  it("dates the revision by its own inputs, not by HEAD", () => {
+    // The shape assertion above (40-hex sha, parsable date) cannot distinguish
+    // "git log -- REVISION_INPUTS" from a bare "git rev-parse HEAD" — both
+    // produce an equally valid-looking sha and date. This builds a throwaway
+    // repo where the two diverge and proves readCapturedRevision picks the
+    // input-scoped commit, never HEAD.
+    const dir = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-revision-"));
+    try {
+      const run = (args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+      run(["init", "-b", "main"]);
+      run(["config", "user.email", "test@example.com"]);
+      run(["config", "user.name", "Test"]);
+      run(["config", "commit.gpgsign", "false"]);
+
+      // Commit 1 touches a docs markdown file, one of REVISION_INPUTS.
+      mkdirSync(path.join(dir, "docs"), { recursive: true });
+      writeFileSync(path.join(dir, "docs", "a.md"), "a\n", "utf8");
+      run(["add", "docs/a.md"]);
+      run(["commit", "-m", "touch an input path"]);
+      const inputSha = run(["rev-parse", "HEAD"]);
+
+      // Commit 2 touches a path outside every REVISION_INPUTS entry and becomes
+      // HEAD, without being a real input to anything the snapshot emits.
+      writeFileSync(path.join(dir, "unrelated.txt"), "b\n", "utf8");
+      run(["add", "unrelated.txt"]);
+      run(["commit", "-m", "touch an unrelated path"]);
+      const headSha = run(["rev-parse", "HEAD"]);
+
+      expect(headSha).not.toBe(inputSha);
+
+      const revision = readCapturedRevision({ cwd: dir });
+      expect(revision.sha).toBe(inputSha);
+      expect(revision.sha).not.toBe(headSha);
+    } finally {
+      removePathSync(dir, { recursive: true });
+    }
+  });
+
+  it("fails loudly outside a git repository instead of writing a null revision", () => {
+    // Spec §8.2 asks for a no-git proof. Ruling R5 changed what the right
+    // behaviour IS — this generator runs only from `npm run docs:update`, so a
+    // git-less environment is a broken invocation, not a case to degrade for.
+    // Phase 1's silent `null` is exactly what this must not do.
+    const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
+    try {
+      expect(() => readCapturedRevision({ cwd: outside })).toThrow(/Could not read the repository revision from git/);
+    } finally {
+      removePathSync(outside, { recursive: true });
+    }
+  });
+
+  it("carries no field derived from the current time", () => {
+    // Byte-determinism is what makes the staleness gate trustworthy. A
+    // `generated_at` would change the file on every run and fail the gate on an
+    // unchanged repository, which trains people to ignore it.
+    const first = JSON.stringify(generate());
+    const second = JSON.stringify(generate());
+    expect(first).toBe(second);
+    expect(first).not.toMatch(/generated_at/);
+  });
+
+  it("declares exactly the snapshot's known top-level keys, whatever a new time-derived field would be named", () => {
+    // The `generated_at` grep above is name-specific: a field named
+    // `built_at` or `captured_at` — or a second-resolution timestamp that
+    // happens to match on both `generate()` calls above — would sail through
+    // it undetected. Pinning the exact top-level key set catches any new
+    // field regardless of what it is called, so it cannot rot the way a
+    // literal-string grep can.
+    const snapshot = generate();
+    expect(Object.keys(snapshot).sort()).toEqual(
+      ["version", "captured_revision", "routes", "documentation", "test_health", "review_state"].sort(),
+    );
   });
 });

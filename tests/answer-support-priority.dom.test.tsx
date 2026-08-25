@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
+import { AnswerSupportSummaryCard, answerSupportPriority } from "@/components/clinical-dashboard/evidence-panels";
 import type { AnswerState } from "@/components/ui/answer-state";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { RagAnswer } from "@/lib/types";
@@ -127,5 +131,29 @@ describe("answerSupportPriority · Review source match", () => {
     });
 
     expect(priority?.title).toBe("Safety findings");
+  });
+});
+
+describe("AnswerSupportSummaryCard · feedback on a clean answer", () => {
+  it("still hosts Report a problem when priority and warnings are both empty", () => {
+    render(
+      <AnswerSupportSummaryCard
+        priority={null}
+        warnings={[]}
+        pendingFeedback={null}
+        onSubmitFeedback={() => undefined}
+      />,
+    );
+    expect(screen.getByTestId("answer-feedback-trigger")).toBeInTheDocument();
+  });
+
+  it("the answer surface mounts that card for feedback even without priority or warnings", () => {
+    const surface = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/answer-result-surface.tsx"),
+      "utf8",
+    );
+    expect(surface).toMatch(
+      /showInlineSupportCard = Boolean\(priority \|\| renderModel\.warnings\.length > 0 \|\| onSubmitFeedback\)/,
+    );
   });
 });

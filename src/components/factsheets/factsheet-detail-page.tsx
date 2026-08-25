@@ -19,6 +19,7 @@ import { createPortal } from "react-dom";
 import {
   categoryTheme,
   FACTSHEET_DEMO_NOTICE,
+  factsheetDetailHref,
   printBlocks,
   relatedFactsheets,
   sameTopicFactsheets,
@@ -148,7 +149,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           )}
         />
 
-        <div className="mx-auto grid max-w-[64rem] gap-8 px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:items-start lg:px-8">
+        <div className="mx-auto grid max-w-reading gap-8 px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:items-start lg:px-8">
           <article className="min-w-0">
             {/* hero band */}
             <div className="rounded-2xl border border-[color:var(--border)] p-6" style={{ background: theme.hero }}>
@@ -261,7 +262,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                     return (
                       <Link
                         key={sheet.slug}
-                        href={`/factsheets/${sheet.slug}`}
+                        href={factsheetDetailHref(sheet.slug)}
                         className="group flex items-center gap-3.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3 transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                       >
                         <span
@@ -302,7 +303,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                   return (
                     <Link
                       key={sheet.slug}
-                      href={`/factsheets/${sheet.slug}`}
+                      href={factsheetDetailHref(sheet.slug)}
                       className="group flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3.5 transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                     >
                       <span

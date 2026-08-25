@@ -52,6 +52,7 @@ import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type Tr
 import {
   CLEARED_PATIENT_DETAIL,
   PATHWAY_VERSION_READ_ACTIONS,
+  PATIENT_NAME_READ_ACTIONS,
   READ_ACTIONS,
   REPOSITORY_REFUSALS,
   SERVICE_STATE_UNSET_TEAM,
@@ -262,6 +263,15 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
 
   function mayRead(actor: CaringContactActor, action: CaringContactAction, resourceTeamId: TeamId): boolean {
     return canPerformCaringContactAction(actor, action, { teamId: resourceTeamId }).allowed;
+  }
+
+  /** True only if the actor holds EVERY one of the given read capabilities for the resource's team. */
+  function mayReadAll(
+    actor: CaringContactActor,
+    actions: readonly CaringContactAction[],
+    resourceTeamId: TeamId,
+  ): boolean {
+    return actions.every((action) => mayRead(actor, action, resourceTeamId));
   }
 
   /** True if the actor holds ANY of the given read capabilities for the resource's team. */
@@ -1284,6 +1294,20 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       return [...plans.values()]
         .filter((stored) => mayRead(context.actor, READ_ACTIONS.plan, stored.plan.teamId))
         .map(toPlanRecord);
+    },
+
+    /**
+     * The names projection (Ruling 91). Filtered by exactly the predicate `listPlans` uses, and
+     * then by `READ_ACTIONS.patientName` on top -- so this list is always a subset of the plans the
+     * same actor can already see, and holds a name for every one of them.
+     *
+     * The returned objects are built here rather than derived from the stored plan, so no widening
+     * can ride along by accident: there is no spread of `patientDetail` to forget to narrow.
+     */
+    async listPatientNames(context: ReadContext) {
+      return [...plans.values()]
+        .filter((stored) => mayReadAll(context.actor, PATIENT_NAME_READ_ACTIONS, stored.plan.teamId))
+        .map((stored) => ({ planId: stored.plan.id, patientName: stored.patientDetail.patientName }));
     },
 
     async listContacts(planId: PlanId, context: ReadContext) {

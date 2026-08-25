@@ -10,6 +10,7 @@ const isWindows = process.platform === "win32";
 const commonScripts = ["check:runtime", "check:installed-lock-parity", "format:changed"];
 const docsScripts = [
   "sitemap:check",
+  "check:repo-awareness-snapshot",
   "docs:check-index",
   "docs:check-inventory",
   "docs:check-scripts",
@@ -116,6 +117,9 @@ export function selectedScripts(scope, extended) {
   }
   if (scope.codex_autofix_changed) add("check:codex-autofix-workflow");
   if (scope.static_heavy_changed) add(...staticHeavyScripts);
+  // CI runs this on docs_changed || static_heavy_changed because routes,
+  // app-modes, and the flake ledger also reshape the snapshot.
+  if (scope.docs_changed || scope.static_heavy_changed) add("check:repo-awareness-snapshot");
   if (scope.build_changed) scripts.push("build");
   // Full offline RAG contracts remain mandatory for retrieval/answer surfaces.
   // Other executable changes retain the cheap fixture-integrity guard, while
@@ -240,6 +244,7 @@ async function selfTest() {
       ...commonScripts,
       ...workflowScripts,
       ...staticHeavyScripts,
+      "check:repo-awareness-snapshot",
       "check:rag:fixtures",
       "check:medication-interactions",
       "check:medication-lexicon-report",
@@ -248,6 +253,7 @@ async function selfTest() {
   assertPlan("unknown-or-product-change-fails-heavy", { static_heavy_changed: true }, [
     ...commonScripts,
     ...staticHeavyScripts,
+    "check:repo-awareness-snapshot",
     "check:rag:fixtures",
     "check:medication-interactions",
     "check:medication-lexicon-report",
@@ -255,6 +261,7 @@ async function selfTest() {
   assertPlan("rag-change", { static_heavy_changed: true, rag_eval_changed: true }, [
     ...commonScripts,
     ...staticHeavyScripts,
+    "check:repo-awareness-snapshot",
     "eval:rag:offline",
     "eval:rag:adversarial:offline",
     "check:medication-interactions",
@@ -266,6 +273,7 @@ async function selfTest() {
     [
       ...commonScripts,
       ...staticHeavyScripts,
+      "check:repo-awareness-snapshot",
       "check:rag:fixtures",
       "check:medication-interactions",
       "check:medication-lexicon-report",
@@ -280,6 +288,7 @@ async function selfTest() {
       ...commonScripts,
       "check:npm-ci-dry-run",
       ...staticHeavyScripts,
+      "check:repo-awareness-snapshot",
       "build",
       "check:rag:fixtures",
       "check:medication-interactions",
@@ -293,6 +302,7 @@ async function selfTest() {
       ...commonScripts,
       "check:npm-ci-dry-run",
       ...staticHeavyScripts,
+      "check:repo-awareness-snapshot",
       "build",
       "check:rag:fixtures",
       "check:medication-interactions",
