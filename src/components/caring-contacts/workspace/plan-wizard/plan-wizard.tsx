@@ -48,7 +48,6 @@ import {
   PLANNED_MESSAGE_TYPE_LABELS,
   submissionRefusalWording,
   TRANSPORT_REFUSALS,
-  type CreatePlanRequestBody,
   type PlanActivationDraft,
   type PlanSchedulePreview,
   type PlanSubmissionIdentity,
@@ -1747,7 +1746,7 @@ function ReviewStage({
             overlayId="final-activation"
             commit={
               body === null || state.status === "sending"
-                ? { kind: "unavailable", reason: unavailableReasonFor({ preview, body, state, patientDetail }) }
+                ? { kind: "unavailable", reason: unavailableReasonFor({ preview, state, patientDetail }) }
                 : { kind: "record", record: onActivate }
             }
             className={primaryControlClass}
@@ -1771,7 +1770,6 @@ function ReviewStage({
  */
 function unavailableReasonFor(input: {
   preview: PlanSchedulePreview;
-  body: CreatePlanRequestBody | null;
   state: PlanSubmissionState;
   patientDetail: ReturnType<typeof createPlanPatientDetail>;
 }): string {

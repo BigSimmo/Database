@@ -21,7 +21,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -78,8 +78,8 @@ function pathwayOption(id: string) {
   };
 }
 
-function renderWizard(overrides: Partial<PlanWizardProps> = {}) {
-  const props: PlanWizardProps = {
+function wizardProps(overrides: Partial<PlanWizardProps> = {}): PlanWizardProps {
+  return {
     referralId: REFERRAL,
     patientId: PATIENT,
     teamId: TEAM,
@@ -94,6 +94,10 @@ function renderWizard(overrides: Partial<PlanWizardProps> = {}) {
     fictionalPatientMobileNumbers: FICTIONAL_PATIENT_MOBILES,
     ...overrides,
   };
+}
+
+function renderWizard(overrides: Partial<PlanWizardProps> = {}) {
+  const props = wizardProps(overrides);
   return { ...render(<PlanWizard {...props} />), props };
 }
 
@@ -160,9 +164,15 @@ function reviewReadyDraft(overrides: Record<string, unknown> = {}) {
  * confirmation step, which is the half Ruling [117] is actually about.
  */
 function renderWizardWithOverlays(overrides: Partial<PlanWizardProps> = {}) {
-  const rendered = renderWizard(overrides);
-  render(<WorkspaceOverlays />);
-  return rendered;
+  // ONE render, not two. A second `render()` mounts a second container that `view.unmount()` on the
+  // first does not remove, so a case that renders in a loop accumulates overlay hosts and the next
+  // iteration finds two decision controls. Rendering both as one tree makes unmounting total.
+  return render(
+    <>
+      <PlanWizard {...wizardProps(overrides)} />
+      <WorkspaceOverlays />
+    </>,
+  );
 }
 
 /** Opens the confirmation overlay from stage 4 and presses its own decision control. */
@@ -1025,8 +1035,13 @@ describe("stage 4 — the discharge day and the first contact, side by side (Rul
     // And the screen says why it is asking, rather than leaving it looking like an oversight.
     expect(stage).toHaveTextContent(/counted from it/i);
 
-    await user.type(discharge, DISCHARGE_DAY);
-    expect(within(stage).getByLabelText(/day of the first contact/i)).toHaveValue(bounds().usual);
+    // `fireEvent.change` rather than `user.type`: a `type="date"` input sanitises every partial value
+    // to "" as it is typed, so a controlled one cannot be typed into character by character at all.
+    // What a browser delivers is one change carrying the finished date, which is this.
+    fireEvent.change(discharge, { target: { value: DISCHARGE_DAY } });
+    await waitFor(() =>
+      expect(within(stage).getByLabelText(/day of the first contact/i)).toHaveValue(bounds().usual),
+    );
   });
 
   it("offers exactly the days the schedule accepts, defaulting to the usual one", async () => {
@@ -1053,9 +1068,9 @@ describe("stage 4 — the discharge day and the first contact, side by side (Rul
     expect(stage.textContent ?? "").not.toMatch(/absorbed|suppressed/i);
 
     const firstContact = within(stage).getByLabelText(/day of the first contact/i);
-    await user.clear(firstContact);
-    await user.type(firstContact, bounds().latest);
-    await user.type(within(stage).getByLabelText(/why the first contact/i), "Agreed with the ward before discharge.");
+    fireEvent.change(firstContact, { target: { value: bounds().latest } });
+    const reason = await within(stage).findByLabelText(/why the first contact/i);
+    await user.type(reason, "Agreed with the ward before discharge.");
 
     // RULING [118]'s own sentence: the system is about to remove a contact from a
     // suicide-prevention schedule as a side effect of a date choice, and it must say so in place,
@@ -1076,8 +1091,7 @@ describe("stage 4 — the discharge day and the first contact, side by side (Rul
     expect(within(stage).queryByLabelText(/why the first contact/i)).toBeNull();
 
     const firstContact = within(stage).getByLabelText(/day of the first contact/i);
-    await user.clear(firstContact);
-    await user.type(firstContact, bounds().earliest);
+    fireEvent.change(firstContact, { target: { value: bounds().earliest } });
 
     const reason = await within(stage).findByLabelText(/why the first contact/i);
     // `first-contact-reason-required` — stated, not merely implied by an inert control.
