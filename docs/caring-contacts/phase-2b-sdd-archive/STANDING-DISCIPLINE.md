@@ -30,12 +30,34 @@ tell whether your situation is the one it is about.
 - **A test that installs a double must assert the double was used.** jsdom's storage is a Proxy
   answering from the prototype, so a mock assigned to the instance is never called and the test passes
   inert.
-- **Comparing two outputs of one function to each other does not test that function.** Task 9b's
-  "reads back through `getPlan` and through the caseload list alike" held three reads only against one
-  another; emptying the mapper they all share left it **green**, because three empty lists agree
-  perfectly. **Hold at least one side to expected content**, then compare the rest to it. The same
-  shape hides anywhere a test says "these agree" — two serialisers, a round trip, a cache against its
-  source. Its mutation found it; an assertion nobody mutated would have shipped it.
+- **"Could this possibly go red?" is a question for EVERY assertion.** Ask it as you write each one,
+  before any mutation exists to answer it for you.
+
+  This rule replaced a narrower one, and how the narrower one failed is the point. Task 9b's M6 found an
+  assertion comparing three reads only to each other — emptying the mapper they shared left it green,
+  because three empty lists agree perfectly. That was written up as a rule about **comparing two outputs
+  of one function**; the implementer then hunted its own diff for that literal shape and correctly found
+  none. The next review found **three more instances in the same diff**, in different clothes: a field
+  asserted null where the fixture had set it null; a length held against the very list the function
+  filters; an absence checked across four reads with no positive control, which four empty reads satisfy.
+
+  Its own conclusion is better than the rule it corrected: **"I proved each property where it was
+  convenient to assert rather than where it is load-bearing."** That is the family. Comparing two outputs
+  is one member, and hunting for the member misses the family.
+
+  Two forms that catch most of it:
+  - **Give every absence a positive control.** Set the value, assert it is held, _then_ assert the act
+    under test removes it. An absence asserted over a fixture where the value was never present is
+    decoration presented as proof.
+  - **Assert where the property is load-bearing, not merely where it is reachable.** Task 9b proved its
+    named refusal on the panel that displays it and not on the control a coordinator actually presses —
+    so the property was real, and proven on a surface nobody reaches by the path the fix had just created.
+
+- **Do not label an assertion "cannot fail" unless you have checked which inputs it reads.** Task 12
+  marked two fixture preconditions as unable to redden under any mutation of the module under test. One
+  read planner records and was right; the other read the module's own **output** and reddens under M20.
+  The error was conservative — it under-claimed — but "this cannot fail" is exactly the note a later
+  reader trusts without re-deriving.
 - **Commit each piece before you mutate the file it lives in.** `git checkout --` also discards any
   uncommitted fix in that file.
 - **Never `git add -A`, `git add .` or `git commit -a` while a mutation is applied.** This has now
@@ -73,6 +95,27 @@ tell whether your situation is the one it is about.
 - **`npm run lint` uses a per-file cache.** A file that has not changed is not re-examined — so a
   failure caused by a _different_ file's change stays invisible locally and goes red in CI. If lint
   matters to your claim, clear `node_modules/.cache/eslint` or run `npx eslint <paths>` without it.
+- **A gate's verdict covers the tree it saw. Any edit after it voids the verdict — RE-VERIFY after your
+  final edit.** One task lost two rounds to this identically: typecheck passed, a case was added
+  afterwards, the added case did not compile. Both times the error was real and both times it was
+  invisible because the gate had been run and mentally banked. **This includes an edit that only adds a
+  test.** Its own first draft of this rule was "run the gate last", and the correction is the reason the
+  rule reads as it does: _"run it last" only prevents this if nothing is added afterwards — which is
+  precisely the assumption that failed twice._ Ordering is not the mechanism; re-running is.
+- **Check every SHA you write down still exists**, with `git cat-file -e <sha>^{commit}`. A reported
+  `4c1a5ff96` had been orphaned by an amend to `856f1fd7e`; the controller copied the dead SHA into a
+  review brief without checking, and the reviewer spent time reconstructing the real range. This binds
+  **whoever repeats a SHA**, not only whoever first produced it — a commit identifier is a claim about
+  the repository like any other.
+- **The session scratchpad is NOT private — namespace anything you write there by worktree.** Several
+  tasks share one machine and one scratchpad path. An implementer's mutation driver was overwritten by a
+  different task's driver at the same path; running it produced **the other task's output** — different
+  worktree, different suite, different test count — and because that driver takes its ledger filename as
+  an argument, it wrote the **wrong task's ledger into a file named after this task's mutation**. Nothing
+  was corrupted and only the test count made it obviously foreign. Mutation evidence is the entire basis
+  on which this programme accepts work, so **an unattributable result is worse than a missing one**. Put
+  the worktree name in the **path**, make every result identifiable by something other than the fact that
+  you ran it, and when a number surprises you, **check whose result it is before interpreting it**.
 
 ## Gates, and the shared machine
 
@@ -98,10 +141,27 @@ tell whether your situation is the one it is about.
 
 ## Writing that does not decay
 
-- **Do not restate a count in prose.** State the invariant. This rule has been broken by every role in
-  this programme including the controller, and once inside the very comment written to remove counts.
-  A count sitting **directly on top of the list it counts** is acceptable; a count about something
-  elsewhere is the decaying form.
+- **Do not restate a count in prose.** State the invariant. A count sitting **directly on top of the list
+  it counts** is acceptable; a count about something elsewhere is the decaying form.
+
+  **The actionable test, because the rule above is not enough on its own:** ask whether the thing the
+  number counts is **visible in the same view as the number**. If it is not, name the set instead of
+  counting it. This rule has now been broken by every role in this programme — implementer, reviewer and
+  controller — repeatedly **in the act of removing someone else's count**: once inside the very comment
+  written to remove counts; once in a Prettier evidence row inside the fix that removed a false count
+  from a code comment ("the five Task 12 source and test files" — there were seven, listed two sections
+  away); and once in the controller's own notes, where a pre-computed path count was wrong within the
+  hour because a live fix round added a file while it was being written down. **A number about a set that
+  is still moving is already wrong.**
+
+- **Name the state, not the cause.** The controller ruled that a contact sitting outside the three named
+  sending windows should be labelled "moved", having correctly verified that a deliberate move is the
+  only way to produce one. The premise was true and the label was still wrong, because the **converse**
+  is false: a contact moved onto an approved hour is indistinguishable from one that was always there.
+  "Only X produces Y" licenses _"Y implies X"_ and nothing else — it does not license naming the Y-group
+  after X, because that name also claims **"not-Y implies not-X"**, a different proposition. **A label is
+  a claim about the whole partition, not only about the members it is attached to.** Where a state has
+  one cause but the cause has more than one outcome, name the state.
 - **Name the destination, not the act.** "Recorded on the plan" survives; "stored", "kept" and
   "recorded" alone do not, because this system distinguishes _held in a tab's storage_ from _written
   onto the plan_ while ordinary English does not. One sentence here was wrong twice, in opposite
@@ -150,6 +210,13 @@ the product; the types are a specification for what exists. **Where they disagre
 the disagreement is worth recording rather than silently resolving.**
 
 ## Reporting
+
+- **A reviewer's factual claim is a claim, not a finding already checked.** This one binds the controller
+  hardest, because a brief is the most expensive place for a false claim to sit — every later round
+  inherits it with no reason to doubt it. Two were relayed into briefs in one session and both were
+  wrong: an orphaned commit SHA, and "only `Ari Sample` is new", which an implementer disproved by
+  checking each name at the merge base and finding **not one given name was new**. Adjudicating between
+  an implementer and a reviewer does not make the reviewer's premises true.
 
 Commit early — before waiting on any gate. Write the full report to your named report file and return
 only: status, commit SHAs, a one-line test summary, and your concerns. **Do not push and do not open a
