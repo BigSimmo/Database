@@ -23,7 +23,8 @@ no patient data, no OpenAI call, no server. Every number is invented.
    Psychiatrist's official register or render as the bare code.
 2. **Synthetic data only.** No name, date of birth, medical record number, address, diagnosis,
    narrative history or treatment. **Sex is the only permitted patient attribute. Free text
-   counts** — see item 11, which removes the last free-text input in the prototype.
+   counts** — see item 11, which removes the escalation form's free-text input. **One free-text box
+   still remains after this phase** (the override reason); see item 11's correction note.
 3. **Advisory only.** The system proposes; a human confirms or overrides, always, with the reason
    recorded. Nothing auto-allocates and nothing defaults after a timeout.
 4. **Conservative failure.** Missing data narrows what is shown. An absence renders as an explicit
@@ -75,8 +76,10 @@ Four gaps follow from that table and drive most of this phase:
 - **Nothing can change after referral.** No event writes `movement.statusChanges`, and urgency is
   fixed at `RAISE_REFERRAL`. The binding spec §7 says explicitly that urgency is editable
   mid-movement with a record of who changed it. Item 3 fixes this.
-- **One free-text box survives.** The escalation contact is a `<textarea>` whose label asks for
-  "a role or service only, never a person's name". Nothing enforces it. Item 11 fixes this.
+- **Two free-text boxes survive** (corrected — this row originally said one). The escalation contact
+  is a `<textarea>` whose label asks for "a role or service only, never a person's name" and enforces
+  nothing; item 11 fixes that one. The override-reason `<textarea>` in `shortlist-panel.tsx` is the
+  other, and it is deliberately left for the product owner — see item 11's correction note.
 
 ## 3. Product-owner decisions settled for this phase
 
