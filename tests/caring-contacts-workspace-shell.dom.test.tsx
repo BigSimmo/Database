@@ -88,9 +88,10 @@ describe("caring-contacts workspace shell", () => {
     renderShell();
     expect(destinationsOf(screen.getByRole("navigation", { name: "Workspace" }))).toEqual([
       { label: "Today", kind: "link" },
-      // Patients became a link in Phase 2B Task 5, in the same change as its page (Ruling 89).
+      // Patients became a link in Phase 2B Task 5, and Schedule in Task 13, each in the same
+      // change as its own page (Ruling 89).
       { label: "Patients", kind: "link" },
-      { label: "Schedule", kind: "unavailable" },
+      { label: "Schedule", kind: "link" },
       { label: "Templates", kind: "unavailable" },
     ]);
   });
@@ -100,7 +101,7 @@ describe("caring-contacts workspace shell", () => {
     expect(destinationsOf(screen.getByRole("navigation", { name: "Phone workspace" }))).toEqual([
       { label: "Today", kind: "link" },
       { label: "Patients", kind: "link" },
-      { label: "Schedule", kind: "unavailable" },
+      { label: "Schedule", kind: "link" },
       { label: "More", kind: "in-page" },
     ]);
   });
@@ -116,10 +117,15 @@ describe("caring-contacts workspace shell", () => {
     const { container } = renderShell();
     const internalHrefs = [...container.querySelectorAll("a[href^='/']")].map((anchor) => anchor.getAttribute("href"));
     expect(internalHrefs.length).toBeGreaterThan(0);
-    // `today`, `patients` and `newPlan` are the Caring Contacts routes with a page. Every other
-    // declared destination is an unavailable control until Plan 2B builds its page.
+    // `today`, `patients`, `schedule` and `newPlan` are the Caring Contacts routes with a page.
+    // Every other declared destination is an unavailable control until Plan 2B builds its page.
     expect(new Set(internalHrefs)).toEqual(
-      new Set([CARING_CONTACTS_ROUTES.today, CARING_CONTACTS_ROUTES.patients, CARING_CONTACTS_ROUTES.newPlan]),
+      new Set([
+        CARING_CONTACTS_ROUTES.today,
+        CARING_CONTACTS_ROUTES.patients,
+        CARING_CONTACTS_ROUTES.schedule,
+        CARING_CONTACTS_ROUTES.newPlan,
+      ]),
     );
   });
 
@@ -153,9 +159,10 @@ describe("caring-contacts workspace shell", () => {
     expect(destinationKind(primary!)).toBe("link");
     expect(primary).toHaveAttribute("href", CARING_CONTACTS_ROUTES.newPlan);
     expect(primary).toHaveAttribute("data-internal-link", "true");
-    // 2 unbuilt rail destinations + 1 on the phone bar + 10 in the More panel.
+    // Templates on the rail + the 10 in the More panel. The phone bar carries no unbuilt
+    // destination at all since Task 13 lit Schedule.
     expect([...container.querySelectorAll("button")].filter((c) => destinationKind(c) === "unavailable")).toHaveLength(
-      13,
+      11,
     );
   });
 
@@ -164,7 +171,7 @@ describe("caring-contacts workspace shell", () => {
     const unavailable = [...container.querySelectorAll("button")].filter(
       (control) => destinationKind(control) === "unavailable",
     );
-    // Two unbuilt rail destinations, one more on the phone bar, plus the More panel.
+    // One unbuilt rail destination plus the More panel.
     // The floor stays at 5: it was written as a floor rather than a count, the exact count is
     // asserted above, and lowering a floor a change did not breach is loosening for its own sake.
     expect(unavailable.length).toBeGreaterThanOrEqual(5);

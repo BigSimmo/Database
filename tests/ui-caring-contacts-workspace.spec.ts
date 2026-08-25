@@ -4,6 +4,7 @@ import {
   WORKSPACE_OVERLAY_DEFINITIONS,
   type WorkspaceOverlayDefinition,
 } from "../src/components/caring-contacts/workspace/overlays/definitions";
+import { SCHEDULE_STRIP_DAYS } from "../src/components/caring-contacts/workspace/schedule-screen";
 import { WORKSPACE_WIDTH_BREAKPOINTS, widthStateFor } from "../src/components/caring-contacts/workspace/width-state";
 
 /**
@@ -63,6 +64,20 @@ const PATIENT_OVERVIEW_ROUTE = `${PATIENTS_ROUTE}/${PATIENT_OVERVIEW_SYNTHETIC_I
 const NEW_PLAN_ROUTE = `${WORKSPACE_ROUTE}/plans/new`;
 
 /**
+ * The Schedule screen, opened with no day named.
+ *
+ * Deliberately the bare route rather than `?day=<date>`. The screen resolves "today" from the
+ * server's clock when the URL names no day, and a date pinned in this constant would go stale the
+ * moment it passed -- worse, it would pin a day the isolated Playwright server has nothing on,
+ * while claiming to have chosen it. The server seeds no plans at all (`caringContactsStore()` falls
+ * back to `createInMemoryRepository`, which starts empty and nothing here writes to it), so every
+ * day in the strip is empty and the screen's own no-data statement is the state this server can
+ * actually reach. The populated day, its windows, its held plans and its named exceptions are
+ * proved in `tests/caring-contacts-schedule-screen.dom.test.tsx`, which can seed plans.
+ */
+const SCHEDULE_ROUTE = `${WORKSPACE_ROUTE}/schedule`;
+
+/**
  * Every production screen this workspace serves, with the `h1` it must render.
  *
  * The header above states the rule this list exists to keep true: the adoption
@@ -88,7 +103,8 @@ const NEW_PLAN_ROUTE = `${WORKSPACE_ROUTE}/plans/new`;
  *     `openWorkspace` with a viewport and NO fourth argument, so despite its
  *     name it also proves Today only;
  *   * `caring-contacts patients directory` names `PATIENTS_SCREEN`;
- *   * `caring-contacts patient overview` names `PATIENT_OVERVIEW_SCREEN`.
+ *   * `caring-contacts patient overview` names `PATIENT_OVERVIEW_SCREEN`;
+ *   * `caring-contacts schedule` names `SCHEDULE_SCREEN`.
  *
  * So each screen is proved by the block written for it, and by nothing else.
  * Adding an entry here without writing that block proves nothing about the new
@@ -110,6 +126,7 @@ const WORKSPACE_SCREENS = [
   { name: "Patients", route: PATIENTS_ROUTE, heading: "Patients" },
   { name: "Patient overview", route: PATIENT_OVERVIEW_ROUTE, heading: "Patient" },
   { name: "New plan", route: NEW_PLAN_ROUTE, heading: "New plan" },
+  { name: "Schedule", route: SCHEDULE_ROUTE, heading: "Schedule" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
@@ -118,6 +135,7 @@ const TODAY_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[0];
 const PATIENTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[1];
 const PATIENT_OVERVIEW_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[2];
 const NEW_PLAN_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[3];
+const SCHEDULE_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[4];
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -700,6 +718,143 @@ test.describe("caring-contacts new plan", () => {
 
     await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: NEW_PLAN_SCREEN.heading })).toBeVisible();
+    await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+  });
+});
+
+test.describe("caring-contacts schedule", () => {
+  // The one statement this server can reach, and it is a real production state rather than a
+  // fixture: the isolated Playwright server seeds no plans, so no day in the strip holds a contact.
+  // See SCHEDULE_ROUTE's own note.
+  const STATEMENT = "No contacts in these days";
+
+  test("serves an empty schedule as a page, not a missing resource", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(SCHEDULE_SCREEN.route, { waitUntil: "load" });
+
+    // The same empty-list contract the patients block proves, on the read that feeds this screen:
+    // `listPlans` returning `[]` is a permitted read that released something, so the schedule is
+    // served rather than refused. The status line catches only a refusal made before the stream
+    // opens; the content assertions are the load-bearing ones -- see the patients block for why.
+    expect(response?.status(), "the schedule route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: SCHEDULE_SCREEN.heading })).toBeVisible();
+
+    // The empty state says WHICH of the two empty days it is: nothing anywhere in the strip, not
+    // "you picked a quiet day". A screen that answered "nothing scheduled on this day" here would
+    // be inviting a clinician to go looking through days that are all equally empty.
+    const empty = page.getByRole("group", { name: STATEMENT });
+    await expect(empty).toBeVisible();
+    await expect(empty).toContainText("starts a plan");
+  });
+
+  test("offers a full day strip whose every day is a real link", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, SCHEDULE_SCREEN);
+
+    const strip = page.getByRole("navigation", { name: "Choose a day" });
+    await expect(strip).toBeVisible();
+    // The strip is the remedy the empty state names, so it has to exist and be navigable. Its
+    // length is read off the component's own constant rather than typed here.
+    await expect(strip.getByRole("link")).toHaveCount(SCHEDULE_STRIP_DAYS);
+    await expect(strip.locator("[aria-current='page']")).toHaveCount(1);
+
+    // Following a day changes the URL and the day the screen opens on, with no client state.
+    const other = strip.getByRole("link").first();
+    const day = await other.getAttribute("data-schedule-day");
+    await other.click();
+    await expect(page).toHaveURL(new RegExp(`day=${day}$`));
+    await expect(page.getByRole("heading", { level: 1, name: SCHEDULE_SCREEN.heading })).toBeVisible();
+  });
+
+  test("is reachable from the workspace navigation, not only by typing its URL", async ({ page }) => {
+    await openWorkspace(page, 1024);
+
+    // Ruling 89: the nav entry and the screen land together, so the entry must actually reach it.
+    await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Schedule" }).click();
+
+    await expect(page).toHaveURL(new RegExp(`${SCHEDULE_SCREEN.route}$`));
+    await expect(page.getByRole("heading", { level: 1, name: SCHEDULE_SCREEN.heading })).toBeVisible();
+  });
+
+  test("holds the frozen layout at 320px, the narrowest reviewed width", async ({ page }) => {
+    await openWorkspace(page, 320, VIEWPORT_HEIGHT, SCHEDULE_SCREEN);
+
+    expect(await documentOverflow(page), "horizontal document overflow at 320px").toBeLessThanOrEqual(2);
+    expect(await displayedWidthStates(page), "width state at 320px").toEqual([widthStateFor(320)]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+
+    // Seven days across 320px is the tightest grid in this workspace, and every one of them is a
+    // control a thumb has to hit. A day narrowed to the generic 44px guidance fails here.
+    const firstDay = page.getByRole("navigation", { name: "Choose a day" }).getByRole("link").first();
+    await expect(firstDay).toBeVisible();
+    const box = await firstDay.boundingBox();
+    expect(box?.height ?? 0, "a day in the strip is under the production tap floor").toBeGreaterThanOrEqual(48);
+  });
+
+  test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, SCHEDULE_SCREEN);
+    await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
+    const light = await shellColours(page);
+    const lightStatement = await emptyStateColours(page, STATEMENT);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, SCHEDULE_SCREEN);
+    await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
+    const dark = await shellColours(page);
+    const darkStatement = await emptyStateColours(page, STATEMENT);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
+
+    // The shell chrome above is identical on every route, so on its own it would claim the
+    // category on a screen it had not inspected. These read this screen's own surface.
+    expect(darkStatement.surface, "the statement's surface did not change in dark").not.toBe(lightStatement.surface);
+    expect(darkStatement.border, "the statement's border did not change in dark").not.toBe(lightStatement.border);
+    expect(darkStatement.ink, "the statement's ink did not change in dark").not.toBe(lightStatement.ink);
+    for (const value of Object.values(darkStatement)) {
+      expect(value, "a dark colour on the statement resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+  });
+
+  test("keeps its day strip and its statement in words once forced colours drop every tint", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, SCHEDULE_SCREEN);
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    const statement = page.getByRole("group", { name: STATEMENT });
+    await expect(statement).toBeVisible();
+    await expect(statement).toContainText("starts a plan");
+
+    // The day being looked at is marked with an accent border, which forced colours drops.
+    // `aria-current` is what actually carries "this is the day you are on", so it has to survive.
+    const strip = page.getByRole("navigation", { name: "Choose a day" });
+    await expect(strip.locator("[aria-current='page']")).toHaveCount(1);
+
+    const border = await page.evaluate((label) => {
+      const group = document.querySelector(`[role='group'][aria-label='${label}']`);
+      if (!group) throw new Error("the statement is missing");
+      const style = getComputedStyle(group);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    }, STATEMENT);
+    expect(Number.parseFloat(border.width), "the statement has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the statement border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
+
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+  });
+
+  test("prints with the synthetic marker and its statement still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, SCHEDULE_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: SCHEDULE_SCREEN.heading })).toBeVisible();
     await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
     expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
   });
