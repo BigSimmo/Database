@@ -1559,6 +1559,22 @@ fictional data only` and `SYNTHETIC_DATA_MARKER`'s `… fictional people, teams,
    The rule that covers all three: **score a run only on a real `Test Files N passed (N)` line
    observed in that run's own output.** Never on an exit code, in either direction.
 
+   **A sixth shape, found 25 August 2026, and it is the one that inverts the whole lesson.** Every
+   costume above is a run that did **not** happen reported as success. This one is a run that
+   happened and **failed**, reported as success: a full Chromium pass printed
+   `1 failed / 1 skipped / 30 passed (10.0m)` while the shell reported **exit 0**. A red wearing
+   green.
+
+   Everything before this could be caught by a harness that treated a missing summary line as a
+   retry. This cannot: the summary line was present, the run was real, and only _reading_ it
+   distinguished the outcome. It is also the most dangerous, because the previous five cost a
+   wasted retry while this one banks a failure as a pass — the exact shape of a guard that cannot
+   fail, arriving through the runner rather than through the test.
+
+   The rule stands and is now load-bearing in both directions: **read the counts in the summary
+   line and score those.** A non-zero `failed` is red however the process exited, and an exit code
+   is not evidence of anything on this machine.
+
 7. **Focus has no owner, and that is now an architectural debt.** Three focus defects in a
    row shared one cause: the shell is an ancestor, its effect lands last, and every
    descendant calls `focus()` independently. Nothing structurally prevents a fourth — the
