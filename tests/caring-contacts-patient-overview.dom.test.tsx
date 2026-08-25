@@ -494,6 +494,56 @@ describe("the patient overview - Ruling 96: the first contact date is shown, and
     expect(note).not.toHaveTextContent("Patient was interstate for the first week.");
   });
 
+  it("says the reason is part of a record this role may not read, and claims nothing about it", () => {
+    // Review round 1, I-2. The fourth branch had no covering test: every `episode: null` render in
+    // this file uses a discharge + 1 first contact, so all of them land in the default-day branch
+    // and none reaches this prose at all. It could have been deleted or garbled with every gate
+    // green -- which is what M13 below now demonstrates it cannot be.
+    //
+    // Built as a direct `PatientOverview` render rather than through the page, for the reason the
+    // module comment gives: `episode: null` is a fact about the ACTOR that the PAGE decides, never
+    // something this screen infers from an empty read. `permissions.ts` currently grants
+    // `generateClinicalRecordSummary` to exactly the roles holding `viewReferral`, so no role can
+    // produce this view through the store today, and a fixture that reached for one would be
+    // asserting a grant rather than the branch.
+    const record: PlanRecord = {
+      plan: { id: planId("plan-x"), teamId: demoActorForRole("coordinator").teamId, state: "active", version: 1 },
+      patientId: patientId(PATIENT),
+      referralId: referralId("referral-x"),
+      pathwayVersionId: pathwayVersionId("pathway-1"),
+      dischargeAt: DISCHARGE,
+      completedAt: null,
+      outcome: "inProgress",
+      contacts: [
+        {
+          contact: { id: contactId("plan-x--contact-1"), planId: planId("plan-x"), state: "scheduled", version: 1 },
+          planned: {
+            sequence: 1,
+            cadenceLabel: "Day 1",
+            // Deliberately the ABSORBING day, not the default: a discharge + 1 first contact would
+            // render the usual-day sentence and never reach the branch under test.
+            calendarDay: ABSORBING_FIRST_CONTACT_DAY,
+            sendAt: new Date("2026-08-22T02:00:00.000Z"),
+            messageType: "first",
+          },
+        },
+      ],
+    };
+
+    render(
+      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
+    );
+
+    const note = screen.getByRole("note", { name: "First contact moved from the usual day" });
+    expect(note).toHaveTextContent(ABSORBING_FIRST_CONTACT_DAY);
+    expect(note).toHaveTextContent(/not visible in the role you are acting in/i);
+    // The load-bearing half: absence here is a fact about the actor, so the screen must not turn it
+    // into a claim about the record. Each of the other three branches would be a false statement.
+    expect(note).toHaveTextContent(/says nothing about whether one is held/i);
+    expect(note).not.toHaveTextContent(/created before reasons were kept/i);
+    expect(note).not.toHaveTextContent(/retention clearance/i);
+  });
+
   it("shows the discharge day the whole calendar hangs off", async () => {
     const { store } = spiedStore();
     await createPlan(store, "plan-solo");

@@ -180,7 +180,19 @@ describe("caring-contact migrations", () => {
     await expect(setReason("Patient asked to wait until she is home from her sister's.")).resolves.toBeUndefined();
 
     await expect(setReason("x".repeat(501))).rejects.toThrow(/plans_first_contact_reason_shape/);
+    await expect(setReason("")).rejects.toThrow(/plans_first_contact_reason_shape/);
     await expect(setReason("   ")).rejects.toThrow(/plans_first_contact_reason_shape/);
+
+    // Review round 1, minor M-2. The check used bare `btrim()`, which strips SPACES ONLY, so these
+    // two passed a constraint whose own comment said a blank was refused -- the comment and the
+    // behaviour disagreed, and the two cases above could not tell. Whitespace is now classified
+    // with `[[:space:]]`.
+    await expect(setReason(String.fromCharCode(9, 9))).rejects.toThrow(/plans_first_contact_reason_shape/);
+    await expect(setReason(String.fromCharCode(10))).rejects.toThrow(/plans_first_contact_reason_shape/);
+
+    // The cap is measured after surrounding whitespace is discounted, so padding cannot refuse a
+    // reason the domain would have accepted -- the domain stores trimmed text and this must agree.
+    await expect(setReason(`  ${"x".repeat(500)}  `)).resolves.toBeUndefined();
   });
 
   it("enables and forces row-level security on every patient-bearing table", async () => {

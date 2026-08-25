@@ -87,3 +87,72 @@ describe("caring-contacts domain isolation", () => {
     expect(strays).toEqual([]);
   });
 });
+
+/**
+ * Two properties that exist only as SOURCE TEXT, and so can be held only by reading it.
+ *
+ * They live here, in an offline source-scanning file the default `npm run test` collects, for a
+ * reason found the hard way in review round 1. The first of them was originally written in
+ * `caring-contacts-postgres-repository.test.ts`, which `vitest.config.mts` lists in
+ * `caringContactsDbTestFiles` and excludes from the `node` project outright -- and no workflow under
+ * `.github/workflows/` runs the database suite at all. So the guard was real, correct, and could
+ * fire only when a human happened to have a Postgres container up. Neither property needs a
+ * database: both are a file read and a regular expression.
+ *
+ * Both carry a positive control. A scan whose pattern stops matching after a rename goes GREEN, not
+ * red, so a scan without one is a check that cannot fail -- which is the same defect in a different
+ * costume from the one the paragraph above describes.
+ */
+describe("caring-contacts properties that only a source scan can hold", () => {
+  const postgresStore = () =>
+    readFileSync(path.join(DOMAIN_ROOT, "db", "postgres-repository.ts"), "utf8");
+
+  const schedule = () => readFileSync(path.join(DOMAIN_ROOT, "schedule.ts"), "utf8");
+
+  const firstContactReasonMigration = () =>
+    readFileSync(
+      path.join(process.cwd(), "caring-contacts", "supabase", "migrations", "0005_caring_contacts_first_contact_reason.sql"),
+      "utf8",
+    );
+
+  it("never fetches the first-contact reason for a list read", () => {
+    // `first_contact_reason` is free text a clinician wrote about one patient. It is deliberately
+    // absent from `PLAN_COLUMNS` -- the list `readPlanRecord` and `listPlans` select -- so rendering
+    // a caseload never pulls it into the process at all.
+    //
+    // Nothing observable through the repository can hold that. `toPlanRecord` maps field by field,
+    // so adding the column to `PLAN_COLUMNS` fetches a clinical note for every plan in the team and
+    // still releases nothing: the behaviour is identical and every behavioural test stays green.
+    // The narrowing lives in the QUERY, which is why it takes a scan. Found by mutation, and the
+    // invariant rather than the tally: the mutation changed no test's verdict anywhere in the
+    // repository until this scan existed.
+    const declaration = /const PLAN_COLUMNS = `([\s\S]*?)`;/.exec(postgresStore());
+
+    // Positive control: the constant was found and really is the plan column list.
+    expect(declaration).not.toBeNull();
+    expect(declaration?.[1]).toContain("patient_name");
+
+    expect(declaration?.[1]).not.toContain("first_contact_reason");
+  });
+
+  it("keeps the first-contact reason cap identical in the domain and in its SQL backstop", () => {
+    // The domain owns the rule and refuses an over-long reason BY NAME
+    // (`first-contact-reason-too-long`); the column's check constraint is a backstop for a write
+    // that reached the table another way.
+    //
+    // The `isAwstCalendarDay` precedent is real but NOT symmetric with this one, and the asymmetry
+    // is why this scan exists. That function is strictly stricter than the schema's calendar-day
+    // pattern by construction, so drift there can only ever make the SQL redundant. Here the two are
+    // the same rule written twice: RAISING the constant without raising the constraint turns a named
+    // refusal into a raw constraint violation on a clinical write -- a regression, not a redundancy.
+    const constant = /FIRST_CONTACT_REASON_MAX_LENGTH = (\d+)/.exec(schedule());
+    const sql = /plans_first_contact_reason_shape[\s\S]*?<=\s*(\d+)/.exec(firstContactReasonMigration());
+
+    // Positive control: both literals were found. Without this, a rename in either file would make
+    // the comparison below vacuously true -- two undefineds are equal.
+    expect(constant?.[1]).toBeDefined();
+    expect(sql?.[1]).toBeDefined();
+
+    expect(sql?.[1]).toBe(constant?.[1]);
+  });
+});

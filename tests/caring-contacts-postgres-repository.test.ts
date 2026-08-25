@@ -17,9 +17,6 @@
 //
 // Needs a real Postgres named by CARING_CONTACTS_DATABASE_URL. It never skips — see
 // caring-contacts/run-db-tests.mjs.
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import type { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
@@ -314,37 +311,5 @@ describe("a cross-team restart approval stores no incident note (postgres only)"
     for (const secret of ["Rowan", "Delacroix", "491 570 156", NOTE]) {
       expect(stored).not.toContain(secret);
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// The narrowing that only a source scan can see (Ruling 105)
-//
-// `first_contact_reason` is free text a clinician wrote about one patient, and it is deliberately
-// absent from `PLAN_COLUMNS` -- the list `readPlanRecord` and `listPlans` select -- so a caseload
-// render never pulls it into the process at all. That narrowing lives in the QUERY, and nothing
-// observable through the repository can tell the difference: `toPlanRecord` maps field by field, so
-// adding the column to `PLAN_COLUMNS` fetches it for every plan in the team and still releases
-// nothing. Every behavioural test stays green, and the comment claiming the narrowing becomes
-// aspirational.
-//
-// Verified by mutation: adding the column to `PLAN_COLUMNS` left all 192 database tests passing
-// until this scan existed.
-// ---------------------------------------------------------------------------
-describe("the plan column list", () => {
-  it("does not fetch the first-contact reason for a list read", () => {
-    const source = readFileSync(
-      path.join(process.cwd(), "src", "lib", "caring-contacts", "db", "postgres-repository.ts"),
-      "utf8",
-    );
-    const declaration = /const PLAN_COLUMNS = `([\s\S]*?)`;/.exec(source);
-
-    // Positive control: the list is found and is really the plan column list. Without this the
-    // assertion below would pass against a renamed or deleted constant -- green because it matched
-    // nothing, which is the failure a scan like this fails by.
-    expect(declaration).not.toBeNull();
-    expect(declaration?.[1]).toContain("patient_name");
-
-    expect(declaration?.[1]).not.toContain("first_contact_reason");
   });
 });
