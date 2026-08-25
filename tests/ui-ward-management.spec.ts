@@ -91,8 +91,13 @@ test.describe("@mockup Ward Flow command view", () => {
 
   /**
    * Task 9 review Critical 1: the eight mode links must retain the 3rem/48px tap-target floor on
-   * the shortest supported phone viewport. The phone sidebar now lives in a drawer, so open the
-   * owning menu before measuring the same shared links.
+   * the shortest viewport the icon rail still appears at.
+   *
+   * This test does NOT open the phone drawer, and must not be changed to. It runs one pixel above
+   * the 40rem breakpoint, which is precisely where the phone bar and its menu button do not
+   * exist — a `click` on that button here times out after 45 seconds rather than failing fast, so
+   * the mistake reads as a hang rather than as a wrong assumption. The phone surface has its own
+   * test immediately below; this one is about the rail.
    */
   test("keeps every rail mode link at the 3rem tap-target floor on the shortest viewport it appears at", async ({
     page,
@@ -103,7 +108,11 @@ test.describe("@mockup Ward Flow command view", () => {
     // exposed the original shrink regression.
     await page.setViewportSize({ width: 641, height: 640 });
     await gotoWardFlow(page);
-    await page.getByRole("button", { name: "Open Ward Flow menu" }).click();
+
+    // Non-vacuity, and the guard against the drawer-opening edit above: at this width the rail is
+    // the sidebar and the phone bar is not rendered at all.
+    await expect(page.getByRole("complementary", { name: "Ward Flow" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open Ward Flow menu" })).toBeHidden();
 
     const nav = page.getByRole("navigation", { name: "Ward Flow views" });
     const links = await nav.getByRole("link").all();
