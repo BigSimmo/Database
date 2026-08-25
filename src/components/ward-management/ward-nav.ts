@@ -1,7 +1,9 @@
 /**
- * The single source for Ward Flow's own rail navigation — see `ward-management-navigation.tsx`'s
- * `ClinicalRail`. Before this file, the rail's Ward-Flow-specific destinations (everything beyond
- * the eight views `WardModeNavigation` already sources statically) were 329 lines of individually
+ * The single source for every Ward Flow destination — rendered three ways by
+ * `ward-management-navigation.tsx` (icon rail, expanded panel, phone drawer) and checked both
+ * ways by `tests/ward-nav.test.ts`.
+ *
+ * Before this file, the rail's Ward-Flow-specific destinations were 329 lines of individually
  * hand-pasted link blocks, one appended per task over two phases. Nothing enumerated the two
  * sides — nav links and real routes — against each other, which is *why* three boards
  * (`/handover`, `/escalation`, `/search`) could ship with no rail entry and nothing noticed
@@ -13,6 +15,48 @@
  * with a stated reason. A one-way check ("every nav link is a real route") is exactly what let
  * D8 happen — it says nothing about a route with no link pointing at it at all.
  */
+
+/** The eight coordinator-level views. Ordered as the rail and the panel present them. */
+export type WardMode =
+  | "command"
+  | "network"
+  | "queue"
+  | "capacity"
+  | "movements"
+  | "exceptions"
+  | "transport"
+  | "governance";
+
+export type WardViewItem = {
+  id: WardMode;
+  href: string;
+  label: string;
+};
+
+/**
+ * The eight views, moved here from eight hand-written `<Link>` blocks inside
+ * `WardModeNavigation`. Those blocks were literal so that a source-text regex in
+ * `tests/ward-management.test.ts` could read the hrefs back, and so that
+ * `tests/route-reachability.test.ts`'s literal-href AST scan could see them. Neither reason
+ * survives: that reachability test's `staticPageRoutes` excludes every `/mockups/**` route
+ * outright (Ward Flow's sandbox move), and the mode-href test now reads this array directly,
+ * which is a stronger check than a regex over a function body.
+ *
+ * The move is what makes a labelled sidebar possible at all. A panel and a drawer that render
+ * labelled links cannot read a rail's icon-only JSX, so leaving the views in JSX would have
+ * meant a second hand-maintained list of the same eight destinations — the precise defect this
+ * file was created to end.
+ */
+export const WARD_VIEWS: readonly WardViewItem[] = [
+  { id: "command", href: "/mockups/ward-flow", label: "Command" },
+  { id: "network", href: "/mockups/ward-flow/network", label: "Network" },
+  { id: "queue", href: "/mockups/ward-flow/queue", label: "Priority queue" },
+  { id: "capacity", href: "/mockups/ward-flow/capacity", label: "Capacity" },
+  { id: "movements", href: "/mockups/ward-flow/movements", label: "Movements" },
+  { id: "exceptions", href: "/mockups/ward-flow/exceptions", label: "Exceptions" },
+  { id: "transport", href: "/mockups/ward-flow/transport", label: "Transport" },
+  { id: "governance", href: "/mockups/ward-flow/governance", label: "Governance" },
+];
 
 export type WardNavGroup = "role" | "board";
 
@@ -28,16 +72,16 @@ export type WardNavItem = {
 /**
  * `role` — entry points for the role screens `WardRoleSwitcher` offers (Coordinator, Ward,
  * Officer, Emergency department — see that component's own doc comment). Coordinator is
- * deliberately absent here: it is `/mockups/ward-flow` itself, already reachable via
- * `WardModeNavigation`'s "Command" view and the app-switcher's own "Ward Flow" link one section
- * up in the same rail — see `WARD_NAV_INTENTIONALLY_UNLISTED` below, which is where that
- * reasoning is recorded and checked. Ward and Emergency department are dynamic detail routes
+ * deliberately absent here: it is `/mockups/ward-flow` itself, already present in `WARD_VIEWS`
+ * as "Command" — see `WARD_NAV_INTENTIONALLY_UNLISTED` below, which is where that reasoning is
+ * recorded and checked. Ward and Emergency department are dynamic detail routes
  * (`ward/[unitId]`, `ed/[edId]`); the rail can only ever link to one concrete instance of each,
- * so both carry `exampleOnly: true` (D10) — the rail must present them as an example entry point
- * into that role screen, never as though they were a section of the app in their own right.
- * **Do not delete either** — they are currently the only way to reach those two role screens.
+ * so both carry `exampleOnly: true` (D10) — the navigation must present them as an example entry
+ * point into that role screen, never as though they were a section of the app in their own
+ * right. **Do not delete either** — they are currently the only way to reach those two role
+ * screens.
  *
- * `board` — the specialist boards that sit outside `WardModeNavigation`'s eight-view strip.
+ * `board` — the specialist boards that sit outside the eight views.
  */
 export const WARD_NAV: readonly WardNavItem[] = [
   {
@@ -61,47 +105,20 @@ export const WARD_NAV: readonly WardNavItem[] = [
 ];
 
 /**
- * Static Ward Flow routes intentionally absent from `WARD_NAV`, each with the reason it is
- * exempt — mirrors `REACHABILITY_ALLOWLIST` in `tests/route-reachability.test.ts`. Every key must
- * be a real static route under `src/app/mockups/ward-flow/` (checked by `tests/ward-nav.test.ts`,
- * which fails on a stale entry) and must never also appear in `WARD_NAV` — a route belongs in
- * exactly one of the two.
+ * The one link out of the sandbox. A sandbox has exactly one exit and it is the developer page
+ * it was opened from — see `ward-management-navigation.tsx` for the eight that were removed and
+ * why.
+ */
+export const WARD_DEVELOPER_HUB_HREF = "/mockups/development";
+
+/**
+ * Static Ward Flow routes intentionally absent from `WARD_VIEWS` and `WARD_NAV`, each with the
+ * reason it is exempt — mirrors `REACHABILITY_ALLOWLIST` in `tests/route-reachability.test.ts`.
+ * Every key must be a real static route under `src/app/mockups/ward-flow/` (checked by
+ * `tests/ward-nav.test.ts`, which fails on a stale entry) and must never also appear in a nav
+ * array — a route belongs in exactly one of the two.
  */
 export const WARD_NAV_INTENTIONALLY_UNLISTED: ReadonlyMap<string, string> = new Map([
-  [
-    "/mockups/ward-flow",
-    "Coordinator's own entry point — already reachable via WardModeNavigation's \"Command\" view " +
-      'and the app-switcher\'s "Ward Flow" link; not duplicated in the role/board rail groups.',
-  ],
-  [
-    "/mockups/ward-flow/network",
-    "One of WardModeNavigation's eight views — sourced, rendered and tested separately from this file.",
-  ],
-  [
-    "/mockups/ward-flow/queue",
-    "One of WardModeNavigation's eight views — sourced, rendered and tested separately from this file.",
-  ],
-  [
-    "/mockups/ward-flow/capacity",
-    "One of WardModeNavigation's eight views — sourced, rendered and tested separately from this file.",
-  ],
-  [
-    "/mockups/ward-flow/movements",
-    "One of WardModeNavigation's eight views — sourced, rendered and tested separately from this file.",
-  ],
-  [
-    "/mockups/ward-flow/exceptions",
-    "One of WardModeNavigation's eight views — sourced, rendered and tested separately from this file.",
-  ],
-  [
-    "/mockups/ward-flow/transport",
-    "One of WardModeNavigation's eight views (the live tracker) — sourced, rendered and tested " +
-      "separately from this file. Distinct from /transport/officer, which is in WARD_NAV.",
-  ],
-  [
-    "/mockups/ward-flow/governance",
-    "One of WardModeNavigation's eight views — sourced, rendered and tested separately from this file.",
-  ],
   [
     "/mockups/ward-flow/constellation",
     "A deliberate 307 redirect to /network, documented in its own route file (constellation/page.tsx) — not a destination.",

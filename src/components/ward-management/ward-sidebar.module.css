@@ -1,0 +1,347 @@
+/*
+ * Ward Flow's expanded sidebar panel, phone header bar and phone drawer body.
+ *
+ * Same self-contained-tokens convention every other Ward Flow module documents: each local
+ * custom property this file needs is declared on the elements that use it, never borrowed from
+ * another module's scope. `.clinicalRail` in `ward-management.module.css` had to learn this the
+ * hard way — it read `var(--ward-*)` that the coordinator shell (`--co-*`) never declared, so
+ * every one of them silently computed to nothing on that route.
+ */
+
+.panel,
+.drawerBody,
+.phoneBar {
+  --ward-blue: var(--clinical-accent);
+  --ward-blue-soft: var(--clinical-accent-soft);
+  --ward-blue-border: var(--clinical-accent-border);
+  --ward-canvas: var(--surface);
+  --ward-chrome: var(--surface-chrome);
+  --ward-border: var(--border);
+  --ward-heading: var(--text-heading);
+  --ward-text: var(--text);
+  --ward-muted: var(--text-muted);
+  --ward-space-2: 0.125rem;
+  --ward-space-4: 0.25rem;
+  --ward-space-6: 0.375rem;
+  --ward-space-8: 0.5rem;
+  --ward-space-10: 0.625rem;
+  --ward-space-12: 0.75rem;
+  --ward-space-16: 1rem;
+}
+
+/*
+ * The expanded panel. 17rem rather than the clinical sidebar's 20rem: Ward Flow's longest label
+ * is "Ward — RPH Adult Secure", far shorter than a recent-query line, and every screen behind it
+ * is a dense operational board that wants the width back.
+ *
+ * Hidden below 64rem because there is nothing to expand into on a tablet — the icon rail is the
+ * whole sidebar there, exactly as `ClinicalCollapsedRail` behaves between md and lg.
+ */
+.panel {
+  display: none;
+  grid-column: 1;
+  grid-row: 1 / -1;
+  z-index: 3;
+  width: 17rem;
+  min-height: 0;
+  flex-direction: column;
+  border-right: 0.0625rem solid var(--ward-border);
+  background: var(--ward-chrome);
+}
+
+@media (min-width: 64rem) {
+  .panel {
+    display: flex;
+  }
+}
+
+.panelScroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ward-space-16);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--ward-space-12) var(--ward-space-12) var(--ward-space-16);
+}
+
+/* The brand row: mark, name, and — on the panel only — the control that collapses it back to
+   the icon rail. The mark itself is the expand control on the rail, mirroring the clinical
+   sidebar, so the two directions sit in the same place. */
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-10);
+  padding: var(--ward-space-4) var(--ward-space-4) var(--ward-space-8);
+}
+
+.brandLink {
+  display: flex;
+  min-width: 0;
+  min-height: var(--spacing-tap);
+  flex: 1;
+  align-items: center;
+  gap: var(--ward-space-10);
+  border-radius: var(--radius-lg);
+  padding: 0 var(--ward-space-4);
+  color: var(--ward-heading);
+  text-decoration: none;
+}
+
+.brandGlyph {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+}
+
+.brandText {
+  display: grid;
+  min-width: 0;
+  gap: var(--ward-space-2);
+}
+
+.brandName {
+  color: var(--ward-heading);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.brandTagline {
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.collapseButton {
+  display: grid;
+  width: var(--spacing-tap);
+  height: var(--spacing-tap);
+  flex-shrink: 0;
+  place-items: center;
+  border: 0.0625rem solid transparent;
+  border-radius: var(--radius-lg);
+  background: none;
+  color: var(--ward-muted);
+  cursor: pointer;
+}
+
+.collapseButton:hover {
+  border-color: var(--ward-border);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.collapseButton svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.group {
+  display: grid;
+  gap: var(--ward-space-2);
+}
+
+.groupLabel {
+  padding: 0 var(--ward-space-8) var(--ward-space-6);
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.link,
+.linkActive {
+  display: flex;
+  min-height: var(--spacing-tap);
+  align-items: center;
+  gap: var(--ward-space-10);
+  border: 0.0625rem solid transparent;
+  border-radius: var(--radius-lg);
+  padding: 0 var(--ward-space-8);
+  color: var(--ward-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition:
+    color var(--duration-fast),
+    border-color var(--duration-fast),
+    background-color var(--duration-fast);
+}
+
+.link:hover {
+  border-color: var(--ward-border);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+}
+
+.linkActive {
+  border-color: var(--ward-blue-border);
+  background: var(--ward-blue-soft);
+  color: var(--ward-blue);
+  box-shadow: var(--shadow-inset);
+}
+
+.link svg,
+.linkActive svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+}
+
+.linkLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * D10: the two links that name one arbitrary synthetic instance rather than a section of the
+ * app. The icon rail can only say so in an aria-label; a labelled list can show it, which is
+ * part of what labels are for.
+ */
+.exampleTag {
+  flex-shrink: 0;
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-pill, 9999px);
+  padding: 0 var(--ward-space-6);
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+
+.rule {
+  height: 0.0625rem;
+  margin: var(--ward-space-2) var(--ward-space-8);
+  background: var(--ward-border);
+}
+
+.footer {
+  display: grid;
+  flex-shrink: 0;
+  gap: var(--ward-space-8);
+  border-top: 0.0625rem solid var(--ward-border);
+  padding: var(--ward-space-12);
+}
+
+/* The role switcher and the demo clock are self-contained controls with their own popovers and
+   their own tokens; the panel gives them a full-width row rather than restyling them. */
+.footerControls {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-8);
+}
+
+.guest {
+  display: grid;
+  width: var(--spacing-tap);
+  height: var(--spacing-tap);
+  flex-shrink: 0;
+  place-items: center;
+  border: 0.0625rem solid var(--ward-blue-border);
+  border-radius: var(--radius-pill, 9999px);
+  background: var(--ward-blue-soft);
+  color: var(--ward-blue);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/*
+ * The phone header bar.
+ *
+ * Nine of Ward Flow's ten shells are a bare rail-plus-main two-column grid with no header row of
+ * any kind, so there is no existing chrome for a drawer trigger to live in — unlike the clinical
+ * application, where MasterSearchHeader already owns the phone menu button. The sidebar
+ * therefore brings its own bar. It is fixed rather than sticky because it must sit above ten
+ * different shells whose scroll containers are all in a different place; each shell reserves the
+ * 3.5rem in its own phone media query.
+ */
+.phoneBar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 30;
+  display: none;
+  height: 3.5rem;
+  align-items: center;
+  gap: var(--ward-space-10);
+  border-bottom: 0.0625rem solid var(--ward-border);
+  background: var(--ward-chrome);
+  padding: 0 max(var(--ward-space-8), env(safe-area-inset-right)) 0 max(var(--ward-space-8), env(safe-area-inset-left));
+}
+
+@media (max-width: 40rem) {
+  .phoneBar {
+    display: flex;
+  }
+}
+
+.phoneBrand {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--ward-space-8);
+  color: var(--ward-heading);
+  text-decoration: none;
+}
+
+.phoneBrandName {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ward-heading);
+  font-size: var(--text-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menuButton {
+  display: grid;
+  width: var(--spacing-tap);
+  height: var(--spacing-tap);
+  flex-shrink: 0;
+  place-items: center;
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-canvas);
+  color: var(--ward-heading);
+  cursor: pointer;
+}
+
+.menuButton svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* The drawer body reuses the panel's own content component, so it inherits every rule above and
+   only needs its own padding — the Sheet supplies the surface, the header and the close control. */
+.drawerBody {
+  display: grid;
+  gap: var(--ward-space-16);
+  padding-bottom: var(--ward-space-16);
+}
+
+/* The drawer can only be opened from .phoneBar, which does not exist above 40rem — but a
+   viewport resized while it is open would otherwise leave it stranded over a tablet layout. */
+@media (min-width: 40.0625rem) {
+  .drawerHidden {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link,
+  .linkActive {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .linkActive {
+    border: 0.125rem solid Highlight;
+  }
+}
