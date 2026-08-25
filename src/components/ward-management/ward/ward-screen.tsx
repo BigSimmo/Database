@@ -510,6 +510,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
                 const canCancel =
                   movement.transport !== undefined &&
                   movement.transport.cancelledAt === undefined &&
+                  movement.transport.collectedAt === undefined &&
                   movement.transport.arrivedAt === undefined;
                 const releaseOpen = releaseOpenFor === movement.id;
                 const cancelOpen = cancelOpenFor === movement.id;

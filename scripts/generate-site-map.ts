@@ -88,6 +88,8 @@ const routeDescriptions: Record<string, string> = {
   "/applications": "Legacy application launcher redirect to Tools.",
   "/caring-contacts":
     "Caring Contacts workspace — a synthetic, non-clinical demonstration of caring-contact follow-up. Standalone: it owns its own navigation and is entered from the Tools catalogue.",
+  "/caring-contacts/patients":
+    "The team's permission-scoped caring-contact caseload: one row per plan with a separately authorised patient-name projection. Plan state is URL-driven; name and synthetic-identifier search stays in browser memory so identifying text never enters the URL.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/calculators/search":
     "Browsable calculator catalogue and scored results. An empty query lists every calculator; a submitted query narrows the same list.",
@@ -118,9 +120,10 @@ const routeDescriptions: Record<string, string> = {
   "/dsm/diagnoses/[slug]": "DSM diagnosis criteria and information.",
   "/dsm/diagnoses/[slug]/differentials": "DSM diagnosis differential considerations.",
   "/dsm/search": "DSM diagnosis search and catalogue browser.",
-  "/factsheets": "Patient information factsheets home and topic browser.",
+  "/factsheets": "Compatibility redirect to the shared Factsheets home.",
   "/factsheets/[slug]": "Plain-language patient factsheet reading and printable handout view.",
   "/factsheets/search": "Patient information factsheet search command centre.",
+  "/factsheets/topics": "Patient information factsheets organised by topic.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
@@ -498,7 +501,7 @@ function renderModePageIndex() {
       home: appModeHomeHref("factsheets"),
       search: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
       detail:
-        "`/factsheets/search` is also a query-free browse surface linked from the mode nav; `/factsheets/[slug]` records.",
+        "`/factsheets/search` is the query-and-filter surface; `/factsheets/topics` organises the library by category; `/factsheets/[slug]` records.",
     },
     {
       mode: "Dictionary",

@@ -984,11 +984,10 @@ git commit -m "Ward Flow: patient search, on its own page"
 
 - [ ] **Step 3: Add three columns to the existing table** — "Sex mix", "Specialling", "MHA
       authorised". All three values already exist on `Unit` and already gate placement in
-      `ward-eligibility.ts`; they are simply invisible on the board whose job is capacity.
-
-      **The authorisation flag is a property the model already carries about a unit. Rendering it
-                  is not a legal claim and must not be dressed as one** — no explanation of what authorisation
-                  requires or means.
+      `ward-eligibility.ts`; they are simply invisible on the board whose job is capacity. **The
+      authorisation flag is a property the model already carries about a unit.** Rendering it is not
+      a legal claim and must not be dressed as one. Do not explain what authorisation requires or
+      means.
 
 - [ ] **Step 4: Run and watch it pass. Commit.**
 
@@ -1039,19 +1038,14 @@ git commit -m "Ward Flow: the capacity board shows the three things that actuall
 
 - [ ] **Step 4: Run and watch them pass.**
 
-- [ ] **Step 5: Extend `GovernanceView`** with three additions:
-
-      1. The **not-a-medical-device** statement. `coordinator-screen.tsx` already carries the exact
-                     wording — reuse it rather than writing a second version.
-                  2. The **change audit**, newest first, with an explicit empty state.
-                  3. The **two effectiveness numbers**, each rendering an explicit absence when `undefined`.
-
-                  **The third success measure is dropped and the page says so.** The binding spec §11 lists
-                  "legal deadlines passed while a patient waits" as one of three measures; it no longer exists
-                  and cannot be computed. Record the drop on the page rather than silently omitting it.
-
-                  **Neither number may be presented as evidence the prototype works.** They describe the
-                  synthetic scenario and the page must say so.
+- [ ] **Step 5: Extend `GovernanceView`** with three additions: the **not-a-medical-device**
+      statement, reusing the exact wording from `coordinator-screen.tsx`; the **change audit**,
+      newest first and with an explicit empty state; and the **two effectiveness numbers**, each
+      rendering an explicit absence when `undefined`. **The third success measure is dropped and the
+      page says so.** The binding spec §11 lists "legal deadlines passed while a patient waits" as
+      one of three measures; it no longer exists and cannot be computed. Record the drop rather than
+      silently omitting it. **Neither number may be presented as evidence the prototype works.** They
+      describe the synthetic scenario, and the page must say so.
 
 - [ ] **Step 6: DOM test, then commit.**
 
@@ -1123,13 +1117,11 @@ git commit -m "Ward Flow: the patient page carries declines, changes and the esc
 - [ ] **Step 4: Implement it.** The blocker is a **fixed list**, not free text — add
       `BED_RELEASE_BLOCKERS` to `ward-change-reasons.ts` drawn from the blocker wording the fixture
       already uses (for example "awaiting clean", "awaiting pharmacy", "awaiting transport"). Do
-      not invent a blocker that describes a person.
-
-      **A bed release carries nothing whatsoever about the departing patient** — no identifier, no
-                  timing that could identify them, no reason relating to them. That is a privacy rule from the
-                  binding spec §4 and it is not negotiable. Add a test that asserts the `BedRelease` type has
-                  no field capable of carrying a patient reference, and say plainly in your report how you
-                  proved it.
+      not invent a blocker that describes a person. **A bed release carries nothing whatsoever about
+      the departing patient.** It has no identifier, identifying timing, or reason relating to that
+      person. That privacy rule comes from binding spec §4 and is not negotiable. Add a test that
+      asserts the `BedRelease` type has no field capable of carrying a patient reference, and say
+      plainly in your report how you proved it.
 
 - [ ] **Step 5: Run and watch them pass.**
 

@@ -723,3 +723,318 @@ deferred).** Browser gate green at the post-fix head: `32 passed`, exit 0.
 
 **Group 0 is finished.** Task 2 was cut (Ruling 84), Task 4 merged forward (Ruling 89), so the shared
 scaffolding is: `ListEmptyState`, the overlay trigger and its commit contract. Group 1 begins.
+
+## Task 5 — the Patients directory, and the question it was right to stop on
+
+Returned complete at `d27030405`. `Tests 2 failed | 9851 passed | 74 skipped (9927)` — the two known
+`gate-receipts` file-mode failures only. Typecheck and lint fresh passes, not reused receipts. Twelve
+mutations, each red on its covering test, presence proved with `;` rather than `&&` — the previous
+task's non-run lesson applied without being restated.
+
+**Browser gate green at this head: `32 passed`, exit 0.** The implementer flagged that changing
+Patients from an unavailable button to a link shifts unavailable-control counts (its own DOM
+equivalents went 16 → 14) and warned the Playwright spec might carry the same counts. It does not.
+Measured rather than assumed, and the warning was the right one to give.
+
+**Ruling [91] — a names-only projection is built, as its own task. The OWNER decided this, not me.**
+The brief forbade `getEpisode` on a list, and instructed the implementer to stop and report if the
+approved design needed a name rather than decide for itself. It did exactly that: the design shows
+`row.name`, `PersonAvatar initials` and a "Search name or synthetic ID" box, and it built rows headed
+by the synthetic identifier instead.
+
+That was the correct stop. The tension is real in both directions: `getEpisode` is the only read that
+releases patient name **together with** mobile number, identifiers and cultural identity, so using it
+for a list would pull all four into a page that shows one — and yet **a caseload a clinician cannot
+recognise their own patients in is barely a caseload.** Put to the owner, who chose the narrow read:
+a projection returning the name alone, permission-checked in its own right, never widening
+`getEpisode`.
+
+— Cost if wrong: it changes `repository.ts`'s interface, so both stores and the shared contract suite
+move together; that is the price of the storage contract being the thing that holds them equal, and it
+is the reason this is **its own task rather than a fix round on Task 5**. A fix round would have
+balloonded into a domain change reviewed as a screen change.
+
+**The implementer's own recommendation was the one the owner picked**, arrived at independently. Worth
+recording: an implementer told to stop and report rather than decide produced a better-reasoned option
+than the brief anticipated, because it had read the design and the read contract side by side.
+
+**Concern 2 is a false-evidence claim and must be fixed, not deferred.** The adoption generator
+refuses an undeclared production page route, so the new route had to join the
+`caring-contacts-workspace` surface — whose proof is declared `passed` with
+`tests/ui-caring-contacts-workspace.spec.ts` as its evidence. **That spec has never visited
+`/caring-contacts/patients`.** So the design-system contract now asserts browser proof for a route
+nothing has proved. Same family as Ruling 88: a governance artifact making a claim about coverage that
+is not true. The remedy is a visit in the spec, not a quieter claim.
+
+**Two concerns carried to the review rather than settled here:** the role-restricted empty state uses
+`ListEmptyState`'s `"filtered"` kind for something that is not a filter (an auditor cannot view plans,
+so `listPlans` returns `[]` and "No patients yet" would be a lie) — a third `"not-permitted"` kind may
+be right, but it touches a Group 0 component; and the prohibited vocabulary now bites ordinary English
+(`\bleads?\b` matches "team lead", `\bsafe\b` is banned outright), which the Team screen will hit
+immediately.
+
+### Task 5 review — spec ✅, quality NOT approved: 1 Critical, 4 Important, 5 Minor
+
+The twelve mutation proofs were all traced to the assertion reading the mutated value and judged real,
+including a self-corrected one (M4 → M4b) recorded rather than quietly re-run — the opposite of the
+two misreported mutations earlier in this programme. Reads are clean: `getEpisode` is absent and
+pinned by a spy, and `PlanRecord` excludes `patientDetail` structurally, with the in-memory store
+projecting through `toPlanRecord` rather than returning the stored object, so nothing rides along.
+Filtering is genuinely server-side — both filters are navigations, no new client boundary.
+
+**C-1 is worse than the implementer reported, and it found it itself.** The design-system contract
+declares the `caring-contacts-workspace` surface with **all five** proof categories — dark,
+forced-colours, compact-320, print, browser — as `passed`, evidenced solely by
+`tests/ui-caring-contacts-workspace.spec.ts`. That spec pins `WORKSPACE_ROUTE = "/caring-contacts"`
+and every `page.goto` in 952 lines uses it. It has never loaded `/caring-contacts/patients`.
+
+Three things make this Critical rather than untidy:
+
+- **The spec's own header states the rule this breaks**: "a proof pointer at a suite that never visits
+  this route is a red gate that has been silenced." The change made that sentence untrue about the
+  file it is written in.
+- **No honest weaker declaration exists.** The generator fails any v2 surface whose proof category is
+  not `passed`, so "declare it more quietly" is unavailable, and a separate surface would be forced to
+  `passed` too. The generator also cannot detect the problem — evidence paths are checked for being
+  tracked files, never for relevance to the route.
+- **The remedy is bigger than a `goto`.** Four of the five are accessibility-mode claims, so honesty
+  requires the dark / forced-colours / 320px / print coverage to run against the new route as well.
+
+**Which family:** unambiguously Ruling 88's — a **false** attribution — not the true-attribution case
+kept in Task 3. Fix, do not keep. Credit where due: the implementer found it, described it accurately,
+and refused to edit a spec it could not run.
+
+**Ruling [92] — `ListEmptyState` gains a third kind, `"not-permitted"`.** — Why: an auditor cannot view
+plans, so `listPlans` returns `[]`; `"no-data"` would say "No patients yet", which is a lie, so the
+implementer used `"filtered"` — whose own documentation says records exist, and whose icon selection
+renders a struck-through magnifying glass **on a screen where no search was performed**, in a component
+whose comment says the icon "is part of what states the difference wordlessly". The screen's words are
+honest; the type and the icon are not. `ListEmptyState` has exactly ONE consumer today, so this is the
+cheapest it will ever be, and Schedule, Templates and Team will each meet the same role case and copy
+whatever Patients did. — Cost if wrong: a fourth kind later, and a union that is one member wider than
+strictly needed. Against that: leaving it reintroduces at the type level exactly the blur the component
+was built to refuse.
+
+**Ruling [93] — the role-restricted remedy must say what is true, and there is no role switcher.**
+The screen currently says "What changes it: The role switcher changes which role you are acting in."
+I verified it myself: `CARING_CONTACTS_ROLE_COOKIE` appears exactly once in `src/`, its own
+declaration in `session.ts`, and nothing writes it — `resolveDemoActor` silently defaults to
+coordinator. Spec §4.4 requires a **reachable** remedy, and **naming a control that does not exist is
+worse than naming none**, because a clinician will hunt for it. The covering test asserts the
+_presence_ of "What changes it:" and never that its content is real, so this whole class is invisible
+to the gate. — Cost if wrong: if a switcher is built later the wording needs revisiting, which is a
+one-line edit at the moment someone is already in the file.
+
+**The lesson C-1 and Ruling 93 share.** Both are false statements that passed every gate, because the
+gates check **shape** rather than **truth**: the generator checks an evidence path is a tracked file,
+never that the suite visits the route; the empty-state test checks a remedy is present, never that it
+exists. **A gate that checks a claim is well-formed will certify a well-formed lie.**
+
+### Task 5 fix round 1 — all ten, and the browser gate went 32 to 38
+
+`Tests 2 failed | 9860 passed | 74 skipped (9936)` (the two known `gate-receipts` file-mode
+failures), typecheck and lint fresh passes, and the Playwright gate **`38 passed (58.3s)`, exit 0** —
+six new Patients tests, so C-1's proof claim is now backed by coverage rather than by a pointer.
+
+**Ruling 93's PREMISE WAS WRONG, and the error was mine.** I wrote that
+`CARING_CONTACTS_ROLE_COOKIE` "appears exactly once in `src/`, its own declaration, and nothing writes
+it". The implementer corrected it and I verified the correction myself: the constant appears **four**
+times and `src/app/api/caring-contacts/session/route.ts:53` **does** write the cookie.
+
+**How I got it wrong is the part worth keeping.** I grepped `"caring-contacts-demo-role"` — the
+cookie's string _literal_ — which appears exactly once, at the `const` that names it. Every actual use
+goes through the constant. So my grep returned a true answer to a question I was not asking, and I
+reported it as though it answered the one I was. The reviewer made the identical mistake independently,
+which is what made it feel confirmed.
+
+This is the same family as the five "checks that cannot fail" already recorded, and it is the variant
+that catches careful people: **not a check that cannot fail, but a check that answers a neighbouring
+question.** When grepping for whether something is used, grep the SYMBOL, not the value it holds — and
+when two people agree, check whether they ran the same flawed command rather than two different ones.
+
+**The conclusion survives:** there is still no role-switching control in the interface, so naming one
+was false and the new wording is right. Only the stated fact was wrong. Recorded rather than quietly
+amended, because the server half of a switcher existing matters to whoever builds the UI.
+
+**Three findings the mutations PRODUCED rather than confirmed:**
+
+1. **`expect(status).toBe(200)` cannot catch a `notFound()` on this route.** With `notFound()` added
+   the route still answered **200**: it is dynamic and streams under a Suspense boundary, so headers
+   flush before the render reaches the refusal and the 404 arrives as content. Only the content
+   assertions failed. The status assertion is kept — it still catches a refusal made before the stream
+   opens — but the test now names which assertions are load-bearing. **The "gates check shape, not
+   truth" lesson landed on a test written in the same round it was issued.**
+2. **I-4's branch had no covering test at all.** Restoring `?? []` left all 56 tests green, because
+   the branch is unreachable through the real stores — which is precisely why it was wrong and why
+   nobody noticed. Now pinned by spying `listPlans` to `null`.
+3. **M-9's assertion covered less than it looked.** It checked the filter chips but not the empty
+   state's own remedy link; stripping the attribute from that one link left the file green.
+
+**A process failure that was MINE.** Partway through this round I switched this worktree to
+`claude/caring-contacts-foundation` to fix the PR's CI — **while an implementer was working in it**.
+Its source files vanished from disk and two of its edits landed on the wrong branch. It recovered
+cleanly: saved the stray diff, restored that tree exactly as found, switched back, re-applied. Nothing
+was lost, and the recovery was better than the incident deserved. **Never switch a worktree's branch
+while a subagent is working in it** — one worktree, one branch, for the duration of a dispatch. If a
+second branch needs work, it needs a second worktree.
+
+**Still open and captured:** nothing enforces that a new screen joins `WORKSPACE_SCREENS`, so a Task 6
+screen added to the adoption surface but not to the spec recreates C-1 exactly. The implementer
+identified this and did not build the closure.
+
+**PR #2350 (the foundation: Task C, Task 1, Task 3) MERGED to `main` at 2026-08-24T15:49:29Z**, by the
+owner's armed auto-merge once the checks went green. Two CI failures were fixed on the way, both mine:
+a stale outstanding-issues snapshot, and five broken path references — two from Ruling 88's rename that
+my own briefs still pointed at, one a quoted `tsc` diagnostic whose `path(line,col)` the link checker
+read as a path, and a Task 5 brief describing work that PR did not contain.
+
+### Task 5 scoped re-review — all ten ADDRESSED, three new Minors, one repeat
+
+C-1's remedy was judged real rather than cosmetic: `openWorkspace()` is parameterised by screen so the
+route-specific heading travels with it, and three of the four modes earn their category on evidence
+only the new route can supply — a 48px tap-target measurement at 320px, a `borderTopWidth` read off an
+element that exists only on Patients, and the heading under print media. Dark is the thinnest: its
+load-bearing comparisons come from shell chrome identical on both routes, so it is substantively
+Today's proof re-run on a second URL. Not a re-creation of C-1 — the route genuinely loads in dark —
+but named and sent back.
+
+**Ruling [94] — drop the client-component count; keep the conclusion. The replacement was wrong the
+same way the original was.** "The workspace ships five client components in total" misses
+`src/app/caring-contacts/error.tsx`, which is a Client Component because Next requires it, sits inside
+the workspace by the very paragraph doing the correcting, and pulls a sixth client module
+(`route-error-boundary.tsx`) into the route's bundle. The implementer had scoped its count to
+`workspace/**`, which is defensible, but no site said so and "in total" forecloses it.
+
+— Why drop rather than re-count: **this is the second time in two rounds that this one paragraph has
+carried a false number**, and it is now replicated across three files exactly as "one" was. A count in
+prose is a claim that decays whenever anyone adds a file, and nothing checks it. What actually carries
+Ruling 13 is the module boundary — the dashboard cannot reach this workspace's chunks — which is true
+independent of how many client components exist. — Cost if wrong: a reader loses a number that was
+never reliable anyway.
+
+**The generalisable shape: a fact that must be restated to stay true will eventually be false.**
+Prefer the invariant over the tally.
+
+**Three new Minors, each a different flavour of the same week's lesson:**
+
+- **N-1** — the new null guard tests `=== null` while `auditedRead` treats **null or undefined** as
+  denied. `released` is typed `T | null`, so the compiler cannot see the gap and the pinning test mocks
+  `null` specifically. Fails closed either way, but with a `TypeError` rather than the stated message,
+  and the branch the item is about would not be the one that fired.
+- **N-2** — an absorbed contact and a transition-suppressed contact in the same plan disagree: the
+  count subtracts all suppressed contacts, the explanation covers only absorption. Exactly the blur
+  M-8 fixed, one case further along.
+- **N-3** — `scheduled` changed its definition this round from absorbed-only to all-suppressed, and
+  **nothing asserts that clinician-facing number**. Same shape as the implementer's own I-4 finding,
+  and the same shape as the Ward Flow lesson where green tests missed a wrong value on every screen.
+
+**The mutation ledger does not close, and that is worth more than the two missing lines.** Thirteen
+claimed, eleven verifiable; two Vitest mutations are counted and never named. Every mutation the report
+_describes_ was traced to an assertion reading the mutated value — the descriptions are sound. But
+**a total that outruns its itemisation is the weakest form of the misdescription problem** this
+programme has already met twice. Sent back to be named or corrected to eleven. Also flagged: M-6's
+mutation raises the test's own threshold, so it proves the assertion executes rather than that the
+floor detects anything — accurate as described, but not product proof.
+
+**The reviewer answered the open enforcement question, and its caution is the valuable half.** A static
+check comparing the adoption surface's `routes` against the spec's screen list is the right closure —
+it converts the generator's _shape_ check into a _truth_ check, which is precisely C-1's lesson — and
+is ~30 lines offline if scoped to this surface. **But it must not be generalised**: `ward-management`
+declares 12 routes evidenced by generic contract suites that enumerate no routes at all, so a repo-wide
+rule goes red immediately on surfaces nobody asked to remediate, and the pressure would then be to
+weaken the rule rather than fix them. Opt-in marker, joined deliberately.
+
+Task 5: fix round 2/5 dispatched — Ruling 94, the mutation ledger, N-1, N-2, N-3, and the dark-mode
+assertion.
+
+### Task 5 fix round 2 re-review — all six ADDRESSED, nothing new
+
+Ruling 94's fix verified at all three sites, and the reviewer checked the replacement claim is
+actually true today rather than taking it on faith — it grepped for imports of the workspace from
+outside its own route segment and found none. It also grepped all three files plus `error.tsx` for a
+reintroduced number and found none. One file says "a handful", which is deliberately vague rather than
+a tally that can go stale; read as consistent with the ruling rather than a loophole.
+
+**The ledger closed by dropping the total rather than forcing a reconciliation**, which the reviewer
+read — correctly — as the same move Ruling 94 makes: every attempt is now a row, including the skipped
+anchor-mismatch and the two that did NOT go red, and no aggregate is claimed. A reader who wants a
+number adds it up themselves. That is the right way round: the itemisation is the evidence, the total
+was only ever a summary of it.
+
+**One of my instructions was overstated and the reviewer said so.** I asked for N-3's two mutations
+"from opposite directions". Both — subtract-only-absorbed, and subtract-nothing — produce a count that
+is too HIGH, so they are not opposite; they are two plausible wrong implementations of the same
+definition. The practice is sound mutation method and the fix is right; my geometry was wrong. Recorded
+because a controller's framing gets copied into later briefs if nobody corrects it.
+
+The reviewer also traced the store invariant the N-2 fix relies on — that absorbed contacts always land
+terminal-`suppressed` — back to `createPlan` in the in-memory store rather than accepting it as an
+assumed invariant. That is the standard this programme keeps asking for and rarely has to ask twice.
+
+**Task 5: COMPLETE (commits `efb84c556`..`6df257b35`, review clean after 2 fix rounds, 4 minors
+deferred).** Playwright `38 passed`, up from 32 — the six new tests are the Critical finding's remedy.
+
+**Ruling [95] — Task 5b's names-only read is its own repository method with its own capability check,
+and that check reuses the existing `viewPatientRecord` rather than minting a new capability.**
+— Why: the owner approved "a narrow read that returns just the name, permission-checked separately".
+The substance he was buying is **data narrowing** — a caseload that no longer pulls mobile number,
+identifiers and cultural identity for every row to show one field — and a separate projection delivers
+that completely. A new capability would only buy something if some role should see names but not
+records, and no such role exists: `viewPatientRecord` is granted at five sites covering the human
+roles that can list plans at all. Minting `viewPatientName` would invent a permission tier nobody has
+asked for, and every role's grant would have to be decided to satisfy the exhaustiveness guard.
+— Cost if wrong: if a see-names-but-not-records role ever appears, the capability splits at that
+point. The split is mechanical precisely because the read is already its own method — which is the
+part that matters and is being built now.
+
+**Stated plainly because it is a narrowing of my own words to the owner:** I said "permission-checked
+separately", and separately means its own method and its own check, not a new capability. If he meant
+a new permission tier, this is the sentence that will let him say so.
+
+## Task 5b — the names-only projection, and the implementer improved on my ruling
+
+Returned complete at `c6cd1ede8`. Full suite **`Tests 9985 passed | 74 skipped (10059)`, zero
+failures**; Postgres suite `Tests 182 passed (182)`; typecheck and lint recorded passes. Twelve
+mutation attempts itemised, eleven red, one (M7) not red — fixed and re-run red as M7b, with the
+failed attempt kept in the table. No aggregate total claimed, per Ruling 94's shape.
+
+**Ruling [95] is REFINED, and the refinement is the implementer's.** I ruled the read reuse the
+existing `viewPatientRecord` rather than mint a capability. It honoured that — no new capability
+exists — and then found the hole my ruling left open:
+
+`READ_ACTIONS.plan` is `"viewReferral"`, and that is what gates listing plans at all. The **auditor**
+holds `viewPatientRecord` but NOT `viewReferral`. So on `viewPatientRecord` alone, `listPatientNames`
+would have handed the auditor **an enumeration of every patient name in the team** — obtainable by no
+route that exists today. **A change whose entire purpose is narrowing would have widened auditor
+access.**
+
+`PATIENT_NAME_READ_ACTIONS` is therefore an ALL-of list, `[READ_ACTIONS.plan,
+READ_ACTIONS.patientName]`, and the reasoning is not arbitrary: the projection **enumerates** the
+team's plans, so it must release a name only for a plan the actor could already see. The in-memory
+implementation filters by exactly `listPlans`' predicate and then by the name capability on top, so
+the result is always a subset of the plans that actor can already list. It also builds the returned
+objects rather than deriving them from the stored plan, "so no widening can ride along by accident:
+there is no spread of `patientDetail` to forget to narrow."
+
+**What I take from this about ruling.** My ruling answered the question I had asked myself — "does
+this need a new capability?" — and was correct on it. It did not ask the adjacent question: "what
+does the capability I am reusing already grant, to whom?" A ruling scoped to the question that
+prompted it can be right and still leave a hole, and the implementer nearest the code is the one
+positioned to see it. **Rulings should be written to be improvable, and an implementer that says "you
+may want to overrule this" should be read as doing its job rather than hedging.** Upheld as built.
+
+**A STALE STANDING INSTRUCTION, corrected — and it was mine.** I have been telling every subagent to
+"expect exactly 2 failures in `tests/gate-receipts.test.ts`". Those failures are **gone**: the merge
+from origin brought `cbde6ecbb` "Make the gate-receipt tests environment-explicit so they pass under
+CI", and the file now runs `Tests 34 passed (34)`. This implementer noticed the prediction did not
+match reality and said so.
+
+The hazard is not the wasted sentence, it is the direction it points: **an instruction to expect a
+named failure tells a reader to look past a file that can once again fail for real.** A standing
+"known noise" note is a licence to ignore, and it must expire the moment the noise does. Removed from
+the briefs and corrected in durable memory.
+
+**Two concerns carried to review rather than settled here:** a row cannot distinguish "de-identified"
+from "your role may not see names" — it states the kind of thing the heading is and claims nothing
+more, which is conservative but may not be enough; and `patientDirectory` now names two different
+reads in the access trail, distinguishable by `objectId` but not by action name.

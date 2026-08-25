@@ -1010,7 +1010,10 @@ describe("release and cancel", () => {
   it("cancels a transport job without closing the movement", () => {
     const seeded = seedWardFlowState();
     const movement = seeded.movements.find(
-      (candidate) => candidate.transport !== undefined && candidate.transport.cancelledAt === undefined,
+      (candidate) =>
+        candidate.transport !== undefined &&
+        candidate.transport.cancelledAt === undefined &&
+        candidate.transport.collectedAt === undefined,
     )!;
     const after = wardFlowReducer(seeded, {
       type: "CANCEL_TRANSPORT",
@@ -1020,10 +1023,58 @@ describe("release and cancel", () => {
       reason: "provider_unavailable",
     });
     const updated = after.movements.find((candidate) => candidate.id === movement.id)!;
-    expect(updated.transport?.cancelledAt).toBe(NOW_ANCHOR);
+    expect(updated.transport?.id).not.toBe(movement.transport?.id);
+    expect(updated.transport?.acceptedAt).toBeUndefined();
     expect(updated.closure).toBeUndefined();
     expect(updated.stage).toBe("handover_ready");
-    expect(updated.unwinds.at(-1)).toMatchObject({ kind: "transport_cancelled" });
+    expect(updated.unwinds.at(-1)).toMatchObject({ kind: "transport_cancelled", transportId: movement.transport?.id });
+
+    const reaccepted = wardFlowReducer(after, {
+      type: "TRANSPORT_ACCEPTED",
+      role: "officer",
+      now: NOW_ANCHOR + 1,
+      movementId: movement.id,
+    });
+    expect(reaccepted.rejections).toEqual([]);
+    expect(reaccepted.movements.find((candidate) => candidate.id === movement.id)!.transport?.acceptedAt).toBe(
+      NOW_ANCHOR + 1,
+    );
+  });
+
+  it("refuses cancellation after collection so the in-flight patient can still arrive", () => {
+    const movementId = "WF-012";
+    const steps = [
+      { type: "REFER_TO_UNITS", role: "coordinator", unitIds: ["rph-adult-secure"] },
+      { type: "ACCEPT_IN_PRINCIPLE", role: "ward", unitId: "rph-adult-secure" },
+      { type: "HOLD_BED", role: "ward", unitId: "rph-adult-secure" },
+      { type: "HANDOVER_READY", role: "ed" },
+      { type: "TRANSPORT_ACCEPTED", role: "officer" },
+      { type: "TRANSPORT_EN_ROUTE", role: "officer" },
+      { type: "PATIENT_COLLECTED", role: "officer" },
+    ] as const;
+    let inFlight = seedWardFlowState();
+    for (const step of steps) {
+      inFlight = wardFlowReducer(inFlight, { ...step, now: NOW_ANCHOR, movementId } as never);
+    }
+    expect(inFlight.rejections).toEqual([]);
+
+    const cancelled = wardFlowReducer(inFlight, {
+      type: "CANCEL_TRANSPORT",
+      role: "coordinator",
+      now: NOW_ANCHOR + 1,
+      movementId,
+      reason: "provider_unavailable",
+    });
+    expect(cancelled.rejections.at(-1)?.reason).toContain("patient has departed");
+    expect(cancelled.movements.find((candidate) => candidate.id === movementId)!.stage).toBe("moving");
+
+    const arrived = wardFlowReducer(cancelled, {
+      type: "PATIENT_ARRIVED",
+      role: "officer",
+      now: NOW_ANCHOR + 2,
+      movementId,
+    });
+    expect(arrived.movements.find((candidate) => candidate.id === movementId)!.stage).toBe("arrived");
   });
 });
 

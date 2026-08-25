@@ -690,6 +690,9 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       if (movement.transport.arrivedAt !== undefined) {
         return reject(state, event, `cannot cancel transport for movement ${movement.id} — the patient has arrived`);
       }
+      if (movement.transport.collectedAt !== undefined) {
+        return reject(state, event, `cannot cancel transport for movement ${movement.id} — the patient has departed`);
+      }
       // Same claim-not-proof discipline as CONFIRM_CAPACITY: this compares what the caller SAID
       // it was acting as against the unit the movement is accepted at, and refuses when they
       // differ. Unused for a coordinator caller, who may act on behalf of any unit.
@@ -701,14 +704,27 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
         );
       }
       // Never closes the movement — the patient stays open, only the transport job unwinds. The
-      // bed itself (if still held or already occupied) is untouched by this handler.
+      // cancelled job remains named in the audit trail while a clean replacement follows the
+      // ordinary acceptance path. The bed itself is untouched by this handler.
+      const cancelledTransport = movement.transport;
       const updatedMovement: Movement = {
         ...movement,
         stage: "handover_ready",
-        transport: { ...movement.transport, cancelledAt: event.now },
+        transport: {
+          id: `${cancelledTransport.id}-replacement-${movement.unwinds.filter((entry) => entry.kind === "transport_cancelled").length + 1}`,
+          provider: cancelledTransport.provider,
+          escortRequired: cancelledTransport.escortRequired,
+          ...(cancelledTransport.formRequired ? { formRequired: cancelledTransport.formRequired } : {}),
+        },
         unwinds: [
           ...movement.unwinds,
-          { at: event.now, kind: "transport_cancelled", by: event.role, reason: event.reason },
+          {
+            at: event.now,
+            kind: "transport_cancelled",
+            by: event.role,
+            reason: event.reason,
+            transportId: cancelledTransport.id,
+          },
         ],
       };
       return replaceMovement(state, movement.id, updatedMovement);

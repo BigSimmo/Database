@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d08853a7-65d9-4a85-bcc6-a15c4ddb38d9",
+  "createdOn": "2026-08-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Developer hub pages repeat a labelled-section block 17 times; extract a PanelSection component",
+    "detail": "The five developer-hub pages (routes, documentation, test-health, review-state, ledger) each hand-maintain the pairing between a <section aria-labelledby={id}> and its <h2 id={id}>, 17 occurrences in total. A PanelSection({ id, title, count, children }) makes the labelled-region contract structural instead of remembered, and folds in the one inline <h3> class in documentation/page.tsx that escaped the shared primitives module. Raised by the Phase 2 whole-branch review and deliberately deferred: a five-file refactor of freshly reviewed pages inside a final fix wave is the change most likely to introduce the regression the wave exists to prevent. Safe to do on its own now that Phase 2 has landed.",
+    "source": "Phase 2 whole-branch review, PR #2359",
+    "issueUlid": "01M0V9KPD3G693BZ791WMS8R8Q"
+  }
+}

@@ -10,7 +10,6 @@ import {
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
-  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -67,6 +66,7 @@ import {
   appModeDefinitions,
   appModeSelectionHref,
   appModeSearchConfig,
+  factsheetsTopicsHref,
   isSearchableAppMode,
   visibleAppModeDefinitionsForSession,
   type AppModeId,
@@ -233,8 +233,6 @@ export function MasterSearchHeader({
   showDesktopNewChat = true,
   canAccessFavourites = false,
   onRequestAccountSetup,
-  clinicalAskActions,
-  clinicalAskActive = false,
 }: {
   demoMode: boolean;
   documents: ClinicalDocument[];
@@ -358,10 +356,6 @@ export function MasterSearchHeader({
   canAccessFavourites?: boolean;
   /** Invoked when the user tries to open Favourites without access. */
   onRequestAccountSetup?: () => void;
-  clinicalAskMode?: import("@/lib/clinical-ask/contracts").ClinicalAskModeId;
-  onClinicalAsk?: () => void;
-  clinicalAskActive?: boolean;
-  clinicalAskActions?: ReactNode;
 }) {
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
@@ -778,8 +772,7 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "factsheets-browse") {
-      onSearchModeChange("factsheets");
-      onQueryChange("");
+      router.push(factsheetsTopicsHref);
       return;
     }
     if (actionId === "dictionary-search") {
@@ -1932,11 +1925,6 @@ export function MasterSearchHeader({
             id={mobileBottomSearchAddonSlotId}
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
           />
-        ) : null}
-        {clinicalAskActions ? (
-          <div className="relative z-10 w-full" aria-busy={clinicalAskActive}>
-            {clinicalAskActions}
-          </div>
         ) : null}
         {showsAnswerFollowUpRow && composerFollowUpSuggestions?.length && onPickComposerFollowUpSuggestion ? (
           <AnswerFollowUpSuggestions

@@ -14,6 +14,7 @@
   --es-space-24: 1.5rem;
   --es-space-48: var(--spacing-tap);
   --es-leading-body: 1.4;
+
   display: grid;
   min-height: 100dvh;
   /* The rail track stays reserved at every supported width, same as every other Ward Flow

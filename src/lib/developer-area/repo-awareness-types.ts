@@ -31,7 +31,7 @@ export type RoutesSection = {
 
 export type DocumentationSection = {
   documents: { path: string; section: string; catalogued: boolean }[];
-  sections: { name: string; documents: number; uncatalogued: number }[];
+  sections: { name: string }[];
   counts: { documents: number; catalogued: number; uncatalogued: number; sections: number };
 };
 
@@ -67,4 +67,14 @@ export type ReviewRecord = {
 export type ReviewStateSection = {
   records: ReviewRecord[];
   counts: { records: number; refs: number };
+};
+
+export type RepoAwarenessSnapshot = {
+  version: string;
+  /** Null only in a snapshot written before this field existed; the generator always writes it. */
+  captured_revision: { sha: string; committed_at: string } | null;
+  routes: RoutesSection;
+  documentation: DocumentationSection;
+  test_health: TestHealthSection;
+  review_state: ReviewStateSection;
 };

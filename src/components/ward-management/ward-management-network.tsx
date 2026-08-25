@@ -533,8 +533,8 @@ export function WardNetworkWorkspace() {
               </p>
               <BedStateChips unit={detail} bedReleases={bedReleases} />
               <p className={styles.detailMeta}>
-                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Potential beds are a subset
-                of occupied and are not allocatable yet.
+                {unitCapacity(detail, bedReleases).occupied} occupied of {detail.beds} beds. Potential beds are not
+                allocatable yet.
               </p>
             </section>
           ) : null}

@@ -5,6 +5,7 @@ import { useId, useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { ChoiceChip } from "@/components/ui/chip";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
 import { catalogueMedicationOptions, medicationDisplayName } from "@/lib/medication-interactions";
@@ -308,7 +309,7 @@ export function PatientProfilePanel({
             value={profile.hepatic ?? "none"}
             onChange={(value) => updateField("hepatic", value === "none" ? null : value)}
             options={HEPATIC_OPTIONS}
-            layout="fit"
+            layout="equal"
           />
         </div>
 
@@ -316,27 +317,26 @@ export function PatientProfilePanel({
 
         <fieldset className="min-w-0">
           <legend className={fieldLabel}>Allergies</legend>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {ALLERGY_OPTIONS.map((option) => {
               const active = allergies.has(option.value);
               return (
-                <button
+                <ChoiceChip
                   key={option.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => toggleAllergy(option.value)}
-                  data-testid={`patient-allergy-${option.value}`}
-                  className={cn(segmentBase, active ? segmentActive : segmentIdle)}
+                  pressed={active}
+                  onPressedChange={() => toggleAllergy(option.value)}
+                  size="compact"
+                  testId={`patient-allergy-${option.value}`}
                 >
                   {option.label}
-                </button>
+                </ChoiceChip>
               );
             })}
           </div>
         </fieldset>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <span className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+        <div className="grid grid-cols-2 items-center gap-x-3 gap-y-2 sm:flex sm:flex-wrap">
+          <span className="flex min-w-0 items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
             <ToggleSwitch
               enabled={profile.pregnant ?? false}
               onToggle={() => updateField("pregnant", !profile.pregnant)}
@@ -344,7 +344,7 @@ export function PatientProfilePanel({
             />
             Pregnancy
           </span>
-          <span className="flex items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
+          <span className="flex min-w-0 items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
             <ToggleSwitch
               enabled={profile.breastfeeding ?? false}
               onToggle={() => updateField("breastfeeding", !profile.breastfeeding)}
@@ -359,7 +359,7 @@ export function PatientProfilePanel({
               setResetNonce((nonce) => nonce + 1);
             }}
             disabled={isEmpty}
-            className="ml-auto inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="col-span-2 inline-flex min-h-tap items-center justify-self-end gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto"
           >
             <Eraser className="h-3.5 w-3.5" aria-hidden="true" />
             Clear

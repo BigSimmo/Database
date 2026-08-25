@@ -35,7 +35,13 @@ describe("document-derived text must route through a formatter", () => {
   const visualEvidence = componentSource("clinical-dashboard/visual-evidence.tsx");
   const documentResults = componentSource("clinical-dashboard/document-results.tsx");
   const answerResultSurface = componentSource("clinical-dashboard/answer-result-surface.tsx");
-  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}`;
+  // The source rail and drawer are where cited titles, passages and snippets are
+  // rendered now — the capsule preview they replaced was scanned here, so they
+  // inherit the same raw-render guards rather than escaping them by moving.
+  const answerSourceRail = componentSource("clinical-dashboard/answer-source-rail.tsx");
+  const answerSourceDrawer = componentSource("clinical-dashboard/answer-source-drawer.tsx");
+  const answerSourceRows = componentSource("clinical-dashboard/answer-source-rows.ts");
+  const dashboardSurfaces = `${dashboard}\n${answerContent}\n${evidenceContent}\n${evidenceMapModel}\n${outputPanel}\n${visualEvidence}\n${documentResults}\n${answerResultSurface}\n${answerSourceRail}\n${answerSourceDrawer}\n${answerSourceRows}`;
 
   it("renders exact quotes through the verbatim cleaner, never raw", () => {
     // Allow `${quote.quote}` inside template literals (React keys, clipboard text);

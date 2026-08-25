@@ -116,5 +116,6 @@ describe("FactsheetsSearchPage category filter", () => {
     for (const category of ["Medications", "Conditions", "Therapies", "Tests & procedures"]) {
       expect(within(desktopGroup).queryByRole("radio", { name: `${category} (0)` })).not.toBeInTheDocument();
     }
+    expect(screen.getByRole("link", { name: "Browse sheets" })).toHaveAttribute("href", "/factsheets/search");
   });
 });

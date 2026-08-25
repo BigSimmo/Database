@@ -32,6 +32,8 @@
   --ward-leading-body: 1.4;
   --ward-leading-relaxed: 1.45;
   --ward-leading-prose: 1.5;
+  --ward-stroke-thin: 0.0625rem;
+  --ward-stroke-accent: 0.1875rem;
   --ward-radius-round: 50%;
   --ward-z-base: 1;
   --ward-z-phone: 20;
@@ -704,11 +706,11 @@
  * and the shared statement text — expressed with this file's own `--ward-*` tokens. */
 .governanceBanner {
   display: flex;
-  min-height: 3rem;
+  min-height: var(--spacing-tap);
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ward-space-12);
-  border: 0.0625rem solid var(--ward-blue-border);
+  border: var(--ward-stroke-thin) solid var(--ward-blue-border);
   border-radius: var(--radius-lg);
   background: var(--ward-blue-soft);
   padding: var(--ward-space-10) var(--ward-space-14);
@@ -717,7 +719,7 @@
 
 .governanceBanner p {
   min-width: 0;
-  flex: 1 1 12rem;
+  flex: 1 1 calc(var(--spacing-tap) * 4);
   margin: 0;
   color: var(--ward-text);
   font-size: var(--text-2xs);
@@ -731,7 +733,7 @@
 /* Explicit-absence note, shared by the change audit's empty state and any other "nothing
  * recorded yet" panel on this view. */
 .emptyNote {
-  border: 0.0625rem dashed var(--ward-border);
+  border: var(--ward-stroke-thin) dashed var(--ward-border);
   border-radius: var(--radius-md);
   padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--ward-muted);
@@ -745,7 +747,7 @@
 }
 
 .effectivenessList > div {
-  border: 0.0625rem solid var(--ward-border);
+  border: var(--ward-stroke-thin) solid var(--ward-border);
   border-radius: var(--radius-md);
   padding: var(--ward-space-10) var(--ward-space-12);
 }
@@ -759,13 +761,13 @@
 }
 
 .effectivenessList dt svg {
-  width: 1rem;
-  height: 1rem;
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
   color: var(--ward-blue);
 }
 
 .effectivenessList dd {
-  margin-top: 0.25rem;
+  margin-top: var(--ward-space-4);
 }
 
 /* Fix round 1 (Task 9): the figure and its basis are one visual unit, always rendered together —
@@ -773,7 +775,7 @@
 .effectivenessLine {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: var(--ward-space-2);
 }
 
 .effectivenessValue {
@@ -783,7 +785,7 @@
 }
 
 .effectivenessValue small {
-  margin-left: 0.25rem;
+  margin-left: var(--ward-space-4);
   color: var(--ward-muted);
   font-size: var(--text-2xs);
   font-weight: 500;
@@ -807,8 +809,8 @@
   display: flex;
   align-items: flex-start;
   gap: var(--ward-space-8);
-  margin-top: 0.75rem;
-  border-left: 0.1875rem solid var(--ward-warning);
+  margin-top: var(--ward-space-12);
+  border-left: var(--ward-stroke-accent) solid var(--ward-warning);
   background: var(--ward-warning-soft);
   padding: var(--ward-space-10) var(--ward-space-12);
   color: var(--ward-text);
@@ -817,10 +819,10 @@
 }
 
 .droppedMeasureNote svg {
-  width: 1rem;
-  height: 1rem;
+  width: var(--spacing-icon-md);
+  height: var(--spacing-icon-md);
   flex: 0 0 auto;
-  margin-top: 0.125rem;
+  margin-top: var(--ward-space-2);
   color: var(--ward-warning);
 }
 

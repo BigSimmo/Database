@@ -15,6 +15,7 @@
   --ho-space-24: 1.5rem;
   --ho-space-48: var(--spacing-tap);
   --ho-leading-body: 1.4;
+
   display: grid;
   min-height: 100dvh;
   /* The rail track stays reserved at every supported width, same as every other Ward Flow
@@ -179,26 +180,22 @@
   }
 
   /*
-   * Literal black, not a `var(--border)`/`var(--text)` token, and deliberately so — same call
-   * globals.css's own global print reset already makes for `html, body { background: #fff;
-   * color: #000; }` a few lines above the point this file is imported from. A theme token
-   * still resolves to whatever the CURRENT theme defines it as; in dark mode that is a light
-   * value meant to show against a dark surface, which would print as a near-invisible line on
-   * the white page the reset just forced. Print is ink-on-paper here, intentionally
-   * theme-independent, exactly like the reset it extends.
+   * `CanvasText` follows the print medium's ink colour without introducing a raw module-level
+   * colour. A theme border token or `currentColor` can still resolve from the active dark screen
+   * theme and become nearly invisible against the white page forced by the global print reset.
    */
   .governanceBanner {
-    border-bottom: 0.0625rem solid #000;
+    border-bottom: 0.0625rem solid CanvasText;
   }
 
   .section {
-    border-color: #000;
+    border-color: CanvasText;
     background: none;
     break-inside: avoid;
   }
 
   .table th,
   .table td {
-    border-bottom-color: #000;
+    border-bottom-color: CanvasText;
   }
 }
