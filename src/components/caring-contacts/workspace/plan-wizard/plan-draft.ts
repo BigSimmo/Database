@@ -312,7 +312,17 @@ function parsePatientDetail(value: unknown): PlanPatientDetailDraft | null {
   if (typeof patientMobileNumber !== "string") return null;
   if (typeof patientIdentifiers !== "string") return null;
   if (typeof culturalIdentity !== "string") return null;
-  return { patientName, patientMobileNumber, patientIdentifiers, culturalIdentity };
+  // BLANKED, NEVER CARRIED THROUGH — round 2, finding N-1. Stage 3 stopped offering an input for
+  // cultural identity (owner decision, 2026-08-25), but a draft written before that change survives
+  // in the same tab across a redeploy, and reading it back intact would let Task 9 submit a value
+  // into `cultural_identity_reports` while the screen says the plan records nothing there.
+  //
+  // BLANKED RATHER THAN REFUSED, deliberately. Returning null here would discard the whole draft —
+  // throwing away the patient's name and mobile number the clinician typed, to remove a field they
+  // were never offered. Blanking drops exactly the value that may no longer be supplied and keeps
+  // everything they did type. The key is still REQUIRED to be a string above, so this is a decision
+  // about a recognised field rather than a silence about an unrecognised one.
+  return { patientName, patientMobileNumber, patientIdentifiers, culturalIdentity: "" };
 }
 
 /**

@@ -33,8 +33,12 @@ import type { SendingPreference } from "@/lib/caring-contacts/model";
  * out would quietly rewrite what was typed on every refresh. `parsePatientIdentifiers` splits it at
  * the one moment it matters, which is when a plan is created.
  *
- * `culturalIdentity` is a plain string here and becomes `string | null` in
- * `createPlanPatientDetail`. A text input has no null; the plan does.
+ * `culturalIdentity` IS NO LONGER COLLECTED (owner decision, 2026-08-25) and the field is kept here
+ * on purpose rather than deleted. Keeping it is what lets `parseDraft` still RECOGNISE the key in a
+ * draft stored before the input was removed and blank it deliberately; delete the field and a stored
+ * value is merely ignored by omission, which is a silence rather than a decision. Nothing writes it,
+ * `createPlanPatientDetail` sends `null` whatever it holds, and both of those are enforced by tests
+ * rather than by the absence of a form control (round 2, N-1).
  */
 export type PlanPatientDetailDraft = {
   patientName: string;
@@ -119,10 +123,23 @@ export function parsePatientIdentifiers(text: string): string[] {
  * fifth key would be refused by the API outright rather than ignored, which is the failure mode
  * that makes returning a wider object dangerous rather than merely untidy.
  *
- * NULL RATHER THAN `""` FOR CULTURAL IDENTITY, and the decisive reason is simpler than the one this
- * comment gave first (round 1, M-3). `createPlanSchema.patientDetail.culturalIdentity` is
- * `z.string().min(1).nullable()`, so `""` is not a weaker way of saying "not given" — it is
- * **REFUSED OUTRIGHT** by the API, and a plan carrying one could not be created at all.
+ * CULTURAL IDENTITY IS ALWAYS `null` HERE, WHATEVER IS PASSED IN — round 2, finding N-1, and it is
+ * the difference between a property of code and a property of state. The field is no longer
+ * collected, so before this change `null` reached the schema only because the UI could not write a
+ * value. That is not a guarantee: a `sessionStorage` draft written before the input was removed
+ * survives `parseDraft` in the same tab across a redeploy, and Task 9 would have submitted it into
+ * `cultural_identity_reports` — while this very screen states that the plan records nothing there.
+ * An interface claim that holds only while nobody happens to have stale data is a claim, not a rule.
+ *
+ * Two boundaries are defended, and they are NOT two copies of one rule. `parseDraft` blanks a stored
+ * value so it cannot re-enter the application at all; this returns `null` so the function Task 9
+ * calls cannot emit one whatever it is handed, including a detail object built by hand that never
+ * went near storage. Neither subsumes the other, and today they happen to agree.
+ *
+ * AND `""` WOULD NOT HAVE DONE INSTEAD OF `null` (round 1, M-3).
+ * `createPlanSchema.patientDetail.culturalIdentity` is `z.string().min(1).nullable()`, so `""` is
+ * not a weaker way of saying "not given" — it is **REFUSED OUTRIGHT** by the API, and a plan
+ * carrying one could not be created at all.
  *
  * The first version argued that `""` and `null` would be "indistinguishable" from a cleared record.
  * That was wrong on its own terms: `CLEARED_PATIENT_DETAIL.culturalIdentity` is `null`, so the two
@@ -140,12 +157,15 @@ export function createPlanPatientDetail(detail: PlanPatientDetailDraft): {
   const patientMobileNumber = detail.patientMobileNumber.trim();
   if (patientName === "" || patientMobileNumber === "") return null;
 
-  const culturalIdentity = detail.culturalIdentity.trim();
   return {
     patientName,
     patientMobileNumber,
     patientIdentifiers: parsePatientIdentifiers(detail.patientIdentifiers),
-    culturalIdentity: culturalIdentity === "" ? null : culturalIdentity,
+    // ALWAYS null, and never `detail.culturalIdentity`. See the note above: this is the submit
+    // boundary's half of round 2's N-1, and it is unconditional so that no caller — a stored draft,
+    // a hand-built object at Task 9, a future screen — can put a value into
+    // `cultural_identity_reports` while this wizard tells a clinician the plan records nothing there.
+    culturalIdentity: null,
   };
 }
 

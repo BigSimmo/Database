@@ -256,7 +256,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
     expect(draft.sendingPreference).toBeNull();
   });
 
-  it("keeps a patient's name, number, identifiers and cultural identity across a reload", () => {
+  it("keeps a patient's name, number and identifiers across a reload", () => {
     // The whole reason this workspace has a Client Component at all (Ruling [109]) — and the moment
     // Ruling [110]'s notice is about, because these are the values it is warning the clinician are
     // being held on this computer.
@@ -283,8 +283,47 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
     window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, serialised);
 
     const read = readPlanDraft(REFERRAL);
-    expect(read?.patientDetail).toEqual(draft.patientDetail);
+    expect(read?.patientDetail.patientName).toBe("Rowan Example");
+    expect(read?.patientDetail.patientMobileNumber).toBe(RESERVED_PATIENT_MOBILE);
+    expect(read?.patientDetail.patientIdentifiers).toBe(draft.patientDetail.patientIdentifiers);
     expect(read?.sendingPreference).toBe("earlyEvening");
+
+    // ROUND 2, N-1. Cultural identity does NOT survive, and that is the point: the screen no longer
+    // offers an input for it, and a draft written before that change — same tab, across a redeploy —
+    // would otherwise sail through `parseDraft` intact and be submitted at Task 9 into
+    // `cultural_identity_reports`, while this very screen states that the plan records nothing
+    // there. The blanking makes the screen's claim a property of CODE rather than of state.
+    expect(
+      read?.patientDetail.culturalIdentity,
+      "a stored cultural identity survived a reload, so the screen's claim depends on nobody having one",
+    ).toBe("");
+  });
+
+  it("blanks a stored cultural identity rather than discarding the whole draft (N-1)", () => {
+    // Blanked, not REFUSED. Refusing the draft would throw away the patient's name and mobile
+    // number the clinician typed — a real loss, to remove a field they were never offered. Blanking
+    // drops exactly the value that may no longer be supplied and keeps everything they did type.
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        referralId: REFERRAL,
+        stage: "personalisation",
+        assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+        pathwayVersionId: "SYN-PATHWAY-001",
+        patientDetail: {
+          patientName: "Rowan Example",
+          patientMobileNumber: RESERVED_PATIENT_MOBILE,
+          patientIdentifiers: "SYN-MRN-4471",
+          culturalIdentity: "Noongar",
+        },
+        sendingPreference: "morning",
+      }),
+    );
+
+    const read = readPlanDraft(REFERRAL);
+    expect(read, "the draft was discarded when it only needed one field blanked").not.toBeNull();
+    expect(read?.patientDetail.patientName).toBe("Rowan Example");
+    expect(read?.patientDetail.culturalIdentity).toBe("");
   });
 
   it("discards a draft whose patient detail or sending preference is the wrong shape", () => {

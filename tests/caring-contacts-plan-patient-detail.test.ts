@@ -69,8 +69,8 @@ describe("stage 3's required values (Rulings [114] and [115])", () => {
   });
 });
 
-describe("cultural identity is genuinely optional (Ruling [116])", () => {
-  it("raises no issue when it is left blank", () => {
+describe("cultural identity is not collected, and null is a property of code (N-1)", () => {
+  it("raises no issue when it is absent, because it is never asked for", () => {
     const issues = personalisationIssues({
       detail: { ...COMPLETE, culturalIdentity: "" },
       sendingPreference: "morning",
@@ -78,15 +78,20 @@ describe("cultural identity is genuinely optional (Ruling [116])", () => {
     expect(issues).toEqual([]);
   });
 
-  it("reaches a plan as null rather than an empty string", () => {
-    // The distinction is not cosmetic. `CLEARED_PATIENT_DETAIL` in repository.ts blanks this field
-    // to null, and `Episode` types it `string | null`, so `""` would be a third state meaning
-    // neither "not given" nor "cleared" — indistinguishable afterwards from a cleared record.
-    const detail = createPlanPatientDetail({ ...COMPLETE, culturalIdentity: "   " });
-    expect(detail?.culturalIdentity).toBeNull();
-
-    const given = createPlanPatientDetail({ ...COMPLETE, culturalIdentity: "  Noongar  " });
-    expect(given?.culturalIdentity).toBe("Noongar");
+  it("sends null even when handed a value, so the screen's claim cannot be falsified by state", () => {
+    // ROUND 2, N-1. This used to pass a non-empty value straight through, which meant `null` reached
+    // the schema only because the UI could no longer write one — a property of STATE, not of code.
+    // A `sessionStorage` draft written before the field was removed, or any caller that builds a
+    // detail object by hand, could still have carried a value into `cultural_identity_reports`
+    // while the screen said "the plan records nothing here".
+    //
+    // `""` still maps to null too: `z.string().min(1).nullable()` REFUSES the empty string, so a
+    // plan carrying one could not be created at all.
+    expect(createPlanPatientDetail({ ...COMPLETE, culturalIdentity: "   " })?.culturalIdentity).toBeNull();
+    expect(
+      createPlanPatientDetail({ ...COMPLETE, culturalIdentity: "Noongar" })?.culturalIdentity,
+      "a supplied cultural identity was passed through to the plan",
+    ).toBeNull();
   });
 });
 
