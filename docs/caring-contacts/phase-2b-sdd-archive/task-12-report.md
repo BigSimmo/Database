@@ -307,6 +307,8 @@ the brief and the tree rather than from any memory of building it.
 | `7d2ec90df` | The two missing assertions: the message kind and the plan state each entry carries.         |
 | `f2a111737` | The false count in `notSendingReasonFor`'s defensive branch, restated as its invariant.     |
 | `a4550fc80` | Formatting repair — two Task 12 files had been committed unformatted (an unlisted finding). |
+| `0eddf4383` | This fix round, and the three in-place corrections to the original report.                  |
+| `76bd75e22` | This fix round's typecheck and uncached-lint evidence.                                      |
 
 ## Important 1 — two fields reached the wire unasserted
 
@@ -567,6 +569,9 @@ Recorded so a later reader does not re-open them:
 | SHA         | What                                                                                                                    |
 | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `21a79a4e6` | The mislabelled precondition swapped for the records-based form, and the report's two counts replaced by the named set. |
+| `faf44b7f5` | This round's commit row and gate evidence.                                                                              |
+
+Each round now lists its own report commits, which the original table did not — that was the review's first finding and it applies to every round equally. The one commit no table can list is the last one, since it cannot name its own hash before it exists; the branch log is the authority there.
 
 Every SHA written down in this report was checked to still resolve
 (`git cat-file -e <sha>^{commit}`) after the last commit of this round.
