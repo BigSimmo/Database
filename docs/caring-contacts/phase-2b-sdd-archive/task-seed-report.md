@@ -221,35 +221,68 @@ The offline suites are therefore unaffected, and the browser gate is unaffected 
 
 ### Mutation proofs
 
-Nine mutations, applied one at a time in process (never through a shell — the MSYS2 runtime
-re-parses argv and a `grep -c` presence check silently returns 0 for a mutation that is
-demonstrably present, `-F` included; each mutation was read back by reading the file in process).
-The tree was committed before each, and restored from git after. **Every mutation produced
-`1 failed | 13 passed`** — so each one isolates a single assertion rather than making a whole case
-red — and every failure matched its prediction.
+Round 1's report claimed one uncovered assertion. That was wrong: mapping nine mutations onto
+fourteen cases left **seven** carrying none, including the case holding the brief's own
+"production must never fall back to synthetic content" constraint and the closed-vocabulary scan.
+The table below is the corrected position, re-run in full against the file as it now stands (16
+cases here, plus three in the two screen suites) so no row describes an earlier version of it.
 
-They were run before two assertions in unrelated cases were strengthened from literal counts to
-invariants. None of the assertions a mutation actually landed on was touched by that change, so the
-evidence below still describes the file as it stands — but it was gathered from the earlier one, and
-that is worth knowing rather than glossing.
+Each mutation is applied one at a time in process — never through a shell, since the MSYS2 runtime
+re-parses argv and a `grep -c` presence check silently returns 0 for a mutation that is demonstrably
+present, `-F` included — read back in process, and the tree restored from git afterwards. **The
+per-row pass/fail count is the evidence that a mutation isolated one assertion rather than making a
+case red**, so it is stated per row rather than once for the set.
 
-| Mutation                                                | Predicted                                                        | Observed                                                                                             |
-| ------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| M1 the Postgres branch calls the seed                   | the "never reached from the Postgres branch" spy assertion fails | `AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times`       |
-| M2 the `WeakSet` guard is removed                       | no `DemoSeedForeignStoreError`                                   | `expected TypeError: store.listPathwayVersions is n… to be an instance of DemoSeedForeignStoreError` |
-| M3 the standard message is copied into the closing slot | closing is no longer empty                                       | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                         |
-| M8 the standard message is blanked                      | standard is empty                                                | `expected '' to be 'Hi Rowan, Alex from Example Aftercare…'`                                         |
-| M4a the already-seeded return reports a population      | `populated` is true on the second call                           | `expected true to be false`                                                                          |
-| M4b the already-seeded guard is removed entirely        | the second call re-writes and is refused                         | the idempotency case fails (the seed throws `DemoSeedRefusedError`)                                  |
-| M5 a seeded mobile number is not a reserved one         | an unreserved number is present                                  | `expected [ Array(2) ] to include '+61 400 000 000'`                                                 |
-| M6 the isolated Playwright exclusion is removed         | that server holds 3 plans unasked                                | `expected [ … ] to have a length of +0 but got 3`                                                    |
-| M9 the cadence labels are typed out instead of derived  | the lists differ                                                 | `expected [ 'Day 1' ] to deeply equal [ 'Day 1', 'Week 1', 'Month 1', …(7) ]`                        |
+| #   | Mutation                                               | Predicted                                | Observed                                                                                             | Counts                |
+| --- | ------------------------------------------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------- |
+| M1  | the Postgres branch calls the seed                     | the spy assertion fails                  | `expected "vi.fn()" to not be called at all, but actually been called 1 times`                       | 1 failed \| 15 passed |
+| M2  | the `WeakSet` guard is removed                         | no `DemoSeedForeignStoreError`           | `expected TypeError: store.listPathwayVersions is n… to be an instance of DemoSeedForeignStoreError` | 1 failed \| 15 passed |
+| M3  | the standard message is copied into the closing slot   | closing is no longer empty               | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                         | 1 failed \| 15 passed |
+| M8  | the standard message is blanked                        | standard is empty                        | `expected '' to be 'Hi Rowan, Alex from Example Aftercare…'`                                         | 1 failed \| 15 passed |
+| R4  | the unauthored **first** message is filled in          | first is no longer empty                 | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                         | 1 failed \| 15 passed |
+| M4a | the already-seeded return reports a population         | `populated` is true on the second call   | `expected true to be false`                                                                          | 1 failed \| 15 passed |
+| M4b | the already-seeded guard is removed entirely           | the second call re-writes and is refused | the idempotency case fails (`DemoSeedRefusedError`)                                                  | 1 failed \| 15 passed |
+| M5  | a seeded mobile number is not a reserved one           | an unreserved number is present          | `expected [ Array(2) ] to include '+61 400 000 000'`                                                 | 1 failed \| 15 passed |
+| M6  | the isolated Playwright exclusion is removed           | that server holds a population unasked   | `expected [ … ] to have a length of +0 but got 3`                                                    | 1 failed \| 15 passed |
+| M9  | the cadence labels are typed out instead of derived    | the lists differ                         | `expected [ 'Day 1' ] to deeply equal [ 'Day 1', 'Week 1', 'Month 1', …(7) ]`                        | 1 failed \| 15 passed |
+| R1  | the demo predicate is dropped from `demoSeedRequested` | the **production-empty** case fails      | `expected [ … ] to have a length of +0 but got 3`                                                    | 2 failed \| 14 passed |
+| R2  | the production gate is removed from `applyDemoSeed`    | the I1 case fails                        | `expected true to be false`                                                                          | 1 failed \| 15 passed |
+| R3  | a seeded value uses closed vocabulary                  | the **vocabulary scan** fails            | `expected 'Safe' not to match /high risk\|safe\|…/i`                                                 | 1 failed \| 15 passed |
+| R5  | the seed stops marking its version as invented         | the record claims nothing                | `expected undefined to be 'syntheticDemonstration'`                                                  | 1 failed \| 15 passed |
+| R6  | the store's snapshot copy enumerates its fields again  | the marker is dropped on the way out     | `expected undefined to be 'syntheticDemonstration'`                                                  | 1 failed \| 15 passed |
+| R7  | the page stops carrying provenance to the wizard       | the join case fails                      | `expected null to be 'Invented for demonstration: no person…'`                                       | 1 failed \| 12 passed |
+| R8  | stage 2 stops printing the provenance                  | the note is not on the screen            | the positive wizard case fails                                                                       | 1 failed \| 71 passed |
+| N1  | the wizard's referral is left un-accepted              | the wizard-referral case fails           | `expected 'awaitingHandover' to be 'accepted'`                                                       | 1 failed \| 15 passed |
+| N2  | the store's memoisation is removed                     | the in-memory-branch case fails          | `expected { …(39) } to be { …(39) }`                                                                 | 1 failed \| 15 passed |
+| N3  | stage 2 prints a provenance line for **every** version | the negative wizard case fails           | **survived at first — see below**                                                                    | see below             |
 
-**One assertion is not mutation-proven, and it should be read as weaker for it.** "approved by two
-different people" cannot be falsified by mutating the seed, because the domain refuses the mutation:
-recording both approvals under one actor is `pathway-approval-actor-already-recorded` and the seed
-stops. The assertion is therefore held up by `applyPathwayVersionTransition`'s own refusal rather
-than by this suite, which is the right place for it but is not the same as a proof here.
+**R1 fails two cases rather than one, and that is correct**: dropping the demo predicate populates
+both the production store and the one `applyDemoSeed` is handed, which are two different guards on
+the same fact. It is listed as 2/14 rather than presented as an isolation.
+
+**N3 survived, and the test was wrong rather than the mutation.** Removing the `=== null` condition
+renders the paragraph for every option — and a null note renders as an _empty_ paragraph, so a case
+asserting the wording is absent passed against a screen that had gained an element per version. The
+negative case asserted on text where the condition controls an element. It now asserts on a stable
+handle, and N3 dies.
+
+**The vacuity pair — round 1 finding I4.** Two assertions had been rewritten _after_ their mutation
+into `expect(x).toHaveLength(plans.length)`, which on an empty store is `0 === 0`; the reserved-number
+loop beneath one of them then iterated nothing, so the case existing to prove no unreserved number was
+ever written could go green having checked no number at all. One source mutation, run twice, is what
+demonstrates that:
+
+|     | Mutation                                      | Result                                                                                                                                                                |
+| --- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V1  | the seed creates no plans, **guards present** | 6 failed \| 10 passed — including `names every patient in the caseload` and `uses only the reserved fictional numbers`, both `expected [] to not have a length of +0` |
+| V2  | the same empty seed, **guards removed**       | 4 failed \| 12 passed — **those two cases drop out of the failure list**, i.e. they pass on a seed that produced nothing                                              |
+
+**What still carries no mutation, stated exactly.** One case in the seed suite: _"approved by two
+different people through the domain's own transition"_. It cannot be falsified by mutating the seed,
+because the domain refuses the mutation — recording both approvals under one actor is
+`pathway-approval-actor-already-recorded` and the seed stops. A test able to falsify it would have to
+weaken `applyPathwayVersionTransition`, which is worse than the gap. Every other case in the seed
+suite and in both screen suites is covered above.
 
 ### Gates
 

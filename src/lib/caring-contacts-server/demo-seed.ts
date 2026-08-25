@@ -226,7 +226,7 @@ const DEMO_SEED_PEOPLE: readonly DemoPersonSeed[] = Object.freeze([
     key: "wren",
     patientIdentifier: "demo-seed-patient-wren",
     referralIdentifier: DEMO_SEED_UNSTARTED_REFERRAL_ID,
-    referralState: "accepted",
+    referralState: "awaitingHandover",
   },
   {
     key: "nima",
