@@ -669,3 +669,172 @@ exit code, and no other worktree's lease was broken.
 **Does this round touch the browser gate?** **No.** I-2 changes markup the browser suite cannot
 reach, for the reason recorded above, and `tests/ui-caring-contacts-workspace.spec.ts` is unchanged
 this round. The base task's changes to it stand as reported in §7.
+
+---
+
+# Round 2 — four items, and one of them was mine twice over
+
+All four fixed, plus the guard-set script. Commit: `c6e3f85e8`.
+
+## 1. The same sentence, wrong in the opposite direction
+
+**Confirmed, and it is the worse of the two.** "Neither is stored anywhere" is simply false: every
+tick goes `update()` → `writePlanDraft()` → `sessionStorage`, and the draft notice a few lines above
+says so in as many words. The panel above the status line had the qualifier right all along —
+*nothing in this domain records either of them* — and my round 1 fix dropped it.
+
+M-6 overstated durability, which risks making a schema decision look unnecessary. This understated
+it, which on a shared ward computer hands a clinician a reason **not** to press Discard draft while
+a patient's name and mobile number sit in that tab's storage. It was working against the third
+requirement of Ruling [110], which is the requirement that exists because relying on tab-close alone
+leaves the previous patient's details for the next person at that machine.
+
+Now: *"Both confirmations are ticked, so a pathway can be chosen. Neither is recorded on the plan;
+like everything else on this screen, they are kept on this computer until you finish or discard."*
+It names the destination rather than the act, and it points at the control that removes them.
+
+Pinned as a whole sentence with `toContain`, not a loose match — a loose match is what let the
+replacement through. A second assertion refuses `stored anywhere|kept anywhere` outright, so the
+understating direction has a guard of its own; the exact pin is the one that fires first (R2-M17).
+
+**The lesson I am taking from getting this wrong twice.** "Stored" and "recorded" are near-synonyms
+in ordinary English, and this system distinguishes them sharply: held in a tab's storage, versus
+written onto the plan. A screen that must separate two senses of one everyday word will keep getting
+it wrong until the wording names the DESTINATION. "Recorded on the plan" survives that; "stored"
+does not, in either direction.
+
+## 2. The M-1 erratum, amended at its own site
+
+Fixed. The bullet in §3 is struck through in place, carries `**CORRECTED, round 1 finding M-1**`
+with a pointer to the section that explains it, and names the case that actually fails
+(`will require the activation stage to clear the draft the moment Task 9 builds it`) rather than the
+renamed one it used to cite. A reader who lands on §3 — which is the section Task 9 opens — now sees
+the correction without reading 385 lines further on.
+
+**Taken, and it is the third time this shape has been named across this phase.** A correction that
+lives only downstream of the error leaves the error readable, and a reader who never reaches the
+downstream section is left with the wrong belief. Ruling [94]'s "do not restate a count in prose"
+has a sibling: **do not correct a claim anywhere except where the claim is.**
+
+## 3. Stale comment
+
+Fixed. `plan-wizard.tsx`'s `approvedBy` note named `role-labels.ts`, which `07dbccb6c` deleted when
+the wording moved into the sealed domain; it now names
+`PATHWAY_APPROVAL_ROLE_WORDING` in `@/lib/caring-contacts/pathway-versions`.
+
+## 4. The stripper's fourth inexactness, and it errs the unsafe way
+
+**Confirmed, and the observation is exact.** A trailing `//` comment is deliberately not stripped as
+a comment — but a `/*` inside it still opens the block branch, so everything to the next `*/`, real
+code included, is removed from what the guard reads. A silent false negative: the same class of
+defect `stripSourceComments` was written to fix (M-4), one layer down.
+
+The header now separates the three that err toward LEAVING TEXT IN (safe: a false alarm a human
+reads) from this one, which REMOVES text, and says so in those words. It also says why it is left
+in: closing it means teaching the line-comment branch to consume a trailing comment's text without
+stripping it, which is a real change to the deliberate first conservatism rather than a tweak, and
+the triggering shape does not occur in either scanned tree today.
+
+A case named `pins the one place it errs UNSAFELY, so a green suite cannot be read as closing it`
+pins the current behaviour and says in its own comment that it pins a limitation and not a
+guarantee. R2-M18 proves it: closing the limitation turns that case red with a message telling the
+reader to update the header deliberately.
+
+## 5. The guard set is a script
+
+`npm run test:cc-guards`, alongside `test:ci-workflows`, same mechanism and same explicit file list.
+The build record now points at the script and deliberately does not repeat the filenames, so there
+is one copy.
+
+Membership widened slightly while it was being written: it now also carries the three other
+caring-contacts screen suites (patients directory, patient overview, patients page), because the
+base task changed `shell.tsx` and a shell change reaches every screen. The timing below is with
+those included.
+
+**What the script fixes and what it does not, stated because the reviewer's point was about rot.**
+It removes the second copy, so the list and the document cannot disagree. It does **not** enforce
+membership — nothing fails when someone adds a tree-walking scan and leaves it out. I tried the
+obvious contract (every test file that both walks a directory and mentions caring-contacts must be a
+member) and rejected it: it matches `caring-contact-route-files.test.ts`, `caring-contacts-migrations.test.ts`
+and `playwright-project-isolation.test.ts`, none of which a workspace UI change can reach, so the
+test would have had to be tuned to pass — which is the thing this phase keeps refusing to do. A
+membership contract needs a real signal. Recorded rather than faked.
+
+## Corrections and additions to the earlier report
+
+- **R1-M13's "three red" is a count and I should have said what the three were.** Under the restored
+  pre-fix ordering: `keeps the draft usable when the browser takes the object but refuses the write`,
+  `discards an in-memory draft too`, and the wizard's `still lets a clinician work when the browser
+  refuses to keep it`. The fourth memory case — `goes back to keeping the draft once a write lands
+  again` — stays green, because its final state has a real stored draft that the old ordering reads
+  correctly. Ruling [94] again: a count in prose that nobody can reconstruct is a count nobody can
+  check.
+- **The vocabulary residual was framed too narrowly, and the review's correction is right.** I wrote
+  it as "the interface scan cannot express a job title". The larger half is that
+  `src/lib/caring-contacts/**` is outside **every** prohibited-language scan in this repository —
+  only the interface scan and the overlay tests use `CARING_CONTACTS_PROHIBITED_LANGUAGE`, and
+  neither reaches `src/lib`. So the wording I moved there is not merely exempt from the "lead" rule,
+  it is unwatched by any vocabulary check at all. That hole pre-dates this change and
+  `service-state.ts` already sits in it, so it should not have blocked the fix — but it is the
+  accurate statement of what moving the strings bought and cost.
+- **The fix I filed is smaller than I made it sound.** `message-rules.ts`'s `COMMERCIAL_LEAD_PATTERN`
+  is an already-written, already-tested negative lookbehind that would exempt all six of those
+  offences unchanged. Filing it was still right for that round; filing it without saying it is a
+  one-line reuse of a proven pattern made it look like new work.
+- **On I-2's class assertion**, the review's reason is better than mine and worth recording: the
+  class sits on a `flex` element, where `min-height` actually applies. A `min-h-*` on an inline
+  element would have been an inert assertion. The per-radio `label.contains(radio)` check pins the
+  defect itself rather than a proxy for it.
+
+## Round 2 mutation log — every attempt, itemised, no aggregate
+
+| #      | Mutation                                                        | Predicted                                                    | Observed                                                                                                                                                    | Verdict                 |
+| ------ | --------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| R2-M17 | The round 1 wording restored ("Neither is stored anywhere")     | the exact-sentence pin goes red, fired before the negative one | `expected 'AgreementPathwayPersonalisationnot bu…' to contain 'Both confirmations are ticked, so a p…'` — the exact pin, as predicted; the `stored anywhere` refusal is armed behind it | RED, prediction matched |
+| R2-M18 | `atLineStart` short-circuited, so trailing line comments strip  | the limitation pin and the trailing-comment case both go red   | Exactly two: `expected 'import type { Thing } from "x"; ' to match /service-state lives next door/`, and `the known limitation has changed — see the header, and update it deliberately: expected 'const a = 1; \\nimport type { ServiceS…' not to match /ServiceState/` | RED, prediction matched |
+
+Both confirmed present in the tree by their own `grep -c`, run as a separate command with `;`, and
+both reverted against committed files — the round 1 lesson applied, so neither revert could discard
+a fix. `git status` clean after each.
+
+## Round 2 gates
+
+**The guard set, now `npm run test:cc-guards`:**
+
+```
+[test:cc-guards] exit=0 elapsed=133s
+ Test Files  15 passed (15)
+      Tests  272 passed (272)
+   Duration  121.70s (transform 7.26s, setup 6.42s, import 19.15s, tests 111.81s, environment 24.77s)
+```
+
+**The full suite, once, at the end:**
+
+```
+[test] exit=0 elapsed=803s
+ Test Files  833 passed | 3 skipped (836)
+      Tests  10088 passed | 74 skipped (10162)
+   Duration  789.62s (transform 96.49s, setup 102.80s, import 420.52s, tests 1398.99s, environment 409.25s)
+```
+
+**Typecheck and lint:**
+
+```
+[typecheck] exit=0 elapsed=40s
+[lint] exit=0 elapsed=45s
+```
+
+**The timing moved, and the reason is worth recording rather than quietly reporting a worse
+number.** Round 1's guard set was 53 s over 12 files; this one is 133 s over 15, because widening it
+to the three other caring-contacts screen suites added roughly 80 s. The full suite also moved, 590 s
+to 803 s, on a machine whose load varies with how many of the owner's worktrees are running — which
+is exactly why the ratio matters more than either figure. It fell from about 11x to about 6x, and
+that is the real cost of the widening: still the right trade for a task that changed `shell.tsx`,
+but not free, and someone adding to the script should know the units they are spending.
+
+(The `check:function-grants: FAIL` lines mid-run are one test's own positive-control fixtures
+printing their expected refusals, not failures.)
+
+**Does this round touch the browser gate?** **No, and I do not disagree.** Items 1 and 3 change
+strings and a comment on a stage no Playwright case can reach; item 4 and the script are test-side;
+item 2 is the report. `tests/ui-caring-contacts-workspace.spec.ts` is unchanged in both fix rounds.
