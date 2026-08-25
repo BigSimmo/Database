@@ -152,6 +152,12 @@ export function planDraftStorageAvailable(): boolean {
  * in a private window could not tick a checkbox at all: every write would go nowhere, the snapshot
  * would stay null, and the screen would never change. It lasts as long as the page does, which is
  * strictly less exposure than `sessionStorage`, and the notice says so.
+ *
+ * A browser refuses in TWO shapes, and they are not equally likely. Reaching `window.sessionStorage`
+ * can throw outright, which is the rare configuration; far commoner — and what Safari private
+ * browsing does — is a storage object that exists and whose `setItem` throws. Both land in
+ * `memoryDraft`, and `planDraftSnapshot` reads it before it reads storage so that both are actually
+ * reachable. Round 1 finding I-1 was that only the first shape worked.
  */
 type PlanDraftListener = () => void;
 
@@ -183,10 +189,25 @@ function rawDraft(storage: Storage): string | null {
   }
 }
 
-/** The draft as it stands, cached so repeated calls return the same object. Pure. */
+/**
+ * The draft as it stands, cached so repeated calls return the same object. Pure.
+ *
+ * `memoryDraft` IS CONSULTED FIRST, and the order is the whole point. Review round 1, finding I-1:
+ * this used to reach for memory only when `tabScopedStorage()` returned null — the browser that
+ * refuses even to hand over the object. But the commoner refusal, and the one Safari private
+ * browsing actually performs, is a storage object that EXISTS and whose `setItem` throws. In that
+ * shape the old order re-read the empty store, returned null, and the screen never changed: every
+ * tick was written to memory that nothing ever read. That is the exact dead end the fallback was
+ * added to prevent, so the fallback has to be reachable from the case it exists for.
+ *
+ * `memoryDraft` is non-null only while the last write failed to land in storage — a successful
+ * write and `clearPlanDraft` both null it — so preferring it can never shadow a newer stored draft.
+ */
 export function planDraftSnapshot(): PlanDraft | null {
+  if (memoryDraft !== null) return memoryDraft;
+
   const storage = tabScopedStorage();
-  if (storage === null) return memoryDraft;
+  if (storage === null) return null;
 
   const raw = rawDraft(storage);
   if (raw !== cachedRaw) {

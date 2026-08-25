@@ -20,10 +20,11 @@
 //   * Ruling 52 — stages 3 and 4 are unavailable controls with a stated reason, never dead ends.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   PLAN_DRAFT_STORAGE_KEY,
+  clearPlanDraft,
   readPlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
 import {
@@ -71,6 +72,13 @@ async function reachPathwayStage(user: ReturnType<typeof userEvent.setup>) {
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
+  // The store holds module-level state that clearing storage by hand does not reach.
+  clearPlanDraft();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  clearPlanDraft();
 });
 
 describe("the caring-contacts plan wizard — stage 1, agreement (Ruling [112])", () => {
@@ -235,6 +243,28 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
     expect(screen.getByRole("region", { name: "Agreement" })).toBeInTheDocument();
     for (const box of screen.getAllByRole("checkbox")) expect(box).not.toBeChecked();
     expect(screen.getByText(/The draft was discarded/)).toBeInTheDocument();
+  });
+
+  it("still lets a clinician work when the browser refuses to keep it, and says it is not being kept", async () => {
+    // Round 1, finding I-1. Safari private browsing hands out a real `sessionStorage` whose
+    // `setItem` throws, and the screen must keep working: a coordinator who cannot tick a box has
+    // no way to sign a patient up at all. `Storage.prototype`, not the instance — jsdom's storage
+    // is a Proxy that answers from the prototype, so an instance spy is never consulted.
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError", "QuotaExceededError");
+    });
+    const user = userEvent.setup();
+    renderWizard();
+
+    const [first] = screen.getAllByRole("checkbox");
+    await user.click(first);
+
+    expect(setItem, "the refusal was never actually exercised").toHaveBeenCalled();
+    expect(first, "the screen did not change when the browser refused the write").toBeChecked();
+    // And the notice tells the truth about it rather than promising a memory the browser refused.
+    expect(screen.getByRole("group", { name: /Nothing is being kept on this computer/ })).toHaveTextContent(
+      /finish this sign-up in one sitting/i,
+    );
   });
 
   it("states in place what is being kept, and what would remove it", () => {

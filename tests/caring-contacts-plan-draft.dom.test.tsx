@@ -16,12 +16,14 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   PLAN_DRAFT_STORAGE_KEY,
   clearPlanDraft,
   emptyPlanDraft,
+  planDraftIsHeld,
+  planDraftSnapshot,
   planDraftStorageAvailable,
   readPlanDraft,
   writePlanDraft,
@@ -61,7 +63,31 @@ function storedRaw(): string | null {
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
+  // The store keeps module-level state (the in-memory fallback and the snapshot cache), and
+  // clearing storage by hand does not touch it. Without this a test that leaves a draft in memory
+  // hands it to the next one.
+  clearPlanDraft();
 });
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  clearPlanDraft();
+});
+
+/**
+ * Makes this browser behave like Safari private browsing: storage exists, `setItem` throws.
+ *
+ * Spied on `Storage.prototype`, not on `window.sessionStorage`. jsdom's storage object is a Proxy
+ * whose `get` trap answers from the prototype, so an own-property spy on the instance is simply not
+ * consulted — the first attempt at this test passed with the mock installed and never called, which
+ * is the "check that cannot fail" shape. `expect(setItem).toHaveBeenCalled()` below is what stops
+ * that recurring silently.
+ */
+function refuseWrites() {
+  return vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("QuotaExceededError", "QuotaExceededError");
+  });
+}
 
 describe("the caring-contacts plan draft — tab lifetime is enforced, not promised", () => {
   it("writes the draft to sessionStorage and leaves localStorage untouched", () => {
@@ -156,6 +182,50 @@ describe("the caring-contacts plan draft — tab lifetime is enforced, not promi
       mobileIsPatientControlled: false,
     });
     expect(emptyPlanDraft(REFERRAL, null).stage).toBe("agreement");
+  });
+
+  it("keeps the draft usable when the browser takes the object but refuses the write", () => {
+    // Round 1, finding I-1, and the case is not exotic: Safari private browsing hands out a real
+    // `sessionStorage` whose `setItem` throws. The earlier code reached for the in-memory fallback
+    // only when the storage OBJECT was unavailable, so in this shape every tick was written to a
+    // fallback nothing read, the snapshot stayed null, and the screen never changed — the exact
+    // dead end the fallback exists to prevent.
+    const setItem = refuseWrites();
+
+    expect(writePlanDraft(filledDraft()), "a refused write reported success").toBe(false);
+    expect(setItem, "the refusal was never actually exercised").toHaveBeenCalled();
+
+    expect(planDraftSnapshot(), "the refused write is invisible to the screen").toEqual(filledDraft());
+    expect(readPlanDraft(REFERRAL)).toEqual(filledDraft());
+    // Nothing reached the tab-scoped store, so nothing outlives this page.
+    expect(storedRaw()).toBeNull();
+    // And the notice must say the draft is NOT being kept, rather than promising a memory the
+    // browser refused.
+    expect(planDraftIsHeld(), "the notice would have claimed the draft is kept").toBe(false);
+  });
+
+  it("goes back to keeping the draft once a write lands again", () => {
+    refuseWrites();
+    writePlanDraft(filledDraft());
+    expect(planDraftIsHeld()).toBe(false);
+
+    vi.restoreAllMocks();
+    const later: PlanDraft = { ...filledDraft(), pathwayVersionId: "SYN-PATHWAY-002" };
+    expect(writePlanDraft(later)).toBe(true);
+
+    expect(planDraftIsHeld()).toBe(true);
+    expect(planDraftSnapshot(), "the stale in-memory draft shadowed the one that was stored").toEqual(later);
+    expect(storedRaw()).not.toBeNull();
+  });
+
+  it("discards an in-memory draft too, so a refused browser is not a way to keep one", () => {
+    refuseWrites();
+    writePlanDraft(filledDraft());
+    expect(planDraftSnapshot()).not.toBeNull();
+
+    clearPlanDraft();
+
+    expect(planDraftSnapshot(), "the discarded draft survived in memory").toBeNull();
   });
 
   it("reports storage as available here, so the wizard's notice is answering a real question", () => {
