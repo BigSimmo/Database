@@ -156,8 +156,8 @@ describe("developer ingestion page — the four states (plan §4)", () => {
 describe("developer ingestion page — counts render as given", () => {
   it("shows the server's own activeJobCount rather than recomputing a length that could disagree", async () => {
     // Deliberately mismatched: only 2 rows in this page are active-status, but
-    // the server reports 7 (as it legitimately could once pagination truncates
-    // the active set). Falsifying edit: replacing `state.activeJobCount` with
+    // the query-wide server count reports 7 because five active jobs are on
+    // later pages. Falsifying edit: replacing `state.activeJobCount` with
     // `active.length` in the component turns this red (it would show "2").
     fetchMock.mockResolvedValueOnce(
       jsonResponse(
@@ -169,6 +169,7 @@ describe("developer ingestion page — counts render as given", () => {
           activeJobCount: 7,
           hasActiveJobs: true,
           pollAfterMs: 5000,
+          pagination: { limit: 100, offset: 0, total: 105, nextOffset: 100, hasMore: true },
         }),
       ),
     );
