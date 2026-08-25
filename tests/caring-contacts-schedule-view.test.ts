@@ -525,6 +525,56 @@ describe("buildScheduleRange — the plan's own state holds sending", () => {
   });
 });
 
+describe("buildScheduleRange — what an entry carries through from the planner and the plan", () => {
+  it("carries each contact's own message kind, so the closing message stays a distinct kind", async () => {
+    const store = newStore();
+    const id = await seedPlan(store, { sendingPreference: "morning" });
+    const records = await plansOf(store);
+    const record = planIn(records, id);
+
+    // Each contact is looked up on the AWST day it actually sends on: a plan runs for months and
+    // no single accepted range spans one, so there is no whole-plan call to make here.
+    const carried = record.contacts.map((stored) => {
+      const day = dayOf(records, awstCalendarDay(stored.planned.sendAt));
+      const entry = allEntries(day).find((candidate) => candidate.contactId === stored.contact.id);
+      if (!entry) throw new Error(`no entry for ${stored.contact.id} on the day it sends`);
+      return [entry.contactId, entry.messageType];
+    });
+
+    // Derived from the planner rather than typed out: whatever kind it stamped on each contact is
+    // the kind the read reports for that contact.
+    expect(carried).toEqual(record.contacts.map((stored) => [stored.contact.id, stored.planned.messageType]));
+
+    // FIXTURE PRECONDITION, not a claim about the code: the plan holds more than one kind, which
+    // is what stops the line above from being satisfiable by a constant.
+    expect(new Set(record.contacts.map((stored) => stored.planned.messageType)).size).toBeGreaterThan(1);
+
+    // The plan's last contact is the closing message, and the read says so. Named separately
+    // because this is the distinction that matters -- a closing message is not one more caring
+    // contact, and a screen that could not tell them apart would say the wrong thing about a plan
+    // ending.
+    expect(carried.at(-1)).toEqual([record.contacts.at(-1)?.contact.id, "closing"]);
+  });
+
+  it("carries each entry's own plan state, so a held entry says which plan state held it", async () => {
+    const store = newStore();
+    const active = await seedPlan(store, { sendingPreference: "morning" });
+    const paused = await seedPlan(store, { sendingPreference: "afternoon", planState: "paused" });
+    const records = await plansOf(store);
+
+    const day = dayOf(records, MONTH_END);
+    const reported = new Map(allEntries(day).map((entry) => [entry.planId, entry.planState]));
+    // Compared plan by plan against each record's own state, so neither list's order is asserted.
+    expect(records.map((record) => [record.plan.id, reported.get(record.plan.id)])).toEqual(
+      records.map((record) => [record.plan.id, record.plan.state]),
+    );
+
+    // FIXTURE PRECONDITION, not a claim about the code: the two plans are deliberately in
+    // different states, which is what stops the line above from being satisfiable by a constant.
+    expect(reported.get(active)).not.toBe(reported.get(paused));
+  });
+});
+
 describe("buildScheduleRange — named exceptions", () => {
   it("keeps a contact needing operational review out of the routine window lists", async () => {
     const store = newStore();
