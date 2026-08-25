@@ -2382,3 +2382,40 @@ same standard, and none of them can be demonstrated. If the prototype's purpose 
 through — by the owner, by colleagues, by a governance board — then a synthetic seed is not Phase 3
 polish, it is the thing that makes Phase 2B's output visible at all. Put to him with a recommendation
 rather than decided here, because the answer changes what the parallel track should build first.
+
+## THE STALE LINT CACHE — every "lint clean" this session was a cached verdict
+
+Found 2026-08-26 by the **second worktree's** implementer, in a file belonging to neither task, and it
+could not have been found from inside this one.
+
+`npm run lint` exited **0**. `npx eslint` on `tests/caring-contacts-empty-state.dom.test.tsx` reported
+**two errors**. The difference is `--cache --cache-location node_modules/.cache/eslint/`. Verified the
+whole chain rather than reasoning about it: cache present, exit 0; cache cleared, **exit 1 with both
+errors**; fixed; cache cleared again, exit 0; the file's own suite `Tests 15 passed (15)`.
+
+**The cause is a cross-task consequence nobody could have seen.** That file's raw
+`<a href="/caring-contacts/patients">` was **legal when Task 1 wrote it**, because no such route
+existed. Tasks 5 and 6 created `/caring-contacts/patients` and `/caring-contacts/patients/[patientId]`,
+which made a pre-existing anchor in an **untouched** file illegal — and a per-file cache never
+re-examines a file that has not changed.
+
+**So: a per-file cache cannot see a failure caused by a different file's change.** That is a new shape
+for the "checks that cannot fail" catalogue, and the first where the blind spot was created by work
+being done _correctly_ elsewhere. CI runs without a cache and would have gone red.
+
+**What actually surfaced it was the parallelism**, which is worth recording because I introduced the
+second worktree for speed and it paid in a way I did not predict: a fresh checkout has no cache, so
+running the same gate somewhere else is a cheap way to discover that a gate has stopped being a gate.
+
+### And a process failure that was mine, for the third time this session
+
+I fixed it by editing and committing into **this** branch while an implementer was live in this
+worktree. The three instances: `git add -A` sweeping an implementer's uncommitted work; two
+implementers dispatched into one tree; and now a one-line fix committed under a running mutation
+round. **The pattern is not carelessness about the rule — it is that I keep finding a category the
+rule obviously does not cover, and the category is always "my change, right now".**
+
+The implementer detected it rather than absorbing it, because G1–G5 each asserted `git diff --quiet`
+clean on **both sides** of every mutation. Its own line: _"I only know because the discipline asserts
+cleanliness instead of assuming it."_ That is condition 2 of the "a red proves presence" argument —
+a quiet worktree — failing in practice within a day of being written down.
