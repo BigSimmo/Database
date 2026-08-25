@@ -796,6 +796,22 @@ Coverage: `tests/phone-dock-addon-contract.test.ts` (registry, exclusivity, CSS/
 value parity), `tests/patient-details-dock-action.dom.test.tsx` (portal target,
 breakpoint, sheet wiring).
 
+## Motion & Animation Preferences (#S4K1GA)
+
+The application supports explicit user motion preference overrides in addition to system-level accessibility settings. The preference is stored in local storage and mirrored onto the root element as `data-motion="full"`, `data-motion="reduced"`, or absent (defaulting to system preference).
+
+### Physical iPhone acceptance rubric
+
+To prevent regressions of the phone/PWA answer-progress animation defect (where OS Reduce Motion froze animations and rendered the ECG trace invisible at `opacity: 0`), verify the following rubric on a physical iPhone in both Mobile Safari and the installed standalone PWA:
+
+1. **Motion=Full (`data-motion="full"`):**
+   - In physical Safari and installed standalone PWA, when the in-app Motion setting is set to **Full**, the ECG strip (`.answer-activity-trace__sweep`) visibly travels continuously and the current-step spinner rotates, even if iOS system **Reduce Motion** is enabled in Accessibility settings.
+2. **Motion=System / Motion=Reduced:**
+   - When iOS system **Reduce Motion** is enabled (or in-app Motion is set to **Reduced**), the ECG trace remains static and clearly visible at `opacity: 0.55` (`translateX(0)` aligned), rather than disappearing or rendering a blank box (`opacity: 0`).
+   - The current step spinner stops rotating and displays as a static marker without layout jumps.
+
+The motion preference contract in `src/components/clinical-dashboard/answer-status.tsx` and the corresponding stylesheet rules in `src/app/globals.css` must remain strictly intact across all breakpoints.
+
 ## Clinical Ask composer chrome
 
 Clinical Ask remains a backend mode, but no search composer mounts an Ask /

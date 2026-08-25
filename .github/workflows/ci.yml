@@ -1071,6 +1071,12 @@ jobs:
       - name: Setup Node and dependencies for drift manifest
         uses: ./.github/actions/setup-node-cached
 
+      - name: Run Caring Contacts Database & RLS Tests
+        if: steps.scope.outputs.db_changed == 'true' || steps.scope.outputs.static_heavy_changed == 'true'
+        env:
+          CARING_CONTACTS_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run caring-contacts:db:test
+
       - name: Pull the pinned drift manifest image
         run: docker pull supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83
 
