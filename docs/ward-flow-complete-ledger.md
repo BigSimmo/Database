@@ -149,7 +149,7 @@ and refusals surface with the reducer's own reason.
 labelled "not clinical severity" that partly was is why the previous score was deleted rather than
 migrated.
 
-## 6. Three questions still open with the clinician
+## 6. Three questions raised with the clinician — two still open
 
 None blocking; all stated rather than buried.
 
@@ -158,8 +158,11 @@ None blocking; all stated rather than buried.
 2. **Should being detained and examined confer priority of its own?** Today such a patient ranks
    purely on elapsed time, exactly as described — so patients still awaiting examination tend to
    rank above them.
-3. **Is four hours the right ED access target for WA metro?** It is the national figure, not
-   confirmed for this context.
+3. **Is four hours the right ED access target for WA metro?** **Answered 2026-08-22 — no.** Four
+   hours is the national figure and was never confirmed for this context; the product owner set
+   the target to 24 hours (1440 minutes) for this prototype, because mental health patients breach
+   four hours so routinely that it stops discriminating. `ED_ACCESS_TARGET_MINUTES` in
+   `ward-model.ts` carries the current value (ruling R65(a)).
 
 Plus one raised but undecided: **the demo now leads with an accident.** The top of the coordinator
 queue is `WF-303`, a _generated_ movement whose breach comes from
