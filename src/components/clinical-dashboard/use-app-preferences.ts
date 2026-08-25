@@ -74,6 +74,13 @@ let inMemoryFallback: AppPreferences | null = null;
 let cachedRaw: string | null = null;
 let cachedValue: AppPreferences = DEFAULT_PREFERENCES;
 let lastLocalPreferenceChangeAt = 0;
+/**
+ * Gate for recent-search recording while an authenticated account bootstrap is
+ * still in flight. Local storage defaults `saveRecentSearches` to true, so a
+ * one-shot read during that window would leak queries that another device had
+ * already opted out of. Signed-out / not-yet-mounted stays ready (local only).
+ */
+let accountPreferencesReadyForRecording = true;
 
 function readStored(): AppPreferences {
   let raw: string | null = null;
@@ -168,6 +175,17 @@ export function readAppPreferences(): AppPreferences {
   return getSnapshot();
 }
 
+/**
+ * Whether it is safe to write a recent query right now. Returns false while an
+ * authenticated account preference bootstrap has not settled, and false when
+ * the resolved preference opts out. Callers that only need this gate should
+ * still mount `useAppPreferences` somewhere in the tree so the bootstrap runs.
+ */
+export function mayRecordRecentSearches(): boolean {
+  if (!accountPreferencesReadyForRecording) return false;
+  return getSnapshot().saveRecentSearches;
+}
+
 export function useAppPreferences() {
   const auth = useAuthSessionIfAvailable();
   const authStatus = auth?.status ?? "signed_out";
@@ -186,6 +204,11 @@ export function useAppPreferences() {
   // otherwise race, and a slow first response can overwrite a fast second one —
   // showing "couldn't sync" for a write that has already succeeded.
   const writeSequenceRef = useRef(0);
+  // Serialize account PUTs so a delayed older whole-snapshot upsert cannot
+  // overwrite a newer one that already reached the server. The pending ref
+  // coalesces bursts: only the latest snapshot is sent when the chain drains.
+  const writeChainRef = useRef(Promise.resolve());
+  const pendingWriteRef = useRef<AppPreferences | null>(null);
 
   // Adjust during render rather than in an effect: a new session must not spend
   // a frame reporting the previous session's sync outcome, and an effect always
@@ -194,6 +217,15 @@ export function useAppPreferences() {
   if (sessionKey !== currentSessionKey) {
     setSessionKey(currentSessionKey);
     setObservedSync(null);
+  }
+
+  // Keep the recent-search gate aligned with bootstrap readiness during render
+  // so one-shot callers never read the local default while the account GET is
+  // still outstanding. Write-time "syncing" (observedSync set) stays ready.
+  if (authStatus !== "authenticated") {
+    accountPreferencesReadyForRecording = true;
+  } else {
+    accountPreferencesReadyForRecording = observedSync !== null;
   }
 
   const syncState: PreferenceSyncState = authStatus !== "authenticated" ? "local-only" : (observedSync ?? "syncing");
@@ -260,24 +292,35 @@ export function useAppPreferences() {
         return;
       }
       const sequence = ++writeSequenceRef.current;
+      pendingWriteRef.current = next;
       const settle = (state: PreferenceSyncState) => {
         if (sequence === writeSequenceRef.current) setObservedSync(state);
       };
       setObservedSync("syncing");
-      fetch("/api/account/preferences", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", ...authorizationHeader },
-        body: JSON.stringify(next),
-      })
-        .then((response) => {
-          if (response.status === 401) {
-            markSessionExpired();
-            settle("local-only");
-            return;
+      writeChainRef.current = writeChainRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          // A newer setPreference already replaced the pending snapshot; let
+          // that later chain step send it instead of upserting this stale one.
+          if (pendingWriteRef.current !== next) return;
+          const snapshot = pendingWriteRef.current;
+          pendingWriteRef.current = null;
+          try {
+            const response = await fetch("/api/account/preferences", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json", ...authorizationHeader },
+              body: JSON.stringify(snapshot),
+            });
+            if (response.status === 401) {
+              markSessionExpired();
+              settle("local-only");
+              return;
+            }
+            settle(response.ok ? "synced" : "error");
+          } catch {
+            settle("error");
           }
-          settle(response.ok ? "synced" : "error");
-        })
-        .catch(() => settle("error"));
+        });
     },
     [authStatus, authorizationHeader, markSessionExpired],
   );

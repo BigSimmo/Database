@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { normalizePreferences } from "@/lib/account-preferences";
+import { DEFAULT_PREFERENCES, normalizePreferences } from "@/lib/account-preferences";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -19,7 +19,11 @@ const preferencesSchema = z
     showRecentOnHome: z.boolean(),
     showProtocolsOnHome: z.boolean(),
     compactCitations: z.boolean(),
-    saveRecentSearches: z.boolean(),
+    // Optional with default: tabs that opened before this field shipped still
+    // PUT the previous shape; rejecting the whole body would strand every other
+    // preference change until a refresh. Default matches the client opt-out
+    // contract (recording on until explicitly turned off).
+    saveRecentSearches: z.boolean().default(DEFAULT_PREFERENCES.saveRecentSearches),
     notifyGuidelineUpdates: z.boolean(),
     notifyProductNews: z.boolean(),
     notifySavedChanges: z.boolean(),
