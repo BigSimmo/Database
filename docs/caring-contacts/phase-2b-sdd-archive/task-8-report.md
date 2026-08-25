@@ -4,18 +4,18 @@
 
 **Commits:**
 
-| SHA         | What                                                                       |
-| ----------- | -------------------------------------------------------------------------- |
+| SHA         | What                                                                              |
+| ----------- | --------------------------------------------------------------------------------- |
 | `9015ca0a5` | The pure half: `patient-detail.ts`, `SENDING_PREFERENCE_OPTIONS`, and their tests |
-| `30a581c47` | Stage 3 itself, the draft's new fields, the page's two new props            |
-| `5eb3df29a` | The stage comments Task 8 made stale, corrected at their own sites          |
+| `30a581c47` | Stage 3 itself, the draft's new fields, the page's two new props                  |
+| `5eb3df29a` | The stage comments Task 8 made stale, corrected at their own sites                |
 
 ---
 
 ## 1. What was built, file by file
 
-| File                                                                     | What changed                                                                                                     |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| File                                                                     | What changed                                                                                                      |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `src/components/caring-contacts/workspace/plan-wizard/patient-detail.ts` | **New.** What stage 3 collects and whether it is enough to create a plan with. Pure — no React, no storage.       |
 | `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx`   | `PersonalisationStage`, plus two small field components and two new props.                                        |
 | `src/components/caring-contacts/workspace/plan-wizard/plan-draft.ts`     | `patientDetail` and `sendingPreference` added to `PlanDraft`, to `emptyPlanDraft` **and to `parseDraft`**.        |
@@ -48,13 +48,13 @@ five fields holding neither.
 
 So stage 3 is four inputs and a radio group:
 
-| Field                 | Control                       | Required                                   |
-| --------------------- | ----------------------------- | ------------------------------------------ |
-| `patientName`         | text                          | yes                                        |
-| `patientMobileNumber` | text, `inputMode="tel"`       | yes                                        |
-| `patientIdentifiers`  | textarea, **one per line**    | no — an empty box is `[]`, never `[""]`    |
-| `culturalIdentity`    | text                          | no — reaches the plan as `null`            |
-| `sendingPreference`   | three radios                  | yes                                        |
+| Field                 | Control                    | Required                                |
+| --------------------- | -------------------------- | --------------------------------------- |
+| `patientName`         | text                       | yes                                     |
+| `patientMobileNumber` | text, `inputMode="tel"`    | yes                                     |
+| `patientIdentifiers`  | textarea, **one per line** | no — an empty box is `[]`, never `[""]` |
+| `culturalIdentity`    | text                       | no — reaches the plan as `null`         |
+| `sendingPreference`   | three radios               | yes                                     |
 
 Nothing is ticked and nothing claims a source. A test asserts the phrases "imported from the
 synthetic referral" and "governed value present" appear nowhere on the stage.
@@ -82,7 +82,7 @@ which is stricter than the schema on purpose**: `z.string().min(1)` accepts `" "
 patient name is a single space passes the API and identifies nobody.
 
 **What the screen says, and where.** A `StatedReason` group sits directly beneath the number field,
-in the flow of the page, headed *"Nothing typed here is ever sent to any number"*, with spec §4.4's
+in the flow of the page, headed _"Nothing typed here is ever sent to any number"_, with spec §4.4's
 `Why:` / `What changes it:` shape — never a `title` attribute, which has not been stated to anyone
 who does not hover. Its reason names the reserved fictional numbers, **read from the sealed domain**
 rather than written into the screen.
@@ -124,7 +124,7 @@ record".** There is no import path in this domain. See finding 1.
 
 ### Rulings [94] and [98] — the count is not restated
 
-The mockup's legend reads *"One preference applies to all 10 contacts."* The screen says:
+The mockup's legend reads _"One preference applies to all 10 contacts."_ The screen says:
 
 > One choice applies to every contact in this plan.
 
@@ -149,15 +149,15 @@ storage key; the draft key is unchanged.
 **Task 7's notice is reachable from this stage and is still true — and I did not strengthen it.**
 It is rendered by the wizard shell above every stage, so it is on screen while the name and number
 are typed. Its "held" wording already says what is written, that it is not sent anywhere, that
-closing the tab removes it, and that Discard draft removes it now — *"use it if you are stepping away
-from a shared computer."* That was written knowing stage 3 was coming. What I did instead was make
-the stage point at it rather than re-describe it: the panel intro says *"until you finish or discard
-it is kept on this computer — the notice above this stage says exactly where"*, and the completion
-line says *"None of it is recorded on a plan yet; like everything else on this screen it is kept on
-this computer until you finish or discard."*
+closing the tab removes it, and that Discard draft removes it now — _"use it if you are stepping away
+from a shared computer."_ That was written knowing stage 3 was coming. What I did instead was make
+the stage point at it rather than re-describe it: the panel intro says _"until you finish or discard
+it is kept on this computer — the notice above this stage says exactly where"_, and the completion
+line says _"None of it is recorded on a plan yet; like everything else on this screen it is kept on
+this computer until you finish or discard."_
 
 **On the wording rule.** "Name the destination, not the act." Both sentences above name a
-destination — *on a plan*, *on this computer* — and neither uses a bare "stored". I read the comment
+destination — _on a plan_, _on this computer_ — and neither uses a bare "stored". I read the comment
 at the site in `AgreementStage` before writing them.
 
 ### Ruling [109] — the client boundary
@@ -239,13 +239,13 @@ too.
 
 **No overlay is wired.** The mockup opens four from this stage, plus a preview card:
 
-| Overlay id                 | What the mockup opens it for                                | Note for Task 11                                                                                     |
-| -------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `message-preview`          | The `MessagePreviewCard` on this stage                      | This is where patient-visible copy belongs. It must read the sealed domain's `message-copy`; the stage renders none. |
-| `communication-preference` | A communication-preference sheet                            | `notification-preferences.ts` exists in the domain; whether this stage is where it belongs is a design question. |
-| `adjust-date-time`         | "Adjust schedule" — the first-contact date                  | **Check against Task 9 first.** Ruling [118] puts the first-contact-date control on stage 4, so this overlay and that control may be the same thing built twice. |
-| `discard-changes`          | A discard confirmation                                      | The wizard already has a real, unconfirmed "Discard draft" control beside the notice. If this becomes a confirmation step, it wraps that control rather than adding a second one. |
-| `save-draft`               | "Save draft"                                                | There is nothing to wire. The draft saves on every keystroke and the notice says so; a Save-draft control would imply the opposite. Recommend it is dropped rather than built. |
+| Overlay id                 | What the mockup opens it for               | Note for Task 11                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message-preview`          | The `MessagePreviewCard` on this stage     | This is where patient-visible copy belongs. It must read the sealed domain's `message-copy`; the stage renders none.                                                              |
+| `communication-preference` | A communication-preference sheet           | `notification-preferences.ts` exists in the domain; whether this stage is where it belongs is a design question.                                                                  |
+| `adjust-date-time`         | "Adjust schedule" — the first-contact date | **Check against Task 9 first.** Ruling [118] puts the first-contact-date control on stage 4, so this overlay and that control may be the same thing built twice.                  |
+| `discard-changes`          | A discard confirmation                     | The wizard already has a real, unconfirmed "Discard draft" control beside the notice. If this becomes a confirmation step, it wraps that control rather than adding a second one. |
+| `save-draft`               | "Save draft"                               | There is nothing to wire. The draft saves on every keystroke and the notice says so; a Save-draft control would imply the opposite. Recommend it is dropped rather than built.    |
 
 **What Task 9 inherits from this task:**
 
@@ -283,8 +283,8 @@ the day messages go out."
   first and run first: `Error: Cannot find package '@/components/…/patient-detail'`, then
   `Tests 11 passed (11)` after the module existed.
 - The draft's new fields — test-first. Three cases written first, run first, `3 failed | 12 passed
-  (15)`, each failing for its stated reason (`expected { Object (referralId, stage, ...) } to be
-  null`, and `undefined` where the new `patientDetail` should have been).
+(15)`, each failing for its stated reason (`expected { Object (referralId, stage, ...) } to be
+null`, and `undefined` where the new `patientDetail` should have been).
 - Stage 3 itself — test-first. Ten cases plus five edits to existing ones, run first:
   `13 failed | 19 passed (32)`, all thirteen unable to reach a stage that did not exist.
 - `SENDING_PREFERENCE_OPTIONS` — **implementation first. I am not claiming otherwise.** It is a small
@@ -299,19 +299,19 @@ short-circuit the gate into printing no summary line at all — then the gate ru
 `git checkout --`. **Every mutated file was committed first**, so no revert could discard a fix; that
 is round 1's process defect applied rather than re-learned.
 
-| #    | Mutation                                                                    | Predicted                                                          | Observed                                                                                                                                                                                | Verdict                       |
-| ---- | --------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| M1   | `personalisationIssues` never reports `patient-mobile-required`             | 3 red: 2 in patient-detail, 1 in the wizard                        | Exactly 3. `expected [ 'patientName', 'sendingPreference' ] to deeply equal [ 'patientName', …(2) ]`; `expected [ 'patientName' ] to deeply equal [ Array(2) ]`; and `a required field states nothing about what is missing: expected '' to match /cannot be created without/i` | RED, prediction matched       |
-| M2   | `createPlanPatientDetail` sends `""` for cultural identity instead of `null` | 2 red, one per file, both reading `expected '' to be null`         | Exactly 2, both `expected '' to be null`                                                                                                                                                | RED, prediction matched       |
-| M3   | Every `sendTime` hardcoded to 10:00                                         | 1 red in the schedule suite; **green in the wizard suite**, because that assertion reads the same constant | `afternoon is advertised at the wrong time: expected '10:00 am AWST' to be '2:00 pm AWST'`, and the wizard suite green — see finding 3                                     | RED where predicted, and the predicted green is the finding |
-| M4   | The mobile statement drops `fictionalPatientMobileNumbers.join(...)`        | 1 red, the reserved numbers not found in the group                 | 1 red: "states, where the number is entered, that nothing is ever sent to it"                                                                                                           | RED, prediction matched       |
-| M5   | `mobileIsDesignatedFictional` always true                                   | 2 red: the near-miss case, and the wizard's caution                | Exactly 2. `expected true to be false`, and `expected 'Entered by youA referral carries no n…' to match /not one of the reserved fictional nu…/i`                                        | RED, prediction matched       |
-| M6   | The cultural-identity purpose becomes "record keeping"                      | 1 red on `/reporting on programme reach/i`                         | 1 red: "states the recorded purpose from the spec, and what it never does"                                                                                                              | RED, prediction matched       |
-| M7   | `min-h-tap` stripped from stage 3's radio labels                            | 1 red naming the row                                               | `Morning is not a production tap target: expected 'flex w-full min-w-0 cursor-pointer it…' to contain 'min-h-tap'`                                                                       | RED, prediction matched       |
-| M8   | `parsePatientDetail` returns an empty detail instead of null                | 1 red, the pre-stage-3 draft accepted                              | **GREEN — and the mutation was the defective thing, not the test.** I mutated 2 of the 5 refusal branches; `patientIdentifiers` still returned null and caught both cases. The brief's own warning, met in practice: check first that the mutation changes a value some assertion reads | GREEN on an effectively unmutated path |
-| M8′  | All five branches of `parsePatientDetail` return an empty detail             | 1 red, and on the SECOND sub-assertion (the first is caught by the `sendingPreference` check) | `a draft missing half its patient detail was accepted: expected { Object (referralId, stage, ...) } to be null` — the second sub-assertion, as predicted                | RED, prediction matched       |
-| M9   | The completion status line's branch inverted                                | 1 red on `/nothing else is needed/i`                               | `expected 'Entered by youA referral carries no n…' to match /nothing else is needed/i`                                                                                                  | RED, prediction matched       |
-| M10  | The identifiers field's `id` renamed                                        | **GREEN** — nothing asserts on it; the label is what the tests find | `Tests 32 passed (32)`                                                                                                                                                                  | GREEN, as intended            |
+| #   | Mutation                                                                     | Predicted                                                                                                  | Observed                                                                                                                                                                                                                                                                                | Verdict                                                     |
+| --- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| M1  | `personalisationIssues` never reports `patient-mobile-required`              | 3 red: 2 in patient-detail, 1 in the wizard                                                                | Exactly 3. `expected [ 'patientName', 'sendingPreference' ] to deeply equal [ 'patientName', …(2) ]`; `expected [ 'patientName' ] to deeply equal [ Array(2) ]`; and `a required field states nothing about what is missing: expected '' to match /cannot be created without/i`         | RED, prediction matched                                     |
+| M2  | `createPlanPatientDetail` sends `""` for cultural identity instead of `null` | 2 red, one per file, both reading `expected '' to be null`                                                 | Exactly 2, both `expected '' to be null`                                                                                                                                                                                                                                                | RED, prediction matched                                     |
+| M3  | Every `sendTime` hardcoded to 10:00                                          | 1 red in the schedule suite; **green in the wizard suite**, because that assertion reads the same constant | `afternoon is advertised at the wrong time: expected '10:00 am AWST' to be '2:00 pm AWST'`, and the wizard suite green — see finding 3                                                                                                                                                  | RED where predicted, and the predicted green is the finding |
+| M4  | The mobile statement drops `fictionalPatientMobileNumbers.join(...)`         | 1 red, the reserved numbers not found in the group                                                         | 1 red: "states, where the number is entered, that nothing is ever sent to it"                                                                                                                                                                                                           | RED, prediction matched                                     |
+| M5  | `mobileIsDesignatedFictional` always true                                    | 2 red: the near-miss case, and the wizard's caution                                                        | Exactly 2. `expected true to be false`, and `expected 'Entered by youA referral carries no n…' to match /not one of the reserved fictional nu…/i`                                                                                                                                       | RED, prediction matched                                     |
+| M6  | The cultural-identity purpose becomes "record keeping"                       | 1 red on `/reporting on programme reach/i`                                                                 | 1 red: "states the recorded purpose from the spec, and what it never does"                                                                                                                                                                                                              | RED, prediction matched                                     |
+| M7  | `min-h-tap` stripped from stage 3's radio labels                             | 1 red naming the row                                                                                       | `Morning is not a production tap target: expected 'flex w-full min-w-0 cursor-pointer it…' to contain 'min-h-tap'`                                                                                                                                                                      | RED, prediction matched                                     |
+| M8  | `parsePatientDetail` returns an empty detail instead of null                 | 1 red, the pre-stage-3 draft accepted                                                                      | **GREEN — and the mutation was the defective thing, not the test.** I mutated 2 of the 5 refusal branches; `patientIdentifiers` still returned null and caught both cases. The brief's own warning, met in practice: check first that the mutation changes a value some assertion reads | GREEN on an effectively unmutated path                      |
+| M8′ | All five branches of `parsePatientDetail` return an empty detail             | 1 red, and on the SECOND sub-assertion (the first is caught by the `sendingPreference` check)              | `a draft missing half its patient detail was accepted: expected { Object (referralId, stage, ...) } to be null` — the second sub-assertion, as predicted                                                                                                                                | RED, prediction matched                                     |
+| M9  | The completion status line's branch inverted                                 | 1 red on `/nothing else is needed/i`                                                                       | `expected 'Entered by youA referral carries no n…' to match /nothing else is needed/i`                                                                                                                                                                                                  | RED, prediction matched                                     |
+| M10 | The identifiers field's `id` renamed                                         | **GREEN** — nothing asserts on it; the label is what the tests find                                        | `Tests 32 passed (32)`                                                                                                                                                                                                                                                                  | GREEN, as intended                                          |
 
 No anchor failed to match: every mutation was confirmed present by its own `grep -c` before its gate
 ran, and `git status` was clean after the last revert.
@@ -320,7 +320,7 @@ ran, and `git status` was clean after the last revert.
 useful direction to be wrong in than round 1's under-predicted blast radii: the mutation was
 **green on a tree that was not meaningfully mutated**. Nothing about the summary line said so — it
 read `Tests 47 passed (47)`, which is indistinguishable from a test that cannot fail. What caught it
-was predicting *which assertion* would fail and then not finding it in the output, which is the whole
+was predicting _which assertion_ would fail and then not finding it in the output, which is the whole
 reason the brief asks for the prediction rather than "expect red". M10 is the deliberate control in
 the other direction: a change that SHOULD leave the gate green, labelled as such, so a green line
 somewhere in this log is not read as an oversight.
@@ -350,8 +350,38 @@ from 15 files to 17 and the wall time did not rise.
 **The full suite, once, at the end:**
 
 ```
-FULL_SUITE_PLACEHOLDER
+[test] exit=1 elapsed=768s
+ Test Files  1 failed | 833 passed | 3 skipped (837)
+      Tests  1 failed | 10114 passed | 74 skipped (10189)
+   Duration  755.09s (transform 70.42s, setup 113.70s, import 339.81s, tests 1568.38s, environment 451.04s)
 ```
+
+**It was red, on one test, and it is not this change's.** The failure is
+`tests/codex-cloud-setup.test.ts > Codex Cloud environment contract > pins connected retrieval mode
+and rejects unsafe shell-policy configs`, and the message is not an assertion:
+
+```
+Error: Test timed out in 120000ms.
+```
+
+That file exercises the Codex Cloud provisioning scripts by spawning shells against temporary
+`CODEX_HOME` directories. It touches nothing this task changed — not the workspace, not the domain,
+not the draft — and there is no path from a caring-contacts screen to it. Run on its own against the
+same tree:
+
+```
+ Test Files  1 passed (1)
+      Tests  35 passed (35)
+   Duration  37.61s
+```
+
+**37.6 s alone against a 120 s timeout under full-suite load.** So it is a load-dependent timeout on
+this machine rather than a regression, and I am reporting it that way rather than re-running the
+suite until it goes green — a re-run would have hidden the load problem and proved nothing about the
+diff. I did not raise its timeout, and nothing about it was changed.
+
+**Why this machine was under unusual load, stated because it is my own doing.** See the lease note
+below.
 
 **Typecheck and lint:**
 
@@ -371,9 +401,11 @@ not a working tree.
 
 ### The timing question the brief asked me to answer
 
-**The guard set is 67–118 s against the full suite's FULL_SUITE_ELAPSED.** Round 1 measured 53 s
+**The guard set is 67–118 s against the full suite's 768 s.** Round 1 measured 53 s
 against 590 s (about 11×) on 12 files; round 2 measured 133 s against 803 s (about 6×) on 15. This
-task is 17 files and lands at FULL_SUITE_RATIO — so the saving is real and has held across three
+task is 17 files and lands between 6× and 11× — 67 s and 118 s against 768 s, and the two guard-set
+figures are the same 17 files on the same tree, differing only in how warm the caches were. So the
+saving is real and has held across three
 measurements and two widenings, but **the ratio is not stable and should not be quoted as a
 constant**: both numbers move with how many of the owner's worktrees are running, and the guard set's
 own membership has grown by five files across three tasks. What is stable is the shape of the trade —
@@ -387,6 +419,40 @@ the stored-draft fixtures). No workspace-wide guard fired this time — `interfa
 `domain-isolation`, `route-reachability`, `design-system-adoption` and `explained-automation` were
 green throughout, which I checked deliberately rather than assumed, because Task 7 was caught by two
 of them and this task adds a new module to the same client boundary.
+
+### A lease refusal, and it was mine
+
+**Recorded in full because the brief asks for it and because I caused it.** The first attempt at the
+full suite was a foreground run that the tool killed at its own 10-minute ceiling. That killed the
+wrapper; it did **not** kill the vitest process, which went on holding the repository's exclusive
+heavy-run lease with no workers and no output anywhere I could read. The next attempt sat behind it
+for 906 s and then refused:
+
+```
+Error: Another Database heavyweight command is active (PID 55448, worktree
+D:\Repos\Database\.claude\worktreesrowser-test-gate-handoff-d5c1db, started
+2026-08-25T07:12:07.831Z): vitest run --reporter=dot
+[test] exit=1 elapsed=906s
+```
+
+**A refusal is neither a pass nor a failure, and I treated it as neither.** I proved ownership from
+the lease record rather than from a live PID, exactly as the brief requires: its `worktree` field is
+this worktree, its `command` is the one I ran, and its `startedAt` matches the run that was killed.
+The process tree confirmed it independently —
+`bash → npm run test → cmd → run-vitest.mjs → vitest`, rooted in this session's own shell — and the
+vitest process had 52 s of CPU across 26 minutes with **no worker children**, which is a hung
+process rather than a slow one.
+
+I then terminated **my own** process tree. That is not the thing the brief forbids: no other
+worktree's lease was broken, and the coordinator reclaims a lease whose PID is dead all by itself
+(`ownerDirectoryIsStale` → `if (!processIsAlive(owner.pid)) return true`), so nothing was deleted by
+hand and no lock file was forced. The suite then ran normally.
+
+**The lesson, since it will recur.** The full suite takes longer than a foreground tool call is
+allowed to last, so running it in the foreground does not merely fail — it leaves a hung
+lease-holder that blocks every worktree on this machine until someone notices. Run it in the
+background from the start. The Codex Cloud timeout above is the second-order cost of not having
+done that.
 
 ### The browser gate
 
