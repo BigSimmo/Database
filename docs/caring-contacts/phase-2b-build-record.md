@@ -2161,3 +2161,48 @@ Prettier reflow with the incident-note boundary assertion intact; eight mutation
 predicted and observed messages and no aggregate total; `sessionStorage` still the only storage
 mechanism; and N-3's arithmetic taken from the actual `it()` diff — four added, three of them renames,
 net one new case, matching 324 → 325 exactly.
+
+### Task 8 round 3 — **Task 8: complete.** Three things came out of it that outlive the task.
+
+Guard set `Tests 325 passed (325)` in 55 s. No source changed — both mutations applied and reverted,
+tree clean, whole-tree Prettier clean.
+
+**1. The self-diagnosis, and it is the sharpest of this phase.** The implementer was asked why it
+disclosed one unproven assertion at length and, two lines below, left another unproven and called the
+case proved. Its answer:
+
+> _"It isn't that I can't see unproven assertions. I saw one, described it well, and treated the
+> description as if it had discharged the obligation for the whole case. **Disclosing a limitation
+> feels like completing the audit. It isn't the audit.**"_
+
+That names a failure mode this programme has hit repeatedly without being able to say what it was. A
+frank paragraph about a gap reads — to its author most of all — as though the gap has been handled.
+It has been _described_. The two are not the same act, and the more articulate the disclosure the
+more completely it substitutes for the work.
+
+**2. A refinement to the rule, from counting rather than reasoning.** "This case is order-masked" is
+already the wrong shape of claim: **order-masking is a property of a (case, mutation) pair, not of a
+case.** R2-M19 masks the id-list assertion; R2-M20 does not. So the wider rule — _a mutation proves
+the assertion it makes fail, not the case it makes red_ — is the primary one, and order-masking is a
+special case of it rather than a separate rule.
+
+**3. It nearly filed a real guard as a check that cannot fail, and the mutation stopped it.** While
+classifying its own coverage it concluded that a `not.toContain` loop in the reserved-mobiles case was
+redundant, since the equality assertion above it already pins the array. Plausible, and wrong. **It
+ran the mutation before writing the finding up:** R3-M25 sets `rowanPatientMobile` to the
+crisis-support number, **the equality still passes because both sides read the same record**, and the
+loop fails with "a number a patient CALLS is offered as a number a patient receives on" — exactly the
+confusion the case is named for. The comment now names that mutation so nobody deletes the loop on the
+reasoning it nearly filed.
+
+**This is the inverse of everything else in this file and belongs beside it.** The whole discipline
+here is "a check you believe works is a hypothesis until you have seen it fail". The mirror is equally
+true and much easier to act on destructively: **a check you believe is redundant is a hypothesis too**,
+and acting on that one deletes coverage rather than merely failing to add it.
+
+**The coverage classification, counted from the code rather than implied.** Four of roughly thirty
+cases this task owns are proved assertion by assertion. The rest are proved **alive, not complete** —
+the largest gaps named in a table rather than summarised (the I-3 case is 4 of 8; the draft round-trip
+1 of 6; the live-region case 1 of 5). That gap is not closed and this round was deliberately scoped
+not to close it. **Recording the number is the point**: a suite described as "mutation-proved" without
+a denominator invites exactly the reading the implementer just talked itself out of.
