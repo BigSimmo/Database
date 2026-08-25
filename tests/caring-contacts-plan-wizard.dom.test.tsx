@@ -398,6 +398,11 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
         culturalIdentity: "",
       },
       sendingPreference: null,
+      // Stage 4's are present and empty for the same reason, and no plan identifier has been minted:
+      // Ruling [120] mints at the moment stage 4 is REACHED, so a sign-up abandoned before it never
+      // mints one at all.
+      activation: { dischargeDay: "", firstContactDay: "", firstContactReason: "" },
+      submission: null,
     });
 
     // A remount is what a page refresh looks like from this component's point of view.

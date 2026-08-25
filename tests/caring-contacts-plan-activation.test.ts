@@ -47,7 +47,7 @@ import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-cont
 import { buildAccessAuditEvent } from "@/lib/caring-contacts/access-audit";
 import { awstCalendarDay, fixedClock } from "@/lib/caring-contacts/clock";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
-import { idempotencyKey, patientId, planId, referralId, pathwayVersionId } from "@/lib/caring-contacts/ids";
+import { actorId, idempotencyKey, patientId, planId, referralId, pathwayVersionId, teamId } from "@/lib/caring-contacts/ids";
 import { summariseStoredContacts } from "@/lib/caring-contacts/repository";
 import {
   buildApprovedSchedule,
@@ -114,9 +114,9 @@ describe("minting the plan id and the idempotency key (Ruling [120])", () => {
         expect(() =>
           buildAccessAuditEvent(
             {
-              actorId: "demo-coordinator",
+              actorId: actorId("demo-coordinator"),
               actorRoles: ["coordinator"],
-              teamId: "SYN-TEAM-001",
+              teamId: teamId("SYN-TEAM-001"),
               kind: "mutation",
               objectType: "plan",
               objectId: value,
