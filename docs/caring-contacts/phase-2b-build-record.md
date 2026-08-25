@@ -1932,3 +1932,44 @@ so the wording moved there is unwatched rather than merely exempt. The original 
 it, and also omitted that the fix is a one-line reuse of `message-rules.ts`'s already-tested
 `COMMERCIAL_LEAD_PATTERN` — filing a residual without saying how small it is makes it look harder
 than it is, and rows that look hard do not get taken.
+
+### Task 7 round-2 re-review — clean, no findings. **Task 7: complete.**
+
+Gates: `test:cc-guards` `Tests 272 passed (272)`; full `Tests 10088 passed | 74 skipped (10162)`;
+typecheck and lint clean; browser gate `49 passed (2.9m)` at the round-1 tip, deliberately skipped for
+both fix rounds after confirming — independently, twice — that
+`tests/ui-caring-contacts-workspace.spec.ts` is untouched across the whole range.
+
+**The sentence is finally right, and the reviewer checked the thing that actually mattered**: not just
+that this sentence is true, but that **no sibling sentence carries the same flaw.** It grepped every
+storage and durability claim across the wizard and the route and found the panel above already
+correct, the draft notice consistent in all three states, and nothing competing. Third attempt at one
+sentence, and the check that closes it is the one that looks for the _next_ one.
+
+**The test tightened rather than loosened**: `toMatch` became `toContain` of the full sentence, plus a
+`.not.toMatch(/stored anywhere|kept anywhere/i)` guard — so the round-1 wording now fails twice over.
+
+**The script verified as a real gate.** All fifteen named files exist, every one matches an offline
+project's include pattern and none is excluded, so `npm run test` genuinely collects them all and the
+`Test Files 15 passed (15)` line reconciles. It carries all six tree-walking scans plus the registry
+test and every screen suite. And the old file list is gone from both the build record and the report —
+**one copy, which was the whole point.**
+
+**On the ratio falling from ~11x to ~6x: the comparison is fair and the disclosure was good.** Round
+1's "12 files" already included the task's own three suites, so round 2's fifteen is an
+apples-to-apples widening of the same basket rather than a different metric wearing the same name.
+The report flagged that the full-suite figure is noisy with machine load rather than quietly
+presenting a worse number as equivalent. **An implementer correcting its own favourable measurement
+downward, unprompted, is worth more than the measurement.**
+
+**The declined membership contract was verified as the right call, not an evasion.** The rejected
+heuristic — any test that walks a directory and mentions caring-contacts — genuinely also matches
+`caring-contact-route-files.test.ts`, `caring-contacts-migrations.test.ts` and
+`playwright-project-isolation.test.ts`, none reachable from a workspace UI diff. A contract built on
+that signal would need tuning to pass, **which is the exact anti-pattern this programme exists to
+refuse.** Recorded as an open gap rather than faked.
+
+**Two agents ran concurrently for the first time**: this re-review (read-only, holds no heavy-run
+lease, touches no file) alongside Task 8's implementer. That is the overlap lever from the speed
+review, applied where it is safe — Task 8 consumes the wizard shell and stage plumbing, which was
+settled two rounds earlier, not round 2's wording, comment and script changes.
