@@ -392,14 +392,27 @@ visible reasons and a human confirms or overrides.
   `handoverSnapshot`; read once from `useWardFlow()` inside a `useState` initialiser so the page is
   frozen at the moment it is opened and never re-derives on the 30-second clock tick; every section
   renders an explicit "None" line rather than hiding itself when empty; a Print button calls
-  `window.print()`, styled by `handover.module.css`'s own `@media print` block)
+  `window.print()`, styled by `handover.module.css`'s own `@media print` block), `escalation/escalation-board.tsx`
+  (Phase 4 Task 5: the escalation board — `/ward-management/escalation`; one place showing every
+  patient whose placement has gone wrong, via `ward-derivations.ts`'s `escalationBoard`; two
+  independently-computed, read-only sections — `escalated` (movements carrying a recorded
+  `Movement.escalation`: when, `triedUnitIds` resolved to real `Unit` objects, contact, wait) and
+  `nowhereEligible` (open movements with zero eligible wards right now, via `eligibleCandidatesAmong`
+  called with an unlimited-effective `limit` so nothing truncates); a movement can appear in both, and
+  on the real fixture at `NOW_ANCHOR` WF-009 does — it has a recorded escalation and, independently,
+  still has nowhere eligible. Unlike the handover, this page is NOT frozen: it reads the live clock on
+  every render, since a coordinator working this board wants the current picture. Records and shows
+  only — it computes no near-miss, no least-bad option, and no statement of what would need to change
+  for a ward to work)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
   `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)
 - **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`,
   `tests/ui-ward-coordinator.spec.ts`, `tests/ui-ward-roles.spec.ts`, `tests/ward-handover.test.ts`
   (`handoverSnapshot`), `tests/ward-handover.dom.test.tsx` (the freeze and every section's empty
-  state)
+  state), `tests/ward-escalation.test.ts` (`escalationBoard`, including the standard-night
+  `WF-009`/`WF-308` and scarce-night nine-movement measurements), `tests/ward-escalation.dom.test.tsx`
+  (both sections and their empty states)
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 

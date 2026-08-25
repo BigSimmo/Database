@@ -647,6 +647,16 @@ describe("route reachability", () => {
     expect(isReachable(route.route, route.file)).toBe(true);
   });
 
+  // Task 5 (Ward Flow escalation board): same narrowing as the handover assertion immediately
+  // above, and for the same reason — the generic orphan sweep covers this route too, but a
+  // failure there does not name which route regressed.
+  it("/ward-management/escalation is linked from the clinical rail", () => {
+    const route = staticPageRoutes.find((entry) => entry.route === "/ward-management/escalation");
+    expect(route, "/ward-management/escalation must exist as a static page route").toBeDefined();
+    if (!route) return;
+    expect(isReachable(route.route, route.file)).toBe(true);
+  });
+
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));
     for (const route of REACHABILITY_ALLOWLIST.keys()) {

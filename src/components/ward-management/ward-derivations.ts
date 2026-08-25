@@ -553,6 +553,58 @@ export function handoverSnapshot(movements: Movement[], units: Unit[], now: Inst
   };
 }
 
+/**
+ * Task 5 (spec item 4): the escalation board — one place showing every patient whose placement
+ * has gone wrong. Two groups, computed independently, and a movement can genuinely appear in
+ * both: `escalated` is a fact about the RECORD (a human already declared the network exhausted
+ * and rang a contact); `nowhereEligible` is a fact about the LIVE network right now
+ * (`eligibleCandidatesAmong`, evaluated against every unit so nothing is truncated). WF-009
+ * satisfies both at once in the real fixture — it has a recorded escalation and, independently,
+ * still has zero eligible wards — and that overlap is correct, not a bug: the two lists answer
+ * different questions and neither implies or excludes the other.
+ *
+ * THIS BOARD RECORDS AND SHOWS. IT SUGGESTS NOTHING (spec D4). No "least-bad options", no
+ * ranking of wards the patient does not fit, no statement of what would need to change for a
+ * ward to work. `nowhereEligible` names WHICH movements have nowhere eligible; it never names
+ * which ward almost fit, or what gate is closest to passing — that would be exactly the
+ * near-miss computation item 4 explicitly prohibits. `escalated` shows `triedUnitIds` resolved
+ * to real `Unit` objects purely as a record of what was already tried, never as live candidates.
+ *
+ * Scoped to OPEN movements only (`isOpen`) — a closed movement's placement cannot still be
+ * "going wrong" in a way this board exists to surface.
+ */
+export type EscalationBoard = {
+  escalated: { movement: Movement; triedUnits: Unit[] }[];
+  nowhereEligible: Movement[];
+};
+
+export function escalationBoard(movements: Movement[], units: Unit[], now: Instant): EscalationBoard {
+  const open = movements.filter(isOpen);
+
+  const escalated = open
+    .filter((movement) => movement.escalation !== undefined)
+    .map((movement) => {
+      const triedUnitIds = movement.escalation?.triedUnitIds ?? [];
+      const triedUnits = triedUnitIds
+        .map((unitId) => units.find((unit) => unit.id === unitId))
+        .filter((unit): unit is Unit => unit !== undefined);
+      return { movement, triedUnits };
+    });
+
+  // A large, explicit limit — never the default of 3 — so this counts every unit in the
+  // network rather than reading a truncated shortlist length as an eligibility count. That
+  // exact mistake (counting `eligibleCandidatesAmong(...).length` instead of filtering to
+  // `.verdict.eligible`) produced a false "nowhereEligible is empty on the standard night" claim
+  // in an earlier draft of this task's own brief — see tests/ward-scenarios.test.ts's comment.
+  const nowhereEligible = open.filter(
+    (movement) =>
+      eligibleCandidatesAmong(movement, units, now, units.length).filter((candidate) => candidate.verdict.eligible)
+        .length === 0,
+  );
+
+  return { escalated, nowhereEligible };
+}
+
 /** A real, per-movement audit trail built from actual fields — never generic flavour text. */
 export function movementTimeline(movement: Movement) {
   const events: Array<{ at: Instant; label: string }> = [{ at: movement.openedAt, label: "Movement opened" }];
