@@ -1,4 +1,4 @@
-import { FolderOpen, SearchX } from "lucide-react";
+import { EyeOff, FolderOpen, SearchX } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -17,8 +17,9 @@ import type { ReactNode } from "react";
  * `\bEmptyState\b` (the character before "EmptyState" is not a word boundary), so it cannot
  * recreate that false attribution.
  *
- * There are exactly two reasons a list can be empty, and they read as opposite
- * facts to a clinician, so the component refuses to blur them into one shape:
+ * There are exactly three reasons a list can be empty, and they read as
+ * different facts to a clinician, so the component refuses to blur them into one
+ * shape:
  *
  *  - `"no-data"` — nothing exists yet. The list is genuinely empty.
  *  - `"filtered"` — records exist, but the current filter or search is hiding
@@ -28,6 +29,22 @@ import type { ReactNode } from "react";
  *    exists to prevent. So the `"filtered"` branch cannot be built without
  *    stating a `because` and a `changedBy`; there is no shared optional field
  *    that a caller could simply leave out.
+ *  - `"not-permitted"` — the acting role may not see these records at all, so
+ *    the list says NOTHING about how many exist. Ruling 92 added this kind in
+ *    Phase 2B Task 5, after the Patients directory expressed the case with
+ *    `"filtered"`: a store answers an actor without the capability with an empty
+ *    array, exactly as it answers a team with no records, so a screen that only
+ *    counted rows would tell an auditor their caseload is empty. The screen's
+ *    WORDS could be made honest that way, and were; the type and the icon could
+ *    not. `"filtered"` documents itself as "records exist", which this case
+ *    asserts neither half of, and it selects a struck-through magnifying glass —
+ *    a search reported on a screen where no search was performed, in a component
+ *    whose own rule is that the icon states the difference wordlessly. `EyeOff`
+ *    says "not shown to you", which is the fact. It takes the same
+ *    `because`/`changedBy` pair as `"filtered"`, for the same reason: a
+ *    restriction with no stated remedy is a dead end. And the remedy must be
+ *    REAL — see Ruling 93; naming a control that does not exist is worse than
+ *    naming none, because the reader will hunt for it.
  *
  * The `"filtered"` branch reuses `AutomatedState`'s "Why: … / What changes it:
  * …" wording shape, so a clinician learns one pattern across the workspace —
@@ -88,13 +105,29 @@ export type ListEmptyStateFilteredProps = {
   action?: ListEmptyStateAction;
 };
 
-export type ListEmptyStateProps = ListEmptyStateNoDataProps | ListEmptyStateFilteredProps;
+export type ListEmptyStateNotPermittedProps = {
+  kind: "not-permitted";
+  /** Sentence-case heading naming what is not visible, e.g. "Plans are not visible in this role". */
+  heading: string;
+  /** Plain-words reason this role cannot see the records — never a claim about how many exist. */
+  because: string;
+  /** Plain-words statement of what would change it. If nothing on this screen can, say exactly that. */
+  changedBy: string;
+  /** At most one already-built control — a `<Link>`, a form-submit button, or an `UnavailableDestination`. */
+  action?: ListEmptyStateAction;
+};
+
+export type ListEmptyStateProps =
+  ListEmptyStateNoDataProps | ListEmptyStateFilteredProps | ListEmptyStateNotPermittedProps;
 
 export function ListEmptyState(props: ListEmptyStateProps) {
-  // Two different icons, not one reused across both kinds: the icon is part of
+  // Three different icons, never one reused across kinds: the icon is part of
   // what states the difference wordlessly, matching the "words and an icon,
   // never colour alone" rule this file inherits from `automated-state.tsx`.
-  const Icon = props.kind === "no-data" ? FolderOpen : SearchX;
+  // Reusing `SearchX` for `"not-permitted"` would draw a struck-through
+  // magnifying glass on a screen where no search was performed — the defect
+  // Ruling 92 closed.
+  const Icon = props.kind === "no-data" ? FolderOpen : props.kind === "filtered" ? SearchX : EyeOff;
 
   return (
     <div

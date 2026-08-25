@@ -6,10 +6,9 @@ import { cardPadding, cardSurface } from "@/components/card-recipes";
 import { PageHeader } from "@/components/ui/page-header";
 import { cn, eyebrowText, pageContainer } from "@/components/ui-primitives";
 import { Button } from "@/components/ui/button";
+import { ChoiceChip } from "@/components/ui/chip";
 
 import { useTcBindings } from "../bindings";
-import { interactiveRowBase } from "@/components/ui/interactive-row";
-import { controlPressed } from "../controls";
 import { RECOMMEND_CONSTRAINT_GROUPS, RECOMMEND_CONSTRAINTS } from "../data/select";
 import { ResultCard } from "../therapy-card";
 import { EmptyState, LoadingState } from "../ui";
@@ -77,22 +76,14 @@ export function RecommendScreen() {
                     const active = b.isConstraintActive(constraint.key);
                     const inferred = b.isConstraintInferred(constraint.key);
                     return (
-                      <button
+                      <ChoiceChip
                         key={constraint.key}
-                        type="button"
-                        className={cn(
-                          interactiveRowBase,
-                          controlPressed,
-                          "inline-flex w-auto min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
-                          "aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)] aria-pressed:font-semibold aria-pressed:text-[color:var(--clinical-accent-hover)]",
-                        )}
-                        onClick={() => b.toggleConstraint(constraint.key)}
-                        aria-pressed={active}
+                        pressed={active}
+                        onPressedChange={() => b.toggleConstraint(constraint.key)}
                         title={inferred ? `${constraint.label} — inferred from the situation` : undefined}
                       >
                         {constraint.label}
-                        {active ? <Check aria-hidden="true" size={14} /> : null}
-                      </button>
+                      </ChoiceChip>
                     );
                   })}
                 </div>

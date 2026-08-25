@@ -98,6 +98,7 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
+  --radius-phone-frame: 1.85rem;
   /* Fully-round role (chips, pills, avatars). Call sites carried a bare
      `, 9999px` fallback before this was declared. */
   --radius-pill: 9999px;
@@ -116,6 +117,12 @@
      the edge-to-edge dock keeps its height (see the max-width: 430px block,
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
+  --spacing-phone-frame: 52.75rem;
+
+  /* Shared reading measure, wide mockup study canvas, and Factsheets phone geometry. */
+  --container-reading: 64rem;
+  --container-mockup-wide: 92rem;
+  --container-phone-frame: 24.375rem;
 
   /* Specifier-map layout roles: jump target height, numbered step column, and
      wide-screen detail rail. These stay together so the page cannot drift back
@@ -310,6 +317,7 @@
   /* Layout constraints */
   --content-max-width: 1440px;
   --rail-width: 480px;
+  --content-width-catalogue: 76rem;
 
   /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
   --neutral-0: #ffffff;
@@ -4827,29 +4835,6 @@ html.theme-transitioning *:after {
 [data-print-provenance] {
   display: none;
 }
-@media (max-width: 639px) {
-  .clinical-ask-action-rail {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: calc(2 * var(--radius-xs));
-    padding-inline: var(--spacing-icon-xs);
-  }
-  .clinical-ask-action-rail button {
-    min-height: var(--spacing-tap);
-    border-radius: var(--radius-pill);
-    padding-inline: var(--spacing-icon-sm);
-    background: var(--surface-raised);
-    border: 1px solid var(--border);
-    white-space: nowrap;
-  }
-  .clinical-ask-action-rail p {
-    flex-basis: 100%;
-    font-size: var(--text-xs);
-    color: var(--text-muted);
-  }
-}
 .clinical-ask-workspace {
   margin: var(--spacing-icon-md) auto;
   max-width: 56rem;
@@ -4858,19 +4843,14 @@ html.theme-transitioning *:after {
   padding: var(--spacing-icon-md);
   background: var(--surface);
 }
-.clinical-ask-action-rail,
 .clinical-ask-output-actions {
   display: flex;
   align-items: center;
   gap: calc(2 * var(--radius-xs));
 }
-.clinical-ask-action-rail {
-  flex-wrap: nowrap;
-}
 .clinical-ask-output-actions {
   flex-wrap: wrap;
 }
-.clinical-ask-action-rail button,
 .clinical-ask-workspace button,
 .clinical-ask-output-actions button {
   min-height: var(--spacing-tap);
@@ -4896,8 +4876,7 @@ html.theme-transitioning *:after {
   padding-block: var(--spacing-icon-xs);
 }
 @media (prefers-reduced-motion: reduce) {
-  .clinical-ask-workspace *,
-  .clinical-ask-action-rail * {
+  .clinical-ask-workspace * {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
@@ -4905,8 +4884,7 @@ html.theme-transitioning *:after {
 @media (forced-colors: active) {
   .search-band,
   .clinical-ask-workspace,
-  .clinical-ask-workspace button,
-  .clinical-ask-action-rail button {
+  .clinical-ask-workspace button {
     border: 1px solid CanvasText;
   }
 

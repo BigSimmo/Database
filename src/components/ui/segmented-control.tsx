@@ -104,7 +104,7 @@ export function SegmentedControl<T extends string>({
       onKeyDown={onKeyDown}
       data-layout={layout}
       className={cn(
-        "flex w-full min-w-0 gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)]",
+        "flex w-full min-w-0 gap-0.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]",
         layout === "equal" ? "flex-nowrap" : "flex-wrap",
         className,
       )}
@@ -132,17 +132,23 @@ export function SegmentedControl<T extends string>({
             data-segment-value={option.value}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex min-h-tap min-w-0 items-center justify-center whitespace-nowrap rounded-full font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:text-[color:var(--disabled)]",
+              "relative isolate flex min-h-tap min-w-0 items-center justify-center whitespace-nowrap rounded-lg font-semibold leading-none transition focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:text-[color:var(--disabled)]",
               layout === "equal"
                 ? "flex-1 gap-1 px-0 text-3xs tracking-tight min-[360px]:px-1 min-[360px]:text-xs sm:gap-1.5 sm:px-3 sm:tracking-normal"
                 : "flex-none gap-1.5 px-3 text-xs",
               checked
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
+                ? "text-[color:var(--clinical-accent)]"
+                : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-highlight)] hover:text-[color:var(--text-heading)]",
             )}
           >
-            {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
-            <span className="min-w-0 truncate">{option.label}</span>
+            {checked ? (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-1 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-inset)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
+              />
+            ) : null}
+            {Icon ? <Icon aria-hidden="true" className="relative size-icon-sm shrink-0" /> : null}
+            <span className="relative min-w-0 truncate">{option.label}</span>
             {option.hint ? (
               // Reserve a three-digit count column as well as using tabular figures so live
               // result updates do not move the segment bounds — tabular figures keep digit
@@ -151,7 +157,7 @@ export function SegmentedControl<T extends string>({
               // the decoration-only text alias is barred from production by
               // check:design-system-contract, and any second token here would have to stay
               // legible against both the checked and unchecked backgrounds.
-              <span className="nums min-w-6 shrink-0 text-right tabular-nums">{option.hint}</span>
+              <span className="nums relative min-w-6 shrink-0 text-right tabular-nums">{option.hint}</span>
             ) : null}
           </button>
         );

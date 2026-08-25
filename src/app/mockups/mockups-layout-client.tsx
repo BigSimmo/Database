@@ -64,7 +64,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // sits directly between them, so shared chrome would read as a second real
   // header and a second real search bar over the study.
   const isAnswerChatRedesignMockup = pathname === "/mockups/answer-chat-redesign";
-  const isAnswerChatPerfectedMockup = pathname === "/mockups/answer-chat-perfected";
+  const isAnswerChatPerfectedMockup =
+    pathname === "/mockups/answer-chat-perfected" || pathname === "/mockups/answer-chat-perfected-v2";
   // Draws its own sticky chrome + device frames for /privacy; shared shell would
   // read as a second real header over the study.
   const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
@@ -107,6 +108,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // single search slot of its own. It is not a search mode, and its synthetic
   // patient context must never enter shared search.
   const isCarePlanMockup = pathname === "/mockups/care-plan" || pathname.startsWith("/mockups/care-plan/");
+  // Draws its own phone frames with ModeNav Search | Topics and a docked composer,
+  // so shared chrome would read as a second real header and a second search bar.
+  const isFactsheetsTopicsPhoneMockup = pathname === "/mockups/factsheets-topics-phone";
 
   return (
     <GlobalMockupSearchShell
@@ -158,7 +162,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isCaringContactMockup &&
         !isCarePlanMockup &&
         !isDictionaryBrowseHeaderMockup &&
-        !isDictionaryControlRowMockup
+        !isDictionaryControlRowMockup &&
+        !isFactsheetsTopicsPhoneMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -188,7 +193,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isCaringContactMockup &&
         !isCarePlanMockup &&
         !isDictionaryBrowseHeaderMockup &&
-        !isDictionaryControlRowMockup
+        !isDictionaryControlRowMockup &&
+        !isFactsheetsTopicsPhoneMockup
       }
     >
       {children}

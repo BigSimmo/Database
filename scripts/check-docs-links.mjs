@@ -80,6 +80,27 @@ const SCOPED_ALLOWLIST = new Map([
     // A temporary mutation probe Task 18 created, quoted the failure of, and deleted.
     new Set(["src/components/caring-contacts/workspace/overlays/guard-probe.tsx"]),
   ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-1-brief.md",
+    // The brief specs the file under its original planned name; Task 1's own
+    // report documents the later `git mv` to `list-empty-state.tsx`.
+    new Set(["src/components/caring-contacts/workspace/empty-state.tsx"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-1-report.md",
+    // Same rename as above, named here to narrate why it happened.
+    new Set(["src/components/caring-contacts/workspace/empty-state.tsx"]),
+  ],
+  [
+    "docs/caring-contacts/phase-2b-sdd-archive/task-3-report.md",
+    // Quotes a `tsc` failure verbatim: `file.ts(107,7): error TS2578: ...`.
+    // codeSpanCandidates() splits every backtick span on commas, so the
+    // ",7)" half of that location is already gone by the time the path is
+    // checked and this candidate arrives as the unclosed "...tsx(107".
+    // The test file itself exists; only this quoted diagnostic fragment
+    // does not resolve as a path.
+    new Set(["tests/caring-contacts-overlay-trigger.dom.test.tsx(107"]),
+  ],
 ]);
 
 /** True when `repoRelative` is allowed outright, or allowed for the document being scanned. */

@@ -19,12 +19,18 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/ledger",
   },
+  // The id stays `work-in-flight` on purpose (plan ruling R9): it is Phase 1's
+  // extension mechanism, and renaming it would be churn with a test to update
+  // and nothing gained. Only the name and summary changed, because the old
+  // ones promised live pull-request state (open changes, CI status) that this
+  // repository does not have on disk — only its own committed review records.
   {
     id: "work-in-flight",
-    name: "Work in flight",
-    summary: "Open changes, their checks, and whether reviewed",
+    name: "Review state",
+    summary: "Which branches were reviewed, at which head, with what outcome",
     group: "work",
-    phase: 2,
+    phase: 1,
+    href: "/mockups/development/review-state",
   },
   { id: "decision-log", name: "Decision log", summary: "Why things are the way they are", group: "work", phase: 4 },
 
@@ -56,7 +62,14 @@ export const HUB_PANELS: readonly HubPanel[] = [
   },
   { id: "ingestion", name: "Ingestion", summary: "Stuck, failed, and queued document jobs", group: "system", phase: 3 },
   { id: "errors", name: "Errors and alerts", summary: "What is failing for real users", group: "system", phase: 4 },
-  { id: "test-health", name: "Test health", summary: "Unstable and quarantined tests", group: "system", phase: 2 },
+  {
+    id: "test-health",
+    name: "Test health",
+    summary: "Unstable and quarantined tests",
+    group: "system",
+    phase: 1,
+    href: "/mockups/development/test-health",
+  },
   {
     id: "budgets",
     name: "Speed and weight",
@@ -68,11 +81,19 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "documentation",
     name: "Documentation",
-    summary: "Every document, its age, and its broken links",
+    summary: "Every document, its area, and whether the index lists it",
     group: "reference",
-    phase: 2,
+    phase: 1,
+    href: "/mockups/development/documentation",
   },
-  { id: "routes", name: "Routes and modes", summary: "Every page and all 15 modes", group: "reference", phase: 2 },
+  {
+    id: "routes",
+    name: "Routes and modes",
+    summary: "Every page and all 15 modes",
+    group: "reference",
+    phase: 1,
+    href: "/mockups/development/routes",
+  },
   // Three real prototype cards, not one generic self-linking "Prototypes" card.
   // This is also what preserves the Care Plan, Caring Contact, and Ward Flow entries the
   // spec requires to survive the hub rewrite.
