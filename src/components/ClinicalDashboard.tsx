@@ -171,7 +171,7 @@ import {
 } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
 import { clearLegacyRecentQueries, loadRecentQueries, saveRecentQueries } from "@/lib/recent-query-storage";
-import { mayRecordRecentSearches, useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {
@@ -803,10 +803,10 @@ function ClinicalDashboardContent({
     clearLegacyRecentQueries();
   }, []);
 
-  // Ensure authenticated account preference bootstrap runs in this tree so
-  // rememberRecentQuery can gate on mayRecordRecentSearches() instead of the
-  // local default while the account GET is still outstanding.
-  useAppPreferences();
+  // Authenticated account preference bootstrap + recent-search recording gate.
+  // canRecordRecentSearches stays false until bootstrap settles, so we never
+  // leak queries against a remote opt-out while local defaults still say on.
+  const { canRecordRecentSearches } = useAppPreferences();
 
   useEffect(() => {
     if (!answerThreadOwnerId) {
@@ -827,11 +827,9 @@ function ClinicalDashboardContent({
     (value: string) => {
       const trimmedValue = value.trim();
       if (!trimmedValue) return;
-      // "Save recent searches" off means nothing is recorded at all, so bail
-      // before touching state too. One-shot gate (not a preference subscription)
-      // so unrelated preference changes do not re-render this whole dashboard;
-      // mayRecordRecentSearches also waits for authenticated account bootstrap.
-      if (!mayRecordRecentSearches()) return;
+      // "Save recent searches" off (or bootstrap still in flight) means nothing
+      // is recorded at all, so bail before touching state too.
+      if (!canRecordRecentSearches) return;
       setRecentQueries((current) => {
         const next = [
           trimmedValue,
@@ -841,7 +839,7 @@ function ClinicalDashboardContent({
         return next;
       });
     },
-    [answerThreadOwnerId],
+    [answerThreadOwnerId, canRecordRecentSearches],
   );
 
   usePersistedAnswerThread({

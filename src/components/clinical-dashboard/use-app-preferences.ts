@@ -75,12 +75,12 @@ let cachedRaw: string | null = null;
 let cachedValue: AppPreferences = DEFAULT_PREFERENCES;
 let lastLocalPreferenceChangeAt = 0;
 /**
- * Gate for recent-search recording while an authenticated account bootstrap is
- * still in flight. Local storage defaults `saveRecentSearches` to true, so a
- * one-shot read during that window would leak queries that another device had
- * already opted out of. Signed-out / not-yet-mounted stays ready (local only).
+ * Module mirror of bootstrap readiness for non-React one-shot callers of
+ * `mayRecordRecentSearches()`. Updated only from an effect inside
+ * `useAppPreferences` (never during render). Prefer the hook return value
+ * `canRecordRecentSearches` in React trees.
  */
-let accountPreferencesReadyForRecording = true;
+let accountPreferencesReadyForRecording = false;
 
 function readStored(): AppPreferences {
   let raw: string | null = null;
@@ -219,16 +219,13 @@ export function useAppPreferences() {
     setObservedSync(null);
   }
 
-  // Keep the recent-search gate aligned with bootstrap readiness during render
-  // so one-shot callers never read the local default while the account GET is
-  // still outstanding. Write-time "syncing" (observedSync set) stays ready.
-  if (authStatus !== "authenticated") {
-    accountPreferencesReadyForRecording = true;
-  } else {
-    accountPreferencesReadyForRecording = observedSync !== null;
-  }
-
   const syncState: PreferenceSyncState = authStatus !== "authenticated" ? "local-only" : (observedSync ?? "syncing");
+  const accountBootstrapReady = authStatus !== "authenticated" || observedSync !== null;
+  const canRecordRecentSearches = accountBootstrapReady && preferences.saveRecentSearches;
+
+  useEffect(() => {
+    accountPreferencesReadyForRecording = accountBootstrapReady;
+  }, [accountBootstrapReady]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") return;
@@ -356,5 +353,12 @@ export function useAppPreferences() {
     persistAccountPreferences(getSnapshot());
   }, [persistAccountPreferences]);
 
-  return { preferences, setPreference, resetPreferences, syncState, retrySync };
+  return {
+    preferences,
+    setPreference,
+    resetPreferences,
+    syncState,
+    retrySync,
+    canRecordRecentSearches,
+  };
 }

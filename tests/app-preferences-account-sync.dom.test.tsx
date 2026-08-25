@@ -23,13 +23,13 @@ vi.mock("@/lib/supabase/client", () => ({
 const PREFERENCES_KEY = "clinical-kb-preferences";
 
 function PreferencesProbe() {
-  const { preferences, setPreference, syncState } = useAppPreferences();
+  const { preferences, setPreference, syncState, canRecordRecentSearches } = useAppPreferences();
   return (
     <div>
       <span data-testid="sync">{syncState}</span>
       <span data-testid="density">{preferences.density}</span>
       <span data-testid="save-recent">{preferences.saveRecentSearches ? "on" : "off"}</span>
-      <span data-testid="may-record">{mayRecordRecentSearches() ? "yes" : "no"}</span>
+      <span data-testid="may-record">{canRecordRecentSearches ? "yes" : "no"}</span>
       <button type="button" onClick={() => setPreference("density", "compact")}>
         Compact
       </button>
