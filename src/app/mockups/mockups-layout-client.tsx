@@ -112,6 +112,27 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // plainly present in the served markup. Added when Ward Flow moved under `/mockups/ward-flow`.
   const isWardFlowMockup = pathname === "/mockups/ward-flow" || pathname.startsWith("/mockups/ward-flow/");
 
+  /*
+   * Ward Flow is not wrapped at all — it BYPASSES the shell rather than rendering inside it with
+   * the chrome switched off, which is what every other entry above does.
+   *
+   * `GlobalMockupSearchShell` is a re-export of `GlobalSearchShell`, the clinical application's
+   * own shell. Hiding its chrome hides the header and composer but still nests the prototype
+   * inside the application it is meant to be separate from, and the wrapper it leaves behind
+   * intercepts pointer events: with the chrome hidden, `ui-ward-management.spec.ts`'s
+   * "opens every Ward Flow mode" still failed because clicking a rail link timed out. Verified
+   * this is not the rail's fault by re-running that test against the pre-grouping rail — it fails
+   * identically — and not a CSS overflow problem either, by reverting a speculative fix and
+   * getting the same failure.
+   *
+   * The product owner's instruction is that each prototype is "its own sandbox only interacting
+   * via the developer page, otherwise standalone app". A standalone app does not render inside
+   * the shell of the application it stands apart from.
+   */
+  if (isWardFlowMockup) {
+    return <>{children}</>;
+  }
+
   return (
     <GlobalMockupSearchShell
       initialMode={
