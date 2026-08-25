@@ -157,7 +157,7 @@ export function ChoiceChip({
         aria-hidden="true"
         data-choice-chip-surface="true"
         className={cn(
-          "pointer-events-none absolute inset-1 z-[var(--z-base)] rounded-lg border shadow-[var(--shadow-inset)]",
+          "pointer-events-none absolute inset-1 z-0 rounded-lg border shadow-[var(--shadow-inset)]",
           surfaceAppearance,
         )}
       />

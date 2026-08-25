@@ -231,7 +231,7 @@ describe("ChoiceChip", () => {
     expect(surface).toHaveClass(
       "absolute",
       "inset-1",
-      "z-[var(--z-base)]",
+      "z-0",
       "border",
       "shadow-[var(--shadow-inset)]",
       "group-hover:border-[color:var(--border-strong)]",
