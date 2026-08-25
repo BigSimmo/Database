@@ -168,7 +168,7 @@ src/lib/caring-contacts/in-memory-repository.ts        store, release
 src/lib/caring-contacts/db/postgres-repository.ts      insert, narrow select, clearance
 src/components/caring-contacts/workspace/patient-overview.tsx   four cases + defensive comment
 caring-contacts/supabase/migrations/0005_…sql          new
-tests/helpers/caring-contacts-repository-contract.ts   8 new shared cases
+tests/helpers/caring-contacts-repository-contract.ts   9 new shared cases
 tests/caring-contacts-schedule.test.ts                 4 new cases
 tests/caring-contacts-retention.test.ts                fixture + de-identification assertion
 tests/caring-contacts-migrations.test.ts               column shape against live Postgres
@@ -345,3 +345,203 @@ Two smaller observations, not concerns:
   No third path was invented and nothing needed reconciling. The one thing worth noting is that the
   API's `min(1)` and the domain's trim-then-refuse are two different checks of the same rule; a body
   of `"   "` passes Zod and is refused by the domain, by name, which is the correct order.
+
+---
+
+# Round 1 — review fixes
+
+**Round 1 of up to 5.** Two IMPORTANTs, three minors, and one correction to this report. All
+addressed. Nothing pushed, no PR.
+
+| Commit       | Subject                                                                   |
+| ------------ | ------------------------------------------------------------------------- |
+| `a230bba34`  | fix — move the guard where it can fire, cover the fourth branch, M-1, M-2 |
+| _(this one)_ | docs — this round 1 section, M-3, and the mutation-ledger correction      |
+
+The browser gate held at `43 passed (1.1m)` on the round-0 tip, as predicted. My answer for this
+round is at the end.
+
+**One attribution correction, because a commit table that is wrong is worse than none.** The M-2 SQL
+edit is NOT in `a230bba34`. It is in `15559437f` ("Task 6b review outcome; file the CI database-suite
+gap", authored 08:01), which was committed while that change sat uncommitted in my working tree and
+therefore swept it up: those 23 lines of
+`0005_caring_contacts_first_contact_reason.sql` are mine, in someone else's commit. `a230bba34` holds
+the four test files. Nothing is lost and the tree is correct -- I checked the migration's committed
+content line by line, and M19 proves the new check is load-bearing -- but if you are reading the
+round-1 diff by commit, the SQL is one commit earlier than this table implies. Worth knowing before
+the next round starts from an uncommitted working tree.
+
+## I-1 — the guard is now somewhere routine work runs it
+
+The finding was right, and it lands on this repo's "a check that cannot fail" pattern one step later
+than usual: the check was correct, non-vacuous, and **unreachable**. `vitest.config.mts` lists
+`tests/caring-contacts-postgres-repository.test.ts` in `caringContactsDbTestFiles` and excludes that
+array from the `node` project, and no workflow under `.github/workflows/` mentions caring-contacts at
+all — so the guard for this task's headline finding fired only when a human happened to have a
+Postgres container running. It needs no database: it is a `readFileSync` and a regular expression.
+
+Moved to `tests/caring-contacts-domain-isolation.test.ts`, which the default `npm run test` collects,
+with its positive control intact. Proved by re-running the mutation that produced it (**M15**): the
+scan goes red in its new home, under the offline gate.
+
+### The cap-desynchronisation scan, added beside it
+
+The review's reasoning is why this is now a test rather than a paragraph in my concerns, and the
+distinction is worth recording because I had it wrong. I cited `isAwstCalendarDay` as precedent for
+"TypeScript enforces, SQL backstops". The precedent is real but **not symmetric with this case**:
+
+- `isAwstCalendarDay` is **strictly stricter than its SQL pattern by construction** — it rejects
+  `2026-02-30` and `2026-13-01`, which the schema's `^\d{4}-\d{2}-\d{2}$` accepts. Drift there can
+  only ever make the SQL redundant.
+- The cap is **the same rule written twice**. Raising `FIRST_CONTACT_REASON_MAX_LENGTH` without
+  raising the constraint converts a named, machine-readable refusal (`first-contact-reason-too-long`)
+  into a raw check-constraint violation on a clinical write. That is a regression, not a redundancy,
+  and it is the direction a future edit is most likely to take.
+
+The scan reads both literals — the constant from `schedule.ts`, the number from inside the
+`plans_first_contact_reason_shape` constraint — and asserts they are equal. Three mutations prove it
+holds in both directions and that it cannot pass by matching nothing (**M16**, **M17**, **M18**).
+
+## I-2 — the fourth branch now has a test and a mutation
+
+Correct on every point. All three `episode: null` renders in the DOM file use a discharge + 1 first
+contact, so they return from the default-day branch and the role prose was never reached. M9 and M10
+covered cleared and held; nothing covered this one.
+
+The new case renders `PatientOverview` directly with `episode: null` and a first contact on the
+absorbing day. It asserts the two things that make this branch different from the other three: that
+the reason is named as part of a record this role may not read, and — the load-bearing half — that
+the screen **says nothing about whether one is held**. Each of the other three branches would be a
+false statement here, so the test asserts the absence of the pre-existing-plan and clearance wordings
+as well.
+
+Built as a direct render rather than through the page, deliberately: `episode: null` is a fact about
+the ACTOR that the page decides, and `permissions.ts` grants `generateClinicalRecordSummary` to
+exactly the roles holding `viewReferral`, so no role can produce this view through the store today. A
+fixture that reached for one would be asserting a grant rather than the branch.
+
+## Minors
+
+**M-1 — the tally in the comment.** Fixed by the move: the relocated comment states the invariant
+("the mutation changed no test's verdict anywhere in the repository until this scan existed") rather
+than a count its own commit had already falsified. Ruling [94] applies to comments, and this is the
+second time in this task I wrote a number where an invariant belonged.
+
+**M-2 — `btrim()` versus `.trim()`.** Real, and my tested cases could not have caught it: `''` and
+`'   '` both fail a spaces-only check, so those two passing assertions proved nothing about tabs or
+newlines. Closed rather than documented away:
+
+- the blank test is now `first_contact_reason ~ '[^[:space:]]'`, so any value with no non-whitespace
+  character is refused;
+- the cap is measured with `regexp_replace(…, '^[[:space:]]+|[[:space:]]+$', '', 'g')`, so padding
+  cannot refuse a reason the domain would have accepted;
+- the migration comment now states exactly what "blank" means here **and names the residual**: JS
+  `.trim()` strips the whole Unicode whitespace set, POSIX `[[:space:]]` in a UTF-8 locale does not,
+  so a value of only U+00A0 would satisfy this constraint. That is accepted on purpose — this is a
+  backstop against a write that bypassed the domain, not a second implementation of the domain's
+  rule, and closing it would mean encoding a Unicode table in a check constraint. The review's point
+  stands either way: the constraint and its comment now describe the same behaviour.
+
+Two whitespace cases and a padded-boundary case were added to the migrations test, and **M19** proves
+they catch the old form.
+
+**Editing a committed migration rather than adding 0006.** `0005` has never been applied outside
+disposable test schemas — both database suites `drop schema … cascade` and re-apply the whole set in
+`beforeAll` — and this directory is not the Clinical KB's `supabase/migrations/`, so the
+guard-migration contract in `AGENTS.md` does not bind it. Editing in place keeps one statement of the
+rule. Stated rather than assumed, because it is the kind of decision that should not be silent.
+
+**M-3 — the file table said eight.** Fixed to nine. The reconciliation prose and the 10019 → 10034
+arithmetic already used nine and were right; the table was the outlier.
+
+## The correction to my mutation ledger, and what actually makes M9 safe
+
+I wrote that I re-ran "M4 and M10, the two mutations in the two source files Prettier touched". That
+sentence is false twice over. **Prettier touched three files**, and **`patient-overview.tsx` carries
+two mutations, M9 and M10** — I re-ran only M10 and did not mention M9 at all.
+
+The review checked and found the ledger sound anyway. I am not going to restate that argument, because
+arguing is what produced the error: the moral of that disclosure was checking a claim instead of
+asserting one, and I then asserted one in the same paragraph.
+
+So M9 was re-run at the current tip. **M9-recheck** in the table below is the evidence. What makes M9
+safe is not a count of files — it is that its anchor and the reflowed hunk are disjoint regions of one
+file: the reflow is the hunk at `@@ -675,8 +675,8 @@`, inside the cleared branch's paragraph text,
+while `if (episode.patientName === "")` sits at line 671, above it. That is now proved rather than
+argued.
+
+## Round 1 mutations
+
+Same method as round 0: an exact-anchor assertion that raises rather than silently leaving an
+unmutated tree, then a **separate** `grep -c` presence step joined with `;` and never `&&`, then the
+gate, read from a real summary line. Every one reverted, and every revert confirmed by a second
+`grep -c`.
+
+| #              | Mutation                                                                                                      | Anchor matched? | Gate                       | Result                                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------- | --------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M13**        | Delete `FirstContactReason`'s role branch (`if (episode === null)` → `if (false)`)                            | yes             | DOM suite                  | **RED** — `2 failed \| 26 passed (28)`. The new I-2 case, **and** a pre-existing suppressed-contact case, because the fall-through dereferences a null episode. Red, but partly by crash — so M14 was added |
+| **M14**        | Keep the branch; garble only its prose into a claim about the record ("the reason is not held for this plan") | yes             | DOM suite                  | **RED** — `1 failed \| 27 passed (28)`, the I-2 case alone. This is the one proving the test pins the WORDING, not merely the branch's existence                                                            |
+| **M15**        | Add `first_contact_reason` to `PLAN_COLUMNS` (round 0's M12, re-aimed at the relocated guard)                 | yes             | `vitest …domain-isolation` | **RED** — `1 failed \| 5 passed (6)`: "never fetches the first-contact reason for a list read". The guard now fires under the offline gate                                                                  |
+| **M16**        | Raise `FIRST_CONTACT_REASON_MAX_LENGTH` to 800, leaving the SQL at 500 — the regression direction             | yes             | `vitest …domain-isolation` | **RED** — `AssertionError: expected '500' to be '800'`                                                                                                                                                      |
+| **M17**        | Lower the SQL cap to 400, leaving the constant at 500 — the other direction                                   | yes             | `vitest …domain-isolation` | **RED** — `AssertionError: expected '400' to be '500'`                                                                                                                                                      |
+| **M18**        | Rename the constraint to `plans_first_contact_reason_bounds`, so the scan's regex anchor disappears           | yes (2 sites)   | `vitest …domain-isolation` | **RED** — `AssertionError: expected undefined to be defined`. The positive control doing its job: a scan that matched nothing fails loudly instead of passing                                               |
+| **M19**        | Revert the blank test to spaces-only (`btrim(first_contact_reason) <> ''`), leaving the cap alone             | yes             | `caring-contacts:db:test`  | **RED** — `1 failed \| 191 passed (192)`: "holds the moved-first-contact reason nullable, undefaulted, and bounded"                                                                                         |
+| **M9-recheck** | Round 0's M9 (collapse the cleared branch) re-applied at the post-format tip                                  | yes             | DOM suite                  | **RED** — `1 failed \| 27 passed (28)`: "names the retention clearance when a cleared episode holds no reason". Round 0's ledger row describes the shipped bytes — now by evidence rather than argument     |
+
+## Round 1 gates
+
+The decisive lines, pasted:
+
+```
+# npm run test   (GATE_RECEIPTS=refresh -- a fresh run, not a reused receipt)
+ Test Files  830 passed | 3 skipped (833)
+      Tests  10037 passed | 74 skipped (10111)
+   Duration  551.18s
+[exited with code 0]
+
+# npm run caring-contacts:db:test   (Docker Postgres 17 on 54329, local and offline)
+ Test Files  2 passed (2)
+      Tests  192 passed (192)
+   Duration  22.77s
+
+# npm run lint          (GATE_RECEIPTS=refresh)
+[gate-receipts] recorded a pass for "lint:internal" (5303 input files).
+
+# npm run typecheck     (GATE_RECEIPTS=refresh)
+[gate-receipts] recorded a pass for "typecheck:internal" (5303 input files).
+```
+
+`npm run format` was run and committed in round 0 (`3be680990`); round 1 touched no line it would
+reflow, and the tree is clean.
+
+One note on how the suite run was READ, because it is the exact failure mode this brief warns about.
+The backgrounded command ended in `| tail -8`, so its capture file sat at **zero bytes for
+twenty-five minutes** -- from the outside, indistinguishable from a gate that never started. Rather
+than assume either way, the run was confirmed alive from the coordinator's own lease file
+(`clinical-kb-heavy-locks/.../leases/.../owner.json`: pid 57448, `vitest run --reporter=dot`, this
+worktree, `startedAt` 08:09:08) and from the live process. **Nothing was terminated and no lease was
+forced** -- the lease proved to be my own run's, and the only correct action was to wait. The
+`Test Files` line above is what established that it ran; the exit code alone would not have.
+
+**The database suite's count moved 193 → 192, and that is the I-1 fix rather than a lost test.** The
+`PLAN_COLUMNS` scan left that project when it moved into the offline one; the offline count rises by
+that same case plus the new I-2 case, and nothing else changed hands.
+
+## Does this round touch the browser gate?
+
+**No — and with more confidence than last round, because the reviewer confirmed the load-bearing
+premise.** The spec asserts nothing about the first-contact note's wording. This round changes two
+test files, one SQL check expression, and one migration comment — and **not one line of rendered
+output**. `patient-overview.tsx` is untouched in round 1 apart from being the subject of two reverted
+mutations. The I-2 test renders an existing component through an existing prop combination and adds
+no element, route, control or class. I expect `43 passed` unmoved, and would treat any movement as a
+real finding rather than noise.
+
+## Still open, and now yours to schedule
+
+Concern 1's durable fix — releasing the clearance instant from `caring_contacts.retention_state`
+rather than inferring the clearance from a blank name — you are capturing as tracked work. Nothing in
+this round changes that inference, so the screen still reads a blank `patientName` as the clearance in
+two places (`NoNameHeldNotice` and the reason note). Both are correct today for the reason the review
+traced; both would go wrong together if a released episode ever held `""` without a clearance, which
+the API forbids and `createPlan` does not.
