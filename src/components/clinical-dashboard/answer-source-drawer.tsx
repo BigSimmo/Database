@@ -18,6 +18,7 @@ import { cn, glassOverlaySurface, subtleStatusPill, textMuted } from "@/componen
 import { logSourceOpen } from "@/components/clinical-dashboard/source-actions";
 import { cleanDisplayTitle, sourceQuoteDisplayText } from "@/components/clinical-dashboard/display-text";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
+import { useDocumentCoverImageId } from "@/components/clinical-dashboard/use-document-cover";
 import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-evidence";
 import {
   answerSourceRailRowId,
@@ -139,6 +140,9 @@ export function AnswerSourceDrawer({
   const sourceTables = open ? tablesForSource(tables, sources, openIndex) : [];
   const sourceImages = open ? imagesForSource(visualEvidence, sources, openIndex) : [];
   const stale = source ? sourceRowIsStale(source) : false;
+  // Hooks cannot be conditional, so this asks for the open source's cover on
+  // every render and resolves to null while the drawer is closed.
+  const coverImageId = useDocumentCoverImageId(source?.documentId);
   const numbered = sources.length <= NUMBERED_PAGER_LIMIT;
 
   return (
@@ -252,9 +256,41 @@ export function AnswerSourceDrawer({
     >
       {source ? (
         <div className="grid gap-3 pb-3">
-          <p data-testid="answer-source-drawer-support" className="text-sm leading-6 text-[color:var(--text)]">
-            {sourceSupportSentence(source, activeSupportIndex, activeClaimSupport)}
-          </p>
+          {/* What the document looks like, next to what it says. A citation is a
+              pointer into a physical-looking artefact, and a clinician who has
+              seen the front page of the protocol recognises it faster than they
+              read its title.
+
+              The caption is not decoration. This is the FRONT page, never a
+              render of the cited page — the index stores one cover thumbnail per
+              document and no per-page renders — so an uncaptioned picture beside
+              "p. 12" would read as page 12 and quietly misrepresent the
+              evidence. Say which page it is, and say where the passage actually
+              sits. */}
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+            {coverImageId ? (
+              <figure data-testid="answer-source-drawer-cover" className="w-20 shrink-0">
+                {/* Same 3:4 frame, surface and accent edge as `DocumentPagePreview`
+                    on the document search card: one document, two surfaces, one
+                    look. */}
+                <SignedImage
+                  endpoint={`/api/images/${coverImageId}/signed-url`}
+                  alt={`Front page of ${cleanDisplayTitle(source.title)}`}
+                  aspectRatio={3 / 4}
+                  className="rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+                  rootMargin="0px"
+                  priority
+                />
+                <figcaption className={cn("mt-1 text-3xs leading-4", textMuted)}>
+                  Front page
+                  {typeof source.pageNumber === "number" ? ` · passage on p. ${source.pageNumber}` : null}
+                </figcaption>
+              </figure>
+            ) : null}
+            <p data-testid="answer-source-drawer-support" className="text-sm leading-6 text-[color:var(--text)]">
+              {sourceSupportSentence(source, activeSupportIndex, activeClaimSupport)}
+            </p>
+          </div>
 
           {stale ? (
             <p
