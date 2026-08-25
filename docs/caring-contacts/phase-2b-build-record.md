@@ -1671,3 +1671,84 @@ stages 3-4 are left as a typed extension point for Tasks 8 and 9.
 **The branch was pushed for the first time before dispatching**, at the owner's instruction: 114
 commits existed only on this machine, which has destroyed working directories mid-session twice.
 Remote head `22887351e`, zero ahead. No pull request; this is a safety copy, not a handoff.
+
+## Speed review, 2026-08-25 — measured, not estimated
+
+The owner asked what is required, what is not, and how to go faster. **Group 4 (Tasks 17 and 18, the
+team roster and workload screens) is DEFERRED on his instruction.** The templates library (Task 15)
+stays — he named one item, not two, and I am not widening a cut he did not make. Everything else
+proceeds.
+
+### Where the time actually goes, and the measurement that settled it
+
+I went looking rather than estimating, and the answer was not what I had been telling him.
+
+- **The browser gate is not the cost.** ~2 min build plus ~1.1 min run, five times today: about
+  15 minutes total.
+- **The full unit suite is.** Implementers run all ~10,000 tests two to four times per task — once
+  per fix round — because `AGENTS.md` requires it, and for a real reason: this tree is policed by
+  static scans living in files a diff will not contain, and that is exactly how a real failure once
+  survived two tasks.
+- **But the true bottleneck is the cross-worktree heavy-run lease, and it is not mine to fix.**
+  `scripts/test-run-lock.mjs` permits ONE exclusive heavy job across every worktree of this
+  repository. Attempting the guard set below returned, verbatim:
+
+  > `Database focused-test capacity is full (current owner PID 62660, worktree
+D:\Worktrees\Database\care-plan-impl, started 2026-08-25T02:32:32.647Z): playwright
+--project=chromium-mockups tests/ui-care-plan-mockup.spec.ts`
+
+  Checked rather than assumed: that lease was 5.5 minutes old and PID 62660 was alive, so it is a
+  legitimate active run, **not a stale lock**. Earlier today an implementer waited about four hours
+  behind the same mechanism. So the tax is recurring rather than stuck, and it scales with how many of
+  the owner's projects run at once.
+
+### Lever 1 — a named guard set instead of the full suite during fix rounds
+
+`test:focused` **refuses** a list of test files ("Focused test selection is unsafe: test or
+configuration paths changed"), which is correct and fail-closed. The sanctioned way to run a named
+subset is `node scripts/run-vitest.mjs run <files>`, exactly as the existing `test:ci-workflows`
+script does.
+
+The tree-walking scans a caring-contacts diff cannot contain are nameable:
+
+```
+tests/caring-contacts-domain-isolation.test.ts      the sealed-domain import guard, PLAN_COLUMNS, the cap scan
+tests/caring-contacts-interface-vocabulary.test.ts  prohibited vocabulary across every workspace string
+tests/caring-contacts-retention.test.ts             the hard-coded-retention-period walk
+tests/caring-contacts-overlay-definitions.test.ts   the frozen 24-row matrix
+tests/route-reachability.test.ts                    orphan production routes
+tests/design-system-adoption.test.ts                the adoption manifest and its proof pointers
+```
+
+**From here: that set plus the task's own tests during iteration and every fix round; the FULL suite
+once, at the end of the task, before the report.** That is the same coverage at the moment it
+matters and removes two to three full-suite runs per task.
+
+**Unmeasured, and said so deliberately.** I could not time it — the lease was busy, which is the
+finding above. The saving is expected, not proven, and the first task to use it should report both
+numbers so this paragraph can be replaced with evidence rather than reasoning.
+
+### Lever 2 — reviews are read-only and take no lease, so stop serialising them
+
+Every task so far has run build → review → fix → re-review → next build, strictly in sequence. **A
+review holds no lock and touches no file.** It can run concurrently with the next task's implementer
+whenever the two do not share files. Task 8 builds directly on Task 7's shell, so that pair cannot
+overlap — but the schedule work in Group 2 touches none of the wizard, and those can.
+
+**The rule, so this does not become a way to build on an unreviewed defect:** overlap only when the
+next task does not consume the code under review. If it does, wait.
+
+### Lever 3 — match review depth to risk
+
+Full loop (build → review → fix → re-review) stays for anything touching patient detail, a write
+path, permissions, or the sealed domain. It has found a real defect in nearly every task, including a
+screen that told a clinician a stopped plan would still send. **A single review pass, no fix round
+unless it finds something, is proportionate for a read-only screen or an API on an established
+pattern** — Task 12 and Task 15 qualify.
+
+### What I will NOT cut, and why it is not a candidate
+
+**The mutation proofs.** They are cheap and they are the reason any of this is trustworthy. In the
+last three tasks alone they caught: a guard installed where no runner could reach it; a scan counting
+its own explanatory prose; and a `PLAN_COLUMNS` widening that left all the database tests green.
+Removing them would make the suite faster and the result worthless.
