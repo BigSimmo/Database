@@ -149,7 +149,7 @@ export function CoordinatorScreen() {
   return (
     <div className={styles.screen} data-testid="ward-coordinator">
       <ClinicalRail activeMode="command" />
-      <div className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <h1 className="sr-only">Ward Flow coordinator</h1>
 
         <div className={styles.governanceBanner} data-testid="ward-coordinator-governance">
@@ -234,7 +234,7 @@ export function CoordinatorScreen() {
             setExceptionsOpen(false);
           }}
         />
-      </div>
+      </main>
     </div>
   );
 }

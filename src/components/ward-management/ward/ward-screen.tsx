@@ -120,7 +120,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
     return (
       <div className={styles.screen} data-testid="ward-unit-screen">
         <ClinicalRail />
-        <main className={styles.main}>
+        <main id="main-content" className={styles.main}>
           <h1 className={styles.notFoundHeading}>Ward not found</h1>
           <p className={styles.notFoundBody} data-testid="ward-unit-unresolved">
             No synthetic unit matches &ldquo;{unitId}&rdquo;. It may have been renamed or removed, or the id in the
@@ -252,7 +252,7 @@ export function WardScreen({ unitId }: WardScreenProps) {
   return (
     <div className={styles.screen} data-testid="ward-unit-screen">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-unit-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>

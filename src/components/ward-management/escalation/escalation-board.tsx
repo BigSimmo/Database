@@ -36,7 +36,7 @@ export function EscalationBoardPage() {
   return (
     <div className={styles.screen} data-testid="ward-escalation-page">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-escalation-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>

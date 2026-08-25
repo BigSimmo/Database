@@ -66,7 +66,7 @@ export function PatientSearchPage() {
   return (
     <div className={styles.screen} data-testid="ward-patient-search">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-patient-search-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>

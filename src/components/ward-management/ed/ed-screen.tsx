@@ -228,7 +228,7 @@ export function EdScreen({ edId }: EdScreenProps) {
     return (
       <div className={styles.screen} data-testid="ward-ed-screen">
         <ClinicalRail />
-        <main className={styles.main}>
+        <main id="main-content" className={styles.main}>
           <h1 className={styles.notFoundHeading}>Emergency department not found</h1>
           <p className={styles.notFoundBody} data-testid="ward-ed-unresolved">
             No synthetic emergency department matches &ldquo;{edId}&rdquo;. It may have been renamed or removed, or the
@@ -311,7 +311,7 @@ export function EdScreen({ edId }: EdScreenProps) {
   return (
     <div className={styles.screen} data-testid="ward-ed-screen">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-ed-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>

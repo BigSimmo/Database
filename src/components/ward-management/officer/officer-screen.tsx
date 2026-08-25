@@ -122,7 +122,7 @@ export function OfficerScreen() {
   return (
     <div className={styles.screen} data-testid="ward-officer-screen">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-officer-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>

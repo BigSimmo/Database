@@ -53,7 +53,7 @@ export function HandoverPage() {
   return (
     <div className={styles.screen} data-testid="ward-handover-page">
       <ClinicalRail />
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main}>
         <div className={styles.governanceBanner} data-testid="ward-handover-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
           <p>
