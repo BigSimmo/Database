@@ -1,5 +1,11 @@
 # Ward Flow — standalone prototype, and the navigation repair
 
+> **SUPERSEDED 2026-08-25** by `2026-08-25-ward-flow-sandbox-and-design-repair.md`. Do not execute
+> this plan. Its decision S1 — leave the addresses and merely cut inbound links — was **wrong**: it
+> would have left Ward Flow a fully public production route reachable by URL with no sign-in.
+> Unadvertised is not sandboxed. The superseding plan moves it into the developer-gated subtree the
+> repository already uses for Caring Contacts and Care Plan.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Take Ward Flow out of the clinical application entirely — reachable only from the
@@ -169,8 +175,8 @@ has both and is the correct shape to copy.
       "at least one" would not catch it.
 
       Render through the real component tree with `WardFlowProvider`, the way the existing ward DOM
-          tests do. **Enumerate the routes from the filesystem, not from a hand-written list** — a
-          hand-written list is what let three pages ship without the id in the first place.
+              tests do. **Enumerate the routes from the filesystem, not from a hand-written list** — a
+              hand-written list is what let three pages ship without the id in the first place.
 
 - [ ] **Step 2: Run it. It must fail naming at least four routes.** If it names fewer, the
       enumeration is wrong — fix the test before touching any component.
