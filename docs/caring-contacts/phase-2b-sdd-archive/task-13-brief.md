@@ -68,17 +68,28 @@ the system can attest.
 If you find you can honestly distinguish a moved contact from an unmoved one, that is a finding worth
 reporting — but **do not derive it from the window**, which is the inference that was just corrected.
 
-## The three states that must not collapse into "nothing due"
+## The four states that must not collapse into "nothing due"
 
 This is the substance of the task. Each pair below is two different clinical facts that a careless
 screen renders identically, and each has already cost this programme something.
 
 1. **A plan with every contact suppressed, against a plan with none.** Same defect `ListEmptyState`
    exists to prevent, one layer down.
-2. **A held plan is not an exception.** Task 12 reports a draft plan whose first contact day has arrived
-   as `held`. That is deliberate and correct: nothing has failed, nothing is overdue, the plan was never
-   started. It must read as its own state — not as an exception, and not as "due".
-3. **An empty day caused by a filter, against an empty day because nothing is scheduled.** §4.4 requires
+2. **A held plan is not an exception — but it is not a quiet day either.** Task 12 reports a draft plan
+   whose first contact day has arrived as `held`, and keeping it out of the exceptions panel is
+   deliberate and correct: nothing failed, nothing is overdue, the plan was never started.
+
+   **But that state is a real operational failure** — somebody finished a sign-up and never started the
+   plan, so a discharged patient is receiving nothing while the record looks complete. It must be
+   visible on this screen. Task 12 put `counts.held` and `entry.planHold` on the wire precisely so the
+   screen can decide this without a domain change.
+
+3. **`disposition: "nothingDue"` is three different days and you must not render it as one.** It covers
+   a day where everything is stopped, a day where everything has already been sent, and a day that is
+   entirely exceptions. The disposition alone cannot separate them; `counts` can. **Read `counts`.** A
+   screen that renders the disposition and stops will show a draft plan past its first contact day as a
+   quiet day — which is the defect in (2), arriving through the back door.
+4. **An empty day caused by a filter, against an empty day because nothing is scheduled.** §4.4 requires
    the first to say what would change it and the second to say something different.
 
 ## Counts, which are the thing this screen gets wrong
