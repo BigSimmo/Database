@@ -2027,3 +2027,31 @@ control that writes with no confirmation step is not something to ship and fix l
 `overlay-trigger.tsx` to require a commit handler **at the type level** precisely so a screen cannot
 open a decision surface it has not wired. The final-activation confirmation is wired by Task 9; every
 other seam is named in its report for Task 11.
+
+## Ruling 121 — `dischargeAt` is collected on stage 4, beside the control that depends on it
+
+**The gap is real; I verified it rather than accepting the report.** `dischargeAt` appears in the
+domain only as a field on something already created — `Episode`, `PlanRecord`, `CreatePlanInput`,
+`schedule.ts`'s input — and never as something read from a referral or an event. `Referral` is five
+fields and holds no discharge; `hospital-events.ts` has none. Every `dischargeAt` in the tree is read
+back out of a plan that already exists. **And `createPlan` requires it.** This is Ruling [115]'s shape
+one field over: a required value the approved design assumes is imported, with no import path and no
+input anywhere.
+
+**Ruling [121] — stage 4 collects it, adjacent to the first-contact-date control.** — Why: the
+first-contact-date control is defined **entirely relative to the discharge day** — default discharge
+
+- 1, movable from the discharge day to + 7 inclusive — so a date control anchored on a date the
+  clinician has not yet entered is meaningless. On stage 3 the discharge date would sit among identity
+  fields with no visible consequence; on stage 4 it sits next to the control whose whole meaning
+  depends on it, and the relationship is visible at the moment both are chosen. It also keeps Task 8
+  closed rather than reopening a completed stage. — Cost if wrong: if discharge later arrives from a
+  source system, stage 4's input becomes a displayed value instead of a control, which is a smaller
+  change than having built a second collection path.
+
+**This is the fourth time in one wizard.** Stage 1's identity, stage 3's personalisation, the mobile
+number, and now the discharge date: every one a value the approved design shows arriving from a
+hospital record this system is not connected to. **The design is coherent — it is a picture of a
+later, integrated product.** What it cannot do is tell an implementer which fields exist today, and
+each of these four cost a task the time to discover it. Recorded together because the pattern is now
+the finding, not the individual instances.
