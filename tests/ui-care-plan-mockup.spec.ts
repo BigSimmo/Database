@@ -4,6 +4,15 @@ import { resolve } from "node:path";
 
 import { expect, test, type Locator, type Page } from "playwright/test";
 
+import {
+  JOINT_AUTHORSHIP_CLAIMS,
+  PAPER_INTRO_TOGETHER,
+  PAPER_INTRO_WRITTEN_BY_THE_TEAM,
+  REPROACH_SHAPES,
+  TEAM_WRITTEN_HEADINGS,
+  TEAM_WRITTEN_LEAD_INS,
+} from "./helpers/care-plan-patient-copy-claims";
+
 /**
  * The Care Plan prototype's only browser proof.
  *
@@ -590,11 +599,53 @@ async function expectPinnedBoundaryAbovePlanContent(page: Page) {
  * nothing at all and the test fails four minutes later on a control that is
  * still, correctly, unavailable.
  */
-async function fillEverySection(page: Page) {
+async function fillEverySection(page: Page, text = "We wrote this together at the bedside, in your words.") {
   const fields = page.locator("form textarea");
   await expect(fields.first()).toBeVisible();
   for (const field of await fields.all()) {
-    await field.fill("We wrote this together at the bedside, in your words.");
+    await field.fill(text);
+  }
+}
+
+/**
+ * What a clinician types into a copy written for somebody who took no part.
+ *
+ * The default fill above is the co-produced journey's, and it contains the
+ * literal phrase `we wrote this together` — which is one of the forbidden
+ * claims. Reusing it on the team-written sheet would redden the guard on the
+ * clinician's own sentence rather than on the product's wording, and the obvious
+ * "fix" for that failure is to weaken the guard. So the situation gets its own
+ * neutral text instead, chosen to carry none of the forbidden phrasings and none
+ * of the reproach shapes.
+ */
+const TEAM_WRITTEN_FILL = "Your team wrote this down after talking about what usually helps.";
+
+/**
+ * The same rule as the jsdom suite, on a real rendered page.
+ *
+ * `JOINT_AUTHORSHIP_CLAIMS` and `REPROACH_SHAPES` are imported rather than
+ * restated: one set of forbidden phrasings, checked on the authoring form, on
+ * the reading surface, and — for the first time here — on paper that a browser
+ * actually laid out.
+ */
+async function expectNoClaimOfJointAuthorship(surface: Locator, where: string) {
+  const text = await surface.innerText();
+  expect(text.trim().length, `${where} rendered no text, so this asserts nothing`).toBeGreaterThan(0);
+  for (const claim of JOINT_AUTHORSHIP_CLAIMS) {
+    expect(claim.test(text), `${where} still claims joint authorship: ${claim}`).toBe(false);
+  }
+}
+
+/**
+ * Nothing on the person's own sheet reads as a reproach. Non-participation is
+ * never labelled non-compliance, and this is the surface where it would do the
+ * most harm: the paper they are handed and keep.
+ */
+async function expectNoReproach(surface: Locator, where: string) {
+  const text = await surface.innerText();
+  expect(text.trim().length, `${where} rendered no text, so this asserts nothing`).toBeGreaterThan(0);
+  for (const shape of REPROACH_SHAPES) {
+    expect(shape.test(text), `${where} reads as a reproach: ${shape}`).toBe(false);
   }
 }
 
@@ -835,6 +886,95 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
   });
 
   /**
+   * The authoring half of the Management Plan lifecycle, which had no browser
+   * proof of any kind: drafting a replacement version and asking a senior
+   * clinician to decide on it. Approval, return-for-changes and withdrawal are
+   * covered elsewhere in this file and are deliberately not repeated here.
+   *
+   * The assertion this journey exists for is the last one: **a replacement draft
+   * never obscures or replaces the Current Plan before approval.** It is a
+   * specification guarantee, and it is the one a clinician's safety depends on —
+   * somebody reading the plan at 3am must be reading the plan actually in use,
+   * not the version somebody submitted on Tuesday and nobody has decided on. The
+   * sibling journey above proves it for a version the fixtures ship already
+   * awaiting approval; this proves it for one created and submitted in the
+   * browser, which is the path a clinician actually takes.
+   */
+  test("a replacement version is drafted and submitted without displacing the Current Plan", async ({ page }) => {
+    test.setTimeout(300_000);
+    await page.setViewportSize({ width: 1440, height: 1200 });
+    await gotoRoute(page, routes.managementPlan, "Management Plan");
+
+    // The plan in use, captured before anything is written, so "unchanged" is
+    // measured against what was on the page rather than against an expectation.
+    const currentPlanBefore = await readPlanMetadata(page);
+    expect(currentPlanBefore, "this journey needs a Current Plan to leave alone").toContain("Current version 2");
+
+    // The emergency physician may read and print, and deliberately may not
+    // author a Management Plan Version. Authoring is the liaison clinician's.
+    await switchRole(page, ...LIAISON);
+
+    await page.getByRole("link", { name: "Draft a replacement version" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Draft Management Plan Version" })).toBeVisible();
+    await page.getByRole("button", { name: "Start a replacement version" }).click();
+
+    /*
+     * A new version starts from the content of the Current Plan, so the six
+     * required sections arrive already filled. The reason for the version does
+     * not, deliberately: a later reader comparing two versions has nothing else
+     * to tell them why this one replaced the last.
+     */
+    const revisionReason = page.getByLabel("Reason for this version");
+    await expect(revisionReason).toBeVisible();
+    await expect(revisionReason).toHaveValue("");
+    await revisionReason.fill(
+      "The after-hours arrangement changed on 12 August 2026, and the agreed order of assessment needs stating plainly.",
+    );
+
+    await page.getByRole("button", { name: "Submit for senior approval" }).click();
+    const submitSheet = page.getByRole("dialog", { name: "Submit version 3 for senior approval" });
+    await expect(submitSheet).toBeVisible();
+    // The confirmation says, in so many words, what this journey then measures.
+    await expect(submitSheet).toContainText("Current version 2 stays in use while it waits.");
+    await submitSheet.getByRole("button", { name: "Submit for approval" }).click();
+
+    // Submitting is a request for a decision, so it hands the reader to the
+    // surface where that decision is made.
+    await expect(page.getByRole("heading", { level: 1, name: "Review submitted version" })).toBeVisible();
+
+    /*
+     * And back to the plan itself, by clicking rather than reloading — a reload
+     * would reset the prototype and make every assertion below vacuous.
+     *
+     * The Current Plan is still version 2, its metadata is byte-for-byte what it
+     * was before the draft existed, the submitted version is shown as awaiting a
+     * decision rather than as the plan, and it is painted *below* the plan in
+     * use rather than in front of it.
+     */
+    await page.getByRole("link", { name: "Back to the Management Plan" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Management Plan" })).toBeVisible();
+    await expectPlanMetadataUnchanged(page, currentPlanBefore);
+
+    const current = page.getByRole("region", { name: "Current Plan" });
+    const awaiting = page.getByRole("region", { name: "Version in progress" });
+    await expect(current).toBeVisible();
+    await expect(awaiting).toBeVisible();
+    await expect(awaiting).toContainText("Awaiting Approval version 3");
+    await expect(awaiting).toContainText("Current version 2 remains in use until this version is approved.");
+
+    const [currentBox, awaitingBox] = await Promise.all([current.boundingBox(), awaiting.boundingBox()]);
+    expect(currentBox, "the Current Plan has no painted box").not.toBeNull();
+    expect(awaitingBox, "the submitted version has no painted box").not.toBeNull();
+    expect(currentBox!.y, "the version awaiting a decision is painted above the plan actually in use").toBeLessThan(
+      awaitingBox!.y,
+    );
+
+    // The full plan on the page is still the approved one. A reader scrolling
+    // past the summary card must not be reading the unapproved content.
+    await expectPinnedBoundaryAbovePlanContent(page);
+  });
+
+  /**
    * The person's own copy, end to end and in a browser: the conversion refuses
    * to guess, the refusals block approval with a stated reason, a clinician
    * fills them, any clinical role may approve, and the result reaches paper.
@@ -896,8 +1036,10 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     await page.emulateMedia({ media: "screen" });
   });
 
-  test("a Patient Plan is marked as needing updating when a newer version becomes Current", async ({ page }) => {
-    test.setTimeout(300_000);
+  test("a Patient Plan is marked as needing updating, and its replacement never claims she helped write it", async ({
+    page,
+  }) => {
+    test.setTimeout(480_000);
     await page.setViewportSize({ width: 1440, height: 1200 });
     const patient = "SYN-PATIENT-002";
     await gotoRoute(page, `${patientPath(patient)}/patient-plan`, "Patient Plan");
@@ -957,6 +1099,129 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // Kept whole on paper, so a reader cannot lose the half that says the copy
     // is still theirs — the rule the print stylesheet declares, measured here.
     await expect(printedStale).toHaveCSS("break-inside", "avoid");
+
+    await page.emulateMedia({ media: "screen" });
+
+    /*
+     * --- The team-written sheet, on paper, for the first time in a browser ---
+     *
+     * Everything above this line printed the *joint* wording, because the copy
+     * was made from Mira's version 1 (`discussed`) before her version 2
+     * (`patient_unavailable`) was approved. That sequencing is why the sheet the
+     * product must never get wrong — the one handed to somebody who took no part
+     * in writing the plan it carries — had jsdom proof only.
+     *
+     * So the journey continues into what a clinician would actually do next: the
+     * copy is stale, the banner they just printed tells the person to ask
+     * somebody to write a new one with them, and this is that new one. It is
+     * written from the version now Current, which the record says was written
+     * without her, and it is printed.
+     *
+     * The staleness half is deliberately untouched above rather than reordered
+     * away. Both facts now have browser proof, and neither was traded for the
+     * other.
+     */
+    await desktopRail(page).getByRole("link", { name: "Patients" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Patients" })).toBeVisible();
+    await page.getByRole("searchbox", { name: "Search synthetic patients" }).fill("Mira");
+    // Two steps, because the directory has two. A search result is a *button*
+    // that loads the person into the snapshot beside it; the link to the full
+    // record belongs to that snapshot. Treating the row as a link is what this
+    // journey did first, and it waited eight minutes for an element the product
+    // has never had.
+    await page.getByRole("button", { name: "Open Mira Example" }).click();
+    await page.getByRole("link", { name: "Open the full record for Mira Example" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Patient overview" })).toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Patient sections" })
+      .getByRole("link", { name: "Management Plan" })
+      .click();
+    await expect(page.getByRole("heading", { level: 1, name: "Management Plan" })).toBeVisible();
+    await page.getByRole("link", { name: "Open the Patient Plan" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Patient Plan" })).toBeVisible();
+    await page.getByRole("link", { name: "Write a new copy with this person" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Draft Patient Plan" })).toBeVisible();
+    await page.getByRole("button", { name: "Create the patient copy" }).click();
+
+    /*
+     * The authoring form first, because it is where the claim gets back in. A
+     * clinician writing this copy reads the same headings and lead-ins as the
+     * prompt for what to type, and what they type reaches her sheet.
+     */
+    await expectNoClaimOfJointAuthorship(
+      page.getByRole("region", { name: "The eight sections" }),
+      "the Patient Plan authoring form",
+    );
+
+    await fillEverySection(page, TEAM_WRITTEN_FILL);
+    await page.getByRole("button", { name: "Approve patient copy" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Patient Plan" })).toBeVisible();
+
+    /*
+     * The sequencing this journey exists to fix, pinned rather than assumed. If
+     * a later edit moves the copy back in front of the approval, the source
+     * version reverts to 1 and this reddens — instead of the suite quietly going
+     * back to printing the joint wording with every assertion below still green.
+     */
+    const newCopy = page.getByTestId("care-plan-patient-plan-version");
+    await expect(newCopy).toContainText("Version 2");
+    await expect
+      .poll(async () => (await newCopy.innerText()).replace(/\s+/g, " "), {
+        message: "the new copy was not written from the Management Plan version approved without her",
+      })
+      .toMatch(/Written from Management Plan version 2/i);
+    // The clinician's own marker, in the third person, on the screen where the
+    // decision to hand the sheet over is made.
+    await expect(newCopy).toContainText("Written without this person's involvement");
+    await expect(page.getByTestId("care-plan-patient-plan-stale")).toHaveCount(0);
+
+    const teamWrittenOnScreen = page.getByTestId("care-plan-patient-plan-sections");
+    await expectNoClaimOfJointAuthorship(teamWrittenOnScreen, "the Patient Plan reading surface");
+
+    await page.getByRole("link", { name: "Print this copy" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Print Patient Plan" })).toBeVisible();
+    await page.emulateMedia({ media: "print" });
+
+    const teamWrittenPaper = printPaper(page);
+    await expect(teamWrittenPaper).toBeVisible();
+
+    /*
+     * The forbidden phrasings come first, deliberately.
+     *
+     * Ordering is not cosmetic in a guard block: the first assertion to fail is
+     * the only one anybody sees. With the positive "these headings are present"
+     * checks in front, a probe that swapped the paper back to the joint wording
+     * reddened on a *missing* team-written line, and the assertion that actually
+     * carries the user's decision — that none of the five claims survives — was
+     * never reached, so it could not be shown to fail at all. It is checked
+     * first now, and the probe reddens on it.
+     *
+     * None of the five may survive anywhere on the sheet, and nothing on it may
+     * read as a reproach: she has done nothing wrong, and her own paper is the
+     * last place that could be implied. The clinician's third-person marker
+     * stays off it for the same reason.
+     */
+    await expectNoClaimOfJointAuthorship(teamWrittenPaper, "the printed team-written Patient Plan");
+    await expectNoReproach(teamWrittenPaper, "the printed team-written Patient Plan");
+
+    // The opening sentence does not claim she helped write it, and the joint
+    // opening is nowhere on the sheet.
+    const paperIntro = page.getByTestId("care-plan-patient-plan-paper-intro");
+    await expect(paperIntro).toHaveText(PAPER_INTRO_WRITTEN_BY_THE_TEAM);
+    const paperText = await teamWrittenPaper.innerText();
+    expect(paperText).not.toContain(PAPER_INTRO_TOGETHER);
+    expect(/wrote (?:it )?together/i.test(paperText), "the printed sheet says the plan was written together").toBe(
+      false,
+    );
+
+    // And the team-written wording is what is there instead. A sheet that merely
+    // omitted the forbidden phrasings would pass everything above it.
+    for (const heading of TEAM_WRITTEN_HEADINGS) {
+      expect(paperText, `the printed sheet is missing the team-written heading: ${heading}`).toContain(heading);
+    }
+    for (const leadIn of TEAM_WRITTEN_LEAD_INS) {
+      expect(paperText, `the printed sheet is missing the team-written lead-in: ${leadIn}`).toContain(leadIn);
+    }
 
     await page.emulateMedia({ media: "screen" });
   });

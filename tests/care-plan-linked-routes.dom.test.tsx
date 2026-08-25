@@ -31,6 +31,13 @@ import { CARE_PLAN_ROUTES, carePlanRoute } from "@/components/care-plan/mockups/
 import { safetyPlanFieldId } from "@/components/care-plan/mockups/safety-plan-form";
 import { FIRST_MINUTE_CONTENT_KEYS } from "@/components/care-plan/mockups/types";
 
+import {
+  JOINT_AUTHORSHIP_CLAIMS,
+  PAPER_INTRO_TOGETHER,
+  PAPER_INTRO_WRITTEN_BY_THE_TEAM,
+  REPROACH_SHAPES,
+} from "./helpers/care-plan-patient-copy-claims";
+
 /**
  * A route rendered with the world its own address names. The provider is seeded
  * from the same query string the surface reads, so a specimen scenario degrades
@@ -3305,60 +3312,16 @@ describe("Care Plan Patient Plan", () => {
     "your team to go through it with you, and they can write a new one with you.";
 
   /**
-   * The two opening sentences of the printed sheet, spelled out literally rather
-   * than imported, for the same reason as everything else in this block: a
-   * content check that reads the constant its subject renders from can never
-   * disagree with what is on the page.
-   *
-   * The first may be printed only when the record says the person took part in
-   * writing the plan this copy carries. The second is what prints otherwise, and
-   * it says who wrote the plan and that the person may change it — it does not
-   * mention their absence, give a reason, or ask anything of them.
-   */
-  const PAPER_INTRO_TOGETHER =
-    "This is your copy of the plan you and your team wrote together. Keep it somewhere you can find it quickly, and " +
-    "bring it with you if you can. If something in it stops fitting, tell someone on your team so you can write it " +
-    "again together.";
-
-  const PAPER_INTRO_WRITTEN_BY_THE_TEAM =
-    "This is your copy of the plan your team wrote for you. It is yours, and it is not fixed: read it whenever you " +
-    "like, and tell someone on your team anything you would like changed, so the next one can be written with you. " +
-    "Keep it somewhere you can find it quickly, and bring it with you if you can.";
-
-  /**
    * Non-participation is never labelled non-compliance, and the sheet a person
-   * is handed is the last place it could be. These are the shapes that would
-   * turn an honest sentence into a reproach, spelled out so no future rewording
-   * can reintroduce one by accident.
+   * is handed is the last place it could be. `REPROACH_SHAPES` holds the shapes
+   * that would turn an honest sentence into a reproach.
    */
   function expectNoReproach(paper: HTMLElement) {
     const text = paper.textContent ?? "";
-    expect(text).not.toMatch(/declined/i);
-    expect(text).not.toMatch(/unavailable/i);
-    expect(text).not.toMatch(/without (?:your|this person's) involvement/i);
-    expect(text).not.toMatch(/were not (?:available|able to)/i);
-    expect(text).not.toMatch(/did not (?:take part|attend|want)/i);
-    expect(text).not.toMatch(/refused|non-?compliance|non-?compliant|disengaged/i);
+    for (const shape of REPROACH_SHAPES) {
+      expect(shape.test(text), `the sheet reads as a reproach: ${shape}`).toBe(false);
+    }
   }
-
-  /**
-   * Every claim of joint authorship the eight headings and lead-ins used to
-   * make, spelled out literally rather than derived from the maps the component
-   * renders from.
-   *
-   * The user's decision on 25 August 2026 was _"yes please stop saying that they
-   * helped write it"_, and the opening sentence alone does not satisfy it: one
-   * careful line surrounded by eight casual contradictions of it is worse than
-   * either. None of these may survive anywhere on a `declined` or
-   * `patient_unavailable` copy, on screen or on paper.
-   */
-  const JOINT_AUTHORSHIP_CLAIMS: readonly RegExp[] = [
-    /we wrote this together/i,
-    /what we agreed will happen/i,
-    /what we wrote down/i,
-    /you have said/i,
-    /you and your team agreed/i,
-  ];
 
   function expectNoClaimOfJointAuthorship(element: HTMLElement, where: string) {
     const text = element.textContent ?? "";
