@@ -8,23 +8,16 @@ import {
   Building2,
   CircleAlert,
   ClipboardList,
-  FileCheck2,
-  HeartPulse,
   LayoutDashboard,
   LayoutGrid,
   ListFilter,
-  MessageSquarePlus,
-  Pill,
   Route,
   Search,
-  Settings,
   ShieldCheck,
   Siren,
-  SlidersHorizontal,
   TriangleAlert,
   Truck,
   Waypoints,
-  Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -111,32 +104,25 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         <BrandMark className={shellStyles.brandGlyph} />
       </Link>
       <div className={shellStyles.railRule} aria-hidden="true" />
-      {/* Task 4 (D11): this nav's aria-label used to claim every entry was a clinical
-          application — wrong once Ward Flow moved into its own developer-gated sandbox
-          (constraint 4: "not a medical device"). This nav is Ward Flow's own copy of the
-          cross-app switcher, not a claim that everything it lists — including the synthetic
-          prototype itself — belongs to the clinical toolset. Only this file used the old label
-          (checked before renaming), so this is the only place it needed to change. */}
-      <nav className={shellStyles.railNav} aria-label="Applications">
-        <RailLink href="/?mode=answer" label="Clinical Answers">
-          <MessageSquarePlus aria-hidden="true" />
-        </RailLink>
+      {/* A sandbox has exactly one way out, and it is the developer page it was opened from.
+          This nav used to be Ward Flow's own copy of the clinical application's app switcher —
+          Clinical Answers, Documents, Services, Medication, Tools, All applications — six links
+          routing straight back into the application Ward Flow is meant to stand apart from. The
+          product owner's instruction is that each prototype is "its own sandbox only interacting
+          via the developer page, otherwise standalone app", so they are gone.
+
+          Removing them also fixes a real, browser-only defect. The rail is a fixed-height flex
+          column, and those six links pushed its content past a 1024px viewport, so `.railBottom`
+          overlapped the last nav links and swallowed their clicks. Every link stayed in the DOM
+          and stayed keyboard-reachable, so all ~10,000 unit tests passed while
+          `ui-ward-management.spec.ts`'s "opens every Ward Flow mode" timed out clicking one.
+          Established by elimination that it was neither the grouped rail (the pre-grouping rail
+          fails identically) nor the mockup shell (bypassing it changes nothing). */}
+      <nav className={shellStyles.railNav} aria-label="Ward Flow">
         <RailLink href="/mockups/ward-flow" label="Ward Flow" active>
           <Activity aria-hidden="true" />
         </RailLink>
-        <RailLink href="/documents" label="Documents">
-          <FileCheck2 aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/services" label="Services">
-          <SlidersHorizontal aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/medications" label="Medication">
-          <Pill aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/tools" label="Tools">
-          <Wrench aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/tools" label="All applications">
+        <RailLink href="/mockups/development" label="Back to the developer hub">
           <LayoutGrid aria-hidden="true" />
         </RailLink>
       </nav>
@@ -192,12 +178,10 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             <WardNavLink key={item.id} item={item} />
           ))}
         </div>
-        <RailLink href="/?mode=answer" label="Favourites">
-          <HeartPulse aria-hidden="true" />
-        </RailLink>
-        <RailLink href="/tools" label="Settings">
-          <Settings aria-hidden="true" />
-        </RailLink>
+        {/* Favourites (`/?mode=answer`) and Settings (`/tools`) were removed with the app switcher
+            above, and for the same reason: both routed out of the sandbox and into the clinical
+            application. Neither had any Ward Flow meaning — Favourites pointed at the answer mode's
+            home and Settings at the tools catalogue, which no longer even lists Ward Flow. */}
         <div className={shellStyles.railRule} aria-hidden="true" />
         {/* Whole-branch review I3: the demo jump-forward clock (spec §2 decision 5, §5) and
             scenario reset, mounted once here so every `/mockups/ward-flow/*` route gets them
