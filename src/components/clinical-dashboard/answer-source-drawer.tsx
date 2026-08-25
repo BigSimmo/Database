@@ -377,6 +377,7 @@ function SourceOverflowMenu({
   const [confirmingReport, setConfirmingReport] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [focusTriggerOnClose, setFocusTriggerOnClose] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -395,7 +396,43 @@ function SourceOverflowMenu({
   const closeMenu = useCallback(() => {
     setOpen(false);
     setConfirmingReport(false);
+    setFocusTriggerOnClose(false);
   }, []);
+
+  /**
+   * Close the menu and put focus back on the trigger that opened it.
+   *
+   * For the actions that leave the drawer OPEN — Escape, copying the passage,
+   * confirming a report. The button holding focus unmounts with the menu, so
+   * without this focus falls to `<body>` while a modal dialog is still on
+   * screen: a keyboard user is left outside the dialog with nothing to tab from
+   * and no indication of where they are.
+   *
+   * Two things this deliberately does NOT cover, which is why the intent is
+   * flagged explicitly rather than inferred from "the menu closed":
+   *
+   * - The actions that also close the drawer. `Sheet` restores focus to
+   *   whatever opened the drawer, and moving focus here first would fight it
+   *   and land the reader on a control that is about to disappear.
+   * - Dismissing by clicking elsewhere. That click has already given focus to
+   *   whatever was clicked, and pulling it back would take the reader somewhere
+   *   they did not ask to go.
+   *
+   * The flag is state and the focus call is in an effect, rather than a ref
+   * touched from the handler: `react-hooks/refs` rejects reaching a ref from a
+   * callback built during render, and it is right to — this file's other focus
+   * move lives in an effect for the same reason.
+   */
+  const dismissMenu = useCallback(() => {
+    setOpen(false);
+    setConfirmingReport(false);
+    setFocusTriggerOnClose(true);
+  }, []);
+
+  useEffect(() => {
+    if (open || !focusTriggerOnClose) return;
+    triggerRef.current?.focus();
+  }, [focusTriggerOnClose, open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -409,8 +446,7 @@ function SourceOverflowMenu({
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
-      closeMenu();
-      triggerRef.current?.focus();
+      dismissMenu();
     }
     document.addEventListener("pointerdown", handlePointerDown, true);
     document.addEventListener("keydown", handleKeyDown);
@@ -418,7 +454,7 @@ function SourceOverflowMenu({
       document.removeEventListener("pointerdown", handlePointerDown, true);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeMenu, open]);
+  }, [closeMenu, dismissMenu, open]);
 
   const items: Array<{ id: string; label: string; icon: typeof Copy; onActivate: () => void }> = [];
   if (passage) {
@@ -430,7 +466,7 @@ function SourceOverflowMenu({
         void copyTextToClipboard(passage)
           .then(() => setStatus("Passage copied."))
           .catch(() => setStatus("Copy failed — select the passage and copy it manually."));
-        closeMenu();
+        dismissMenu();
       },
     });
   }
@@ -526,7 +562,7 @@ function SourceOverflowMenu({
                 }
                 reportClaimMismatch(source);
                 setStatus("Reported. Thank you — this page is flagged for review.");
-                closeMenu();
+                dismissMenu();
               }}
               className={cn(
                 menuItemClass,

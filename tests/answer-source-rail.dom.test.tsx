@@ -452,6 +452,25 @@ describe("source drawer overflow menu", () => {
     ).toBeInTheDocument();
   });
 
+  it("returns focus to the trigger after an action that leaves the drawer open", async () => {
+    // The focused menu button unmounts with the menu. Without an explicit
+    // return, focus falls to <body> while a modal dialog is still on screen,
+    // which leaves a keyboard user outside the dialog with nothing to tab from.
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    const menu = await openMenu(user, { onReportSource });
+
+    const report = within(menu).getByTestId("answer-source-drawer-report");
+    await user.click(report);
+    await user.click(screen.getByTestId("answer-source-drawer-report"));
+
+    expect(onReportSource).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("answer-source-drawer-menu")).not.toBeInTheDocument();
+    // Still inside the open drawer, on the control that opened the menu.
+    expect(screen.getByTestId("answer-source-drawer")).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByTestId("answer-source-drawer-menu-trigger"));
+  });
+
   it("closes the menu on Escape without closing the drawer underneath it", async () => {
     const user = userEvent.setup();
     await openMenu(user, { onScopeDocument: vi.fn() });
