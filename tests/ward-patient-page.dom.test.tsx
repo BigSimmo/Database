@@ -140,8 +140,14 @@ describe("ward patient page — declines, changes, and escalation", () => {
     const changes = screen.getByTestId("ward-patient-changes");
     // WF-010's hand-authored status change: Voluntary -> Detained awaiting examination,
     // reason "recorded_by_treating_team" -> label "Recorded by treating team".
-    expect(changes).toHaveTextContent("Voluntary");
-    expect(changes).toHaveTextContent("Detained awaiting examination");
+    // Asserted as an ORDERED PAIR, not as two independent substrings. Checking each value
+    // separately survives a mutation that swaps `from` and `to`, which would render this patient's
+    // legal status change backwards — "Detained awaiting examination → Voluntary" instead of the
+    // reverse. On a screen about a person's legal status that is not a cosmetic slip, and the
+    // separate-substring form could not catch it. Task 8/10's implementer found the surviving
+    // mutation and reported it rather than reshaping the test, which is why this is fixed here.
+    expect(changes.textContent).toContain("Voluntary → Detained awaiting examination");
+    expect(changes.textContent).not.toContain("Detained awaiting examination → Voluntary");
     expect(changes).toHaveTextContent("Recorded by treating team");
     expect(changes.textContent).not.toContain("recorded_by_treating_team");
 
