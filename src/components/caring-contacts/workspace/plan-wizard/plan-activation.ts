@@ -106,7 +106,10 @@ function lettersFromRandomIdentifier(): string {
 export function mintPlanSubmissionIdentity(): PlanSubmissionIdentity {
   // Two independent values. A key that WAS the plan id would collide with any later write on the
   // same plan that reused it, and one key answers one write.
-  return { planId: "PLAN-constant", idempotencyKey: "PLAN-CREATE-constant" };
+  return {
+    planId: `PLAN-${lettersFromRandomIdentifier()}`,
+    idempotencyKey: `PLAN-CREATE-${lettersFromRandomIdentifier()}`,
+  };
 }
 
 /**
