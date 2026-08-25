@@ -904,32 +904,39 @@ function PersonalisationStage({
             onChange={(value) => onDetailChange({ patientIdentifiers: value })}
           />
 
-          <div className="flex min-w-0 flex-col gap-3">
-            <TextField
-              id="caring-contacts-cultural-identity"
-              label="Cultural identity (optional)"
-              value={detail.culturalIdentity}
-              requirement={null}
-              onChange={(value) => onDetailChange({ culturalIdentity: value })}
-              autoComplete="off"
-            />
-            {/*
-              RULING [116]. `culturalIdentity` is the only nullable field in `patientDetail`,
-              deliberately, and asking a distressed person's cultural identity without saying why
-              erodes exactly the trust this service exists to build. The purpose below is not
-              invented for this screen: spec §2.5 records it — aggregate reporting on programme
-              reach, and nothing else — and what the field NEVER does is quoted from the same place.
-              The one thing §2.5 says that is not reproduced is "imported from the source record":
-              there is no import path in this domain, which is Ruling [114] over again and is
-              reported rather than papered over.
-            */}
-            <StatedReason
-              heading="Why this is asked, and what it is used for"
-              because="Aboriginal and Torres Strait Islander people in Western Australia experience substantially higher suicide rates, and a programme that cannot report whether it reaches them cannot answer the first equity question a governance board asks. It is used for aggregate reporting on programme reach and for nothing else: it never affects who is eligible, the order or timing of anything, which pathway runs, what a message says, or any ranking, and it never appears on a worklist row."
-              changedBy="Leaving it blank is a complete answer and nothing on this stage waits for it. The plan then records nothing here, and no report counts this patient."
-              icon={<MessageSquareText aria-hidden="true" className="size-icon-md shrink-0" />}
-            />
-          </div>
+          {/*
+            CULTURAL IDENTITY IS NOT ASKED FOR, AND THE ABSENCE IS STATED (owner decision,
+            2026-08-25, round 1).
+
+            What shipped first was a free-text input with spec §2.5's purpose stated beneath it. The
+            owner removed it, and the reasoning matters more than the instruction. §2.5 records the
+            status as IMPORTED from the source record and used for aggregate reach reporting only.
+            There is no source record and no import here, so the field had quietly become something
+            a clinician types — and free text cannot deliver what §2.5 promises, because small-cell
+            suppression presupposes a bounded category set. Unbounded values mean either every rare
+            spelling is a cell of one and suppression eats the report, or an unaudited normalisation
+            step decides who counts as Aboriginal, WHICH IS ITSELF A GOVERNANCE DECISION NOBODY HAS
+            MADE. A bare "Cultural identity (optional)" label also invites religion, language or
+            country of birth — wider collection than §2.5 authorised, on a suicide-prevention screen.
+
+            NOT replaced with a category picker: choosing the categories is exactly the deferred
+            decision. The field stays nullable in the schema and in the draft, the storage and
+            `cultural_identity_reports` are untouched (Task 19's), and `createPlanPatientDetail`
+            sends null.
+
+            AND THE STATEMENT IS NOT SILENT ABOUT WHY. An absent field with no explanation reads as
+            an oversight, which is the same failure spec §4.4 exists to prevent one direction over.
+            The wording below also fixes I-3: the removed panel said the field "IS used for
+            aggregate reporting on programme reach" — present tense, for a report nobody has built.
+            That was the same class of defect as §2.5's "imported from the source record", which
+            this screen had correctly refused to reproduce one sentence earlier.
+          */}
+          <StatedReason
+            heading="Cultural identity is not asked for here"
+            because="The design for this service records cultural identity as something read from the hospital record, and used only for counting how many people the programme reaches — never for who is eligible, the timing of anything, which pathway runs, or what a message says. This prototype is connected to no hospital record, so the only way to have it would be to ask you to type it, and typed free text cannot support the small-number suppression that reporting would depend on."
+            changedBy="Nothing on this screen. It needs the record it is meant to be read from, and a decision about which identities are recorded — neither of which has been made. Until then the plan records nothing here."
+            icon={<MessageSquareText aria-hidden="true" className="size-icon-md shrink-0" />}
+          />
         </div>
       </div>
 

@@ -617,22 +617,60 @@ describe("stage 3 — the mobile number is required and nothing here connects (R
   });
 });
 
-describe("stage 3 — cultural identity is optional and the screen says why it is asked (Ruling [116])", () => {
-  it("states the recorded purpose from the spec, and what it never does", async () => {
+describe("stage 3 — cultural identity is NOT asked for (owner decision, round 1)", () => {
+  it("offers no input for it", async () => {
     const user = userEvent.setup();
     renderWizard();
     const stage = await reachPersonalisationStage(user);
 
-    // Spec §2.5: used for aggregate reporting on programme reach ONLY. It never affects
-    // eligibility, ordering, timing, pathway assignment, message content or any ranking, and never
-    // appears on a worklist row. Asking without saying why erodes the trust the service exists to
-    // build, so the purpose is stated in place rather than left to a policy document.
-    const group = within(stage).getByRole("group", { name: /why this is asked/i });
-    expect(group).toHaveTextContent(/reporting on programme reach/i);
-    expect(group).toHaveTextContent(/never/i);
+    // The owner decided on 2026-08-25 to stop collecting it. Spec §2.5 records the status as
+    // IMPORTED from the source record for aggregate reach reporting only; there is no source record
+    // and no import, so what shipped was a clinician typing free text — and free text cannot carry
+    // the small-cell suppression that reporting depends on, because either every rare spelling is a
+    // cell of one or an unaudited normalisation step decides who counts, which is a governance
+    // decision nobody has made.
+    // Asserted against the FORM CONTROLS, not against `getByLabelText`. The statement explaining the
+    // absence is a `role="group"` whose `aria-label` necessarily contains the words "cultural
+    // identity", so a label query matches the explanation and would go red for the right screen.
+    expect(within(stage).queryByRole("textbox", { name: /cultural/i })).toBeNull();
+    expect(
+      within(stage)
+        .getAllByRole("textbox")
+        .map((control) => control.getAttribute("id")),
+      "stage 3 collects a field it should not, or has lost one it should",
+    ).toEqual([
+      "caring-contacts-patient-name",
+      "caring-contacts-patient-mobile",
+      "caring-contacts-patient-identifiers",
+    ]);
   });
 
-  it("lets the whole stage be completed without it", async () => {
+  it("says why it is absent, so the absence does not read as an oversight", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+
+    const group = within(stage).getByRole("group", { name: /not asked for/i });
+    expect(group).toHaveTextContent(/Why:/);
+    expect(group).toHaveTextContent(/What changes it:/);
+    // The reason names the missing import, which is the actual cause.
+    expect(group).toHaveTextContent(/read from the hospital record/i);
+  });
+
+  it("makes no present-tense claim about a capability that does not exist (I-3)", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const stage = await reachPersonalisationStage(user);
+    const text = stage.textContent ?? "";
+
+    // I-3, and it is the same class of defect one sentence apart: the screen correctly refused to
+    // reproduce §2.5's false "imported from the source record", then reproduced §2.5's equally
+    // unbuilt "It IS used for aggregate reporting on programme reach". No reporting exists.
+    expect(text).not.toMatch(/is used for aggregate reporting/i);
+    expect(text).not.toMatch(/imported from the (synthetic referral|source record)/i);
+  });
+
+  it("sends null for it, so the plan records nothing where nothing was asked", async () => {
     const user = userEvent.setup();
     renderWizard();
     const stage = await reachPersonalisationStage(user);
@@ -641,10 +679,9 @@ describe("stage 3 — cultural identity is optional and the screen says why it i
     await user.type(within(stage).getByLabelText(/mobile number/i), FICTIONAL_PATIENT_MOBILES[1]);
     await user.click(within(stage).getByRole("radio", { name: /Morning/ }));
 
-    expect(within(stage).getByLabelText(/cultural identity/i)).toHaveValue("");
     expect(stage.textContent ?? "").toMatch(/nothing else is needed/i);
-    // Stored as null rather than "" — `Episode` types it `string | null` and a retention clearance
-    // blanks it to null, so "" would be a third state nothing could tell from a cleared record.
+    // `z.string().min(1).nullable()` REFUSES "", so this is not a stylistic preference: a plan
+    // carrying an empty string here could not be created at all.
     expect(createPlanPatientDetail(readPlanDraft(REFERRAL)!.patientDetail)?.culturalIdentity).toBeNull();
   });
 });
