@@ -277,9 +277,16 @@ from the first wave.
 
 **Three deliberate boundaries, stated rather than assumed.**
 
-- **`discussed_not_confirmed` keeps the joint wording**, mirroring `PARTICIPATION_MARKER_STATES`. A
-  plan discussed with somebody who did not confirm it is not a plan written without them, and the
-  user's instruction is about the case where the person took no part at all. Pinned by its own test.
+- **`discussed` keeps the joint wording**, mirroring `PARTICIPATION_MARKER_STATES`. A plan discussed
+  with somebody who did not confirm it is not a plan written without them, and the user's
+  instruction is about the case where the person took no part at all. Pinned by its own test.
+
+  _Corrected 25 August 2026._ Earlier drafts of this report — and of the ledger — wrote this state
+  as `discussed_not_confirmed`, which is a **`PatientConfirmationState`** (`types.ts:21`) belonging
+  to the Personal Safety Plan. The Management Plan's **`ParticipationState`** (`types.ts:20`) is
+  `discussed`, and that is what the code reads. The behaviour was always right and matches the
+  user's decision; only the prose named the wrong type.
+
 - **The other six headings are untouched** — `What matters to you`, `What helps you`, `What makes
 things harder`, `If something new is happening`, `Who's involved in your care`, `Things that might
 help`. None of them ever claimed the person contributed, and rewording an honest line is churn.
@@ -382,13 +389,55 @@ Not run, by user instruction (D2): `verify:pr-local`, `verify:cheap`, `verify:re
 `check:production-readiness`, `docs:update`, whole-tree `format`, every provider-backed gate. No
 push, no pull request, no merge.
 
-## Still owed after this wave
+## Closing re-review — the one gap it found, and the fix
 
-1. **All five new wordings are provisional**, awaiting the user's patient-facing copy pass, together
-   with the first wave's opening sentence. The footer remains the only patient-facing copy the user
-   has settled.
-2. **The sheet's title `My plan`** on a plan the person took no part in — noted above, not changed.
-3. `discussed_not_confirmed` on the joint wording is a deliberate boundary, now pinned by a test
-   rather than left implicit.
-4. The remaining first-wave items are unchanged: a genuine agreement moment for the Patient Plan, and
-   the marker's placement on the paper as a reading of spec line 404.
+The closing re-review confirmed items 1–6 by probe, re-ran four earlier controls red, and found no
+new breakage. It found **one gap, in this wave's own diff**, and it was the shape this project keeps
+producing: new production code, correct today, with no assertion on it at all.
+
+`patient-plan-form.tsx:212` chooses the authoring form's wording from the draft's source version.
+Replacing that lookup with a hard-coded `"co_produced"` left `Tests 283 passed (283)` — nothing
+noticed.
+
+The consequence is not cosmetic. A clinician writing Mira's copy reads those same eight headings and
+lead-ins as the prompt for what to type. Left on the joint wording, _"These are the things you have
+said matter to you"_ would frame what they write, and **what they write reaches her sheet** — so the
+claim this wave removed would arrive on her paper by way of the authoring surface rather than the
+rendering one, with every rendering assertion still green.
+
+Closed at `tests/care-plan-linked-routes.dom.test.tsx:3784`, reusing `expectNoClaimOfJointAuthorship`
+rather than a second helper: one rule, one set of forbidden phrasings, checked on the form, the
+reading surface and the paper alike.
+
+| #   | Mutation                                                                               | Full `FAIL` line and message                                                                                                                                                                                                                                                                                      |
+| --- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| H   | `draftParticipationState` hard-coded to `"co_produced"` at `patient-plan-form.tsx:212` | `FAIL \|jsdom\| tests/care-plan-linked-routes.dom.test.tsx > Care Plan Patient Plan > never tells a person they helped write a plan the record says was written without them` — `AssertionError: the Patient Plan authoring form still claims joint authorship: /what we wrote down/i: expected true to be false` |
+
+**`My plan` is not a defect and is no longer carried as a residual.** The re-review disagreed with
+that note and is right: "my" asserts possession rather than authorship, and the next sentence grants
+exactly that possession. `Your plan` would read as issued rather than owned. It goes to the copy pass
+as a note.
+
+## Still owed — the complete list
+
+1. **All five new headings and lead-ins are provisional**, awaiting the user's patient-facing copy
+   pass, together with the first wave's opening sentence. The confidential footer is the only
+   patient-facing copy the user has settled.
+2. **The team-written paper is proven in jsdom only.** The one Chromium journey that prints Mira's
+   sheet creates her copy _before_ `SYN-MGMT-VERSION-004` is approved, so what it prints is the joint
+   wording. Proving the team-written sheet in a real browser needs that journey reordered, which is
+   more than this sitting warranted. Recorded rather than reached for.
+3. **A genuine agreement moment for the Patient Plan** is a recorded option, not work done. If the
+   sheet should ever show that the person agreed, it needs its own recorded field, as user decision
+   D1 gave the Personal Safety Plan. Do not relabel `Written on` back.
+4. **The participation marker's placement on the Patient Plan paper** is a deliberate reading of
+   specification line 404's "every view, print, and queue entry": the clinician's third-person marker
+   is on both Patient Plan screens, and the paper carries the same fact in the second person in its
+   opening sentence. One line either way if the user reads the spec more literally.
+5. **A pre-existing clinician-facing overclaim at `patient-plan-pages.tsx:254`** — the stale notice
+   says "what this page says they **were given**", of the same class as Minor 3, which was corrected
+   in the reducer's audit evidence. Untouched by this diff and not introduced by it. Record only.
+6. **`discussed` keeps the joint wording** — a deliberate boundary, now pinned by its own test rather
+   than left implicit. Not a defect; listed so the user sees the line that was drawn.
+7. Everything the whole-branch review triaged as standing, and the deferred minors neither wave
+   named, are unchanged in `docs/care-plan/sdd-ledger.md`.
