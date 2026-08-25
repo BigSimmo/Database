@@ -8,7 +8,7 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
   movementHealthService,
@@ -20,8 +20,9 @@ import {
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
 import { formatInstant, type Instant } from "@/components/ward-management/ward-clock";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import type { HealthService, Movement, Unit } from "@/components/ward-management/ward-model";
-import { siteByCode, unitById } from "@/components/ward-management/ward-sites";
+import { siteByCode } from "@/components/ward-management/ward-sites";
 
 import styles from "./ward-management-network.module.css";
 
@@ -48,12 +49,12 @@ function capabilityLabel(unit: Unit) {
   return `${unit.security} · ${cohortLabel}`;
 }
 
-function candidatesFor(patient: Movement, now: Instant, units: readonly Unit[]): Candidate[] {
+function candidatesFor(patient: Movement, units: Unit[], now: Instant): Candidate[] {
   // Only the movement's actual recorded destination may show a real transport state — the
   // other two candidates are computed shortlist entries the movement was never referred to,
   // and must not inherit a transport job that belongs to a different unit (Task 6 Important 3).
-  const recordedDestinationId = destinationUnit(patient)?.id;
-  return eligibleCandidates(patient, now, 3, units).map((candidate, index) => ({
+  const recordedDestinationId = destinationUnit(patient, units)?.id;
+  return eligibleCandidatesAmong(patient, units, now, 3).map((candidate, index) => ({
     unit: candidate.unit,
     verdict: candidate.verdict,
     rank: index + 1,
@@ -148,7 +149,7 @@ export function WardNetworkWorkspace() {
     () => movements.find((candidate) => candidate.id === selectedPatientId),
     [movements, selectedPatientId],
   );
-  const candidates = useMemo(() => (patient ? candidatesFor(patient, now, units) : []), [patient, now, units]);
+  const candidates = useMemo(() => (patient ? candidatesFor(patient, units, now) : []), [patient, units, now]);
   const routedIds = useMemo(() => new Set(candidates.map((candidate) => candidate.unit.id)), [candidates]);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -222,7 +223,10 @@ export function WardNetworkWorkspace() {
     };
   }, [measure]);
 
-  const detail = selectedUnitId ? unitById(selectedUnitId) : null;
+  // Whole-branch review Critical 1: resolved from the live `units`, not `unitById` — this feeds
+  // `BedStateChips`/`unitCapacity` below, so the selected unit's own capacity figures must move
+  // the instant its ward confirms new capacity, not only at first paint.
+  const detail = selectedUnitId ? (units.find((unit) => unit.id === selectedUnitId) ?? null) : null;
   // Arrived and self-discharged movements have left the pathway (spec §7), so this must not
   // be the raw stage-count sum — that includes them and overstates live demand.
   const openMovements = movements.filter(isOpen).length;
@@ -411,7 +415,7 @@ export function WardNetworkWorkspace() {
           </p>
           <p className={styles.patientSubLine}>
             {patient.legalStatus} ·{" "}
-            {patient.legalForm ? `${patient.legalForm.label} (${patient.legalForm.code})` : "No legal form required"}
+            {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
           </p>
           <p className={styles.patientSubLine}>
             {stageCopy[patient.stage].label} · waiting {elapsedLabel(patient, now)}

@@ -318,7 +318,6 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Not component effects.
   dark: "theme root selector, not a component class; token values are asserted by the dark-mode journeys",
   "touch-card": "sets outline/touch-action only; the shared focus treatment is asserted by ui-accessibility",
-  "clinical-ask-action-rail": "Clinical Ask composer geometry and accessibility are covered by ui-clinical-ask",
   "clinical-ask-field": "Clinical Ask clarification fields are covered by ui-clinical-ask",
   "clinical-ask-output-actions": "Clinical Ask output controls are covered by ui-clinical-ask",
   "clinical-ask-workspace": "Clinical Ask responsive workspace is covered by ui-clinical-ask",
@@ -339,6 +338,11 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "chat-composer-shell-base": "answer composer — no effect contract yet (#094)",
   "chat-composer-shell-delta": "answer composer — no effect contract yet (#094)",
   "chat-send-button": "answer composer — no effect contract yet (#094)",
+  "field-control":
+    "standalone field focus — quiet border shift; source-pinned by tests/search-shell-focus.contract.test.ts",
+  "search-shell":
+    "nested search shell focus — quiet border; source-pinned by tests/search-shell-focus.contract.test.ts",
+  "search-shell-input": "nested search input — unlayered outline:none so Tailwind cannot lose to the shared field rule",
   "dashboard-composer-edge":
     "dashboard composer edge — found only after the multiline-selector parser fix; no effect contract yet (#094)",
   "document-mobile-search-edge": "document viewer composer — covered by ui-phone-scroll geometry, not effect",

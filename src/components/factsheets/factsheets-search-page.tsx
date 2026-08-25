@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Info, LayoutGrid, List, SearchX } from "lucide-react";
+import { Info, LayoutGrid, List, SearchX } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
@@ -13,9 +13,11 @@ import {
   type ResultFilterOption,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { FactsheetListRow } from "@/components/factsheets/factsheet-list-row";
 import {
   categoryTheme,
   factsheetCategories,
+  factsheetDetailHref,
   filterFactsheets,
   type Factsheet,
 } from "@/components/factsheets/factsheets-data";
@@ -94,7 +96,7 @@ export function FactsheetsSearchPage({
   return (
     <div
       data-testid="factsheets-search-page"
-      className="mx-auto w-full max-w-[64rem] px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
+      className="mx-auto w-full max-w-reading px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
       <p className="text-2xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">Find a sheet</p>
       <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">
@@ -227,50 +229,9 @@ export function FactsheetsSearchPage({
           aria-label="Factsheet results"
           className="mt-4 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
         >
-          {results.map((sheet) => {
-            const theme = categoryTheme(sheet.category);
-            return (
-              <Link
-                key={sheet.slug}
-                href={`/factsheets/${sheet.slug}`}
-                data-testid="factsheets-result"
-                className="group flex items-start gap-3.5 border-b border-[color:var(--border)] px-4 py-4 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-              >
-                <span
-                  className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg"
-                  style={{ backgroundColor: theme.soft, color: theme.accent }}
-                >
-                  {factsheetGlyph(sheet.icon, "h-5 w-5")}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-base-minus font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
-                      {sheet.title}
-                      {sheet.brand ? (
-                        <span className="font-medium text-[color:var(--text-muted)]"> {sheet.brand}</span>
-                      ) : null}
-                    </span>
-                    <span
-                      className="rounded-md px-2 py-0.5 text-2xs font-bold"
-                      style={{ backgroundColor: theme.soft, color: theme.accent }}
-                    >
-                      {sheet.category}
-                    </span>
-                  </span>
-                  <span className="mt-1 block max-w-2xl text-pretty text-sm-minus leading-5 text-[color:var(--text-muted)]">
-                    {sheet.summary}
-                  </span>
-                  <span className="mt-2 block text-xs font-bold text-[color:var(--text-muted)]">
-                    {sheet.audience} · {sheet.readTime}
-                  </span>
-                </span>
-                <ChevronRight
-                  className="h-5 w-5 shrink-0 self-center text-[color:var(--decoration-soft)] transition group-hover:text-[color:var(--clinical-accent)]"
-                  aria-hidden="true"
-                />
-              </Link>
-            );
-          })}
+          {results.map((sheet) => (
+            <FactsheetListRow key={sheet.slug} sheet={sheet} />
+          ))}
         </section>
       ) : (
         <section aria-label="Factsheet results" className="mt-4 grid gap-3.5 sm:grid-cols-2">
@@ -279,7 +240,7 @@ export function FactsheetsSearchPage({
             return (
               <Link
                 key={sheet.slug}
-                href={`/factsheets/${sheet.slug}`}
+                href={factsheetDetailHref(sheet.slug)}
                 data-testid="factsheets-result"
                 className="group flex flex-col rounded-xl border border-[color:var(--border)] border-t-[3px] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-card)] transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 style={{ borderTopColor: theme.accent }}

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { render, screen } from "@testing-library/react";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 import { AutomatedState } from "@/components/caring-contacts/workspace/automated-state";
@@ -248,6 +249,14 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // props cannot cross a Server → Client boundary. It takes no props at all, which is
   // what keeps the service-state record on the server side of this seam.
   "overlays/workspace-overlays.tsx",
+  // Task 3's control: the button a screen renders to raise one of the 24 overlays. A click
+  // handler is by definition a client capability, so this cannot be a Server Component.
+  // Added on the same three conditions as the entries above: its props are an overlay id, a
+  // class name, children, and a `WorkspaceOverlayCommit` — an intent union of a callback and
+  // a plain-words reason string, never a state object and nothing derived from the record;
+  // the companion test below proves its source and everything it reaches never name that
+  // module or type; and it is here deliberately rather than to clear a red test.
+  "overlays/overlay-trigger.tsx",
   // Decides WHEN the condensed stop bar is shown, and never what it says. A scroll position
   // and two element rectangles are browser facts, so this one cannot be answered on the
   // server — and the header is not the height of its token (87.5px at 320/390, 65px above,
@@ -257,6 +266,12 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // that module or type; and it toggles one attribute on an element the server rendered from
   // the note-free facts type, so the bar's wording never enters the client module graph.
   "service-stop-scroll-watcher.tsx",
+  // Patient-name filtering must remain out of GET URLs and request logs, so this directory island
+  // owns only the local search input. Its server wrapper converts plans and names into an explicit
+  // scalar DTO first; the exact-key regression test proves no raw plan, contact schedule or service
+  // state crosses the boundary. The companion graph check below proves this module and everything
+  // it imports never name the service-state module or type.
+  "patients-directory-client.tsx",
 ];
 
 /**
@@ -388,7 +403,54 @@ function guardedModuleGraph(entry: string): string[] {
   return [...seen];
 }
 
+function serviceStateReferences(source: string, fileName: string) {
+  const sourceFile = ts.createSourceFile(
+    fileName,
+    source,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ false,
+    fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  let moduleReference = false;
+  let identifier = false;
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === "ServiceState") identifier = true;
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier) &&
+      node.moduleSpecifier.text.includes("service-state")
+    ) {
+      moduleReference = true;
+    }
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.some((argument) => ts.isStringLiteral(argument) && argument.text.includes("service-state"))
+    ) {
+      moduleReference = true;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return { module: moduleReference, identifier };
+}
+
 describe("the service-state path stays on the server", () => {
+  it("distinguishes architecture prose from executable service-state references", () => {
+    expect(serviceStateReferences("// ServiceState from the service-state module", "comment-only.ts")).toEqual({
+      module: false,
+      identifier: false,
+    });
+    expect(
+      serviceStateReferences(
+        'import type { ServiceState } from "@/lib/caring-contacts/service-state";',
+        "real-reference.ts",
+      ),
+    ).toEqual({ module: true, identifier: true });
+  });
+
   it("keeps every workspace component but the allowlisted client controls a Server Component", () => {
     const clientComponents = workspaceSourceFiles()
       .filter(({ source }) => USE_CLIENT_DIRECTIVE.test(source))
@@ -430,10 +492,11 @@ describe("the service-state path stays on the server", () => {
       for (const file of guardedModuleGraph(entry)) {
         const label = path.relative(process.cwd(), file).split(path.sep).join("/");
         const moduleSource = readFileSync(file, "utf8");
-        expect(moduleSource, `${label} (reached from ${name}) references the service-state module`).not.toMatch(
-          /service-state/,
-        );
-        expect(moduleSource, `${label} (reached from ${name}) names ServiceState`).not.toMatch(/ServiceState/);
+        // Parse executable syntax so architecture comments may describe the boundary without
+        // masquerading as an import or type reference inside the client graph.
+        const references = serviceStateReferences(moduleSource, file);
+        expect(references.module, `${label} (reached from ${name}) references the service-state module`).toBe(false);
+        expect(references.identifier, `${label} (reached from ${name}) names ServiceState`).toBe(false);
       }
     }
   });

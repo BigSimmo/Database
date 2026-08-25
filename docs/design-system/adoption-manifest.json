@@ -376,12 +376,14 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx"
       ],
@@ -1160,6 +1162,7 @@
         "tests/design-system-target-evidence.test.ts",
         "tests/diagnosis-map-panel.dom.test.tsx",
         "tests/sheet.dom.test.tsx",
+        "tests/therapy-key-facts.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -1565,7 +1568,8 @@
         "tests/ui-formulation.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
-        "tests/ui-ward-coordinator.spec.ts"
+        "tests/ui-ward-coordinator.spec.ts",
+        "tests/ui-ward-roles.spec.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1594,8 +1598,8 @@
         "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
-        "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/clinical-dashboard/answer-source-drawer.tsx",
         "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
@@ -1606,13 +1610,14 @@
         "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-compare-page.tsx",
+        "src/components/compare/compare-picker-shell.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/record/key-facts.tsx",
         "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
@@ -1624,8 +1629,8 @@
         "src/components/caring-contacts/workspace/overlays/overlay-host.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
-        "src/components/clinical-dashboard/answer-content.tsx",
         "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/clinical-dashboard/answer-source-drawer.tsx",
         "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
@@ -1636,13 +1641,14 @@
         "src/components/clinical-dashboard/patient-details-dock-action.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
-        "src/components/dictionary/dictionary-compare-page.tsx",
+        "src/components/compare/compare-picker-shell.tsx",
         "src/components/differentials/diagnosis-map-panel.tsx",
         "src/components/document-viewer/document-clinical-summary.tsx",
         "src/components/document-viewer/section-nav.tsx",
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/record/key-facts.tsx",
         "src/components/tools/tools-search-results-page.tsx",
         "src/components/ui/confirm-dialog.tsx"
       ],
@@ -1655,6 +1661,7 @@
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
         "tests/caring-contacts-overlay-host.dom.test.tsx",
+        "tests/caring-contacts-overlay-trigger.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
@@ -2266,6 +2273,7 @@
         "src/app/(search-app)/factsheets/[slug]/page.tsx",
         "src/app/(search-app)/factsheets/page.tsx",
         "src/app/(search-app)/factsheets/search/page.tsx",
+        "src/app/(search-app)/factsheets/topics/page.tsx",
         "src/app/(search-app)/forms/[slug]/page.tsx",
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
@@ -2471,6 +2479,16 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["SearchPage"]
+        },
+        {
+          "file": "src/app/(search-app)/factsheets/topics/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/forms/[slug]/page.tsx",
@@ -3387,7 +3405,7 @@
       "id": "caring-contacts-workspace",
       "disposition": "owned",
       "documentedDisposition": null,
-      "routes": ["src/app/caring-contacts/page.tsx"],
+      "routes": ["src/app/caring-contacts/page.tsx", "src/app/caring-contacts/patients/page.tsx"],
       "routeRoots": true,
       "proofApplicability": "required",
       "nonVisualRoute": null,
@@ -3428,6 +3446,16 @@
       "roots": [
         {
           "file": "src/app/caring-contacts/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/patients/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3990,6 +4018,7 @@
       "src/app/(search-app)/factsheets/[slug]/page.tsx",
       "src/app/(search-app)/factsheets/page.tsx",
       "src/app/(search-app)/factsheets/search/page.tsx",
+      "src/app/(search-app)/factsheets/topics/page.tsx",
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
@@ -4023,6 +4052,7 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/caring-contacts/page.tsx",
+      "src/app/caring-contacts/patients/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
@@ -4071,6 +4101,7 @@
       "src/app/(search-app)/factsheets/[slug]/page.tsx",
       "src/app/(search-app)/factsheets/page.tsx",
       "src/app/(search-app)/factsheets/search/page.tsx",
+      "src/app/(search-app)/factsheets/topics/page.tsx",
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
@@ -4104,6 +4135,7 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/caring-contacts/page.tsx",
+      "src/app/caring-contacts/patients/page.tsx",
       "src/app/privacy/page.tsx",
       "src/app/reference/colour-coding/page.tsx",
       "src/app/safety-plan/page.tsx",
@@ -4127,7 +4159,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 93,
+    "inheritedCkbV2RootCount": 95,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 17,
     "declaredV2SurfaceCount": 17
@@ -4136,8 +4168,8 @@
     "registeredComponentCount": 54,
     "previewCount": 54,
     "productImportedComponentCount": 35,
-    "rootCount": 94,
-    "productionRouteCount": 79,
-    "nextUiEntryCount": 140
+    "rootCount": 96,
+    "productionRouteCount": 81,
+    "nextUiEntryCount": 142
   }
 }

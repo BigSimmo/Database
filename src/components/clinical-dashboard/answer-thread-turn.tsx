@@ -58,11 +58,6 @@ export function PriorAnswerTurnSurface({
     () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
     [turn.answer.answer, turnPreformatted],
   );
-  const sourceCount =
-    renderModel.primarySources.length ||
-    turn.sources.length ||
-    turn.answer.sources?.length ||
-    turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
   const needsSourceReview =
     turn.answer.answerQualityTier === "source_only" ||
@@ -99,7 +94,6 @@ export function PriorAnswerTurnSurface({
               text={turn.answer.answer}
               query={turn.query}
               preformatted={turnPreformatted}
-              sourceCount={sourceCount}
               sourceOnly={turn.answer.answerQualityTier === "source_only"}
               bestSource={renderModel.bestSource}
               sources={renderModel.reviewSources}

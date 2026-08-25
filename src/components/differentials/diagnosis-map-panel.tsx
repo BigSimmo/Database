@@ -997,7 +997,7 @@ export function DiagnosisMapPanel({
         description={`${record.title} · ${record.related.length} related differential${record.related.length === 1 ? "" : "s"}`}
         closeLabel="Close diagnosis map"
         mobilePlacement="fullscreen"
-        contentClassName="lg:max-w-[76rem]"
+        contentClassName="lg:max-w-[var(--content-width-catalogue)]"
         headerClassName="pt-[max(1rem,env(safe-area-inset-top))] lg:pt-5"
         bodyClassName="p-0 overflow-y-auto lg:overflow-hidden"
         portal

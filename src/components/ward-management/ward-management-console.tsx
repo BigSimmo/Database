@@ -23,7 +23,7 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   candidateReason,
   destinationUnit,
-  eligibleCandidates,
+  eligibleCandidatesAmong,
   movementHealthService,
   movementTimeline,
   stageCopy,
@@ -31,6 +31,7 @@ import {
   transportStatusLabel,
 } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { legalFormNameLabelFirst } from "@/components/ward-management/ward-legal-forms";
 import {
   MOVEMENT_STAGES,
   type LegalForm,
@@ -43,15 +44,23 @@ import styles from "./ward-management.module.css";
 
 /**
  * The "label (code) · …" line for a legal form, shared by the readiness card and the legal
- * panel below. Task 6A: a Form 3B honestly carries no `dueAt` (the Mental Health Act imposes no
- * post-examination deadline) — this states that absence explicitly rather than ever formatting
- * an undefined instant, which is how "due NaN:NaN" would ship.
+ * panel below. Neither a Form 1A nor a Form 3B carries a `dueAt` in this model (see `LegalForm`'s
+ * own doc comment in ward-model.ts) — this states that absence explicitly rather than ever
+ * formatting an undefined instant, which is how "due NaN:NaN" would ship.
+ *
+ * The wording is deliberately "no deadline recorded", not "no statutory deadline". It reports
+ * what THIS RECORD holds, which is all we can verify. "No statutory deadline" asserts what the
+ * Mental Health Act requires, and that is a legal claim this prototype is not entitled to make in
+ * either direction — asserting an absence is the same overreach as asserting the seven-day figure
+ * that was deleted on 2026-08-23.
  */
 function legalFormReadinessLine(legalForm: LegalForm): string {
-  const named = `${legalForm.label} (${legalForm.code})`;
+  // A code this model holds no label for — Form 3D — is named by its code alone, never by a
+  // guessed expansion and never by the word "undefined".
+  const named = legalFormNameLabelFirst(legalForm);
   return legalForm.dueAt !== undefined
     ? `${named} · due ${formatInstant(legalForm.dueAt)}`
-    : `${named} · no statutory deadline`;
+    : `${named} · no deadline recorded`;
 }
 
 const stageIcons = {
@@ -138,9 +147,9 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
   // This workspace shows the movement's own record only — it never falls back to a
   // suggested/top-eligible unit, so `destination` here is always the real recorded destination
   // or nothing.
-  const destination = destinationUnit(patient);
+  const destination = destinationUnit(patient, units);
   const verdict = destination ? eligibility(patient, destination, now) : undefined;
-  const candidates = eligibleCandidates(patient, now, 3, units).filter(
+  const candidates = eligibleCandidatesAmong(patient, units, now).filter(
     (candidate) => candidate.unit.id !== destination?.id,
   );
   const timeline = movementTimeline(patient);
@@ -278,7 +287,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
                 <ShieldCheck aria-hidden="true" />
                 <span>
                   <strong>Form readiness</strong>
-                  {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form required"}
+                  {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form recorded"}
                 </span>
               </li>
               <li>
@@ -304,9 +313,15 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
             <h2>Legal and forms</h2>
             <p>{patient.legalStatus}</p>
             <p>
-              {patient.legalForm
-                ? legalFormReadinessLine(patient.legalForm)
-                : "No Mental Health Act transport form required"}
+              {/* Until 2026-08-24 the absent case here named the Mental Health Act and asserted
+                  that no transport form was needed — wrong twice over. It claimed what the Act
+                  demands of this patient, which this prototype cannot verify in either direction,
+                  and it named a transport instrument inside the legal panel, which reads
+                  `patient.legalForm`. It is also the DEFAULT rendering now that the clinician
+                  picks the form and the picker starts at none, so it was the most-shown legal
+                  claim on this route. Same wording as the readiness line 28 lines above: state
+                  what the record holds. */}
+              {patient.legalForm ? legalFormReadinessLine(patient.legalForm) : "No legal form recorded"}
             </p>
           </section>
         ) : null}
