@@ -67,11 +67,16 @@ function passageForSource(quoteCard: QuoteCard | null, source: AnswerSourceRow |
  * a *claim* pointed at. They differ when the drawer was opened from the source
  * list rather than from a reference mark, which is why the support sentence has
  * a null case rather than asserting a claim that was never made.
+ *
+ * `activeClaimSupport` is that claim's recorded status. The sentence uses it
+ * when present so a partial mark on a strong row does not hear "states the
+ * claim directly".
  */
 export function AnswerSourceDrawer({
   sources,
   openIndex,
   activeSupportIndex = null,
+  activeClaimSupport = null,
   onOpenIndexChange,
   onClose,
   query,
@@ -85,6 +90,7 @@ export function AnswerSourceDrawer({
   sources: AnswerSourceRow[];
   openIndex: number | null;
   activeSupportIndex?: number | null;
+  activeClaimSupport?: "direct" | "partial" | "unsupported" | null;
   onOpenIndexChange: (index: number) => void;
   onClose: () => void;
   query?: string;
@@ -241,7 +247,7 @@ export function AnswerSourceDrawer({
       {source ? (
         <div className="grid gap-3 pb-3">
           <p data-testid="answer-source-drawer-support" className="text-sm leading-6 text-[color:var(--text)]">
-            {sourceSupportSentence(source, activeSupportIndex)}
+            {sourceSupportSentence(source, activeSupportIndex, activeClaimSupport)}
           </p>
 
           {stale ? (
@@ -368,7 +374,13 @@ function SourceOverflowMenu({
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      // Escape, outside click, and the trigger only flip `open`. Leaving
+      // confirm armed after those dismissals would make the next open a
+      // one-tap report — the two-step guard exists to stop exactly that.
+      setConfirmingReport(false);
+      return undefined;
+    }
     function handlePointerDown(event: PointerEvent) {
       const target = event.target;
       if (!(target instanceof Node)) return;

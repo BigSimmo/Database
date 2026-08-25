@@ -343,6 +343,13 @@ describe("support sentence", () => {
     expect(sourceSupportSentence(row({ id: "x", title: "Unrelated" }), 2)).toContain("does not state the claim");
     expect(sourceSupportSentence(null, 0)).toContain("not a claim");
   });
+
+  it("uses the claim's support, not the document's, when a claim opened the drawer", () => {
+    // A partial mark can sit on a strong row. Speaking the row's strength
+    // would contradict the mark the clinician just tapped.
+    expect(sourceSupportSentence(SOURCES[0], 0, "partial")).toContain("supports part of the claim");
+    expect(sourceSupportSentence(SOURCES[1], 1, "direct")).toBe("This page states the claim directly.");
+  });
 });
 
 describe("source drawer overflow menu", () => {
@@ -392,5 +399,26 @@ describe("source drawer overflow menu", () => {
 
     await user.keyboard("{Escape}");
     expect(screen.queryByTestId("answer-source-drawer")).not.toBeInTheDocument();
+  });
+
+  it("disarms report confirm when the menu is dismissed without filing", async () => {
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    const menu = await openMenu(user, { onReportSource });
+
+    await user.click(within(menu).getByTestId("answer-source-drawer-report"));
+    expect(within(menu).getByTestId("answer-source-drawer-report")).toHaveTextContent("Confirm: report this page");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("answer-source-drawer-menu")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    const reopened = screen.getByTestId("answer-source-drawer-menu");
+    const report = within(reopened).getByTestId("answer-source-drawer-report");
+    expect(report).toHaveTextContent("This page doesn't support the claim");
+
+    await user.click(report);
+    expect(onReportSource).not.toHaveBeenCalled();
+    expect(report).toHaveTextContent("Confirm: report this page");
   });
 });

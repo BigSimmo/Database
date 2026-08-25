@@ -144,10 +144,26 @@ export function sourceSupportLabel(source: AnswerSourceRow) {
 /**
  * The drawer's support clause. `index === null` means the drawer was opened from
  * the source list rather than from a claim, so there is no claim to speak about.
+ *
+ * When a claim opened the drawer, `claimSupport` is that claim's recorded
+ * status — not the row's document-level `sourceStrength`. Those fields are
+ * independent: a partial mark can sit on a strong row, and the sentence must
+ * match the mark the clinician just tapped.
  */
-export function sourceSupportSentence(source: AnswerSourceRow | null, index: number | null) {
+export function sourceSupportSentence(
+  source: AnswerSourceRow | null,
+  index: number | null,
+  claimSupport?: "direct" | "partial" | "unsupported" | null,
+) {
   if (!source || index === null) return "Opened from the source list, so this is the document, not a claim.";
-  const support = sourceSupportLabel(source);
+  const support =
+    claimSupport === "direct"
+      ? "Direct"
+      : claimSupport === "partial"
+        ? "Partial"
+        : claimSupport === "unsupported"
+          ? "Unsupported"
+          : sourceSupportLabel(source);
   if (support === "Direct") return "This page states the claim directly.";
   if (support === "Partial")
     return "This page supports part of the claim. Read the passage before relying on the rest.";

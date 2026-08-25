@@ -291,7 +291,7 @@ function AnswerProseSentence({
   cluster: ClaimMarkCluster | null;
   rows: AnswerSourceRow[];
   openSourceIndex: number | null;
-  onOpenSource?: (index: number) => void;
+  onOpenSource?: (index: number, support?: "direct" | "partial") => void;
 }) {
   if (!cluster || !onOpenSource) return <SafeBoldText text={fragment.display} />;
 
@@ -306,7 +306,7 @@ function AnswerProseSentence({
           active={openSourceIndex === mark.index}
           partial={cluster.support === "partial"}
           label={markLabel(rows[mark.index], mark.index, cluster.support)}
-          onOpen={onOpenSource}
+          onOpen={(index) => onOpenSource(index, cluster.support)}
         />
       ))}
       <AnswerSourceMarkOverflow count={cluster.overflow} />
@@ -414,7 +414,7 @@ export function NaturalLanguageAnswer({
    * answer surface rather than here, so the rail reports the row and the surface
    * owns which one is open.
    */
-  onOpenSource?: (index: number) => void;
+  onOpenSource?: (index: number, support?: "direct" | "partial") => void;
   /**
    * Opens the drawer from a rail card rather than from a claim. Separate from
    * `onOpenSource` because the drawer says something different in each case —

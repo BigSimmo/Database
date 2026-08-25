@@ -63,7 +63,7 @@ function renderProse({
 }: {
   claims?: SupportedClaim[];
   openSourceIndex?: number | null;
-  onOpenSource?: (index: number) => void;
+  onOpenSource?: (index: number, support?: "direct" | "partial") => void;
 }) {
   return render(
     <NaturalLanguageAnswer
@@ -98,7 +98,7 @@ describe("in-prose source marks", () => {
     await user.click(marks[0]);
     // The chunk the claim named, not the first row and not the row's position in
     // the claim's own citation list.
-    expect(onOpenSource).toHaveBeenCalledWith(1);
+    expect(onOpenSource).toHaveBeenCalledWith(1, "direct");
   });
 
   it("renders no marks and still renders the rail when the answer carries no assessed claims", () => {
@@ -178,6 +178,62 @@ describe("in-prose source marks", () => {
     );
     const pager = screen.getByTestId("answer-source-drawer-pager");
     expect(within(pager).getByRole("button", { name: /^Show source 2/ })).toBeInTheDocument();
+  });
+
+  it("drawer support sentence matches the mark's claim support, not the row strength", async () => {
+    const user = userEvent.setup();
+    function Harness() {
+      const [openIndex, setOpenIndex] = useState<number | null>(null);
+      const [claimIndex, setClaimIndex] = useState<number | null>(null);
+      const [claimSupport, setClaimSupport] = useState<"direct" | "partial" | null>(null);
+      return (
+        <>
+          <NaturalLanguageAnswer
+            text={ANSWER}
+            sourceOnly={false}
+            bestSource={null}
+            sources={[]}
+            sourceLinks={[]}
+            railRows={ROWS}
+            claims={[claim({ claimId: "claim-1", text: FIRST_SENTENCE, supportStatus: "partial" })]}
+            copied={false}
+            onCopy={vi.fn()}
+            onOpenSource={(index, support) => {
+              setClaimIndex(index);
+              setClaimSupport(support ?? null);
+              setOpenIndex(index);
+            }}
+            onOpenRailSource={(index) => {
+              setClaimIndex(null);
+              setClaimSupport(null);
+              setOpenIndex(index);
+            }}
+            openSourceIndex={openIndex}
+          />
+          <AnswerSourceDrawer
+            sources={ROWS}
+            openIndex={openIndex}
+            activeSupportIndex={claimIndex}
+            activeClaimSupport={claimSupport}
+            onOpenIndexChange={(index) => {
+              setClaimIndex(null);
+              setClaimSupport(null);
+              setOpenIndex(index);
+            }}
+            onClose={() => {
+              setOpenIndex(null);
+              setClaimIndex(null);
+              setClaimSupport(null);
+            }}
+          />
+        </>
+      );
+    }
+    render(<Harness />);
+
+    await user.click(screen.getAllByTestId("answer-source-mark")[0]);
+    // ROWS[0] is strong; the claim is partial. The sentence must follow the mark.
+    expect(screen.getByTestId("answer-source-drawer-support")).toHaveTextContent("supports part of the claim");
   });
 
   it("returns focus to the mark, not the rail, when the drawer closes on that claim's source", async () => {

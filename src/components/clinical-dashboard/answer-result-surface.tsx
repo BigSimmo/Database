@@ -132,17 +132,26 @@ function StagedAnswerResultSurfaceImpl({
    * claim to speak about, and the drawer must not assert one.
    */
   const [claimSourceIndex, setClaimSourceIndex] = useState<number | null>(null);
+  /**
+   * The claim's own support status, kept beside the row it pointed at. The
+   * drawer sentence must use this rather than the row's document-level
+   * `sourceStrength` — a partial mark can open a strong row.
+   */
+  const [claimSupport, setClaimSupport] = useState<"direct" | "partial" | "unsupported" | null>(null);
   const openSourceFromRail = useCallback((index: number) => {
     setClaimSourceIndex(null);
+    setClaimSupport(null);
     setOpenSourceIndex(index);
   }, []);
-  const openSourceFromClaim = useCallback((index: number) => {
+  const openSourceFromClaim = useCallback((index: number, support?: "direct" | "partial" | "unsupported") => {
     setClaimSourceIndex(index);
+    setClaimSupport(support ?? null);
     setOpenSourceIndex(index);
   }, []);
   const closeSourceDrawer = useCallback(() => {
     setOpenSourceIndex(null);
     setClaimSourceIndex(null);
+    setClaimSupport(null);
   }, []);
   /**
    * "This page doesn't support the claim", from the drawer's overflow menu.
@@ -333,6 +342,7 @@ function StagedAnswerResultSurfaceImpl({
           sources={railSources}
           openIndex={openSourceIndex}
           activeSupportIndex={claimSourceIndex}
+          activeClaimSupport={claimSupport}
           // Paging past the source a claim pointed at drops the claim, so the
           // support sentence stops describing a page the reader is no longer on.
           onOpenIndexChange={openSourceFromRail}
