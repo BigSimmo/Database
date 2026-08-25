@@ -16,6 +16,7 @@ describe("recent query storage", () => {
   beforeEach(() => {
     localStore = new Map<string, string>();
     sessionStore = new Map<string, string>();
+    const listeners = new Map<string, Set<EventListener>>();
     const storageFor = (store: Map<string, string>) => ({
       get length() {
         return store.size;
@@ -36,6 +37,18 @@ describe("recent query storage", () => {
     vi.stubGlobal("window", {
       localStorage: storageFor(localStore),
       sessionStorage: storageFor(sessionStore),
+      addEventListener(type: string, listener: EventListener) {
+        const bucket = listeners.get(type) ?? new Set<EventListener>();
+        bucket.add(listener);
+        listeners.set(type, bucket);
+      },
+      removeEventListener(type: string, listener: EventListener) {
+        listeners.get(type)?.delete(listener);
+      },
+      dispatchEvent(event: Event) {
+        for (const listener of listeners.get(event.type) ?? []) listener(event);
+        return true;
+      },
     });
   });
 
