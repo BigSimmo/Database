@@ -27,7 +27,9 @@
 
 Tests added: `tests/caring-contacts-plan-patient-detail.test.ts` (11 cases).
 Tests extended: `tests/caring-contacts-plan-wizard.dom.test.tsx` (+10), `tests/caring-contacts-plan-draft.dom.test.tsx` (+3), `tests/caring-contacts-schedule.test.ts` (+3).
-`package.json`: `test:cc-guards` now also carries this task's two suites.
+`package.json`: `test:cc-guards` now also carries `tests/caring-contacts-plan-patient-detail.test.ts`
+(this task's own) and `tests/caring-contacts-schedule.test.ts` (pre-existing, but this task edits
+`schedule.ts`). See §6 for why.
 
 Task 7 said Task 8 would change **exactly two things** — the `stages.ts` entry and the `stageBody()`
 branch — and that the forward control would become a real Continue with no edit at its call site.
