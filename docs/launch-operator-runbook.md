@@ -38,9 +38,12 @@ Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** =
 ## 0. Pre-flight (read-only)
 
 ```bash
-npm run check:supabase-project     # must report Clinical KB Database / sjrfecxgysukkwxsowpy
+node -v                              # must report >= 24.15.0 < 25 (Node 24 engine floor)
+npm -v                               # must report >= 11.0.0 < 12 (npm 11)
+npm run check:runtime                # validates Node 24 and npm 11 engines
+npm run check:supabase-project       # must report Clinical KB Database / sjrfecxgysukkwxsowpy
 npx supabase migration list --linked
-npm run reindex:health             # note jobs_pending / jobs_processing (needed for step 1 R17)
+npm run reindex:health               # note jobs_pending / jobs_processing (needed for step 1 R17)
 ```
 
 ## 1. Confirm migration state; apply only unresolved controls 🧑 Supabase

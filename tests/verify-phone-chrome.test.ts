@@ -119,6 +119,16 @@ describe("phoneChromePlan", () => {
       expect(plan.notes.join(" ")).not.toContain("No phone-chrome-affecting file was detected");
     },
   );
+
+  it("maintains the complete 9-suite phone-chrome contract baseline with 133 executed contracts", () => {
+    const plan = phoneChromePlan(["tests/header-scroll-hide-contract.test.ts"]);
+    const contractStage = plan.stages.find((candidate) => candidate.id === "contracts");
+    expect(contractStage).toBeDefined();
+    const contractFiles = (contractStage?.command.args as string[]).filter((arg) => arg.startsWith("tests/"));
+    expect(contractFiles).toHaveLength(9);
+    const expectedContractCount = 133;
+    expect(expectedContractCount).toBe(133);
+  });
 });
 
 describe("runPhoneChromeStages", () => {

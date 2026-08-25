@@ -36,6 +36,9 @@ _"apply before worker redeploy"_) for the ordered apply plan.
 Confirm the gate before continuing:
 
 ```bash
+node -v                  # must report >= 24.15.0 < 25 (Node 24 engine floor)
+npm -v                   # must report >= 11.0.0 < 12 (npm 11)
+npm run check:runtime    # validates Node 24 and npm 11 engines
 npm run reindex:health   # ok:true, and the RPC signatures accept p_worker_id
 ```
 

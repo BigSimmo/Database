@@ -259,6 +259,22 @@ downloadable expected/actual/diff artifact instead of a failed check. Missing ba
 runtime/assertion, and artifact-publication failures remain visible as job failures because those
 runs produced no trustworthy comparison evidence.
 
+**Adopting Linux container visual baselines (`scripts/adopt-visual-baselines.mjs`).**
+When document viewer layout changes (e.g. on-demand search, closed composer clearance changes), shell, or
+therapy compass views update, visual baseline changes must be adopted directly from the Linux container CI
+artifact (`visual-baseline-<run_id>`) rather than generated locally on Windows/macOS. Run:
+
+```bash
+node scripts/adopt-visual-baselines.mjs \
+  --from <extracted-artifact-dir> \
+  --run-id <id> \
+  --head <40-char-sha> \
+  --reviewed-by "<display name>" \
+  --write
+```
+
+This updates the authoritative Linux baselines under `tests/__screenshots__/linux/` and regenerates `tests/__screenshots__/linux/provenance.json` with SHA-256 hashes, pixel dimensions, capture commit, and human reviewer attestation.
+
 ## Performance budget
 
 `npm run verify:lighthouse` builds and serves an isolated production app in demo mode, measures the
