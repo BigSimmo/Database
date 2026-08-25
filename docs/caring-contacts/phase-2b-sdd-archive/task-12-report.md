@@ -223,6 +223,7 @@ coverage.
 | Gate                                                    | Evidence                                                                                                                             |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Task suites, during iteration                           | `Tests  24 passed (24)` then `Tests  10 passed (10)`, and `Tests 34 passed (34)` for the pair on every restored tree in the mutation rounds |
+| `npm run test:cc-guards` (`GATE_RECEIPTS=refresh`)      | `Test Files  20 passed (20)` and `Tests  425 passed (425)`                                                                          |
 | `npm run test` (full, `GATE_RECEIPTS=refresh`)          | `Test Files  838 passed / 3 skipped (841)` and `Tests  10228 passed / 74 skipped (10302)`                                            |
 | `npm run typecheck`                                     | exit 0, no diagnostics emitted                                                                                                       |
 | `npm run lint` (whole tree, ESLint cache deleted first) | exit 0, no findings printed                                                                                                          |
@@ -237,6 +238,12 @@ otherwise.
 the browser gate needs to run for it.** No page route, component, chrome or style is added or
 changed; the new route is an API route, which that spec never visits and which the reachability gate
 does not govern. The screen this read feeds is Task 13's, and that is where the browser gate belongs.
+
+**The full-suite run predates the policy that now forbids it.** The controller's
+`67df71618` reserved `npm run test` for the merge point, precisely because the exclusive lease was
+being starved; that commit landed on this branch after my run had already completed. The row is left
+in because the evidence is real, not because the run should be repeated. `test:cc-guards` is the row
+that matters from here.
 
 ### The shared machine
 
