@@ -119,10 +119,16 @@ export function parsePatientIdentifiers(text: string): string[] {
  * fifth key would be refused by the API outright rather than ignored, which is the failure mode
  * that makes returning a wider object dangerous rather than merely untidy.
  *
- * NULL RATHER THAN `""` FOR CULTURAL IDENTITY, and it is not cosmetic. `Episode` types the field
- * `string | null` and `CLEARED_PATIENT_DETAIL` blanks it to null on a retention clearance, so an
- * empty string would be a third state meaning neither "not given" nor "cleared" — and nothing
- * reading the record afterwards could tell those two apart.
+ * NULL RATHER THAN `""` FOR CULTURAL IDENTITY, and the decisive reason is simpler than the one this
+ * comment gave first (round 1, M-3). `createPlanSchema.patientDetail.culturalIdentity` is
+ * `z.string().min(1).nullable()`, so `""` is not a weaker way of saying "not given" — it is
+ * **REFUSED OUTRIGHT** by the API, and a plan carrying one could not be created at all.
+ *
+ * The first version argued that `""` and `null` would be "indistinguishable" from a cleared record.
+ * That was wrong on its own terms: `CLEARED_PATIENT_DETAIL.culturalIdentity` is `null`, so the two
+ * are perfectly distinguishable — merely meaningless, since nothing defines what `""` would mean.
+ * The behaviour was right and the argument was not, which is worth recording rather than quietly
+ * rewriting: an argument nobody can check is how a correct behaviour later gets "simplified" away.
  */
 export function createPlanPatientDetail(detail: PlanPatientDetailDraft): {
   patientName: string;

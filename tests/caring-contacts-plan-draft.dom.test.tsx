@@ -31,9 +31,20 @@ import {
   writePlanDraft,
   type PlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
+import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 const REFERRAL = "SYN-REFERRAL-001";
 const OTHER_REFERRAL = "SYN-REFERRAL-002";
+
+/**
+ * A reserved fictional patient mobile, read from the sealed domain (round 1, M-4).
+ *
+ * This suite used to write one of the reserved numbers out as a literal, three times over, which is
+ * exactly the second copy the sibling wizard suite's own comment refuses: a literal goes on passing
+ * after the reserved numbers change, and a test pinning a number nobody reserves any more pins
+ * nothing. (The number is not repeated here either -- a copy in prose is still a copy.)
+ */
+const RESERVED_PATIENT_MOBILE = DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS[1];
 
 const WIZARD_DIRECTORY = path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard");
 
@@ -254,7 +265,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
       stage: "personalisation",
       patientDetail: {
         patientName: "Rowan Example",
-        patientMobileNumber: "+61 491 570 156",
+        patientMobileNumber: RESERVED_PATIENT_MOBILE,
         patientIdentifiers: ["SYN-MRN-4471", "SYN-URN-90210"].join("\n"),
         culturalIdentity: "Noongar",
       },
@@ -294,7 +305,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
       PLAN_DRAFT_STORAGE_KEY,
       JSON.stringify({
         ...base,
-        patientDetail: { patientName: "Rowan Example", patientMobileNumber: "+61 491 570 156" },
+        patientDetail: { patientName: "Rowan Example", patientMobileNumber: RESERVED_PATIENT_MOBILE },
         sendingPreference: null,
       }),
     );
@@ -306,7 +317,7 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
         ...base,
         patientDetail: {
           patientName: "Rowan Example",
-          patientMobileNumber: "+61 491 570 156",
+          patientMobileNumber: RESERVED_PATIENT_MOBILE,
           patientIdentifiers: "",
           culturalIdentity: "",
         },
