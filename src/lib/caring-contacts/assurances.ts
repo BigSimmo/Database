@@ -98,3 +98,52 @@ export const PLAN_ASSURANCE_ATTESTATION_HOLDS_ONLY_ACT_ACTOR_AND_INSTANT: SameUn
 export function isPlanAssurance(value: unknown): value is PlanAssurance {
   return typeof value === "string" && (PLAN_ASSURANCE_VALUES as readonly string[]).includes(value);
 }
+
+/**
+ * The plain words a screen reads an attestation back in.
+ *
+ * WHY IT LIVES HERE RATHER THAN ON THE SCREEN THAT RENDERS IT. `PLAN_ASSURANCES` above holds wire
+ * values -- `patient-agreement-confirmed` is a database column value and an HTTP body field, not a
+ * sentence -- and Ruling [61]'s rule is the one that applies: a screen may neither invent copy for
+ * an identifier nor derive copy from it, because a derived "Patient agreement confirmed" is a
+ * plausible-looking sentence nobody wrote and nobody reviewed. `STOP_REASON_WORDING` in
+ * ../service-state and `CARING_CONTACT_ROLE_WORDING` in ../permissions are the same pattern in the
+ * same directory: the words live beside the closed vocabulary they name.
+ *
+ * WHAT EACH SENTENCE IS CAREFUL TO SAY, AND IT IS THE WHOLE POINT OF THE FILE. Each reads as an act
+ * a clinician performed -- "that the patient had agreed", never "the patient agreed". The
+ * attestation is evidence that a check happened; the agreement itself is held in the patient's
+ * hospital record and not here. A wording that dropped the reported-speech frame would turn this
+ * module into the consent record the header spends a paragraph saying it is not.
+ *
+ * Each is written to complete "A coordinator confirmed ...", so a screen states the act once and
+ * does not have to repeat it per row.
+ */
+export const PLAN_ASSURANCE_WORDING: Readonly<Record<PlanAssurance, string>> = Object.freeze({
+  [PLAN_ASSURANCES.patientAgreementConfirmed]: "that the patient had agreed to receive caring contacts",
+  [PLAN_ASSURANCES.patientControlsMobileConfirmed]: "that the mobile number this plan uses is the patient's own",
+});
+
+/**
+ * Throws, deliberately and in every environment, on an assurance with no wording.
+ *
+ * `Object.hasOwn`, not `map[value] === undefined`, and the reason is the defect `blockReasonWording`
+ * in the overlay host already paid for: an object literal inherits from `Object.prototype`, so
+ * `PLAN_ASSURANCE_WORDING["toString"]` is a FUNCTION rather than undefined. A `=== undefined` guard
+ * waves it through, TypeScript types the result `string`, and React renders a function as nothing --
+ * an attestation row with no words in it, no throw and no error boundary. `isPlanAssurance` below
+ * means a value read off the wire can reach here.
+ *
+ * No default branch and no derivation from the identifier: a third assurance must arrive with a
+ * sentence somebody wrote, not with one this function guessed.
+ */
+export function planAssuranceWording(assurance: PlanAssurance): string {
+  if (!Object.hasOwn(PLAN_ASSURANCE_WORDING, assurance)) {
+    throw new Error(
+      `No plain-words wording for the plan assurance "${assurance}". Add an entry to ` +
+        `PLAN_ASSURANCE_WORDING deliberately: do not derive it from the identifier and do not add a ` +
+        `default branch. It must read as an act a clinician performed, never as a fact about the patient.`,
+    );
+  }
+  return PLAN_ASSURANCE_WORDING[assurance];
+}

@@ -54,12 +54,20 @@ vi.mock("@/lib/caring-contacts-server/store", () => ({
   caringContactsStore: async () => mocks.store.current,
 }));
 
+import { exitOnlyOverlayCommit } from "@/components/caring-contacts/workspace/overlays/exit-only-overlay-trigger";
 import { PatientOverview } from "@/components/caring-contacts/workspace/patient-overview";
 import { CARING_CONTACTS_ROLE_COOKIE, demoActorForRole } from "@/lib/caring-contacts-server/session";
 import type { AccessRecord } from "@/lib/caring-contacts/access-audit";
-import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
+import {
+  PLAN_ASSURANCES,
+  PLAN_ASSURANCE_VALUES,
+  planAssuranceWording,
+  type PlanAssurance,
+  type PlanAssuranceAttestation,
+} from "@/lib/caring-contacts/assurances";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import {
+  actorId,
   contactId,
   idempotencyKey,
   pathwayVersionId,
@@ -68,7 +76,7 @@ import {
   referralId,
   type PlanId,
 } from "@/lib/caring-contacts/ids";
-import type { ContactState } from "@/lib/caring-contacts/model";
+import type { ContactState, MessageType } from "@/lib/caring-contacts/model";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
 import type { CaringContactRepository, PlanRecord, StoredContact } from "@/lib/caring-contacts/repository";
 
@@ -831,5 +839,265 @@ describe("the patient overview - a plan that has ended says so, and never promis
       "3 entries: 1 already sent, 1 still to send, and 1 that will not be sent.",
     );
     expect(screen.getByRole("group", { name: "Missed" })).toHaveTextContent(/window for sending this message closed/i);
+  });
+});
+
+/**
+ * Fixture helpers for the Task 10 blocks below.
+ *
+ * Hand-built rather than driven through the store, and only where the case CANNOT be reached
+ * through one: a plan holding no attestation is a row created before the attestation existed, and
+ * `createPlan` refuses an empty assurance list by name, so no store can produce one now. The
+ * schedule shape is likewise not the subject of those blocks -- the store-driven blocks above own
+ * that -- so a two-entry schedule keeps each assertion pointed at the one thing it is about.
+ *
+ * Every store-reachable case in this file's Task 10 blocks still goes through the real store.
+ */
+const FIXTURE_TEAM = demoActorForRole("coordinator").teamId;
+const FIXTURE_PLAN = "plan-fixture";
+
+function attestationFixture(assurance: PlanAssurance): PlanAssuranceAttestation {
+  return { assurance, actorId: actorId("demo-coordinator"), attestedAt: new Date(NOW) };
+}
+
+function scheduleEntryFixture(
+  sequence: number,
+  state: ContactState,
+  options: { cadenceLabel?: string; messageType?: MessageType } = {},
+): StoredContact {
+  return {
+    contact: {
+      id: contactId(`${FIXTURE_PLAN}--contact-${sequence}`),
+      planId: planId(FIXTURE_PLAN),
+      state,
+      version: 1,
+    },
+    planned: {
+      sequence,
+      cadenceLabel: options.cadenceLabel ?? `Month ${sequence}`,
+      calendarDay: `2026-0${sequence}-01`,
+      sendAt: new Date(`2026-0${sequence}-01T02:00:00.000Z`),
+      messageType: options.messageType ?? "standard",
+    },
+  };
+}
+
+function planRecordFixture(overrides: Partial<PlanRecord> = {}): PlanRecord {
+  return {
+    plan: { id: planId(FIXTURE_PLAN), teamId: FIXTURE_TEAM, state: "active", version: 1 },
+    patientId: patientId(PATIENT),
+    referralId: referralId("referral-fixture"),
+    pathwayVersionId: pathwayVersionId("pathway-1"),
+    dischargeAt: DISCHARGE,
+    completedAt: null,
+    outcome: "inProgress",
+    assuranceAttestations: PLAN_ASSURANCE_VALUES.map(attestationFixture),
+    contacts: [
+      scheduleEntryFixture(1, "scheduled", { cadenceLabel: "Day 1", messageType: "first" }),
+      scheduleEntryFixture(2, "scheduled"),
+    ],
+    ...overrides,
+  };
+}
+
+/**
+ * Task 10. The plan detail screen is this screen DEEPENED, not a second one (Ruling [128]):
+ * `/caring-contacts/patients/[patientId]?plan=<planId>` already exists, `patientPlanRoute()` builds
+ * it, and `CARING_CONTACTS_ROUTES` carries no key for a standalone plan page. So everything below
+ * asserts against the same render the blocks above use.
+ *
+ * THE DEFECT THIS BLOCK IS WRITTEN FIRST FOR. A plan that is not RUNNING still holds contacts in
+ * `scheduled`, because `pausePlan` is a plain lifecycle transition -- it moves the plan and touches
+ * no contact -- so `contactSendability` classifies every one of them `stillToSend` and the summary
+ * sentence above reads "every one of them is still to be sent". On a paused plan that sentence is
+ * about the RECORD and reads as a promise about the future. The withdrawn and death-stopped plans
+ * covered above are the case the domain already closes for itself (both cancel every unsent
+ * contact); paused and draft are the two it does not, and they are where this screen could
+ * reintroduce the "a stopped plan would still send" defect.
+ */
+describe("the patient overview - a plan that is not running must not read as forthcoming", () => {
+  it("says a PAUSED plan is not running, and that a date below is not a message on its way", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    const actor = demoActorForRole("coordinator");
+    const activated = await store.activatePlan(
+      { planId: id, expectedVersion: 1 },
+      { actor, idempotencyKey: idempotencyKey("activate-pause") },
+    );
+    if (!activated.ok) throw new Error(`activatePlan refused: ${activated.reason}`);
+    const paused = await store.pausePlan(
+      { planId: id, expectedVersion: activated.value.plan.version },
+      { actor, idempotencyKey: idempotencyKey("pause-plan-solo") },
+    );
+    if (!paused.ok) throw new Error(`pausePlan refused: ${paused.reason}`);
+
+    await renderPage();
+
+    // The domain's own classification is unchanged and is still reported honestly: pausing moved
+    // the plan, not the contacts.
+    expect(screen.getByTestId("caring-contacts-schedule-summary")).toHaveTextContent(
+      "10 entries, and every one of them is still to be sent.",
+    );
+    // And the qualification that stops that sentence reading as a promise.
+    const note = screen.getByRole("group", { name: "Paused" });
+    expect(note).toHaveTextContent("this plan is paused");
+    expect(note).toHaveTextContent("a date below is not a message on its way");
+    expect(note).toHaveTextContent(/Resuming the plan/i);
+  });
+
+  it("says a DRAFT plan has not been started, in different words from the paused one", async () => {
+    const { store } = spiedStore();
+    await createPlan(store, "plan-solo");
+
+    await renderPage();
+
+    const note = screen.getByRole("group", { name: "Draft" });
+    expect(note).toHaveTextContent("this plan has not been started");
+    expect(note).toHaveTextContent("a date below is not a message on its way");
+    // The two states are different facts and must not collapse into one sentence.
+    expect(note).not.toHaveTextContent(/paused/i);
+    expect(screen.queryByRole("group", { name: "Paused" })).not.toBeInTheDocument();
+  });
+
+  it("adds no such note to a running plan, so the note means something when it appears", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo");
+    const activated = await store.activatePlan(
+      { planId: id, expectedVersion: 1 },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("activate-running") },
+    );
+    if (!activated.ok) throw new Error(`activatePlan refused: ${activated.reason}`);
+
+    await renderPage();
+
+    expect(screen.getByTestId("caring-contacts-plan-summary")).toHaveTextContent("Plan state: Active");
+    expect(screen.queryByRole("group", { name: "Draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Paused" })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The two stored fields whose retention rules are deliberate OPPOSITES, on the first screen that
+ * renders both.
+ *
+ * Ruling [105]: the first-contact reason is CLEARED, because it is clinician prose that will name
+ * patients and places. Ruling [122]: the attestation is PRESERVED, because it is
+ * `{ assurance, actorId, instant }` -- no patient content -- and is the same class as an audit
+ * event, which de-identification deliberately keeps.
+ *
+ * The third case is the one that makes the pair visible at all: one cleared plan, rendered once,
+ * where the reason is gone and the attestation is still there. A test that only proved each field
+ * separately would pass against a screen that quietly rendered neither.
+ */
+describe("the patient overview - the attestation is recorded on the plan, and is not consent", () => {
+  it("reads both attestations back in plain words, and never says the patient consented", async () => {
+    const { store } = spiedStore();
+    await createPlan(store, "plan-solo");
+
+    await renderPage();
+
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    expect(card).toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed));
+    expect(card).toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientControlsMobileConfirmed));
+    // "Recorded on the plan" survives; "stored", "kept" and "recorded" alone do not -- this system
+    // distinguishes held in a tab's storage from written onto the plan, ordinary English does not.
+    expect(card).toHaveTextContent(/recorded on the plan/i);
+    // The claim the design's `Agreement confirmed: Yes` makes, and the one this domain cannot back.
+    expect(card).not.toHaveTextContent(/consent/i);
+    expect(card).toHaveTextContent(/hospital record/i);
+  });
+
+  it("says a plan created before the attestation existed holds none, rather than rendering a blank", () => {
+    // No backfill, on purpose: writing a placeholder would fabricate a clinical record. So the
+    // emptiness is a fact to be stated, and a screen that showed nothing at all would leave a
+    // reader to conclude nobody confirmed anything.
+    const record = planRecordFixture({ assuranceAttestations: [] });
+
+    render(
+      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
+    );
+
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    expect(card).toHaveTextContent(/holds no record of those confirmations/i);
+    expect(card).toHaveTextContent(/before this plan began recording them/i);
+    expect(card).not.toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed));
+  });
+
+  it("keeps the attestation on a cleared plan while the first-contact reason has gone", async () => {
+    const { store } = spiedStore();
+    const id = await createPlan(store, "plan-solo", {
+      firstContactDate: ABSORBING_FIRST_CONTACT_DAY,
+      firstContactReason: "Patient was interstate for the first week.",
+    });
+    await endPlan(store, id);
+    const cleared = await store.markRetentionCleared(
+      { planId: id },
+      { actor: demoActorForRole("coordinator"), idempotencyKey: idempotencyKey("clear-plan-solo") },
+    );
+    if (!cleared.ok) throw new Error(`markRetentionCleared refused: ${cleared.reason}`);
+
+    await renderPage();
+
+    // Cleared: the prose a clinician wrote is gone, and the screen says WHICH absence it is.
+    const reason = screen.getByRole("note", { name: "First contact moved from the usual day" });
+    expect(reason).not.toHaveTextContent("Patient was interstate for the first week.");
+    expect(reason).toHaveTextContent(/retention clearance has since removed it/i);
+
+    // Preserved: same render, same plan.
+    const card = screen.getByRole("region", { name: "What was confirmed before this plan started" });
+    expect(card).toHaveTextContent(planAssuranceWording(PLAN_ASSURANCES.patientAgreementConfirmed));
+    expect(card).toHaveTextContent(/no patient detail/i);
+  });
+});
+
+/**
+ * `delivery-detail`'s inbound path (`docs/caring-contacts/interaction-matrix.md`): full-screen stage
+ * on a phone, inspection drawer on a desktop, `mutation: No`.
+ *
+ * The control is offered only where the domain says a message left, and it asks
+ * `contactSendability` rather than listing states here -- that classification lives in ./model
+ * beside the state machine that produces it, and a second copy of it on a screen is the defect
+ * `summariseStoredContacts` exists to have removed once.
+ */
+describe("the patient overview - the delivery detail overlay is wired only where a message left", () => {
+  it("offers it on a message that went out, naming the row it was opened from", () => {
+    const record = planRecordFixture({
+      contacts: [
+        scheduleEntryFixture(1, "delivered", { cadenceLabel: "Day 1", messageType: "first" }),
+        scheduleEntryFixture(2, "scheduled", { cadenceLabel: "Month 1" }),
+      ],
+    });
+
+    render(
+      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
+    );
+
+    const triggers = screen.getAllByTestId("workspace-overlay-trigger");
+    expect(triggers).toHaveLength(1);
+    expect(triggers[0]).toHaveAttribute("data-overlay-trigger", "delivery-detail");
+    expect(triggers[0]).toHaveAccessibleName(/Day 1/);
+  });
+
+  it("offers none on a plan where nothing has left yet", () => {
+    const record = planRecordFixture({
+      contacts: [
+        scheduleEntryFixture(1, "scheduled", { cadenceLabel: "Day 1", messageType: "first" }),
+        scheduleEntryFixture(2, "cancelled", { cadenceLabel: "Month 1" }),
+      ],
+    });
+
+    render(
+      <PatientOverview patientId={PATIENT} view={{ kind: "episode", record, episode: null, otherPlanCount: 0 }} />,
+    );
+
+    expect(screen.queryAllByTestId("workspace-overlay-trigger")).toHaveLength(0);
+  });
+
+  it("refuses to be the workspace's escape hatch from Ruling 87 on a row that records something", () => {
+    // The guard is what separates this from the silent no-op Ruling 87 forbids: it is legitimate
+    // ONLY because the row's decision is an exit and the host performs the close itself.
+    expect(() => exitOnlyOverlayCommit("delivery-detail")).not.toThrow();
+    expect(() => exitOnlyOverlayCommit("withdrawal")).toThrow(/records a decision/i);
+    expect(() => exitOnlyOverlayCommit("not-an-overlay")).toThrow(/No overlay is defined/i);
   });
 });
