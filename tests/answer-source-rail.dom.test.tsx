@@ -78,9 +78,13 @@ function visualCard(
 function RailAndDrawer({
   sources = SOURCES,
   visualEvidence = [],
+  onScopeDocument,
+  onReportSource,
 }: {
   sources?: AnswerSourceRow[];
   visualEvidence?: VisualEvidenceCard[];
+  onScopeDocument?: (documentId: string) => void;
+  onReportSource?: (source: AnswerSourceRow) => void;
 }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   return (
@@ -92,13 +96,15 @@ function RailAndDrawer({
         onOpenIndexChange={setOpenIndex}
         onClose={() => setOpenIndex(null)}
         visualEvidence={visualEvidence}
+        onScopeDocument={onScopeDocument}
+        onReportSource={onReportSource}
       />
     </>
   );
 }
 
 describe("answer source rail", () => {
-  it("lists one row per cited document with its page, support and status", () => {
+  it("shows one card per cited document with its page and status", () => {
     render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
     const rows = screen.getAllByTestId("answer-source-rail-row");
     expect(rows).toHaveLength(3);
@@ -106,10 +112,48 @@ describe("answer source rail", () => {
 
     const rail = screen.getByTestId("answer-source-rail");
     expect(within(rail).getByText("p. 11")).toBeInTheDocument();
-    expect(within(rail).getAllByText("Direct").length).toBeGreaterThan(0);
-    expect(within(rail).getAllByText("Partial").length).toBeGreaterThan(0);
-    // Decision 1: staleness is carried by the row, not by a second mark colour.
+    // Decision 1: staleness is carried by the card, not by a second mark colour.
     expect(within(rail).getByText("Outdated")).toBeInTheDocument();
+  });
+
+  it("carries support in each card's accessible name rather than on its face", () => {
+    // The card face is page + status (design contract §4). Support is a clause of
+    // words in the drawer, where the reader is looking at the passage it
+    // describes — but an `aria-label` REPLACES the card's own text, so dropping
+    // support from the label would take it away from screen-reader users
+    // entirely rather than relocating it.
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} />);
+    const rows = screen.getAllByTestId("answer-source-rail-row");
+    expect(rows[0]).toHaveAccessibleName(/Source 1: Clozapine monitoring protocol, page 4, Direct/);
+    expect(rows[1]).toHaveAccessibleName(/Partial/);
+    expect(rows[2]).toHaveAccessibleName(/Outdated/);
+  });
+
+  it("numbers cited documents only, so a number always matches an in-prose mark", () => {
+    render(
+      <AnswerSourceRail
+        sources={[
+          row({ id: "c1", title: "Cited protocol", cited: true }),
+          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
+        ]}
+        onOpenSource={vi.fn()}
+      />,
+    );
+    const rows = screen.getAllByTestId("answer-source-rail-row");
+    expect(rows[0]).toHaveAttribute("data-cited", "true");
+    expect(rows[0]).toHaveTextContent("1");
+    expect(rows[1]).toHaveAttribute("data-cited", "false");
+    // An em-dash, never "2": a number here that no mark can reach is a promise
+    // the prose cannot keep.
+    expect(rows[1]).not.toHaveTextContent("2");
+    expect(rows[1]).toHaveAccessibleName(/Also found: Retrieved but uncited/);
+  });
+
+  it("marks the card the drawer is showing", () => {
+    render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} activeIndex={1} />);
+    const rows = screen.getAllByTestId("answer-source-rail-row");
+    expect(rows[0]).toHaveAttribute("aria-pressed", "false");
+    expect(rows[1]).toHaveAttribute("aria-pressed", "true");
   });
 
   it("keeps every row reachable and links straight to the document when no drawer is mounted", () => {
@@ -298,5 +342,55 @@ describe("support sentence", () => {
     expect(sourceSupportSentence(SOURCES[1], 1)).toContain("supports part of the claim");
     expect(sourceSupportSentence(row({ id: "x", title: "Unrelated" }), 2)).toContain("does not state the claim");
     expect(sourceSupportSentence(null, 0)).toContain("not a claim");
+  });
+});
+
+describe("source drawer overflow menu", () => {
+  async function openMenu(user: ReturnType<typeof userEvent.setup>, props = {}) {
+    render(<RailAndDrawer {...props} />);
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    await user.click(screen.getByTestId("answer-source-drawer-menu-trigger"));
+    return screen.getByTestId("answer-source-drawer-menu");
+  }
+
+  it("keeps the secondary actions behind a menu so the passage stays the panel's subject", async () => {
+    const user = userEvent.setup();
+    const onScopeDocument = vi.fn();
+    const menu = await openMenu(user, { onScopeDocument });
+
+    expect(within(menu).getByRole("menuitem", { name: "Copy passage" })).toBeInTheDocument();
+    await user.click(within(menu).getByRole("menuitem", { name: "Search only this document" }));
+    expect(onScopeDocument).toHaveBeenCalledWith("doc-s1");
+  });
+
+  it("takes two steps to report that a page does not support the claim", async () => {
+    const user = userEvent.setup();
+    const onReportSource = vi.fn();
+    const menu = await openMenu(user, { onReportSource });
+
+    const report = within(menu).getByTestId("answer-source-drawer-report");
+    await user.click(report);
+    // One stray tap in a menu opened to copy a quote must not file a
+    // citation-quality report against a named page.
+    expect(onReportSource).not.toHaveBeenCalled();
+    expect(report).toHaveTextContent("Confirm: report this page");
+
+    await user.click(report);
+    expect(onReportSource).toHaveBeenCalledTimes(1);
+    expect(onReportSource.mock.calls[0][0].id).toBe("s1");
+  });
+
+  it("closes the menu on Escape without closing the drawer underneath it", async () => {
+    const user = userEvent.setup();
+    await openMenu(user, { onScopeDocument: vi.fn() });
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("answer-source-drawer-menu")).not.toBeInTheDocument();
+    // Sheet listens for Escape on window and this layer listens on document,
+    // which bubbles first — without stopPropagation one Escape closed both.
+    expect(screen.getByTestId("answer-source-drawer")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("answer-source-drawer")).not.toBeInTheDocument();
   });
 });

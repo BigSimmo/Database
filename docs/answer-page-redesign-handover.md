@@ -60,6 +60,48 @@ case, and it fails closed: no sections, no marks.
 
 That is why the rail and drawer ship first, and the marks second.
 
+### 1a. Corrected again, 2026-08-25, when the marks were built: sections are the wrong source
+
+Everything above is accurate about `answerSections` and still wrong about the marks, and
+the reason only shows up when you try to render one.
+
+`answerSections` is a **second layer**. The generation contract calls it "Second-layer
+structured support… distinct source-backed modules that improve scanability"
+(`src/lib/rag/rag.ts:340`), and the composition instruction tells the model to write the
+prose into `answer` and _then_ use `answerSections` for separate structured support
+(`:4313`). A section's body is therefore not text the clinician reads in the prose, so
+there is no sentence in the answer for a section's mark to attach to. A mark per section
+is only buildable by rendering the sections themselves — which is a different product
+decision (more content on the answer surface), not the design that was approved.
+
+**The field that does anchor to the prose is `RagAnswer.supportedClaims`**
+(`src/lib/types.ts:519`). `rag-claim-support.ts:1049` builds its top-level entries as
+`splitClaims(answer.answer)` — literally the sentences of the displayed prose — and each
+carries `supportingChunkIds` and a `supportStatus` of `direct | partial | unsupported`.
+`answer-render-policy.ts` already reads it client-side, so it is on the client today with
+no payload change.
+
+So the marks are built from `supportedClaims`, and §3's requirement is met by a stricter
+route than it asked for: attribution is per _sentence_ rather than per section, and it is
+the pipeline's own recorded attribution rather than one the render layer derived. The
+resolution rules live in `src/lib/answer-claim-marks.ts` and are exact — a sentence either
+**is** a recorded claim (or exactly a run of consecutive all-`direct` ones) or it carries
+no mark. Every ambiguity resolves to no mark:
+
+- the display sanitizer rewrote the sentence → no mark;
+- two recorded claims disagree about the same sentence → no mark;
+- the claim cites a chunk the rail does not list → that citation is dropped, never
+  renumbered onto a neighbouring card;
+- the word budget cut the sentence short → no mark;
+- `supportStatus: "unsupported"` → no mark, and no worded tag either (see §12.2 below,
+  superseded by the owner in design review on 2026-08-25).
+
+**Expect partial coverage, and do not tune it up.** A sentence the usefulness pass
+rewrote, or one holding several claims at different support levels, renders unmarked with
+the rail underneath still carrying every source. That is the designed degrade. Raising
+coverage means changing what the generation contract emits, which is PR 3 — protected RAG
+surface, owner flag, live eval canary.
+
 ---
 
 ## 2. What replaces what

@@ -1445,7 +1445,11 @@
         "preview": ".design-sync/previews/SafeBoldText.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/display-text.test.ts"],
+      "testFiles": [
+        "tests/answer-content.test.ts",
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/display-text.test.ts"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -1658,6 +1662,7 @@
       },
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
+        "tests/answer-source-rail.dom.test.tsx",
         "tests/caring-contacts-overlay-host.dom.test.tsx",
         "tests/caring-contacts-overlay-trigger.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",

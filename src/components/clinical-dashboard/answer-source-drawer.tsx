@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, Search, TriangleAlert } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  Filter,
+  MoreHorizontal,
+  Search,
+  TriangleAlert,
+} from "lucide-react";
 
 import { Sheet } from "@/components/ui/sheet";
-import { cn, subtleStatusPill, textMuted } from "@/components/ui-primitives";
+import { cn, glassOverlaySurface, subtleStatusPill, textMuted } from "@/components/ui-primitives";
 import { logSourceOpen } from "@/components/clinical-dashboard/source-actions";
 import { cleanDisplayTitle, sourceQuoteDisplayText } from "@/components/clinical-dashboard/display-text";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
@@ -13,11 +22,15 @@ import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-ev
 import {
   answerSourceRailRowId,
   type AnswerSourceRow,
+  imagesForSource,
   sourceBadgeLabel,
   sourceRowIsStale,
+  sourceSpokenLabel,
   sourceStatusShortLabel,
   sourceSupportSentence,
+  tablesForSource,
 } from "@/components/clinical-dashboard/answer-source-rows";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { type CanonicalAnswerTableRecord } from "@/lib/answer-render-policy";
 import type { QuoteCard, VisualEvidenceCard } from "@/lib/types";
 
@@ -27,42 +40,10 @@ import type { QuoteCard, VisualEvidenceCard } from "@/lib/types";
  */
 const NUMBERED_PAGER_LIMIT = 4;
 
-/**
- * Attaches each table to the source it was cited from.
- *
- * A table whose `source.chunkId` matches no row still has to be reachable —
- * losing the wide-screen table column was an accepted cost, losing the tables
- * was not — so anything unmatched falls to the first source.
+/*
+ * `tablesForSource` and `imagesForSource` moved to `answer-source-rows` so the
+ * rail card's attachment marker and the drawer's contents are one rule, not two.
  */
-function tablesForSource(tables: CanonicalAnswerTableRecord[], sources: AnswerSourceRow[], index: number) {
-  const chunkIds = new Set(sources.map((source) => source.id));
-  const source = sources[index];
-  if (!source) return [];
-  return tables.filter((table) => {
-    const chunkId = table.source?.chunkId;
-    if (chunkId && chunkIds.has(chunkId)) return chunkId === source.id;
-    return index === 0;
-  });
-}
-
-/**
- * Attaches each image to the source it was cited from.
- *
- * Same rule as `tablesForSource`: a card whose `source_chunk_id` matches a rail
- * row stays on that row only. Anything unmatched falls to the first source so
- * it stays reachable after the table column was removed — never to every row
- * that happens to share a `documentId`.
- */
-function imagesForSource(visualEvidence: VisualEvidenceCard[], sources: AnswerSourceRow[], index: number) {
-  const chunkIds = new Set(sources.map((source) => source.id));
-  const source = sources[index];
-  if (!source) return [];
-  return visualEvidence.filter((card) => {
-    const chunkId = card.source_chunk_id;
-    if (chunkId && chunkIds.has(chunkId)) return chunkId === source.id;
-    return index === 0;
-  });
-}
 
 function quoteCardForSource(quoteCards: QuoteCard[], source: AnswerSourceRow | null) {
   if (!source) return null;
@@ -98,6 +79,8 @@ export function AnswerSourceDrawer({
   visualEvidence = [],
   quoteCards = [],
   onFollowUpQuote,
+  onScopeDocument,
+  onReportSource,
 }: {
   sources: AnswerSourceRow[];
   openIndex: number | null;
@@ -114,13 +97,34 @@ export function AnswerSourceDrawer({
    * action it supported moved with it rather than being dropped.
    */
   onFollowUpQuote?: (quote: QuoteCard) => void;
+  /** Narrows the search to this document. A prop pass-through — the composer is untouched. */
+  onScopeDocument?: (documentId: string) => void;
+  /**
+   * "This page doesn't support the claim."
+   *
+   * Once a number points at a specific page, the moment a clinician opens it and
+   * finds it does not say that is the highest-value moment in the product to
+   * catch a bad citation — and until now the surface had no control for it.
+   */
+  onReportSource?: (source: AnswerSourceRow) => void;
 }) {
-  // Resolved late rather than captured on open, so paging to another source
-  // returns focus to the row that source actually occupies in the rail.
+  /**
+   * Resolved late rather than captured on open, so paging to another source
+   * returns focus to the card that source actually occupies in the rail.
+   *
+   * The one case that must NOT go to the rail is a drawer opened from a mark and
+   * still showing that mark's source: the reader was mid-sentence, and landing on
+   * the rail loses the sentence they were checking. Returning `null` there hands
+   * the decision back to `Sheet`, whose last fallback is the element that had
+   * focus when the drawer opened — the mark itself. Paging clears
+   * `activeSupportIndex`, so the rail behaviour resumes as soon as the drawer is
+   * no longer showing the claim's own page.
+   */
   const resolveReturnFocusTarget = useCallback(() => {
     if (openIndex === null) return null;
+    if (activeSupportIndex !== null && activeSupportIndex === openIndex) return null;
     return document.getElementById(answerSourceRailRowId(openIndex));
-  }, [openIndex]);
+  }, [activeSupportIndex, openIndex]);
 
   const open = openIndex !== null && openIndex >= 0 && openIndex < sources.length;
   const source = open ? sources[openIndex] : null;
@@ -141,21 +145,36 @@ export function AnswerSourceDrawer({
       closeLabel="Close source detail"
       titleAccessory={
         source ? (
-          <span className={cn(subtleStatusPill, "nums min-h-6 px-2 text-2xs")}>
+          <span className={cn(subtleStatusPill, "nums min-h-6 whitespace-nowrap px-2 text-2xs")}>
             {sourceBadgeLabel(openIndex ?? 0)} · p. {source.pageNumber ?? "n/a"}
           </span>
         ) : null
       }
       headerActions={
         source ? (
-          <Link
-            href={source.href}
-            onClick={() => query && logSourceOpen(query, source)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            aria-label={`Open ${cleanDisplayTitle(source.title)} in the document viewer`}
-          >
-            <ExternalLink aria-hidden="true" className="h-4 w-4" />
-          </Link>
+          <span className="flex items-center gap-0.5">
+            <Link
+              href={source.href}
+              onClick={() => query && logSourceOpen(query, source)}
+              className={drawerHeaderActionClass}
+              aria-label={`Open ${cleanDisplayTitle(source.title)} in the document viewer`}
+            >
+              <ExternalLink aria-hidden="true" className="h-4 w-4" />
+            </Link>
+            {/* Keyed on the source id so the menu (and a half-finished report
+                confirmation) resets when the pager moves to another document,
+                without a setState-in-effect. */}
+            <SourceOverflowMenu
+              key={source.id}
+              source={source}
+              passage={passage}
+              quoteCard={quoteCard}
+              onFollowUpQuote={onFollowUpQuote}
+              onScopeDocument={onScopeDocument}
+              onReportSource={onReportSource}
+              onCloseDrawer={onClose}
+            />
+          </span>
         ) : null
       }
       headerClassName="gap-2 p-2.5 sm:p-3"
@@ -188,7 +207,7 @@ export function AnswerSourceDrawer({
                     type="button"
                     onClick={() => onOpenIndexChange(index)}
                     aria-current={index === openIndex ? "true" : undefined}
-                    aria-label={`Source ${sourceBadgeLabel(index)}: ${cleanDisplayTitle(row.title)}`}
+                    aria-label={`Show ${sourceSpokenLabel(index).toLowerCase()}: ${cleanDisplayTitle(row.title)}`}
                     className={cn(
                       "nums grid h-12 min-w-12 place-items-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index === openIndex
@@ -307,3 +326,182 @@ export function AnswerSourceDrawer({
 
 const pagerStepClass =
   "grid h-12 w-12 shrink-0 place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+const drawerHeaderActionClass =
+  "inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+const menuItemClass =
+  "flex min-h-12 w-full items-center gap-2.5 px-3 text-left text-xs font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+
+/**
+ * The drawer's secondary actions.
+ *
+ * They are behind a menu rather than on the panel because the panel's job is the
+ * passage: a row of four equal buttons under a cited quote competes with the one
+ * thing the reader opened the drawer to check.
+ *
+ * Escape here closes the menu and **stops propagation**. `Sheet` listens for
+ * Escape on `window` and this layer listens on `document`, which bubbles first —
+ * without the stop, one Escape would close the menu and the drawer together.
+ */
+function SourceOverflowMenu({
+  source,
+  passage,
+  quoteCard,
+  onFollowUpQuote,
+  onScopeDocument,
+  onReportSource,
+  onCloseDrawer,
+}: {
+  source: AnswerSourceRow;
+  passage: string;
+  quoteCard: QuoteCard | null;
+  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onScopeDocument?: (documentId: string) => void;
+  onReportSource?: (source: AnswerSourceRow) => void;
+  onCloseDrawer: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirmingReport, setConfirmingReport] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown, true);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  function close() {
+    setOpen(false);
+    setConfirmingReport(false);
+  }
+
+  const items: Array<{ id: string; label: string; icon: typeof Copy; onActivate: () => void }> = [];
+  if (passage) {
+    items.push({
+      id: "copy-passage",
+      label: "Copy passage",
+      icon: Copy,
+      onActivate: () => {
+        void copyTextToClipboard(passage)
+          .then(() => setStatus("Passage copied."))
+          .catch(() => setStatus("Copy failed — select the passage and copy it manually."));
+        close();
+      },
+    });
+  }
+  if (onFollowUpQuote && quoteCard) {
+    items.push({
+      id: "ask-passage",
+      label: "Ask about this passage",
+      icon: Search,
+      onActivate: () => {
+        onFollowUpQuote(quoteCard);
+        close();
+        onCloseDrawer();
+      },
+    });
+  }
+  if (onScopeDocument) {
+    items.push({
+      id: "scope-document",
+      label: "Search only this document",
+      icon: Filter,
+      onActivate: () => {
+        onScopeDocument(source.documentId);
+        close();
+        onCloseDrawer();
+      },
+    });
+  }
+
+  if (!items.length && !onReportSource) return null;
+
+  return (
+    <span className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        data-testid="answer-source-drawer-menu-trigger"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="More actions for this source"
+        onClick={() => setOpen((current) => !current)}
+        className={drawerHeaderActionClass}
+      >
+        <MoreHorizontal aria-hidden="true" className="h-4 w-4" />
+      </button>
+      {/* z-30: the rung above the sheet panel on the allowed ladder. */}
+      {open ? (
+        <div
+          ref={menuRef}
+          role="menu"
+          data-testid="answer-source-drawer-menu"
+          aria-label="Source actions"
+          className={cn(
+            glassOverlaySurface,
+            "absolute right-0 top-9 z-30 w-60 overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)] py-1 shadow-[var(--shadow-soft)]",
+          )}
+        >
+          {items.map((item) => (
+            <button key={item.id} type="button" role="menuitem" onClick={item.onActivate} className={menuItemClass}>
+              <item.icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+              {item.label}
+            </button>
+          ))}
+          {onReportSource ? (
+            <button
+              type="button"
+              role="menuitem"
+              data-testid="answer-source-drawer-report"
+              // Two steps on purpose: this writes a citation-quality report
+              // against a named page, so it must not be reachable by one stray
+              // tap in a menu the reader opened to copy a quote.
+              onClick={() => {
+                if (!confirmingReport) {
+                  setConfirmingReport(true);
+                  return;
+                }
+                onReportSource(source);
+                setStatus("Reported. Thank you — this page is flagged for review.");
+                close();
+              }}
+              className={cn(
+                menuItemClass,
+                "border-t border-[color:var(--border)] text-[color:var(--warning)]",
+                confirmingReport && "bg-[color:var(--warning-soft)]/50",
+              )}
+            >
+              <TriangleAlert aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+              {confirmingReport ? "Confirm: report this page" : "This page doesn't support the claim"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {/* Announced, not just drawn: the menu closes on activation, so a visual-only
+          confirmation would leave a screen-reader user with no result at all. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {status}
+      </span>
+    </span>
+  );
+}

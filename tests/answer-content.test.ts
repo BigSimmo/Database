@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { primaryAnswerDisplayText } from "../src/components/clinical-dashboard/answer-content";
+import {
+  primaryAnswerDisplayFragments,
+  primaryAnswerDisplayText,
+  splitTrailingWord,
+} from "../src/components/clinical-dashboard/answer-content";
 import { sourceQuoteDisplayText } from "../src/components/clinical-dashboard/display-text";
 
 describe("primaryAnswerDisplayText", () => {
@@ -92,5 +96,74 @@ describe("sourceQuoteDisplayText", () => {
 
   it("preserves clinically meaningful comparison symbols and numbers", () => {
     expect(sourceQuoteDisplayText("Page: 4 | • Withhold if ANC < 1.0 ×10⁹/L.")).toBe("Withhold if ANC < 1.0 ×10⁹/L.");
+  });
+});
+
+/**
+ * Splitting the prose into sentences exists only so a source mark has somewhere
+ * to attach. It must not change one character of what a clinician reads, so the
+ * displayed string is DEFINED as the join and pinned here against the cases that
+ * exercise every branch of the selector: the compact cap, the safety bypass, the
+ * word-budget truncation, deduplication, the preformatted path, and the
+ * everything-was-filtered fallback.
+ */
+describe("primaryAnswerDisplayFragments", () => {
+  const cases: Array<[string, string, { preformatted?: boolean; preserveBold?: boolean }]> = [
+    [
+      "ordinary multi-sentence prose",
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the plan in the notes.",
+      {},
+    ],
+    [
+      "a safety caveat beyond the compact head",
+      "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the management plan clearly in the notes. Escalate to the senior doctor if the patient deteriorates.",
+      {},
+    ],
+    [
+      "a fragment past the word budget",
+      `${Array.from({ length: 90 }, (_, index) => `detail${index + 1}`).join(" ")} Do not administer the medicine.`,
+      {},
+    ],
+    ["a repeated sentence", "Check the level weekly. Check the level weekly. Record the result in the notes.", {}],
+    ["server bold", "Check the **FBC** weekly and record the result in the clinical notes.", { preserveBold: true }],
+    ["a preformatted answer", "Local formulary 2025\nSection 4.2 — clozapine titration", { preformatted: true }],
+    ["an answer that survives nothing", "n/a", {}],
+    ["an empty answer", "", {}],
+  ];
+
+  for (const [label, answer, options] of cases) {
+    it(`joins back to the displayed text for ${label}`, () => {
+      const joined = primaryAnswerDisplayFragments(answer, options)
+        .map((fragment) => fragment.display)
+        .join(" ");
+      expect(joined).toBe(primaryAnswerDisplayText(answer, options));
+    });
+  }
+
+  it("keeps the pre-rewrite sentence so a claim can still be matched against it", () => {
+    const [fragment] = primaryAnswerDisplayFragments("Check the level weekly and record the result in the notes.");
+    expect(fragment.raw).toContain("Check the level weekly");
+    expect(fragment.truncated).toBe(false);
+  });
+
+  it("flags a sentence the word budget cut short", () => {
+    const long = `${Array.from({ length: 120 }, (_, index) => `detail${index + 1}`).join(" ")}.`;
+    expect(primaryAnswerDisplayFragments(long).some((fragment) => fragment.truncated)).toBe(true);
+  });
+});
+
+describe("splitTrailingWord", () => {
+  it("splits the last word so it can be wrapped with the mark cluster", () => {
+    expect(splitTrailingWord("Check the level weekly")).toEqual({ head: "Check the level", tail: "weekly" });
+  });
+
+  it("refuses to split inside a bold run", () => {
+    // Production prose carries server bold, and cutting between the markers
+    // would hand SafeBoldText two halves of one run.
+    expect(splitTrailingWord("Check the level **weekly and now**")).toBeNull();
+  });
+
+  it("returns null for a single word", () => {
+    expect(splitTrailingWord("Withhold")).toBeNull();
   });
 });
