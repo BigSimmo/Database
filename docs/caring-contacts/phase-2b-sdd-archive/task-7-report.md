@@ -364,7 +364,40 @@ refused several times first with `DATABASE_HEAVY_RUN_ADMISSION_BUSY` while other
 repository lease — a refusal is neither a pass nor a failure, and nothing was forced past another
 worktree's lease.
 
-<!-- GATE RESULTS -->
+```
+> node ./node_modules/typescript/bin/tsc -p tsconfig.typecheck.json --noEmit ...
+[gate-receipts] recorded a pass for "typecheck:internal" (5316 input files).
+[typecheck] exit=0
+
+> node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js src tests scripts worker supabase playwright ... --max-warnings 0 ...
+[gate-receipts] recorded a pass for "lint:internal" (5316 input files).
+[lint] exit=0
+```
+
+**Lint was red first, twice, and both errors were real defects rather than rule noise.** They are
+worth recording because the fixes changed the design:
+
+1. `react-hooks/set-state-in-effect` on the draft restore. The first version held the draft in React
+   state and restored it from `sessionStorage` in a `useEffect`. The rule is right, and the deeper
+   problem it pointed at is worse than a cascading render: a lazy `useState` initialiser reading
+   storage would have produced a HYDRATION MISMATCH — the server render cannot see the browser's
+   storage and the client's first render can — and on this screen the mismatch would have been about
+   a patient's details. The draft is now an external store read through `useSyncExternalStore`, whose
+   `getServerSnapshot` answers null through hydration. That refactor also added an in-memory fallback
+   the effect version did not have: without it, a clinician in a private window could not tick a
+   checkbox, because every write would go nowhere and the screen would never change.
+2. `jsx-a11y/label-has-associated-control` on the pathway options. Each `<label>` wrapped the radio
+   plus the version's name, its cadence and its approval history, which makes the radio's accessible
+   name the entire paragraph. The label now holds the version's name alone and the descriptive lines
+   are tied on with `aria-describedby`.
+
+Both fixes were made and the three new test files re-run green against them before lint was re-run.
+
+### Full unit suite
+
+`npm run test` — the gate of record, because `test:focused` refuses this change.
+
+<!-- FULL SUITE -->
 
 ### Not run, and why
 
