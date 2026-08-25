@@ -32,6 +32,12 @@ tell whether your situation is the one it is about.
   inert.
 - **Commit each piece before you mutate the file it lives in.** `git checkout --` also discards any
   uncommitted fix in that file.
+- **Never `git add -A`, `git add .` or `git commit -a` while a mutation is applied.** This has now
+  captured a live mutation into a commit **three times** in this programme — twice by the controller
+  sweeping an implementer's uncommitted work, once by an implementer committing its own mutation. The
+  worst instance disabled the demo's only entry point by leaving a referral in `awaitingHandover`;
+  the full suite caught it. **Stage explicit paths, always.** The two rules are converses and you need
+  both: commit before mutating, and never stage by wildcard while mutated.
 
 ## Proving a mutation is present
 
@@ -64,9 +70,19 @@ tell whether your situation is the one it is about.
 
 ## Gates, and the shared machine
 
-- `npm run test:cc-guards` for iteration and every fix round — the task suites plus the tree-walking
-  scans a diff cannot contain. The **full `npm run test` once**, at the end, **backgrounded from the
-  first command**. Paste both `N passed` lines.
+- **Run `npm run test:cc-guards` only, including for mutations.** It takes a _focused_ lease and two
+  are permitted concurrently across worktrees, so it does not starve.
+- **Do not run the full `npm run test`.** The controller runs it once per branch at the merge point,
+  when the other worktrees are idle. Its value is catching cross-file breakage, which matters at
+  merge rather than per task.
+
+  **Why this rule exists, measured 2026-08-26:** with three implementer worktrees plus another
+  session live, the exclusive heavy lease was held continuously and **`run-vitest.mjs` queues rather
+  than refusing** — so a suite blocks inside the child process with no refusal to retry around. One
+  task's mutation ledger came back **ten of twelve unrun**, and the casualty was the one mutation that
+  distinguished a real pair of assertions from an inert one. **An honest unrun row is worth more than
+  a forced lease**, and a policy that stops the starvation is worth more than either.
+
 - **A lock refusal is neither a pass nor a failure.** One exclusive heavy job runs at a time across
   **every** worktree of this repository, and other implementers are usually active. Retry; **never
   force past another worktree's lease.** If you believe an orphaned run is your own, prove it from the
