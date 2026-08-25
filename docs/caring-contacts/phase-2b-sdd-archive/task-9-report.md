@@ -947,3 +947,47 @@ Two more driver defects fell out of chasing it, and both could have produced a f
 Sixteen attempts, one anchor miss (R9, reflowed by Prettier between writing the anchor and applying
 it — the same hazard as round 1's N6, met a second time), and one result I refused to believe until
 it was re-run.
+
+## Round 2 gates
+
+**The guard set, `npm run test:cc-guards`:**
+
+```
+ Test Files  18 passed (18)
+      Tests  391 passed (391)
+   Duration  54.95s (transform 3.35s, setup 2.53s, import 10.00s, tests 61.81s, environment 9.22s)
+```
+
+391, up from 377: the five-shape split, the four copy pins and the independence pin, less the two
+cases the C3 rewrite replaced with six.
+
+**The full suite, `npm run test`, once, at the end, backgrounded from the first command:**
+
+```
+ Test Files  835 passed | 3 skipped (838)
+      Tests  10187 passed | 74 skipped (10261)
+   Duration  494.25s (transform 51.21s, setup 77.26s, import 264.69s, tests 957.09s, environment 314.74s)
+```
+
+Clean, and 10187 against round 1's 10173 — the fourteen net new cases and nothing else moving.
+
+**Typecheck, lint and Prettier all clean.** The guard set was red once on the way, and it is worth
+recording because it was not a test of mine: `tests/design-system-adoption.test.ts` compares
+`docs/design-system/adoption-manifest.json` against a freshly built one, and my wizard test began
+referencing an overlay test id, which adds it as a root. Regenerated with
+`node scripts/generate-design-system-adoption.mjs --write` — one line — rather than edited by hand.
+
+## Does round 2 touch the browser gate?
+
+**No, and I do not expect the answer to change** — you measured `49 passed (1.3m)`, exit 0, unchanged
+after round 1, and round 2 touches strictly less: copy inside stage 4, one new derived value, and
+tests. `tests/ui-caring-contacts-workspace.spec.ts` is unchanged and its isolated server still seeds
+no referral, so no Playwright case reaches any stage of this wizard.
+
+The gap is unchanged from round 1 and still worth its row: two `type="date"` inputs and their native
+pickers, the live schedule preview, the overlay's `full-screen-stage` phone modality with this screen
+behind it, and the half-done state — the only screen in this workspace that asks someone to press a
+writing control a second time. Round 2 adds one item to it: the M2 fix moves a prerequisite onto the
+discharge field's hint precisely because a natively `disabled` control cannot announce its own
+description, and **whether that lands for a real screen-reader user is exactly the kind of thing
+jsdom cannot answer.**
