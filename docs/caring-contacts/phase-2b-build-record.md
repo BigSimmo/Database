@@ -1724,9 +1724,18 @@ tests/design-system-adoption.test.ts                the adoption manifest and it
 once, at the end of the task, before the report.** That is the same coverage at the moment it
 matters and removes two to three full-suite runs per task.
 
-**Unmeasured, and said so deliberately.** I could not time it — the lease was busy, which is the
-finding above. The saving is expected, not proven, and the first task to use it should report both
-numbers so this paragraph can be replaced with evidence rather than reasoning.
+**MEASURED 2026-08-25, on Task 7's fix round — the first task to use it.** Guard set
+`Tests 194 passed (194)` in **53 s**; full suite `Tests 10087 passed | 74 skipped (10161)` in
+**590 s**. About **11x**. At two to three full-suite runs saved per task, that is roughly fifteen to
+twenty minutes back per task, on the gate that was the largest per-task cost.
+
+**And it earned its place on that same first run**, which matters more than the timing: it caught a
+second-order failure on an otherwise-green tree. The plain-words role labels introduced to fix M-2
+tripped `caring-contacts-interface-vocabulary.test.ts`, which refuses "lead" as a whole word in any
+component. The task's own tests were green; only a tree-walking scan could see it. **That is exactly
+the failure class the full-suite rule exists for, caught in 53 seconds instead of 590.**
+
+_(This paragraph replaces one that said the saving was expected but unproven. It is now evidence.)_
 
 ### Lever 2 — reviews are read-only and take no lease, so stop serialising them
 
