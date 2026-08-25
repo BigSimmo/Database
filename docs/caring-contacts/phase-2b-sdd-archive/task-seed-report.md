@@ -307,30 +307,30 @@ present, `-F` included — read back in process, and the tree restored from git 
 per-row pass/fail count is the evidence that a mutation isolated one assertion rather than making a
 case red**, so it is stated per row rather than once for the set.
 
-| #   | Mutation                                                | Predicted                                          | Observed                                                                                                                                                                                                                     | Counts                |
-| --- | ------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| M1  | the Postgres branch calls the seed                      | the spy assertion fails                            | `expected "vi.fn()" to not be called at all, but actually been called 1 times`                                                                                                                                               | 1 failed \| 15 passed |
-| M2  | the `WeakSet` guard is removed                          | no `DemoSeedForeignStoreError`                     | `expected TypeError: store.listPathwayVersions is n… to be an instance of DemoSeedForeignStoreError`                                                                                                                         | 1 failed \| 15 passed |
-| M3  | the standard message is copied into the closing slot    | closing is no longer empty                         | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                                                                                                                                                 | 1 failed \| 15 passed |
-| M8  | the standard message is blanked                         | standard is empty                                  | `expected '' to be 'Hi Rowan, Alex from Example Aftercare…'`                                                                                                                                                                 | 1 failed \| 15 passed |
-| R4  | the unauthored **first** message is filled in           | first is no longer empty                           | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                                                                                                                                                 | 1 failed \| 15 passed |
-| M4a | the already-seeded return reports a population          | `populated` is true on the second call             | `expected true to be false`                                                                                                                                                                                                  | 1 failed \| 15 passed |
-| M4b | the already-seeded guard is removed entirely            | the second call re-writes and is refused           | `DemoSeedRefusedError: The Caring Contacts demo seed was refused at createPlan:rowan: idempotency-key-reused-for-a-different-write`                                                                                          | 1 failed \            | 15 passed |
-| M5  | a seeded mobile number is not a reserved one            | an unreserved number is present                    | `expected [ Array(2) ] to include '+61 400 000 000'`                                                                                                                                                                         | 1 failed \| 15 passed |
-| M6  | the isolated Playwright exclusion is removed            | that server holds a population unasked             | `expected [ … ] to have a length of +0 but got 3`                                                                                                                                                                            | 1 failed \| 15 passed |
-| M9  | the cadence labels are typed out instead of derived     | the lists differ                                   | `expected [ 'Day 1' ] to deeply equal [ 'Day 1', 'Week 1', 'Month 1', …(7) ]`                                                                                                                                                | 1 failed \| 15 passed |
-| R1  | the demo predicate is dropped from `demoSeedRequested`  | the **production-empty** case fails                | `expected [ … ] to have a length of +0 but got 3`                                                                                                                                                                            | 2 failed \| 14 passed |
-| R2  | the production gate is removed from `applyDemoSeed`     | the I1 case fails                                  | `expected true to be false`                                                                                                                                                                                                  | 1 failed \| 15 passed |
-| R3  | a seeded value uses closed vocabulary                   | the **vocabulary scan** fails                      | `expected 'Safe' not to match /high risk\|safe\|…/i`                                                                                                                                                                         | 1 failed \| 15 passed |
-| R5  | the seed stops marking its version as invented          | the record claims nothing                          | `expected undefined to be 'syntheticDemonstration'`                                                                                                                                                                          | 1 failed \| 15 passed |
-| R6  | the store's snapshot copy enumerates its fields again   | the marker is dropped on the way out               | `expected undefined to be 'syntheticDemonstration'`                                                                                                                                                                          | 1 failed \| 15 passed |
-| R7  | the page stops carrying provenance to the wizard        | the join case fails                                | `expected null to be 'Invented for demonstration: no person…'`                                                                                                                                                               | 1 failed \| 12 passed |
-| R8  | stage 2 stops printing the provenance                   | the note is not on the screen                      | `TestingLibraryElementError: Unable to find an element with the text: Invented for demonstration: no person recorded either approval.`                                                                                       | 1 failed \            | 71 passed |
-| N1  | the wizard's referral is left un-accepted               | the wizard-referral case fails                     | `expected 'awaitingHandover' to be 'accepted'`                                                                                                                                                                               | 1 failed \| 15 passed |
-| N2  | the store's memoisation is removed                      | the in-memory-branch case fails                    | `expected { …(39) } to be { …(39) }`                                                                                                                                                                                         | 1 failed \| 15 passed |
-| N3  | stage 2 prints a provenance line for **every** version  | the negative wizard case fails                     | **survived at first — see below**                                                                                                                                                                                            | see below             |
-| P1  | an unrecognised provenance resolves to no claim         | the resolver and the page both lose the qualifier  | `AssertionError: an unrecognised provenance (trainingCopy) lost its qualifier: expected null to be 'Invented for demonstration: no person…'`, and on the page `expected null to be 'Invented for demonstration: no person…'` | 2 failed \| 22 passed |
-| P2  | the wizard's referral-named-no-pathway guard is removed | the first-choice case fails on the group **count** | `AssertionError: expected [ …(2) ] to have a length of 1 but got 2`                                                                                                                                                          | 1 failed \| 71 passed |
+| #   | Mutation                                                | Predicted                                          | Observed                                                                                                                                                                                                                     | Counts               |
+| --- | ------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| M1  | the Postgres branch calls the seed                      | the spy assertion fails                            | `expected "vi.fn()" to not be called at all, but actually been called 1 times`                                                                                                                                               | 1 failed / 15 passed |
+| M2  | the `WeakSet` guard is removed                          | no `DemoSeedForeignStoreError`                     | `expected TypeError: store.listPathwayVersions is n… to be an instance of DemoSeedForeignStoreError`                                                                                                                         | 1 failed / 15 passed |
+| M3  | the standard message is copied into the closing slot    | closing is no longer empty                         | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                                                                                                                                                 | 1 failed / 15 passed |
+| M8  | the standard message is blanked                         | standard is empty                                  | `expected '' to be 'Hi Rowan, Alex from Example Aftercare…'`                                                                                                                                                                 | 1 failed / 15 passed |
+| R4  | the unauthored **first** message is filled in           | first is no longer empty                           | `expected 'Hi Rowan, Alex from Example Aftercare…' to be ''`                                                                                                                                                                 | 1 failed / 15 passed |
+| M4a | the already-seeded return reports a population          | `populated` is true on the second call             | `expected true to be false`                                                                                                                                                                                                  | 1 failed / 15 passed |
+| M4b | the already-seeded guard is removed entirely            | the second call re-writes and is refused           | `DemoSeedRefusedError: The Caring Contacts demo seed was refused at createPlan:rowan: idempotency-key-reused-for-a-different-write`                                                                                          | 1 failed / 15 passed |
+| M5  | a seeded mobile number is not a reserved one            | an unreserved number is present                    | `expected [ Array(2) ] to include '+61 400 000 000'`                                                                                                                                                                         | 1 failed / 15 passed |
+| M6  | the isolated Playwright exclusion is removed            | that server holds a population unasked             | `expected [ … ] to have a length of +0 but got 3`                                                                                                                                                                            | 1 failed / 15 passed |
+| M9  | the cadence labels are typed out instead of derived     | the lists differ                                   | `expected [ 'Day 1' ] to deeply equal [ 'Day 1', 'Week 1', 'Month 1', …(7) ]`                                                                                                                                                | 1 failed / 15 passed |
+| R1  | the demo predicate is dropped from `demoSeedRequested`  | the **production-empty** case fails                | `expected [ … ] to have a length of +0 but got 3`                                                                                                                                                                            | 2 failed / 14 passed |
+| R2  | the production gate is removed from `applyDemoSeed`     | the I1 case fails                                  | `expected true to be false`                                                                                                                                                                                                  | 1 failed / 15 passed |
+| R3  | a seeded value uses closed vocabulary                   | the **vocabulary scan** fails                      | `expected 'Safe' not to match /high risk\|safe\|…/i`                                                                                                                                                                         | 1 failed / 15 passed |
+| R5  | the seed stops marking its version as invented          | the record claims nothing                          | `expected undefined to be 'syntheticDemonstration'`                                                                                                                                                                          | 1 failed / 15 passed |
+| R6  | the store's snapshot copy enumerates its fields again   | the marker is dropped on the way out               | `expected undefined to be 'syntheticDemonstration'`                                                                                                                                                                          | 1 failed / 15 passed |
+| R7  | the page stops carrying provenance to the wizard        | the join case fails                                | `expected null to be 'Invented for demonstration: no person…'`                                                                                                                                                               | 1 failed / 12 passed |
+| R8  | stage 2 stops printing the provenance                   | the note is not on the screen                      | `TestingLibraryElementError: Unable to find an element with the text: Invented for demonstration: no person recorded either approval.`                                                                                       | 1 failed / 71 passed |
+| N1  | the wizard's referral is left un-accepted               | the wizard-referral case fails                     | `expected 'awaitingHandover' to be 'accepted'`                                                                                                                                                                               | 1 failed / 15 passed |
+| N2  | the store's memoisation is removed                      | the in-memory-branch case fails                    | `expected { …(39) } to be { …(39) }`                                                                                                                                                                                         | 1 failed / 15 passed |
+| N3  | stage 2 prints a provenance line for **every** version  | the negative wizard case fails                     | **survived at first — see below**                                                                                                                                                                                            | see below            |
+| P1  | an unrecognised provenance resolves to no claim         | the resolver and the page both lose the qualifier  | `AssertionError: an unrecognised provenance (trainingCopy) lost its qualifier: expected null to be 'Invented for demonstration: no person…'`, and on the page `expected null to be 'Invented for demonstration: no person…'` | 2 failed / 22 passed |
+| P2  | the wizard's referral-named-no-pathway guard is removed | the first-choice case fails on the group **count** | `AssertionError: expected [ …(2) ] to have a length of 1 but got 2`                                                                                                                                                          | 1 failed / 71 passed |
 
 **R1 fails two cases rather than one, and that is correct**: dropping the demo predicate populates
 both the production store and the one `applyDemoSeed` is handed, which are two different guards on
@@ -340,7 +340,7 @@ the same fact. It is listed as 2/14 rather than presented as an isolation.
 renders the paragraph for every option — and a null note renders as an _empty_ paragraph, so a case
 asserting the wording is absent passed against a screen that had gained an element per version. The
 negative case asserted on text where the condition controls an element. It now asserts on a stable
-handle, and N3 dies against the strengthened test: `2 failed | 70 passed`, on
+handle, and N3 dies against the strengthened test: `2 failed / 70 passed`, on
 `expected [ <p …(2)></p> ] to have a length of +0 but got 1` — the empty paragraph the earlier
 assertion could not see.
 
@@ -355,10 +355,17 @@ loop beneath one of them then iterated nothing, so the case existing to prove no
 ever written could go green having checked no number at all. One source mutation, run twice, is what
 demonstrates that:
 
-|     | Mutation                                      | Result                                                                                                                                                                |
-| --- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| V1  | the seed creates no plans, **guards present** | 6 failed \| 10 passed — including `names every patient in the caseload` and `uses only the reserved fictional numbers`, both `expected [] to not have a length of +0` |
-| V2  | the same empty seed, **guards removed**       | 4 failed \| 12 passed — **those two cases drop out of the failure list**, i.e. they pass on a seed that produced nothing                                              |
+|     | Mutation                                      | Result                                                                                                                                                               |
+| --- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| V1  | the seed creates no plans, **guards present** | 6 failed / 10 passed — including `names every patient in the caseload` and `uses only the reserved fictional numbers`, both `expected [] to not have a length of +0` |
+| V2  | the same empty seed, **guards removed**       | 4 failed / 12 passed — **those two cases drop out of the failure list**, i.e. they pass on a seed that produced nothing                                              |
+
+The counts column below uses `N failed / M passed` rather than a pipe. Two rows had rendered as six
+cells in a five-column table: the cell held an escaped pipe, and Prettier's column padding separated
+the backslash from the pipe, at which point it stopped escaping. Both were rows whose text had been
+lengthened, so a reformat moved the padding. This column is the evidence that a mutation isolated one
+assertion rather than making a case red, and evidence that does not render is not evidence — so it
+now uses a character no reformat can un-escape.
 
 **P1 is the round-2 blocking defect's proof, and what made that defect invisible is the point.** The
 call-site lookup returned `undefined` — not `null` — for a provenance outside the union, so the
@@ -368,11 +375,13 @@ writer produces such a value; it can only arrive through the Postgres reader's u
 does not notice a defect reachable only by a value none of its fixtures can express, which is why the
 fixtures now cast exactly where the store casts.
 
-**P2 replaced two assertions that could not fail.** The first-choice case asserted the absence of two
-known headings; removing the component's guard renders a _third_ panel — "Accepting this referral
-named null …" — whose accessible name matches neither regex, so the case passed against a screen
-stating a decision about a referral that named nothing. Counting the groups the stage is entitled to
-is what pins the branch, and P2's observed message is that count rather than a missing heading.
+**P2 supplemented two assertions that could not fail — it did not replace them.** Both `queryByRole`
+lines are still in the case, with the group count added ahead of them: they are correct as far as they
+go, and they name two specific headings that would be lost by deleting them. What they could not do
+is fail. Removing the component's guard renders a _third_ panel — "Accepting this referral named
+null …" — whose accessible name matches neither regex, so the case passed against a screen stating a
+decision about a referral that named nothing. Counting the groups the stage is entitled to is what
+pins the branch, and P2's observed message is that count rather than a missing heading.
 
 **What still carries no mutation, stated exactly.** One case in the seed suite: _"approved by two
 different people through the domain's own transition"_. It cannot be falsified by mutating the seed,
@@ -397,8 +406,10 @@ reported from an exit code**; each line is the run's own summary.
   to enter a strictly typed snapshot field — the fixture now casts in the same place the Postgres
   reader does, which is also the more honest reproduction of the defect.
 
-  Both are the same mistake: verifying, then adding, then not re-verifying. The gate caught it both
-  times, which is the argument for running it last rather than early.
+  Both are the same mistake: verifying, then adding, then not re-verifying. I first drew the rule as
+  "run the gate last", and that is only half of it — "last" prevents nothing unless nothing is added
+  afterwards, which is exactly the assumption that failed both times. **The mechanism is re-verifying
+  after the final edit**, whenever that edit lands, and it is the rule this task ends on.
 
 - `npm run lint` — `2 problems (2 errors, 0 warnings)`, both in
   `tests/caring-contacts-empty-state.dom.test.tsx`, which is untouched by this branch. The reviewer
@@ -414,7 +425,7 @@ reported from an exit code**; each line is the run's own summary.
   gate: `Test Files  1 passed (1)` / `Tests  16 passed (16)`.
 - `npm run test`, the full offline suite — run **before** the standing discipline was updated to
   reserve it for the controller at the merge point. Its last result was
-  `Test Files 1 failed | 835 passed | 3 skipped (839)` / `Tests 1 failed | 10205 passed | 74 skipped`,
+  `Test Files 1 failed / 835 passed | 3 skipped (839)` / `Tests 1 failed / 10205 passed | 74 skipped`,
   and that single failure is the contamination described immediately below, now fixed. **I have not
   re-run it**, per the updated discipline reserving it for the controller at the merge point; the two
   runs above are the evidence for the fix, and the controller's merge-point run is what should
@@ -441,3 +452,48 @@ provider-backed gate was run or needed.
 **`STANDING-DISCIPLINE.md` is the controller's and the controller has committed it** (`81a20f2d5`,
 updated at `fc8b8e1bb`). An earlier draft of this report said it sat uncommitted in the worktree and
 that I had left it alone; that was true when written and is not now.
+
+## Round 3
+
+Small, and two of the five were claims that were simply false.
+
+**The naming assurance was wrong, in the code as well as the report — and it was wrong twice.**
+Round 1 wrote "the given names below are new"; round 2 aligned the report to that comment rather than
+checking either. Checked at the merge base this time, per name:
+
+| Seeded name     | Where it already existed at the merge base                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `Mira Example`  | verbatim, in the mockup fixtures (`caring-contacts/mockups/fixtures.ts`, `care-plan/mockups/fixtures.ts`)             |
+| `Rowan Example` | verbatim, in this workspace's own test fixtures (`caring-contacts-plan-draft.dom`, `-plan-activation`)                |
+| `Ari Sample`    | the one new **pairing** — `Ari` from `Ari Placeholder` in the care-plan mockup fixtures, `Sample` from `Rowan Sample` |
+
+So not one given name is new, and neither surname is. The honest statement is that nothing was drawn
+from outside this repository's existing synthetic vocabulary, and the two surnames — `Sample` and
+`Example` — are what make the names unmistakably not a real person's. That is now written per name in
+`demo-seed.ts` rather than summarised, because a summary is what was wrong twice.
+
+Worth more than its size, and the reason it is spelled out: that comment exists to tell a later reader
+that no real person's name is in the seed. A sentence that is wrong about where the names came from
+undermines the one assurance it was written to give. (`wren` and `nima` are identifiers, never names —
+those two referrals carry no plan and so store no patient detail. The comment now says so, because
+they read like names.)
+
+**A comment went stale in the same round that changed the mechanism.** `plan-wizard.tsx` still said
+the page resolves through `PATHWAY_VERSION_PROVENANCE_WORDING`; it resolves through
+`pathwayVersionProvenanceWording`. The page's own comment was updated and this one was not. I then
+swept every doc comment in the files this work touches rather than grepping the phrase — the only
+remaining references to the map are inside the resolver's own docstring, where quoting the unsafe
+call-site spelling is deliberate.
+
+**`tests/caring-contacts-pathway-versions.test.ts` is now in `test:cc-guards`.** It holds the direct
+proof of the fallback, including `"constructor"`, `"toString"` and `"__proto__"` — the cases nobody
+will think to re-derive. The branch was already covered end to end by the gate-carried page case, so
+this was a gap rather than a hole.
+
+**Two report corrections.** P2 supplemented rather than replaced (both `queryByRole` lines are still
+there). And two table rows rendered as six cells in a five-column table — see the note above the
+mutation table; the counts column no longer contains a pipe at all.
+
+**On reporting commit identifiers.** I reported `4c1a5ff96` for the cast fix; no such object exists —
+the commit is `856f1fd7e`, after an amend. The check is one command, `git cat-file -e <sha>^{commit}`,
+and every SHA in this round's hand-back was run through it.
