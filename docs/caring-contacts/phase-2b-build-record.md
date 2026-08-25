@@ -1405,3 +1405,59 @@ would put a fabricated sentence on a clinical record and make it indistinguishab
 clinician typed. It is nullable with no default, transactional, replay-safe, and carries a
 `comment on column` recording the clearance obligation — so the obligation travels with the schema
 rather than living only in a test.
+
+### Task 6b task review — spec compliance PASS, quality GOOD, two Important and three Minor
+
+The reviewer verified the two highest-risk items itself before anything else, and both hold. Clearance
+is real in all three places rather than only in the suite: the in-memory store spreads
+`CLEARED_PATIENT_DETAIL` whole, the Postgres store sources its `first_contact_reason = $5` from that
+same constant, and `CLEARED_PATIENT_DETAIL` is now typed `StoredPatientDetail` so **omitting the field
+stops the module compiling**. `DeidentifiedEpisode` is an explicit literal rather than derived from
+`Episode`, so the field cannot leak into a de-identified projection structurally, and the retention
+test pins it at runtime with a content grep. The migration is in
+`caring-contacts/supabase/migrations/` and the repository root's production-deploying directory is
+untouched — checked independently by both the reviewer and me.
+
+**I-1, and it is the finding worth carrying forward.** The `PLAN_COLUMNS` guard — this task's best
+work — was installed in `tests/caring-contacts-postgres-repository.test.ts`, which is in
+`caringContactsDbTestFiles` and **unconditionally excluded from the offline `node` project**. And
+`grep -rn "caring-contacts" .github/workflows/` returns **zero hits**: CI never runs the caring-contacts
+database suite at all. So the guard holding the narrowing that this task's headline finding is about
+fires only when a human happens to have Docker Postgres running. The guard needs no database — it is
+a `readFileSync` and a regex.
+
+**This is "a check that cannot fail" arriving one step later than usual.** The usual shape is a guard
+whose assertion is vacuous. This one's assertion is sound and its positive control is not vacuous —
+the reviewer verified that a rename or deletion of `PLAN_COLUMNS` goes red rather than passing by
+matching nothing, which is exactly how this class of scan normally fails silently. **The guard is
+correct; it is the runner that cannot reach it.** Worth stating as its own failure mode: _where a
+check lives decides whether it exists._
+
+The second half of that — that the other 193 database tests, including every row-level-security and
+cross-team assertion the shared contract makes against real SQL, also never run in CI — is bigger than
+this task and is filed (`b60f9982`, P2).
+
+**On the length cap's duplicated literal: the cited precedent is real but NOT symmetric, and the
+asymmetry is the whole argument.** `plan_assignments_coverage_is_calendar_days` does hardcode a
+pattern duplicating `CALENDAR_DAY_PATTERN`, so the pattern is established. But the calendar-day
+TypeScript check is _strictly stricter by construction_ — it also rejects `2026-02-30` — so drift
+there can only make the SQL redundant. Here it is the other way: raising
+`FIRST_CONTACT_REASON_MAX_LENGTH` without the SQL converts a **named refusal into a raw constraint
+violation on a clinical write**. A scan is owed. **"There is precedent" answers whether a pattern is
+novel, never whether it is safe.**
+
+**On the format disclosure, which lands on its own axis.** The implementer disclosed writing "format
+changed nothing" after reading `git status` while Prettier was still running, corrected it, and re-ran
+two mutations against the formatted tip. The reviewer checked and the **ledger is sound** — the
+reflowed hunk sits below M9's anchor and no other mutation touches a formatted file. But the sentence
+explaining _why_ the re-run was sufficient is false: Prettier touched three files, and
+`patient-overview.tsx` carries two mutations, M9 and M10, of which only M10 was re-run or mentioned.
+**A disclosure whose moral is "check the claim rather than assert it" contained an unchecked claim.**
+That is not hypocrisy, it is how hard the habit is; recorded because noticing it in someone else's
+disclosure is much easier than in one's own.
+
+**Also filed:** carrying `retention_state.cleared_at` onto `Episode` so the screen stops inferring
+clearance from a blank patient name (`7ab6b272`, P3). The reviewer traced why the inference is sound
+today and why it is worth closing anyway: the guarantee lives in a Zod schema at the API edge, not as
+a domain invariant — `createPlan` does not validate it and the column permits `""` — and this task
+made a second statement depend on it.

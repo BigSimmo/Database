@@ -35,7 +35,19 @@
 -- equal to `FIRST_CONTACT_REASON_MAX_LENGTH`.
 --
 -- A blank string is refused as well as an over-long one: the domain trims before storing and writes
--- null when nothing was required, so '' and '   ' can only be a bug in a caller.
+-- null when nothing was required, so a whitespace-only value can only ever be a caller's bug.
+--
+-- "BLANK" HERE MEANS POSIX WHITESPACE, WHICH IS NOT QUITE WHAT THE DOMAIN MEANS, and the difference
+-- is stated rather than glossed. The domain trims with JavaScript's `String.prototype.trim`, which
+-- strips the whole Unicode whitespace set; this check classifies with `[[:space:]]`, which in a
+-- UTF-8 locale covers space, tab, newline, carriage return, form feed and vertical tab but not
+-- exotica such as a non-breaking space. So a value consisting solely of U+00A0 would satisfy this
+-- constraint and would never have reached it through the domain. That residual is accepted: this is
+-- a backstop against a write that bypassed the domain entirely, not a second implementation of the
+-- domain's rule, and narrowing it further would mean encoding a Unicode table in a check constraint.
+-- What matters is that the constraint and this comment describe the same behaviour. An earlier
+-- revision used bare `btrim()`, which strips SPACES ONLY -- so a tab-only or newline-only value
+-- passed a constraint whose comment said blanks were refused. Review round 1 closed that.
 --
 -- Row-level security needs nothing here. `caring_contacts.plans` already has it enabled and forced,
 -- policies are per row rather than per column, and 0002's grants are table-wide -- so this column is
@@ -64,7 +76,14 @@ begin
       add constraint plans_first_contact_reason_shape
       check (
         first_contact_reason is null
-        or (char_length(btrim(first_contact_reason)) between 1 and 500)
+        or (
+          -- At least one character that is not whitespace.
+          first_contact_reason ~ '[^[:space:]]'
+          -- And no longer than the domain's cap once surrounding whitespace is discounted. The
+          -- number must equal FIRST_CONTACT_REASON_MAX_LENGTH in src/lib/caring-contacts/schedule.ts;
+          -- tests/caring-contacts-domain-isolation.test.ts fails if the two ever disagree.
+          and char_length(regexp_replace(first_contact_reason, '^[[:space:]]+|[[:space:]]+$', '', 'g')) <= 500
+        )
       );
   end if;
 end;
