@@ -223,6 +223,21 @@ exiting 0 with no summary. A lease refusal was hit repeatedly — one exclusive 
 time across every worktree and another implementer was active — and every one was retried, never
 forced past.
 
-- `node scripts/run-vitest.mjs run --reporter=dot tests/caring-contacts-demo-seed.test.ts`
-  — `Test Files  1 passed (1)` / `Tests  14 passed (14)`
-- `npm run typecheck` — clean; `[gate-receipts] recorded a pass for "typecheck:internal" (5338 input files).`
+- `npm run typecheck` — clean.
+  `[gate-receipts] recorded a pass for "typecheck:internal" (5338 input files).`
+- `npm run lint` — **`2 problems (2 errors, 0 warnings)`**, both pre-existing and both in
+  `tests/caring-contacts-empty-state.dom.test.tsx`. See F6. No error anywhere in the files this task
+  added or changed, which is what that run establishes for this diff.
+- `npm run test`, the full offline suite, once:
+  `Test Files  836 passed | 3 skipped (839)` / `Tests  10201 passed | 74 skipped (10275)`,
+  `Duration 620.80s`. (The `check:function-grants: FAIL` lines in that output are printed by the
+  guard-under-test exercising its own failure path, not by a failing case — the counts above are the
+  verdict.)
+- `node scripts/run-vitest.mjs run --reporter=dot tests/caring-contacts-demo-seed.test.ts`, re-run
+  last against the final tree because formatting landed close to the full suite's start:
+  `Test Files  1 passed (1)` / `Tests  14 passed (14)`.
+
+**Not run, and why.** `npm run format` whole-tree — Prettier was run over the four changed files and
+they are clean, but the repository-wide check the pre-push guard performs was not, and this task does
+not push. `npm run verify:ui` — no component, route, style or chrome change here; the browser gate's
+inputs are untouched, which F1 exists to keep true. No provider-backed gate was run or needed.
