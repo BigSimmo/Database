@@ -254,7 +254,13 @@ describe("Ward Flow route/render-map coverage (D8 nav check — sanity check on 
 describe("Every Ward Flow route carries the 'Ward Flow views' in-page nav (D8)", () => {
   for (const entry of RENDERABLE_ROUTES) {
     it(`renders the Ward Flow views nav on ${entry.route}`, () => {
-      const markup = renderToStaticMarkup(createElement(WardFlowProvider, { initialNow: NOW_ANCHOR }, entry.render()));
+      // `children` in the props object, not positional — `WardFlowProviderProps` declares it
+      // required, so the positional form fails the type (TS2769). This file cannot use JSX
+      // instead: it is deliberately `.test.ts` so it collects under vitest's "node" project
+      // rather than jsdom (see the header). Same exception as tests/ward-landmarks.test.ts.
+      // eslint-disable-next-line react/no-children-prop -- WardFlowProviderProps requires `children`
+      const element = createElement(WardFlowProvider, { initialNow: NOW_ANCHOR, children: entry.render() });
+      const markup = renderToStaticMarkup(element);
       const matches = markup.match(/aria-label="Ward Flow views"/g) ?? [];
       expect(
         matches.length,

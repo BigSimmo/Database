@@ -144,7 +144,14 @@ describe("Ward Flow route/render-map coverage (sanity check on the scan and the 
 });
 
 function renderRoute(entry: RouteRender): string {
-  return renderToStaticMarkup(createElement(WardFlowProvider, { initialNow: NOW_ANCHOR }, entry.render()));
+  // `children` goes in the props object, not as a third argument, because `WardFlowProviderProps`
+  // declares it REQUIRED — passing it positionally leaves the props object failing the type
+  // (TS2769). The lint rule below prefers the positional form for JSX ergonomics, but this file
+  // cannot use JSX: it is deliberately `.test.ts` rather than `.test.tsx` so it collects under
+  // vitest's "node" project instead of jsdom (see this file's header), and `renderToStaticMarkup`
+  // needs no DOM. So the rule and the type contract genuinely disagree here, and the type wins.
+  // eslint-disable-next-line react/no-children-prop -- see above: WardFlowProviderProps requires `children`
+  return renderToStaticMarkup(createElement(WardFlowProvider, { initialNow: NOW_ANCHOR, children: entry.render() }));
 }
 
 describe("Every Ward Flow route has exactly one #main-content skip-link target (D5, D6)", () => {
