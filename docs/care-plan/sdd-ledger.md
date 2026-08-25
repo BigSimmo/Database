@@ -110,7 +110,9 @@ is the only damage it carried — its tracked tree was clean and byte-identical 
 | 8. Personal Safety Plan, print                 | **complete, review clean**        | `5e8f812a7..79cfa97b3` | 369/369 passing, typecheck + lint clean, 58 mutations / 58 killed                                                                                                             |
 | 9. Patient Plan, transform, print              | **complete, review clean**        | `73d004095..7f19e1a1b` | 446/446 then 222/222 on the touched file, typecheck + lint clean, 29 + 3 + 4 + 5 + 4 mutations, all killed                                                                    |
 | 10. Reviews, Team, Governance, History, states | **complete, 9 parked at the cap** | `996cbc407..d7861e815` | 495/495 + 24/24 route-files, typecheck + lint clean, 24 mutations all killed, 5 fix rounds, 4 re-reviews                                                                      |
-| 11. Browser journeys, docs, handoff            | **complete, unreviewed**          | `157c48f33..HEAD`      | Browser `29 passed (1.6m)`; focused Vitest `517 passed (517)` across 7 files; 4 probes against the new link gate, all killed; 3 wiring defects found in the browser and fixed |
+| 11. Browser journeys, docs, handoff            | **complete, review clean**        | `157c48f33..40a9fae64` | Browser `30 passed (1.5m)`; focused Vitest `524 passed (524)` across 7 files; 3 wiring defects found on first rendering and fixed; 1 task review, 1 fix round                          |
+| D1. Participation moment (user decision)       | **complete**                      | `be6edb968..db6167a10` | `510 passed (510)`, typecheck + lint clean, 6 controls all killed including the ungated-repoint case                                                                                   |
+| Final. Whole-branch review + fix wave          | **in progress**                   | `40a9fae64..`          | Verdict **ready with conditions**: 1 Critical, 2 Important, 3 Minor, plus 3 deferred minors triaged must-fix. Fix wave `530 passed (530)`, Chromium `30 passed`, 11 controls all killed |
 
 Stage A is Tasks 1–5. The plan makes Task 5 a mandatory stop for user review; **the user
 lifted that stop on 22 August 2026**, instructing the session to report at the boundary and
@@ -1168,6 +1170,40 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     `paper-*.txt` for each print surface so a person can read what a patient would be handed.
     _Cost if wrong:_ three more ignored files in `.local/`.
 
+### D1 and the whole-branch review
+
+63. **`Last confirmed` on the patient's own safety plan was fixed rather than held for the user.**
+    D1 added a separate recorded moment for when a person's participation was written. Investigating
+    it surfaced that both the reading surface and **the printed sheet the patient takes home** read
+    `confirmedAt` — the day the version was published — and labelled it the day the person
+    confirmed. The user's D1 decision was taken about the History line; this is the same defect on a
+    document with higher stakes, and the principle they chose answers it. It was also, by then,
+    worse than when found: D1 had made two adjacent screens disagree about the same fact, History
+    saying 03/09/2025 and the safety plan 04/09/2025. Two confident dates for one event is a worse
+    record than one wrong date.
+
+    **The gate is the substance of this ruling.** After D1 a person who *declined* also holds a
+    recorded moment, so repointing the timestamp alone would have printed a confirmation line on a
+    declining patient's own sheet — a new defect worse than the one being fixed. The row is
+    therefore gated on `patientConfirmation === "confirmed"` **and** the moment being present, and
+    control C6 proves it: removing the gate reddens three named tests, including
+    `prints no confirmation line at all on the sheet of a person who declined`. _Cost if wrong:_ the
+    wording is provisional pending the user's copy pass; the dating is not.
+
+64. **The whole-branch review's Critical was fixed before handing the branch to the user, rather
+    than reported to them.** It found the patient's own copy printing, unconditionally, *"This is
+    your copy of the plan you and your team wrote together"* on a Management Plan Version approved
+    at `declined` or `patient_unavailable` — states that carry `ParticipationMarker` on every
+    clinician surface. Neither Patient Plan surface read `participationState` at all. Reachable in a
+    journey the suite already walked.
+
+    Held items on this branch are things the user must *choose*; this was not a choice, it was the
+    product telling a person something untrue about their own care, on paper. It is the sharpest
+    instance of the class that produced this build's two worst defects, both of which broke no rule
+    and failed no gate. The fix reuses the existing `ParticipationMarker` and a single
+    `claimsJointAuthorship` predicate so the marker and the sentence cannot drift apart. _Cost if
+    wrong:_ the replacement wording is provisional and one line to change; the condition is not.
+
 ### User decisions, 25 August 2026
 
 These were **decided by the user**, not ruled on their behalf. They are recorded here in the
@@ -1211,6 +1247,44 @@ by user instruction** rather than omitting it — an unrun check reported as unr
 unrun check left unmentioned is a false claim of completeness. That reporting duty is unchanged by
 the revision, and matters more under it: the shorter the list of checks actually run, the more the
 report has to be straight about which they were.
+
+**D3. The confidential-document footer is shortened, on all three printed sheets.** Ruling 60 left
+this for the user; the whole-branch review independently reached the same recommendation. Shown the
+line in context, the user chose the wording themselves:
+
+> Confidential clinical document. Handle according to local policy.
+
+It replaces _"Confidential clinical document. Handle it, keep it, and dispose of it according to
+local health service policy."_ The old line did two things wrong on a patient's sheet: it
+contradicted the page four lines above it, which asks the person to keep the document somewhere
+they can find it quickly, and it instructed a patient to follow a policy they do not have and
+cannot consult. The new line states the document's status and points handling at local policy
+without telling the person to do something they cannot do — and it stays correct on the clinician's
+print, where local policy is exactly the right pointer and the reader can act on it.
+
+**The change is to the shared constant, and the blast radius was verified before it was made:**
+`confidential` is set by exactly three consumers, all Care Plan's own print surfaces. Nothing
+outside Care Plan renders that footer, so no other product's output moved. One wording, three
+sheets, nothing to drift.
+
+**D4. The Patient Plan must not tell a person they helped write a plan they took no part in —
+including in its section headings.** Ruling 64 fixed the opening sentence and the fix wave then
+reported, correctly rather than quietly, that the eight section headings and lead-ins still made
+the claim it had just removed: `Why we wrote this together`, _"This is the approach you and your
+team agreed"_, _"These are the things you have said matter to you"_. Those come from the
+specification, so they were held for the user, who decided: **stop saying they helped write it.**
+
+Three constraints on how that is done, and they matter as much as the decision: the same
+`claimsJointAuthorship` predicate governs the headings, the lead-ins and the marker, so one truth
+drives all of them and none can drift; where a plan genuinely **was** co-produced nothing changes,
+because there the claim is true and warm; and the alternatives state what a section holds rather
+than narrating an absence — nothing reads as _you were not there_ or _you declined_. The person has
+done nothing wrong, and the glossary is explicit that non-participation is never labelled
+non-compliance. All replacement wording is **provisional**, pending the user's patient-facing copy
+pass.
+
+`discussed_not_confirmed` deliberately keeps the joint wording, mirroring `PARTICIPATION_MARKER_STATES`:
+a plan discussed with someone who did not confirm it is not a plan written without them.
 
 ---
 
