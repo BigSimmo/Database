@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleAlert,
+  CircleSlash,
   Clock3,
   FileCheck2,
   FileClock,
   Fingerprint,
+  History,
   Info,
   LockKeyhole,
   MapPin,
@@ -19,6 +21,7 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  Users,
   UserRound,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -27,7 +30,9 @@ import { eligibility } from "@/components/ward-management/ward-eligibility";
 import {
   buildActionInbox,
   candidateReason,
+  changeAudit,
   destinationUnit,
+  effectivenessNumbers,
   eligibleCandidatesAmong,
   elapsedLabel,
   isOpen,
@@ -37,6 +42,7 @@ import {
   roleTaskLabel,
   stageSummaries,
   unitCapacity,
+  type ChangeAuditEntry,
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
@@ -77,6 +83,14 @@ const modeCopy: Record<WardMode, { title: string; description: string }> = {
   exceptions: { title: "Action inbox", description: "Owned exceptions, deadlines and stale state" },
   transport: { title: "Transport", description: "Legal, document, booking and handover readiness" },
   governance: { title: "Governance", description: "Assurance, audit and synthetic data boundary" },
+};
+
+/** Task 9: a short human label for each `ChangeAuditEntry` kind — never the raw union value on screen. */
+const auditKindLabels: Record<ChangeAuditEntry["kind"], string> = {
+  urgency: "Urgency change",
+  legal_status: "Legal status change",
+  hold_released: "Hold released",
+  transport_cancelled: "Transport cancelled",
 };
 
 /** Same role-ordering rule as the command console: human urgency order stays, role just re-sorts by owner. */
@@ -635,6 +649,38 @@ function TransportView() {
   );
 }
 
+/**
+ * Task 9 (spec item 7): the not-a-medical-device statement. `coordinator-screen.tsx` carried this
+ * wording first; it is exported from here and imported there (see that file's own governance
+ * banner) so the two screens render the exact same statement rather than two independently
+ * maintained copies that could quietly drift apart — the failure mode the brief calls worse than
+ * a single missing statement.
+ */
+export function NotAMedicalDeviceStatement() {
+  return (
+    <p>
+      This screen is <strong>not a medical device</strong>. It orders operational placement work only — it never
+      assesses a patient&apos;s risk, acuity or treatment. A human coordinator confirms or overrides every suggestion.
+    </p>
+  );
+}
+
+/** Renders a computed effectiveness number, or its explicit absence — never a substituted `0`.
+ *  Rule 4 (conservative failure): a measure this cannot compute must read as unknown, not as a
+ *  suspiciously perfect result. */
+function EffectivenessValue({ value, unit }: { value: number | undefined; unit: string }) {
+  if (value === undefined) {
+    return <span className={styles.effectivenessUnknown}>Not enough data to compute</span>;
+  }
+  const rounded = Math.round(value * 10) / 10;
+  return (
+    <span>
+      {rounded}
+      <small> {unit}</small>
+    </span>
+  );
+}
+
 function GovernanceView() {
   const { movements } = useWardFlow();
   const sources = [
@@ -651,8 +697,14 @@ function GovernanceView() {
   ];
   const sample = movements[0];
   const timeline = movementTimeline(sample);
+  const audit = changeAudit(movements);
+  const effectiveness = effectivenessNumbers(movements);
   return (
     <div data-testid="ward-governance-view">
+      <div className={styles.governanceBanner} data-testid="ward-governance-medical-device-notice">
+        <span className={styles.prototypeBadge}>Synthetic prototype</span>
+        <NotAMedicalDeviceStatement />
+      </div>
       <section className={styles.assuranceGrid}>
         <article className={styles.governanceCard}>
           <Sparkles aria-hidden="true" />
@@ -740,6 +792,71 @@ function GovernanceView() {
               </li>
             ))}
           </ul>
+        </aside>
+      </div>
+      <div className={`${styles.pageGrid} ${styles.governanceLowerGrid}`}>
+        <section className={styles.panel} data-testid="ward-governance-change-audit">
+          <header className={styles.panelHeader}>
+            <div>
+              <h2>Change audit</h2>
+              <p>Every urgency change, legal status change, hold release and transport cancellation, newest first</p>
+            </div>
+          </header>
+          {audit.length > 0 ? (
+            <ol className={styles.auditList}>
+              {audit.map((entry, index) => (
+                <li key={`${entry.movementId}-${entry.kind}-${entry.at}-${index}`}>
+                  {entry.kind === "hold_released" || entry.kind === "transport_cancelled" ? (
+                    <History aria-hidden="true" />
+                  ) : (
+                    <Clock3 aria-hidden="true" />
+                  )}{" "}
+                  {formatInstant(entry.at)} · {entry.movementId} · {auditKindLabels[entry.kind]} · {entry.detail} · by{" "}
+                  {entry.by}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className={styles.emptyNote} data-testid="ward-governance-change-audit-empty">
+              None — no urgency change, legal status change, hold release or transport cancellation has been recorded
+              yet.
+            </p>
+          )}
+        </section>
+        <aside className={styles.panel} data-testid="ward-governance-effectiveness">
+          <header className={styles.panelHeader}>
+            <div>
+              <h2>Effectiveness</h2>
+              <p>Two measures computed from this synthetic scenario</p>
+            </div>
+          </header>
+          <dl className={styles.effectivenessList}>
+            <div data-testid="ward-governance-effectiveness-acceptance">
+              <dt>
+                <Clock3 aria-hidden="true" /> Median time, referral to a ward accepting
+              </dt>
+              <dd>
+                <EffectivenessValue value={effectiveness.medianMinutesToAcceptance} unit="min" />
+              </dd>
+            </div>
+            <div data-testid="ward-governance-effectiveness-units-contacted">
+              <dt>
+                <Users aria-hidden="true" /> Average units contacted per patient
+              </dt>
+              <dd>
+                <EffectivenessValue value={effectiveness.averageUnitsContacted} unit="units" />
+              </dd>
+            </div>
+          </dl>
+          <p className={styles.notice}>
+            Both numbers describe today&apos;s synthetic scenario only. Neither is evidence that this prototype works,
+            and neither may be read as real-world performance.
+          </p>
+          <p className={styles.droppedMeasureNote} data-testid="ward-governance-dropped-measure">
+            <CircleSlash aria-hidden="true" /> A third success measure — legal deadlines passed while a patient waits —
+            is dropped. Every legal deadline was removed from this model on the product owner&apos;s instruction, so it
+            cannot be computed and is not shown here.
+          </p>
         </aside>
       </div>
     </div>

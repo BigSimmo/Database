@@ -699,6 +699,114 @@
   line-height: var(--ward-leading-prose);
 }
 
+/* Task 9 (spec item 7): the not-a-medical-device banner. Same visual language as
+ * coordinator.module.css's own `.governanceBanner` — a bordered strip with the prototype badge
+ * and the shared statement text — expressed with this file's own `--ward-*` tokens. */
+.governanceBanner {
+  display: flex;
+  min-height: 3rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ward-space-12);
+  border: 0.0625rem solid var(--ward-blue-border);
+  border-radius: var(--radius-lg);
+  background: var(--ward-blue-soft);
+  padding: var(--ward-space-10) var(--ward-space-14);
+  margin-bottom: var(--ward-space-10);
+}
+
+.governanceBanner p {
+  min-width: 0;
+  flex: 1 1 12rem;
+  margin: 0;
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.governanceBanner strong {
+  color: var(--ward-heading);
+}
+
+/* Explicit-absence note, shared by the change audit's empty state and any other "nothing
+ * recorded yet" panel on this view. */
+.emptyNote {
+  border: 0.0625rem dashed var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.effectivenessList {
+  display: grid;
+  gap: var(--ward-space-10);
+}
+
+.effectivenessList > div {
+  border: 0.0625rem solid var(--ward-border);
+  border-radius: var(--radius-md);
+  padding: var(--ward-space-10) var(--ward-space-12);
+}
+
+.effectivenessList dt {
+  display: flex;
+  align-items: center;
+  gap: var(--ward-space-6);
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
+}
+
+.effectivenessList dt svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--ward-blue);
+}
+
+.effectivenessList dd {
+  margin-top: 0.25rem;
+  color: var(--ward-heading);
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.effectivenessList dd small {
+  margin-left: 0.25rem;
+  color: var(--ward-muted);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+}
+
+.effectivenessUnknown {
+  color: var(--ward-muted);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+/* The dropped-third-measure notice. Warning tone (not the blue `.notice` tone) because this is
+ * flagging an absence the reader must not mistake for a clean two-out-of-two report. */
+.droppedMeasureNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ward-space-8);
+  margin-top: 0.75rem;
+  border-left: 0.1875rem solid var(--ward-warning);
+  background: var(--ward-warning-soft);
+  padding: var(--ward-space-10) var(--ward-space-12);
+  color: var(--ward-text);
+  font-size: var(--text-2xs);
+  line-height: var(--ward-leading-prose);
+}
+
+.droppedMeasureNote svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin-top: 0.125rem;
+  color: var(--ward-warning);
+}
+
 @media (max-width: 78rem) {
   .headerMeta > span:not(.prototypeBadge) {
     display: none;

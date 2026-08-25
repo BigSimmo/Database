@@ -22,6 +22,11 @@ import {
   type EligibilityVerdict,
 } from "@/components/ward-management/ward-eligibility";
 import {
+  changeReasonLabels,
+  type CancelTransportReason,
+  type ReleaseHoldReason,
+} from "@/components/ward-management/ward-change-reasons";
+import {
   MOVEMENT_STAGES,
   PARALLEL_REFERRAL_CAP,
   type HealthService,
@@ -677,4 +682,133 @@ export function movementTimeline(movement: Movement) {
     events.push({ at: movement.closure.at, label: movement.closure.reason });
   }
   return events.sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Task 9 (spec item 7): the governance board's audit of changes — every urgency change, legal
+ * status change, hold release and transport cancellation across ALL movements, not one patient's
+ * own timeline (`movementTimeline` above stays scoped to a single movement; this is the
+ * statewide counterpart). Newest first, so the most recent decision is the one a reviewer sees
+ * without scrolling.
+ */
+export type ChangeAuditEntry = {
+  at: Instant;
+  movementId: string;
+  kind: "urgency" | "legal_status" | "hold_released" | "transport_cancelled";
+  by: string;
+  detail: string;
+};
+
+export function changeAudit(movements: Movement[]): ChangeAuditEntry[] {
+  const entries: ChangeAuditEntry[] = [];
+  for (const movement of movements) {
+    for (const change of movement.statusChanges) {
+      entries.push({
+        at: change.at,
+        movementId: movement.id,
+        kind: "legal_status",
+        by: change.by,
+        detail: `${change.from} → ${change.to} · ${changeReasonLabels[change.reason]}`,
+      });
+    }
+    for (const change of movement.urgencyChanges) {
+      entries.push({
+        at: change.at,
+        movementId: movement.id,
+        kind: "urgency",
+        by: change.by,
+        detail: `Tier ${change.from} → Tier ${change.to} · ${changeReasonLabels[change.reason]}`,
+      });
+    }
+    for (const unwind of movement.unwinds) {
+      // `UnwindRecord.reason` is typed as a plain `string` on `Movement` (ward-model.ts) because
+      // `RELEASE_HOLD` and `CANCEL_TRANSPORT` share one record shape for two different fixed
+      // reason lists. The reducer only ever writes a `ReleaseHoldReason` into a "hold_released"
+      // entry and a `CancelTransportReason` into a "transport_cancelled" one (ward-flow-reducer.ts),
+      // so this assertion narrows back to that guarantee rather than inventing one — it does not
+      // widen what values can reach the screen. Never render `unwind.reason` unlabelled: that is
+      // the raw snake_case defect this file's own doc comment on `changeReasonLabels` exists to
+      // prevent.
+      const reason = unwind.reason as ReleaseHoldReason | CancelTransportReason;
+      entries.push({
+        at: unwind.at,
+        movementId: movement.id,
+        kind: unwind.kind,
+        by: unwind.by,
+        detail: changeReasonLabels[reason],
+      });
+    }
+  }
+  return entries.sort((a, b) => b.at - a.at);
+}
+
+function median(values: number[]): number | undefined {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+/**
+ * Minutes from referral to a ward accepting, for one movement — `undefined` when that duration
+ * cannot be recovered from this record.
+ *
+ * There is no `acceptedAt` field on `Movement`: `ACCEPT_IN_PRINCIPLE` (ward-flow-reducer.ts) sets
+ * `acceptedUnitId` but stores no timestamp for the acceptance itself. The one place an acceptance
+ * instant survives is `withdrawnReferrals` — that same reducer branch withdraws every OTHER
+ * referred unit in the same update, stamping each withdrawal with `event.now`, so when a movement
+ * was accepted while more than one unit held a live referral, every entry it leaves in
+ * `withdrawnReferrals` carries the acceptance instant. `acceptedUnitId` can only ever be set once
+ * (a second `ACCEPT_IN_PRINCIPLE` on an already-accepted movement is rejected), so those entries
+ * are never overwritten or added to again. A movement accepted while only one unit was referred
+ * withdraws nothing and leaves no timestamp anywhere in this model — that movement reached
+ * acceptance but genuinely has no recoverable "when", so it is excluded here rather than guessed.
+ */
+function acceptanceDurationMinutes(movement: Movement): number | undefined {
+  if (movement.acceptedUnitId === undefined) return undefined;
+  if (movement.withdrawnReferrals.length === 0) return undefined;
+  return movement.withdrawnReferrals[0].at - movement.openedAt;
+}
+
+/** Distinct units this movement has ever referred to: currently referred, declined, withdrawn on
+ *  acceptance, and the accepted unit itself. `undefined` when the movement has never referred to
+ *  any unit, so it never contributes a fabricated zero to an average. */
+function unitsContactedCount(movement: Movement): number | undefined {
+  const contacted = new Set<string>([
+    ...movement.referredUnitIds,
+    ...movement.declines.map((decline) => decline.unitId),
+    ...movement.withdrawnReferrals.map((withdrawn) => withdrawn.unitId),
+  ]);
+  if (movement.acceptedUnitId !== undefined) contacted.add(movement.acceptedUnitId);
+  return contacted.size === 0 ? undefined : contacted.size;
+}
+
+/**
+ * Task 9 (spec item 7), D7: the governance board's two live effectiveness numbers. Conservative
+ * failure applies to each independently — a measure this cannot compute returns `undefined`,
+ * never `0`, because zero minutes to acceptance or zero units contacted both read as a real
+ * result rather than as "unknown". Both describe the current synthetic scenario only; nothing
+ * here is a claim about the prototype's real-world effectiveness.
+ */
+export function effectivenessNumbers(movements: Movement[]): {
+  medianMinutesToAcceptance: number | undefined;
+  averageUnitsContacted: number | undefined;
+} {
+  const acceptanceDurations = movements
+    .map((movement) => acceptanceDurationMinutes(movement))
+    .filter((minutes): minutes is number => minutes !== undefined);
+
+  const contactedCounts = movements
+    .map((movement) => unitsContactedCount(movement))
+    .filter((count): count is number => count !== undefined);
+
+  const averageUnitsContacted =
+    contactedCounts.length === 0
+      ? undefined
+      : contactedCounts.reduce((total, count) => total + count, 0) / contactedCounts.length;
+
+  return {
+    medianMinutesToAcceptance: median(acceptanceDurations),
+    averageUnitsContacted,
+  };
 }

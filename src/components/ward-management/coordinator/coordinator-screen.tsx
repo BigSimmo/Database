@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo, useState } from "react";
 
 import { buildActionInbox, isOpen } from "@/components/ward-management/ward-derivations";
 import { useWardFlow } from "@/components/ward-management/ward-flow-provider";
+import { NotAMedicalDeviceStatement } from "@/components/ward-management/ward-management-modes";
 import { ClinicalRail } from "@/components/ward-management/ward-management-navigation";
 import { queueOrder } from "@/components/ward-management/ward-priority";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
@@ -152,11 +153,10 @@ export function CoordinatorScreen() {
 
         <div className={styles.governanceBanner} data-testid="ward-coordinator-governance">
           <span className={styles.prototypeBadge}>Synthetic prototype</span>
-          <p>
-            This screen is <strong>not a medical device</strong>. It orders operational placement work only — it never
-            assesses a patient&apos;s risk, acuity or treatment. A human coordinator confirms or overrides every
-            suggestion.
-          </p>
+          {/* Task 9 (spec item 7): shared verbatim with the governance board's own banner via
+           * `NotAMedicalDeviceStatement` (ward-management-modes.tsx) rather than kept as a second,
+           * independently maintained copy of the same governance claim. */}
+          <NotAMedicalDeviceStatement />
         </div>
 
         <div className={styles.body} data-testid="ward-coordinator-body">
