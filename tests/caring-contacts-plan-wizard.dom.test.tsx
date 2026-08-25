@@ -377,9 +377,21 @@ describe("the caring-contacts plan wizard — stage 2, pathway (Ruling [113])", 
   it("is an ordinary first choice when the referral names no pathway", async () => {
     const user = userEvent.setup();
     renderWizard({ referralPathwayVersionId: null });
-    await reachPathwayStage(user);
+    const panel = await reachPathwayStage(user);
 
     // Nothing had been decided, so nothing is stated about a decision that was never made.
+    //
+    // Asserted as a COUNT of what the panel contains, not as the absence of two known headings.
+    // Round 2: the two `queryByRole` lines below could not fail. Dropping the `=== null` guard in
+    // the component does not render either of those panels -- it renders the OTHER branch, the
+    // "cannot be used" panel, reading "Accepting this referral named null ...". Its accessible name
+    // matches neither regex, so the case passed against a screen that had grown a panel stating a
+    // decision about a referral that named nothing. The chooser's own fieldset is the one group
+    // this stage is entitled to, so counting is what actually pins the branch.
+    const groups = within(panel).getAllByRole("group");
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toHaveAccessibleName("Choose a governed pathway version");
+
     expect(screen.queryByRole("group", { name: /decided when the referral was accepted/i })).toBeNull();
     expect(screen.queryByRole("group", { name: /changing an earlier decision/i })).toBeNull();
     for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();

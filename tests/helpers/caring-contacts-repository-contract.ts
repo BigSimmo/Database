@@ -2260,6 +2260,47 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         const third = await store.getPathwayVersion(version.id, { actor: COORDINATOR_A });
         expect(third?.snapshot.messageTextByType.standard).toBe("Checking in.");
       });
+
+      it("round-trips a snapshot's provenance, which says the approvals were given by nobody", async () => {
+        // Ruling [126]. `snapshot.provenance` is what lets a screen qualify "Approved by the
+        // clinical programme lead and the lived-experience representative" for a version whose
+        // approvals are structurally genuine and were recorded by no person. A store that drops it
+        // does not fail loudly: the record comes back looking like an ordinary approved version,
+        // and the qualifier simply stops appearing.
+        //
+        // It belongs in the SHARED contract for the reason `clonePathwayVersion`'s own note gives
+        // for this helper existing -- "the two stores came to differ on the one type carrying
+        // clinical content". This field is that type, and the in-memory store did drop it once
+        // already: its snapshot copy enumerated the fields it knew about, so a field the type had
+        // gained disappeared on the way out while every existing case stayed green. Postgres
+        // round-trips the snapshot through `jsonb` and so carries it for free; the value of the case
+        // is that the NEXT enumerating copy is caught in both stores rather than in neither.
+        const store = await newStore();
+        const version = {
+          ...draftPathwayVersion(COORDINATOR_A, "EXT-PATHWAY-PROVENANCE"),
+          snapshot: {
+            cadenceLabels: ["Day 3"],
+            messageTextByType: { standard: "Checking in.", first: "Welcome.", closing: "This is our last message." },
+            provenance: "syntheticDemonstration" as const,
+          },
+        };
+        unwrap(await store.savePathwayVersion({ version }, writeContext(COORDINATOR_A, "provenance-save")));
+
+        const fetched = await store.getPathwayVersion(version.id, { actor: COORDINATOR_A });
+        expect(fetched?.snapshot.provenance).toBe("syntheticDemonstration");
+
+        const listed = (await store.listPathwayVersions({ actor: COORDINATOR_A })).find(
+          (candidate) => candidate.id === version.id,
+        );
+        expect(listed?.snapshot.provenance).toBe("syntheticDemonstration");
+
+        // And a version that claims nothing must still claim nothing -- the marker is not something
+        // a store may add on a caller's behalf either.
+        const plain = draftPathwayVersion(COORDINATOR_A, "EXT-PATHWAY-NO-PROVENANCE");
+        unwrap(await store.savePathwayVersion({ version: plain }, writeContext(COORDINATOR_A, "no-provenance-save")));
+        const plainFetched = await store.getPathwayVersion(plain.id, { actor: COORDINATOR_A });
+        expect(plainFetched?.snapshot.provenance).toBeUndefined();
+      });
     });
 
     // -------------------------------------------------------------------------
