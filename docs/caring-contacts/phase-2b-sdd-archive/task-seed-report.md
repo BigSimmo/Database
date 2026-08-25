@@ -1,10 +1,19 @@
 # Task SEED report — make the demo drivable
 
-**Status: DONE_WITH_CONCERNS.** The population exists, the prototype can be driven, and nothing
-patient-visible was authored. Three things need an owner decision rather than an implementer's, and
-they are in "Findings" below. The largest is that the isolated Playwright server is deliberately
-**not** seeded by default, because seeding it would have deleted a contract that is currently
-observed end to end.
+**Status: DONE_WITH_CONCERNS**, after fix round 1. The population exists, the prototype can be
+driven, and nothing patient-visible was authored.
+
+Round 1's largest finding was that I had described the fictional dual approval as a future risk when
+it was already rendering at stage 2, with a mitigation that never reached the viewer. That is fixed:
+the record now carries its own provenance and the screen states it — F3 below. Round 1 also made the
+production boundary structural rather than conventional, restored two assertions that had been
+rewritten into shapes that could not fail, and corrected a mutation ledger that over-stated its own
+coverage.
+
+What still needs someone other than me: **F7**, a shared snapshot against a personalised greeting,
+which is a question about what a snapshot is for. **F1**'s trade was upheld and the owner has resolved
+it — the isolated Playwright server stays unseeded and a second server is a separate task, described
+below. Everything else here is recorded rather than outstanding.
 
 ## What was built
 
@@ -30,7 +39,7 @@ completed:
 
 ## The safety boundary
 
-**1. It cannot run against a database — structurally, not by a flag.**
+**1. It cannot run against a database, or against production — structurally, not by a flag.**
 
 `createDemoWorkspaceStore(clock)` **constructs** the in-memory repository itself. There is no store
 parameter, so a Postgres repository has nothing to arrive through. The module imports
@@ -43,6 +52,12 @@ Store selection is unchanged. `buildStore()` reaches the seed only inside `if (!
 `CARING_CONTACTS_DATABASE_URL` is set, `createPostgresRepository` is chosen and the seed module is
 never called. `tests/caring-contacts-demo-seed.test.ts` spies on the real seed and fails if the
 Postgres branch ever calls it.
+
+**The production boundary is checked in the same place, which round 1 found it was not.** The gate
+originally sat only at the constructor, and in a production process the store handed back is one this
+module built — built and left empty — so it was already inside the `WeakSet` and `applyDemoSeed` would
+have populated it. The check is now inside `applyDemoSeed` too, where the writes are, and a case pins
+it by seeding through the exported function against exactly that store.
 
 **2. It is not a privileged back door.** Every write goes through the contract. The consequence is
 the point rather than a formality: the pathway version's dual approval is a governance record the
