@@ -258,7 +258,7 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // the companion test below proves its source and everything it reaches never name that
   // module or type; and it is here deliberately rather than to clear a red test.
   "overlays/overlay-trigger.tsx",
-  // Task 10's trigger for the eight overlays whose decision control is an EXIT rather than a
+  // Task 10's trigger for the overlays whose decision control is an EXIT rather than a
   // confirmation, `delivery-detail` among them. It is a client component for a structural reason
   // rather than an interactive one: a Server Component cannot pass a function across this boundary
   // at all, and `WorkspaceOverlayCommit`'s `record` member is a function position — so an exit

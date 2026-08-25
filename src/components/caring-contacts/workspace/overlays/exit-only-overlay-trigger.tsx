@@ -6,8 +6,8 @@ import { overlayDefinition } from "./definitions";
 import { WorkspaceOverlayTrigger } from "./overlay-trigger";
 
 /**
- * The trigger for one of the eight overlays whose decision control is an EXIT rather than a
- * confirmation.
+ * The trigger for an overlay whose decision control is an EXIT rather than a confirmation -- the
+ * rows the frozen table marks `mutatesState: false`.
  *
  * ## The tension this module exists to resolve, stated rather than papered over
  *
@@ -49,7 +49,7 @@ import { WorkspaceOverlayTrigger } from "./overlay-trigger";
  * ## The finding this leaves open, which is the owner's to take
  *
  * `WorkspaceOverlayCommit` has no member meaning "this row's decision is an exit, and the host's own
- * close is the action". Every screen wiring one of the eight non-mutating rows must therefore reach
+ * close is the action". Every screen wiring a non-mutating row must therefore reach
  * for a construct like this one or write a bare no-op. That is reported rather than fixed here,
  * because adding a member is a change to Task 3's pinned contract and to the totality of
  * `commitRefusalFor` — not a change a screen may make to compile.
