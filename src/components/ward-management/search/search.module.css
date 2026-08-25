@@ -214,10 +214,10 @@
 /*
  * Below 40rem the icon rail is gone and `ward-sidebar.module.css`'s fixed phone bar takes its
  * place. The bar is fixed rather than sticky because it has to sit above ten different shells
- * whose scroll containers are all in a different place, so each shell reserves its 3.5rem here.
+ * whose scroll containers are all in a different place, so each shell reserves the shared phone-bar height here.
  */
 @media (max-width: 40rem) {
   .screen {
-    padding-top: 3.5rem;
+    padding-top: var(--spacing-ward-phone-bar);
   }
 }

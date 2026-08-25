@@ -8,13 +8,7 @@ import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { WardDemoControls } from "./ward-demo-controls";
 import { WardRoleSwitcher } from "./ward-role-switcher";
 import { WARD_NAV_ICONS, WARD_VIEW_ICONS } from "./ward-nav-icons";
-import {
-  WARD_DEVELOPER_HUB_HREF,
-  WARD_NAV,
-  WARD_VIEWS,
-  type WardMode,
-  type WardNavItem,
-} from "./ward-nav";
+import { WARD_DEVELOPER_HUB_HREF, WARD_NAV, WARD_VIEWS, type WardMode, type WardNavItem } from "./ward-nav";
 
 import styles from "./ward-sidebar.module.css";
 

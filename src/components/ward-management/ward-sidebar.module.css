@@ -27,6 +27,10 @@
   --ward-space-10: 0.625rem;
   --ward-space-12: 0.75rem;
   --ward-space-16: 1rem;
+  --ward-leading-tight: 1.2;
+  --ward-leading-body: 1.5;
+  --ward-z-panel: 3;
+  --ward-z-phone: 30;
 }
 
 /*
@@ -41,7 +45,7 @@
   display: none;
   grid-column: 1;
   grid-row: 1 / -1;
-  z-index: 3;
+  z-index: var(--ward-z-panel);
   width: 17rem;
   min-height: 0;
   flex-direction: column;
@@ -105,13 +109,13 @@
   color: var(--ward-heading);
   font-size: var(--text-sm);
   font-weight: 650;
-  line-height: 1.2;
+  line-height: var(--ward-leading-tight);
 }
 
 .brandTagline {
   color: var(--ward-muted);
   font-size: var(--text-xs);
-  line-height: 1.2;
+  line-height: var(--ward-leading-tight);
 }
 
 .collapseButton {
@@ -209,7 +213,7 @@
   padding: 0 var(--ward-space-6);
   color: var(--ward-muted);
   font-size: var(--text-xs);
-  line-height: 1.5;
+  line-height: var(--ward-leading-body);
 }
 
 .rule {
@@ -256,16 +260,16 @@
  * application, where MasterSearchHeader already owns the phone menu button. The sidebar
  * therefore brings its own bar. It is fixed rather than sticky because it must sit above ten
  * different shells whose scroll containers are all in a different place; each shell reserves the
- * 3.5rem in its own phone media query.
+ * `--spacing-ward-phone-bar` in its own phone media query.
  */
 .phoneBar {
   position: fixed;
   top: 0;
   right: 0;
   left: 0;
-  z-index: 30;
+  z-index: var(--ward-z-phone);
   display: none;
-  height: 3.5rem;
+  height: var(--spacing-ward-phone-bar);
   align-items: center;
   gap: var(--ward-space-10);
   border-bottom: 0.0625rem solid var(--ward-border);

@@ -880,12 +880,12 @@
   /* Reserve the fixed phone bar (ward-sidebar.module.css) and push this shell's own sticky
      header down below it, rather than letting the bar cover it. */
   .modeShell {
-    padding-top: 3.5rem;
+    padding-top: var(--spacing-ward-phone-bar);
   }
 
   .modeHeader {
     position: sticky;
-    top: 3.5rem;
+    top: var(--spacing-ward-phone-bar);
     z-index: var(--ward-z-phone);
     display: grid;
     min-height: 4.25rem;

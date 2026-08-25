@@ -234,9 +234,7 @@ describe("ClinicalRail's aria-label is honest for a sandboxed prototype (D11)", 
     // brand mark linking to `/` looks completely unremarkable in source and only reads as wrong
     // once you see it sitting above a sandboxed prototype's own rail.
     const clinicalExits = ["/", "/documents", "/services", "/medications", "/tools", "/?mode=answer"];
-    const found = clinicalExits.filter(
-      (href) => source.includes(`href="${href}"`) || source.includes(`"${href}",`),
-    );
+    const found = clinicalExits.filter((href) => source.includes(`href="${href}"`) || source.includes(`"${href}",`));
     expect(found, `the sidebar must not link into the clinical app, but found: ${found.join(", ")}`).toEqual([]);
     // Non-vacuity: the one legitimate exit must still be there, or this test would also pass on a
     // sidebar with no links at all. The href is now a named constant shared by the rail and the
