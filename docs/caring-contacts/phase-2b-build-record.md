@@ -2323,3 +2323,19 @@ service-state module, and the wizard's client module graph is scanned for exactl
 function in the **test** instead, as a pin against a plan the in-memory store really built — which
 proves the screen's derivation against the domain's own answer **without dragging the domain into the
 client bundle.** Better than what I asked for; recorded so nobody "fixes" it back.
+
+### Task 9 browser gate
+
+`49 passed (1.3m)`, exit 0 — unchanged from the Task 7 tip, as the implementer predicted. The
+spec is untouched and no case reaches a wizard stage, which is the coverage gap rather than a pass.
+
+**The filed browser gap was cancelled and re-filed at full scope** (`3c840c08`, P2, up from P3-ish
+framing). It was written after Task 7 as a hydration gap; Tasks 8 and 9 widened the consequence far
+beyond that. The argument that raised its priority is the implementer own and is the right one:
+stage 4 creates a plan and then starts it, so **created-but-not-started is a screen that tells a
+clinician the plan exists and that pressing again finishes the same plan** — the only screen in this
+workspace that asks someone to press a writing control a second time, and it has never been seen in a
+browser at any width.
+
+**Task 9b brief written** (`task-9b-brief.md`) while the Task 9 review ran — brief-writing holds no
+lease, so it belongs in the gap rather than after it.
