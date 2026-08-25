@@ -104,16 +104,42 @@ describe("caring-contacts domain isolation", () => {
  * costume from the one the paragraph above describes.
  */
 describe("caring-contacts properties that only a source scan can hold", () => {
-  const postgresStore = () =>
-    readFileSync(path.join(DOMAIN_ROOT, "db", "postgres-repository.ts"), "utf8");
+  const postgresStore = () => readFileSync(path.join(DOMAIN_ROOT, "db", "postgres-repository.ts"), "utf8");
 
   const schedule = () => readFileSync(path.join(DOMAIN_ROOT, "schedule.ts"), "utf8");
 
-  const firstContactReasonMigration = () =>
+  const rawFirstContactReasonMigration = () =>
     readFileSync(
-      path.join(process.cwd(), "caring-contacts", "supabase", "migrations", "0005_caring_contacts_first_contact_reason.sql"),
+      path.join(
+        process.cwd(),
+        "caring-contacts",
+        "supabase",
+        "migrations",
+        "0005_caring_contacts_first_contact_reason.sql",
+      ),
       "utf8",
     );
+
+  /**
+   * The migration with its `--` comments stripped.
+   *
+   * Same precedent, and the same reason, as the CREATE INDEX CONCURRENTLY scan in
+   * `caring-contacts-migrations.test.ts`: these migrations discuss their own rules in prose, and a
+   * scan that reads its own explanation as SQL reports the wrong thing. Here it matters twice over,
+   * because the anchor below is required to be UNIQUE -- so without stripping, a comment that merely
+   * MENTIONS `char_length(` would fail the test while changing no behaviour at all.
+   */
+  const firstContactReasonMigration = () =>
+    readFileSync(
+      path.join(
+        process.cwd(),
+        "caring-contacts",
+        "supabase",
+        "migrations",
+        "0005_caring_contacts_first_contact_reason.sql",
+      ),
+      "utf8",
+    ).replace(/--.*/g, "");
 
   it("never fetches the first-contact reason for a list read", () => {
     // `first_contact_reason` is free text a clinician wrote about one patient. It is deliberately
@@ -172,6 +198,12 @@ describe("caring-contacts properties that only a source scan can hold", () => {
     //   * both literals were actually found, or the comparison is two undefineds being equal.
     expect(migration).toContain("plans_first_contact_reason_shape");
     expect(migration.split("char_length(").length - 1).toBe(1);
+
+    // Control on the stripping itself: the raw file really does carry `--` comment text that the
+    // scanned copy must not contain, so a `.replace` that silently stopped working would show up
+    // here rather than as a scan quietly reading prose.
+    expect(rawFirstContactReasonMigration()).toContain("-- At least one character that is not whitespace.");
+    expect(migration).not.toContain("At least one character that is not whitespace.");
     expect(constant?.[1]).toBeDefined();
     expect(sql?.[1]).toBeDefined();
 
