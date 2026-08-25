@@ -2055,3 +2055,64 @@ hospital record this system is not connected to. **The design is coherent — it
 later, integrated product.** What it cannot do is tell an implementer which fields exist today, and
 each of these four cost a task the time to discover it. Recorded together because the pattern is now
 the finding, not the individual instances.
+
+## Owner decision, 2026-08-25 — the cultural-identity field is removed from the sign-up
+
+**Decision: stop asking for it.** Spec section 2.5 says Aboriginal and Torres Strait Islander status
+is **imported from the source record** and used for exactly one purpose, aggregate reporting on
+programme reach, with a governance-configured small-cell threshold and a non-inferable `Suppressed`
+state. There is no source record and no import path, so it had become free text a clinician types.
+
+**Why free text cannot deliver what section 2.5 promises, in the form the reviewer put it:**
+small-cell suppression presupposes a bounded category set. Free text yields unbounded distinct values
+— "Aboriginal", "aboriginal", "ATSI", "Noongar", spellings, typos — so **either every rare spelling is
+a cell of one and suppression eats the report, or an unaudited normalisation step decides who counts
+as Aboriginal.** That second outcome is a governance decision nobody has made, hidden inside a
+data-cleaning routine. And the control as built was labelled "Cultural identity (optional)" with no
+guidance, which invites religion, language or country of birth — wider collection than section 2.5
+authorised, on a suicide-prevention screen.
+
+**Scope of the decision, stated because it is narrow:** the input goes. The schema field stays
+nullable, the column stays, `cultural_identity_reports` stays, and Task 19 still owes reach reporting.
+The owner has not changed his mind about wanting it — he has declined to collect it by a route that
+cannot produce it. Replacing the input with a category picker is the schema-and-governance decision he
+has deferred, and no task may make it incidentally.
+
+### The lesson the implementer drew, and the reviewer's correction, which is better
+
+The implementer wrote: _"I had treated section 2.5 as one claim to check rather than as a document
+whose every sentence describes an unbuilt capability."_ It had correctly refused to reproduce section
+2.5's false "imported from the source record" and then reproduced its equally unbuilt "is used for
+aggregate reporting" **one sentence later.**
+
+**The reviewer read section 2.5 and found the generalisation overshoots.** Its sentences fall into
+three classes, not one: unbuilt affirmative capability; **true-today negative constraints** ("never
+affects eligibility, ordering, timing, pathway assignment, message content, or any ranking, and never
+appears on a worklist row"); and non-capability material — the epidemiological reasoning, and the
+out-of-scope consequence.
+
+> **The accurate rule: every affirmative capability sentence in section 2.5 is unbuilt; the negative
+> constraints are the part safe to reproduce.**
+
+And the proof that the implementer holds the narrower rule in practice even while stating the broader
+one: **its own replacement text reproduces exactly those negatives and drops every affirmative.** Under
+the sweeping version it stated, its own text would be self-contradictory. **A correct instinct
+generalised too far produces a rule that forbids what the author is already doing right** — worth
+catching, because the over-broad version would have removed a true and load-bearing sentence next time.
+
+### Two other lessons from this task, both sharpened by the reviewer
+
+**On reporting a mechanism nobody has run.** The implementer's report said `ready` "is passed, and it
+arms when Task 9 builds review". That was **a prediction about a code path that had never executed,
+presented as a property of the code** — and wrong on its own terms, because `ForwardControl` returns
+before reading `ready`. The rule is not "finish the sentence" but: **a mechanism you have not seen run
+is a hypothesis, and reporting it as coverage is the failure.**
+
+**On finding a defect pattern and then reproducing it twice more in the same diff.** The implementer
+found a tautological assertion by mutation, wrote it up as a property of one assertion, and filed it as
+handled — while two siblings with the identical defect sat in the same task. Its own conclusion: _"It
+is a habit, not an instance, and finding one instance does not interrupt a habit."_ Its proposed check
+— **for every assertion, name the wrong value it should reject, then confirm it rejects it** — was
+verified to catch all three. **The dependency worth recording: the check draws "the wrong value" from
+the case's name, so it is only as good as the naming discipline.** A vaguely named case yields nothing
+to name.
