@@ -1752,3 +1752,48 @@ pattern** — Task 12 and Task 15 qualify.
 last three tasks alone they caught: a guard installed where no runner could reach it; a scan counting
 its own explanatory prose; and a `PLAN_COLUMNS` widening that left all the database tests green.
 Removing them would make the suite faster and the result worthless.
+
+## Rulings 114-116 — Task 8, stage 3 personalisation
+
+Brief written **while Task 7 was still running**, which is the first of the speed levers applied:
+brief-writing costs no heavy-run lease and no lock, so it belongs in the gap rather than after it.
+
+**Ruling [114] — stage 3 is a DATA ENTRY stage, and the mockup has it backwards.** — Why:
+`PersonalisationStage` renders four rows — preferred name, message variant, team identity,
+coordinator signature — as read-only governed values with green ticks, "Imported from the synthetic
+referral". `createPlanSchema.patientDetail` requires the clinician to **supply** `patientName` and
+`patientMobileNumber` (both `min(1)`), plus identifiers and cultural identity; and a `Referral` holds
+none of them (Ruling [112]). **There is nothing to import and nothing to tick.** Stage 3 is where a
+clinician types a real person's name and mobile number. — Cost if wrong: presenting a clinician's own
+typing as an imported governed value would be a lie about provenance on the screen that decides where
+messages physically go. Keeping the mockup's shape would also have left a required field with no
+input at all — see [115].
+
+**Ruling [115] — the mobile number is required and the design has no field for it.** — Why:
+`patientMobileNumber` is `z.string().min(1)`, so no plan can be created without one, and
+`PersonalisationStage` contains no input for it. It cannot be deferred to stage 4: a review screen
+that is also the only place a required value can be entered is not a review. Validation happens
+before the wizard advances, stated in words in place; the screen says every number here is fictional
+and non-connecting, **because a clinician who believes this field reaches a real handset is the most
+dangerous misunderstanding this interface can produce.** And the implementer looks for an existing
+validator in the domain before writing one, rather than inventing the authority. — Cost if wrong: a
+too-strict format rule refuses a legitimate number, which is visible and fixable; a missing field
+would have surfaced only as a failed write at stage 4, after the clinician had finished.
+
+**Ruling [116] — cultural identity is optional, stored as `null` when absent, and the screen says why
+it is asked.** — Why: it is the only nullable field in `patientDetail`, deliberately. Asking a
+distressed person's cultural identity without saying why erodes exactly the trust this service
+exists to build, and spec section 4.4's standard for the system doing something unexplained applies
+at least as strongly to **asking** something unexplained. If no recorded purpose exists in the spec
+or the domain, the implementer states the absence rather than inventing a justification. — Cost if
+wrong: an admitted absence reads as incomplete. **An invented reason for collecting demographic data
+is worse**, because it cannot be distinguished from a real one by anyone reading the screen later.
+
+**The pattern across [112], [114] and [115] is now three-for-three and worth naming.** Every stage of
+this wizard's approved design shows the system reading from a hospital record it is not connected to:
+identity imported at stage 1, personalisation imported at stage 3, and — because import was assumed —
+no input for the one field without which a plan cannot be created. The mockup is not sloppy; it is a
+picture of a **later** product. **The design is a specification for the product, and the types are a
+specification for what exists.** Where they disagree the types win, and the disagreement is worth
+recording rather than silently resolving, because it is the same gap each time and someone will draw
+the next mockup from the same assumption.
