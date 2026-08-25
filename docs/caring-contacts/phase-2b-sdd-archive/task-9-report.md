@@ -191,6 +191,11 @@ unavailable commit's control is `aria-disabled` and inert.
 
 ### Finding 1 — the write creates a plan in `draft`, and this screen is called "activation"
 
+> **RULED, fix round 1: stage 4 does both writes.** The frozen row's title — "Last check before the
+> plan starts" — already said the wizard is the activation workflow, so the matrix was right and the
+> code did half of it. Implemented in `111cc3529`; see fix round 1 below. The finding is left here
+> unedited because the reasoning it records is what the ruling corrected.
+
 `createPlan` records `plan.state = "draft"`. Starting a plan is `activatePlan` — a **separate write,
 on a separate route** (`/api/caring-contacts/plans/[planId]`), carrying its own `expectedVersion` and
 needing its own idempotency key. Ruling [117] names one POST and Ruling [120] mints one key, so I
@@ -239,6 +244,12 @@ proof is and why it had to move.
 graph for that name, because the service-state record carries a free-text incident note that must
 never cross this boundary. Importing it here would have made that guard red, and weakening the guard
 to satisfy a ruling would be the wrong direction on both counts.
+
+> **ADJUDICATED IN FAVOUR, fix round 1.** The coordinator's ruling was wrong on the mechanism and
+> the test-side pin is better than what it asked for: it proves the screen's derivation against the
+> domain's own answer without dragging `repository.ts` into the client module graph. **Do not "fix"
+> this back to a direct import** — that would make the service-state guard red, and the guard is the
+> one protecting a free-text incident note from crossing this boundary.
 
 `contactSendability` is importable (it is in `model.ts`, already in the graph) but takes a
 `ContactState`, which a planned contact does not have until the plan exists — so using it would have
@@ -504,3 +515,202 @@ screen behind it. It cannot be closed until that server seeds a referral.
 - `npm run verify:ui`, `verify:phone-chrome` — you run the browser gate, and see above for why it cannot reach this stage today.
 - `npm run verify:cheap`, `verify:pr-local`, `verify:release` — not asked for; the last is provider-backed.
 - Nothing provider-backed was run at all. No Supabase, no OpenAI, no GitHub, no CI.
+
+---
+
+# Fix round 1
+
+Both items done. The worktree was mine alone for all of it, so **every mutation result below is
+fresh** — nothing is carried from the contaminated round, including the four that survived it.
+
+---
+
+## 1. Stage 4 creates the plan AND starts it (Ruling [123])
+
+Commit `111cc3529`.
+
+The ruling is right and my report had the evidence backwards: I read the frozen row's `decision`
+("Confirm and activate") as copy that overstated the code, and did not read its `title` — _"Last
+check before the plan starts"_ — which says plainly that the wizard is the activation workflow. The
+matrix was describing the product; the code was doing half of it.
+
+**What the flow is now.** `createPlanRequestBody` → `POST /api/caring-contacts/plans` →
+`planVersionFromCreateAnswer` → `activatePlanRequestBody` →
+`POST /api/caring-contacts/plans/<id>` with `action: "activate"`.
+
+**Three identifiers, minted once together when stage 4 is first reached, all three held in the
+draft.** `PlanSubmissionIdentity` is now `{ planId, createIdempotencyKey, activateIdempotencyKey }`.
+The second key is a third independent value, not the first reused and not derived from it:
+`runWrite` scopes a key to `(team, key)` and fingerprints the method and input under it, so a key
+that answered the create and is then sent with the activate is refused outright as
+`idempotency-key-reused-for-a-different-write` — the plan would exist and could never be started.
+**N1 proves that is not theoretical**: sending the create key with the activate makes the real
+lifecycle route answer `{"refusal":"idempotency-key-reused-for-a-different-write"}`, 409.
+
+A derived key is refused for the same reason a copy of any rule is: it is a second copy of the first
+key's uniqueness and stops being unique the moment the derivation changes. N2b proves the assertion
+that forbids it.
+
+**`expectedVersion` comes from the create's own answer.** `planVersionFromCreateAnswer` reads
+`value.plan.version` and validates every step of that shape, because it arrives over the wire. It
+answers **null rather than a default** when it cannot: a default would be a guess wearing a number,
+and the refusal it earned would be about concurrency rather than about the answer this screen could
+not read.
+
+**Created-but-not-started is a real state, and it is built as one.**
+
+- Its own status (`created-not-started`), reached only after the create has succeeded.
+- **Its own wording table.** `submissionRefusalWording` says "Nothing was created" in every branch —
+  true of the first write and false after it. A coordinator told nothing was created starts the
+  sign-up again, and that patient gets a second plan. So `activationRefusalWording` is separate, and
+  a test walks all thirteen refusal names requiring each to say three things: the plan was created,
+  it has not started, and confirming again finishes _the same plan_. `RefusalStatement` takes the
+  lookup as a parameter, because `service-stopped` means "nothing exists" before the create and "a
+  plan is waiting to start" after it, and one table for both would have to print a sentence that is
+  false in one of the two cases.
+- **The draft is KEPT.** This is the refinement Ruling [117] needed and the reason is Ruling [120]'s
+  mechanism doing its job: the draft holds the plan id and both keys, which is the only thing that
+  distinguishes "try again" from "create a second plan for this patient". `clearPlanDraft()` now runs
+  only after **both** writes are confirmed.
+- One branch is deliberately different. `plan-not-draft` on a retry usually means the first attempt
+  _did_ start the plan and this screen never saw the answer — a success wearing a refusal — so that
+  branch sends the coordinator to look at the plan rather than telling them to press again.
+
+**All three outcomes are mutation-proved**, which was the explicit ask:
+
+| Outcome                         | Mutation                                                                      | What went red                                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Both succeed                    | M10 (navigate before clear), N7 (navigate after the create)                   | the two-write order assertion; `expected "vi.fn()" to be called 1 times, but got 2 times`                             |
+| Create fails                    | M9 (clear the draft before the first write)                                   | `a lost connection: the draft was lost on a failed write: expected undefined to be 'Rowan Example'`                   |
+| Create succeeds, activate fails | N4 (clear the draft on the half-done path), N5 (use the create-stage wording) | the KEEPS-the-draft case; and `expected 'Read back before this plan is created…' not to match /nothing was created/i` |
+
+**Seven cases were added for this**, including one the ruling did not name and the code needed: a
+create that answers 200 with no readable version. The plan exists, so the second write is **not**
+attempted with a guess, and the screen shows the half-done state.
+
+**On your closing note.** Thank you — and the part I want to keep is the correction rather than the
+credit. Stopping at an honest screen was right; what was wrong was that I framed a _design_ question
+as a _copy_ question, and recommended amending the frozen row as one of two equal options. The row
+already contained the answer. "Read the whole artefact before proposing to change it" is the lesson,
+and it is the same shape as Task 8's §2.5 finding one document over.
+
+---
+
+## 2. The mutation round, re-run on a quiet worktree
+
+**24 mutations, all fresh, none carried.** Every one was applied, proved visible **to a separate
+process** with `grep -c`, run, then reverted with `git checkout --` and confirmed by
+`git diff --quiet` rather than by a string compare. The driver refuses to start on a dirty tree and
+stops itself if a revert does not take; neither fired this time.
+
+### Every attempt, itemised
+
+| #     | Mutation                                                                | Predicted                              | Observed                                                                                                                                                       | Verdict                           |
+| ----- | ----------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| M1    | `mintPlanSubmissionIdentity` returns constant identifiers               | 1 red, "mints a different pair"        | 2 red — also "mints a SECOND idempotency key": `expected 'PLAN-START-constant' not to contain 'constant'`                                                      | RED, blast radius under-predicted |
+| M2    | letter mapping dropped; raw UUID used                                   | 1 red on the digit assertion           | 2 red, both the digit assertion: `expected 'PLAN-811160af…' not to match /\d/` and the same for the activate key                                               | RED, under-predicted              |
+| M3    | `dischargeInstantFor` drops the domain parse                            | 1 red, thrown not asserted             | `RangeError: Invalid time value`                                                                                                                               | RED, matched                      |
+| M4    | `stillToSend` counts every entry                                        | 3 red                                  | exactly 3: `expected 10 to be 9` twice, and the wizard's in-place consequence                                                                                  | RED, matched                      |
+| M5    | reason-required compares against `earliest`                             | 1 red naming the first disagreeing day | `2026-03-10: the screen and the schedule disagree… expected false to be true`                                                                                  | RED, matched                      |
+| M6    | `firstContactReason: ""` sent rather than omitted                       | 2 red: the real route, and the key set | exactly 2: `the route refused the body: {"refusal":"invalid-request"}: expected 400 to be 200`, and the key-set assertion                                      | RED, matched                      |
+| M7    | default refusal heading becomes "Something went wrong"                  | 1 red on the unnamed refusal           | `a-refusal-nobody-has-written-yet is not explained: expected 'Something went wrong' not to match /something went wrong/i`                                      | RED, matched                      |
+| M8    | `sendableContacts` replaced by a local "not the closing message" filter | 2 red                                  | 3 red — also the usual-day case: `expected 9 to be 10`, and `expected [ 'Month 12' ] to deeply equal [ 'Week 1' ]`                                             | RED, under-predicted              |
+| M9    | draft cleared BEFORE the first write                                    | 2 red                                  | 10 red, every one explainable by it: the draft is gone, so stage 4 unmounts and the trigger, the refusal and the half-done wording all vanish with it          | RED, badly under-predicted        |
+| M10   | navigate before clear                                                   | 1 red on the ordering case             | 2 red: the single-write ordering case AND the two-write one                                                                                                    | RED, under-predicted              |
+| M11   | `goTo` mints on every arrival at review                                 | 1 red                                  | `the identifiers were minted again on a second visit, so a retry would create a second plan`                                                                   | RED, matched                      |
+| M12   | first-contact `min`/`max` dropped                                       | 1 red                                  | `expect(element).toHaveAttribute("min", "2026-03-10")`                                                                                                         | RED, matched                      |
+| M13   | the absorbed-contact `AutomatedState` never rendered                    | 1 red                                  | `Unable to find role="group" and name /suppressed/i`                                                                                                           | RED, matched                      |
+| M14   | `parseSubmission` answers `null` for a malformed identity               | 1 red                                  | `a draft carrying half a minted identity was accepted`                                                                                                         | RED, matched                      |
+| M15   | `parseActivation` returns an empty activation                           | 1 red                                  | `a draft missing two of its three activation fields was accepted`                                                                                              | RED, matched                      |
+| M16   | `firstContactDayBounds.latest` one day too late                         | 1 red naming the day                   | `2026-03-18 is advertised as choosable and the schedule refused it`                                                                                            | RED, matched                      |
+| M17\* | **Control.** the schedule summary's `data-testid` renamed               | **GREEN** — nothing asserts on it      | `Tests 61 passed (61)`                                                                                                                                         | **GREEN, as designed**            |
+| N1    | activate sends the CREATE key                                           | 2 red                                  | 3 red, and the first is the one that matters: the real route answers `{"refusal":"idempotency-key-reused-for-a-different-write"}`, 409                         | RED, under-predicted              |
+| N2    | activate key "derived" by stripping its prefix                          | 1 red                                  | **GREEN — and the mutation was the defective thing.** Stripping a prefix off a random value leaves it random, so it never changed the property under test      | GREEN on an ineffective mutation  |
+| N2b   | activate key genuinely derived from the create key (a getter)           | 1 red on the `not.toContain` assertion | `expected 'PLAN-START-medipedkiifdehmojhnphpadng…' not to contain 'medipedkiifdehmojhnphpadngilnijk'`                                                          | RED, matched                      |
+| N3    | `planVersionFromCreateAnswer` defaults to 1                             | 2 red                                  | 1 red: `expected 1 to be null`. The wizard's own case survived, because a create answering `{ value: null }` then activates and the version is never read back | RED, over-predicted               |
+| N4    | the draft cleared on the half-done path                                 | 2 red                                  | 4 red, all four Ruling [123] cases that depend on the draft surviving                                                                                          | RED, under-predicted              |
+| N5    | the half-done state uses the create-stage wording                       | 1 red                                  | `expected 'Read back before this plan is created…' not to match /nothing was created/i`                                                                        | RED, matched                      |
+| N6    | `expectedVersion` hard-coded to 1                                       | 1 red                                  | `expected 1 to be 3`                                                                                                                                           | RED, matched                      |
+| N7    | navigate and clear straight after the create                            | 7 red                                  | 7 red: three navigation-count cases and all four half-done cases                                                                                               | RED, matched                      |
+
+**No anchor failed to match** except N6 on its first attempt, where Prettier had reflowed the call
+across three lines between my writing the anchor and applying it — Task 8 recorded that same hazard
+and I repeated it. Re-anchored against the file as it stands and re-run; the result above is that run.
+
+### What this proves, counted rather than described
+
+I own **52 cases** across four files. Of those:
+
+- **31 are proved alive** — at least one assertion in them was made to fail by a mutation.
+- **21 were not touched by any mutation at all.** They are green and they are unfalsified.
+- **1 is proved assertion-by-assertion**: "asks for one on exactly the days the schedule refuses
+  without one", which has a single assertion inside a loop, so M5 falsifying it falsifies the case.
+- **6 more have two distinct assertions individually proved** — the discharge + 7 preview (M4, M8),
+  the in-place consequence (M4, M13), the half-done wording (N4, N5), the draft parser (M14, M15),
+  the two-write order (N1, N6), and the second-key case (M1, N2b). None of those is complete: each
+  still has assertions nothing has falsified.
+- The remaining **24 are proved alive by exactly one assertion each**, which is the state Task 8
+  called "alive rather than complete", and its count was four of about thirty.
+
+**The honest reading of 1 of 52.** Assertion-by-assertion proof is expensive — a case with five
+assertions needs five mutations or needs splitting into five cases — and I did not pay it for
+forty-five of them. The three that most deserve it and have not had it are the store-agreement pin
+(four comparisons, one proved), `planVersionFromCreateAnswer` (six inputs, one proved), and
+`activationRefusalWording`'s thirteen-name walk (five assertions per name, none proved by a mutation
+— N5 proves the SCREEN reaches that table, not that the table's contents are pinned). Those are the
+first three to split if this is worth another round.
+
+### Two things the round found that I would otherwise have written down as facts
+
+**N2 is the one I most want on the record.** I wrote a mutation intended to derive the activate key
+from the create key, and it came back green. My first instinct was that the assertion was weak. It
+was not: stripping a prefix off a random value leaves a random value, so the mutation never changed
+the property the assertion reads. **The brief's rule — check first that the mutation changes a value
+some assertion reads — is the one I skipped, and a green would have been reported as a finding about
+the test.** N2b does the derivation properly, with a getter, and goes red.
+
+**M9's blast radius, and why under-prediction is the safe direction.** I predicted two failures and
+got ten, and every one of the ten is caused by the mutation: clearing the draft before the first
+write unmounts stage 4 entirely, so the overlay trigger, the refusal statement and all four
+half-done cases have no screen to assert against. Predicting too narrowly cost nothing here because
+the extra failures were explicable; predicting too _broadly_ is what hides a mutation that did not
+land.
+
+### The visibility check has a false-negative, and it is mine to report
+
+M12's `grep -c` in a separate process answered **0** while the mutation was demonstrably live — the
+`min` assertion failed on exactly the attribute it removed. So a `0` from that check does not prove
+absence, and I have not tracked down why (the marker contains `{`, which is the obvious suspect
+under `-F`). It fails in the safe direction — it can under-report presence, never invent it — but a
+future round should not treat it as a two-way proof. Recorded rather than quietly relied on.
+
+---
+
+## 3. The `git add -A` rule
+
+Recorded, and yours makes mine sharper: I had it as the converse of "commit before you mutate", which
+is about protecting a fix from `git checkout --`. Stating it as **stage explicit paths, never `-A`,
+in a shared worktree** covers both directions and both parties — the mutation you commit and the
+work you sweep in. Every commit in this round staged named paths.
+
+---
+
+## Adjudications, carried into the report
+
+- **`assertBuiltStageHasABody`** — kept exported and proved by direct call, with the reason recorded
+  at the site so the next reader does not undo it.
+- **`summariseStoredContacts` used as a test-side pin** — kept, and the report now says explicitly
+  that this is better than what Ruling [119] asked for and why, so nobody "fixes" it back into the
+  client module graph.
+- **The browser gap** — noted as widened.
+
+## Does this touch the browser gate?
+
+**Still no, and the second write does not change the answer — but it widens the gap again, and this
+time by more than markup.** `tests/ui-caring-contacts-workspace.spec.ts` is unchanged and its
+isolated server seeds no referral, so no Playwright case can reach any stage of this wizard. What now
+has no browser evidence at all: two `type="date"` inputs and their native pickers, a live schedule
+preview, the confirmation overlay's `full-screen-stage` phone modality with this screen behind it,
+**and a two-write submission whose middle state is a screen a clinician can act on**. The half-done
+state is the one I would most want seen in a real browser, because it is the only screen in this
+workspace that asks someone to press a writing control a second time.
