@@ -1834,6 +1834,59 @@ summary::-webkit-details-marker {
 /* Composer primitives are intentionally unlayered because inputs/buttons are
    governed by the global element resets. Their exported TypeScript recipes are
    class handles only, making this block the single owner of chrome and states. */
+/* The numbered source mark in the answer prose, and the `+N` after a capped
+   cluster.
+
+   These values are ONE interdependent set, which is why they live in a class
+   rather than as scattered utilities. At the answer's 16px/1.66 prose they draw
+   a 12x12px box lifted 5px: it spans 5->17px above the baseline, clearing the
+   line above by ~2px without growing the line box, and the margins leave ~2.7px
+   between two marks so "2" and "3" in a cluster cannot touch. Re-measure in a
+   browser before changing any one of them.
+
+   The size is `em`, not a named step, because the mark has to scale with the
+   prose it annotates — the scale's floor (`--text-3xs`, 10px) is absolute and
+   would also overrun the line at this rise. Keeping it here rather than as a
+   `text-[…]` utility is the sanctioned form: `check:type-scale` guards the
+   utility vocabulary, and unlayered component CSS is how this repo expresses a
+   geometry that the scale cannot.
+
+   Never set line-height to 0. An inline-block with zero line-height has a
+   zero-height padding box, which collapsed the mark to a sliver the first time. */
+.answer-source-mark {
+  position: relative;
+  top: -0.625em;
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0.15em 0.2em;
+  border-radius: var(--radius-xs);
+  border-width: 1px;
+  border-style: solid;
+  font-size: 0.5em;
+  line-height: 1;
+  text-align: center;
+  vertical-align: baseline;
+}
+
+/* The partial-support glyph. One glyph reads at this size; a dotted underline
+   and a 1px bottom border were both tried under it and neither draws. */
+.answer-source-mark-star {
+  margin-left: 0.03em;
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+/* A statement, not a control: the sources it counts all sit on the rail below
+   at full tap size. */
+.answer-source-mark-overflow {
+  position: relative;
+  top: -0.625em;
+  margin-left: 0.34em;
+  font-size: 0.5em;
+  line-height: 1;
+  vertical-align: baseline;
+}
+
 .chat-composer-shell-base {
   display: flex;
   align-items: center;

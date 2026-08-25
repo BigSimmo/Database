@@ -12,32 +12,18 @@ import { cn } from "@/components/ui-primitives";
  * opposite holds for a multi-word inline phrase, which is why other inline
  * controls in the redesign use a span.)
  *
- * ### The geometry is load-bearing — do not "tidy" these values
+ * ### Where the geometry lives
  *
- * At the answer's 16px / 1.66 prose, this renders a 12×12px box lifted 5px, so
- * it spans 5→17px above the baseline inside 19.2px of leading: **+2.2px of
- * clearance to the line above, and no line growth.** Margins give 2.2px before a
- * word and 2.7px between two marks, which is what stops "2" and "3" in a cluster
- * from touching.
+ * In `.answer-source-mark` in `globals.css`, not here. Size, rise, padding and
+ * line-height are one interdependent set — the box has to sit above the text
+ * without growing the line box or touching its neighbour — and it is `em`-based
+ * so it scales with the prose it annotates. That is a geometry the absolute type
+ * scale cannot express, and unlayered component CSS is how this repo expresses
+ * one. The class carries the measured figures and the two shapes that failed;
+ * read it before changing any value.
  *
- * Two earlier shapes failed and are recorded so they are not retried:
- *
- * - `line-height: 0` with the box painted by a `::before` collapsed the padding
- *   box to a sliver — an inline-block with zero line-height has no height to pad.
- * - Painting the box from a pseudo-element wider than the element itself made
- *   adjacent marks overlap, because the margins size the *element*, not the
- *   paint. The border here is on the control itself for exactly that reason.
- *
- * A bordered box cannot sit entirely above the capitals at readable leading;
- * clearing cap height needs roughly 45% more line spacing. This is as high as it
- * goes without stealing the line above.
- *
- * The line-height is `leading-none`, a named step rather than an arbitrary
- * bracketed value — `tests/design-token-contract.test.ts` keeps that vocabulary
- * closed in production, and it scans the raw file, so even naming the bracketed
- * form in a comment trips it. It must never go to zero: an inline-block with
- * zero line-height has a zero-height padding box, which is how the box collapsed
- * to a sliver the first time.
+ * Only colour, state and the cluster spacing stay here, because those are what
+ * vary from mark to mark.
  *
  * ### Colour and state
  *
@@ -78,7 +64,7 @@ export function AnswerSourceMark({
       aria-label={label}
       onClick={() => onOpen(index)}
       className={cn(
-        "nums relative inline-block min-w-[1.5em] -top-[0.625em] rounded-[var(--radius-xs)] border px-[0.2em] py-[0.15em] text-center align-baseline text-[0.5em] font-semibold leading-none transition-colors",
+        "answer-source-mark nums font-semibold transition-colors",
         leading ? "ml-[0.28em]" : "ml-[0.34em]",
         active
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] outline outline-2 outline-offset-[1.5px] outline-[color:var(--clinical-accent)]"
@@ -88,7 +74,7 @@ export function AnswerSourceMark({
     >
       {index + 1}
       {partial ? (
-        <span aria-hidden="true" className="ml-[0.03em] text-[0.85em] leading-none">
+        <span aria-hidden="true" className="answer-source-mark-star">
           *
         </span>
       ) : null}
@@ -106,7 +92,7 @@ export function AnswerSourceMarkOverflow({ count }: { count: number }) {
   return (
     <span
       data-testid="answer-source-mark-overflow"
-      className="nums relative -top-[0.625em] ml-[0.34em] align-baseline text-[0.5em] font-semibold leading-none text-[color:var(--text-muted)]"
+      className="answer-source-mark-overflow nums font-semibold text-[color:var(--text-muted)]"
     >
       <span className="sr-only">and </span>+{count}
       <span className="sr-only"> more sources</span>
