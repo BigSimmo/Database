@@ -55,6 +55,17 @@ function passageForSource(quoteCard: QuoteCard | null, source: AnswerSourceRow |
   return sourceQuoteDisplayText(quoteCard?.quote || source.snippet || "");
 }
 
+function drawerBadgeLabel(source: AnswerSourceRow, index: number) {
+  return source.cited === false ? "—" : sourceBadgeLabel(index);
+}
+
+function drawerPagerLabel(source: AnswerSourceRow, index: number) {
+  const title = cleanDisplayTitle(source.title);
+  return source.cited === false
+    ? `Show also found source: ${title}`
+    : `Show ${sourceSpokenLabel(index).toLowerCase()}: ${title}`;
+}
+
 /**
  * One cited document at a time: the support it gives, the passage it was read
  * from, any table or image on that page, and the route to the original PDF.
@@ -152,7 +163,7 @@ export function AnswerSourceDrawer({
       titleAccessory={
         source ? (
           <span className={cn(subtleStatusPill, "nums min-h-6 whitespace-nowrap px-2 text-2xs")}>
-            {sourceBadgeLabel(openIndex ?? 0)} · p. {source.pageNumber ?? "n/a"}
+            {drawerBadgeLabel(source, openIndex ?? 0)} · p. {source.pageNumber ?? "n/a"}
           </span>
         ) : null
       }
@@ -213,7 +224,7 @@ export function AnswerSourceDrawer({
                     type="button"
                     onClick={() => onOpenIndexChange(index)}
                     aria-current={index === openIndex ? "true" : undefined}
-                    aria-label={`Show ${sourceSpokenLabel(index).toLowerCase()}: ${cleanDisplayTitle(row.title)}`}
+                    aria-label={drawerPagerLabel(row, index)}
                     className={cn(
                       "nums grid h-12 min-w-12 place-items-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index === openIndex
@@ -221,7 +232,7 @@ export function AnswerSourceDrawer({
                         : "border-[color:var(--border)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
-                    {sourceBadgeLabel(index)}
+                    {drawerBadgeLabel(row, index)}
                   </button>
                 ))}
               </span>

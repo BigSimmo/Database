@@ -238,6 +238,29 @@ describe("answer source drawer", () => {
     expect(pager).toHaveTextContent("1 of 5");
   });
 
+  it("keeps an uncited source unnumbered in the drawer title and numbered pager", async () => {
+    const user = userEvent.setup();
+    render(
+      <RailAndDrawer
+        sources={[
+          row({ id: "c1", title: "Cited protocol", cited: true }),
+          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
+    const drawer = screen.getByTestId("answer-source-drawer");
+    expect(within(drawer).getByText("— · p. 4")).toBeInTheDocument();
+
+    const pager = screen.getByTestId("answer-source-drawer-pager");
+    const uncitedStep = within(pager).getByRole("button", {
+      name: "Show also found source: Retrieved but uncited",
+    });
+    expect(uncitedStep).toHaveTextContent("—");
+    expect(uncitedStep).not.toHaveTextContent("2");
+  });
+
   it("does not assert a claim when the drawer was opened from the source list", async () => {
     const user = userEvent.setup();
     render(<RailAndDrawer />);
