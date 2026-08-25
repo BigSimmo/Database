@@ -282,19 +282,22 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // the service with a distinctive incident note and asserts on the element tree the page returns,
   // so the note reaching this boundary under ANY prop name is a red test rather than a reading.
   "plan-wizard/plan-wizard.tsx",
-  // NOT A BOUNDARY THIS WORKSPACE CHOSE. `origin/main` split the Patients directory into a server
-  // wrapper plus this client island so a patient's name would stay out of the GET URL; that fix
-  // never came back to this trunk, whose directory is still a Server Component with a
-  // `method="get"` search. The catch-up merge carried the file in without adopting it, so nothing
-  // renders it today and it ships in no bundle.
+  // The Patients caseload's search box, and the SECOND boundary in this workspace that exists
+  // because of a confidentiality rule rather than a browser capability (the first is the wizard
+  // above, Ruling [109]). The directory's search matches the patient's NAME, and while it was a
+  // `method="get"` form that name arrived as `?q=Jordan%20Nguyen` -- in the address bar of a
+  // possibly-shared ward computer's history, and in the access log of every proxy in between.
+  // Ruling [111] forbids exactly that: "a query string is logged by every proxy between here and
+  // the browser. Nothing about a patient may travel here." So the typed text is React state in
+  // this module and reaches no URL in any form. Ruling 13's payload preference yields to the
+  // confidentiality contract, and `origin/main` reached the same split independently.
   //
-  // It is listed rather than deleted so the fix stays visible to the owner, and listing it is not
-  // a weakening: the set-equality check above still refuses any OTHER unlisted client component,
-  // and the module-graph check below still proves this file and everything it imports never name
-  // the service-state module or type. Finding 3 of
-  // `docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md` is the decision that
-  // retires this entry -- by adopting the island, or by deleting it once the URL question is
-  // settled another way.
+  // Added on the same three conditions as every entry above. Its props are the narrow
+  // `PatientsDirectoryRow` projection, a plan count, a validated plan state and two booleans --
+  // no state object, and nothing derived from the record. The companion test below proves this
+  // file and its whole module graph never name the service-state module or type. And the payload
+  // it carries is SMALLER than the Server Component it replaced rendered into HTML: the rows are
+  // reduced to the row type and pre-filtered to the selected plan state on the server side.
   "patients-directory-client.tsx",
 ];
 

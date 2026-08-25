@@ -1,13 +1,11 @@
 import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
-import {
-  PatientsDirectory,
-  parsePatientsDirectoryFilter,
-} from "@/components/caring-contacts/workspace/patients-directory";
+import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
+import { parsePatientsDirectoryFilter } from "@/lib/caring-contacts/patients-directory-filter";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
@@ -80,11 +78,18 @@ const CaringContactsShell = dynamic(() =>
  * question the store asked, and hands the answer to the directory as `mayViewPlans` so the empty
  * list can say which of the two facts it is.
  *
- * FILTERING IS A URL
- * -----------------
+ * THE PLAN-STATE FILTER IS A URL; THE NAME SEARCH IS NOT
+ * -----------------------------------------------------
  * `searchParams` is a promise in Next 16 and is awaited before use. Reading it makes the route
  * dynamic, which is already true here -- the role cookie does the same -- and is correct: a cached
  * copy of a caseload would outlive the caseload.
+ *
+ * `parsePatientsDirectoryFilter` reads the plan state and NOTHING ELSE. It deliberately does not
+ * read a `q` parameter, because a caseload search matches the patient's name and Ruling [111] does
+ * not allow one into a query string: "a query string is logged by every proxy between here and the
+ * browser. Nothing about a patient may travel here." The name search is local state inside the
+ * directory's client island and never reaches this page at all -- so a `?q=` a coordinator arrives
+ * with from an old bookmark is ignored rather than honoured, which is the conservative direction.
  */
 export default async function CaringContactsPatientsPage({
   searchParams,
