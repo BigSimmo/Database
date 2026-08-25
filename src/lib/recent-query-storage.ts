@@ -1,5 +1,7 @@
 export const recentQueryStorageKey = "clinical-kb-recent-queries";
 
+export const recentQueriesChangeEvent = "clinical-kb-recent-queries-change";
+
 export const demoRecentQueryOwnerId = "local-demo-session";
 
 export function loadRecentQueries(ownerId: string | null): string[] {
@@ -10,6 +12,23 @@ export function loadRecentQueries(ownerId: string | null): string[] {
     return stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5);
   } catch {
     return [];
+  }
+}
+
+// The owner-scoped write. Kept beside `loadRecentQueries` so the key shape,
+// the owner guard, and the "convenience only, never throw" contract live in one
+// place rather than being re-derived at the call site.
+//
+// Deliberately knows nothing about the "Save recent searches" preference: the
+// preference snapshot lives in the client hook layer, and pulling it down here
+// would point this lib module back at a component hook. Callers gate the call.
+export function saveRecentQueries(ownerId: string | null, queries: string[]) {
+  if (typeof window === "undefined" || !ownerId) return;
+  try {
+    window.sessionStorage.setItem(`${recentQueryStorageKey}:${ownerId}`, JSON.stringify(queries));
+    window.dispatchEvent(new Event(recentQueriesChangeEvent));
+  } catch {
+    // Recent questions are a convenience only; ignore storage failures.
   }
 }
 
@@ -69,6 +88,7 @@ export function clearRecentQueries() {
         window.sessionStorage.removeItem(key);
       }
     }
+    window.dispatchEvent(new Event(recentQueriesChangeEvent));
   } catch {
     // Recent queries are a convenience only.
   }
