@@ -762,7 +762,10 @@ is the round-1 habit one level up, which is the part worth sitting with: I fixed
 What I did about it: the refusal now covers a **family** of affirmative constructions rather than two
 sentences, and a **positive** assertion pins the counterfactual framing the honest wording depends on
 (`would depend on`, `connected to no hospital record`), so a rewrite into an affirmative claim has to
-defeat both halves. R2-M16, R2-M17 and R2-M18 prove all three parts fire.
+defeat both halves. **CORRECTED IN ROUND 3 — the original sentence here read "R2-M16, R2-M17 and
+R2-M18 prove all three parts fire", which overstated it.** What those three mutations prove is **two
+of the six family regexes and one of the two counterfactual clauses**. R3-M24 adds the second
+counterfactual clause; four of the six regexes remain unproven. See round 3.
 
 **And it is recorded in the comment as a shape-pin, not as the rule**, because it is at the limit of
 what an assertion can express here. The rule is "the screen makes no affirmative present-tense claim
@@ -909,3 +912,102 @@ it behind the referral the isolated Playwright server does not seed, which the r
 independently from that spec's own comment. The coverage gap is unchanged: the removed field, the
 always-rendered live region and the blanked draft field have no browser evidence, and cannot until
 that server seeds a referral.
+
+---
+
+# Round 3 — the missing mutation, and what "proved" actually means here
+
+Commit: this report. **No source changed** — R3-M24 and R3-M25 were both applied and reverted, and
+the only file this round edits is the report plus one test comment. So the guard set is the gate; no
+full suite, as you said.
+
+## The unproven assertion, and why the asymmetry is the real finding
+
+**Confirmed.** `"makes no present-tense claim…"` ends with two `toHaveTextContent` assertions and only
+`/would depend on/i` had a mutation. R3-M24 now isolates the other one: rewording the screen to
+"is **not connected to a** hospital record" leaves `/would depend on/i` intact and the family regexes
+unmatched, and fails on that clause alone.
+
+**The asymmetry is what I want on the record, because it is the part I cannot put down to
+inattention.** In the same round I wrote out, at length, that the regex loop covers a family and that
+"a fourth phrasing outside the family still passes" — an unprompted disclosure of an unproven
+residual. Two lines below it, in the same case, I left a second assertion with no mutation and wrote
+"prove all three parts fire". So it is not that I cannot see unproven assertions; it is that I saw
+one, described it well, and then **treated the description as if it had discharged the obligation for
+the whole case**. Disclosing a limitation feels like completing the audit. It is not the audit.
+
+## The general form, in my words, kept
+
+> **A mutation proves the assertion it makes fail — not the case it makes red.** A case with N
+> assertions needs N mutations, or it needs splitting.
+
+The order-masked rule I gave you last round is a _special case_ of this one, not a separate rule:
+when an earlier assertion fails first, the later one is not merely unproven but unreachable by that
+mutation. Both reduce to the same discipline — **count assertions, not red cases.**
+
+And a third thing follows that I did not see until I did the counting: **order-masking is a property
+of a (case, mutation) pair, not of a case.** R2-M19 masks the id list; R2-M20 does not. Saying "this
+case is order-masked" is already the wrong shape of claim.
+
+## Which of my cases are in which state
+
+You asked me to say, so here it is counted from the code rather than estimated. Every case I added or
+materially changed in Task 8, by whether **each** of its assertions has a mutation that makes **that**
+assertion fail:
+
+**Fully proved, per assertion — four cases:**
+
+| Case                                                                                      | Assertions | Mutations      |
+| ----------------------------------------------------------------------------------------- | ---------- | -------------- |
+| `treats whitespace as absent, which the schema alone would not`                           | 1          | M1             |
+| `names only the two reserved PATIENT mobiles, not the staffed line or the crisis contact` | 2          | R1-M12, R3-M25 |
+| `offers no input for it`                                                                  | 2          | R2-M19, R2-M20 |
+| `states the same send time the schedule actually uses`                                    | 1 (looped) | M3, R1-M11     |
+
+**Partially proved — every other case I own.** The largest gaps, named rather than summarised:
+
+| Case                                                              | Assertions               | Proved                         | Unproven                                                    |
+| ----------------------------------------------------------------- | ------------------------ | ------------------------------ | ----------------------------------------------------------- |
+| `makes no present-tense claim… (I-3)`                             | 8 (6 looped regexes + 2) | R2-M16, R2-M17, R2-M18, R3-M24 | 4 of the 6 regexes                                          |
+| `keeps a patient's name, number and identifiers across a reload`  | 6                        | R2-M22 (cultural identity)     | name, mobile, identifiers, sending preference               |
+| `keeps the caution's live region on the page from the start`      | 5                        | R2-M21 (emptiness)             | role, content-after-typing, describedby link, non-empty id  |
+| `will require an incomplete stage 3 to be unable to advance`      | 5                        | R1-M14 (the armed refusal)     | the `aria-disabled` absence, the enabled-when-complete half |
+| `trims the two required fields and carries exactly the four keys` | 4                        | —                              | all four                                                    |
+| `asks the clinician to TYPE the patient's name…`                  | 4                        | —                              | all four                                                    |
+
+That is the honest position: **4 of the ~30 cases I own are proved assertion by assertion.** The rest
+have one or two mutations each and are proved to be _alive_, not proved _complete_. I am not going to
+close that gap in this round — you scoped it to one mutation and prose, and a further twenty
+mutations is its own piece of work — but the count is now written down instead of implied, and the
+biggest gaps are named so the next person does not have to rediscover which they are.
+
+**Is anything intrinsically unreachable?** No, and I checked rather than asserting it. The candidate
+I suspected was the not-contains loop in the reserved-mobiles case: given the exact-equality
+assertion above it, `[mira, rowan]` cannot contain a service line, so I had it written down as
+redundant — a check that cannot fail, which is the worst kind. **That was wrong, and the mutation is
+what told me.** R3-M25 sets `rowanPatientMobile` to the crisis-support number: the equality assertion
+still passes, because both sides read the same mutated record, and the loop fails with `a number a
+patient CALLS is offered as a number a patient receives on`. It catches precisely the confusion the
+case is named for. I have added that mutation's name to the assertion's own comment so nobody
+"simplifies" it away on the reasoning I nearly filed.
+
+**The near-miss is worth more than the result.** I was one paragraph from reporting a sound assertion
+as dead weight, on an argument that was internally consistent and wrong. What caught it was running
+the mutation I was about to claim was impossible — which is the same rule as everything else in this
+round: **a property you have not seen fail is a hypothesis.**
+
+## Round 3 mutation log — every attempt, itemised, no aggregate
+
+| #      | Mutation                                                                 | Predicted                                                                                                                    | Observed                                                                                                                        | Verdict                 |
+| ------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| R3-M24 | "connected to no hospital record" → "not connected to a hospital record" | 1 red, isolating the SECOND counterfactual clause: `/would depend on/i` survives, no family regex matches                    | `expect(element).toHaveTextContent() /connected to no hospital record/i`, at the second of the two lines                        | RED, prediction matched |
+| R3-M25 | `rowanPatientMobile` set to the crisis-support number                    | 1 red on the not-contains loop, with the equality assertion above it still PASSING — the pair I had wrongly called redundant | `a number a patient CALLS is offered as a number a patient receives on: expected [ Array(2) ] to not include '+61 491 570 158'` | RED, prediction matched |
+
+Both confirmed present by their own `grep -c`, run as a separate command with `;`, against committed
+files; `git status` clean after each revert. No anchor failed to match.
+
+## Round 3 gate
+
+Guard set only, and no full suite: the only tracked change this round is the report plus one comment
+in `tests/caring-contacts-plan-patient-detail.test.ts`. Both mutations were reverted and `git status`
+is clean, so no source ships.

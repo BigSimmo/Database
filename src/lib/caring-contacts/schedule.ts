@@ -155,6 +155,42 @@ const FIRST_CONTACT_MAX_OFFSET_DAYS = 7;
  */
 export const FIRST_CONTACT_REASON_MAX_LENGTH = 500;
 
+/**
+ * The first-contact days a screen may offer for one discharge day, or null when that day is not a
+ * real AWST calendar day.
+ *
+ * PUBLISHED HERE BECAUSE THE RANGE IS THIS MODULE'S RULE, and Ruling [118] puts the CONTROL on the
+ * review-and-activation screen. `buildApprovedSchedule` refuses `first-contact-out-of-range`
+ * outside these bounds and defaults to `usual` when no date is supplied at all; a screen that wrote
+ * "the discharge day to seven days after it" into a date control's `min` and `max` would be a
+ * second copy of the three constants above, free to go on offering a day the schedule had stopped
+ * accepting — on the control that decides when a discharged patient first hears from the service.
+ *
+ * Derived from those constants rather than restated, exactly as `SENDING_PREFERENCE_OPTIONS`
+ * derives its wording from `SEND_HOUR_BY_PREFERENCE`, so the two cannot drift.
+ *
+ * It answers the RANGE and nothing else. Whether a moved day needs a reason, and whether the reason
+ * given is acceptable, stay inside `buildApprovedSchedule` where they are enforced.
+ */
+export type FirstContactDayBounds = {
+  /** The programme's usual day, and what the schedule uses when no date is supplied. */
+  usual: string;
+  /** The earliest day the first contact may be moved to. */
+  earliest: string;
+  /** The latest day the first contact may be moved to. */
+  latest: string;
+};
+
+export function firstContactDayBounds(dischargeCalendarDay: string): FirstContactDayBounds | null {
+  const dischargeDay = parseCalendarDay(dischargeCalendarDay);
+  if (!dischargeDay) return null;
+  return {
+    usual: formatCalendarDay(addCalendarDays(dischargeDay, FIRST_CONTACT_DEFAULT_OFFSET_DAYS)),
+    earliest: formatCalendarDay(addCalendarDays(dischargeDay, FIRST_CONTACT_MIN_OFFSET_DAYS)),
+    latest: formatCalendarDay(addCalendarDays(dischargeDay, FIRST_CONTACT_MAX_OFFSET_DAYS)),
+  };
+}
+
 const MILLISECONDS_PER_DAY = 86_400_000;
 const CALENDAR_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -6,6 +6,7 @@ import {
   APPROVED_SEND_WINDOW,
   buildApprovedSchedule,
   FIRST_CONTACT_REASON_MAX_LENGTH,
+  firstContactDayBounds,
   SENDING_PREFERENCE_OPTIONS,
 } from "@/lib/caring-contacts/schedule";
 
@@ -309,3 +310,73 @@ describe("SENDING_PREFERENCE_OPTIONS — the wording a screen may render (Phase 
     }
   });
 });
+
+describe("firstContactDayBounds — the range a screen may offer (Phase 2B Task 9)", () => {
+  // Ruling [118] puts the first-contact-date control on the review-and-activation screen, and the
+  // screen must offer exactly the days `buildApprovedSchedule` accepts. These cases check the
+  // published bounds against the function that enforces them, rather than against the numbers 0, 1
+  // and 7 written out a second time — a bound that agreed with a copy of the rule instead of with
+  // the rule would be the tautology round 1's M-1 and M-2 were about.
+  const dischargeDay = awstCalendarDay(discharge);
+
+  it("names a usual day the schedule uses when no date is supplied at all", () => {
+    const bounds = firstContactDayBounds(dischargeDay);
+    expect(bounds).not.toBeNull();
+    const contacts = ok(buildApprovedSchedule({ dischargeAt: discharge, sendingPreference: "morning" }));
+    expect(bounds!.usual, "the advertised usual day is not the day the schedule defaults to").toBe(
+      contacts[0].calendarDay,
+    );
+  });
+
+  it("names an earliest and a latest day the schedule accepts, and no day outside them", () => {
+    const bounds = firstContactDayBounds(dischargeDay)!;
+
+    // Every advertised day is accepted. A reason is supplied because a moved date requires one;
+    // the point of the case is the RANGE, so the reason must not be what refuses it.
+    for (const day of [bounds.earliest, bounds.usual, bounds.latest]) {
+      const result = buildApprovedSchedule({
+        dischargeAt: discharge,
+        sendingPreference: "morning",
+        firstContactDate: day,
+        firstContactReason: "The ward agreed this day with the patient before discharge.",
+      });
+      expect(result.ok, `${day} is advertised as choosable and the schedule refused it`).toBe(true);
+    }
+
+    // And the day on each side is refused, which is what makes the bounds bounds rather than two
+    // days that happen to work.
+    for (const day of [dayBefore(bounds.earliest), dayAfter(bounds.latest)]) {
+      const result = buildApprovedSchedule({
+        dischargeAt: discharge,
+        sendingPreference: "morning",
+        firstContactDate: day,
+        firstContactReason: "The ward agreed this day with the patient before discharge.",
+      });
+      expect(result.ok, `${day} is outside the advertised range and the schedule accepted it`).toBe(false);
+      if (!result.ok) expect(result.reason).toBe("first-contact-out-of-range");
+    }
+  });
+
+  it("answers null for a day that is not a real AWST calendar day", () => {
+    // A screen holds whatever a clinician typed, including nothing. Answering with bounds computed
+    // from a nonsense day would put three nonsense days on a date control.
+    expect(firstContactDayBounds("")).toBeNull();
+    expect(firstContactDayBounds("2026-02-30")).toBeNull();
+    expect(firstContactDayBounds("10/03/2026")).toBeNull();
+  });
+});
+
+/** One calendar day either side, computed here so the bounds are checked against arithmetic they do not share. */
+function dayBefore(calendarDay: string): string {
+  return shiftDay(calendarDay, -1);
+}
+
+function dayAfter(calendarDay: string): string {
+  return shiftDay(calendarDay, 1);
+}
+
+function shiftDay(calendarDay: string, amount: number): string {
+  const [year, month, day] = calendarDay.split("-").map(Number);
+  const cursor = new Date(Date.UTC(year, month - 1, day + amount));
+  return cursor.toISOString().slice(0, 10);
+}

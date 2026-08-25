@@ -165,6 +165,12 @@ describe("the one authority this domain holds about numbers that cannot connect"
       FICTIONAL_CONTACTS_BY_ROLE.miraPatientMobile,
       FICTIONAL_CONTACTS_BY_ROLE.rowanPatientMobile,
     ]);
+    // NOT redundant with the assertion above, although it looks it — round 3, and I had it written
+    // down as a check that cannot fail before the mutation said otherwise. R3-M25 sets
+    // `rowanPatientMobile` to the crisis-support number: the equality above still PASSES, because
+    // both sides read the same record, and this loop is what fails. It catches exactly the confusion
+    // the case is named for — a number a patient CALLS offered as one they receive on. Do not delete
+    // it on the reasoning that the equality covers it.
     for (const serviceLine of [
       FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine,
       FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact,
