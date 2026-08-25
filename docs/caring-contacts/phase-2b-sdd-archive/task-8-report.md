@@ -744,7 +744,7 @@ today, and each has its own test and its own mutation (R2-M22, R2-M23).
 `parsePatientDetail` would discard the whole draft — throwing away the patient's name and mobile
 number a clinician typed, in order to remove a field they were never offered. Blanking drops exactly
 the value that may no longer be supplied and keeps everything they did type. The key is still
-*required* to be a string first, so this is a decision about a recognised field rather than a silence
+_required_ to be a string first, so this is a decision about a recognised field rather than a silence
 about an unrecognised one; deleting the field from the type would have made it the silence instead,
 which is why the field stays (N-2's comment now says so).
 
@@ -794,7 +794,7 @@ fires.
 ## Item 4 — the two small ones
 
 - **N-2 — fixed.** `patient-detail.ts` no longer says "A text input has no null; the plan does" about
-  an input that does not exist. It now says why the field is *kept*: so `parseDraft` can recognise the
+  an input that does not exist. It now says why the field is _kept_: so `parseDraft` can recognise the
   key in an older draft and blank it deliberately, rather than ignoring it by omission.
 - **N-3 — fixed.** The round-1 itemisation was wrong. The actual shape: **four** new cases in the
   cultural-identity describe, **one** for the live region, **two** for I-1, and **zero** for the notice
@@ -818,7 +818,7 @@ exist yet, the affirmatives are promises and the negatives are boundaries, and o
 can be repeated on a screen as fact.
 
 **2. On I-1, "finish the sentence" was too kind to myself.** I framed the report defect as an
-unfinished thought. It was not. *"`ready` is passed, and it arms when Task 9 builds review"* was **a
+unfinished thought. It was not. _"`ready` is passed, and it arms when Task 9 builds review"_ was **a
 prediction about a code path that had never executed, written as a property of the code** — and wrong
 on its own terms, because `ForwardControl` returns before it reads `ready`. The rule to carry is:
 **a mechanism you have not seen run is a hypothesis, and reporting it as coverage is the failure.**
@@ -835,16 +835,16 @@ cannot run.**
 
 ## Round 2 mutation log — every attempt, itemised, no aggregate
 
-| #      | Mutation                                                                        | Predicted                                                                                       | Observed                                                                                                                                                                       | Verdict                        |
-| ------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| R2-M16 | The removed sentence "It is used for aggregate reporting on programme reach" put back on the stage | 1 red, on the `is/are used for` member of the family                                            | `the stage makes an affirmative claim about an unbuilt capability: /\b(?:is\|are)\s+used\s+for\b/i`                                                                            | RED, prediction matched        |
-| R2-M17 | "Reach figures are produced from this" — a phrasing the ORIGINAL two regexes both allowed | 1 red, on the `reach figures` member; and it demonstrates the widening is not inert             | `the stage makes an affirmative claim about an unbuilt capability: /\breach\s+(?:figures\|numbers\|counts\|data)\b/i`. Checked against the round-1 pair by hand: neither matches it | RED, prediction matched        |
-| R2-M18 | "would depend on" removed from the absence statement                            | 1 red, on the positive counterfactual half                                                      | `expect(element).toHaveTextContent() … /would depend on/i`                                                                                                                     | RED, prediction matched        |
-| R2-M19 | The cultural-identity `TextField` put back                                      | 1 red on "offers no input for it" — **and I predicted it would fire on the FIRST assertion, leaving the id list unproved** | `expected <input …(6)></input> to be null`. The id list was never reached, exactly as predicted, which is why R2-M20 exists                                                    | RED, prediction matched        |
-| R2-M20 | The identifiers field's `id` renamed, so the cultural query stays null and the list is reached | 1 red on the id list itself                                                                     | `stage 3 collects a field it should not, or has lost one it should: expected [ Array(3) ] to deeply equal [ Array(3) ]`                                                        | RED, prediction matched        |
-| R2-M21 | The caution's condition replaced with `true`, so the region is never empty      | 2 red: the emptiness assertion, and the "clears when the number is reserved" half               | Exactly 2: `expect(element).toBeEmptyDOMElement()`, and `expected 'Entered by youA referral carries no n…' not to match /not one of the reserved fictional nu…/i`               | RED, prediction matched        |
-| R2-M22 | `parsePatientDetail` carries `culturalIdentity` through instead of blanking it  | 2 red in the draft suite                                                                        | Exactly 2, both `expected 'Noongar' to be ''` — the round-trip case with its named message, and the dedicated blanking case                                                    | RED, prediction matched        |
-| R2-M23 | `createPlanPatientDetail` returns the trimmed value again                       | 1 red in the patient-detail suite                                                                | `a supplied cultural identity was passed through to the plan: expected 'Noongar' to be null`                                                                                   | RED, prediction matched        |
+| #      | Mutation                                                                                           | Predicted                                                                                                                  | Observed                                                                                                                                                                            | Verdict                 |
+| ------ | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| R2-M16 | The removed sentence "It is used for aggregate reporting on programme reach" put back on the stage | 1 red, on the `is/are used for` member of the family                                                                       | `the stage makes an affirmative claim about an unbuilt capability: /\b(?:is\|are)\s+used\s+for\b/i`                                                                                 | RED, prediction matched |
+| R2-M17 | "Reach figures are produced from this" — a phrasing the ORIGINAL two regexes both allowed          | 1 red, on the `reach figures` member; and it demonstrates the widening is not inert                                        | `the stage makes an affirmative claim about an unbuilt capability: /\breach\s+(?:figures\|numbers\|counts\|data)\b/i`. Checked against the round-1 pair by hand: neither matches it | RED, prediction matched |
+| R2-M18 | "would depend on" removed from the absence statement                                               | 1 red, on the positive counterfactual half                                                                                 | `expect(element).toHaveTextContent() … /would depend on/i`                                                                                                                          | RED, prediction matched |
+| R2-M19 | The cultural-identity `TextField` put back                                                         | 1 red on "offers no input for it" — **and I predicted it would fire on the FIRST assertion, leaving the id list unproved** | `expected <input …(6)></input> to be null`. The id list was never reached, exactly as predicted, which is why R2-M20 exists                                                         | RED, prediction matched |
+| R2-M20 | The identifiers field's `id` renamed, so the cultural query stays null and the list is reached     | 1 red on the id list itself                                                                                                | `stage 3 collects a field it should not, or has lost one it should: expected [ Array(3) ] to deeply equal [ Array(3) ]`                                                             | RED, prediction matched |
+| R2-M21 | The caution's condition replaced with `true`, so the region is never empty                         | 2 red: the emptiness assertion, and the "clears when the number is reserved" half                                          | Exactly 2: `expect(element).toBeEmptyDOMElement()`, and `expected 'Entered by youA referral carries no n…' not to match /not one of the reserved fictional nu…/i`                   | RED, prediction matched |
+| R2-M22 | `parsePatientDetail` carries `culturalIdentity` through instead of blanking it                     | 2 red in the draft suite                                                                                                   | Exactly 2, both `expected 'Noongar' to be ''` — the round-trip case with its named message, and the dedicated blanking case                                                         | RED, prediction matched |
+| R2-M23 | `createPlanPatientDetail` returns the trimmed value again                                          | 1 red in the patient-detail suite                                                                                          | `a supplied cultural identity was passed through to the plan: expected 'Noongar' to be null`                                                                                        | RED, prediction matched |
 
 Each mutation confirmed present by its own `grep -c`, run as a separate command with `;`, against a
 committed file; `git status` clean after every revert. No anchor failed to match this round.
@@ -857,3 +857,55 @@ reload, so the screen's claim depends on nobody having one: expected 'Noongar' t
 `expected 'Noongar' to be ''`.
 
 ## Round 2 gates
+
+**The guard set, `npm run test:cc-guards`** — run after every fix in this round:
+
+```
+[cc-guards] exit=0 elapsed=54s
+ Test Files  17 passed (17)
+      Tests  325 passed (325)
+   Duration  50.14s (transform 2.44s, setup 2.54s, import 8.93s, tests 49.25s, environment 9.59s)
+```
+
+325, up from 324: **one net new case** — the dedicated blanking case for N-1. The other N-1 assertions
+went into existing cases, and the item 2 and item 3 work changed assertions rather than adding cases.
+(Counted from the code this time, not reconstructed from a total — that is N-3's lesson applied
+rather than restated.)
+
+**The full suite, once, at the end, backgrounded from the first command:**
+
+```
+[test] exit=0
+ Test Files  834 passed | 3 skipped (837)
+      Tests  10121 passed | 74 skipped (10195)
+   Duration  513.81s (transform 51.08s, setup 82.11s, import 266.30s, tests 1001.84s, environment 331.93s)
+```
+
+Clean, no lease incident, and `tests/codex-cloud-setup.test.ts` green again — the second consecutive
+run on which it passes, which is now a pattern rather than a single observation.
+
+(The `check:function-grants: FAIL` lines mid-run are one test's own positive-control fixtures printing
+their expected refusals, not failures.)
+
+**Typecheck and lint:**
+
+```
+[typecheck] exit=0 elapsed=15s
+[gate-receipts] recorded a pass for "typecheck:internal" (5326 input files).
+
+[lint] exit=0 elapsed=10s
+[gate-receipts] recorded a pass for "lint:internal" (5326 input files).
+```
+
+**Prettier, whole tree: clean apart from this report, which was then formatted.** The three
+pre-existing unformatted files reported in round 1 have been fixed by the coordinator, so
+`npx prettier --check .` now returns only files this task owns.
+
+## Does round 2 touch the browser gate?
+
+**No.** `tests/ui-caring-contacts-workspace.spec.ts` is unchanged in this round and in both previous
+ones. Every change is inside stage 3's body, its pure module, the draft parser, or the tests — all of
+it behind the referral the isolated Playwright server does not seed, which the reviewer confirmed
+independently from that spec's own comment. The coverage gap is unchanged: the removed field, the
+always-rendered live region and the blanked draft field have no browser evidence, and cannot until
+that server seeds a referral.
