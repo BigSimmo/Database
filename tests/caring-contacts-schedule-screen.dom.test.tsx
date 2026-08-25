@@ -265,7 +265,9 @@ describe("the Schedule screen — the day strip", () => {
     const selected = within(dayStrip())
       .getAllByRole("link")
       .find((link) => link.getAttribute("data-schedule-day") === MONTH_END);
-    expect(selected?.textContent).toContain("1");
+    // `getByText` matches an element whose whole normalised text is "1", so the "31" inside
+    // "Mon 31 Aug" cannot satisfy it -- which `toContain("1")` did, silently, before this.
+    expect(within(selected as HTMLElement).getByText("1")).toBeTruthy();
     expect(selected?.getAttribute("aria-label")).toBe(
       `${scheduleDayLabel(MONTH_END)} (today). 1 contact, 0 still to send.`,
     );
@@ -331,6 +333,10 @@ describe("the Schedule screen — the four pairs that must not collapse", () => 
     // empty day. `Cancelled` is a plan term, stated with why and what would change it.
     expect(screen.getByRole("group", { name: "Cancelled" }).textContent).toContain("never sent later");
     expect(screen.queryByRole("group", { name: "No contacts in these days" })).toBeNull();
+    // And NO plan-hold notice. A withdrawn plan does hold its contacts by state -- `planHold` is
+    // `planEnded` on every one of them -- but none of them would have gone out anyway, so saying
+    // "this plan is stopping a message" would name the wrong reason for the same silence.
+    expect(screen.queryByRole("group", { name: "Plan ended" })).toBeNull();
     stopped.unmount();
 
     // The other half of the pair: a day in the SAME strip that nothing was ever scheduled on.
