@@ -45,7 +45,7 @@ Everything below was measured against the code, not read from a plan.
 | -------------------------------------------- | -------------------------------------------------------- |
 | Movements in the fixture                     | 48 (18 authored + 30 generated), **41 open**             |
 | Reducer events that exist                    | **15**, every one of them forward-only                   |
-| Open movements with **no** eligible ward     | **0** — the scarcest has six                             |
+| Open movements with **no** eligible ward     | **2** — WF-009 and WF-308 (corrected, see below)         |
 | Movements with a recorded escalation         | **1**                                                    |
 | Movements with any decline                   | **2**                                                    |
 | Beds held                                    | **7** — 1 hold already expired, 6 expire within the hour |
@@ -56,9 +56,18 @@ Everything below was measured against the code, not read from a plan.
 
 Four gaps follow from that table and drive most of this phase:
 
-- **The synthetic night is easy.** Every open patient has at least six eligible wards, so the
-  escalation board, the handover's "placement gone wrong" section and the whole scarcity story have
-  nothing to show. Item 2 fixes the data, not the boards.
+- **The synthetic night is easy — but not as easy as this document first claimed.**
+  **CORRECTION, 2026-08-25.** This section originally read "every open patient has at least six
+  eligible wards", and concluded the escalation board and the handover's placement-gone-wrong
+  section would have nothing to show. **Both statements were false.** The number came from counting
+  the LENGTH of `eligibleCandidatesAmong(...)`, which sorts eligible-first and **truncates to its
+  `limit`**; it never filters to eligible, so that length is the count of same-cohort units. Measured
+  properly at `NOW_ANCHOR` by counting `eligibility(...).eligible` across all 22 units: 337 eligible
+  movement/unit pairs, distribution `{0:2, 4:11, 5:6, 6:3, 11:1, 12:9, 14:9}`, and **two movements,
+  WF-009 and WF-308, already have nowhere eligible.** The escalation board therefore has real content
+  from day one. `tests/ward-scenarios.test.ts` now pins this and records the whole story in a comment.
+  The scarce scenario (item 2) is still worth building — it takes the stranded count from 2 to 9 and
+  total eligible pairs from 337 to 123 — but it is a widening of the problem, not the creation of it.
 - **Nothing can be undone.** All fifteen events move a patient forwards. The _only_ path that
   releases a held bed or cancels a transport job is closing the movement entirely — recording an
   examination with outcome `community_order` or `revoked`. A coordinator who holds the wrong bed
@@ -332,8 +341,22 @@ provider**, and **Other service**. No typing. Every entry except "Other service"
 language the model already uses; none is invented.
 
 **Why it matters more than its size.** The synthetic-data promise currently depends on a user
-reading a label and complying. After this it is true by construction — the same reasoning that made
-decline reasons a fixed list.
+reading a label and complying. After this **that particular box** is safe by construction — the same
+reasoning that made decline reasons a fixed list.
+
+**CORRECTION, 2026-08-25 — this item said "the only free-text input left in the prototype" and
+"after this it is true by construction". Both overstated.** Measured across the whole ward tree
+rather than from a single early grep: there were **two** `<textarea>` elements, not one. The other
+four `<input>` elements are checkbox, radio and number, so they are not free text. After this item
+**one free-text box remains: the override-reason `<textarea>` in `shortlist-panel.tsx`**, where a
+coordinator types why they overrode the shortlist. Free text counts under the synthetic-data rule,
+so that box can still carry a name, a diagnosis or a narrative.
+
+**It is deliberately not closed here, and the reason is rule 1 rather than scope.** Escalation
+contacts could be grounded in language the model already held. Override reasons cannot: why a
+coordinator overrides a placement shortlist is a clinical and operational judgement, and inventing
+that list is exactly the move this project punishes. **It goes to the product owner as a decision,
+with the measurement behind it.**
 
 **Migration:** the one authored escalation in the fixture uses "State bed coordination desk", which
 is on the list, so no fixture data is lost.
