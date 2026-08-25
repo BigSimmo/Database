@@ -17,9 +17,7 @@
   --tr-leading-prose: 1.5;
   display: grid;
   min-height: 100dvh;
-  /* The rail track stays reserved at every supported width, same as every other Ward Flow
-     screen — see ward-management.module.css's own note on this. */
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr);
   background: var(--surface);
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -204,5 +202,16 @@
 @media (prefers-reduced-motion: reduce) {
   .screen * {
     transition: none !important;
+  }
+}
+
+/*
+ * Below 40rem the icon rail is gone and `ward-sidebar.module.css`'s fixed phone bar takes its
+ * place. The bar is fixed rather than sticky because it has to sit above ten different shells
+ * whose scroll containers are all in a different place, so each shell reserves the shared phone-bar height here.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    padding-top: var(--spacing-ward-phone-bar);
   }
 }

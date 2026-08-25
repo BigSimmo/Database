@@ -69,34 +69,33 @@ Smaller top-level directories that are easy to miss:
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                                                                                                          | File                                                                                      |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `/`                                                                                                                                                                                            | `src/app/(search-app)/page.tsx`                                                           |
-| Shared mode-home route group (`/(search-app)`)                                                                                                                                                 | `src/app/(search-app)/`                                                                   |
-| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                                            | `src/app/(search-app)/` shared shell group                                                |
-| `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                                         | `src/app/caring-contacts/`                                                                |
-| `/caring-contacts/patients` (permission-scoped caseload: one row per plan plus an authorised names-only projection; URL state filter and local name/identifier search)                         | `src/app/caring-contacts/patients/page.tsx`                                               |
-| `/applications`                                                                                                                                                                                | `src/app/applications/route.ts`                                                           |
-| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                   | `src/app/(search-app)/differentials/`                                                     |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                 | `src/app/(search-app)/dsm/`                                                               |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                                                           | `src/app/(search-app)/documents/`                                                         |
-| `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`                                                                                                                | `src/app/(search-app)/factsheets/`                                                        |
-| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare, Sources                                                                              | `src/app/(search-app)/dictionary/`                                                        |
-| `/favourites`                                                                                                                                                                                  | `src/app/(search-app)/favourites/page.tsx`                                                |
-| `/forms`, `/forms/[slug]`                                                                                                                                                                      | `src/app/(search-app)/forms/`                                                             |
-| `/medications`, `/medications/[slug]`                                                                                                                                                          | `src/app/(search-app)/medications/`                                                       |
-| `/privacy`                                                                                                                                                                                     | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx` |
-| `/reference/colour-coding`                                                                                                                                                                     | `src/app/reference/`                                                                      |
-| `/safety-plan`                                                                                                                                                                                 | `src/app/safety-plan/page.tsx`                                                            |
-| `/calculators`, `/calculators/search`                                                                                                                                                          | `src/app/(search-app)/calculators/`                                                       |
-| `/services`, `/services/[slug]`                                                                                                                                                                | `src/app/(search-app)/services/`                                                          |
-| `/therapy-compass`                                                                                                                                                                             | `src/app/(search-app)/therapy-compass/`                                                   |
-| `/tools`                                                                                                                                                                                       | `src/app/(search-app)/tools/`                                                             |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                                                           | `src/app/(search-app)/specifiers/`                                                        |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                                                      | `src/app/(search-app)/formulation/`                                                       |
-| `/ward-management`, `/network`, `/queue`, `/capacity`, `/movements`, `/exceptions`, `/transport`, `/transport/officer`, `/governance`, `/ed/[edId]`, `/patients/[patientId]`, `/ward/[unitId]` | `src/app/ward-management/` — Ward Flow synthetic patient-flow prototype                   |
-| `/mockups/*`                                                                                                                                                                                   | `src/app/mockups/` (404 in production)                                                    |
-| `/auth/callback`                                                                                                                                                                               | `src/app/auth/callback/route.ts`                                                          |
+| Route                                                                                                                                                                  | File                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`                                                                                                                                                                    | `src/app/(search-app)/page.tsx`                                                                                                                                                    |
+| Shared mode-home route group (`/(search-app)`)                                                                                                                         | `src/app/(search-app)/`                                                                                                                                                            |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                    | `src/app/(search-app)/` shared shell group                                                                                                                                         |
+| `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                 | `src/app/caring-contacts/`                                                                                                                                                         |
+| `/caring-contacts/patients` (permission-scoped caseload: one row per plan plus an authorised names-only projection; URL state filter and local name/identifier search) | `src/app/caring-contacts/patients/page.tsx`                                                                                                                                        |
+| `/applications`                                                                                                                                                        | `src/app/applications/route.ts`                                                                                                                                                    |
+| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                           | `src/app/(search-app)/differentials/`                                                                                                                                              |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                         | `src/app/(search-app)/dsm/`                                                                                                                                                        |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                                   | `src/app/(search-app)/documents/`                                                                                                                                                  |
+| `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`                                                                                        | `src/app/(search-app)/factsheets/`                                                                                                                                                 |
+| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare, Sources                                                      | `src/app/(search-app)/dictionary/`                                                                                                                                                 |
+| `/favourites`                                                                                                                                                          | `src/app/(search-app)/favourites/page.tsx`                                                                                                                                         |
+| `/forms`, `/forms/[slug]`                                                                                                                                              | `src/app/(search-app)/forms/`                                                                                                                                                      |
+| `/medications`, `/medications/[slug]`                                                                                                                                  | `src/app/(search-app)/medications/`                                                                                                                                                |
+| `/privacy`                                                                                                                                                             | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx`                                                                                          |
+| `/reference/colour-coding`                                                                                                                                             | `src/app/reference/`                                                                                                                                                               |
+| `/safety-plan`                                                                                                                                                         | `src/app/safety-plan/page.tsx`                                                                                                                                                     |
+| `/calculators`, `/calculators/search`                                                                                                                                  | `src/app/(search-app)/calculators/`                                                                                                                                                |
+| `/services`, `/services/[slug]`                                                                                                                                        | `src/app/(search-app)/services/`                                                                                                                                                   |
+| `/therapy-compass`                                                                                                                                                     | `src/app/(search-app)/therapy-compass/`                                                                                                                                            |
+| `/tools`                                                                                                                                                               | `src/app/(search-app)/tools/`                                                                                                                                                      |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                                   | `src/app/(search-app)/specifiers/`                                                                                                                                                 |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                              | `src/app/(search-app)/formulation/`                                                                                                                                                |
+| `/mockups/*`                                                                                                                                                           | `src/app/mockups/` (404 in production; `/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, and `/mockups/ward-flow` are developer-gated instead — see below) |
+| `/auth/callback`                                                                                                                                                       | `src/app/auth/callback/route.ts`                                                                                                                                                   |
 
 ### API routes (`src/app/api/`)
 
@@ -359,12 +358,23 @@ sequenceDiagram
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
 
-### Ward Flow (`src/app/ward-management/`, `src/components/ward-management/`)
+### Ward Flow (`src/app/mockups/ward-flow/`, `src/components/ward-management/`)
 
 Synthetic prototype for WA metro psychiatry patient flow: getting a patient from an emergency
 department to an inpatient psychiatric bed. Offline and fixture-backed — no provider calls, no
 persistence, no patient-identifiable data. Advisory only: the system proposes destinations with
 visible reasons and a human confirms or overrides.
+
+Developer-gated sandbox, reached only through the developer page (`/mockups/development`), the
+same pattern as the Care Plan and Caring Contacts prototypes: `"/mockups/ward-flow"` is on
+`DEVELOPER_GATED_PATH_PREFIXES` (`src/lib/developer-area/headers.ts`), so `src/proxy.ts` lets it
+through the blanket `/mockups` production block and `DeveloperAreaGate`
+(`src/app/mockups/ward-flow/layout.tsx`) requires a signed-in administrator instead of rendering
+the prototype to an anonymous visitor. The move only relocated and re-gated the route tree; the
+Tools catalogue entry (`src/lib/tools-catalog.ts`, id `ward-management`) still exists and now
+points at the gated path rather than being removed — a separate, not-yet-landed task drops it
+(and the applications-launcher, tools-search-results, and category-identity mentions that key off
+it) from clinical discovery entirely.
 
 - **Design spec:** `docs/superpowers/specs/2026-08-18-ward-flow-metro-patient-flow-design.md`
 - **Glossary:** `docs/ward-management-context.md` · **Decisions:** `docs/ward-management-decisions.md`
@@ -376,35 +386,69 @@ visible reasons and a human confirms or overrides.
   derivations)
 - **Surfaces:** `ward-management-console.tsx` (command), `ward-management-modes.tsx` (mode
   workspaces), `ward-management-network.tsx` (network diagram), `ward-management-navigation.tsx`,
-  `src/app/ward-management/constellation/page.tsx` (retired constellation; server redirect to
-  `/ward-management/network`), `coordinator/coordinator-screen.tsx` (Phase 3 live coordinator screen — priority queue, statewide
+  `src/app/mockups/ward-flow/constellation/page.tsx` (retired constellation; server redirect to
+  `/mockups/ward-flow/network`), `coordinator/coordinator-screen.tsx` (Phase 3 live coordinator screen — priority queue, statewide
   flow diagram, explainable shortlist), `ward/ward-screen.tsx` (Task 8: one inpatient unit's own
-  view — `/ward-management/ward/[unitId]`; capacity confirmation, incoming-referral accept/hold/
+  view — `/mockups/ward-flow/ward/[unitId]`; capacity confirmation, incoming-referral accept/hold/
   decline, restriction notices, withdrawn referrals), `officer/officer-screen.tsx` (Task 9: the
-  transport officer's phone — `/ward-management/transport/officer`; every transport job not yet
+  transport officer's phone — `/mockups/ward-flow/transport/officer`; every transport job not yet
   arrived, since `TransportJob` carries a `provider` organisation and no officer identity;
   queue-plus-pinned-action-bar pattern inherited from `shortlist-panel.tsx`, one job "active" at a
   time with its four transport actions — accepted, en route, collected, arrived — pinned to the
   viewport bottom on phone widths), `tracker/live-tracker.tsx` (Task 10: the coordinator's live
-  tracker, rewriting the existing route — `/ward-management/transport`; every open movement that
+  tracker, rewriting the existing route — `/mockups/ward-flow/transport`; every open movement that
   carries a transport job, its leg via `tracker/tracker-derivations.ts`'s `trackerRowState`
   (delegating to `transportLeg`) and how long since that leg's own stamp via `stampAgeText`; a
   movement with no transport job at all is never listed as a row — the banner states the excluded
   count in real text instead, the same on-screen-honesty discipline as the officer screen's "no
   officer identity" notice), `ed/ed-screen.tsx` (Task 11: one emergency department's own view —
-  `/ward-management/ed/[edId]`, resolved via `ward-sites.ts`'s `edById`; both clocks (time in
+  `/mockups/ward-flow/ed/[edId]`, resolved via `ward-sites.ts`'s `edById`; both clocks (time in
   department from `openedAt`, the legal clock from `formedAt` where earlier, marked
-  `data-community-formed`), the four-hour `ED_ACCESS_TARGET_MINUTES` departmental access target
+  `data-community-formed`), the 24-hour `ED_ACCESS_TARGET_MINUTES` departmental access target
   — labelled and computed so it can never be mistaken for a legal deadline and never touches a
   `LegalForm`/`dueAt` — a police-attendance flag, and each movement's single outstanding item; a
   raise-referral form (`RAISE_REFERRAL`), a record-examination form (`RECORD_EXAMINATION`), and
   the mark-handover-ready control (`HANDOVER_READY`) that is the only producer of a transport job;
-  statewide capacity shown read-only)
+  statewide capacity shown read-only), `handover/handover-page.tsx` (Phase 4 Task 4: the shift
+  handover — `/mockups/ward-flow/handover`; four fixed, product-owner-approved sections in a fixed
+  order (longest waits, beds held, in transit, placement gone wrong) built by `ward-derivations.ts`'s
+  `handoverSnapshot`; read once from `useWardFlow()` inside a `useState` initialiser so the page is
+  frozen at the moment it is opened and never re-derives on the 30-second clock tick; every section
+  renders an explicit "None" line rather than hiding itself when empty; a Print button calls
+  `window.print()`, styled by `handover.module.css`'s own `@media print` block), `escalation/escalation-board.tsx`
+  (Phase 4 Task 5: the escalation board — `/mockups/ward-flow/escalation`; one place showing every
+  patient whose placement has gone wrong, via `ward-derivations.ts`'s `escalationBoard`; two
+  independently-computed, read-only sections — `escalated` (movements carrying a recorded
+  `Movement.escalation`: when, `triedUnitIds` resolved to real `Unit` objects, contact, wait) and
+  `nowhereEligible` (open movements with zero eligible wards right now, via `eligibleCandidatesAmong`
+  called with an unlimited-effective `limit` so nothing truncates); a movement can appear in both, and
+  on the real fixture at `NOW_ANCHOR` WF-009 does — it has a recorded escalation and, independently,
+  still has nowhere eligible. Unlike the handover, this page is NOT frozen: it reads the live clock on
+  every render, since a coordinator working this board wants the current picture. Records and shows
+  only — it computes no near-miss, no least-bad option, and no statement of what would need to change
+  for a ward to work), `search/patient-search.tsx` (Phase 4 Task 7: patient search — `/mockups/ward-flow/search`;
+  product owner's choice: its own page, reached from the left-hand menu, rather than a box on the
+  coordinator screen. A single live filter over `ward-derivations.ts`'s `searchMovements` — a free-text
+  field matching movement id, `originEdId`, the resolved destination unit's id/name, the stage's own
+  display label and `owner`, plus an exact-match stage `<select>` and department `<select>`, all three
+  combining as AND. Scoped to OPEN movements only (`isOpen`, applied before any other filter, so a
+  closed movement can never surface even when the query is its own id verbatim) and, like the
+  escalation board and unlike the frozen handover, reads the live `useWardFlow()` clock on every
+  render. Renders an explicit "No matches" note rather than an empty table when nothing fits. This is
+  the page's own single search composer — Ward Flow routes never mount the shared global shell
+  composer, so nothing else on the page competes with it)
 - **State layer (Phase 3):** `ward-flow-provider.tsx` (`WardFlowProvider`/`useWardFlow`, mounted at
-  `src/app/ward-management/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
+  `src/app/mockups/ward-flow/layout.tsx`), `ward-flow-reducer.ts` (the one mutation path),
   `ward-flow-events.ts` (event/role table)
 - **Tests:** `tests/ward-management.test.ts`, `tests/ui-ward-management.spec.ts`,
-  `tests/ui-ward-coordinator.spec.ts`, `tests/ui-ward-roles.spec.ts`
+  `tests/ui-ward-coordinator.spec.ts`, `tests/ui-ward-roles.spec.ts`, `tests/ward-handover.test.ts`
+  (`handoverSnapshot`), `tests/ward-handover.dom.test.tsx` (the freeze and every section's empty
+  state), `tests/ward-escalation.test.ts` (`escalationBoard`, including the standard-night
+  `WF-009`/`WF-308` and scarce-night nine-movement measurements), `tests/ward-escalation.dom.test.tsx`
+  (both sections and their empty states), `tests/ward-patient-search.test.ts` (`searchMovements`,
+  including the closed-movement exclusion proven against both a real and a constructed fixture case),
+  `tests/ward-patient-search.dom.test.tsx` (the single-composer shape, live results, and the
+  "No matches" empty state)
 
 ### Developer hub (`src/app/mockups/development/`, `src/lib/developer-area/`)
 

@@ -1,4 +1,5 @@
 import type { Instant } from "@/components/ward-management/ward-clock";
+import type { LegalStatusChangeReason, UrgencyChangeReason } from "@/components/ward-management/ward-change-reasons";
 
 export type HealthService = "North Metro" | "South Metro" | "East Metro" | "WACHS" | "Private";
 export type Cohort = "Adult" | "Older adult";
@@ -155,6 +156,18 @@ export type StatusChange = {
   from: LegalStatus;
   to: LegalStatus;
   by: string;
+  reason: LegalStatusChangeReason;
+};
+
+/** The urgency-tier counterpart of `StatusChange` — same shape, same discipline: who made the
+ *  change, when, and a reason chosen from a fixed list rather than typed (see
+ *  `ward-change-reasons.ts`'s own doc comment for why). */
+export type UrgencyChange = {
+  at: Instant;
+  from: 1 | 2 | 3;
+  to: 1 | 2 | 3;
+  by: string;
+  reason: UrgencyChangeReason;
 };
 
 export type TransportJob = {
@@ -175,6 +188,26 @@ export type MovementClosure = {
   reason: string;
 };
 
+/**
+ * The undo the prototype has never had (Task 3, spec item 10). Before this, the only path that
+ * released a held bed or cancelled a transport job was closing the movement outright — recording
+ * an examination with outcome `community_order` or `revoked` — so a coordinator who held the
+ * wrong bed had to declare the patient does not need admission in order to correct it.
+ * `RELEASE_HOLD` and `CANCEL_TRANSPORT` unwind exactly one earlier reservation each, WITHOUT
+ * closing the movement, clearing `legalForm`, or touching `referredUnitIds` — the movement
+ * survives and keeps its acceptance. Every unwind is recorded here so the fact that a hold or a
+ * transport job was undone is never silently lost, the same discipline `StatusChange` and
+ * `UrgencyChange` already hold to for their own reversible facts.
+ */
+export type UnwindRecord = {
+  at: Instant;
+  kind: "hold_released" | "transport_cancelled";
+  by: string;
+  reason: string;
+  /** The cancelled job retained in the audit trail when a replacement becomes active. */
+  transportId?: string;
+};
+
 export type Movement = {
   id: string;
   /** Where the patient physically is. Detention here is lawful even when unauthorised. */
@@ -188,11 +221,21 @@ export type Movement = {
   legalStatus: LegalStatus;
   legalForm?: LegalForm;
   statusChanges: StatusChange[];
+  /** Urgency-tier changes, in the order they were made. Empty for a movement whose urgency has
+   *  never changed since it was raised. */
+  urgencyChanges: UrgencyChange[];
   stage: MovementStage;
   owner: string;
   /** Units currently holding a live referral. Never longer than PARALLEL_REFERRAL_CAP. */
   referredUnitIds: string[];
   acceptedUnitId?: string;
+  /** When `ACCEPT_IN_PRINCIPLE` (ward-flow-reducer.ts) set `acceptedUnitId`. Absent for every
+   *  movement in the seed fixture (`ward-movements.ts`), which is hand-authored with
+   *  `acceptedUnitId` already set rather than reached by dispatching that event — this field is
+   *  deliberately never backfilled onto that fixture, so its absence there is real, not a bug.
+   *  `effectivenessNumbers` (ward-derivations.ts) prefers this over the `withdrawnReferrals`
+   *  archaeology it used before this field existed, and reports honestly when neither is present. */
+  acceptedAt?: Instant;
   declines: Decline[];
   transport?: TransportJob;
   blocker: string;
@@ -211,6 +254,9 @@ export type Movement = {
   withdrawnReferrals: { unitId: string; at: Instant; reason: string }[];
   /** Recorded when the network is exhausted. */
   escalation?: { at: Instant; triedUnitIds: string[]; contact: string };
+  /** Every hold released and transport job cancelled against this movement, oldest first. Empty
+   *  for a movement nothing has ever been unwound on. See `UnwindRecord`'s own doc comment. */
+  unwinds: UnwindRecord[];
 };
 
 /** A transition the reducer refused, surfaced on the coordinator screen rather than swallowed. */
@@ -222,11 +268,25 @@ export type Rejection = {
   reason: string;
 };
 
+/** Every confidence level a bed release can carry — hand-listed here (never derived) for the
+ *  same reason `DECLINE_REASONS` lives beside `DeclineReason`: a UI picker needs a runtime list,
+ *  not just the type. */
+export const BED_RELEASE_CONFIDENCE_LEVELS = ["confirmed", "likely", "possible"] as const;
+export type BedReleaseConfidence = (typeof BED_RELEASE_CONFIDENCE_LEVELS)[number];
+
+/**
+ * Task 11 (spec item 9). A bed release carries **nothing whatsoever about the departing
+ * patient** — no identifier, no timing that could identify them, no reason relating to them.
+ * That is a privacy rule from the binding spec §4 and it is not negotiable: every field below is
+ * about the BED or the confirming WARD, never about a person, and `tests/ward-flow-reducer.test.ts`
+ * asserts this structurally against the type's own field set, not just against fixture content —
+ * see that file's "bed release privacy" suite for how.
+ */
 export type BedRelease = {
   id: string;
   unitId: string;
   expectedAt: Instant;
-  confidence: "confirmed" | "likely" | "possible";
+  confidence: BedReleaseConfidence;
   blocker: string;
   confirmedAt: Instant;
   confirmedBy: string;
