@@ -516,9 +516,28 @@ export function ParticipationMarker({ participationState }: { participationState
  * the end — which is exactly the reader this section exists for. The pinned line
  * links to the full section; it never replaces it, and the full section is never
  * collapsed, truncated, or placed behind a disclosure.
+ *
+ * `medium` exists because a jump link is a screen affordance and paper has
+ * nothing to jump to. On screen the pinned line points at the full section, a
+ * click away. On the printed clinician summary the pointer and its referent are
+ * roughly forty lines apart and a page break can put them on different sheets,
+ * leaving a reader holding a count with nothing under it — so the printed form
+ * carries the boundary's own lines instead. It is still additional: section 5
+ * keeps its numbered place on the same sheet, and the duplication is the point.
+ *
+ * The printed form is withheld when the section is empty. A count of zero at
+ * least says so on its own line; a label with nothing beneath it is the heading
+ * over a blank that this project's worst defect was made of.
  */
-export function PinnedSafetyBoundary({ content }: { content: ManagementPlanContent }) {
-  const count = content.whatWouldMakeThisDifferent.length;
+export function PinnedSafetyBoundary({
+  content,
+  medium = "screen",
+}: {
+  content: ManagementPlanContent;
+  medium?: "screen" | "print";
+}) {
+  const lines = content.whatWouldMakeThisDifferent;
+  const printsItsLines = medium === "print" && lines.length > 0;
   return (
     <aside
       data-testid="care-plan-pinned-safety-boundary"
@@ -532,11 +551,21 @@ export function PinnedSafetyBoundary({ content }: { content: ManagementPlanConte
         line easy to dismiss, and it prints.
       */}
       <p className={styles.pinnedBoundaryText}>
-        <strong>Do not rely on this plan if today is different — assess afresh.</strong> Then read the full section.
+        <strong>Do not rely on this plan if today is different — assess afresh.</strong>
+        {printsItsLines ? null : " Then read the full section."}
       </p>
-      <a href={`#${firstMinuteSectionId("whatWouldMakeThisDifferent")}`} className={styles.pinnedBoundaryLink}>
-        What would make this presentation different ({count} listed)
-      </a>
+      {printsItsLines ? (
+        <div data-testid="care-plan-pinned-boundary-lines" className={styles.pinnedBoundaryLines}>
+          <p className={styles.pinnedBoundaryText}>
+            <strong>What would make this presentation different</strong>
+          </p>
+          <ContentList items={lines} />
+        </div>
+      ) : (
+        <a href={`#${firstMinuteSectionId("whatWouldMakeThisDifferent")}`} className={styles.pinnedBoundaryLink}>
+          What would make this presentation different ({lines.length} listed)
+        </a>
+      )}
     </aside>
   );
 }

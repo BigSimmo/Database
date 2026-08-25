@@ -741,12 +741,19 @@ describe("Care Plan synthetic, memory-only boundary", () => {
     // omission, and it was the one printed element this guard never named. Split
     // across a page break it can lose the clause saying the copy is still theirs
     // to keep, leaving a fragment that says only that it may be wrong.
+    // `pinnedBoundaryLines` is the clinician sheet's copy of the safety
+    // boundary's own lines, printed at the top so a reader never meets a count
+    // whose referent is forty lines below. Split from its label it becomes the
+    // same defect in a shorter form: a heading on one sheet, its lines on the
+    // next. Vitest runs with `css: false`, so the stylesheet is the only place
+    // this is visible.
     for (const className of [
       "safetySection",
       "crisisEntry",
       "patientPlanSection",
       "patientPlanResource",
       "patientPlanPaperStale",
+      "pinnedBoundaryLines",
     ]) {
       expect(
         declarationsFor(className, printRules).get("break-inside"),

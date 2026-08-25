@@ -754,6 +754,35 @@ test.describe("@mockup Care Plan synthetic prototype", () => {
     // The pinned boundary prints, above the plan, in full.
     await expectPinnedBoundaryAbovePlanContent(page);
 
+    /*
+      And on paper it carries its own lines, not a count of them. On screen the
+      jump link resolves the pointer; paper has nothing to jump to, and a page
+      break can leave a reader at 3am holding `5 listed` with its referent on the
+      next sheet. Vitest runs with `css: false`, so print media is only ever
+      visible here.
+    */
+    const boundary = pinnedBoundary(page).first();
+    await expect(boundary, "the printed boundary still counts its lines instead of printing them").not.toContainText(
+      /\d+ listed/,
+    );
+    const printedBoundaryLines = boundary.getByTestId("care-plan-pinned-boundary-lines");
+    await expect(printedBoundaryLines).toBeVisible();
+    await expect(printedBoundaryLines).toContainText("What would make this presentation different");
+    const printedItems = printedBoundaryLines.locator("li");
+    await expect(printedItems, "the printed boundary does not carry all five of Rowan's lines").toHaveCount(5);
+    await expect(printedItems.first()).toContainText("New or worsening physical symptoms");
+    await expect(printedItems.last()).toContainText("safeguarding concern");
+
+    // Above the plan content, on the paper, and not merely present somewhere.
+    const linesBox = await printedBoundaryLines.boundingBox();
+    const planBox = await page.getByTestId("care-plan-first-minute-sections").first().boundingBox();
+    expect(linesBox, "the printed boundary lines have no painted box").not.toBeNull();
+    expect(planBox, "the first-minute sections have no painted box").not.toBeNull();
+    expect(
+      linesBox!.y + linesBox!.height,
+      "the boundary's own lines are not above the plan content they guard",
+    ).toBeLessThanOrEqual(planBox!.y + 1);
+
     // Screen chrome does not.
     await expect(desktopRail(page)).toBeHidden();
     await expect(phoneDock(page)).toBeHidden();

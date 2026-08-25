@@ -668,3 +668,158 @@ product has never had. Fixed at `:1128`, with the reason written beside it.
    specification line 404, `discussed` keeping the joint wording, and the pre-existing
    clinician-facing overclaim at `patient-plan-pages.tsx:254` — is unchanged. Nothing in this
    wave touched any of them.
+
+---
+
+# Fourth wave — the printed boundary carries its lines, not a count
+
+**Date:** 26 August 2026 · **Base:** `cf5a59948`, tree clean at start · one item, closing
+"Still owed" item 3 above.
+
+## The defect, as it read on paper
+
+Item 3 of the previous wave was recorded as an observation. Reading
+`.local/care-plan/atlas/paper-management-plan.txt` end to end makes it a defect. The clinician
+sheet opened with the boundary sentence and then a **count**:
+
+> Do not rely on this plan if today is different — assess afresh. Then read the full section.
+>
+> What would make this presentation different (5 listed)
+
+The five items it counted sat roughly forty lines below, in section 5. On screen the jump link
+resolves the pointer in one click. On paper there is nothing to jump to, and a page break can
+land between the pointer and its referent — leaving a clinician at 3am holding `5 listed` with
+nothing underneath. Paper is the artefact that gets carried to the bedside.
+
+## What changed
+
+| File                            | Change                                                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `prototype-ui.tsx:530-570`      | `PinnedSafetyBoundary` gains an optional `medium` prop, defaulting to `"screen"`. The screen branch is the committed code, character for character.          |
+| `prototype-ui.tsx:557`          | The print branch renders a plain `<p><strong>` label and the boundary's own lines through the existing `ContentList`, in a `styles.pinnedBoundaryLines` box. |
+| `management-plan-print.tsx:209` | The one caller that asks for the printed form: `medium="print"`.                                                                                             |
+| `care-plan.module.css:503`      | `.pinnedBoundaryLines` — a grid box, no colour of its own.                                                                                                   |
+| `care-plan.module.css:1133`     | The same class joins the existing `@media print` `break-inside: avoid` group, beside `.pinnedBoundary` and `.printPaper`.                                    |
+
+**No new mechanism.** The page-break treatment is the group that already keeps the paper's
+other blocks whole; the label is a `<p>`, not a heading, because
+`care-plan-linked-routes.dom.test.tsx:1188` pins the printed sheet's level-3 headings to
+exactly the five first-minute sections and a sixth would have been a silent lie about the
+sheet's structure.
+
+**Section 5 keeps its numbered place.** Lines 64–69 of the captured paper are the same five
+items in their sequence position. The pinned form is additional; the duplication is the intent.
+
+### Why a prop rather than `@media print`
+
+The medium-scoped route — render both forms, show one per medium — is **closed by a guard this
+branch must not weaken.** `care-plan-route-files.test.ts:556` matches every selector matching
+`.pinnedBoundary\w*` and fails on `display: none` anywhere in the stylesheet, including inside
+`@media print`. Hiding either form by CSS trips it, and the only ways past are renaming the
+class to slip the pattern or relaxing the guard. Both defeat a correct rule: a stylesheet rule
+that hides pinned-boundary content in some medium is exactly what that guard is for.
+
+So the branch is in the component. **The consequence, stated plainly:** the Management Plan and
+patient-workspace screens are untouched — same link, same count, same wording — but the print
+route's own on-screen preview now shows what the paper shows. That surface is a rendering of
+the sheet, and a preview that disagreed with the paper would be its own defect; but it is a
+visible change on a screen, and it belongs in this report rather than in a footnote.
+
+### `Then read the full section.`
+
+**Dropped on the printed form only; kept verbatim on screen.** On paper the sentence pointed at
+something the reader had, by then, just finished reading — the printed block carries the whole
+of `whatWouldMakeThisDifferent`, the same array section 5 renders. An instruction to go and read
+what is already in front of you spends the reader's attention on the one line where attention is
+scarcest. The lead sentence itself — `Do not rely on this plan if today is different — assess
+afresh.` — is untouched in both media, as ruled.
+
+### The empty case
+
+If the section has no lines, the printed form is **withheld** and the sheet falls back to the
+existing `(0 listed)` line. That is unchanged behaviour, and it is the conservative branch: a
+count of zero states the absence on its own line, whereas a label with nothing beneath it is the
+heading-over-a-blank this project has already shipped once.
+
+## Proof
+
+Print media is invisible to Vitest (`css: false`), so both halves were needed.
+
+| Check                                                                      | Result                                                          |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Care Plan Vitest — `care-plan-route-files` + `care-plan-linked-routes.dom` | `Test Files  2 passed (2)` / `Tests  307 passed (307)` (167.0s) |
+| `npm run test:e2e:care-plan-mockup`                                        | `31 passed (1.7m)`, `1 skipped` (the opt-in capture)            |
+| Same, with `CARE_PLAN_CAPTURE_EVIDENCE=1`                                  | `32 passed (1.8m)`, no skips                                    |
+| `npm run typecheck`                                                        | real `tsc`, exit 0, zero diagnostics, `GATE_RECEIPTS=refresh`   |
+| `npm run lint`                                                             | real `eslint … --max-warnings 0`, exit 0                        |
+| `npx prettier --check` (5 changed)                                         | `All matched files use Prettier code style!`                    |
+| Byte scan, 5 changed files                                                 | control bytes 0; committed blobs LF (`core.autocrlf=input`)     |
+
+Counts read from the summary lines, not from exit codes.
+
+### Positive controls
+
+**Static print-stylesheet assertion** — `care-plan-route-files.test.ts:756`. Production change:
+removed `.appRoot .pinnedBoundaryLines` from the `@media print` `break-inside: avoid` group at
+`care-plan.module.css:1133`.
+
+```
+ FAIL  |node| tests/care-plan-route-files.test.ts > Care Plan synthetic, memory-only boundary > keeps the printed patient copy readable, unsplit and unpinned on paper
+AssertionError: .pinnedBoundaryLines may be split across a page break, so half of it can be lost on the previous sheet: expected undefined to be 'avoid' // Object.is equality
+ Test Files  1 failed (1)
+      Tests  1 failed | 23 passed (24)
+```
+
+Reverted exactly; re-ran: `Test Files  1 passed (1)` / `Tests  24 passed (24)`.
+
+**Chromium print assertion** — `ui-care-plan-mockup.spec.ts:757-786`, inside
+`emulateMedia({media:"print"})`. Production change: removed `medium="print"` from
+`management-plan-print.tsx:209`.
+
+```
+ 1 failed
+    [chromium-mockups] › tests\ui-care-plan-mockup.spec.ts:737:7 › @mockup Care Plan synthetic prototype › the clinician Management Plan reaches paper whole
+    Error: expect(locator).not.toContainText(expected)
+    Call log: the printed boundary still counts its lines instead of printing them
+      765 |     await expect(boundary, "the printed boundary still counts its lines instead of printing them").not.toContainText(
+```
+
+Reverted exactly; re-ran: `ok 1 … the clinician Management Plan reaches paper whole (2.0s)` /
+`1 passed (3.1s)`.
+
+## Reading the sheet, top to bottom
+
+`.local/care-plan/atlas/paper-management-plan.txt`, re-captured at this HEAD. Meeting Rowan for
+the first time at 3am, the top of the sheet now reads like this.
+
+The synthetic marker, then the person: name, MRN, date of birth, preferred name, pronouns, home
+health service. Then, before any plan content, one boxed block. Its first line is the boundary
+itself — do not rely on this plan if today is different, assess afresh — and directly beneath it,
+under its own label, the five things that make today different: new or worsening physical
+symptoms; a first presentation of confusion or altered conscious state; a stated plan with means
+and preparation, or an attempt before arrival; pregnancy, a recent medicine change, or a
+suspected overdose; a safeguarding concern about Rowan or someone in their household. Each is a
+full sentence, and three of the five say what to do rather than only what to notice.
+
+So the boundary is now **self-contained**. A reader who stops at the top of the sheet — the
+hurried reader this section was written for — has the whole of it, and can decide before reading
+another word whether this plan applies tonight. Nothing is deferred to a page they may not reach,
+and nothing can be separated from the sentence that governs it by a page break. Only then comes
+the warning that paper goes stale, then the Current Plan card, and section 5 again in its place
+at line 64.
+
+The one thing a reader should know I did not change: the sheet still ends its five items and
+moves straight into the plan without restating that the plan itself is continuity care rather
+than a substitute for assessment — that sentence is there, at line 42, inside the Current Plan
+card where it has always been.
+
+## Still owed
+
+Items 1, 2, 4 and 5 of the previous wave are unchanged and untouched. Item 3 is closed by this
+wave. Newly owed:
+
+6. **The print route's on-screen preview changed**, as described above. It is correct — a
+   preview should match its paper — but it was not separately reviewed, and if the intent was
+   that only the paper move, the alternative is a medium-scoped CSS branch, which cannot be
+   built without amending the `display: none` guard at `care-plan-route-files.test.ts:556`.
+   That is a ruling, not an edit, and it is the user's.
