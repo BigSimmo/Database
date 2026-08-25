@@ -460,3 +460,181 @@ guard set, stop serialising reviews", touching only `docs/caring-contacts/phase-
 landed on this branch between two of mine. Nothing about it conflicts with this task and I have left
 it exactly as it is; recording it only because a second writer on the same branch is worth knowing
 about before anyone rebases.
+
+---
+
+# Round 1 — the review's findings, addressed
+
+Every finding fixed. Commits: `87351bc8f` (I-1), `50f201b34` (I-2), `afd5e0624` (M-6, M-3, M-2),
+`32e0d7d65` (M-4, M-1), `07dbccb6c` (M-2, second attempt).
+
+## I-1 — the fallback was unreachable from the case it existed for
+
+**Confirmed, and the review's reading of the mechanism is exactly right.** `planDraftSnapshot()`
+consulted `memoryDraft` only when `tabScopedStorage()` returned null — the browser that refuses to
+hand over the storage object at all. The commoner refusal, and the one Safari private browsing
+performs, is a storage object that exists and whose `setItem` throws. In that shape every tick was
+written to memory that nothing read, the snapshot re-read the empty store and returned null, and the
+screen never changed. A coordinator in a private window could not sign a patient up.
+
+Fixed by consulting `memoryDraft` first. That ordering is safe rather than merely convenient:
+`memoryDraft` is non-null only while the last write failed to land, since a successful write and
+`clearPlanDraft` both null it, so it can never shadow a newer stored draft. Four new cases cover it —
+the refused write itself, the recovery when a later write lands, that a discard clears memory too,
+and the wizard-level case that a checkbox actually ticks with writes refused.
+
+**One thing the first attempt at that test got wrong, recorded because it is the same class of
+defect as the finding.** `vi.spyOn(window.sessionStorage, "setItem")` installed a mock that was never
+called: jsdom's storage is a Proxy whose `get` trap answers from the prototype, so the instance spy
+is not consulted. The test passed with the mock inert — a check that could not fail. Spying on
+`Storage.prototype` fixes it, and `expect(setItem).toHaveBeenCalled()` is now in both tests so it
+cannot recur silently.
+
+**On the mechanism the review named.** The branch was added mid-task during a lint-driven refactor,
+after the mutation ledger had been written, and nothing asserted anything about it — so no mutation
+could reach it. Mutation testing falsifies the tests that exist; it says nothing about the ones
+nobody wrote. A test-first pass on Ruling [110] starts from "what happens when the browser refuses
+to keep it", and that question finds this in the first minute. Taken.
+
+## I-2 — the lint fix moved the hit area
+
+Confirmed. Moving the descriptive lines out of the `<label>` left `min-h-tap` on a wrapping `<div>`
+whose only activation surfaces were a 20px radio and a one-line label. The label is now the flex row
+that carries `min-h-tap` and contains the input, exactly as stage 1's confirmations already do it.
+
+Two cases added: one asserting every activation surface in the wizard carries `min-h-tap` and none
+carries `min-h-11`, and one asserting per radio that the surface carrying the tap floor is the label
+and that the radio is inside it.
+
+**What those cases cannot do, stated rather than implied.** jsdom has no layout, so they read the
+class, not the rendered box — the technique `tests/caring-contacts-overlay-trigger.dom.test.tsx`
+already uses. A pixel measurement belongs in the browser suite and cannot be written today: that
+server seeds no referral, so no Playwright case can reach a stage. It is the same coverage gap the
+review filed for hydration, and it now blocks tap measurement too.
+
+## M-6 — a truth defect, taken first
+
+"Both confirmations are recorded for this sign-up" became "Both confirmations are ticked, so a
+pathway can be chosen. Neither is stored anywhere; they hold only while this sign-up is open." A
+regression case asserts the screen never says the confirmations are recorded.
+
+## M-3 — the pending state gets its own wording, plus a `<noscript>` line
+
+The two-way ternary became a `Record` over the three answers, which is also how `"pending"` came to
+borrow `"held"`'s wording in the first place. Pending now says nothing has been written down and
+that nothing will be while the screen has not started. A `<noscript>` paragraph states the permanent
+case plainly: this is the one screen in the workspace that needs JavaScript, and with it off nothing
+is kept and none of the controls work.
+
+## M-2 — role identifiers, and the second attempt that was needed
+
+The first fix put `Record`-based label maps in a component module. **It went red on
+`tests/caring-contacts-interface-vocabulary.test.ts`**, which refuses `lead` as a whole word anywhere
+under `src/components/caring-contacts/workspace` or `src/app/caring-contacts` — six offences, all of
+them the job titles. The review's point about luck was sharper than it looked: the identifiers passed
+only because the word-boundary pattern finds no boundary inside `ProgrammeLead`, and the plain words
+do not pass at all.
+
+The wording therefore moved into the sealed domain, beside the roles it names —
+`CARING_CONTACT_ROLE_WORDING` in `permissions.ts` and `PATHWAY_APPROVAL_ROLE_WORDING` in
+`pathway-versions.ts`. That is the workspace's own precedent rather than an evasion:
+`service-state.ts` already holds `APPROVAL_ROLE_WORDING` with the identical string for the identical
+seat, and a screen must never re-derive a rule a module owns. The page resolves both maps
+server-side, so no identifier and no domain module reaches the client bundle.
+
+**The residual, and it is worth a decision rather than a workaround.** The interface scan has no
+exemption for job titles, so a job title containing that word cannot be written in a component at
+all. `message-rules.ts` solved the same problem for outgoing message text — refuse it by default,
+exempt only the closed, small set of job titles this domain uses — and records the reasoning at
+length, including why an allowlist of commercial modifiers was itself a defect. The interface scan
+never got that treatment because no interface string had needed a job title before. I did not extend
+it: I had already narrowed one safety guard this round, and widening a second to admit a word I had
+just introduced is the wrong direction to argue from. Filed for you.
+
+## M-4 — the comment stripper, hardened and shared
+
+`executableSource` was duplicated in two guards and stripped block comments with an unanchored,
+non-literal-aware regex. `tests/helpers/strip-source-comments.ts` replaces both: a character scanner
+that copies string and template literals through untouched, with four cases of its own.
+
+**Three deliberate conservatisms, each erring toward leaving text in** — a false alarm a human reads
+rather than a missed offence that passes silently. A line comment is stripped only when the line
+*begins* with the comment marker, so a trailing one on a real import still fires: that property was
+in the regex it replaces and was kept on purpose, because hardening the block-comment case is not a
+licence to widen the line-comment one. A regular-expression literal is not modelled. An unterminated
+string ends at the newline.
+
+## M-1 — the claim corrected, and a guard that arms itself
+
+The "clears on successful activation" case is renamed to say what it proves — that there is ONE
+clearing seam — and its comment now states plainly that it cannot prove Task 9 calls it, and that
+report §3's "a named, failing test to point at" overstated it. **§3 is corrected here rather than
+left standing.**
+
+A real guard replaces the claim: `will require the activation stage to clear the draft the moment
+Task 9 builds it` does nothing while `stages.ts` calls the review stage unbuilt (asserting only that
+no review body has appeared behind the table's back), and becomes a requirement the instant that
+entry flips — the wizard must then call `clearPlanDraft()` somewhere other than the discard control.
+Proved by mutation R1-M16.
+
+**Correction to §3.** Where §3 says the draft suite carries a case "specifically so that omission has
+a failing test to point at", read: the draft suite proves the seam, and
+`tests/caring-contacts-plan-wizard.dom.test.tsx`'s self-arming case is what makes the omission fail.
+
+## Items adjudicated in your favour — nothing changed
+
+Noted and left alone: the `<Link>`, the Playwright spec's refusal to fabricate a referral id, the
+narrowed service-state scan, both workspace-wide fixes, and the mutation ledger's shape. On the one
+thought offered rather than required — "New plan" reading as a failure to a first-time user — I have
+left it for the task that lists referrals. The screen's own statement already says a plan starts from
+an accepted referral and that referrals are not listed anywhere yet, and softening the control before
+that changes would mean writing a promise about a screen that does not exist.
+
+## Round 1 mutation log — every attempt, itemised, no aggregate
+
+| #      | Mutation                                                                        | Predicted                                                  | Observed                                                                                                                                                                                                                              | Verdict                 |
+| ------ | ------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| R1-M13 | The pre-fix snapshot ordering restored (storage consulted before `memoryDraft`) | the refused-write cases go red, in both files              | `the refused write is invisible to the screen: expected null to deeply equal { Object (referralId, stage, ...) }`, plus the discard-clears-memory case and the wizard's own — three red                                                  | RED, prediction matched |
+| R1-M14 | `min-h-tap` stripped from `optionLabelClass`                                    | the per-radio tap case goes red naming the row             | `caring-contacts-pathway-SYN-PATHWAY-001's row is not a production tap target: expected 'flex w-full min-w-0 cursor-pointer it…' to contain 'min-h-tap'`                                                                                | RED, prediction matched |
+| R1-M15 | The unhardened regex restored in `strip-source-comments.ts`                     | the string-literal case goes red showing the blanked import | `a real import was hidden by a string containing a comment opener: expected 'const opener = "";' to match /ServiceState/` — the import is visibly gone from the stripped text                                                            | RED, prediction matched |
+| R1-M16 | `stages.ts` marks the review stage built, as Task 9 will                        | the self-arming case, the stepper count and the table case | Exactly three: `expected [ <span …> ] to have a length of 2 but got 1`; `expected 'built' to be 'not-built'`; and `the review stage is built but the wizard still clears the draft in only one place … expected 1 to be greater than 1` | RED, prediction matched |
+
+Each mutation was confirmed present in the tree by its own `grep -c`, run as a separate command with
+`;` rather than `&&` — `grep -c` exits non-zero on a zero count and would short-circuit the gate. No
+anchor failed to match, and `git status` was clean after each revert.
+
+**One process defect worth recording.** Reverting R1-M13 with `git checkout --` also discarded the
+I-1 FIX, because the fix was not yet committed — the mutation and the fix were in the same file. It
+was caught immediately by the presence check and re-applied, and everything from then on was
+committed before its mutation. "Commit as you go" is not only about losing work to a crash; an
+uncommitted fix has no safe revert point for a mutation to return to.
+
+## Round 1 gates
+
+**The guard set, which is the number you asked for:**
+
+```
+[guards] exit=0 elapsed=53s
+ Test Files  12 passed (12)
+      Tests  194 passed (194)
+   Duration  49.61s (transform 4.41s, setup 2.61s, import 11.65s, tests 46.43s, environment 7.21s)
+```
+
+Twelve files: the three from this task, plus the workspace shell, explained-automation,
+domain-isolation, interface-vocabulary, retention, overlay-definitions, route-reachability,
+design-system-adoption and workspace-screens. It caught a real regression on its first run against
+an otherwise-green tree — the M-2 vocabulary failure above — so it is doing work rather than passing
+by never looking.
+
+<!-- R1 FULL SUITE -->
+
+**It is worth stating what the comparison does and does not say.** The guard set is the smaller
+number by a wide margin and it caught this round's one regression, but it is a selected set: it
+covers the files this change can plausibly reach, and the full suite is what proves that selection
+was right. Both were run.
+
+<!-- R1 TYPECHECK AND LINT -->
+
+**Does this round touch the browser gate?** **No.** I-2 changes markup the browser suite cannot
+reach, for the reason recorded above, and `tests/ui-caring-contacts-workspace.spec.ts` is unchanged
+this round. The base task's changes to it stand as reported in §7.
