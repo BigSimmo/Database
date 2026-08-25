@@ -13,7 +13,7 @@ import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Referral } from "@/lib/caring-contacts/model";
 import {
   PATHWAY_APPROVAL_ROLE_WORDING,
-  PATHWAY_VERSION_PROVENANCE_WORDING,
+  pathwayVersionProvenanceWording,
   type PathwayVersion,
 } from "@/lib/caring-contacts/pathway-versions";
 import { CARING_CONTACT_ROLE_WORDING, canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
@@ -252,12 +252,14 @@ export default async function CaringContactsNewPlanPage({
         // Ruling [126]. `approvedBy` above is a claim about provenance, and a demonstration version
         // has approvals no person gave. Resolved here for the same two reasons the role wording is:
         // the words live in the sealed domain beside the values they name, and resolving on the
-        // server keeps that module out of this route's client chunk. Null whenever the record
-        // claims nothing -- absence is not a claim that a version was genuinely reviewed.
-        provenanceNote:
-          version.snapshot.provenance === undefined
-            ? null
-            : PATHWAY_VERSION_PROVENANCE_WORDING[version.snapshot.provenance],
+        // server keeps that module out of this route's client chunk.
+        //
+        // Through the domain's own resolver rather than a lookup written here. Round 2 found the
+        // lookup fails unsafe: the Postgres store reads the snapshot back with an unchecked cast,
+        // so an unrecognised provenance yields `undefined` from the map, the wizard's `=== null`
+        // test is false, and the screen renders an empty qualifier beside an unqualified
+        // "Approved by ...". `pathwayVersionProvenanceWording` makes the fallback structural.
+        provenanceNote: pathwayVersionProvenanceWording(version.snapshot.provenance),
         publishedAt: version.publishedAt,
       }));
 

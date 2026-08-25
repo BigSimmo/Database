@@ -94,7 +94,17 @@ function inMemoryStoreWithSpy(role = "coordinator"): {
  * neither of them the author. A fixture that bypassed that would prove the page against a version
  * shape the domain cannot produce.
  */
-async function seedApprovedVersion(store: CaringContactRepository, id: string, provenance?: PathwayVersionProvenance) {
+/**
+ * `provenance` is typed loosely on purpose. A store reads the snapshot back with an unchecked cast,
+ * so a value outside the union genuinely can reach a screen with the type insisting it cannot -- and
+ * that is the case round 2 found renders an empty qualifier beside an unqualified approval. A
+ * fixture able to produce only union members could not reach it at all.
+ */
+async function seedApprovedVersion(
+  store: CaringContactRepository,
+  id: string,
+  provenance?: PathwayVersionProvenance | (string & {}),
+) {
   const author = demoActorForRole("coordinator");
   const programmeLead = demoActorForRole("clinicalProgrammeLead");
   const representative = demoActorForRole("livedExperienceRepresentative");
@@ -144,7 +154,10 @@ async function seedApprovedVersion(store: CaringContactRepository, id: string, p
 }
 
 /** A referral this team has accepted, on an approved pathway version. */
-async function seedAcceptedReferral(store: CaringContactRepository, provenance?: PathwayVersionProvenance) {
+async function seedAcceptedReferral(
+  store: CaringContactRepository,
+  provenance?: PathwayVersionProvenance | (string & {}),
+) {
   const actor = demoActorForRole("coordinator");
   const write = (key: string) => ({ actor, idempotencyKey: idempotencyKey(key) });
 
@@ -257,6 +270,24 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
     expect(options[0].provenanceNote).toBe(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration);
     // Resolved, not forwarded: the raw domain value must not cross onto the screen.
     expect(options[0].provenanceNote).not.toBe("syntheticDemonstration");
+  });
+
+  // Round 2. The failure this covers is invisible to every other case here, because no fixture and
+  // no writer produces the value: `savePathwayVersion` copies the snapshot verbatim and the Postgres
+  // reader casts it back unchecked, so a provenance this build does not recognise arrives typed as
+  // one it does. The qualifier must survive that, because the alternative is the screen dropping it
+  // silently for exactly the record it understands least.
+  it("keeps the qualifier when the record's provenance is not one this build recognises", async () => {
+    const { store } = inMemoryStoreWithSpy();
+    await seedAcceptedReferral(store, "someLaterProvenanceKind");
+
+    const element = await loadPage({ referral: REFERRAL });
+    const options = element.props.children.props.pathwayOptions as readonly { provenanceNote: unknown }[];
+
+    expect(options).toHaveLength(1);
+    expect(options[0].provenanceNote).toBe(PATHWAY_VERSION_PROVENANCE_WORDING.syntheticDemonstration);
+    // Not `undefined`, which is what the earlier lookup produced and what a `=== null` test cannot see.
+    expect(options[0].provenanceNote).not.toBeUndefined();
   });
 });
 
