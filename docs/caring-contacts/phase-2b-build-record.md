@@ -1542,3 +1542,39 @@ those points makes the scan read the wrong literal and agree with the TypeScript
 real cap has drifted. The positive control does not cover it: it proves _a_ number was found, not
 that it is the cap's. This is the same shape as the finding that started the task — a scan correct
 today that cannot stay correct by construction — which is why it is worth a round rather than a row.
+
+### Task 6b round-2 re-review — both ADDRESSED. **Task 6b: complete.**
+
+The reviewer re-derived M20 itself rather than trusting the transcript — applied the mutation in
+memory, ran both regexes over the same mutated bytes, and got the reported line byte for byte. It
+also confirmed the old anchor is fooled _only_ when the inserted `<=` falls between the name's first
+occurrence and the constraint body, which is exactly what the report claimed: **precise rather than
+overstated**, and worth noticing as its own quality, since a report that overstates its own defect is
+as unreliable as one that understates it.
+
+**The comment stripper survived a hard look, and fails closed where it fails.** A `--` inside a
+string literal _is_ wrongly removed — the reviewer confirmed it by injecting one — but it cannot
+produce a false green: in the one place truncation could reach the cap it deletes the `<=` and trips
+the "both literals found" control. The repo's existing `CREATE INDEX CONCURRENTLY` scan carries the
+identical limitation, so this is consistent with the standard rather than a new weakness. And the
+stripping's own control is deliberately built so a stripper that removed the markers but not the text
+would still be caught.
+
+**Playwright deliberately skipped this round, and the skip was checked rather than assumed.** The
+reviewer diffed the migration's _executable_ content across the round — with `--` comments and blank
+lines removed, the SQL is byte-identical to `5b6b7d21e`. One test file, prose, and Markdown: zero
+schema delta and no rendered output. Recorded as a reasoned skip, not a pass.
+
+**The one finding, and it is Ruling 94 for the third time today — travelling through me.** The report
+read "the two intentional survivors … and both are labelled as such" above a table containing exactly
+one. **I then inherited the "two" into the re-review brief without checking it against the table.**
+Corrected at its own site with a note saying so.
+
+**What the third instance teaches that the first two did not.** The first was a count that went stale;
+the second was a count in a durable record. This one was **false on arrival and adjacent to its own
+disproof** — the table was directly beneath the sentence. It still propagated, because I copied the
+prose rather than reading the table. So the rule needs a second half:
+
+> Do not restate a count in prose — **and do not carry one forward from a document you are
+> summarising without recounting it at the source.** A count inherited is a count unverified, and a
+> brief is exactly where an unverified one acquires authority.

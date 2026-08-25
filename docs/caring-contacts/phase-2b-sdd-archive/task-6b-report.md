@@ -641,8 +641,14 @@ Method unchanged: exact-anchor assertion that raises rather than silently leavin
 a **separate** `grep -c` presence step joined with `;`, then the gate read from a real summary line.
 Every one reverted, every revert confirmed.
 
-Note the two intentional survivors. A mutation that _should_ leave the gate green is evidence too —
-it is how over-sensitivity gets caught — and both are labelled as such rather than buried.
+Note **M22**, the intentional survivor. A mutation that _should_ leave the gate green is evidence too
+— it is how over-sensitivity gets caught — and it is labelled as such rather than buried.
+
+<sub>(Corrected by the controller after the round-2 re-review. This sentence read "the two intentional
+survivors … and both are labelled as such"; the table directly beneath it contains exactly one, M22.
+A restated count falsified by its own adjacent table — Ruling 94 again, in the same round whose build
+record is headed "written by me, broken by me". The controller then inherited the "two" into the
+re-review brief without checking it against the table, which is how these travel.)</sub>
 
 | #               | Mutation                                                                                                                       | Anchor matched? | Gate                       | Result                                                                                                                                                                                            |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
