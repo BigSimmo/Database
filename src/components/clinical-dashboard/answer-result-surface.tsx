@@ -20,6 +20,7 @@ import {
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
+import { useAnswerSourceSelection } from "@/components/clinical-dashboard/use-answer-source-selection";
 import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-evidence";
 import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
@@ -124,35 +125,20 @@ function StagedAnswerResultSurfaceImpl({
           : "unassessed";
   const centralVisualEvidence = primaryVisualTable(answer);
   const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
-  /** Which rail row the source drawer is showing; `null` while it is closed. */
-  const [openSourceIndex, setOpenSourceIndex] = useState<number | null>(null);
   /**
-   * The row a *claim* pointed at, which is not the same question as which row is
-   * open: opening from the rail, or paging on from a mark, means there is no
-   * claim to speak about, and the drawer must not assert one.
+   * Which source the drawer is showing, whether a claim put it there, and that
+   * claim's own support status — reset whenever the answer beneath them changes,
+   * because all three are indices into one answer. See the hook for why that
+   * reset is structural rather than left to the drawer's close handlers.
    */
-  const [claimSourceIndex, setClaimSourceIndex] = useState<number | null>(null);
-  /**
-   * The claim's own support status, kept beside the row it pointed at. The
-   * drawer sentence must use this rather than the row's document-level
-   * `sourceStrength` — a partial mark can open a strong row.
-   */
-  const [claimSupport, setClaimSupport] = useState<"direct" | "partial" | "unsupported" | null>(null);
-  const openSourceFromRail = useCallback((index: number) => {
-    setClaimSourceIndex(null);
-    setClaimSupport(null);
-    setOpenSourceIndex(index);
-  }, []);
-  const openSourceFromClaim = useCallback((index: number, support?: "direct" | "partial" | "unsupported") => {
-    setClaimSourceIndex(index);
-    setClaimSupport(support ?? null);
-    setOpenSourceIndex(index);
-  }, []);
-  const closeSourceDrawer = useCallback(() => {
-    setOpenSourceIndex(null);
-    setClaimSourceIndex(null);
-    setClaimSupport(null);
-  }, []);
+  const {
+    openIndex: openSourceIndex,
+    claimIndex: claimSourceIndex,
+    claimSupport,
+    openFromRail: openSourceFromRail,
+    openFromClaim: openSourceFromClaim,
+    close: closeSourceDrawer,
+  } = useAnswerSourceSelection(answer.interactionId ?? answer.answer);
   /**
    * "This page doesn't support the claim", from the drawer's overflow menu.
    *
