@@ -16,9 +16,20 @@
 | `a0e806ae4` | Formatting                                                                                     |
 | `54d96b3af` | An unused setup dropped, found by lint                                                         |
 | `0b8239040` | `onActivate` typed as returning what it returns                                                |
+| `5f009e095` | **A mutation reverted** — one my own `git add -A` had committed; see the mutation section      |
+| `0e205b338` | Mutation log, first version                                                                    |
+| `dfa1425e8` | Gate evidence                                                                                  |
+| `74990ca25` | The full suite, green                                                                          |
+| `bbf3dbd0d` | The mutation round rewritten, and the finding that voided most of it                           |
+| `c54aad72e` | Which tree each gate ran against                                                               |
 
 (`b6c524dbc`, the owner's Ruling 122 on storing the assurances, landed on this branch mid-task from
 another session. Nothing in it conflicts with this work and I have left it exactly as it is.)
+
+**The working tree is not clean at handover, and the dirt is not mine.** `plan-wizard.tsx` carries
+another session's in-flight mutation. I left it there deliberately rather than running
+`git checkout --` again: discarding it would break their round exactly as theirs broke mine. Every
+line of my own work is committed.
 
 ---
 
