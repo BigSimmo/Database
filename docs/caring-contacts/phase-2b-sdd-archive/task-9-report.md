@@ -639,7 +639,7 @@ and I repeated it. Re-anchored against the file as it stands and re-run; the res
 
 ### What this proves, counted rather than described
 
-I own **52 cases** across three files in the review range (round 2, M1 -- the three cases landed in the swept commit before the base, so they are outside it). Of those:
+I own **52 cases** across three files in the review range (round 2, M1 -- the three `caring-contacts-schedule.test.ts` cases landed in the swept commit before the base, so they are outside it). Of those:
 
 - **31 are proved alive** — at least one assertion in them was made to fail by a mutation.
 - **21 were not touched by any mutation at all.** They are green and they are unfalsified.
