@@ -266,11 +266,7 @@ describe("SENDING_PREFERENCE_OPTIONS — the wording a screen may render (Phase 
       "afternoon",
       "earlyEvening",
     ]);
-    expect(SENDING_PREFERENCE_OPTIONS.map((option) => option.label)).toEqual([
-      "Morning",
-      "Afternoon",
-      "Early evening",
-    ]);
+    expect(SENDING_PREFERENCE_OPTIONS.map((option) => option.label)).toEqual(["Morning", "Afternoon", "Early evening"]);
   });
 
   it("states the same send time the schedule actually uses, derived rather than restated", () => {

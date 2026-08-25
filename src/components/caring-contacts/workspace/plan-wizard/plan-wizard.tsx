@@ -72,14 +72,15 @@ import { StatedReason } from "./stated-reason";
  *
  * WHAT IS BUILT HERE AND WHAT IS NOT
  * ---------------------------------
- * Task 7 builds the shell that carries all four stages, plus stages 1 and 2. Stages 3 and 4 are an
- * explicit, typed extension point: the stepper names them, the forward control from stage 2 states
- * that the next one is not built rather than advancing into an empty room (Ruling 52), and
- * `stages.ts` records exactly what Tasks 8 and 9 change.
+ * Task 7 built the shell that carries all four stages, plus stages 1 and 2; Task 8 added stage 3.
+ * Stage 4 — review and activation — is still an explicit, typed extension point: the stepper names
+ * it, the forward control from stage 3 states that it is not built rather than advancing into an
+ * empty room (Ruling 52), and `stages.ts` records exactly what Task 9 changes.
  *
- * NO OVERLAY IS WIRED HERE. The approved mockup opens several from these stages — identity
- * review, changing the patient, previewing the pathway. Task 11 owns this group's overlay wiring;
- * the seams are named in the Task 7 report rather than half-built here.
+ * NO OVERLAY IS WIRED HERE. The approved mockup opens several from these stages — identity review,
+ * changing the patient, previewing the pathway, a message preview, a communication preference, an
+ * "adjust schedule" sheet, and its own save/discard pair. Task 11 owns this group's overlay wiring;
+ * the seams are named in the Task 7 and Task 8 reports rather than half-built here.
  */
 export type PlanWizardPathwayOption = {
   id: string;
@@ -173,7 +174,17 @@ const fieldClass =
 const headingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
 
 /** One fact, with where it came from. The source line is the whole point — see Ruling [112]. */
-function SourcedFact({ icon, label, value, source }: { icon: ReactNode; label: string; value: string; source: string }) {
+function SourcedFact({
+  icon,
+  label,
+  value,
+  source,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  source: string;
+}) {
   return (
     <div className="flex min-w-0 items-start gap-3 border-t border-[color:var(--border)] py-3 first:border-t-0 first:pt-0">
       <span className="mt-0.5 shrink-0 text-[color:var(--text-muted)]">{icon}</span>
@@ -214,9 +225,8 @@ export function PlanWizard({
     readPlanDraft(referralId);
   }, [referralId]);
 
-  const draft = stored !== null && stored.referralId === referralId
-    ? stored
-    : emptyPlanDraft(referralId, referralPathwayVersionId);
+  const draft =
+    stored !== null && stored.referralId === referralId ? stored : emptyPlanDraft(referralId, referralPathwayVersionId);
 
   /** Every change goes through here, so nothing can update the screen without updating the draft. */
   function update(change: (current: PlanDraft) => PlanDraft) {
@@ -322,14 +332,16 @@ export function PlanWizard({
  * Fails loudly when a stage claims to be built and has no body.
  *
  * The `never` default in `stageBody` catches a stage nobody handled. It cannot catch the opposite
- * mistake, which is the one Tasks 8 and 9 can actually make: flipping an entry in
+ * mistake, which is the one Task 9 can still make: flipping an entry in
  * `planWizardStageImplementation` to `built` and not writing the body. That would render a stepper,
  * a notice, and an empty column where a clinician expects a patient's details — so it throws, and
  * `error.tsx` says nothing was sent and nothing was changed, both of which are true.
  */
 function assertBuiltStageHasABody(body: ReactNode | null, stage: PlanWizardStage): ReactNode {
   if (body === null) {
-    throw new Error(`caring-contacts plan wizard: stage "${stage}" is marked built but this component renders no body for it.`);
+    throw new Error(
+      `caring-contacts plan wizard: stage "${stage}" is marked built but this component renders no body for it.`,
+    );
   }
   return body;
 }
@@ -399,7 +411,10 @@ function Stepper({ active }: { active: PlanWizardStage }) {
  * A `Record` rather than nested ternaries: the three answers are three different facts, and the
  * ternary version is how `"pending"` came to borrow `"held"`'s wording and claim something untrue.
  */
-const DRAFT_NOTICE_WORDING: Record<"pending" | "held" | "refused", { heading: string; because: string; changedBy: string }> = {
+const DRAFT_NOTICE_WORDING: Record<
+  "pending" | "held" | "refused",
+  { heading: string; because: string; changedBy: string }
+> = {
   pending: {
     heading: "Nothing is being kept on this computer yet",
     because:
@@ -443,9 +458,8 @@ function DraftNotice({
     <div className="flex min-w-0 flex-col gap-3">
       <noscript>
         <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
-          This screen needs JavaScript, and it is the only one in this workspace that does. With it
-          turned off nothing you type here is kept and none of the controls below do anything, so a
-          plan cannot be started from this page.
+          This screen needs JavaScript, and it is the only one in this workspace that does. With it turned off nothing
+          you type here is kept and none of the controls below do anything, so a plan cannot be started from this page.
         </p>
       </noscript>
       <StatedReason
@@ -473,15 +487,7 @@ function DraftNotice({
  * Ruling 52: an unbuilt destination is an unavailable control with a stated reason, never a dead
  * end — so the way back is a real control, not a promise.
  */
-function UnbuiltStagePanel({
-  stage,
-  reason,
-  onBack,
-}: {
-  stage: PlanWizardStage;
-  reason: string;
-  onBack: () => void;
-}) {
+function UnbuiltStagePanel({ stage, reason, onBack }: { stage: PlanWizardStage; reason: string; onBack: () => void }) {
   const definition = PLAN_WIZARD_STAGE_DEFINITIONS[stage];
   return (
     <section aria-label={definition.label} className={panelClass}>
@@ -542,8 +548,8 @@ function AgreementStage({
       <div className={panelClass}>
         <h2 className={headingClass}>Read from the referral</h2>
         <p className={`mt-1 ${mutedTextClass}`}>
-          Everything in this list was read from the referral record or from the session you are
-          acting in. Nothing in it was typed on this screen.
+          Everything in this list was read from the referral record or from the session you are acting in. Nothing in it
+          was typed on this screen.
         </p>
         <div className="mt-3 min-w-0">
           <SourcedFact
@@ -576,9 +582,9 @@ function AgreementStage({
       <div className={panelClass}>
         <h2 className={headingClass}>Confirmed by you</h2>
         <p className={`mt-1 ${mutedTextClass}`}>
-          These are your own confirmations, not imported facts, and the difference matters: nothing
-          in this domain records either of them. They are held only while this sign-up is open, and
-          the plan that is created carries no field for them.
+          These are your own confirmations, not imported facts, and the difference matters: nothing in this domain
+          records either of them. They are held only while this sign-up is open, and the plan that is created carries no
+          field for them.
         </p>
         <fieldset className="mt-3 min-w-0 border-0 p-0">
           <legend className="sr-only">Assurances you are confirming</legend>
@@ -590,8 +596,7 @@ function AgreementStage({
               className="mt-1 size-5 shrink-0 accent-[color:var(--clinical-accent)]"
             />
             <span className={mutedTextClass}>
-              The patient agreed to receive caring contacts. This is not consent to treatment and
-              not a legal consent.
+              The patient agreed to receive caring contacts. This is not consent to treatment and not a legal consent.
             </span>
           </label>
           <label className="flex min-h-tap min-w-0 items-start gap-3 py-2">
@@ -602,8 +607,8 @@ function AgreementStage({
               className="mt-1 size-5 shrink-0 accent-[color:var(--clinical-accent)]"
             />
             <span className={mutedTextClass}>
-              The mobile number this plan will use is the patient&rsquo;s own, and they are content
-              to receive discreet text messages on it.
+              The mobile number this plan will use is the patient&rsquo;s own, and they are content to receive discreet
+              text messages on it.
             </span>
           </label>
         </fieldset>
@@ -689,7 +694,11 @@ function PathwayStage({
     <section aria-label="Pathway" className="flex min-w-0 flex-col gap-5">
       {referralPathwayVersionId === null ? null : namedIsChoosable ? (
         <StatedReason
-          heading={changedFromReferral ? "You are changing an earlier decision" : "Already decided when the referral was accepted"}
+          heading={
+            changedFromReferral
+              ? "You are changing an earlier decision"
+              : "Already decided when the referral was accepted"
+          }
           because={`Accepting this referral named ${referralPathwayVersionId} as the pathway to run, so the choice was made before this screen was opened. It travels on the referral record.`}
           changedBy={
             changedFromReferral
@@ -718,8 +727,8 @@ function PathwayStage({
           <fieldset className="min-w-0 border-0 p-0">
             <legend className={headingClass}>Choose a governed pathway version</legend>
             <p className={`mt-1 ${mutedTextClass}`}>
-              Every version listed has been approved by two different people. Nothing here is ranked
-              or recommended, and the order carries no meaning.
+              Every version listed has been approved by two different people. Nothing here is ranked or recommended, and
+              the order carries no meaning.
             </p>
             <div className="mt-3 min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)]">
               {options.map((option) => {
@@ -840,10 +849,9 @@ function PersonalisationStage({
       <div className={panelClass}>
         <h2 className={headingClass}>Entered by you</h2>
         <p className={`mt-1 ${mutedTextClass}`}>
-          A referral carries no name and no mobile number, so nothing on this screen can fill these
-          in and nothing here was read from a record. What you type is what the plan will hold, and
-          until you finish or discard it is kept on this computer — the notice above this stage says
-          exactly where.
+          A referral carries no name and no mobile number, so nothing on this screen can fill these in and nothing here
+          was read from a record. What you type is what the plan will hold, and until you finish or discard it is kept
+          on this computer — the notice above this stage says exactly where.
         </p>
 
         <div className="mt-4 flex min-w-0 flex-col gap-5">
@@ -881,9 +889,9 @@ function PersonalisationStage({
             />
             {mobileEntered && !mobileIsReserved ? (
               <p role="status" className={mutedTextClass}>
-                The number entered is not one of the reserved fictional numbers listed above. It is
-                accepted — this prototype holds no rule about what a mobile number looks like — but
-                a number belonging to a real person would be recorded on the plan.
+                The number entered is not one of the reserved fictional numbers listed above. It is accepted — this
+                prototype holds no rule about what a mobile number looks like — but a number belonging to a real person
+                would be recorded on the plan.
               </p>
             ) : null}
           </div>
@@ -933,8 +941,8 @@ function PersonalisationStage({
             restates a count that is DERIVED and CONDITIONAL, so the invariant is stated instead.
           */}
           <p className={`mt-1 ${mutedTextClass}`}>
-            One choice applies to every contact in this plan. The times are the approved AWST send
-            times this programme uses; nothing here can put a message outside them.
+            One choice applies to every contact in this plan. The times are the approved AWST send times this programme
+            uses; nothing here can put a message outside them.
           </p>
           <div className="mt-3 min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)]">
             {sendingPreferenceOptions.map((option) => {
@@ -1083,10 +1091,11 @@ function TextAreaField({
 /**
  * The control that moves to the next stage, or states that the next stage is not built.
  *
- * THE EXTENSION POINT, and the reason it is one control rather than two. Task 8 flips
- * `personalisation` to `built` in `stages.ts` and writes its body; this control then becomes a real
- * Continue with no edit here, because it asks the same table the stepper reads. A hand-written
- * "coming soon" button at each call site is the version of this that Task 8 could half-change.
+ * THE EXTENSION POINT, and the reason it is one control rather than two. Task 8 flipped
+ * `personalisation` to `built` in `stages.ts` and wrote its body; this control became a real
+ * Continue with no edit here, because it asks the same table the stepper reads — the mechanism
+ * worked exactly as intended, and Task 9 flips `review` the same way. A hand-written "coming soon"
+ * button at each call site is the version of this that either task could have half-changed.
  *
  * `UnavailableDestination` carries `aria-disabled` plus an inert handler rather than the native
  * `disabled` attribute, because `disabled` removes the tab stop and the stated reason could then

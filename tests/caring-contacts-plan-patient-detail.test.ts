@@ -116,7 +116,7 @@ describe("the shape `createPlanSchema.patientDetail` requires", () => {
 });
 
 describe("identifiers, one per line", () => {
-  it("drops blank lines and trims each, so an empty box is an empty array rather than [\"\"]", () => {
+  it('drops blank lines and trims each, so an empty box is an empty array rather than [""]', () => {
     // `patientIdentifiers` is `z.array(z.string().min(1))`, so a single empty string would be
     // REFUSED by the API — an empty box has to produce an empty array, not one blank entry.
     expect(parsePatientIdentifiers("")).toEqual([]);

@@ -9,8 +9,8 @@
 // hooks and no `"use client"`, so a server-side reader can import it without pulling a client
 // boundary in behind it.
 //
-// WHY THE STAGE SET IS EXHAUSTIVE AT THE TYPE LEVEL RATHER THAN BY CONVENTION. Task 7 builds the
-// shell and stages 1-2; Tasks 8 and 9 build stages 3 and 4 against what it leaves. A stage set
+// WHY THE STAGE SET IS EXHAUSTIVE AT THE TYPE LEVEL RATHER THAN BY CONVENTION. Task 7 built the
+// shell and stages 1-2, Task 8 stage 3, and Task 9 builds stage 4 against what they leave. A stage set
 // expressed as a plain list plus a few `if`s would let those tasks add a stage body and forget the
 // stepper, or flip the stepper and forget the forward control, and nothing would say so. So:
 //
@@ -21,8 +21,8 @@
 //   * the wizard's own render switch has the same `never` default, so a stage nobody handled does
 //     not compile there either.
 //
-// The one mistake no type can catch is the OPPOSITE one, and it is the one Tasks 8 and 9 can
-// actually make: flipping an entry below to `built` and not writing the body. Nothing about the
+// The one mistake no type can catch is the OPPOSITE one, and it is the one Task 9 can still make:
+// flipping an entry below to `built` and not writing the body. Nothing about the
 // types relates a table entry to a switch branch, so that is a runtime guard instead —
 // `assertBuiltStageHasABody` in the wizard throws rather than rendering a stepper over an empty
 // column, and `tests/caring-contacts-plan-wizard.dom.test.tsx` proves it fires.
@@ -31,10 +31,12 @@
 // and its note says why an exhaustive switch beats a list: a list is something a person has to
 // remember to extend, and this does not compile at all when a member is added and left behind.
 //
-// WHAT TASKS 8 AND 9 CHANGE. Exactly one entry each in `planWizardStageImplementation` — flipping
-// `personalisation` (Task 8) or `review` (Task 9) from `not-built` to `built` — plus the matching
-// branch in the wizard's render switch. Nothing else: the stepper reads this table, and the
-// forward control asks this function whether the next stage is built, so both follow.
+// WHAT TASK 8 CHANGED, AND WHAT TASK 9 CHANGES. Exactly one entry each in
+// `planWizardStageImplementation` — flipping `personalisation` (Task 8, done) or `review` (Task 9)
+// from `not-built` to `built` — plus the matching branch in the wizard's render switch. Nothing
+// else: the stepper reads this table, and the forward control asks this function whether the next
+// stage is built, so both follow. Task 8 confirmed that: flipping the entry and writing the body
+// turned stage 2's unavailable destination into a real Continue with no edit at that call site.
 
 /**
  * The stages in the order a coordinator walks them: agreement, pathway, personalisation, review
