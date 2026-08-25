@@ -125,6 +125,93 @@ export function planDraftStorageAvailable(): boolean {
   return tabScopedStorage() !== null;
 }
 
+/*
+ * THE DRAFT IS AN EXTERNAL STORE, AND THE WIZARD SUBSCRIBES TO IT.
+ *
+ * The obvious shape was React state plus a `useEffect` that restored the draft after mount. It was
+ * written that way first and `react-hooks/set-state-in-effect` rejected it, correctly: an effect
+ * that immediately sets state causes a cascading render, and the rule's own advice is to subscribe
+ * to the external system instead. The deeper reason is the one that matters here, though — a lazy
+ * `useState` initialiser reading `sessionStorage` would have produced a HYDRATION MISMATCH, because
+ * the server render cannot see the browser's storage and the client's first render can. On this
+ * screen the mismatch would have been about a patient's details.
+ *
+ * `useSyncExternalStore` is built for exactly that: `planDraftServerSnapshot` answers null on the
+ * server and during hydration, and the real snapshot arrives in the commit that follows. So the
+ * three functions below are the store's subscribe/getSnapshot/getServerSnapshot, and the rules a
+ * snapshot must obey shape them:
+ *
+ *   * IT MUST BE REFERENTIALLY STABLE while nothing has changed. Parsing the stored JSON on every
+ *     call would return a new object each time and spin React forever, so the parse is cached
+ *     against the raw string it came from.
+ *   * IT MUST BE PURE. No clearing, no writing, no repair — `readPlanDraft` still does the
+ *     referral-mismatch clearing, and the wizard calls that from an effect where a side effect is
+ *     legitimate.
+ *
+ * WHEN THE BROWSER REFUSES STORAGE the draft lives in `memoryDraft` instead. Without it a clinician
+ * in a private window could not tick a checkbox at all: every write would go nowhere, the snapshot
+ * would stay null, and the screen would never change. It lasts as long as the page does, which is
+ * strictly less exposure than `sessionStorage`, and the notice says so.
+ */
+type PlanDraftListener = () => void;
+
+const listeners = new Set<PlanDraftListener>();
+
+/** The draft when this browser will not keep one. Page lifetime, not tab lifetime. */
+let memoryDraft: PlanDraft | null = null;
+
+/** The last raw string read, and what it parsed to — the referential stability the snapshot needs. */
+let cachedRaw: string | null = null;
+let cachedDraft: PlanDraft | null = null;
+
+function notifyPlanDraftListeners(): void {
+  for (const listener of [...listeners]) listener();
+}
+
+export function subscribeToPlanDraft(listener: PlanDraftListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function rawDraft(storage: Storage): string | null {
+  try {
+    return storage.getItem(PLAN_DRAFT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** The draft as it stands, cached so repeated calls return the same object. Pure. */
+export function planDraftSnapshot(): PlanDraft | null {
+  const storage = tabScopedStorage();
+  if (storage === null) return memoryDraft;
+
+  const raw = rawDraft(storage);
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    cachedDraft = raw === null ? null : parseDraft(raw);
+  }
+  return cachedDraft;
+}
+
+/**
+ * Whether this browser is actually keeping the draft.
+ *
+ * Not the same question as `planDraftStorageAvailable()`. Storage can exist and still refuse a
+ * write — a full quota, a policy — in which case the draft is in memory and will not survive a
+ * reload. The notice must say which of those is true, so it asks this rather than inferring it.
+ */
+export function planDraftIsHeld(): boolean {
+  return tabScopedStorage() !== null && memoryDraft === null;
+}
+
+/** Null on the server and through hydration: the server cannot see a browser's storage. */
+export function planDraftServerSnapshot(): PlanDraft | null {
+  return null;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -171,35 +258,50 @@ function parseDraft(raw: string): PlanDraft | null {
  * storage for the rest of the tab's life, referenced by nothing.
  */
 export function readPlanDraft(referralId: string): PlanDraft | null {
-  const storage = tabScopedStorage();
-  if (storage === null) return null;
-
-  let raw: string | null;
-  try {
-    raw = storage.getItem(PLAN_DRAFT_STORAGE_KEY);
-  } catch {
+  const draft = planDraftSnapshot();
+  if (draft === null) {
+    // Present but unreadable: an older shape, or something that was tampered with. Removed rather
+    // than left sitting there — it is nobody's draft now, and it may still hold a patient's details.
+    if (storageHoldsAValue()) clearPlanDraft();
     return null;
   }
-  if (raw === null) return null;
-
-  const draft = parseDraft(raw);
-  if (draft === null || draft.referralId !== referralId) {
+  if (draft.referralId !== referralId) {
     clearPlanDraft();
     return null;
   }
   return draft;
 }
 
+function storageHoldsAValue(): boolean {
+  const storage = tabScopedStorage();
+  return storage !== null && rawDraft(storage) !== null;
+}
+
 /** Whether the draft was actually written down. The wizard's notice states which answer it got. */
 export function writePlanDraft(draft: PlanDraft): boolean {
   const storage = tabScopedStorage();
-  if (storage === null) return false;
-  try {
-    storage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(draft));
-    return true;
-  } catch {
+  if (storage === null) {
+    memoryDraft = draft;
+    notifyPlanDraftListeners();
     return false;
   }
+  const serialised = JSON.stringify(draft);
+  try {
+    storage.setItem(PLAN_DRAFT_STORAGE_KEY, serialised);
+  } catch {
+    // Storage exists but would not take this write (a full quota, a policy). The draft still has to
+    // work for the rest of this page, and the notice still has to say it is not being kept.
+    memoryDraft = draft;
+    notifyPlanDraftListeners();
+    return false;
+  }
+  // The cache is primed from what was just written rather than left to be re-read and re-parsed:
+  // the snapshot must be referentially stable, and a fresh parse would hand React a new object.
+  cachedRaw = serialised;
+  cachedDraft = draft;
+  memoryDraft = null;
+  notifyPlanDraftListeners();
+  return true;
 }
 
 /**
@@ -213,11 +315,16 @@ export function writePlanDraft(draft: PlanDraft): boolean {
  * draft belongs to another referral.
  */
 export function clearPlanDraft(): void {
+  memoryDraft = null;
+  cachedRaw = null;
+  cachedDraft = null;
   const storage = tabScopedStorage();
-  if (storage === null) return;
-  try {
-    storage.removeItem(PLAN_DRAFT_STORAGE_KEY);
-  } catch {
-    // Nothing to recover and nothing to tell the clinician that the notice does not already say.
+  if (storage !== null) {
+    try {
+      storage.removeItem(PLAN_DRAFT_STORAGE_KEY);
+    } catch {
+      // Nothing to recover and nothing to tell the clinician that the notice does not already say.
+    }
   }
+  notifyPlanDraftListeners();
 }

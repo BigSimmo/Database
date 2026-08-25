@@ -1,15 +1,18 @@
 "use client";
 
 import { CircleAlert, ClipboardCheck, FileCheck2, IdCard, ShieldCheck, Trash2, UserRoundCheck } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { ListEmptyState } from "../list-empty-state";
 import { UnavailableDestination } from "../unavailable-destination";
 import {
   clearPlanDraft,
   emptyPlanDraft,
-  planDraftStorageAvailable,
+  planDraftServerSnapshot,
+  planDraftSnapshot,
+  planDraftIsHeld,
   readPlanDraft,
+  subscribeToPlanDraft,
   writePlanDraft,
   type PlanDraft,
 } from "./plan-draft";
@@ -128,32 +131,35 @@ export function PlanWizard({
   referralPathwayVersionId,
   pathwayOptions,
 }: PlanWizardProps) {
-  // The draft starts empty on both the server render and the first client render, and is only
-  // replaced once from storage after mount. Reading storage during render would make the two
-  // renders disagree, and the disagreement would be about a patient's details.
-  const [draft, setDraft] = useState<PlanDraft>(() => emptyPlanDraft(referralId, referralPathwayVersionId));
-  const [storage, setStorage] = useState<"pending" | "held" | "refused">("pending");
+  // THE DRAFT IS NOT REACT STATE. It is `plan-draft.ts`'s store, subscribed to here — see that
+  // module's note for why: a lazy `useState` initialiser that read `sessionStorage` would make the
+  // server render and the client's first render disagree, and the disagreement would be about a
+  // patient's details. `planDraftServerSnapshot` answers null through hydration, and the real draft
+  // arrives in the commit after it.
+  const stored = useSyncExternalStore(subscribeToPlanDraft, planDraftSnapshot, planDraftServerSnapshot);
+  const storage = useSyncExternalStore(subscribeToPlanDraft, readStorageState, readServerStorageState);
   const [discarded, setDiscarded] = useState(false);
 
+  // A draft belonging to a DIFFERENT referral is removed rather than ignored, so one coordinator's
+  // answers cannot sit in storage for the rest of the tab's life, referenced by nothing. This is a
+  // side effect on an external system, which is what an effect is for; it sets no state, and the
+  // store's own notification is what re-renders.
   useEffect(() => {
-    const restored = readPlanDraft(referralId);
-    if (restored !== null) setDraft(restored);
-    setStorage(planDraftStorageAvailable() ? "held" : "refused");
+    readPlanDraft(referralId);
   }, [referralId]);
+
+  const draft = stored !== null && stored.referralId === referralId
+    ? stored
+    : emptyPlanDraft(referralId, referralPathwayVersionId);
 
   /** Every change goes through here, so nothing can update the screen without updating the draft. */
   function update(change: (current: PlanDraft) => PlanDraft) {
     setDiscarded(false);
-    setDraft((current) => {
-      const next = change(current);
-      setStorage(writePlanDraft(next) ? "held" : "refused");
-      return next;
-    });
+    writePlanDraft(change(draft));
   }
 
   function discard() {
     clearPlanDraft();
-    setDraft(emptyPlanDraft(referralId, referralPathwayVersionId));
     setDiscarded(true);
   }
 
@@ -244,6 +250,22 @@ function assertBuiltStageHasABody(body: ReactNode | null, stage: PlanWizardStage
     throw new Error(`caring-contacts plan wizard: stage "${stage}" is marked built but this component renders no body for it.`);
   }
   return body;
+}
+
+/**
+ * Whether this browser is actually keeping the draft.
+ *
+ * Read through the same store subscription as the draft itself, for the same hydration reason: the
+ * server cannot know, so it answers `"pending"` and the truth arrives on the client. The notice's
+ * wording follows this rather than stating an intention — a notice promising the page will remember
+ * is false when the browser refused.
+ */
+function readStorageState(): "held" | "refused" {
+  return planDraftIsHeld() ? "held" : "refused";
+}
+
+function readServerStorageState(): "pending" {
+  return "pending";
 }
 
 function Stepper({ active }: { active: PlanWizardStage }) {
@@ -564,31 +586,47 @@ function PathwayStage({
               or recommended, and the order carries no meaning.
             </p>
             <div className="mt-3 min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)]">
-              {options.map((option) => (
-                <label key={option.id} className={optionClass}>
-                  <input
-                    type="radio"
-                    name="caring-contacts-pathway-version"
-                    value={option.id}
-                    checked={chosen === option.id}
-                    onChange={() => onChoose(option.id)}
-                    className="mt-1 size-5 shrink-0 accent-[color:var(--clinical-accent)]"
-                  />
-                  <span className="min-w-0">
-                    <span className="block break-words text-sm font-semibold text-[color:var(--text-heading)]">
-                      {option.id}
+              {options.map((option) => {
+                // The `<label>` holds the version's name and nothing else, and the two descriptive
+                // lines sit outside it, tied on with `aria-describedby`. Nesting them inside the
+                // label made the accessible name the whole paragraph — the shape
+                // `jsx-a11y/label-has-associated-control` rejected, and rightly: a screen reader
+                // announcing every radio's approval history as its name is unusable.
+                const inputId = `caring-contacts-pathway-${option.id}`;
+                const detailId = `${inputId}-detail`;
+                return (
+                  <div key={option.id} className={optionClass}>
+                    <input
+                      type="radio"
+                      id={inputId}
+                      name="caring-contacts-pathway-version"
+                      value={option.id}
+                      checked={chosen === option.id}
+                      onChange={() => onChoose(option.id)}
+                      aria-describedby={detailId}
+                      className="mt-1 size-5 shrink-0 accent-[color:var(--clinical-accent)]"
+                    />
+                    <span className="min-w-0">
+                      <label
+                        htmlFor={inputId}
+                        className="block break-words text-sm font-semibold text-[color:var(--text-heading)]"
+                      >
+                        {option.id}
+                      </label>
+                      <span id={detailId} className="min-w-0">
+                        <span className="mt-1 block text-sm leading-6 text-[color:var(--text-muted)]">
+                          {option.cadenceLabels.join(" · ")}
+                        </span>
+                        <span className="mt-1 block text-xs leading-5 text-[color:var(--text-muted)]">
+                          Approved by {option.approvedByRoles.join(" and ")}
+                          {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
+                          {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
+                        </span>
+                      </span>
                     </span>
-                    <span className="mt-1 block text-sm leading-6 text-[color:var(--text-muted)]">
-                      {option.cadenceLabels.join(" · ")}
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-[color:var(--text-muted)]">
-                      Approved by {option.approvedByRoles.join(" and ")}
-                      {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
-                      {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
-                    </span>
-                  </span>
-                </label>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </fieldset>
         </div>
