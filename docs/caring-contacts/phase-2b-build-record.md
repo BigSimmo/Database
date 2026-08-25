@@ -1461,3 +1461,30 @@ clearance from a blank patient name (`7ab6b272`, P3). The reviewer traced why th
 today and why it is worth closing anyway: the guarantee lives in a Zod schema at the API edge, not as
 a domain invariant — `createPlan` does not validate it and the column permits `""` — and this task
 made a second statement depend on it.
+
+### A process failure that was MINE, again, and it is the same family as the last one
+
+**My commit `15559437f` contains 23 lines of the implementer's SQL migration change, and its message
+says nothing about it.** I ran `git add -A` to commit a ledger entry and two issue-inbox files while
+an implementer was working in this worktree with an edit uncommitted. The change is correct and the
+implementer disclosed it; the defect is mine. The result is a commit whose message is false about its
+contents, and an implementer's own commit table that is one commit narrower than reality through no
+fault of its own.
+
+**The rule, and it is the sibling of the one already recorded here.** Phase 2B already carries "never
+switch a worktree's branch while a subagent is working in it". This is the same hazard through a
+different door: **never `git add -A` while an implementer is working in the worktree.** Stage explicit
+paths. The controller and the implementer share one working tree, and every wildcard the controller
+types can claim the implementer's uncommitted work.
+
+**Not rewritten.** The commit is two commits back with an implementer live in the tree; rebasing to fix
+a message would be a larger risk than the wrong message. Recorded here instead, which is where a
+reader looking for what happened will be.
+
+**Related, and left alone deliberately.** The implementer hit the PR-babysit stop hook — its `Monitor`
+call was denied — and suggested clearing the marker. I checked: the marker is **not stale**. Its
+session id is this session's, and this session did open PR #2350 on 2026-08-24 at 22:42; the 30-minute
+budget expired long ago and the hook is doing exactly what it was built to do. It is over-broad — it
+denies `Monitor` for a purely local test-gate wait, which is the gap `docs/pr-handoff-stop-cross-agent-gap.md`
+already names — but **deleting a safety marker to make an unrelated wait more convenient is not a
+trade I will make unasked**, and the implementer completed the wait without it. Left in place.
