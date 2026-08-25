@@ -704,6 +704,33 @@ work you sweep in. Every commit in this round staged named paths.
   client module graph.
 - **The browser gap** — noted as widened.
 
+## Fix round 1 gates
+
+**The guard set, `npm run test:cc-guards`:**
+
+```
+ Test Files  18 passed (18)
+      Tests  377 passed (377)
+   Duration  52.94s (transform 3.39s, setup 2.41s, import 10.15s, tests 58.72s, environment 9.55s)
+```
+
+377, up from 364: thirteen cases added for the second write and the state between the two writes.
+
+**The full suite, `npm run test`, once, at the end, backgrounded from the first command:**
+
+```
+ Test Files  835 passed | 3 skipped (838)
+      Tests  10173 passed | 74 skipped (10247)
+   Duration  486.14s (transform 49.92s, setup 81.33s, import 259.40s, tests 953.26s, environment 308.80s)
+```
+
+Clean, no lease refusal at any point — the worktree was mine alone — and 10173 against the base
+round's 10160, which is the thirteen new cases and nothing else moving.
+
+**Typecheck, lint and Prettier, all clean**, all run directly rather than through the npm wrappers.
+Nothing but this report has changed since the full suite started, verified with
+`git log --name-only`.
+
 ## Does this touch the browser gate?
 
 **Still no, and the second write does not change the answer — but it widens the gap again, and this
