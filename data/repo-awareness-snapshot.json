@@ -3531,94 +3531,58 @@
     ],
     "sections": [
       {
-        "name": "adr",
-        "documents": 1,
-        "uncatalogued": 1
+        "name": "adr"
       },
       {
-        "name": "archive",
-        "documents": 31,
-        "uncatalogued": 27
+        "name": "archive"
       },
       {
-        "name": "audit",
-        "documents": 19,
-        "uncatalogued": 9
+        "name": "audit"
       },
       {
-        "name": "care-plan",
-        "documents": 7,
-        "uncatalogued": 7
+        "name": "care-plan"
       },
       {
-        "name": "caring-contacts",
-        "documents": 66,
-        "uncatalogued": 66
+        "name": "caring-contacts"
       },
       {
-        "name": "codex",
-        "documents": 6,
-        "uncatalogued": 6
+        "name": "codex"
       },
       {
-        "name": "decisions",
-        "documents": 1,
-        "uncatalogued": 1
+        "name": "decisions"
       },
       {
-        "name": "design-system",
-        "documents": 8,
-        "uncatalogued": 2
+        "name": "design-system"
       },
       {
-        "name": "evidence",
-        "documents": 4,
-        "uncatalogued": 4
+        "name": "evidence"
       },
       {
-        "name": "plans",
-        "documents": 6,
-        "uncatalogued": 6
+        "name": "plans"
       },
       {
-        "name": "product",
-        "documents": 1,
-        "uncatalogued": 1
+        "name": "product"
       },
       {
-        "name": "prompts",
-        "documents": 13,
-        "uncatalogued": 13
+        "name": "prompts"
       },
       {
-        "name": "rag-behaviour",
-        "documents": 4,
-        "uncatalogued": 4
+        "name": "rag-behaviour"
       },
       {
-        "name": "rag-improvement",
-        "documents": 8,
-        "uncatalogued": 2
+        "name": "rag-improvement"
       },
       {
-        "name": "redesign",
-        "documents": 16,
-        "uncatalogued": 16
+        "name": "redesign"
       },
       {
-        "name": "root",
-        "documents": 98,
-        "uncatalogued": 23
+        "name": "root"
       },
       {
-        "name": "superpowers",
-        "documents": 90,
-        "uncatalogued": 90
+        "name": "superpowers"
       },
       {
-        "name": "ward-flow-phase-3-workspace",
-        "documents": 50,
-        "uncatalogued": 50
+        "name": "ward-flow-phase-3-workspace"
       }
     ],
     "counts": {

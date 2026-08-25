@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 /**
  * Shared building blocks for every developer-hub panel page: a labelled count
  * tile, a shared card-container class, and the two class strings ("section
@@ -62,5 +64,43 @@ export function CountTile({ testId, value, label }: { testId: string; value: num
       </span>
       <span className={TILE_LABEL_CLASS}>{label}</span>
     </div>
+  );
+}
+
+/**
+ * Shared section container for developer hub panel pages: encapsulates `<section aria-labelledby="...">`
+ * with a standardized heading tag (`h2` by default, or `h3`/`h4`), heading class, and optional testId.
+ * Kept as a pure Server Component with no client boundary.
+ */
+export function PanelSection({
+  id,
+  headingId,
+  heading,
+  headingLevel: Heading = "h2",
+  headingClassName,
+  className = "grid gap-3",
+  testId,
+  children,
+}: {
+  id?: string;
+  headingId: string;
+  heading: ReactNode;
+  headingLevel?: "h2" | "h3" | "h4";
+  headingClassName?: string;
+  className?: string;
+  testId?: string;
+  children: ReactNode;
+}) {
+  const resolvedHeadingClass =
+    headingClassName ??
+    (Heading === "h2" ? SECTION_HEADING_CLASS : "text-sm font-extrabold text-[color:var(--text-heading)]");
+
+  return (
+    <section id={id} data-testid={testId} aria-labelledby={headingId} className={className}>
+      <Heading id={headingId} className={resolvedHeadingClass}>
+        {heading}
+      </Heading>
+      {children}
+    </section>
   );
 }
