@@ -66,8 +66,11 @@ export type PlanWizardPathwayOption = {
   id: string;
   /** The pathway's own cadence wording, taken from its frozen snapshot. Never written here. */
   cadenceLabels: readonly string[];
-  /** Which approval seats are recorded against this version. Governance provenance, not a tally. */
-  approvedByRoles: readonly string[];
+  /**
+   * Which approval seats are recorded against this version, ALREADY IN PLAIN WORDS — the page
+   * resolves them through `role-labels.ts` (round 1, M-2). Governance provenance, not a tally.
+   */
+  approvedBy: readonly string[];
   /** AWST instant this version was published, or null. */
   publishedAt: string | null;
 };
@@ -81,7 +84,8 @@ export type PlanWizardProps = {
   teamId: string;
   /** Who is acting. Read from the session, not from the referral. */
   actorId: string;
-  actorRoles: readonly string[];
+  /** The acting role(s), already in plain words. Never the raw identifier. */
+  actorRoleLabels: readonly string[];
   /**
    * The pathway version the referral already names, or null (Ruling [113]). An accepted referral
    * can carry a pathway chosen by whoever accepted it, and stage 2 says so rather than presenting
@@ -139,7 +143,7 @@ export function PlanWizard({
   patientId,
   teamId,
   actorId,
-  actorRoles,
+  actorRoleLabels,
   referralPathwayVersionId,
   pathwayOptions,
 }: PlanWizardProps) {
@@ -216,7 +220,7 @@ export function PlanWizard({
             patientId={patientId}
             teamId={teamId}
             actorId={actorId}
-            actorRoles={actorRoles}
+            actorRoleLabels={actorRoleLabels}
             assurances={draft.assurances}
             onAssuranceChange={(change) =>
               update((current) => ({ ...current, assurances: { ...current.assurances, ...change } }))
@@ -323,6 +327,35 @@ function Stepper({ active }: { active: PlanWizardStage }) {
  * browser that would not keep anything, where a notice promising the page will remember would be
  * false.
  */
+/**
+ * What the draft notice says, per storage answer.
+ *
+ * A `Record` rather than nested ternaries: the three answers are three different facts, and the
+ * ternary version is how `"pending"` came to borrow `"held"`'s wording and claim something untrue.
+ */
+const DRAFT_NOTICE_WORDING: Record<"pending" | "held" | "refused", { heading: string; because: string; changedBy: string }> = {
+  pending: {
+    heading: "Nothing is being kept on this computer yet",
+    because:
+      "This screen has not finished starting up, so nothing you enter has been written down. If JavaScript is turned off it never will be, and the controls below will not work either.",
+    changedBy:
+      "Once the screen is ready, what you enter is kept on this computer for this tab only, and Discard draft removes it at once.",
+  },
+  held: {
+    heading: "Kept on this computer until you close the tab",
+    because:
+      "So that reloading the page does not lose a part-finished sign-up, what you enter here is written to this computer's storage for this tab only. It is not sent anywhere, and nothing is sent to any number from this screen.",
+    changedBy:
+      "Closing this tab removes it. Discard draft, below, removes it now — use it if you are stepping away from a shared computer.",
+  },
+  refused: {
+    heading: "Nothing is being kept on this computer",
+    because: "This browser would not let the page keep anything, so nothing you enter here is written down.",
+    changedBy:
+      "Nothing. Reloading or closing the tab loses what you have entered, so finish this sign-up in one sitting.",
+  },
+};
+
 function DraftNotice({
   storage,
   discarded,
@@ -332,22 +365,27 @@ function DraftNotice({
   discarded: boolean;
   onDiscard: () => void;
 }) {
-  const heading = storage === "refused" ? "Nothing is being kept on this computer" : "Kept on this computer until you close the tab";
-  const because =
-    storage === "refused"
-      ? "This browser would not let the page keep anything, so nothing you enter here is written down."
-      : "So that reloading the page does not lose a part-finished sign-up, what you enter here is written to this computer's storage for this tab only. It is not sent anywhere, and nothing is sent to any number from this screen.";
-  const changedBy =
-    storage === "refused"
-      ? "Nothing. Reloading or closing the tab loses what you have entered, so finish this sign-up in one sitting."
-      : "Closing this tab removes it. Discard draft, below, removes it now — use it if you are stepping away from a shared computer.";
+  // Three wordings, not two — round 1, finding M-3. `"pending"` used to borrow the affirmative
+  // wording, which made the server-rendered page claim that what a clinician types "is written to
+  // this computer's storage" before this browser had been asked anything. With JavaScript turned
+  // off that claim is not merely early, it is permanent AND false: nothing is stored, and none of
+  // the controls below work either. So `"pending"` gets its own wording, and the `<noscript>` line
+  // states the JavaScript case where the wording alone would still be read as a temporary state.
+  const words = DRAFT_NOTICE_WORDING[storage];
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      <noscript>
+        <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
+          This screen needs JavaScript, and it is the only one in this workspace that does. With it
+          turned off nothing you type here is kept and none of the controls below do anything, so a
+          plan cannot be started from this page.
+        </p>
+      </noscript>
       <StatedReason
-        heading={heading}
-        because={because}
-        changedBy={changedBy}
+        heading={words.heading}
+        because={words.because}
+        changedBy={words.changedBy}
         icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
       />
       <div className="flex min-w-0 flex-wrap items-center gap-3">
@@ -418,7 +456,7 @@ function AgreementStage({
   patientId,
   teamId,
   actorId,
-  actorRoles,
+  actorRoleLabels,
   assurances,
   onAssuranceChange,
   onContinue,
@@ -427,7 +465,7 @@ function AgreementStage({
   patientId: string;
   teamId: string;
   actorId: string;
-  actorRoles: readonly string[];
+  actorRoleLabels: readonly string[];
   assurances: { patientAgreed: boolean; mobileIsPatientControlled: boolean };
   onAssuranceChange: (change: Partial<{ patientAgreed: boolean; mobileIsPatientControlled: boolean }>) => void;
   onContinue: () => void;
@@ -463,7 +501,7 @@ function AgreementStage({
           <SourcedFact
             icon={<UserRoundCheck aria-hidden="true" className="size-icon-md" />}
             label="Acting as"
-            value={`${actorId} (${actorRoles.join(", ")})`}
+            value={`${actorId} — ${actorRoleLabels.join(", ")}`}
             source="Read from the session you are signed in with, not from the referral"
           />
         </div>
@@ -506,9 +544,17 @@ function AgreementStage({
       </div>
 
       <div className="flex min-w-0 flex-col gap-2">
+        {/*
+          "Confirmed", never "recorded" — round 1, finding M-6. The panel directly above says that
+          nothing in this domain records either confirmation, and the word "recorded" here
+          contradicted it on the same screen. That is a truth defect rather than a wording
+          preference: the gap is with the owner as a schema decision right now, and a screen
+          implying it is already handled is the one thing that could make the decision look
+          unnecessary.
+        */}
         <p role="status" className={mutedTextClass}>
           {complete
-            ? "Both confirmations are recorded for this sign-up. A pathway can be chosen."
+            ? "Both confirmations are ticked, so a pathway can be chosen. Neither is stored anywhere; they hold only while this sign-up is open."
             : "A pathway cannot be chosen until both confirmations above are ticked."}
         </p>
         <div className="flex min-w-0 flex-wrap gap-3">
@@ -628,7 +674,7 @@ function PathwayStage({
                         {option.cadenceLabels.join(" · ")}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
-                        Approved by {option.approvedByRoles.join(" and ")}
+                        Approved by {option.approvedBy.join(" and ")}
                         {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
                         {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
                       </p>

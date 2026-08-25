@@ -6,6 +6,10 @@ import {
   type PlanStartState,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-start-state";
 import type { PlanWizardPathwayOption } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
+import {
+  CARING_CONTACT_ROLE_LABELS,
+  PATHWAY_APPROVAL_ROLE_LABELS,
+} from "@/components/caring-contacts/workspace/plan-wizard/role-labels";
 import { CARING_CONTACTS_REFERRAL_QUERY_PARAM } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
@@ -233,7 +237,10 @@ export default async function CaringContactsNewPlanPage({
       .map((version) => ({
         id: version.id,
         cadenceLabels: version.snapshot.cadenceLabels,
-        approvedByRoles: version.approvals.map((approval) => approval.role),
+        // Plain words, resolved here rather than in the wizard (round 1, M-2): the label maps are
+        // `Record`s over the domain's own unions, so an unlabelled role is a compile error, and
+        // keeping them server-side keeps two domain modules out of the one client bundle.
+        approvedBy: version.approvals.map((approval) => PATHWAY_APPROVAL_ROLE_LABELS[approval.role]),
         publishedAt: version.publishedAt,
       }));
 
@@ -243,7 +250,7 @@ export default async function CaringContactsNewPlanPage({
         patientId={referral.patientId}
         teamId={referral.teamId}
         actorId={actor.id}
-        actorRoles={actor.roles}
+        actorRoleLabels={actor.roles.map((role) => CARING_CONTACT_ROLE_LABELS[role])}
         referralPathwayVersionId={referral.pathwayVersionId}
         pathwayOptions={pathwayOptions}
       />

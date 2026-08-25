@@ -218,8 +218,15 @@ describe("the /caring-contacts/plans/new page — the service state stays on the
       referralPathwayVersionId: PATHWAY,
     });
     expect(wizard.props.pathwayOptions).toEqual([
-      expect.objectContaining({ id: PATHWAY, cadenceLabels: CADENCE_LABELS }),
+      expect.objectContaining({
+        id: PATHWAY,
+        cadenceLabels: CADENCE_LABELS,
+        // Round 1, M-2: the page resolves the governance seats to plain words, so no domain
+        // identifier crosses into the client bundle or onto a clinical screen.
+        approvedBy: ["the clinical programme lead", "the lived-experience representative"],
+      }),
     ]);
+    expect(wizard.props.actorRoleLabels).toEqual(["coordinator"]);
   });
 });
 

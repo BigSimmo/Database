@@ -43,7 +43,7 @@ function pathwayOption(id: string) {
   return {
     id,
     cadenceLabels: ["Day 1", "Week 1", "Month 1"],
-    approvedByRoles: ["clinicalProgrammeLead", "livedExperienceRepresentative"],
+    approvedBy: ["the clinical programme lead", "the lived-experience representative"],
     publishedAt: null,
   };
 }
@@ -54,7 +54,7 @@ function renderWizard(overrides: Partial<PlanWizardProps> = {}) {
     patientId: PATIENT,
     teamId: TEAM,
     actorId: "demo-coordinator",
-    actorRoles: ["coordinator"],
+    actorRoleLabels: ["coordinator"],
     referralPathwayVersionId: NAMED_PATHWAY,
     pathwayOptions: [pathwayOption(NAMED_PATHWAY), pathwayOption(OTHER_PATHWAY)],
     ...overrides,
@@ -111,6 +111,40 @@ describe("the caring-contacts plan wizard — stage 1, agreement (Ruling [112])"
     // says the number will be used, never that it was read from anywhere.
     expect(text).toMatch(/mobile number this plan will use is the patient’s own/i);
     expect(text).toMatch(/entered at personalisation/i);
+  });
+
+  it("never tells a clinician the confirmations are kept, on a screen whose own panel says they are not", async () => {
+    // Round 1, finding M-6. The status line under the confirmations used to read "Both
+    // confirmations are recorded for this sign-up", directly beneath a panel stating that nothing
+    // in this domain records them. "Confirmed" is true; "recorded" is not, and the gap is with the
+    // owner as a schema decision — a screen implying it is already handled is the one thing that
+    // could make that decision look unnecessary.
+    const user = userEvent.setup();
+    const { container } = renderWizard();
+    for (const box of screen.getAllByRole("checkbox")) await user.click(box);
+
+    const text = container.textContent ?? "";
+    expect(text).toMatch(/Both confirmations are ticked/);
+    expect(text, "the screen claims the confirmations are recorded").not.toMatch(/confirmations are recorded/i);
+    expect(text).toMatch(/Neither is stored anywhere/);
+  });
+
+  it("shows roles in plain words, never as the domain's identifiers", async () => {
+    // Round 1, finding M-2. `plan-start-state.tsx`'s REFERRAL_STATE_LABELS is this workspace's own
+    // pattern; camelCase identifiers on a clinical screen are not.
+    const user = userEvent.setup();
+    const { container } = renderWizard();
+    expect(container.textContent ?? "").toMatch(/coordinator/);
+    expect(container.textContent ?? "", "an identifier reached the screen").not.toMatch(
+      /clinicalProgrammeLead|livedExperienceRepresentative|teamLead/,
+    );
+
+    await reachPathwayStage(user);
+    const pathwayText = container.textContent ?? "";
+    expect(pathwayText).toMatch(/Approved by the clinical programme lead and the lived-experience representative/);
+    expect(pathwayText, "an identifier reached the pathway chooser").not.toMatch(
+      /clinicalProgrammeLead|livedExperienceRepresentative/,
+    );
   });
 
   it("says plainly that the confirmations are not recorded anywhere", () => {
