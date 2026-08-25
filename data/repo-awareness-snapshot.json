@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "7b35bb382ea52ed5aadc85845ed25409475f7b52",
-    "committed_at": "2026-08-25T03:23:18+00:00"
+    "sha": "cea53ebd1f7c22cfa69bde722f9233fe624ca697",
+    "committed_at": "2026-08-25T03:26:40+00:00"
   },
   "routes": {
     "modes": [
@@ -3617,6 +3617,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-25",
+        "ref": "claude/settings-page-review-optimize-bicxn9",
+        "head": "7b35bb382ea52ed5aadc85845ed25409475f7b52",
+        "scope": "PR #2364 Codex P2 preference sync + main merge",
+        "outcome": "Supersedes accf3563 record after ledger-commit tip. Same preference-sync fixes; HEAD includes immutable review record. Three Codex P2 threads resolved (reply API 403). mergeable MERGEABLE; CI in flight on 7b35bb38.",
+        "checks": "vitest 9 passed preference tests; typecheck pass; maintainability budgets pass; CI subscribed"
+      },
       {
         "date": "2026-08-25",
         "ref": "claude/settings-page-review-optimize-bicxn9",
@@ -24507,7 +24515,7 @@
       }
     ],
     "counts": {
-      "records": 2611,
+      "records": 2612,
       "refs": 1592
     }
   }
