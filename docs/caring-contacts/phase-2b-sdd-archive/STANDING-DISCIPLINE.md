@@ -30,6 +30,12 @@ tell whether your situation is the one it is about.
 - **A test that installs a double must assert the double was used.** jsdom's storage is a Proxy
   answering from the prototype, so a mock assigned to the instance is never called and the test passes
   inert.
+- **Comparing two outputs of one function to each other does not test that function.** Task 9b's
+  "reads back through `getPlan` and through the caseload list alike" held three reads only against one
+  another; emptying the mapper they all share left it **green**, because three empty lists agree
+  perfectly. **Hold at least one side to expected content**, then compare the rest to it. The same
+  shape hides anywhere a test says "these agree" — two serialisers, a round trip, a cache against its
+  source. Its mutation found it; an assertion nobody mutated would have shipped it.
 - **Commit each piece before you mutate the file it lives in.** `git checkout --` also discards any
   uncommitted fix in that file.
 - **Never `git add -A`, `git add .` or `git commit -a` while a mutation is applied.** This has now
