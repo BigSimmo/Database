@@ -258,6 +258,18 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // the companion test below proves its source and everything it reaches never name that
   // module or type; and it is here deliberately rather than to clear a red test.
   "overlays/overlay-trigger.tsx",
+  // Task 10's trigger for the eight overlays whose decision control is an EXIT rather than a
+  // confirmation, `delivery-detail` among them. It is a client component for a structural reason
+  // rather than an interactive one: a Server Component cannot pass a function across this boundary
+  // at all, and `WorkspaceOverlayCommit`'s `record` member is a function position — so an exit
+  // row's commit has to be CONSTRUCTED on the client side of the seam. That is what lets the
+  // screens above it stay Server Components and pass plain data.
+  //
+  // Added on the same three conditions as the entries above: its props are an overlay id, a class
+  // name and children — no state object, and nothing derived from the record; the companion test
+  // below proves its source and everything it reaches never name that module or type; and it is
+  // here deliberately, as the alternative to a silent no-op, rather than to clear a red test.
+  "overlays/exit-only-overlay-trigger.tsx",
   // Decides WHEN the condensed stop bar is shown, and never what it says. A scroll position
   // and two element rectangles are browser facts, so this one cannot be answered on the
   // server — and the header is not the height of its token (87.5px at 320/390, 65px above,
