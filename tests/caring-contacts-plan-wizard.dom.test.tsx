@@ -1602,20 +1602,51 @@ describe("stage 4 — what the screen promises matches what confirming does (Rul
     expect(panel).toHaveTextContent(/schedule is running/i);
   });
 
-  it("carries no comment claiming this screen performs one write", () => {
-    // The `stages.ts` defect, one file over: a comment describing a mechanism the code no longer
-    // has. Comments are stripped of nothing here on purpose — the point is that the CLAIM is gone
-    // from the source, not that it is absent from the rendered output.
-    const source = readFileSync(
-      path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard", "plan-wizard.tsx"),
-      "utf8",
-    );
-    expect(source, "a comment still says this screen performs a single write").not.toMatch(
-      /the one write its brief names/i,
-    );
-    expect(source, "a comment still says no ruling covers two writes").not.toMatch(
-      /no ruling covers performing two writes/i,
-    );
+  it("carries no comment claiming this screen performs one write, in either file it writes from", () => {
+    // The `stages.ts` defect: a comment describing a mechanism the code no longer has. This is the
+    // REGRESSION PIN, not the habit — see the Task 9 report. Two ways round 2's version was too
+    // narrow, both of which let a survivor through:
+    //
+    //   * it grepped two literal phrases, so it could not see a paraphrase — and it missed
+    //     "Where the one write has got to" IN THE VERY FILE IT GUARDED;
+    //   * it read `plan-wizard.tsx` only, while every sentence a clinician reads in the
+    //     created-but-not-started state lives in `plan-activation.ts`.
+    //
+    // So it now reads both files and matches a FAMILY of single-write claims rather than two
+    // sentences. A phrase pin cannot be made complete — a fourth phrasing outside the family still
+    // passes — and that limitation is stated here rather than left for the next reader to find, in
+    // the same spirit as `strip-source-comments.ts`'s pinned known limitation.
+    const singleWriteClaims = [
+      /the one write/i,
+      /one write its brief names/i,
+      /no ruling covers performing two writes/i,
+      /performs (?:the|a) single write/i,
+      /this screen performs one write/i,
+      /created in draft/i,
+      /does not start it/i,
+    ];
+
+    for (const name of ["plan-wizard.tsx", "plan-activation.ts"]) {
+      const source = readFileSync(
+        path.join(process.cwd(), "src", "components", "caring-contacts", "workspace", "plan-wizard", name),
+        "utf8",
+      );
+      for (const claim of singleWriteClaims) {
+        expect(source, `${name} still carries a single-write claim matching ${claim}`).not.toMatch(claim);
+      }
+
+      // THE SECOND CLASS, and it is a different defect from a stale mechanism claim: a COUNT stated
+      // in prose. `activationRefusalWording`'s doc said "Every branch says three things", and round
+      // 2's own C3 edit falsified the middle one for three branches while the third had never been
+      // true of two others. Ruling [94] — state the invariant, not the count — applies to source as
+      // much as to a screen, because a comment is not re-read when the code beneath it changes.
+      for (const claim of [
+        /every branch says (?:one|two|three|four|five|\d+) things/i,
+        /all (?:thirteen|\d+) branches say/i,
+      ]) {
+        expect(source, `${name} restates a branch count in prose, which decays`).not.toMatch(claim);
+      }
+    }
   });
 });
 

@@ -444,7 +444,13 @@ export function planVersionFromCreateAnswer(payload: unknown): number | null {
 }
 
 /**
- * What the screen says when the write is refused, in the three-part shape spec §4.4 sets.
+ * What the screen says when a write is refused, in the three-part shape spec §4.4 sets.
+ *
+ * THE SHAPE IS SHARED BY BOTH WRITES; THE WORDING IS NOT. This type is used by
+ * `submissionRefusalWording` below, which covers the create, and by `activationRefusalWording`,
+ * which covers the start -- and the two may never borrow each other's sentences, because "Nothing
+ * was created" is true of one and false of the other. Everything below this line describes the
+ * create-stage table.
  *
  * RULING [117], THIRD ORDERING. "Something went wrong" is not acceptable on the screen that creates
  * a suicide-prevention contact plan: the refusals name genuinely different situations, and a
@@ -630,20 +636,6 @@ export function plannedScheduleSentence(summary: PlannedScheduleSummary): string
 }
 
 /**
- * What the screen says when the plan WAS created and could not be started.
- *
- * A SEPARATE MAPPING FROM `submissionRefusalWording`, AND THAT IS THE POINT RATHER THAN TIDINESS.
- * Every branch of that one says "Nothing was created", which is true of the first write and FALSE
- * here. A coordinator told nothing was created starts the sign-up again -- and this patient gets a
- * second plan, two schedules and two sets of messages, which is the worst outcome available on this
- * screen. So the two failures get two vocabularies and neither can borrow the other's.
- *
- * Every branch says three things, and the test walks all of them: the plan was created, it has not
- * started, and pressing again finishes it rather than duplicating it. The third is the payoff of
- * Ruling [120]'s mechanism -- the draft still holds the plan id and both keys, so the retried create
- * is a replay that returns the first attempt's own answer.
- */
-/**
  * WHAT IS TRUE AFTER THE CREATE AND BEFORE THE START, checked against the store rather than assumed.
  *
  * The first version of this said "no message is scheduled to go out yet". THAT IS FALSE.
@@ -671,6 +663,32 @@ const NOT_STARTED = " The plan has not been started.";
 const PRESS_AGAIN =
   "Confirming again finishes starting the same plan: this sign-up still holds its identifier, so it cannot create a second plan for this patient.";
 
+/**
+ * What the screen says when the plan WAS created and could not be started.
+ *
+ * A SEPARATE MAPPING FROM `submissionRefusalWording`, AND THAT IS THE POINT RATHER THAN TIDINESS.
+ * Every branch of that one says "Nothing was created", which is true of the first write and FALSE
+ * here. A coordinator told nothing was created starts the sign-up again -- and this patient gets a
+ * second plan, two schedules and two sets of messages, which is the worst outcome available on this
+ * screen. So the two failures get two vocabularies and neither can borrow the other's.
+ *
+ * WHAT EVERY BRANCH SAYS, and what only some do -- because an earlier version of this comment
+ * claimed three things of all of them and TWO of the three were false:
+ *
+ *   * ALL: the plan was created, its contacts are scheduled, and nothing reaches a handset because
+ *     there is no provider and nothing that sends (see `PLAN_EXISTS`).
+ *   * ALL: what to do next, and that it concerns THE SAME PLAN rather than a second one -- the
+ *     payoff of Ruling [120]'s mechanism, since the draft still holds the plan id and both keys.
+ *   * ONLY WHERE IT IS TRUE: that the plan has not been started (`NOT_STARTED`). Three branches
+ *     withhold it because the plan may already have started -- `plan-not-draft`, `plan-terminal`
+ *     and `service-answered-with-something-unreadable` -- and they say the state is unknown and
+ *     send the reader to look instead. Two of those three tell the clinician NOT to press again,
+ *     so "pressing again finishes it" was never true of every branch either.
+ *
+ * The counts are deliberately not restated in prose here (Ruling [94] applies to source as much as
+ * to a screen): `tests/caring-contacts-plan-activation.test.ts` holds the two lists, and a branch
+ * added to the wrong one goes red there rather than disagreeing with a sentence nobody re-reads.
+ */
 const ACTIVATION_REFUSAL_WORDING: Readonly<Record<string, SubmissionRefusalWording>> = Object.freeze(
   Object.assign(Object.create(null) as Record<string, SubmissionRefusalWording>, {
     "plan-not-draft": {

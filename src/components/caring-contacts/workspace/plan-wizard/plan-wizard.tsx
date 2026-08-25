@@ -100,17 +100,20 @@ import { StatedReason } from "./stated-reason";
  * pins that the page hands this component no such prop, because "the wizard is exactly where it
  * would be easiest to leak" is a prediction, not a guarantee.
  *
- * WHAT IS BUILT HERE AND WHAT IS NOT
- * ---------------------------------
- * Task 7 built the shell that carries all four stages, plus stages 1 and 2; Task 8 added stage 3.
- * Stage 4 — review and activation — is still an explicit, typed extension point: the stepper names
- * it, the forward control from stage 3 states that it is not built rather than advancing into an
- * empty room (Ruling 52), and `stages.ts` records exactly what Task 9 changes.
+ * WHAT IS BUILT HERE
+ * ------------------
+ * All four stages. Task 7 built the shell and stages 1 and 2, Task 8 stage 3, Task 9 stage 4 —
+ * review and activation, the only stage that WRITES. `stages.ts`'s `not-built` variant is therefore
+ * returned by nothing, and `UnbuiltStagePanel` and `ForwardControl`'s unavailable branch are
+ * unreached rather than dead: they are the extension point a fifth stage would use, and Ruling 52
+ * is what they implement.
  *
- * NO OVERLAY IS WIRED HERE. The approved mockup opens several from these stages — identity review,
- * changing the patient, previewing the pathway, a message preview, a communication preference, an
- * "adjust schedule" sheet, and its own save/discard pair. Task 11 owns this group's overlay wiring;
- * the seams are named in the Task 7 and Task 8 reports rather than half-built here.
+ * ONE OVERLAY IS WIRED HERE, AND EXACTLY ONE: `final-activation`, the confirmation in front of the
+ * write. Task 11 owns this group's overlay wiring, but a control that writes with no confirmation
+ * step is not something to ship and fix later. The approved mockup opens several others from these
+ * stages — identity review, changing the patient, previewing the pathway, a message preview, a
+ * communication preference, an "adjust schedule" sheet, and its own save/discard pair — and those
+ * seams are named in the Task 7, 8 and 9 reports rather than half-built here.
  */
 export type PlanWizardPathwayOption = {
   id: string;
@@ -211,13 +214,14 @@ const fieldClass =
 const headingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
 
 /**
- * The one endpoint this workspace writes to.
+ * The plan collection, which is where the FIRST of this screen's two writes goes.
  *
- * A path literal, and it is the ONE exception to "hrefs come from `caring-contacts-routes.ts`",
- * because that module declares PAGE destinations a clinician navigates to and this is an API route
- * nothing links to. `plans/route.ts` is where the contract lives; the body it accepts is assembled
- * in exactly one place (`createPlanRequestBody`), so a field added to that contract is an additive
- * change there rather than a hunt through this component.
+ * A path literal, and these two are the ONLY exception to "hrefs come from
+ * `caring-contacts-routes.ts`", because that module declares PAGE destinations a clinician
+ * navigates to and these are API routes nothing links to. `plans/route.ts` and
+ * `plans/[planId]/route.ts` are where the contracts live; the bodies they accept are assembled in
+ * exactly one place each (`createPlanRequestBody`, `activatePlanRequestBody`), so a field added to
+ * either contract is an additive change there rather than a hunt through this component.
  */
 const CREATE_PLAN_ENDPOINT = "/api/caring-contacts/plans";
 
@@ -227,9 +231,14 @@ function startPlanEndpoint(planIdentifier: string): string {
 }
 
 /**
- * Where the one write has got to.
+ * Where the pair of writes has got to (Ruling [123]).
  *
- * `created` is a state of its own rather than a flag on `idle`, because after a successful write the
+ * FIVE STATES FOR TWO WRITES, and the shape is the point: `refused` means the FIRST write failed and
+ * nothing exists, `created-not-started` means the first succeeded and the second did not, and
+ * `created` means both landed. Collapsing the middle one into either neighbour is the defect this
+ * whole state machine exists to prevent — see its own note below.
+ *
+ * `created` is a state of its own rather than a flag on `idle`, because after a successful pair the
  * draft is gone and the wizard would otherwise re-render as a brand-new sign-up at stage 1 for the
  * moment before the navigation lands. A coordinator seeing the form reset would reasonably conclude
  * nothing had been created.
