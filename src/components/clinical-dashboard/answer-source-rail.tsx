@@ -238,7 +238,7 @@ function AnswerSourceCard({
       className={cn(
         cardClass,
         active
-          ? "border-[color:var(--clinical-accent)] shadow-[var(--e1,var(--shadow-soft))]"
+          ? "border-[color:var(--clinical-accent)] shadow-[var(--e1)]"
           : "border-[color:var(--border)] hover:border-[color:var(--border-strong)]",
       )}
       aria-label={`${cardLabel(source, index)} — open source detail`}

@@ -1853,6 +1853,26 @@ summary::-webkit-details-marker {
 
    Never set line-height to 0. An inline-block with zero line-height has a
    zero-height padding box, which collapsed the mark to a sliver the first time. */
+/* The in-prose source mark's own metrics. Component metrics, not scale steps:
+   they are em-based and mutually dependent — the box has to clear the prose
+   without growing the line box — so they sit here rather than in @theme, where
+   they would generate a `leading-mark` utility with one consumer and a stepped
+   scale that reads as though the mark were a typographic role.
+
+   Declared on :root because the mark is drawn from three places that are not
+   nested: `.answer-source-mark` and `.answer-source-mark-overflow` below, and
+   the cluster spacing in answer-source-mark.tsx.
+     --answer-mark-leading    the mark box takes its own line and nothing more
+     --answer-mark-gap-lead   first mark of a cluster, closer to the word
+     --answer-mark-gap        every later mark, and the "+N" overflow count
+     --answer-mark-gap-star   the partial-support glyph against its digit */
+:root {
+  --answer-mark-leading: 1;
+  --answer-mark-gap-lead: 0.28em;
+  --answer-mark-gap: 0.34em;
+  --answer-mark-gap-star: 0.03em;
+}
+
 .answer-source-mark {
   position: relative;
   top: -0.625em;
@@ -1863,7 +1883,7 @@ summary::-webkit-details-marker {
   border-width: 1px;
   border-style: solid;
   font-size: 0.5em;
-  line-height: 1;
+  line-height: var(--answer-mark-leading);
   text-align: center;
   vertical-align: baseline;
 }
@@ -1871,9 +1891,9 @@ summary::-webkit-details-marker {
 /* The partial-support glyph. One glyph reads at this size; a dotted underline
    and a 1px bottom border were both tried under it and neither draws. */
 .answer-source-mark-star {
-  margin-left: 0.03em;
+  margin-left: var(--answer-mark-gap-star);
   font-size: 0.85em;
-  line-height: 1;
+  line-height: var(--answer-mark-leading);
 }
 
 /* A statement, not a control: the sources it counts all sit on the rail below
@@ -1881,9 +1901,9 @@ summary::-webkit-details-marker {
 .answer-source-mark-overflow {
   position: relative;
   top: -0.625em;
-  margin-left: 0.34em;
+  margin-left: var(--answer-mark-gap);
   font-size: 0.5em;
-  line-height: 1;
+  line-height: var(--answer-mark-leading);
   vertical-align: baseline;
 }
 

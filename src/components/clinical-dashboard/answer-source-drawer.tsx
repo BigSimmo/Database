@@ -478,7 +478,7 @@ function SourceOverflowMenu({
           aria-label="Source actions"
           className={cn(
             glassOverlaySurface,
-            "absolute right-0 top-9 z-30 w-60 overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)] py-1 shadow-[var(--shadow-soft)]",
+            "absolute right-0 top-9 z-30 w-60 overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)] py-1 shadow-[var(--e2)]",
           )}
         >
           {items.map((item) => (

@@ -65,7 +65,7 @@ export function AnswerSourceMark({
       onClick={() => onOpen(index)}
       className={cn(
         "answer-source-mark nums font-semibold transition-colors",
-        leading ? "ml-[0.28em]" : "ml-[0.34em]",
+        leading ? "ml-[var(--answer-mark-gap-lead)]" : "ml-[var(--answer-mark-gap)]",
         active
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] outline outline-2 outline-offset-[1.5px] outline-[color:var(--clinical-accent)]"
           : "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]",
