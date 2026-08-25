@@ -518,7 +518,7 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       // What this check does: it compares the unit the caller said it was acting as against the
       // unit being written to, and refuses the event when they differ. What it does not do: prove
       // the claim. `actingUnitId` is whatever the call site put on the event — the ward screen
-      // reads it from its own `/ward-management/ward/[unitId]` route, but nothing here verifies
+      // reads it from its own `/mockups/ward-flow/ward/[unitId]` route, but nothing here verifies
       // that, and this prototype carries no authenticated actor identity to verify it against.
       // This is a recorded assertion by the caller, not an authorisation decision, and must not
       // be described or extended as one.

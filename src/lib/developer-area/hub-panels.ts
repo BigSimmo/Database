@@ -110,7 +110,7 @@ export const HUB_PANELS: readonly HubPanel[] = [
     summary: "Queue, capacity, transport, movements",
     group: "reference",
     phase: 1,
-    href: "/ward-management",
+    href: "/mockups/ward-flow",
   },
   { id: "commands", name: "Commands", summary: "What each repository command does", group: "reference", phase: 4 },
 ];

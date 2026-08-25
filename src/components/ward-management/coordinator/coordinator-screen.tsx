@@ -37,7 +37,7 @@ const PHONE_DIAGRAM_MEDIA_QUERY = "(max-width: 48rem)";
 export function CoordinatorScreen() {
   // Task 5: the screen's props stop being derived from the frozen `wardMovements` fixture and
   // `NOW_ANCHOR` constant and start coming from the shared provider (`WardFlowProvider`, already
-  // wrapping every `/ward-management` route via `src/app/ward-management/layout.tsx`).
+  // wrapping every `/mockups/ward-flow` route via `src/app/mockups/ward-flow/layout.tsx`).
   //
   // Whole-branch review Critical 1: `units` IS now destructured and threaded into `FlowDiagram`
   // and `ShortlistPanel` below. It was deliberately left out here on the original claim that

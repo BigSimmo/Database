@@ -3,7 +3,7 @@ import { expect, test, type Page } from "playwright/test";
 import { edById, unitById } from "@/components/ward-management/ward-sites";
 
 async function gotoWard(page: Page, unitId: string) {
-  await page.goto(`/ward-management/ward/${unitId}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/mockups/ward-flow/ward/${unitId}`, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
   await page.waitForLoadState("networkidle");
 }
@@ -48,7 +48,7 @@ test.describe("Ward screen", () => {
     const bogusUnitId = "nonexistent-unit-does-not-exist";
     expect(unitById(bogusUnitId), "fixture assumption: this id resolves to no real unit").toBeUndefined();
 
-    await page.goto(`/ward-management/ward/${bogusUnitId}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`/mockups/ward-flow/ward/${bogusUnitId}`, { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-unit-screen")).toBeVisible({ timeout: 15_000 });
 
     // Names the id, in real visible text — never a generic "not found" with the id swallowed.
@@ -137,7 +137,7 @@ test.describe("Transport officer screen", () => {
    */
   test("gives the officer four actions and nothing else", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/ward-management/transport/officer", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/transport/officer", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
@@ -165,7 +165,7 @@ test.describe("Transport officer screen", () => {
    */
   test("states it is showing every job rather than inventing an officer to own them", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/ward-management/transport/officer", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/transport/officer", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
 
     await expect(page.getByTestId("ward-officer-governance")).toContainText(/every/i);
@@ -182,7 +182,7 @@ test.describe("Transport officer screen", () => {
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ colorScheme: "dark" });
-    await page.goto("/ward-management/transport/officer", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/transport/officer", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-officer-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
     await expect(page.getByTestId("ward-officer-governance")).toBeVisible();
@@ -216,7 +216,7 @@ test.describe("Live tracker", () => {
    */
   test("tracks every vehicle by leg and by how long since the last stamp", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });
-    await page.goto("/ward-management/transport", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/transport", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
 
     const rows = page.locator('[data-testid^="ward-tracker-row-"]');
@@ -242,7 +242,7 @@ test.describe("Live tracker", () => {
    */
   test("lists exactly the movements that carry a transport job, and states the rest explicitly", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });
-    await page.goto("/ward-management/transport", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/transport", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
 
     await expect(page.locator('[data-testid^="ward-tracker-row-"]')).toHaveCount(8);
@@ -259,7 +259,7 @@ test.describe("Live tracker", () => {
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: "dark" });
-    await page.goto("/ward-management/transport", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/transport", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-live-tracker")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
     await expect(page.getByTestId("ward-tracker-governance")).toBeVisible();
@@ -283,7 +283,7 @@ test.describe("Emergency department screen", () => {
    */
   test("shows a department its own patients, both clocks, and one outstanding item each", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1024 });
-    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
@@ -317,7 +317,7 @@ test.describe("Emergency department screen", () => {
     const bogusEdId = "nonexistent-ed-does-not-exist";
     expect(edById(bogusEdId), "fixture assumption: this id resolves to no real department").toBeUndefined();
 
-    await page.goto(`/ward-management/ed/${bogusEdId}`, { waitUntil: "domcontentloaded" });
+    await page.goto(`/mockups/ward-flow/ed/${bogusEdId}`, { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
@@ -338,7 +338,7 @@ test.describe("Emergency department screen", () => {
   test("never renders a community-formed patient's legal clock as shorter than their time in department", async ({
     page,
   }) => {
-    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
@@ -362,7 +362,7 @@ test.describe("Emergency department screen", () => {
    * comment in `ed-screen.tsx`). Pinned by id, per the task's own warning not to assume.
    */
   test("names transport, not examination, as WF-005's honest outstanding item", async ({ page }) => {
-    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
@@ -379,7 +379,7 @@ test.describe("Emergency department screen", () => {
    * refuse — `aria-disabled`, never native `disabled`, naming the movement's real stage.
    */
   test("marks handover ready only once a bed is held, mirroring the reducer's own precondition", async ({ page }) => {
-    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     // Interacting (the click below) before hydration completes silently no-ops — a plain DOM
     // click with no React listener attached yet throws nothing and changes nothing. Every other
@@ -419,7 +419,7 @@ test.describe("Emergency department screen", () => {
    * a fixture change that removes it fails loudly rather than this count silently reading zero.
    */
   test("flags exactly the one police arrival at peel-ed, and no other patient", async ({ page }) => {
-    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 
@@ -435,7 +435,7 @@ test.describe("Emergency department screen", () => {
   test("retains its operating structure in dark, forced-colours, and print modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.emulateMedia({ colorScheme: "dark" });
-    await page.goto("/ward-management/ed/peel-ed", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/ed/peel-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
     await expect(page.getByTestId("ward-ed-governance")).toBeVisible();
@@ -505,7 +505,7 @@ test.describe("Role switcher — the loop", () => {
     }
 
     // --- Step 1: ED — record the examination (R67). The one permitted `goto`. ---
-    await page.goto("/ward-management/ed/arm-ed", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/ed/arm-ed", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("ward-ed-screen")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
 

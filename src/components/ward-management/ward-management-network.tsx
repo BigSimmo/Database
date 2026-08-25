@@ -519,7 +519,7 @@ export function WardNetworkWorkspace() {
             <span>Next action: {patient.blocker}</span>
           </div>
 
-          <Link className={styles.primaryLink} href={`/ward-management/patients/${patient.id}`}>
+          <Link className={styles.primaryLink} href={`/mockups/ward-flow/patients/${patient.id}`}>
             Open movement workspace
           </Link>
           <p className={styles.assurance}>System suggests, you decide. No automatic allocation.</p>

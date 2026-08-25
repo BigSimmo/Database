@@ -315,7 +315,7 @@ export function eligibleCandidatesAmong(movement: Movement, units: Unit[], now: 
   // than one combined sort. A single combined sort could pull in a unit that was previously
   // outside the top `limit` (a candidate ranked 4th purely because it is restrictive would climb
   // into a 3-slot shortlist ahead of one that was already in it) — a real membership change, not
-  // just a reorder, and `/ward-management/network` shows this same shortlist. Truncating on
+  // just a reorder, and `/mockups/ward-flow/network` shows this same shortlist. Truncating on
   // eligibility alone first keeps the returned SET identical to before this ordering rule
   // existed; only the ORDER within that set can move.
   const eligibleFirst = units

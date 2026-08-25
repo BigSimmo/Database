@@ -55,7 +55,7 @@
    * them. `.console`/`.consoleCollapsed`/`.patientWorkspace` (this file) and `.modeShell`
    * (ward-management-modes.module.css) each declare `--ward-*`, but `.screen`
    * (coordinator.module.css) uses an unrelated `--co-*` prefix and never did — so on the
-   * coordinator route (`/ward-management`) every `var(--ward-*)` below was silently invalid
+   * coordinator route (`/mockups/ward-flow`) every `var(--ward-*)` below was silently invalid
    * (computed background transparent, border 0px, z-index auto, padding 0px, nav gap `normal`),
    * found empirically while verifying Task 9's rail-nav move — a real pre-existing gap, not
    * something this task introduced, but one this task's own new `.modeNavigation` gap would

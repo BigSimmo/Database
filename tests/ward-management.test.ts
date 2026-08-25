@@ -18,7 +18,7 @@ const modesSource = readFileSync("src/components/ward-management/ward-management
 function wardModeHrefs() {
   const source = readFileSync("src/components/ward-management/ward-management-navigation.tsx", "utf8");
   const modeStrip = source.slice(source.indexOf("export function WardModeNavigation"));
-  return [...modeStrip.matchAll(/href="(\/ward-management[^"]*)"/g)].map((match) => match[1]);
+  return [...modeStrip.matchAll(/href="(\/mockups\/ward-flow[^"]*)"/g)].map((match) => match[1]);
 }
 
 function routeFileFor(href: string) {
@@ -35,20 +35,20 @@ describe("Ward Flow synthetic prototype", () => {
   });
 
   it("keeps the production route reachable from the Tools catalogue", () => {
-    expect(toolCatalogRecordById("ward-management").href).toBe("/ward-management");
+    expect(toolCatalogRecordById("ward-management").href).toBe("/mockups/ward-flow");
   });
 
   it("maps every Ward Flow view to a distinct reachable route", () => {
     const hrefs = wardModeHrefs();
     expect(hrefs).toEqual([
-      "/ward-management",
-      "/ward-management/network",
-      "/ward-management/queue",
-      "/ward-management/capacity",
-      "/ward-management/movements",
-      "/ward-management/exceptions",
-      "/ward-management/transport",
-      "/ward-management/governance",
+      "/mockups/ward-flow",
+      "/mockups/ward-flow/network",
+      "/mockups/ward-flow/queue",
+      "/mockups/ward-flow/capacity",
+      "/mockups/ward-flow/movements",
+      "/mockups/ward-flow/exceptions",
+      "/mockups/ward-flow/transport",
+      "/mockups/ward-flow/governance",
     ]);
     expect(new Set(hrefs).size).toBe(hrefs.length);
     for (const href of hrefs) {

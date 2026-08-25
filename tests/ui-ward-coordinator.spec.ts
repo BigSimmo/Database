@@ -12,7 +12,7 @@ import { movementById, wardMovements } from "@/components/ward-management/ward-m
 import { allUnits, NOW_ANCHOR } from "@/components/ward-management/ward-sites";
 
 async function gotoCoordinator(page: Page) {
-  await page.goto("/ward-management", { waitUntil: "domcontentloaded" });
+  await page.goto("/mockups/ward-flow", { waitUntil: "domcontentloaded" });
   // A second same-URL navigation can leave a hidden duplicate of the screen
   // in the tree. Strict getByTestId then fails even though one copy is visible
   // — match the command-view helper, which waits for a single visible screen.
@@ -107,7 +107,7 @@ test.describe("Ward Flow coordinator screen", () => {
   });
 
   // The equivalent coverage for these two lived on WardManagementConsole, which Task 3 stopped
-  // rendering at /ward-management. Task 9 deletes that component; until then the behaviour has
+  // rendering at /mockups/ward-flow. Task 9 deletes that component; until then the behaviour has
   // no home on the coordinator screen and these stay fixme so the gap is visible in the runner
   // (not just in a ledger row) rather than silently dropped.
 

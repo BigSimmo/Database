@@ -43,10 +43,11 @@ const REACHABILITY_ALLOWLIST = new Map<string, string>([
     "/dictionary/browse",
     "Retired half of the merged Dictionary catalogue. It redirects to /dictionary/search (proxy fast path plus a page backstop), so in-app navigation deliberately links the surviving route directly rather than routing readers through a redirect.",
   ],
-  [
-    "/ward-management/constellation",
-    "Retired Phase 1 constellation view. It redirects to /ward-management/network so live-main bookmarks keep working; in-app navigation uses the eight remaining rail modes and does not send readers through the redirect.",
-  ],
+  // The former "/ward-management/constellation" entry was removed, not repointed at
+  // "/mockups/ward-flow/constellation": Ward Flow's sandbox move put every one of its routes
+  // under /mockups, and staticPageRoutes below excludes every /mockups route outright, so the
+  // constellation redirect is no longer a static page route at all and an allowlist entry for it
+  // would trip "reachability allowlist has no stale entries" below.
 ]);
 
 function isMockupPath(relPosix: string) {
@@ -635,37 +636,16 @@ describe("route reachability", () => {
     ).toEqual([]);
   });
 
-  // Task 4 (Ward Flow shift handover): the generic orphan sweep above already covers this route,
-  // but it covers every static route at once and a failure there does not name which route
-  // regressed. This is the same assertion, narrowed to the one route this task added, so a
-  // future edit that drops the rail link (or the page itself) fails with an unambiguous message
-  // rather than only showing up buried in a combined orphan list.
-  it("/ward-management/handover is linked from the clinical rail", () => {
-    const route = staticPageRoutes.find((entry) => entry.route === "/ward-management/handover");
-    expect(route, "/ward-management/handover must exist as a static page route").toBeDefined();
-    if (!route) return;
-    expect(isReachable(route.route, route.file)).toBe(true);
-  });
-
-  // Task 5 (Ward Flow escalation board): same narrowing as the handover assertion immediately
-  // above, and for the same reason — the generic orphan sweep covers this route too, but a
-  // failure there does not name which route regressed.
-  it("/ward-management/escalation is linked from the clinical rail", () => {
-    const route = staticPageRoutes.find((entry) => entry.route === "/ward-management/escalation");
-    expect(route, "/ward-management/escalation must exist as a static page route").toBeDefined();
-    if (!route) return;
-    expect(isReachable(route.route, route.file)).toBe(true);
-  });
-
-  // Task 7 (Ward Flow patient search): same narrowing as the handover and escalation assertions
-  // immediately above, and for the same reason — the generic orphan sweep covers this route too,
-  // but a failure there does not name which route regressed.
-  it("/ward-management/search is linked from the clinical rail", () => {
-    const route = staticPageRoutes.find((entry) => entry.route === "/ward-management/search");
-    expect(route, "/ward-management/search must exist as a static page route").toBeDefined();
-    if (!route) return;
-    expect(isReachable(route.route, route.file)).toBe(true);
-  });
+  // The three narrowed reachability assertions that used to live here (handover, escalation,
+  // search — Tasks 4, 5, 7) each pinned one Ward Flow route into `staticPageRoutes` so a
+  // regression named the exact route rather than surfacing in the combined orphan list. Ward
+  // Flow's sandbox move put every one of its routes under `/mockups/ward-flow/**`, and
+  // `staticPageRoutes` deliberately excludes every `/mockups` route (mockups are design-scratch
+  // and not required to be linked — see the file header comment), the same way no such narrowed
+  // test exists for Care Plan or Caring Contacts. The property these three tests asserted no
+  // longer applies, so they are removed rather than repointed at the new path, which would
+  // silently fail `toBeDefined()` on every run since the route can never appear in
+  // `staticPageRoutes` again.
 
   it("reachability allowlist has no stale entries", () => {
     const routes = new Set(staticPageRoutes.map((entry) => entry.route));

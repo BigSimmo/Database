@@ -28,7 +28,7 @@ import styles from "./search.module.css";
  * not also mount the shared global shell composer. It does not need to actively avoid one — every
  * Ward Flow route (see `handover-page.tsx`, `escalation-board.tsx`, `ward-management-console.tsx`)
  * renders only `ClinicalRail` plus its own `<main>`; none of them mount `GlobalSearchShell` /
- * `MasterSearchHeader` at all (`src/app/ward-management/layout.tsx` wraps every route in
+ * `MasterSearchHeader` at all (`src/app/mockups/ward-flow/layout.tsx` wraps every route in
  * `WardFlowProvider` alone, nothing chrome-related). So this page's own search field is the ONLY
  * composer on the page by construction, the same way it already is on every other Ward Flow route.
  *
@@ -169,7 +169,7 @@ function ResultRow({ movement, units, now }: { movement: Movement; units: Unit[]
       <td>{destination?.name ?? "No destination chosen"}</td>
       <td>{elapsedLabel(movement, now)}</td>
       <td>
-        <Link className={styles.resultLink} href={`/ward-management/patients/${movement.id}`}>
+        <Link className={styles.resultLink} href={`/mockups/ward-flow/patients/${movement.id}`}>
           Open
         </Link>
       </td>

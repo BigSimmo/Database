@@ -19,7 +19,7 @@ import styles from "./ward-demo-controls.module.css";
  * watched expiring, the one thing §5 says the control exists to demonstrate.
  *
  * Mounted once in `ClinicalRail` (`ward-management-navigation.tsx`, next to `WardRoleSwitcher`),
- * so it is present on every `/ward-management/*` route without any per-screen wiring — the clock
+ * so it is present on every `/mockups/ward-flow/*` route without any per-screen wiring — the clock
  * is shared state, not a per-screen concern.
  *
  * **This must never be mistaken for a clinical action.** Three distinct signals carry that,

@@ -143,7 +143,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
       <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
         <ClinicalRail />
         <header className={styles.workspaceHeader}>
-          <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
+          <ContextualBackLink fallbackHref="/mockups/ward-flow" aria-label="Back to Ward Flow">
             <ArrowLeft aria-hidden="true" />
           </ContextualBackLink>
           <div>
@@ -198,7 +198,7 @@ export function WardPatientWorkspace({ patientId }: { patientId: string }) {
     <div className={styles.patientWorkspace} data-testid="ward-patient-workspace">
       <ClinicalRail />
       <header className={styles.workspaceHeader}>
-        <ContextualBackLink fallbackHref="/ward-management" aria-label="Back to Ward Flow">
+        <ContextualBackLink fallbackHref="/mockups/ward-flow" aria-label="Back to Ward Flow">
           <ArrowLeft aria-hidden="true" />
         </ContextualBackLink>
         <div>

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "playwright/test";
 
-const PATH = "/ward-management";
+const PATH = "/mockups/ward-flow";
 
 async function gotoWardFlow(page: Page) {
   await page.goto(PATH, { waitUntil: "domcontentloaded" });
@@ -24,7 +24,7 @@ async function expectNoPageOverflow(page: Page) {
  * `document.documentElement` can never report an overflow on the coordinator route — `.screen`
  * sets `overflow: hidden` — so `expectNoPageOverflow` alone cannot catch a track inside the
  * region grid running wider than its box (Task 3 review Important 1). Only meaningful on
- * /ward-management itself, where the region grid testid exists.
+ * /mockups/ward-flow itself, where the region grid testid exists.
  */
 async function expectNoRegionGridOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
@@ -41,7 +41,7 @@ test.describe("Ward Flow command view", () => {
 
   // "supports role-aware queue review and human-confirmed destination choice" and "collapses
   // the queue, opens the action inbox, and reaches the patient workspace" asserted against
-  // WardManagementConsole, which Task 3 stopped rendering at /ward-management. That component is
+  // WardManagementConsole, which Task 3 stopped rendering at /mockups/ward-flow. That component is
   // unreferenced and Task 9 deletes it; the equivalent coverage on the coordinator screen has no
   // home yet. See the fixme placeholders in tests/ui-ward-coordinator.spec.ts.
   //
@@ -115,7 +115,7 @@ test.describe("Ward Flow command view", () => {
 
   test("routes a selected movement across the network diagram and explains the shortlist", async ({ page }) => {
     await page.setViewportSize({ width: 1600, height: 1100 });
-    await page.goto("/ward-management/network", { waitUntil: "domcontentloaded" });
+    await page.goto("/mockups/ward-flow/network", { waitUntil: "domcontentloaded" });
 
     const network = page.getByTestId("ward-network-view");
     await expect(network).toBeVisible({ timeout: 15_000 });

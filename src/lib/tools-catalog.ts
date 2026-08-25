@@ -220,7 +220,7 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     bestFor: "Statewide mental-health patient flow",
     detail:
       "Review a synthetic priority queue, scan current ward capacity, inspect explainable destination matches, and confirm the next owned movement action.",
-    href: "/ward-management",
+    href: "/mockups/ward-flow",
     area: "coordination",
     status: "ready",
     sourceBacked: false,

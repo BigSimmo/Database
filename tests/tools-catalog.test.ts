@@ -30,7 +30,7 @@ describe("tools catalog", () => {
 
   it("links Ward Flow to its production workspace", () => {
     const wardFlow = toolCatalogRecordById("ward-management");
-    expect(wardFlow.href).toBe("/ward-management");
+    expect(wardFlow.href).toBe("/mockups/ward-flow");
     expect(wardFlow.sourceBacked).toBe(false);
   });
 

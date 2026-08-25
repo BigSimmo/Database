@@ -31,7 +31,7 @@ const LEG_BADGE_CLASS: Record<TrackerLeg, string> = {
 };
 
 /**
- * Task 10: the coordinator's live tracker (`/ward-management/transport`, rewritten — spec §7:
+ * Task 10: the coordinator's live tracker (`/mockups/ward-flow/transport`, rewritten — spec §7:
  * "the existing route... the coordinator's view of every vehicle: which patient, which leg, how
  * long since the last stamp").
  *
@@ -130,7 +130,7 @@ export function LiveTracker() {
                       <dd>{stampAgeText(stampAt, now)}</dd>
                     </div>
                   </dl>
-                  <Link className={styles.reviewLink} href={`/ward-management/patients/${movement.id}`}>
+                  <Link className={styles.reviewLink} href={`/mockups/ward-flow/patients/${movement.id}`}>
                     Review patient
                   </Link>
                 </li>

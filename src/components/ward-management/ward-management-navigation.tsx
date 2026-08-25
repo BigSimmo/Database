@@ -69,7 +69,7 @@ function RailLink({
  * (not the global app shell), so it is Ward Flow's own to extend rather than a shared surface
  * this task would be overreaching to touch.
  *
- * `activeMode` is optional: the patient workspace route (`/ward-management/patients/[id]`) is
+ * `activeMode` is optional: the patient workspace route (`/mockups/ward-flow/patients/[id]`) is
  * not one of the eight modes, so it renders the rail without the mode section at all rather than
  * forcing an arbitrary "active" choice.
  */
@@ -84,7 +84,7 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         <RailLink href="/?mode=answer" label="Clinical Answers">
           <MessageSquarePlus aria-hidden="true" />
         </RailLink>
-        <RailLink href="/ward-management" label="Ward Flow" active>
+        <RailLink href="/mockups/ward-flow" label="Ward Flow" active>
           <Activity aria-hidden="true" />
         </RailLink>
         <RailLink href="/documents" label="Documents">
@@ -117,16 +117,16 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             selected — see `ward-role-switcher.tsx`'s own doc comment). */}
         <WardRoleSwitcher />
         <div className={shellStyles.railRule} aria-hidden="true" />
-        {/* Task 8: the ward screen's own route (`/ward-management/ward/[unitId]`) is not one of
+        {/* Task 8: the ward screen's own route (`/mockups/ward-flow/ward/[unitId]`) is not one of
             the eight `WardModeNavigation` links above — that nav's own Playwright test
             (`tests/ui-ward-management.spec.ts`) asserts an exact count of 8 links, so a ninth
             entry there would break it. This is a literal, static href (never built from a
             variable or a loop) so `tests/route-reachability.test.ts`'s AST scan can find it —
             see that test's comment and R39c. RPH Adult Secure is a real, resolvable unit id. */}
-        <RailLink href="/ward-management/ward/rph-adult-secure" label="Ward — RPH Adult Secure">
+        <RailLink href="/mockups/ward-flow/ward/rph-adult-secure" label="Ward — RPH Adult Secure">
           <Building2 aria-hidden="true" />
         </RailLink>
-        {/* Task 9: unlike the ward link immediately above, `/ward-management/transport/officer`
+        {/* Task 9: unlike the ward link immediately above, `/mockups/ward-flow/transport/officer`
             is a STATIC route (no `[unitId]`-style bracket segment), so it falls inside
             `tests/route-reachability.test.ts`'s scanned scope rather than being exempt as a
             dynamic detail route. That scanner's AST walk only registers a JSX element literally
@@ -138,19 +138,19 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             report). This is a raw `<Link>`, not `RailLink`, for exactly that reason. Labelled
             "Officer" rather than "Transport officer": Playwright's default accessible-name match
             is a substring match, and the eight-mode strip already has a "Transport" link (the
-            live tracker, `/ward-management/transport`) — a name containing "Transport" makes
+            live tracker, `/mockups/ward-flow/transport`) — a name containing "Transport" makes
             `getByRole("link", { name: "Transport" })` resolve to two elements and breaks
             `tests/ui-ward-management.spec.ts`'s existing "opens every Ward Flow mode" walk, which
             is not scoped by exact match (also confirmed by running that spec). */}
         <Link
-          href="/ward-management/transport/officer"
+          href="/mockups/ward-flow/transport/officer"
           aria-label="Officer"
           title="Officer"
           className={shellStyles.railLink}
         >
           <Ambulance aria-hidden="true" />
         </Link>
-        {/* Task 11: `/ward-management/ed/[edId]` is a dynamic detail route, same shape as the
+        {/* Task 11: `/mockups/ward-flow/ed/[edId]` is a dynamic detail route, same shape as the
             ward link above — a raw `<Link>` with a literal string `href`, not `RailLink`, for the
             exact reason documented on the Officer link immediately above: `RailLink` passes
             `href` through as a destructured prop, which reads as a plain `Identifier` to
@@ -160,14 +160,14 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             of which contain that string as a substring, so Playwright's default substring
             accessible-name match cannot collide with it the way "Transport officer" once did. */}
         <Link
-          href="/ward-management/ed/peel-ed"
+          href="/mockups/ward-flow/ed/peel-ed"
           aria-label="Emergency department"
           title="Emergency department"
           className={shellStyles.railLink}
         >
           <Siren aria-hidden="true" />
         </Link>
-        {/* Task 4: `/ward-management/handover` — same shape as the Officer and Emergency
+        {/* Task 4: `/mockups/ward-flow/handover` — same shape as the Officer and Emergency
             department links immediately above and for the exact same reason (see the Officer
             link's own comment): a raw `<Link>` with a literal string `href`, never `RailLink`,
             because `RailLink` passes its `href` through as a destructured prop, which reads as a
@@ -178,10 +178,15 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             explains. "Handover" collides with no other accessible name in this rail or in
             `WardModeNavigation` as a substring, so Playwright's default substring accessible-name
             match cannot resolve it to more than one element. */}
-        <Link href="/ward-management/handover" aria-label="Handover" title="Handover" className={shellStyles.railLink}>
+        <Link
+          href="/mockups/ward-flow/handover"
+          aria-label="Handover"
+          title="Handover"
+          className={shellStyles.railLink}
+        >
           <ClipboardList aria-hidden="true" />
         </Link>
-        {/* Task 5: `/ward-management/escalation` — same shape as the Handover, Officer and
+        {/* Task 5: `/mockups/ward-flow/escalation` — same shape as the Handover, Officer and
             Emergency department links immediately above and for the exact same reason (see the
             Officer link's own comment): a raw `<Link>` with a literal string `href`, never
             `RailLink`, because `RailLink` passes its `href` through as a destructured prop,
@@ -192,14 +197,14 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             in `WardModeNavigation` as a substring, so Playwright's default substring
             accessible-name match cannot resolve it to more than one element. */}
         <Link
-          href="/ward-management/escalation"
+          href="/mockups/ward-flow/escalation"
           aria-label="Escalation"
           title="Escalation"
           className={shellStyles.railLink}
         >
           <TriangleAlert aria-hidden="true" />
         </Link>
-        {/* Task 7: `/ward-management/search` — same shape as the Handover and Escalation links
+        {/* Task 7: `/mockups/ward-flow/search` — same shape as the Handover and Escalation links
             immediately above and for the exact same reason (see the Officer link's own comment):
             a raw `<Link>` with a literal string `href`, never `RailLink`, because `RailLink`
             passes its `href` through as a destructured prop, which reads as a plain `Identifier`
@@ -210,7 +215,7 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             so Playwright's default substring accessible-name match cannot resolve it to more than
             one element. */}
         <Link
-          href="/ward-management/search"
+          href="/mockups/ward-flow/search"
           aria-label="Patient search"
           title="Patient search"
           className={shellStyles.railLink}
@@ -225,7 +230,7 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         </RailLink>
         <div className={shellStyles.railRule} aria-hidden="true" />
         {/* Whole-branch review I3: the demo jump-forward clock (spec §2 decision 5, §5) and
-            scenario reset, mounted once here so every `/ward-management/*` route gets them
+            scenario reset, mounted once here so every `/mockups/ward-flow/*` route gets them
             without per-screen wiring — the clock is shared provider state, not a per-screen
             concern. Placed last, after a rule and visually separated from every real navigation
             link above, and given its own warning-toned trigger (`ward-demo-controls.module.css`)
@@ -253,7 +258,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
   return (
     <nav className={modeStyles.modeNavigation} aria-label="Ward Flow views">
       <Link
-        href="/ward-management"
+        href="/mockups/ward-flow"
         aria-label="Command"
         title="Command"
         aria-current={active === "command" ? "page" : undefined}
@@ -262,7 +267,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
         <LayoutDashboard aria-hidden="true" />
       </Link>
       <Link
-        href="/ward-management/network"
+        href="/mockups/ward-flow/network"
         aria-label="Network"
         title="Network"
         aria-current={active === "network" ? "page" : undefined}
@@ -271,7 +276,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
         <Waypoints aria-hidden="true" />
       </Link>
       <Link
-        href="/ward-management/queue"
+        href="/mockups/ward-flow/queue"
         aria-label="Priority queue"
         title="Priority queue"
         aria-current={active === "queue" ? "page" : undefined}
@@ -280,7 +285,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
         <ListFilter aria-hidden="true" />
       </Link>
       <Link
-        href="/ward-management/capacity"
+        href="/mockups/ward-flow/capacity"
         aria-label="Capacity"
         title="Capacity"
         aria-current={active === "capacity" ? "page" : undefined}
@@ -289,7 +294,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
         <BedSingle aria-hidden="true" />
       </Link>
       <Link
-        href="/ward-management/movements"
+        href="/mockups/ward-flow/movements"
         aria-label="Movements"
         title="Movements"
         aria-current={active === "movements" ? "page" : undefined}
@@ -298,7 +303,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
         <Route aria-hidden="true" />
       </Link>
       <Link
-        href="/ward-management/exceptions"
+        href="/mockups/ward-flow/exceptions"
         aria-label="Exceptions"
         title="Exceptions"
         aria-current={active === "exceptions" ? "page" : undefined}
@@ -307,7 +312,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
         <CircleAlert aria-hidden="true" />
       </Link>
       <Link
-        href="/ward-management/transport"
+        href="/mockups/ward-flow/transport"
         aria-label="Transport"
         title="Transport"
         aria-current={active === "transport" ? "page" : undefined}
@@ -316,7 +321,7 @@ export function WardModeNavigation({ active }: { active: WardMode }) {
         <Truck aria-hidden="true" />
       </Link>
       <Link
-        href="/ward-management/governance"
+        href="/mockups/ward-flow/governance"
         aria-label="Governance"
         title="Governance"
         aria-current={active === "governance" ? "page" : undefined}

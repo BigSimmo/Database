@@ -82,7 +82,7 @@ describe("PatientSearchPage", () => {
     expect(screen.getByRole("heading", { name: "1 match" })).toBeInTheDocument();
 
     const link = within(results).getByRole("link", { name: "Open" });
-    expect(link).toHaveAttribute("href", "/ward-management/patients/WF-003");
+    expect(link).toHaveAttribute("href", "/mockups/ward-flow/patients/WF-003");
   });
 
   it('renders the explicit "No matches" note — never a bare empty table — for a query nothing fits', () => {

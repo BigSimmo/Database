@@ -279,7 +279,7 @@ function DecisionPanel({
           {confirmed ? <Check aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
           {confirmed ? "Match confirmed" : roleTaskLabel[role]}
         </button>
-        <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
+        <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
           Full record <ArrowRight aria-hidden="true" />
         </Link>
       </div>
@@ -490,7 +490,11 @@ function MovementsView() {
               .filter((patient) => patient.stage === stage.id)
               .slice(0, 4)
               .map((patient) => (
-                <Link className={styles.movementCard} href={`/ward-management/patients/${patient.id}`} key={patient.id}>
+                <Link
+                  className={styles.movementCard}
+                  href={`/mockups/ward-flow/patients/${patient.id}`}
+                  key={patient.id}
+                >
                   <span className={styles.rowTop}>
                     <strong>{patient.id}</strong>
                     <span className={toneClass(patient.urgency === 1 ? "danger" : "neutral")}>P{patient.urgency}</span>
@@ -543,7 +547,7 @@ function ExceptionsView() {
                 <span className={toneClass(item.tone)}>{item.detail}</span>
                 <small>{item.owner}</small>
               </div>
-              <Link className={styles.secondaryButton} href={`/ward-management/patients/${item.movementId}`}>
+              <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${item.movementId}`}>
                 Open <ArrowRight aria-hidden="true" />
               </Link>
             </article>
@@ -612,7 +616,7 @@ function TransportView() {
                     {patient.legalForm ? legalFormNameLabelFirst(patient.legalForm) : "No legal form recorded"}
                   </small>
                 </div>
-                <Link className={styles.secondaryButton} href={`/ward-management/patients/${patient.id}`}>
+                <Link className={styles.secondaryButton} href={`/mockups/ward-flow/patients/${patient.id}`}>
                   Review <ArrowRight aria-hidden="true" />
                 </Link>
               </article>
