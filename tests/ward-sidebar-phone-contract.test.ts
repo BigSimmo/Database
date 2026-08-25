@@ -54,9 +54,13 @@ describe("Ward Flow sidebar — phone contract", () => {
   });
 
   it("hides the icon rail below 40rem, where the phone bar and drawer take over", () => {
-    const shared = readModule("ward-management.module.css");
-    const phoneBlock = shared.slice(shared.indexOf("@media (max-width: 40rem)"));
-    expect(phoneBlock).toContain(".clinicalRail {\n    display: none;\n  }");
+    // The leading newline-and-indent matters: without it this also matches the long-standing
+    // `.patientWorkspace .clinicalRail { display: none; }` rule further down the same file, and
+    // the check passes with the rule it exists to protect deleted. Caught by mutation, not by
+    // reading it.
+    expect(readModule("ward-management.module.css")).toContain(
+      "@media (max-width: 40rem) {\n  .clinicalRail {\n    display: none;\n  }\n}",
+    );
   });
 
   it("shows the phone bar only below 40rem, and the labelled panel only from 64rem", () => {
