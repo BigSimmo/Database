@@ -123,6 +123,17 @@
   margin-top: auto;
 }
 
+/*
+ * Task 4 (D9): wraps each WARD_NAV group (`role`, `board`, and the nested example-only subset of
+ * `role`) so `.railBottom`'s own grid keeps treating each group as a single item while the links
+ * inside a group keep the same centred, gapped column the flat list used to have directly.
+ */
+.railGroup {
+  display: grid;
+  justify-items: center;
+  gap: var(--ward-space-6);
+}
+
 .railLink,
 .railLinkActive {
   display: grid;

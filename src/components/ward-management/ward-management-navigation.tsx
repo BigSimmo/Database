@@ -25,6 +25,7 @@ import {
   Truck,
   Waypoints,
   Wrench,
+  type LucideIcon,
 } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
@@ -33,6 +34,27 @@ import shellStyles from "./ward-management.module.css";
 import modeStyles from "./ward-management-modes.module.css";
 import { WardDemoControls } from "./ward-demo-controls";
 import { WardRoleSwitcher } from "./ward-role-switcher";
+import { WARD_NAV, type WardNavItem } from "./ward-nav";
+
+/** Icon per `WARD_NAV` item id — kept out of `ward-nav.ts` so that single source of truth stays
+ *  plain data, checkable by `tests/ward-nav.test.ts` without a JSX/React dependency. */
+const WARD_NAV_ICONS: Record<string, LucideIcon> = {
+  ward: Building2,
+  officer: Ambulance,
+  ed: Siren,
+  handover: ClipboardList,
+  escalation: TriangleAlert,
+  search: Search,
+};
+
+function WardNavLink({ item }: { item: WardNavItem }) {
+  const Icon = WARD_NAV_ICONS[item.id];
+  return (
+    <RailLink href={item.href} label={item.label}>
+      <Icon aria-hidden="true" />
+    </RailLink>
+  );
+}
 
 export type WardMode =
   "command" | "network" | "queue" | "capacity" | "movements" | "exceptions" | "transport" | "governance";
@@ -80,7 +102,13 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
         <BrandMark className={shellStyles.brandGlyph} />
       </Link>
       <div className={shellStyles.railRule} aria-hidden="true" />
-      <nav className={shellStyles.railNav} aria-label="Clinical applications">
+      {/* Task 4 (D11): this nav's aria-label used to claim every entry was a clinical
+          application — wrong once Ward Flow moved into its own developer-gated sandbox
+          (constraint 4: "not a medical device"). This nav is Ward Flow's own copy of the
+          cross-app switcher, not a claim that everything it lists — including the synthetic
+          prototype itself — belongs to the clinical toolset. Only this file used the old label
+          (checked before renaming), so this is the only place it needed to change. */}
+      <nav className={shellStyles.railNav} aria-label="Applications">
         <RailLink href="/?mode=answer" label="Clinical Answers">
           <MessageSquarePlus aria-hidden="true" />
         </RailLink>
@@ -117,111 +145,48 @@ export function ClinicalRail({ activeMode }: { activeMode?: WardMode } = {}) {
             selected — see `ward-role-switcher.tsx`'s own doc comment). */}
         <WardRoleSwitcher />
         <div className={shellStyles.railRule} aria-hidden="true" />
-        {/* Task 8: the ward screen's own route (`/mockups/ward-flow/ward/[unitId]`) is not one of
-            the eight `WardModeNavigation` links above — that nav's own Playwright test
-            (`tests/ui-ward-management.spec.ts`) asserts an exact count of 8 links, so a ninth
-            entry there would break it. This is a literal, static href (never built from a
-            variable or a loop) so `tests/route-reachability.test.ts`'s AST scan can find it —
-            see that test's comment and R39c. RPH Adult Secure is a real, resolvable unit id. */}
-        <RailLink href="/mockups/ward-flow/ward/rph-adult-secure" label="Ward — RPH Adult Secure">
-          <Building2 aria-hidden="true" />
-        </RailLink>
-        {/* Task 9: unlike the ward link immediately above, `/mockups/ward-flow/transport/officer`
-            is a STATIC route (no `[unitId]`-style bracket segment), so it falls inside
-            `tests/route-reachability.test.ts`'s scanned scope rather than being exempt as a
-            dynamic detail route. That scanner's AST walk only registers a JSX element literally
-            named `Link` (imported from `next/link`) whose OWN `href` attribute is a string
-            literal — `RailLink` below passes `href` through as a destructured prop, so a
-            `RailLink`-wrapped href reads as a plain `Identifier` to the scanner, not a literal,
-            and stays invisible to it (confirmed: swapping this back to `<RailLink href="...">`
-            reproduces the orphan-route failure this comment exists to prevent — see the task
-            report). This is a raw `<Link>`, not `RailLink`, for exactly that reason. Labelled
-            "Officer" rather than "Transport officer": Playwright's default accessible-name match
-            is a substring match, and the eight-mode strip already has a "Transport" link (the
-            live tracker, `/mockups/ward-flow/transport`) — a name containing "Transport" makes
-            `getByRole("link", { name: "Transport" })` resolve to two elements and breaks
-            `tests/ui-ward-management.spec.ts`'s existing "opens every Ward Flow mode" walk, which
-            is not scoped by exact match (also confirmed by running that spec). */}
-        <Link
-          href="/mockups/ward-flow/transport/officer"
-          aria-label="Officer"
-          title="Officer"
-          className={shellStyles.railLink}
-        >
-          <Ambulance aria-hidden="true" />
-        </Link>
-        {/* Task 11: `/mockups/ward-flow/ed/[edId]` is a dynamic detail route, same shape as the
-            ward link above — a raw `<Link>` with a literal string `href`, not `RailLink`, for the
-            exact reason documented on the Officer link immediately above: `RailLink` passes
-            `href` through as a destructured prop, which reads as a plain `Identifier` to
-            `tests/route-reachability.test.ts`'s AST scan and stays invisible to it. Peel is a
-            real, resolvable emergency department id. Labelled "Emergency department" — checked
-            against every other accessible name in this rail and `WardModeNavigation` below, none
-            of which contain that string as a substring, so Playwright's default substring
-            accessible-name match cannot collide with it the way "Transport officer" once did. */}
-        <Link
-          href="/mockups/ward-flow/ed/peel-ed"
-          aria-label="Emergency department"
-          title="Emergency department"
-          className={shellStyles.railLink}
-        >
-          <Siren aria-hidden="true" />
-        </Link>
-        {/* Task 4: `/mockups/ward-flow/handover` — same shape as the Officer and Emergency
-            department links immediately above and for the exact same reason (see the Officer
-            link's own comment): a raw `<Link>` with a literal string `href`, never `RailLink`,
-            because `RailLink` passes its `href` through as a destructured prop, which reads as a
-            plain `Identifier` to `tests/route-reachability.test.ts`'s AST scan and would leave
-            this route invisible to it. It also sits outside the eight-link `WardModeNavigation`
-            strip on purpose — that nav's own Playwright spec asserts an exact count of 8 links,
-            so a ninth entry there would break it, exactly as the Officer link's comment already
-            explains. "Handover" collides with no other accessible name in this rail or in
-            `WardModeNavigation` as a substring, so Playwright's default substring accessible-name
-            match cannot resolve it to more than one element. */}
-        <Link
-          href="/mockups/ward-flow/handover"
-          aria-label="Handover"
-          title="Handover"
-          className={shellStyles.railLink}
-        >
-          <ClipboardList aria-hidden="true" />
-        </Link>
-        {/* Task 5: `/mockups/ward-flow/escalation` — same shape as the Handover, Officer and
-            Emergency department links immediately above and for the exact same reason (see the
-            Officer link's own comment): a raw `<Link>` with a literal string `href`, never
-            `RailLink`, because `RailLink` passes its `href` through as a destructured prop,
-            which reads as a plain `Identifier` to `tests/route-reachability.test.ts`'s AST scan
-            and would leave this route invisible to it. It also sits outside the eight-link
-            `WardModeNavigation` strip on purpose, for the same reason the Officer link's comment
-            already explains. "Escalation" collides with no other accessible name in this rail or
-            in `WardModeNavigation` as a substring, so Playwright's default substring
-            accessible-name match cannot resolve it to more than one element. */}
-        <Link
-          href="/mockups/ward-flow/escalation"
-          aria-label="Escalation"
-          title="Escalation"
-          className={shellStyles.railLink}
-        >
-          <TriangleAlert aria-hidden="true" />
-        </Link>
-        {/* Task 7: `/mockups/ward-flow/search` — same shape as the Handover and Escalation links
-            immediately above and for the exact same reason (see the Officer link's own comment):
-            a raw `<Link>` with a literal string `href`, never `RailLink`, because `RailLink`
-            passes its `href` through as a destructured prop, which reads as a plain `Identifier`
-            to `tests/route-reachability.test.ts`'s AST scan and would leave this route invisible
-            to it. It also sits outside the eight-link `WardModeNavigation` strip on purpose, for
-            the same reason the Officer link's comment already explains. "Patient search" collides
-            with no other accessible name in this rail or in `WardModeNavigation` as a substring,
-            so Playwright's default substring accessible-name match cannot resolve it to more than
-            one element. */}
-        <Link
-          href="/mockups/ward-flow/search"
-          aria-label="Patient search"
-          title="Patient search"
-          className={shellStyles.railLink}
-        >
-          <Search aria-hidden="true" />
-        </Link>
+        {/*
+         * Task 4 (D9/D10): every link from here down through the "Patient search" equivalent used
+         * to be an individually hand-pasted block — 329 lines of them, accreted one per task, with
+         * nothing checking the rail and the real route tree against each other. That is *why* three
+         * boards (`/handover`, `/escalation`, `/search`) could ship with no rail entry and stay
+         * that way unnoticed (D8). They now render from `WARD_NAV`
+         * (`ward-nav.ts`), the single source `tests/ward-nav.test.ts` checks both ways: every href
+         * here resolves to a real route, and every static Ward Flow route appears either here or
+         * in `WARD_NAV_INTENTIONALLY_UNLISTED` with a stated reason.
+         *
+         * The old per-link comments about `RailLink` vs a raw `<Link>` (to stay visible to
+         * `tests/route-reachability.test.ts`'s literal-href AST scan) no longer apply: that test's
+         * `staticPageRoutes` excludes every `/mockups/**` route outright (Ward Flow's sandbox move
+         * — see that test's header comment), so nothing under `/mockups/ward-flow/**` needs a
+         * literal string href for that scanner to find it any more. Re-run `route-reachability` on
+         * any future change here to confirm that is still true rather than assuming it.
+         *
+         * "Ward Flow role screens" holds the one non-arbitrary role entry point (Officer); the
+         * nested group holds the two that name one arbitrary synthetic instance rather than a
+         * section of the app (D10) and says so in its own aria-label. Coordinator is deliberately
+         * absent from both — see `WARD_NAV_INTENTIONALLY_UNLISTED`'s entry for `/mockups/ward-flow`.
+         */}
+        <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow role screens">
+          {WARD_NAV.filter((item) => item.group === "role" && !item.exampleOnly).map((item) => (
+            <WardNavLink key={item.id} item={item} />
+          ))}
+          <div
+            className={shellStyles.railGroup}
+            role="group"
+            aria-label="Example ward and emergency department — one arbitrary synthetic instance each, not a section of the app"
+          >
+            {WARD_NAV.filter((item) => item.group === "role" && item.exampleOnly).map((item) => (
+              <WardNavLink key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
+        <div className={shellStyles.railRule} aria-hidden="true" />
+        <div className={shellStyles.railGroup} role="group" aria-label="Ward Flow specialist boards">
+          {WARD_NAV.filter((item) => item.group === "board").map((item) => (
+            <WardNavLink key={item.id} item={item} />
+          ))}
+        </div>
         <RailLink href="/?mode=answer" label="Favourites">
           <HeartPulse aria-hidden="true" />
         </RailLink>
