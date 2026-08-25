@@ -146,7 +146,8 @@ owner decides):
    one, published, showing its cadence and both approving roles. Then "Continue to personalisation".
 4. **Stage 3, Personalisation.** Fill the patient's name, the mobile number
    (`+61 491 570 006` or `+61 491 570 156` — the wizard states these in place and refuses neither),
-   and any other identifiers. Then "Continue to review and activation".
+   and any other identifiers, then choose a send time from the "When in the day messages go out"
+   radio group. Then "Continue to review and activation".
 5. **Stage 4, Review and activation.** Supply the discharge day the stage collects, then use the
    activation control. It POSTs `/api/caring-contacts/plans` and then activates the created plan.
 
