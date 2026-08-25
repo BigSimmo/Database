@@ -119,8 +119,9 @@
   --spacing-tap: 3rem;
   --spacing-phone-frame: 52.75rem;
 
-  /* Shared reading measure and the fixed geometry of the Factsheets phone study. */
+  /* Shared reading measure, wide mockup study canvas, and Factsheets phone geometry. */
   --container-reading: 64rem;
+  --container-mockup-wide: 92rem;
   --container-phone-frame: 24.375rem;
 
   /* Specifier-map layout roles: jump target height, numbered step column, and

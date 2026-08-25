@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { appModeIds, type AppModeId } from "@/lib/app-modes";
+import { appModeIds, factsheetsSearchHref, factsheetsTopicsHref, type AppModeId } from "@/lib/app-modes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
   MODE_NAV_ADOPTED_MODES,
@@ -225,7 +225,7 @@ describe("mode secondary navigation registry", () => {
       modeSecondaryNavigationHref({
         modeId: "factsheets",
         itemId: "search",
-        href: "/factsheets/search",
+        href: factsheetsSearchHref,
         currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
       }),
     ).toBe("/factsheets/search?q=sertraline&category=Medicines&run=1");
@@ -236,7 +236,7 @@ describe("mode secondary navigation registry", () => {
       modeSecondaryNavigationHref({
         modeId: "factsheets",
         itemId: "search",
-        href: "/factsheets/search",
+        href: factsheetsSearchHref,
         currentSearchParams: new URLSearchParams("category=Medicines"),
       }),
     ).toBe("/factsheets/search?category=Medicines");
@@ -247,7 +247,7 @@ describe("mode secondary navigation registry", () => {
       modeSecondaryNavigationHref({
         modeId: "factsheets",
         itemId: "topics",
-        href: "/factsheets/topics",
+        href: factsheetsTopicsHref,
         currentSearchParams: new URLSearchParams("q=sertraline&category=Medicines&run=1"),
       }),
     ).toBe("/factsheets/topics");
