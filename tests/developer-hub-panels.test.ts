@@ -119,3 +119,45 @@ describe("phase 2 panels", () => {
     }
   });
 });
+
+describe("ingestion panel (2026-08-25)", () => {
+  it("flips from a phase 3 placeholder to a built panel with its real href", () => {
+    const panel = HUB_PANELS.find((entry) => entry.id === "ingestion");
+    expect(panel).toBeDefined();
+    expect(panel!.phase).toBe(1);
+    expect(panel!.href).toBe("/mockups/development/ingestion");
+    expect(panel!.group).toBe("system");
+  });
+});
+
+describe("placeholder pruning (2026-08-25)", () => {
+  // `errors`, `budgets`, `commands`, `decision-log` and `database-drift` were
+  // deliberately removed, not renamed or moved — each restated a fact a gate
+  // or another document already guarantees (Sentry, the
+  // bundle/lighthouse/maintainability budgets, docs/scripts-index.md,
+  // docs/decisions/, and live-drift.yml respectively). This pins the removal
+  // so a future edit does not silently re-add one believing it was forgotten.
+  it("no longer declares the five removed placeholders", () => {
+    for (const id of ["errors", "budgets", "commands", "decision-log", "database-drift"]) {
+      expect(
+        HUB_PANELS.find((panel) => panel.id === id),
+        `${id} should have been removed`,
+      ).toBeUndefined();
+    }
+  });
+
+  it("keeps hazard-register, the one phase-4 clinical placeholder deliberately retained", () => {
+    // Distinguishes "removed for restating an already-guaranteed fact" from
+    // "still a placeholder" — hazard-register is the latter, reconsidered as a
+    // clinical-safety surface rather than dropped.
+    const panel = HUB_PANELS.find((entry) => entry.id === "hazard-register");
+    expect(panel).toBeDefined();
+    expect(panel!.phase).toBe(4);
+  });
+
+  it("leaves every remaining group non-empty, so the hub never has to hide a panel-less section", () => {
+    for (const group of ["work", "clinical", "system", "reference"] as const) {
+      expect(panelsInGroup(group).length, `${group} group is now empty`).toBeGreaterThan(0);
+    }
+  });
+});
