@@ -10,8 +10,15 @@
 | `1cb79ad5d` | `plan-activation.ts` — the pure half — and its 16 cases                                        |
 | `399904cd8` | The draft carries `activation` and `submission`, in the type, the empty draft and the parser   |
 | `451231a49` | Stage 4 itself: the body, the write, the confirmation overlay, and `stages.ts` flipped         |
-| `PENDING-1` | Test-harness corrections (one render tree; `fireEvent` for date inputs)                        |
-| `PENDING-2` | Stage 4's fields in Task 7's draft fixture; branded ids in the new test                        |
+| `284e891aa` | Test-harness corrections: one render tree, and `fireEvent` for the date inputs                 |
+| `a54388fac` | Stage 4's fields in Task 7's draft fixture; branded ids in the new test                        |
+| `2693405f8` | This report                                                                                    |
+| `a0e806ae4` | Formatting                                                                                     |
+| `54d96b3af` | An unused setup dropped, found by lint                                                         |
+| `0b8239040` | `onActivate` typed as returning what it returns                                                |
+
+(`b6c524dbc`, the owner's Ruling 122 on storing the assurances, landed on this branch mid-task from
+another session. Nothing in it conflicts with this work and I have left it exactly as it is.)
 
 ---
 
@@ -255,12 +262,20 @@ additive change.
 
 ## 4. What Task 9b and Task 11 inherit
 
-**For Task 9b — the request-body seam.** `createPlanRequestBody` in `plan-activation.ts` is the
+**For Task 9b — the request-body seam (Ruling [122]).** `createPlanRequestBody` in `plan-activation.ts` is the
 **only** place the POST body is assembled. It takes named parts (`submission`, `referralId`,
 `patientId`, `pathwayVersionId`, `activation`, `sendingPreference`, `patientDetail`), returns the ten
 keys `createPlanSchema` accepts or `null`, and `activate()` does nothing to it but stringify it.
 Adding an `assurances` part is one parameter and one key there, plus the draft field it reads from —
 no literal anywhere in the submit path, and no fixture holding a hand-written body.
+
+Ruling [122] puts the attestation **on the plan rather than in `patientDetail`**, which is the easier
+of the two for this seam: `patientDetail` is taken whole from `createPlanPatientDetail`, while the
+plan-level keys are named individually in the return object. A list rather than a fixed pair is
+likewise additive here — one more named part in, one more key out.
+
+The draft already holds what 9b needs to send: `PlanDraftAssurances` survives a reload and reaches
+stage 4 as a prop (`assurances`), which stage 4 already reads to write its own read-back sentence.
 
 Its test is likewise not a copy of the schema: the body is **POSTed to the real route handler** with
 an in-memory store, so `.strict()`, every `min(1)` and the `auditableIdentifier` shape are enforced by
