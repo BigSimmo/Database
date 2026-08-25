@@ -416,10 +416,18 @@ const PLAN_ASSURANCE_LABELS: Readonly<Record<PlanAssurance, string>> = Object.fr
 /**
  * The confirmations still to be made, named rather than counted.
  *
- * DERIVED BY SUBTRACTING what has been confirmed from the domain's own list, not by a branch per
- * checkbox. A third confirmation is then a value and a label, which is the same promise
- * `planAssurancesFrom` makes one function up — and it is why this returns a LIST rather than a
- * ready-made sentence with "one" or "both" baked into it.
+ * DERIVED BY SUBTRACTING what has been confirmed from the domain's own list, rather than by a branch
+ * per checkbox. That is why this returns a LIST rather than a ready-made sentence with "one" or
+ * "both" baked into it: the sentence stays correct however many confirmations there are.
+ *
+ * WHAT THAT DOES AND DOES NOT BUY, stated exactly, because the first version of this paragraph
+ * claimed the whole wizard scaled and it does not. THIS function needs nothing when a third
+ * confirmation is added: a value in `PLAN_ASSURANCES` and a label in `PLAN_ASSURANCE_LABELS`, and
+ * the record type makes the label mandatory. The wizard around it does NOT scale that way —
+ * `PlanDraftAssurances` gains a field, its parser gains a check, `planAssurancesFrom` gains a
+ * branch, and `everyAssuranceConfirmed` gains a conjunct, because both of those are written against
+ * the draft's named booleans rather than against the domain list. Widening them is a separate piece
+ * of work and it is not pretended away here.
  */
 export function unconfirmedAssuranceLabels(assurances: PlanDraftAssurances): string[] {
   const confirmed = new Set<PlanAssurance>(planAssurancesFrom(assurances));

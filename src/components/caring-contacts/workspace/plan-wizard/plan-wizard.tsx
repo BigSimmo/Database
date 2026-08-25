@@ -1885,7 +1885,7 @@ function ReviewStage({
             overlayId="final-activation"
             commit={
               body === null || state.status === "sending"
-                ? { kind: "unavailable", reason: unavailableReasonFor({ preview, state, patientDetail }) }
+                ? { kind: "unavailable", reason: unavailableReasonFor({ assurances, preview, state, patientDetail }) }
                 : { kind: "record", record: onActivate }
             }
             className={primaryControlClass}
@@ -1906,12 +1906,28 @@ function ReviewStage({
  * who opens the confirmation is told what is missing rather than finding a control that does
  * nothing. Ordered from the earliest missing thing to the latest, because the first sentence is the
  * one that gets read.
+ *
+ * STAGE 1 IS THE EARLIEST AND IT WAS MISSING FROM THIS CHAIN. Until the confirmations were recorded,
+ * a half-ticked draft changed nothing about the plan and could not block a create, so there was
+ * nothing here to say. Task 9b made a create depend on them — and this function still consulted only
+ * the state, the patient detail and the preview, so a restored half-ticked draft with detail present
+ * and a ready schedule fell through to the catch-all: "The stages behind this one say which." The
+ * comment above promises the opposite of that, and the promise was the newer of the two.
+ *
+ * The assurance branch is FIRST because stage 1 is first. It cannot race the `sending` branch below:
+ * `activate` returns early on a null body and the body is null whenever a confirmation is missing,
+ * so a send is never in flight while this branch is live. The ordering is the stated chain, not a
+ * tie-break.
  */
 function unavailableReasonFor(input: {
+  assurances: PlanDraftAssurances;
   preview: PlanSchedulePreview;
   state: PlanSubmissionState;
   patientDetail: ReturnType<typeof createPlanPatientDetail>;
 }): string {
+  if (!everyAssuranceConfirmed(input.assurances)) {
+    return unconfirmedAssuranceSentence(input.assurances);
+  }
   if (input.state.status === "sending") {
     return "The plan is being created now. Nothing else can be confirmed until that finishes.";
   }

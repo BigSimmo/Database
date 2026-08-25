@@ -1075,16 +1075,56 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
     // The one already made is not listed as outstanding; without this the screen could list every
     // confirmation every time and still satisfy the assertion above.
     expect(stage).not.toHaveTextContent(/still to confirm:[^.]*agreed to receive caring contacts/i);
-    // It says what is outstanding, never that the patient refused. A coordinator who has not made a
-    // confirmation has not learned anything about the patient.
+    // SCOPED TO THE WHOLE StatedReason BLOCK, not to the paragraph.
     //
-    // Scoped to the sentence rather than the whole region ON PURPOSE. The wizard's own vocabulary
-    // uses "refused" for a browser that would not let the page keep a draft, and for a write the
-    // service turned down; a region-wide match would couple this assertion to unrelated copy and go
-    // red for the wrong reason. The unit case in caring-contacts-plan-activation asserts the wider
-    // set against the sentence itself, which is where that claim belongs.
-    const outstanding = screen.getByText(/still to confirm/i);
-    expect(outstanding.textContent ?? "").not.toMatch(/did not agree|refused|declined|does not consent/i);
+    // The previous version narrowed this to the outstanding-confirmations sentence, on the belief
+    // that a region-wide match would collide with the wizard's own use of "refused" for draft
+    // storage and for service refusals. Re-review traced both: `DraftNotice` renders OUTSIDE this
+    // section, and every `RefusalStatement` branch needs a `state.status` / `preview.kind` this
+    // fixture never reaches -- so the region-wide match was already green and the narrowing was
+    // pre-emptive rather than forced. Its cost was real: the heading and "What changes it" of this
+    // same block fell outside the check, and the heading had no assertion on it at all.
+    //
+    // The group's accessible name IS the heading, so this scope keeps the stated benefit -- no
+    // coupling to unrelated copy elsewhere on the stage -- and loses neither of the other two
+    // sentences. A check you believe is over-broad is a hypothesis too.
+    const block = screen.getByRole("group", { name: /not all ticked/i });
+    expect(block).toHaveTextContent(/still to confirm/i);
+    expect(block.textContent ?? "").not.toMatch(/did not agree|refused|declined|does not consent/i);
+  });
+
+  it("tells a coordinator which confirmation is missing on the control they actually press", async () => {
+    // THE SURFACE THAT MATTERS, and it was not the one the sentence reached. `unavailableReasonFor`
+    // is what the activation overlay renders as the reason its decision control points at, and its
+    // own doc comment promises a coordinator "is told what is missing rather than finding a control
+    // that does nothing", earliest missing thing first.
+    //
+    // Stage 1 is the earliest and it was absent from that chain: the function consulted the state,
+    // the patient detail and the preview only. On the exact path this task created -- a restored
+    // half-ticked draft, patient detail present, schedule ready -- it fell through to the catch-all,
+    // "The stages behind this one say which", which is the sentence that comment exists to prevent.
+    const user = userEvent.setup();
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify(reviewReadyDraft({ assurances: { patientAgreed: true, mobileIsPatientControlled: false } })),
+    );
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+
+    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+
+    // Read through `aria-describedby` rather than searching the overlay's text. That is what makes
+    // this an assertion about the reason THE CONTROL POINTS AT -- the property the host's contract
+    // states -- rather than about a sentence that merely happens to be somewhere on screen.
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    const reasonId = action.getAttribute("aria-describedby");
+    expect(reasonId, "the blocked control names no reason").toBeTruthy();
+    const reason = document.getElementById(reasonId as string);
+    expect(reason?.textContent ?? "").toMatch(/that the number this plan will use is the patient.s own/i);
+    // The catch-all this branch replaces. If it is still reached, the branch is not wired -- and the
+    // negative is what makes the mutation red rather than merely differently worded.
+    expect(reason?.textContent ?? "").not.toMatch(/the stages behind this one say which/i);
   });
 
   it("states no contact count it did not measure", async () => {

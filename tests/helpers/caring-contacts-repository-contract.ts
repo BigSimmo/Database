@@ -194,7 +194,10 @@ let extensionPlanSequence = 0;
  * the Postgres schema: a plan naming a parent nobody created is refused by the database. Creating
  * them here is what lets these tests prove the store validates its own parents.
  */
-async function createActivePlan(store: CaringContactRepository, options: { actor?: Actor } = {}): Promise<PlanRecord> {
+async function createActivePlan(
+  store: CaringContactRepository,
+  options: { actor?: Actor; culturalIdentity?: string } = {},
+): Promise<PlanRecord> {
   extensionPlanSequence += 1;
   const suffix = String(extensionPlanSequence);
   const actor = options.actor ?? COORDINATOR_A;
@@ -224,7 +227,14 @@ async function createActivePlan(store: CaringContactRepository, options: { actor
         pathwayVersionId: pathwayVersionId(pathway),
         dischargeAt: DISCHARGE_AT,
         sendingPreference: "morning",
-        patientDetail: PATIENT_DETAIL,
+        // `PATIENT_DETAIL` carries a NULL cultural identity, so a case asserting that a clearance
+        // nulls it proves nothing unless it sets one. Opt-in rather than always-on, because the
+        // cultural identity lives in its own table in the Postgres store and most callers here have
+        // no business creating a row in it.
+        patientDetail:
+          options.culturalIdentity === undefined
+            ? PATIENT_DETAIL
+            : { ...PATIENT_DETAIL, culturalIdentity: options.culturalIdentity },
         assurances: [...ASSURANCES],
       },
       writeContext(actor, `ext-create-${suffix}`),
@@ -2733,7 +2743,21 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         const listed = await store.listPlans({ actor: COORDINATOR_A });
         const names = await store.listPatientNames({ actor: COORDINATOR_A });
 
+        // POSITIVE CONTROLS, AND THIS CASE HAD NONE (found in Task 9b's fix round 2, same family as
+        // the M6 finding one section down). Every assertion below is an ABSENCE, so four empty reads
+        // satisfied all of them: a store that returned null, null, [] and [] passed a case whose
+        // name promises the reason is kept off a caseload. It guards a real retention obligation, so
+        // it must first prove the reads carry something.
+        //
+        // Two controls, because they fail differently. The first proves the REASON exists at all --
+        // without it the whole case is vacuous against a store that never stored one. The second
+        // proves each of the four reads actually returned this plan, so an emptied read is a red
+        // rather than a pass. Every one of the four carries the plan id, including the names
+        // projection, which is what makes one loop enough.
+        expect((await store.getEpisode(moved, { actor: TEAM_LEAD_A }))?.firstContactReason).toBe(FIRST_CONTACT_REASON);
+
         for (const released of [record, fetched, listed, names]) {
+          expect(JSON.stringify(released)).toContain(moved);
           expect(JSON.stringify(released)).not.toContain("sister");
           expect(JSON.stringify(released)).not.toContain("firstContactReason");
         }
@@ -2930,7 +2954,10 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
         // does nothing looks exactly like one left alone on purpose. This case is what tells those
         // two apart, on the same shape of plan and the same shape of run.
         const store = await newStore();
-        const plan = await createActivePlan(store);
+        // A cultural identity is SET on purpose. The shared fixture leaves it null, so the cleared
+        // assertion on it below would have been null before and null after -- an assertion whose
+        // only possible outcome is green, in the one place where proof is the point.
+        const plan = await createActivePlan(store, { culturalIdentity: "Noongar" });
 
         unwrap(
           await store.withdrawPlan(
@@ -2939,9 +2966,14 @@ export function describeCaringContactRepositoryContract(label: string, factory: 
           ),
         );
 
-        // Positive control: the detail IS held right up until the clearance, so the emptiness below
-        // is the clearance acting rather than a fixture that never carried a name.
-        expect((await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A }))?.patientName).toBe("Jordan Nguyen");
+        // Positive control on EVERY field the clearance is asserted to empty, not only the name:
+        // each must be held right up until the clearance, or its emptiness afterwards proves
+        // nothing about the clearance.
+        const before = await store.getEpisode(plan.plan.id, { actor: TEAM_LEAD_A });
+        expect(before?.patientName).toBe("Jordan Nguyen");
+        expect(before?.patientMobileNumber).not.toBe("");
+        expect(before?.patientIdentifiers).not.toEqual([]);
+        expect(before?.culturalIdentity).toBe("Noongar");
 
         unwrap(
           await store.markRetentionCleared(
