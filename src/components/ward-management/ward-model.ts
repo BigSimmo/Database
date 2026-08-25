@@ -227,6 +227,13 @@ export type Movement = {
   /** Units currently holding a live referral. Never longer than PARALLEL_REFERRAL_CAP. */
   referredUnitIds: string[];
   acceptedUnitId?: string;
+  /** When `ACCEPT_IN_PRINCIPLE` (ward-flow-reducer.ts) set `acceptedUnitId`. Absent for every
+   *  movement in the seed fixture (`ward-movements.ts`), which is hand-authored with
+   *  `acceptedUnitId` already set rather than reached by dispatching that event — this field is
+   *  deliberately never backfilled onto that fixture, so its absence there is real, not a bug.
+   *  `effectivenessNumbers` (ward-derivations.ts) prefers this over the `withdrawnReferrals`
+   *  archaeology it used before this field existed, and reports honestly when neither is present. */
+  acceptedAt?: Instant;
   declines: Decline[];
   transport?: TransportJob;
   blocker: string;

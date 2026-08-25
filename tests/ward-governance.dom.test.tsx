@@ -97,7 +97,8 @@ describe("GovernanceView", () => {
     // Real fixture fact: WF-006 is the only movement with a recoverable acceptance instant —
     // openedAt NOW_ANCHOR-500, its sole withdrawnReferrals entry at NOW_ANCHOR-470 — 30 minutes.
     // It is the only movement in the whole 48-record fixture with a non-empty withdrawnReferrals
-    // array, so the median is exactly this one value, not the "not enough data" fallback.
+    // array (and no movement carries a hand-authored `acceptedAt`), so the median is exactly this
+    // one value, not the "not enough data" fallback.
     const acceptance = screen.getByTestId("ward-governance-effectiveness-acceptance");
     expect(acceptance).toHaveTextContent("30");
     // A sign-flipped duration (openedAt - acceptedAt instead of acceptedAt - openedAt) would
@@ -119,5 +120,22 @@ describe("GovernanceView", () => {
     expect(dropped).toHaveTextContent("legal deadlines passed while a patient waits");
     expect(dropped).toHaveTextContent("dropped");
     expect(dropped).toHaveTextContent("cannot be computed");
+  });
+
+  // Fix round 1, point 3: this is the honesty test, not the arithmetic test — measured directly
+  // against the real fixture (27 total acceptances, only 1 with a recoverable timestamp; 32 of
+  // 48 movements referred at least one unit). A median of one rendered bare reads as a real
+  // measurement; the basis is what tells a reader the acceptance figure is a thin, one-record
+  // sample rather than a summary of 27 real observations, and it must be immediately beside the
+  // figure — not a tooltip, not a footnote elsewhere on the page.
+  it("shows the acceptance figure beside its true basis — 1 of 27 recorded acceptances — not the figure alone", () => {
+    renderGovernance();
+    const acceptance = screen.getByTestId("ward-governance-effectiveness-acceptance");
+    // One assertion against the combined text, so a basis rendered elsewhere on the page (not
+    // immediately beside the figure) would not satisfy this check.
+    expect(acceptance).toHaveTextContent("30 minfrom 1 of 27 recorded acceptances");
+
+    const unitsContacted = screen.getByTestId("ward-governance-effectiveness-units-contacted");
+    expect(unitsContacted).toHaveTextContent("from 32 of 48 movements that referred at least one unit");
   });
 });

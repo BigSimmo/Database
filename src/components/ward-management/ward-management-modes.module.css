@@ -766,12 +766,23 @@
 
 .effectivenessList dd {
   margin-top: 0.25rem;
+}
+
+/* Fix round 1 (Task 9): the figure and its basis are one visual unit, always rendered together —
+ * never a tooltip, never a footnote elsewhere on the page. */
+.effectivenessLine {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.effectivenessValue {
   color: var(--ward-heading);
   font-size: var(--text-lg);
   font-weight: 700;
 }
 
-.effectivenessList dd small {
+.effectivenessValue small {
   margin-left: 0.25rem;
   color: var(--ward-muted);
   font-size: var(--text-2xs);
@@ -781,6 +792,12 @@
 .effectivenessUnknown {
   color: var(--ward-muted);
   font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.effectivenessBasis {
+  color: var(--ward-muted);
+  font-size: var(--text-3xs);
   font-weight: 500;
 }
 

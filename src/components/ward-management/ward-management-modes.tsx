@@ -43,6 +43,7 @@ import {
   stageSummaries,
   unitCapacity,
   type ChangeAuditEntry,
+  type EffectivenessMeasure,
   type InboxItem,
   type WardRole,
 } from "@/components/ward-management/ward-derivations";
@@ -665,18 +666,44 @@ export function NotAMedicalDeviceStatement() {
   );
 }
 
-/** Renders a computed effectiveness number, or its explicit absence — never a substituted `0`.
- *  Rule 4 (conservative failure): a measure this cannot compute must read as unknown, not as a
- *  suspiciously perfect result. */
-function EffectivenessValue({ value, unit }: { value: number | undefined; unit: string }) {
-  if (value === undefined) {
-    return <span className={styles.effectivenessUnknown}>Not enough data to compute</span>;
+/**
+ * Renders a computed effectiveness number, or its explicit absence — never a substituted `0` —
+ * always immediately beside the basis it was drawn from. Rule 4 (conservative failure): a measure
+ * this cannot compute must read as unknown, not as a suspiciously perfect result. Fix round 1: a
+ * measure computed from a thin sample must say so in the same breath as the figure, not in a
+ * tooltip or a footnote — a median of one, rendered bare, is a guess wearing the clothes of a
+ * measurement, and this board's rule is to say nothing rather than guess.
+ */
+function EffectivenessValue({
+  measure,
+  unit,
+  basisNoun,
+}: {
+  measure: EffectivenessMeasure;
+  unit: string;
+  basisNoun: string;
+}) {
+  const basis = (
+    <span className={styles.effectivenessBasis}>
+      from {measure.sampleSize} of {measure.population} {basisNoun}
+    </span>
+  );
+  if (measure.value === undefined) {
+    return (
+      <span className={styles.effectivenessLine}>
+        <span className={styles.effectivenessUnknown}>Not enough data to compute</span>
+        {basis}
+      </span>
+    );
   }
-  const rounded = Math.round(value * 10) / 10;
+  const rounded = Math.round(measure.value * 10) / 10;
   return (
-    <span>
-      {rounded}
-      <small> {unit}</small>
+    <span className={styles.effectivenessLine}>
+      <span className={styles.effectivenessValue}>
+        {rounded}
+        <small> {unit}</small>
+      </span>
+      {basis}
     </span>
   );
 }
@@ -836,7 +863,11 @@ function GovernanceView() {
                 <Clock3 aria-hidden="true" /> Median time, referral to a ward accepting
               </dt>
               <dd>
-                <EffectivenessValue value={effectiveness.medianMinutesToAcceptance} unit="min" />
+                <EffectivenessValue
+                  measure={effectiveness.medianMinutesToAcceptance}
+                  unit="min"
+                  basisNoun="recorded acceptances"
+                />
               </dd>
             </div>
             <div data-testid="ward-governance-effectiveness-units-contacted">
@@ -844,7 +875,11 @@ function GovernanceView() {
                 <Users aria-hidden="true" /> Average units contacted per patient
               </dt>
               <dd>
-                <EffectivenessValue value={effectiveness.averageUnitsContacted} unit="units" />
+                <EffectivenessValue
+                  measure={effectiveness.averageUnitsContacted}
+                  unit="units"
+                  basisNoun="movements that referred at least one unit"
+                />
               </dd>
             </div>
           </dl>

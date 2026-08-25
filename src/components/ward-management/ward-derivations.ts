@@ -753,19 +753,24 @@ function median(values: number[]): number | undefined {
  * Minutes from referral to a ward accepting, for one movement — `undefined` when that duration
  * cannot be recovered from this record.
  *
- * There is no `acceptedAt` field on `Movement`: `ACCEPT_IN_PRINCIPLE` (ward-flow-reducer.ts) sets
- * `acceptedUnitId` but stores no timestamp for the acceptance itself. The one place an acceptance
- * instant survives is `withdrawnReferrals` — that same reducer branch withdraws every OTHER
- * referred unit in the same update, stamping each withdrawal with `event.now`, so when a movement
- * was accepted while more than one unit held a live referral, every entry it leaves in
- * `withdrawnReferrals` carries the acceptance instant. `acceptedUnitId` can only ever be set once
- * (a second `ACCEPT_IN_PRINCIPLE` on an already-accepted movement is rejected), so those entries
- * are never overwritten or added to again. A movement accepted while only one unit was referred
- * withdraws nothing and leaves no timestamp anywhere in this model — that movement reached
- * acceptance but genuinely has no recoverable "when", so it is excluded here rather than guessed.
+ * `Movement.acceptedAt` (added fix round 1, Task 9) is the direct, reliable source: it is
+ * stamped by `ACCEPT_IN_PRINCIPLE` (ward-flow-reducer.ts) the instant a unit is accepted, for
+ * every acceptance reached from now on. It is preferred whenever present. Before that field
+ * existed, the only place an acceptance instant survived was `withdrawnReferrals` — the same
+ * reducer branch withdraws every OTHER referred unit in the same update, stamping each
+ * withdrawal with `event.now`, so a movement accepted while more than one unit held a live
+ * referral leaves the acceptance instant behind as a side effect. That fallback still applies to
+ * the hand-authored seed fixture (`ward-movements.ts`), which sets `acceptedUnitId` directly
+ * rather than via a dispatched event and so never carries `acceptedAt` — its one recoverable
+ * acceptance (WF-006) is only found this way, and the fixture is deliberately never backfilled
+ * with an invented `acceptedAt` to manufacture a bigger sample. A movement accepted with only one
+ * referred unit and no `acceptedAt` withdraws nothing and leaves no timestamp anywhere in this
+ * model — that movement reached acceptance but genuinely has no recoverable "when", so it is
+ * excluded here rather than guessed.
  */
 function acceptanceDurationMinutes(movement: Movement): number | undefined {
   if (movement.acceptedUnitId === undefined) return undefined;
+  if (movement.acceptedAt !== undefined) return movement.acceptedAt - movement.openedAt;
   if (movement.withdrawnReferrals.length === 0) return undefined;
   return movement.withdrawnReferrals[0].at - movement.openedAt;
 }
@@ -784,16 +789,32 @@ function unitsContactedCount(movement: Movement): number | undefined {
 }
 
 /**
+ * Fix round 1 (Task 9): a computed figure alone is not honest without the basis it was drawn
+ * from. `sampleSize` is how many movements actually contributed an observation; `population` is
+ * how many movements COULD have — every acceptance for the acceptance measure, every movement
+ * passed in for the units-contacted measure. A median or average over a small `sampleSize`
+ * against a much larger `population` (this fixture: 1 of 27 acceptances) is a guess wearing the
+ * clothes of a measurement unless that gap renders next to the number.
+ */
+export type EffectivenessMeasure = {
+  value: number | undefined;
+  sampleSize: number;
+  population: number;
+};
+
+/**
  * Task 9 (spec item 7), D7: the governance board's two live effectiveness numbers. Conservative
  * failure applies to each independently — a measure this cannot compute returns `undefined`,
  * never `0`, because zero minutes to acceptance or zero units contacted both read as a real
  * result rather than as "unknown". Both describe the current synthetic scenario only; nothing
- * here is a claim about the prototype's real-world effectiveness.
+ * here is a claim about the prototype's real-world effectiveness. Both carry their own basis
+ * (`EffectivenessMeasure`) so a thin sample is never presented bare.
  */
 export function effectivenessNumbers(movements: Movement[]): {
-  medianMinutesToAcceptance: number | undefined;
-  averageUnitsContacted: number | undefined;
+  medianMinutesToAcceptance: EffectivenessMeasure;
+  averageUnitsContacted: EffectivenessMeasure;
 } {
+  const totalAcceptances = movements.filter((movement) => movement.acceptedUnitId !== undefined).length;
   const acceptanceDurations = movements
     .map((movement) => acceptanceDurationMinutes(movement))
     .filter((minutes): minutes is number => minutes !== undefined);
@@ -808,7 +829,15 @@ export function effectivenessNumbers(movements: Movement[]): {
       : contactedCounts.reduce((total, count) => total + count, 0) / contactedCounts.length;
 
   return {
-    medianMinutesToAcceptance: median(acceptanceDurations),
-    averageUnitsContacted,
+    medianMinutesToAcceptance: {
+      value: median(acceptanceDurations),
+      sampleSize: acceptanceDurations.length,
+      population: totalAcceptances,
+    },
+    averageUnitsContacted: {
+      value: averageUnitsContacted,
+      sampleSize: contactedCounts.length,
+      population: movements.length,
+    },
   };
 }

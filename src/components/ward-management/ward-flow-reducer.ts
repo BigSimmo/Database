@@ -320,6 +320,10 @@ export function wardFlowReducer(state: WardFlowState, event: WardFlowEvent): War
       const updated: Movement = {
         ...movement,
         acceptedUnitId: event.unitId,
+        // Fix round 1 (Task 9): the instant this acceptance happened, recorded directly rather
+        // than left to survive only as an incidental `withdrawnReferrals` side effect of a
+        // multi-unit referral. See `Movement.acceptedAt`'s own doc comment.
+        acceptedAt: event.now,
         stage: "accepted_awaiting_bed",
         referredUnitIds: [],
         withdrawnReferrals: [...movement.withdrawnReferrals, ...withdrawn],
