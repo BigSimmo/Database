@@ -119,17 +119,26 @@ The pathway version is approved by `demo-clinicalProgrammeLead` and
 approval is real as a record while being fictional as an act of governance. This is unavoidable if
 the demo is to have a pathway at all, and it is the same fiction the role switcher already is — but
 when the templates library later shows "approved by the clinical programme lead and the
-lived-experience representative", it will be showing this. The actor ids are `demo-`prefixed
-throughout so the record is self-identifying.
+lived-experience representative", it will be showing this. Every actor id is `demo-` prefixed,
+so the record says what it is. so the record is self-identifying.
 
 **F4 — `culturalIdentity` is recorded as "Not stated" for every seeded patient.** A cultural identity
 attributed to an invented person is an invention about culture. "Not stated" is a value already used
 in this tree and is what the record honestly holds. If a demo needs to exercise that field with
 content, that content should come from the owner.
 
-**F5 — Every seeded plan discharges at the instant the seed runs**, so all ten contacts are in the
-future and none is a past-dated message that was never sent. Dispatch is not simulated: nothing in the
+**F5 — Every seeded plan discharges at the instant the seed runs**, so every contact on it is still
+in the future and none is a past-dated message that was never sent. Dispatch is not simulated: nothing in the
 demo has been sent, which is true of this prototype generally.
+
+**F6 — `npm run lint` is already red on this branch, for something outside this task.**
+
+`tests/caring-contacts-empty-state.dom.test.tsx` raises two
+`@next/next/no-html-link-for-pages` errors (lines 32 and 93: `<a href>` to `/caring-contacts/patients/new/`
+and `/caring-contacts/patients/`). That file is byte-identical to my branch base and my diff touches
+no route, so this is pre-existing rather than caused here. I have deliberately not fixed it — it
+belongs to another task's file and fixing it unasked would put an unrelated change in this diff — but
+it will block CI on the branch, so somebody has to.
 
 ## What a browser test would now need to do to reach stage 4
 
@@ -167,15 +176,6 @@ seed at all. The one suite that exercises the real function,
 
 The offline suites are therefore unaffected, and the browser gate is unaffected because of F1.
 
-**F6 — `npm run lint` is already red on this branch, for something outside this task.**
-
-`tests/caring-contacts-empty-state.dom.test.tsx` raises two
-`@next/next/no-html-link-for-pages` errors (lines 32 and 93: `<a href>` to `/caring-contacts/patients/new/`
-and `/caring-contacts/patients/`). That file is byte-identical to my branch base and my diff touches
-no route, so this is pre-existing rather than caused here. I have deliberately not fixed it — it
-belongs to another task's file and fixing it unasked would put an unrelated change in this diff — but
-it will block CI on the branch, so somebody has to.
-
 ## Files
 
 - `src/lib/caring-contacts-server/demo-seed.ts` — new.
@@ -192,6 +192,11 @@ demonstrably present, `-F` included; each mutation was read back by reading the 
 The tree was committed before each, and restored from git after. **Every mutation produced
 `1 failed | 13 passed`** — so each one isolates a single assertion rather than making a whole case
 red — and every failure matched its prediction.
+
+They were run before two assertions in unrelated cases were strengthened from literal counts to
+invariants. None of the assertions a mutation actually landed on was touched by that change, so the
+evidence below still describes the file as it stands — but it was gathered from the earlier one, and
+that is worth knowing rather than glossing.
 
 | Mutation                                                | Predicted                                                        | Observed                                                                                             |
 | ------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
