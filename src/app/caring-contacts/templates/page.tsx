@@ -163,11 +163,7 @@ export default async function CaringContactsTemplatesPage({
       description="The governed pathway versions this team holds, and the approval history behind each one. Every patient, number and message in this workspace is invented; nothing here is ever sent to a real number."
       serviceState={serviceState}
     >
-      <TemplatesLibrary
-        versions={versions}
-        filter={filter}
-        mayViewPathwayVersions={mayViewPathwayVersions}
-      />
+      <TemplatesLibrary versions={versions} filter={filter} mayViewPathwayVersions={mayViewPathwayVersions} />
     </CaringContactsShell>
   );
 }

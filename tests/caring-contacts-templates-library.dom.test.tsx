@@ -64,7 +64,11 @@ const TEAM = teamId("templates-test-team");
 const MESSAGE_TEXT_MARKER = "MESSAGE-BODY-THAT-MUST-NEVER-RENDER";
 
 const BOTH_APPROVALS: readonly PathwayApproval[] = Object.freeze([
-  { role: "clinicalProgrammeLead", actorId: actorId("demo-clinical-programme-lead"), approvedAt: "2026-08-14T09:00:00+08:00" },
+  {
+    role: "clinicalProgrammeLead",
+    actorId: actorId("demo-clinical-programme-lead"),
+    approvedAt: "2026-08-14T09:00:00+08:00",
+  },
   {
     role: "livedExperienceRepresentative",
     actorId: actorId("demo-lived-experience-representative"),
@@ -235,7 +239,9 @@ describe("the templates library distinguishes the lifecycle states from one anot
   ];
 
   it("groups the domain's four states onto the three the design shows, without hiding which is which", () => {
-    expect(everyState.map(templateLifecycleOf)).toEqual(["current", "pending", "retired", "retired"]);
+    // approved, draft, inReview, retired -- the two Pending members are the point: `draft` and
+    // `inReview` land in one group, and the rows below are what keeps them distinguishable.
+    expect(everyState.map(templateLifecycleOf)).toEqual(["current", "pending", "pending", "retired"]);
 
     renderLibrary(everyState);
     const rows = screen.getAllByRole("listitem");
@@ -276,7 +282,9 @@ describe("the templates library distinguishes the lifecycle states from one anot
     expect(parseTemplatesLibraryFilter({ lifecycle: ["current", "retired"] })).toEqual({ lifecycle: "all" });
     expect(parseTemplatesLibraryFilter({ lifecycle: "archived" })).toEqual({ lifecycle: "all" });
     expect(templatesLibraryHref({ lifecycle: "all" })).toBe(CARING_CONTACTS_ROUTES.templates);
-    expect(templatesLibraryHref({ lifecycle: "pending" })).toBe(`${CARING_CONTACTS_ROUTES.templates}?lifecycle=pending`);
+    expect(templatesLibraryHref({ lifecycle: "pending" })).toBe(
+      `${CARING_CONTACTS_ROUTES.templates}?lifecycle=pending`,
+    );
 
     renderLibrary(everyState, { lifecycle: "current" });
     const rows = screen.getAllByRole("listitem");

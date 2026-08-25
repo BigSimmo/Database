@@ -326,10 +326,10 @@ function EveryVersionRetiredNotice() {
         approvals, and retirement is what stops a version being used for a new plan.
       </p>
       <p className="max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
-        <span className="font-medium text-[color:var(--text)]">What changes it: </span>
-        A new version has to be written and approved by two people. Nothing on this screen does that, and there is no
-        control for it anywhere in this workspace yet. Plans already running keep the wording they were started with; a
-        retirement does not reach back into them.
+        <span className="font-medium text-[color:var(--text)]">What changes it: </span>A new version has to be written
+        and approved by two people. Nothing on this screen does that, and there is no control for it anywhere in this
+        workspace yet. Plans already running keep the wording they were started with; a retirement does not reach back
+        into them.
       </p>
     </div>
   );
