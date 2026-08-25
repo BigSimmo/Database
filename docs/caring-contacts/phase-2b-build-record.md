@@ -1797,3 +1797,71 @@ picture of a **later** product. **The design is a specification for the product,
 specification for what exists.** Where they disagree the types win, and the disagreement is worth
 recording rather than silently resolving, because it is the same gap each time and someone will draw
 the next mockup from the same assumption.
+
+### Task 7 task review — spec PASS, quality PASS with findings; browser gate `49 passed (2.9m)`
+
+Up from 43, the six added being the wizard's own block. Exit 0.
+
+The reviewer verified every priority item **in the code rather than in the report**: `sessionStorage`
+is the only storage API named anywhere in `plan-wizard/` and a repo-wide grep confirms no
+`localStorage` including the fallback path; clearing is real and mutation-proved rather than
+asserted; the notice is an in-flow `role="group"` with `Why:`/`What changes it:` and no `title`
+attribute; and the incident `note` does not cross the client boundary — the page passes seven scalar
+props and a test stops the service with a distinctive note and asserts the wizard's props contain
+neither it, the stop reason, nor a key of that name.
+
+**Ruling [112]'s stop-and-report fired, and the reviewer found it worse than reported.**
+`createPlanSchema` is `.strict()` with ten fields and `patientDetail` `.strict()` with four;
+`StoredPatientDetail` is those four plus `firstContactReason`; `Plan` is four fields. So the stage-1
+assurances — that the patient agreed, and that the mobile is the patient's own — **cannot even be
+sent, let alone stored.** This is a schema change, not a field addition. **An activated plan carries
+no evidence that anyone confirmed the patient agreed to receive the messages, on a suicide-prevention
+programme texting a recently discharged patient.** Put to the owner with three options and no strong
+recommendation, which is itself the honest position: whether a tick-box is the right consent record
+is not an engineering question. Nothing is blocked on the answer.
+
+**I-1 is the finding that pays for the whole review, and it is the measured cost of skipping
+test-first.** The draft's in-memory fallback is unreachable in the case it was written for: on a
+`setItem` refusal the code writes to `memoryDraft` and notifies, but the snapshot consults
+`memoryDraft` only when storage is _null_ — and in the write-refused case storage is non-null. Every
+keystroke goes to memory and the screen never changes. **Safari private browsing is exactly this
+shape.** The module's own comment claims the fallback prevents this dead end.
+
+The implementer disclosed that it implemented first and then wrote tests, and explicitly did not claim
+the watch-it-fail step. Its falsifiability evidence was called strong and adequate **for the behaviour
+it asserted**. The mechanism of the loss is the part worth keeping:
+
+> **Mutation testing can only falsify tests that exist.** This branch was added mid-task during a
+> lint-driven refactor and nobody wrote an assertion about it, so no mutation could reach it. A
+> test-first pass on Ruling [110] would have started from "what happens when the browser refuses to
+> keep it" — which is the question that exposes it.
+
+That is one real bug, traceable to one skipped step, and it is a better argument for test-first than
+any restatement of the rule.
+
+**I-2 — a lint fix shrank a tap target to ~20px.** `min-h-tap` sits on the wrapping `<div>` while the
+only activation surfaces are a 20px input and a one-line label; stage 1's checkboxes put it on the
+`<label>` and get the full 48px row. The `label-has-associated-control` fix was correct and moved the
+hit area, and nothing tested it — the 320px browser case measures only the Back link. This repo has a
+known `ui-smoke` flake in exactly this territory.
+
+**M-6 — a truth defect on a clinical screen, and the timing makes it worse.** The screen read "Both
+confirmations are recorded for this sign-up" directly beneath the panel stating nothing records them.
+**The owner is deciding that exact gap right now; the screen must not be the thing that tells him it
+is already handled.**
+
+**Adjudicated in the implementer's favour, all verified rather than accepted:** the `<Link>` over a
+reachability-allowlist entry (the allowlist is documented for redirect targets and legacy-compat
+routes; a new feature route is neither, and "unavailable" would have lied about a screen that
+exists); nothing loosened in the Playwright spec, and refusing to fabricate a referral id was right
+because it would have rendered the identical screen while claiming to prove a stage; and **the
+narrowed safety guard survived the hardest look** — the narrowing is close to minimal, both
+assertions moved together, the graph walk and allowlist semantics are untouched, and M12 still goes
+red on real code. Deleting the two explanations to keep the raw match would have been the worse
+outcome.
+
+**Filed rather than fixed:** no browser evidence that the workspace's first client boundary hydrates
+(`373b1aa3`, P2) — every Playwright case lands on the no-referral state and one asserts the wizard has
+count 0, so the `useSyncExternalStore`/`getServerSnapshot` argument is proved in jsdom only, which has
+no RSC payload and no hydration. The implementer's reasoning for not seeding a referral is sound; the
+gap it leaves is what its report did not name.
