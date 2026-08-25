@@ -68,6 +68,9 @@ describe("document corpus access mode migration", () => {
     expect(effectiveMigration).toContain(
       "when snapshot.owner_id is not null and existing_owner.id is null then coalesce(d.metadata, '{}'::jsonb) - 'public_corpus'",
     );
+    expect(effectiveMigration).toContain(
+      "status = case when snapshot.owner_id is not null and existing_owner.id is null then 'failed' else d.status end",
+    );
     expect(effectiveMigration).toContain("when snapshot.public_corpus_present then pg_catalog.jsonb_set");
     expect(effectiveMigration).toContain("else coalesce(d.metadata, '{}'::jsonb) - 'public_corpus'");
   });

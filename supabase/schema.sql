@@ -9640,7 +9640,8 @@ grant execute on function public.set_document_embedding_field_content_hash() to 
 -- Reversible corpus-wide document visibility control. The access state and
 -- snapshot are backend-readable only; mutations are serialized through the
 -- service-role function so prior document owner/public marker state is
--- restored when possible and deleted-owner rows fail closed as non-public.
+-- restored when possible and deleted-owner rows fail closed as non-public and
+-- non-retrievable.
 create table if not exists public.document_corpus_access_state (
   singleton boolean primary key default true check (singleton),
   mode text not null check (mode in ('private', 'public')),
@@ -9780,6 +9781,10 @@ begin
     update public.documents d
     set
       owner_id = existing_owner.id,
+      status = case
+        when snapshot.owner_id is not null and existing_owner.id is null then 'failed'
+        else d.status
+      end,
       metadata = case
         -- Restoring a public marker without its former owner would turn an
         -- owner-scoped row into a public row. Remove the marker instead.
@@ -9830,7 +9835,7 @@ end;
 $$;
 
 comment on function public.set_document_corpus_access_mode(text) is
-  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows; private mode restores surviving owners and leaves deleted-owner rows non-public without rewriting derived artifacts.';
+  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows; private mode restores surviving owners and quarantines deleted-owner rows from document and retrieval reads without rewriting derived artifacts.';
 
 revoke all on function public.set_document_corpus_access_mode(text)
   from public, anon, authenticated, service_role;

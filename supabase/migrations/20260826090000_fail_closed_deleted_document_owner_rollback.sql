@@ -4,8 +4,8 @@
 -- A snapshot deliberately keeps its original owner UUID without an auth.users
 -- foreign key. If that user is deleted while public mode is active, private
 -- rollback cannot restore the stale UUID to documents.owner_id. Keep the row
--- ownerless in that case and remove the public marker so the authorization
--- invariant (owner_id is null AND metadata.public_corpus is true) fails closed.
+-- ownerless in that case, remove the public marker, and quarantine it from
+-- retrieval so both document reads and legacy owner-only retrieval fail closed.
 
 create or replace function public.set_document_corpus_access_mode(p_mode text)
 returns jsonb
@@ -111,6 +111,10 @@ begin
     update public.documents d
     set
       owner_id = existing_owner.id,
+      status = case
+        when snapshot.owner_id is not null and existing_owner.id is null then 'failed'
+        else d.status
+      end,
       metadata = case
         -- Restoring a public marker without its former owner would turn an
         -- owner-scoped row into a public row. Remove the marker instead.
@@ -161,7 +165,7 @@ end;
 $$;
 
 comment on function public.set_document_corpus_access_mode(text) is
-  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows; private mode restores surviving owners and leaves deleted-owner rows non-public without rewriting derived artifacts.';
+  'Service-role-only reversible switch for corpus-wide document visibility. Public mode snapshots and publishes document access rows; private mode restores surviving owners and quarantines deleted-owner rows from document and retrieval reads without rewriting derived artifacts.';
 
 revoke all on function public.set_document_corpus_access_mode(text)
   from public, anon, authenticated, service_role;
