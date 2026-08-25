@@ -265,6 +265,21 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // that module or type; and it toggles one attribute on an element the server rendered from
   // the note-free facts type, so the bar's wording never enters the client module graph.
   "service-stop-scroll-watcher.tsx",
+  // Phase 2B Task 7's activation wizard, and the first client boundary in this workspace that
+  // exists because of an OWNER DECISION rather than a browser capability (Ruling [109]). A
+  // half-finished sign-up must survive a page refresh, which no Server Component and no URL
+  // parameter can do — and a URL parameter is separately forbidden for this data, because the
+  // patient's name and mobile number arrive at stage 3 and a query string is logged by every proxy
+  // between here and the browser.
+  //
+  // Added on the same three conditions as every entry above. Its props are a referral id, a
+  // synthetic patient id, a team id, the acting actor id and roles, the referral's pathway version
+  // id, and the approved pathway versions — no state object, and nothing derived from the record.
+  // The companion test below proves its whole module graph never names the service-state module or
+  // type. And `tests/caring-contacts-new-plan-page.dom.test.tsx` goes further than either: it stops
+  // the service with a distinctive incident note and asserts on the element tree the page returns,
+  // so the note reaching this boundary under ANY prop name is a red test rather than a reading.
+  "plan-wizard/plan-wizard.tsx",
 ];
 
 /**
@@ -396,6 +411,26 @@ function guardedModuleGraph(entry: string): string[] {
   return [...seen];
 }
 
+/**
+ * `source` with its comments removed, so the scan below reads CODE rather than prose.
+ *
+ * Narrowed in Phase 2B Task 7, and narrowing rather than weakening: a type only reaches a client
+ * component through an import, an annotation or a prop — all of them code. A comment cannot carry
+ * one. What comments CAN do is describe the rule, and this guard was rejecting exactly that:
+ * `list-empty-state.tsx` explains its own design by comparing itself to `ServiceStateBanner`, and
+ * `plan-wizard.tsx` opens by stating that the record never crosses its boundary. Both are the
+ * documentation this file's own rules ask for, and both read as offences to a raw text match.
+ *
+ * The alternative was to delete those explanations to make a check green, which is the failure mode
+ * `tests/route-reachability.test.ts` records in its own words: documenting a rule is not breaking
+ * it, and a check that cannot tell the two apart is a check that gets silenced. The check still
+ * fails on real usage — it did, twice, while Task 7's wizard was being added to the allowlist, and
+ * `plan-wizard.tsx` still deliberately avoids naming the type at all.
+ */
+function executableSource(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ 	]*\/\/.*$/gm, "");
+}
+
 describe("the service-state path stays on the server", () => {
   it("keeps every workspace component but the allowlisted client controls a Server Component", () => {
     const clientComponents = workspaceSourceFiles()
@@ -437,7 +472,7 @@ describe("the service-state path stays on the server", () => {
 
       for (const file of guardedModuleGraph(entry)) {
         const label = path.relative(process.cwd(), file).split(path.sep).join("/");
-        const moduleSource = readFileSync(file, "utf8");
+        const moduleSource = executableSource(readFileSync(file, "utf8"));
         expect(moduleSource, `${label} (reached from ${name}) references the service-state module`).not.toMatch(
           /service-state/,
         );
