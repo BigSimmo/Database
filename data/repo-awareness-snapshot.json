@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "e265a187027a9c566734d73e50f68c4f2cd1af48",
-    "committed_at": "2026-08-25T03:42:15+00:00"
+    "sha": "87225fbb3f2430559946d04f4b62d3766929a93c",
+    "committed_at": "2026-08-25T03:57:12+00:00"
   },
   "routes": {
     "modes": [
@@ -789,6 +789,26 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/therapy-compare-perfected",
+        "file": "src/app/mockups/therapy-compare-perfected/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-compare-progressive",
+        "file": "src/app/mockups/therapy-compare-progressive/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-compare-sheet",
+        "file": "src/app/mockups/therapy-compare-sheet/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/therapy-compare-tray",
+        "file": "src/app/mockups/therapy-compare-tray/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/therapy-navigation-context",
         "file": "src/app/mockups/therapy-navigation-context/page.tsx",
         "area": "mockup"
@@ -1354,9 +1374,9 @@
     ],
     "counts": {
       "modes": 15,
-      "pages": 188,
+      "pages": 192,
       "product_pages": 67,
-      "mockup_pages": 121,
+      "mockup_pages": 125,
       "redirects": 17,
       "api": 56
     }
