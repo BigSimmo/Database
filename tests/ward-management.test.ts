@@ -28,7 +28,9 @@ function routeFileFor(href: string) {
 describe("Ward Flow synthetic prototype", () => {
   it("declares every queue and capacity header as a column header", () => {
     const thTags = [...modesSource.matchAll(/<th(?:\s[^>]*)?>/g)].map((match) => match[0]);
-    expect(thTags).toHaveLength(12);
+    // Task 8 (spec item 6) added three capacity-board columns — Sex mix, Specialling, and MHA
+    // authorised — raising the count from 12 to 15.
+    expect(thTags).toHaveLength(15);
     expect(thTags.every((tag) => tag.includes('scope="col"'))).toBe(true);
   });
 

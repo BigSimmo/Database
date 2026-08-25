@@ -389,6 +389,9 @@ function CapacityView() {
             <th scope="col">Health service</th>
             <th scope="col">Capability cue</th>
             <th scope="col">Five bed states</th>
+            <th scope="col">Sex mix</th>
+            <th scope="col">Specialling</th>
+            <th scope="col">MHA authorised</th>
             <th scope="col">Freshness</th>
           </tr>
         </thead>
@@ -396,7 +399,7 @@ function CapacityView() {
           {capacities.map(({ unit, capacity }) => {
             const fresh = now - unit.allocatable.confirmedAt <= unit.allocatable.staleAfterMinutes;
             return (
-              <tr key={unit.id}>
+              <tr key={unit.id} data-testid={`ward-capacity-row-${unit.id}`}>
                 <td>
                   <strong>{unit.name}</strong>
                   <div className={styles.microCopy}>{unit.beds} total beds</div>
@@ -423,6 +426,13 @@ function CapacityView() {
                       <strong>{capacity.occupied}</strong>Occupied
                     </span>
                   </div>
+                </td>
+                <td data-testid={`ward-capacity-sexmix-${unit.id}`}>
+                  Female {unit.sexMix.Female} · Male {unit.sexMix.Male}
+                </td>
+                <td data-testid={`ward-capacity-specialling-${unit.id}`}>{unit.speciallingCapacity}</td>
+                <td data-testid={`ward-capacity-authorised-${unit.id}`}>
+                  {unit.authorised ? "MHA-authorised" : "not MHA-authorised"}
                 </td>
                 <td>
                   <span className={fresh ? styles.statusGood : styles.statusWarning}>
