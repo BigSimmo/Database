@@ -5,8 +5,8 @@ import {
   CountTile,
   META_CLASS,
   MONO_CLASS,
+  PanelSection,
   ROW_CLASS,
-  SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
@@ -92,10 +92,7 @@ export default function DeveloperRoutesPage() {
         request, so it is not repeated here. This page answers what exists, not what is broken.
       </p>
 
-      <section aria-labelledby="developer-routes-modes-heading" className="grid gap-3">
-        <h2 id="developer-routes-modes-heading" className={SECTION_HEADING_CLASS}>
-          App modes · {counts.modes}
-        </h2>
+      <PanelSection headingId="developer-routes-modes-heading" heading={`App modes · ${counts.modes}`}>
         <ul data-testid="developer-routes-modes" className="grid gap-2">
           {modes.map((mode) => (
             <li key={mode.id} className={ROW_CLASS}>
@@ -107,12 +104,9 @@ export default function DeveloperRoutesPage() {
             </li>
           ))}
         </ul>
-      </section>
+      </PanelSection>
 
-      <section aria-labelledby="developer-routes-product-heading" className="grid gap-3">
-        <h2 id="developer-routes-product-heading" className={SECTION_HEADING_CLASS}>
-          Product pages · {productPages.length}
-        </h2>
+      <PanelSection headingId="developer-routes-product-heading" heading={`Product pages · ${productPages.length}`}>
         <ul data-testid="developer-routes-pages-product" className="grid gap-2">
           {productPages.map((page) => (
             <li key={page.path} className={ROW_CLASS}>
@@ -121,12 +115,12 @@ export default function DeveloperRoutesPage() {
             </li>
           ))}
         </ul>
-      </section>
+      </PanelSection>
 
-      <section aria-labelledby="developer-routes-mockup-heading" className="grid gap-3">
-        <h2 id="developer-routes-mockup-heading" className={SECTION_HEADING_CLASS}>
-          Design-scratch pages · {mockupPages.length}
-        </h2>
+      <PanelSection
+        headingId="developer-routes-mockup-heading"
+        heading={`Design-scratch pages · ${mockupPages.length}`}
+      >
         <p className={META_CLASS}>
           These do not exist in production. They are exempt from the button-wiring and reachability checks, and from
           nothing else.
@@ -139,13 +133,10 @@ export default function DeveloperRoutesPage() {
             </li>
           ))}
         </ul>
-      </section>
+      </PanelSection>
 
       {otherPages.length > 0 ? (
-        <section aria-labelledby="developer-routes-other-heading" className="grid gap-3">
-          <h2 id="developer-routes-other-heading" className={SECTION_HEADING_CLASS}>
-            Other · {otherPages.length}
-          </h2>
+        <PanelSection headingId="developer-routes-other-heading" heading={`Other · ${otherPages.length}`}>
           <p className={META_CLASS}>
             These pages carry an area this page does not recognise. They are shown as they are rather than dropped, so
             together with the {productPages.length} product and {mockupPages.length} design-scratch pages counted above,
@@ -159,13 +150,10 @@ export default function DeveloperRoutesPage() {
               </li>
             ))}
           </ul>
-        </section>
+        </PanelSection>
       ) : null}
 
-      <section aria-labelledby="developer-routes-redirects-heading" className="grid gap-3">
-        <h2 id="developer-routes-redirects-heading" className={SECTION_HEADING_CLASS}>
-          Redirects · {counts.redirects}
-        </h2>
+      <PanelSection headingId="developer-routes-redirects-heading" heading={`Redirects · ${counts.redirects}`}>
         {redirects.length > 0 ? (
           <ul data-testid="developer-routes-redirects" className="grid gap-2">
             {redirects.map((redirect) => (
@@ -181,12 +169,9 @@ export default function DeveloperRoutesPage() {
             None. No route in the app redirects to another.
           </p>
         )}
-      </section>
+      </PanelSection>
 
-      <section aria-labelledby="developer-routes-api-heading" className="grid gap-3">
-        <h2 id="developer-routes-api-heading" className={SECTION_HEADING_CLASS}>
-          API routes · {counts.api}
-        </h2>
+      <PanelSection headingId="developer-routes-api-heading" heading={`API routes · ${counts.api}`}>
         {api.length > 0 ? (
           <ul data-testid="developer-routes-api" className="grid gap-2">
             {api.map((route) => (
@@ -202,7 +187,7 @@ export default function DeveloperRoutesPage() {
             None. No route in the app serves as an API endpoint.
           </p>
         )}
-      </section>
+      </PanelSection>
     </PanelPageShell>
   );
 }
