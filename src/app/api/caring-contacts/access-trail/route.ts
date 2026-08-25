@@ -27,6 +27,10 @@ const querySchema = z
     fromIso: isoInstant.optional(),
     toIso: isoInstant.optional(),
     actorId: auditableIdentifier.optional(),
+    // A HAND-COPY of `AccessedObjectType` in `src/lib/caring-contacts/access-audit.ts`, kept in the
+    // same order. `tests/caring-contacts-schedule-route.test.ts` pins the two as the same set: a
+    // member added there and not here is an object type the trail can be filtered by nowhere, which
+    // is the whole reason Ruling 46 says to add a member rather than overload one.
     objectType: z
       .enum([
         "plan",
@@ -36,6 +40,7 @@ const querySchema = z
         "report",
         "patientDirectory",
         "patientName",
+        "contactSchedule",
         "notificationPreferences",
         "trainingRecord",
         "pathwayVersion",
