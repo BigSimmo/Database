@@ -811,6 +811,7 @@
     "Button": "controls",
     "Checkbox": "controls",
     "Chip": "controls",
+    "ChoiceChip": "controls",
     "Citation": "source",
     "CitationList": "source",
     "ConfirmDialog": "layout",

@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "0be5a216ceac3628ad92b548abd298f19523a2e4",
-    "committed_at": "2026-08-25T03:42:11+00:00"
+    "sha": "e265a187027a9c566734d73e50f68c4f2cd1af48",
+    "committed_at": "2026-08-25T03:42:15+00:00"
   },
   "routes": {
     "modes": [
@@ -3511,58 +3511,94 @@
     ],
     "sections": [
       {
-        "name": "adr"
+        "name": "adr",
+        "documents": 1,
+        "uncatalogued": 1
       },
       {
-        "name": "archive"
+        "name": "archive",
+        "documents": 31,
+        "uncatalogued": 27
       },
       {
-        "name": "audit"
+        "name": "audit",
+        "documents": 19,
+        "uncatalogued": 9
       },
       {
-        "name": "care-plan"
+        "name": "care-plan",
+        "documents": 7,
+        "uncatalogued": 7
       },
       {
-        "name": "caring-contacts"
+        "name": "caring-contacts",
+        "documents": 66,
+        "uncatalogued": 66
       },
       {
-        "name": "codex"
+        "name": "codex",
+        "documents": 6,
+        "uncatalogued": 6
       },
       {
-        "name": "decisions"
+        "name": "decisions",
+        "documents": 1,
+        "uncatalogued": 1
       },
       {
-        "name": "design-system"
+        "name": "design-system",
+        "documents": 8,
+        "uncatalogued": 2
       },
       {
-        "name": "evidence"
+        "name": "evidence",
+        "documents": 4,
+        "uncatalogued": 4
       },
       {
-        "name": "plans"
+        "name": "plans",
+        "documents": 6,
+        "uncatalogued": 6
       },
       {
-        "name": "product"
+        "name": "product",
+        "documents": 1,
+        "uncatalogued": 1
       },
       {
-        "name": "prompts"
+        "name": "prompts",
+        "documents": 13,
+        "uncatalogued": 13
       },
       {
-        "name": "rag-behaviour"
+        "name": "rag-behaviour",
+        "documents": 4,
+        "uncatalogued": 4
       },
       {
-        "name": "rag-improvement"
+        "name": "rag-improvement",
+        "documents": 8,
+        "uncatalogued": 2
       },
       {
-        "name": "redesign"
+        "name": "redesign",
+        "documents": 16,
+        "uncatalogued": 16
       },
       {
-        "name": "root"
+        "name": "root",
+        "documents": 98,
+        "uncatalogued": 23
       },
       {
-        "name": "superpowers"
+        "name": "superpowers",
+        "documents": 90,
+        "uncatalogued": 90
       },
       {
-        "name": "ward-flow-phase-3-workspace"
+        "name": "ward-flow-phase-3-workspace",
+        "documents": 50,
+        "uncatalogued": 50
       }
     ],
     "counts": {
