@@ -101,8 +101,20 @@ const primaryControlClass =
 const secondaryControlClass =
   "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border-[CanvasText]";
 
-const optionClass =
-  "flex min-h-tap w-full min-w-0 items-start gap-3 border-t border-[color:var(--border)] px-4 py-3 text-left first:border-t-0 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-0.125rem] focus-within:outline-[color:var(--focus)]";
+const optionRowClass =
+  "min-w-0 border-t border-[color:var(--border)] px-4 py-2 text-left first:border-t-0 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-0.125rem] focus-within:outline-[color:var(--focus)]";
+
+/**
+ * `min-h-tap` sits on the LABEL, not on the row around it — round 1, finding I-2.
+ *
+ * A 48px `<div>` wrapping a 20px radio and a one-line label is 48px of layout and about 20px of
+ * activation surface: on a phone the rest of the row is dead space that looks tappable. The label
+ * is what a tap activates, so the label is what has to be 48px tall, exactly as the stage-1
+ * confirmations already do it. `min-h-12` (48px) and never `min-h-11`: this repo's production tap
+ * floor exceeds even the AAA-level 44px criterion, because 44px hit a sub-pixel rounding flake in
+ * `ui-smoke`.
+ */
+const optionLabelClass = "flex min-h-tap w-full min-w-0 cursor-pointer items-center gap-3";
 
 const mutedTextClass = "max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]";
 
@@ -595,35 +607,32 @@ function PathwayStage({
                 const inputId = `caring-contacts-pathway-${option.id}`;
                 const detailId = `${inputId}-detail`;
                 return (
-                  <div key={option.id} className={optionClass}>
-                    <input
-                      type="radio"
-                      id={inputId}
-                      name="caring-contacts-pathway-version"
-                      value={option.id}
-                      checked={chosen === option.id}
-                      onChange={() => onChoose(option.id)}
-                      aria-describedby={detailId}
-                      className="mt-1 size-5 shrink-0 accent-[color:var(--clinical-accent)]"
-                    />
-                    <span className="min-w-0">
-                      <label
-                        htmlFor={inputId}
-                        className="block break-words text-sm font-semibold text-[color:var(--text-heading)]"
-                      >
+                  <div key={option.id} className={optionRowClass}>
+                    <label htmlFor={inputId} className={optionLabelClass}>
+                      <input
+                        type="radio"
+                        id={inputId}
+                        name="caring-contacts-pathway-version"
+                        value={option.id}
+                        checked={chosen === option.id}
+                        onChange={() => onChoose(option.id)}
+                        aria-describedby={detailId}
+                        className="size-5 shrink-0 accent-[color:var(--clinical-accent)]"
+                      />
+                      <span className="min-w-0 break-words text-sm font-semibold text-[color:var(--text-heading)]">
                         {option.id}
-                      </label>
-                      <span id={detailId} className="min-w-0">
-                        <span className="mt-1 block text-sm leading-6 text-[color:var(--text-muted)]">
-                          {option.cadenceLabels.join(" · ")}
-                        </span>
-                        <span className="mt-1 block text-xs leading-5 text-[color:var(--text-muted)]">
-                          Approved by {option.approvedByRoles.join(" and ")}
-                          {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
-                          {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
-                        </span>
                       </span>
-                    </span>
+                    </label>
+                    <div id={detailId} className="min-w-0 pb-1 pl-8">
+                      <p className="text-sm leading-6 text-[color:var(--text-muted)]">
+                        {option.cadenceLabels.join(" · ")}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                        Approved by {option.approvedByRoles.join(" and ")}
+                        {option.publishedAt === null ? ", not yet published" : `, published ${option.publishedAt}`}
+                        {option.id === referralPathwayVersionId ? ". Named on the referral." : ""}
+                      </p>
+                    </div>
                   </div>
                 );
               })}

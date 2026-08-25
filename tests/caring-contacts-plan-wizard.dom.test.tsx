@@ -279,6 +279,68 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
   });
 });
 
+describe("the caring-contacts plan wizard — every activation surface is a production tap target", () => {
+  /**
+   * `min-h-tap` is `--spacing-tap`, 3rem, 48px — this repo's production floor, which exceeds even
+   * the AAA-level 44px criterion. Never `min-h-11`: 44px reintroduces a known `ui-smoke` sub-pixel
+   * flake, and generic checklist guidance that says otherwise loses to the repo (AGENTS.md,
+   * "External skill precedence").
+   *
+   * WHAT THIS PROVES AND WHAT IT CANNOT. jsdom has no layout, so this reads the class rather than
+   * the rendered box — the same technique `tests/caring-contacts-overlay-trigger.dom.test.tsx`
+   * already uses. A real pixel measurement belongs in the browser suite, and cannot be written
+   * today: that server seeds no referral, so no Playwright case can reach a stage. Named in the
+   * Task 7 report as a coverage gap rather than passed off as measured.
+   *
+   * It reads the ELEMENT A TAP ACTIVATES, which is the whole of round 1 finding I-2: the pathway
+   * rows had `min-h-tap` on a wrapping `<div>` while the only activation surface was a 20px radio
+   * and a one-line label, so the row looked tappable and mostly was not.
+   */
+  function activationSurfaces(container: HTMLElement): HTMLElement[] {
+    // Every control a finger can land on: the buttons, and the labels that carry a checkbox or a
+    // radio. Not the inputs themselves — a 20px input inside a 48px label is correct.
+    return [
+      ...container.querySelectorAll<HTMLElement>("button"),
+      ...[...container.querySelectorAll<HTMLElement>("label")].filter(
+        (label) => label.querySelector("input") !== null || label.getAttribute("for") !== null,
+      ),
+    ];
+  }
+
+  it("puts the tap floor on stage 1's confirmations and its controls", () => {
+    const { container } = renderWizard();
+    const surfaces = activationSurfaces(container);
+    expect(surfaces.length, "no activation surfaces were found — update this test").toBeGreaterThan(0);
+    for (const surface of surfaces) {
+      expect(surface.className, `${surface.textContent?.trim()} is not a production tap target`).toContain("min-h-tap");
+      expect(surface.className, `${surface.textContent?.trim()} was narrowed to the 44px guidance`).not.toContain(
+        "min-h-11",
+      );
+    }
+  });
+
+  it("puts the tap floor on the pathway rows a finger actually lands on", async () => {
+    const user = userEvent.setup();
+    const { container } = renderWizard();
+    await reachPathwayStage(user);
+
+    const radios = [...container.querySelectorAll<HTMLInputElement>("input[type='radio']")];
+    expect(radios.length, "the pathway chooser rendered no options — update this test").toBeGreaterThan(0);
+    for (const radio of radios) {
+      const label = container.querySelector<HTMLElement>(`label[for="${radio.id}"]`);
+      expect(label, `the radio ${radio.id} has no label to tap`).not.toBeNull();
+      expect(label!.className, `${radio.id}'s row is not a production tap target`).toContain("min-h-tap");
+      expect(label!.className).not.toContain("min-h-11");
+      // And the label is what the tap activates, rather than a 48px wrapper around a 20px input.
+      expect(label!.contains(radio), `${radio.id} is outside the surface that carries the tap floor`).toBe(true);
+    }
+
+    for (const surface of activationSurfaces(container)) {
+      expect(surface.className, `${surface.textContent?.trim()} is not a production tap target`).toContain("min-h-tap");
+    }
+  });
+});
+
 describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", () => {
   it("names every stage, and marks the unbuilt ones as unbuilt", () => {
     renderWizard();
