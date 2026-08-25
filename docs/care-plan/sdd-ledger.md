@@ -1204,6 +1204,30 @@ contradict. Task 10's brief was checked line by line. What it claims, against wh
     `claimsJointAuthorship` predicate so the marker and the sentence cannot drift apart. _Cost if
     wrong:_ the replacement wording is provisional and one line to change; the condition is not.
 
+65. **The printed safety boundary carries its own lines, not a count of them — and the print
+    route's on-screen preview changes with it, deliberately.** Reading the captured paper end to
+    end showed the boundary printing `What would make this presentation different (5 listed)` with
+    the five items roughly forty lines below. On screen a jump link resolves that; on paper there
+    is nothing to jump to, and a page break can put the pointer on one sheet and its referent on
+    the next — leaving a clinician at 3am holding `5 listed` and nothing else. That is the one
+    element the whole design pins above all plan content, and the reader it exists for is exactly
+    the one who stops early.
+
+    The implementer reached it through a `medium` prop rather than `@media print`, because the CSS
+    route needs `display: none` on a `.pinnedBoundary*` selector and `care-plan-route-files.test.ts:556`
+    forbids that anywhere, including inside a print block. **That guard is correct and was not
+    weakened or renamed around** — the right response to a guard that blocks a shortcut is to take
+    the longer route, not to file the guard down.
+
+    **The visible consequence, which is mine to own:** the print route's on-screen preview now shows
+    what the paper shows. The implementer flagged it as unreviewed rather than shipping it quietly,
+    which was right. I am ruling it correct: a print preview that disagrees with its own paper is
+    its own defect, and this route exists to show a clinician what they are about to carry to a
+    bedside. The reading surfaces are untouched — the screen branch is the committed code
+    character-for-character, and the section keeps its numbered place, so the specification's
+    requirement that the boundary appear both pinned and in sequence still holds. _Cost if wrong:_
+    one route's preview is longer than it was, revertible by dropping a single prop.
+
 ### User decisions, 25 August 2026
 
 These were **decided by the user**, not ruled on their behalf. They are recorded here in the
