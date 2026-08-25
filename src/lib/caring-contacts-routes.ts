@@ -60,6 +60,33 @@ export function patientPlanRoute(patientId: string, planId: string): string {
   return `${patientRoute(patientId)}?${params.toString()}`;
 }
 
+/**
+ * The query parameter the activation wizard accepts to name WHICH accepted referral a plan is
+ * being started for.
+ *
+ * Declared here beside `CARING_CONTACTS_PLAN_QUERY_PARAM` and for the same reason: the builder
+ * below and the page's own parser must agree on the name, and a second copy of the string is how
+ * they would stop agreeing.
+ *
+ * Ruling [111]: a referral id in a query string is acceptable and a patient's name or mobile
+ * number never is — `src/app/api/caring-contacts/plans/route.ts` records why in the code, and the
+ * sentence is worth reading before adding anything else to this file: "a query string is logged by
+ * every proxy between here and the browser". Nothing about a patient may travel here, including as
+ * a draft key.
+ */
+export const CARING_CONTACTS_REFERRAL_QUERY_PARAM = "referral" as const;
+
+/**
+ * The activation wizard, started for one accepted referral.
+ *
+ * The page still validates that the referral is one this actor's team may see, and that it has
+ * been accepted, before it starts anything with it.
+ */
+export function newPlanRoute(referralId: string): string {
+  const params = new URLSearchParams({ [CARING_CONTACTS_REFERRAL_QUERY_PARAM]: referralId });
+  return `${CARING_CONTACTS_ROUTES.newPlan}?${params.toString()}`;
+}
+
 export function planRoute(planId: string): string {
   return `${CARING_CONTACTS_BASE}/plans/${encodeURIComponent(planId)}`;
 }

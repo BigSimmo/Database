@@ -274,17 +274,31 @@ export function CaringContactsShell({ title, description, serviceState, children
                       </p>
                     ) : null}
                   </div>
-                  <UnavailableDestination
-                    id="primary-new-plan"
-                    label="New plan"
-                    reason="Starting a caring-contact plan for a patient."
-                    className="inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text-muted)]"
+                  {/*
+                    The workspace's primary control, and a real link since Phase 2B Task 7 built
+                    the screen behind it.
+
+                    Ruling 89 is why it changed in the same diff as that screen rather than before
+                    it: a control lit up ahead of its destination points at a page that says
+                    nothing useful whether or not there is anything to see. The inverse is just as
+                    false, which is what this edit fixes -- once `/caring-contacts/plans/new`
+                    exists, an "unavailable" control claims the screen is not built when it is.
+
+                    It carries no referral. The wizard starts from an accepted referral named in
+                    the URL (Ruling [111]), and referrals are not listed anywhere in this workspace
+                    yet, so this control reaches the screen's own honest statement of what it needs
+                    rather than a started sign-up. That statement is the screen, not an error.
+                  */}
+                  <Link
+                    href={CARING_CONTACTS_ROUTES.newPlan}
+                    data-internal-link="true"
+                    className={`inline-flex min-h-tap shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] ${focusRing}`}
                   >
                     <Plus aria-hidden="true" className="size-icon-md shrink-0" />
                     <span data-testid="caring-contacts-primary-control" className="truncate">
                       New plan
                     </span>
-                  </UnavailableDestination>
+                  </Link>
                 </div>
                 {children}
               </div>

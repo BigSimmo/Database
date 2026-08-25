@@ -116,9 +116,11 @@ describe("caring-contacts workspace shell", () => {
     const { container } = renderShell();
     const internalHrefs = [...container.querySelectorAll("a[href^='/']")].map((anchor) => anchor.getAttribute("href"));
     expect(internalHrefs.length).toBeGreaterThan(0);
-    // `today` and `patients` are the Caring Contacts routes with a page. Every other
+    // `today`, `patients` and `newPlan` are the Caring Contacts routes with a page. Every other
     // declared destination is an unavailable control until Plan 2B builds its page.
-    expect(new Set(internalHrefs)).toEqual(new Set([CARING_CONTACTS_ROUTES.today, CARING_CONTACTS_ROUTES.patients]));
+    expect(new Set(internalHrefs)).toEqual(
+      new Set([CARING_CONTACTS_ROUTES.today, CARING_CONTACTS_ROUTES.patients, CARING_CONTACTS_ROUTES.newPlan]),
+    );
   });
 
   it("keeps the More panel's destination set, in order, all of them unavailable", () => {
@@ -139,16 +141,21 @@ describe("caring-contacts workspace shell", () => {
     );
   });
 
-  it("makes the workspace's primary control an unavailable one, not a dead button", () => {
+  it("makes the workspace's primary control a real link, now that the screen behind it exists", () => {
+    // It was an unavailable control until Phase 2B Task 7 built `/caring-contacts/plans/new`.
+    // Ruling 89 requires the two to move together in BOTH directions: a control lit up early points
+    // at a page that says nothing useful, and a control left unavailable late claims a screen is
+    // not built when it is.
     const { container } = renderShell();
-    const primary = screen.getByTestId("caring-contacts-primary-control").closest("button");
-    expect(primary, "the primary control is not a button").not.toBeNull();
+    const primary = screen.getByTestId("caring-contacts-primary-control").closest("a");
+    expect(primary, "the primary control is not a link").not.toBeNull();
     expect(primary!.textContent).toBe("New plan");
-    expect(destinationKind(primary!)).toBe("unavailable");
-    expectStatesItsReason(primary!);
-    // 2 unbuilt rail destinations + 1 on the phone bar + 10 in the More panel + this one.
+    expect(destinationKind(primary!)).toBe("link");
+    expect(primary).toHaveAttribute("href", CARING_CONTACTS_ROUTES.newPlan);
+    expect(primary).toHaveAttribute("data-internal-link", "true");
+    // 2 unbuilt rail destinations + 1 on the phone bar + 10 in the More panel.
     expect([...container.querySelectorAll("button")].filter((c) => destinationKind(c) === "unavailable")).toHaveLength(
-      14,
+      13,
     );
   });
 

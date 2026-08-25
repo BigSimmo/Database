@@ -528,7 +528,12 @@ for (const match of tcReservedSegments) {
 // `tests/caring-contacts-workspace-shell.dom.test.tsx` independently pins that each of these is
 // rendered as a real link, which is what stops this builder from vouching for a dead entry.
 const workspaceShellSrc = readFileSync(path.join(srcRoot, "components/caring-contacts/workspace/shell.tsx"), "utf8");
-const workspaceHrefKeys = [...workspaceShellSrc.matchAll(/href:\s*CARING_CONTACTS_ROUTES\.(\w+)/g)].map(
+// Two spellings, both of them the same fact. `href: CARING_CONTACTS_ROUTES.x` is a row of the
+// frozen destination table; `href={CARING_CONTACTS_ROUTES.x}` is a control written directly in the
+// shell's JSX, which is what the primary "New plan" control became in Phase 2B Task 7 when the
+// screen behind it was built. Matching only the table spelling would have read that control as no
+// link at all and reported its route as an orphan.
+const workspaceHrefKeys = [...workspaceShellSrc.matchAll(/href(?::\s*|=\{)CARING_CONTACTS_ROUTES\.(\w+)/g)].map(
   (match) => match[1],
 );
 // Fail loudly rather than silently covering nothing: an empty parse here would let every built

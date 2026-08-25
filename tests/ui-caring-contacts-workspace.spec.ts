@@ -46,6 +46,23 @@ const PATIENT_OVERVIEW_SYNTHETIC_ID = "SYN-PATIENT-001";
 const PATIENT_OVERVIEW_ROUTE = `${PATIENTS_ROUTE}/${PATIENT_OVERVIEW_SYNTHETIC_ID}`;
 
 /**
+ * The activation wizard, opened with no referral named.
+ *
+ * Deliberately the bare route rather than `?referral=<id>`. The wizard starts from an accepted
+ * referral (Ruling [111]) and the isolated Playwright server seeds none -- `caringContactsStore()`
+ * falls back to `createInMemoryRepository`, which starts empty and nothing here writes to it -- so
+ * a referral id in this constant would name a referral that does not exist and would render the
+ * SAME screen as no referral at all, while pretending to prove something it does not. The bare
+ * route is the path this server can actually reach, and it is a real production state: the screen
+ * states what it needs, in words, and offers a control that goes somewhere.
+ *
+ * The stages themselves are not reachable from this server, so the browser proofs below cover the
+ * screen's shell, its statement, and its layout. The stage bodies are proved in
+ * `tests/caring-contacts-plan-wizard.dom.test.tsx`, which can supply a referral.
+ */
+const NEW_PLAN_ROUTE = `${WORKSPACE_ROUTE}/plans/new`;
+
+/**
  * Every production screen this workspace serves, with the `h1` it must render.
  *
  * The header above states the rule this list exists to keep true: the adoption
@@ -92,6 +109,7 @@ const WORKSPACE_SCREENS = [
   { name: "Today", route: WORKSPACE_ROUTE, heading: "Today" },
   { name: "Patients", route: PATIENTS_ROUTE, heading: "Patients" },
   { name: "Patient overview", route: PATIENT_OVERVIEW_ROUTE, heading: "Patient" },
+  { name: "New plan", route: NEW_PLAN_ROUTE, heading: "New plan" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
@@ -99,6 +117,7 @@ type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
 const TODAY_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[0];
 const PATIENTS_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[1];
 const PATIENT_OVERVIEW_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[2];
+const NEW_PLAN_SCREEN: WorkspaceScreen = WORKSPACE_SCREENS[3];
 
 /** 320/390/430 are the three compact review widths; the rest are the state boundaries. */
 const REVIEW_WIDTHS = [320, 390, 430, 768, 1024, 1440] as const;
@@ -574,6 +593,118 @@ test.describe("caring-contacts patient overview", () => {
   });
 });
 
+test.describe("caring-contacts new plan", () => {
+  // The one statement this server can reach, and it is a real production state rather than a
+  // fixture: the wizard starts from an accepted referral named in the URL, and this server seeds
+  // none. See NEW_PLAN_ROUTE's own note.
+  const STATEMENT = "No referral named";
+
+  test("serves the screen and states, in words, what it needs before a plan can be started", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: VIEWPORT_HEIGHT });
+    const response = await page.goto(NEW_PLAN_SCREEN.route, { waitUntil: "load" });
+
+    expect(response?.status(), "the new plan route did not serve a page").toBe(200);
+    await expect(page.getByRole("heading", { level: 1, name: NEW_PLAN_SCREEN.heading })).toBeVisible();
+
+    const statement = page.getByRole("group", { name: STATEMENT });
+    await expect(statement).toBeVisible();
+    // The screen says a plan starts from an accepted referral, rather than presenting an empty
+    // form that could never be completed.
+    await expect(statement).toContainText("accepted");
+    // A dead end is not an empty state: the remedy is a real control, and it goes somewhere.
+    await expect(statement.getByRole("link", { name: /Back to this team/ })).toBeVisible();
+
+    // Nothing on this path may collect anything, so the wizard's client boundary must not mount.
+    await expect(page.getByTestId("caring-contacts-plan-wizard")).toHaveCount(0);
+  });
+
+  test("is reachable from the workspace's primary control, not only by typing its URL", async ({ page }) => {
+    await openWorkspace(page, 1024);
+
+    const primary = page.getByTestId("caring-contacts-primary-control");
+    await expect(primary).toBeVisible();
+    await primary.click();
+
+    await expect(page).toHaveURL(new RegExp(`${NEW_PLAN_SCREEN.route}$`));
+    await expect(page.getByRole("heading", { level: 1, name: NEW_PLAN_SCREEN.heading })).toBeVisible();
+  });
+
+  test("holds the frozen layout at 320px, the narrowest reviewed width", async ({ page }) => {
+    await openWorkspace(page, 320, VIEWPORT_HEIGHT, NEW_PLAN_SCREEN);
+
+    expect(await documentOverflow(page), "horizontal document overflow at 320px").toBeLessThanOrEqual(2);
+    expect(await displayedWidthStates(page), "width state at 320px").toEqual([widthStateFor(320)]);
+    await expect(page.getByTestId("caring-contacts-phone-dock")).toBeVisible();
+    await expect(page.getByTestId("caring-contacts-rail")).toBeHidden();
+
+    // The statement's remedy is a production tap target at the width where a thumb is the only
+    // pointer. A control narrowed to the generic 44px guidance fails here, which is the point.
+    const back = page.getByRole("link", { name: /Back to this team/ });
+    await expect(back).toBeVisible();
+    const box = await back.boundingBox();
+    expect(box?.height ?? 0, "the statement's remedy is under the production tap floor").toBeGreaterThanOrEqual(48);
+  });
+
+  test("re-resolves its surfaces and ink in dark rather than leaking a light value", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, NEW_PLAN_SCREEN);
+    await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
+    const light = await shellColours(page);
+    const lightStatement = await emptyStateColours(page, STATEMENT);
+
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, NEW_PLAN_SCREEN);
+    await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
+    const dark = await shellColours(page);
+    const darkStatement = await emptyStateColours(page, STATEMENT);
+
+    expect(dark.chrome, "rail surface did not change in dark").not.toBe(light.chrome);
+    expect(dark.ink, "heading ink did not change in dark").not.toBe(light.ink);
+
+    // The shell chrome above is identical on every route, so on its own it would claim the
+    // category on a screen it had not inspected. These read this screen's own surface.
+    expect(darkStatement.surface, "the statement's surface did not change in dark").not.toBe(lightStatement.surface);
+    expect(darkStatement.border, "the statement's border did not change in dark").not.toBe(lightStatement.border);
+    expect(darkStatement.ink, "the statement's ink did not change in dark").not.toBe(lightStatement.ink);
+    for (const value of Object.values(darkStatement)) {
+      expect(value, "a dark colour on the statement resolved to nothing").not.toBe("rgba(0, 0, 0, 0)");
+    }
+  });
+
+  test("keeps its statement in words once forced colours drop every tint", async ({ page, browserName }) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+
+    await page.emulateMedia({ forcedColors: "active" });
+    await openWorkspace(page, 390, VIEWPORT_HEIGHT, NEW_PLAN_SCREEN);
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    const statement = page.getByRole("group", { name: STATEMENT });
+    await expect(statement).toBeVisible();
+    await expect(statement).toContainText("accepted");
+
+    const border = await page.evaluate((label) => {
+      const group = document.querySelector(`[role='group'][aria-label='${label}']`);
+      if (!group) throw new Error("the statement is missing");
+      const style = getComputedStyle(group);
+      return { width: style.borderTopWidth, colour: style.borderTopColor };
+    }, STATEMENT);
+    expect(Number.parseFloat(border.width), "the statement has no border under forced colours").toBeGreaterThan(0);
+    expect(border.colour, "the statement border is transparent under forced colours").not.toBe("rgba(0, 0, 0, 0)");
+
+    expect(await documentOverflow(page), "horizontal overflow under forced colours").toBeLessThanOrEqual(2);
+  });
+
+  test("prints with the synthetic marker and its statement still on the page", async ({ page }) => {
+    await openWorkspace(page, 1024, VIEWPORT_HEIGHT, NEW_PLAN_SCREEN);
+    await page.emulateMedia({ media: "print" });
+
+    await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: NEW_PLAN_SCREEN.heading })).toBeVisible();
+    await expect(page.getByRole("group", { name: STATEMENT })).toBeVisible();
+    expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
+  });
+});
+
 /* ------------------------------------------------------------------------- *
  * Task 19 — the overlay half, and the accessibility half.
  *
@@ -849,7 +980,11 @@ test.describe("caring-contacts workspace overlays", () => {
       // actually under test here — the host capturing `document.activeElement` as
       // the overlay opens, and the Sheet restoring focus to it on close — is
       // production code, reached exactly as it would be from a real button.
-      const trigger = page.getByRole("button", { name: /^New plan/ });
+      // The workspace's primary control became a real link in Phase 2B Task 7, when the screen
+      // behind it was built; it was an unavailable BUTTON before that. It is still only a stand-in
+      // focus target here -- nothing about this test depends on which element type it is, only that
+      // it is a focusable control the overlay can return focus to.
+      const trigger = page.getByRole("link", { name: /^New plan/ });
       await expect(trigger).toBeVisible();
 
       for (const definition of WORKSPACE_OVERLAY_DEFINITIONS) {
