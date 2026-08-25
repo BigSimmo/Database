@@ -961,9 +961,9 @@ tests to run.
 
 ## Generated maturity snapshot
 
-Registered public components: 54
-Components with a valid design-sync preview: 54
-Components with product imports: 35
+Registered public components: 55
+Components with a valid design-sync preview: 55
+Components with product imports: 36
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -977,6 +977,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
 | `Checkbox`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

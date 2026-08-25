@@ -2,7 +2,15 @@
 
 import { X, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn, toneDanger, toneInfo, toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import {
+  cn,
+  ignoreUnavailableActivation,
+  toneDanger,
+  toneInfo,
+  toneNeutral,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 
 export type ChipSize = "compact" | "standard";
 export type ChipStatusTone = "neutral" | "info" | "success" | "warning" | "danger";
@@ -62,6 +70,108 @@ function appearanceClasses(appearance: ChipAppearance) {
   if (appearance.kind === "status") return STATUS[appearance.tone];
   if (appearance.kind === "category") return CATEGORY[appearance.tone];
   return INFORMATION[appearance.tone ?? "neutral"];
+}
+
+export type ChoiceChipProps = {
+  children: ReactNode;
+  pressed: boolean;
+  onPressedChange: (pressed: boolean) => void;
+  size?: ChipSize;
+  icon?: LucideIcon;
+  /** Optional category/status treatment for specialised tag families. */
+  appearance?: ChipAppearance;
+  disabled?: boolean;
+  ariaDisabled?: boolean;
+  ariaLabel?: string;
+  ariaDescribedBy?: string;
+  title?: string;
+  testId?: string;
+  /** Layout only: width, shrink/grow, alignment and wrapping. */
+  className?: string;
+};
+
+/** Compact many-of-many selection. Use SegmentedControl for one-of-many choices. */
+export function ChoiceChip({
+  children,
+  pressed,
+  onPressedChange,
+  size = "standard",
+  icon: Icon,
+  appearance,
+  className,
+  disabled,
+  ariaDisabled,
+  ariaLabel,
+  ariaDescribedBy,
+  title,
+  testId,
+}: ChoiceChipProps) {
+  // An explained dead end remains focusable. If both flags arrive, preserve that
+  // accessible state rather than allowing native disabled to remove it from Tab.
+  const ariaUnavailable = Boolean(ariaDisabled);
+  const nativeDisabled = Boolean(disabled) && !ariaUnavailable;
+  const unavailable = nativeDisabled || ariaUnavailable;
+  const unavailableAttributes = ariaUnavailable
+    ? { "aria-disabled": true, disabled: false }
+    : { disabled: nativeDisabled };
+  const surfaceAppearance = unavailable
+    ? "border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]"
+    : appearance
+      ? appearanceClasses(appearance)
+      : pressed
+        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+        : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] group-hover:border-[color:var(--border-strong)] group-hover:bg-[color:var(--surface-subtle)]";
+  const contentAppearance = unavailable
+    ? "cursor-default text-[color:var(--text-muted)]"
+    : appearance
+      ? cn(appearanceClasses(appearance), "!border-transparent !bg-transparent")
+      : pressed
+        ? "text-[color:var(--clinical-accent)]"
+        : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]";
+
+  return (
+    <button
+      type="button"
+      {...unavailableAttributes}
+      aria-pressed={pressed}
+      aria-label={ariaLabel}
+      aria-describedby={ariaDescribedBy}
+      title={title}
+      data-testid={testId}
+      data-choice-chip="true"
+      data-size={size}
+      onClick={(event) => {
+        if (unavailable) {
+          if (ariaUnavailable) ignoreUnavailableActivation(event);
+          return;
+        }
+        onPressedChange(!pressed);
+      }}
+      className={cn(
+        "group relative isolate inline-flex min-h-tap max-w-full items-center justify-center rounded-lg font-semibold leading-none transition motion-reduce:transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        size === "compact" ? "px-2.5 text-2xs" : "px-3 text-xs",
+        contentAppearance,
+        pressed && "font-bold forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]",
+        className,
+      )}
+    >
+      <span
+        aria-hidden="true"
+        data-choice-chip-surface="true"
+        className={cn(
+          "pointer-events-none absolute inset-1 z-0 rounded-lg border shadow-[var(--shadow-inset)]",
+          surfaceAppearance,
+        )}
+      />
+      <span
+        data-choice-chip-content="true"
+        className="relative z-[var(--z-raised)] inline-flex min-w-0 items-center justify-center gap-1.5"
+      >
+        {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
+        {typeof children === "string" ? <span className="min-w-0 truncate">{children}</span> : children}
+      </span>
+    </button>
+  );
 }
 
 function dotClasses(appearance: ChipAppearance) {

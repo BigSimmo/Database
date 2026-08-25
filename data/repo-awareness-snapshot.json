@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "59a0bc2efd0b7d304b460839701e25d177d75080",
-    "committed_at": "2026-08-25T03:41:55+00:00"
+    "sha": "e265a187027a9c566734d73e50f68c4f2cd1af48",
+    "committed_at": "2026-08-25T03:42:15+00:00"
   },
   "routes": {
     "modes": [
@@ -3624,30 +3624,6 @@
         "scope": "pr-ci-fix",
         "outcome": "Fixed: prettier format:changed; PR_POLICY_BODY sync for Clinical Governance Preflight; empty commit retriggered PR Policy after body sync race. Review threads already resolved (fb8adf92). Required checks green (PR policy, Static PR, PR required). mergeStateStatus BEHIND vs moving main — merge-tree clean.",
         "checks": "vitest:54/54; prettier:pass; pr-policy:pass; static-pr:pass; pr-required:pass"
-      },
-      {
-        "date": "2026-08-25",
-        "ref": "claude/settings-page-review-optimize-bicxn9",
-        "head": "7b35bb382ea52ed5aadc85845ed25409475f7b52",
-        "scope": "PR #2364 Codex P2 preference sync + main merge",
-        "outcome": "Supersedes accf3563 record after ledger-commit tip. Same preference-sync fixes; HEAD includes immutable review record. Three Codex P2 threads resolved (reply API 403). mergeable MERGEABLE; CI in flight on 7b35bb38.",
-        "checks": "vitest 9 passed preference tests; typecheck pass; maintainability budgets pass; CI subscribed"
-      },
-      {
-        "date": "2026-08-25",
-        "ref": "claude/settings-page-review-optimize-bicxn9",
-        "head": "accf3563369f981bf43b57bb76d6169a0870db96",
-        "scope": "PR #2364 Codex P2 preference sync + main merge",
-        "outcome": "Merged origin/main (adoption-manifest conflict resolved). Fixed three Codex P2 threads: optional saveRecentSearches default on PUT; mayRecordRecentSearches gate until account bootstrap; serialized/coalesced preference PUTs. Threads resolved via GraphQL (reply API 403 for cursor[bot]). Local: 9 preference tests pass; typecheck pass; maintainability budgets pass (ClinicalDashboard 4088/4140).",
-        "checks": "vitest: account-preferences-route + app-preferences-account-sync.dom + app-preferences (9 passed); typecheck pass; check:maintainability-budgets pass; design-system:adoption:update regenerated COMPONENTS Sheet count 29"
-      },
-      {
-        "date": "2026-08-25",
-        "ref": "claude/settings-page-review-optimize-bicxn9",
-        "head": "f0516962f344ec6f8306182bd4ee591de163f749",
-        "scope": "settings surface review and rework",
-        "outcome": "Reviewed and reworked: settings search index, phone/tablet section rail, 768px two-column seam, ConfirmDialog on both destructive privacy actions plus a scoped app-only reset, real preference sync state replacing two swallowed catches, new saveRecentSearches privacy gate, corrected platform-aware shortcuts, persistent live regions. Answer style deliberately left inert (protected RAG surface). PR #2364.",
-        "checks": "verify:pr-local exit 0 (18 gates, none failed; 815 test files, 9853 passed); verify:cheap exit 0; focused Chromium pass at 320/390/768/1280 caught and fixed a duplicate native search-clear glyph; check:production-readiness fails only on pre-existing privacy-register items byte-identical to origin/main"
       },
       {
         "date": "2026-08-24",
@@ -24523,8 +24499,8 @@
       }
     ],
     "counts": {
-      "records": 2613,
-      "refs": 1593
+      "records": 2610,
+      "refs": 1592
     }
   }
 }

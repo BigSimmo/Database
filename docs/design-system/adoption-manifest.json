@@ -415,6 +415,48 @@
       "baselineCommitted": false
     },
     {
+      "name": "ChoiceChip",
+      "family": "controls",
+      "source": "src/components/ui/chip.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "directImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
+        "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/screens/sheets-screen.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
+        "src/components/therapy-compass/screens/recommend-screen.tsx",
+        "src/components/therapy-compass/screens/sheets-screen.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ChoiceChip.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/document-filter-panel.dom.test.tsx",
+        "tests/ui-v2-components.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "v2",
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
+      "proofDeclared": true,
+      "baselineCommitted": false
+    },
+    {
       "name": "Citation",
       "family": "source",
       "source": "src/components/ui/citation.tsx",
@@ -4165,9 +4207,9 @@
     "declaredV2SurfaceCount": 17
   },
   "summary": {
-    "registeredComponentCount": 54,
-    "previewCount": 54,
-    "productImportedComponentCount": 35,
+    "registeredComponentCount": 55,
+    "previewCount": 55,
+    "productImportedComponentCount": 36,
     "rootCount": 96,
     "productionRouteCount": 81,
     "nextUiEntryCount": 142
