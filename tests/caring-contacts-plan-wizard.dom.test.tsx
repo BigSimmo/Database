@@ -1028,7 +1028,6 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
 
 describe("stage 4 — the discharge day and the first contact, side by side (Rulings [118] and [121])", () => {
   it("collects the discharge day here, because nothing in this domain carries one", async () => {
-    const user = userEvent.setup();
     window.sessionStorage.setItem(
       PLAN_DRAFT_STORAGE_KEY,
       JSON.stringify(
