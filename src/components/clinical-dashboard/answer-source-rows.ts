@@ -138,6 +138,15 @@ export function sourceSpokenName(source: AnswerSourceRow, index: number) {
   return source.cited === false ? "Also found" : sourceSpokenLabel(index);
 }
 
+/**
+ * The same name for a pager step, which has to name a thing to move to rather
+ * than label a card already on screen — so an uncited row reads "also found
+ * source" where the rail card reads "Also found".
+ */
+export function sourceStepSpokenLabel(source: AnswerSourceRow, index: number) {
+  return source.cited === false ? "Also found source" : sourceSpokenLabel(index);
+}
+
 export function sourceBadgeToneClass(metadata: ReturnType<typeof normalizeSourceMetadata>, index: number) {
   if (metadata.document_status === "review_due" || metadata.document_status === "outdated") {
     return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";

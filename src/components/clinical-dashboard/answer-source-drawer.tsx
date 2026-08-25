@@ -25,7 +25,7 @@ import {
   imagesForSource,
   sourceBadgeDisplay,
   sourceRowIsStale,
-  sourceSpokenName,
+  sourceStepSpokenLabel,
   sourceStatusShortLabel,
   sourceSupportSentence,
   tablesForSource,
@@ -217,7 +217,7 @@ export function AnswerSourceDrawer({
                     type="button"
                     onClick={() => onOpenIndexChange(index)}
                     aria-current={index === openIndex ? "true" : undefined}
-                    aria-label={`Show ${sourceSpokenName(row, index).toLowerCase()}: ${cleanDisplayTitle(row.title)}`}
+                    aria-label={`Show ${sourceStepSpokenLabel(row, index).toLowerCase()}: ${cleanDisplayTitle(row.title)}`}
                     className={cn(
                       "nums grid h-12 min-w-12 place-items-center rounded-md border text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index === openIndex

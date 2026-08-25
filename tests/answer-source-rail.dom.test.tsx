@@ -149,36 +149,6 @@ describe("answer source rail", () => {
     expect(rows[1]).toHaveAccessibleName(/Also found: Retrieved but uncited/);
   });
 
-  it("keeps the em-dash when that same uncited row is opened in the drawer", async () => {
-    // The rail dashing an uncited row is only half the promise: the drawer's
-    // title pill and its pager print the same numbering, and while they did it
-    // unconditionally a clinician who opened an "Also found" card was shown
-    // "2 · p. 8" for a source no mark in the prose names.
-    const user = userEvent.setup();
-    render(
-      <RailAndDrawer
-        sources={[
-          row({ id: "c1", title: "Cited protocol", cited: true }),
-          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
-        ]}
-      />,
-    );
-
-    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
-    const drawer = screen.getByTestId("answer-source-drawer");
-    expect(within(drawer).getByText(/—\s*·\s*p\./)).toBeInTheDocument();
-    expect(within(drawer).queryByText(/2\s*·\s*p\./)).toBeNull();
-
-    // The pager names it the same way the rail card does.
-    const pager = within(drawer).getByTestId("answer-source-drawer-pager");
-    expect(within(pager).getByRole("button", { name: /Show also found: Retrieved but uncited/ })).toBeInTheDocument();
-
-    // And the cited row keeps its digit, so this is a distinction and not a
-    // blanket removal of the numbering.
-    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
-    expect(within(screen.getByTestId("answer-source-drawer")).getByText(/1\s*·\s*p\./)).toBeInTheDocument();
-  });
-
   it("marks the card the drawer is showing", () => {
     render(<AnswerSourceRail sources={SOURCES} onOpenSource={vi.fn()} activeIndex={1} />);
     const rows = screen.getAllByTestId("answer-source-rail-row");
@@ -266,6 +236,39 @@ describe("answer source drawer", () => {
     const pager = screen.getByTestId("answer-source-drawer-pager");
     expect(pager).toHaveAttribute("data-pager-variant", "compact");
     expect(pager).toHaveTextContent("1 of 5");
+  });
+
+  it("keeps an uncited source unnumbered in the drawer title and numbered pager", async () => {
+    // The rail dashing an uncited row is only half the promise: the drawer's
+    // title pill and pager print the same numbering, and while they did it
+    // unconditionally a clinician who opened an "Also found" card was shown a
+    // digit for a source no mark in the prose names. Two independent reviews
+    // found this within the hour, which is why the rule now has one home.
+    const user = userEvent.setup();
+    render(
+      <RailAndDrawer
+        sources={[
+          row({ id: "c1", title: "Cited protocol", cited: true }),
+          row({ id: "r1", title: "Retrieved but uncited", cited: false }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[1]);
+    const drawer = screen.getByTestId("answer-source-drawer");
+    expect(within(drawer).getByText("— · p. 4")).toBeInTheDocument();
+
+    const pager = screen.getByTestId("answer-source-drawer-pager");
+    const uncitedStep = within(pager).getByRole("button", {
+      name: "Show also found source: Retrieved but uncited",
+    });
+    expect(uncitedStep).toHaveTextContent("—");
+    expect(uncitedStep).not.toHaveTextContent("2");
+
+    // The cited row keeps its digit: this is a distinction between cited and
+    // retrieved, not a blanket removal of the numbering.
+    await user.click(screen.getAllByTestId("answer-source-rail-row")[0]);
+    expect(within(screen.getByTestId("answer-source-drawer")).getByText(/1\s*·\s*p\./)).toBeInTheDocument();
   });
 
   it("does not assert a claim when the drawer was opened from the source list", async () => {
