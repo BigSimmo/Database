@@ -317,6 +317,11 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
           culturalIdentity: "Noongar",
         },
         sendingPreference: "morning",
+        // Stage 4's fields, present because `parseDraft` requires every field it knows about and
+        // this case is about blanking ONE value, not about a draft written before stage 4 existed
+        // -- that draft has its own case below.
+        activation: { dischargeDay: "", firstContactDay: "", firstContactReason: "" },
+        submission: null,
       }),
     );
 
@@ -364,5 +369,110 @@ describe("what stage 3 adds to the draft (Phase 2B Task 8)", () => {
       }),
     );
     expect(readPlanDraft(REFERRAL), "a draft naming no real sending preference was accepted").toBeNull();
+  });
+});
+
+describe("what stage 4 adds to the draft (Phase 2B Task 9)", () => {
+  /** A draft filled in as far as the end of stage 3, ready for the review stage. */
+  function readyForReview(): PlanDraft {
+    return {
+      ...filledDraft(),
+      stage: "review",
+      patientDetail: {
+        patientName: "Rowan Example",
+        patientMobileNumber: RESERVED_PATIENT_MOBILE,
+        patientIdentifiers: "",
+        culturalIdentity: "",
+      },
+      sendingPreference: "morning",
+    };
+  }
+
+  it("starts a fresh draft with no discharge day and no minted identifiers", () => {
+    const draft = emptyPlanDraft(REFERRAL, null);
+    // Empty rather than defaulted: a discharge day guessed from today's date would be a clinical
+    // fact the screen invented, and every date in the plan is counted from it.
+    expect(draft.activation).toEqual({ dischargeDay: "", firstContactDay: "", firstContactReason: "" });
+    // Null rather than minted here. Ruling [120] mints at the moment stage 4 is REACHED, so a
+    // sign-up abandoned at stage 1 never mints a plan identifier at all.
+    expect(draft.submission).toBeNull();
+  });
+
+  it("keeps the discharge day, the first-contact day, its reason and the minted identifiers across a reload", () => {
+    const draft: PlanDraft = {
+      ...readyForReview(),
+      activation: {
+        dischargeDay: "2026-03-10",
+        firstContactDay: "2026-03-17",
+        firstContactReason: "The ward agreed this day with the patient before discharge.",
+      },
+      submission: { planId: "PLAN-abcdef", idempotencyKey: "PLAN-CREATE-abcdef" },
+    };
+    expect(writePlanDraft(draft)).toBe(true);
+
+    // Through the module's own parser, exactly as a reload would — `writePlanDraft` primes the
+    // snapshot cache with the object it was handed, so a read straight after a write proves only
+    // that the object is still in memory.
+    const serialised = JSON.stringify(draft);
+    clearPlanDraft();
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, serialised);
+
+    const read = readPlanDraft(REFERRAL);
+    expect(read?.activation).toEqual(draft.activation);
+    // THIS is the one that matters for Ruling [120]. A clinician whose Activate timed out reloads
+    // the page and presses it again; if the identifiers did not survive, the retry would mint new
+    // ones and create a SECOND plan for one patient rather than being refused as a replay.
+    expect(
+      read?.submission,
+      "the minted plan identifier did not survive a reload, so a retry after a timeout would create a second plan",
+    ).toEqual(draft.submission);
+  });
+
+  it("discards a draft whose stage-4 fields are missing or the wrong shape", () => {
+    const base = {
+      referralId: REFERRAL,
+      stage: "review",
+      assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+      pathwayVersionId: "SYN-PATHWAY-001",
+      patientDetail: {
+        patientName: "Rowan Example",
+        patientMobileNumber: RESERVED_PATIENT_MOBILE,
+        patientIdentifiers: "",
+        culturalIdentity: "",
+      },
+      sendingPreference: "morning",
+    };
+
+    // A draft written before stage 4 existed carries neither key. Half-reading it would put a
+    // clinician back on the review stage with no discharge day and no identifiers, which is the
+    // "half the answers, the rest silently defaulted" this parser refuses.
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(base));
+    expect(readPlanDraft(REFERRAL), "a draft from before stage 4 existed was accepted").toBeNull();
+
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify({ ...base, activation: { dischargeDay: "2026-03-10" }, submission: null }),
+    );
+    expect(readPlanDraft(REFERRAL), "a draft missing two of its three activation fields was accepted").toBeNull();
+
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        ...base,
+        activation: { dischargeDay: "2026-03-10", firstContactDay: "", firstContactReason: "" },
+        submission: { planId: "PLAN-abcdef" },
+      }),
+    );
+    expect(readPlanDraft(REFERRAL), "a draft carrying half a minted identity was accepted").toBeNull();
+
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        ...base,
+        activation: { dischargeDay: "2026-03-10", firstContactDay: "", firstContactReason: "" },
+        submission: { planId: "", idempotencyKey: "PLAN-CREATE-abcdef" },
+      }),
+    );
+    expect(readPlanDraft(REFERRAL), "a draft carrying an empty plan identifier was accepted").toBeNull();
   });
 });

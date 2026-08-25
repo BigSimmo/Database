@@ -38,6 +38,11 @@
 // promising the page will remember is false when the browser refused.
 import { SENDING_PREFERENCES, type SendingPreference } from "@/lib/caring-contacts/model";
 
+import {
+  EMPTY_PLAN_ACTIVATION,
+  type PlanActivationDraft,
+  type PlanSubmissionIdentity,
+} from "./plan-activation";
 import { EMPTY_PLAN_PATIENT_DETAIL, type PlanPatientDetailDraft } from "./patient-detail";
 import { isPlanWizardStage, type PlanWizardStage } from "./stages";
 
@@ -104,6 +109,26 @@ export type PlanDraft = {
    * genuinely does carry one (Ruling [113]).
    */
   sendingPreference: SendingPreference | null;
+  /**
+   * Stage 4's typed values: the discharge day, the first-contact day, and the reason a moved day
+   * carries (Rulings [118] and [121]). Held verbatim, for the same reason stage 3's are.
+   */
+  activation: PlanActivationDraft;
+  /**
+   * The plan identifier and idempotency key this sign-up will submit with, or null until stage 4
+   * is reached.
+   *
+   * RULING [120], AND IT IS WHY THEY LIVE IN THE DRAFT RATHER THAN IN THE COMPONENT. They are
+   * minted once and reused for every retry of the same submission, and a retry can follow a page
+   * refresh -- a clinician whose Activate timed out reloads and presses it again. React state
+   * would not survive that; this does. Minted fresh per attempt, the second press creates a SECOND
+   * PLAN FOR ONE PATIENT: two schedules, two sets of messages. Reused, it is refused as a replay
+   * and returns the first attempt's own answer.
+   *
+   * Null on a fresh draft rather than minted with it, because a sign-up abandoned at stage 1 never
+   * reached the stage that creates anything and should mint no plan identifier at all.
+   */
+  submission: PlanSubmissionIdentity | null;
 };
 
 /**
@@ -121,6 +146,8 @@ export function emptyPlanDraft(referralId: string, pathwayVersionId: string | nu
     pathwayVersionId,
     patientDetail: { ...EMPTY_PLAN_PATIENT_DETAIL },
     sendingPreference: null,
+    activation: { ...EMPTY_PLAN_ACTIVATION },
+    submission: null,
   };
 }
 
@@ -272,7 +299,8 @@ function parseDraft(raw: string): PlanDraft | null {
   }
   if (!isRecord(parsed)) return null;
 
-  const { referralId, stage, assurances, pathwayVersionId, patientDetail, sendingPreference } = parsed;
+  const { referralId, stage, assurances, pathwayVersionId, patientDetail, sendingPreference, activation, submission } =
+    parsed;
   if (typeof referralId !== "string" || referralId === "") return null;
   if (!isPlanWizardStage(stage)) return null;
   if (!isRecord(assurances)) return null;
@@ -282,6 +310,10 @@ function parseDraft(raw: string): PlanDraft | null {
   const detail = parsePatientDetail(patientDetail);
   if (detail === null) return null;
   if (sendingPreference !== null && !isSendingPreference(sendingPreference)) return null;
+  const activationDraft = parseActivation(activation);
+  if (activationDraft === null) return null;
+  const submissionIdentity = parseSubmission(submission);
+  if (submissionIdentity === undefined) return null;
 
   return {
     referralId,
@@ -293,7 +325,49 @@ function parseDraft(raw: string): PlanDraft | null {
     pathwayVersionId,
     patientDetail: detail,
     sendingPreference,
+    activation: activationDraft,
+    submission: submissionIdentity,
   };
+}
+
+/**
+ * Stage 4's three fields, or null if any is missing or the wrong type.
+ *
+ * Every field is REQUIRED to be present as a string, including the two that may legitimately be
+ * empty, for the reason `parsePatientDetail` records below: a draft written before stage 4 existed
+ * carries none of them, and reading that as "the clinician entered nothing" would be a guess about
+ * a record this module cannot see the age of.
+ */
+function parseActivation(value: unknown): PlanActivationDraft | null {
+  if (!isRecord(value)) return null;
+  const { dischargeDay, firstContactDay, firstContactReason } = value;
+  if (typeof dischargeDay !== "string") return null;
+  if (typeof firstContactDay !== "string") return null;
+  if (typeof firstContactReason !== "string") return null;
+  return { dischargeDay, firstContactDay, firstContactReason };
+}
+
+/**
+ * The minted plan identity, `null` when none has been minted, or `undefined` when the stored value
+ * is not one this module recognises.
+ *
+ * THREE ANSWERS RATHER THAN TWO, and the reason is Ruling [120] rather than tidiness. `null` is a
+ * legitimate stored state -- a sign-up that has not reached stage 4 has minted nothing -- so it
+ * cannot also be the way this function reports a value it refuses. `undefined` is the refusal, and
+ * the caller discards the whole draft on it.
+ *
+ * HALF AN IDENTITY IS REFUSED OUTRIGHT rather than repaired by minting the missing half. The pair
+ * is the retry contract: a plan id without its key, or a key without its plan id, would submit a
+ * write whose replay could not be recognised, which is the exact condition that creates two plans
+ * for one patient.
+ */
+function parseSubmission(value: unknown): PlanSubmissionIdentity | null | undefined {
+  if (value === null || value === undefined) return null;
+  if (!isRecord(value)) return undefined;
+  const { planId, idempotencyKey } = value;
+  if (typeof planId !== "string" || planId === "") return undefined;
+  if (typeof idempotencyKey !== "string" || idempotencyKey === "") return undefined;
+  return { planId, idempotencyKey };
 }
 
 /**
