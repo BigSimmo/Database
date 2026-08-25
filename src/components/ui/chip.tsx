@@ -111,6 +111,9 @@ export function ChoiceChip({
   const ariaUnavailable = Boolean(ariaDisabled);
   const nativeDisabled = Boolean(disabled) && !ariaUnavailable;
   const unavailable = nativeDisabled || ariaUnavailable;
+  const unavailableAttributes = ariaUnavailable
+    ? { "aria-disabled": true, disabled: false }
+    : { disabled: nativeDisabled };
   const surfaceAppearance = unavailable
     ? "border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)]"
     : appearance
@@ -129,8 +132,7 @@ export function ChoiceChip({
   return (
     <button
       type="button"
-      disabled={nativeDisabled}
-      aria-disabled={ariaUnavailable || undefined}
+      {...unavailableAttributes}
       aria-pressed={pressed}
       aria-label={ariaLabel}
       aria-describedby={ariaDescribedBy}
