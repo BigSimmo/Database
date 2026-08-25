@@ -127,9 +127,16 @@ beforeEach(() => {
   mockCookies = {};
   mocks.store.current = null;
   mocks.notFound.mockClear();
+  // The page resolves "today" from `systemClock()`, which is the real clock -- the store's
+  // `fixedClock` does not reach it, and without this every assertion below about which days were
+  // read would pass only on the day it was written. `Date` alone is faked: faking timers wholesale
+  // would stall React's own scheduling inside `render`.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(NOW));
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
@@ -176,7 +183,8 @@ describe("the /caring-contacts/schedule page — what the access trail records",
     const { recorded } = inMemoryStoreWithSpy();
     await seedActivePlan(mocks.store.current as CaringContactRepository);
 
-    await renderPage();
+    // The day the seeded plan's first contact falls on, so this render has rows to head.
+    await renderPage({ day: MONTH_END });
 
     // The premise: this render really did have patients to name. Without it the assertion below
     // would pass on a page that rendered nothing at all.

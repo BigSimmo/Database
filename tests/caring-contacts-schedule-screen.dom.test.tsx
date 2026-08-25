@@ -333,8 +333,9 @@ describe("the Schedule screen — the four pairs that must not collapse", () => 
     expect(screen.queryByRole("group", { name: "No contacts in these days" })).toBeNull();
     stopped.unmount();
 
-    // The other half of the pair: a day nothing was ever scheduled on.
-    renderScreen(records, QUIET_DAY);
+    // The other half of the pair: a day in the SAME strip that nothing was ever scheduled on.
+    // The discharge day itself -- the plan's first contact is the day after it.
+    renderScreen(records, "2026-08-30");
     const empty = screen.getByRole("group", { name: "Nothing is scheduled on this day" });
     expect(empty.textContent).toContain("no caring contact on it");
     expect(screen.queryByTestId("caring-contacts-schedule-day-counts")).toBeNull();

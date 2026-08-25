@@ -551,7 +551,8 @@
         "src/app/caring-contacts/page.tsx",
         "src/app/caring-contacts/patients/page.tsx",
         "src/app/caring-contacts/patients/[patientId]/page.tsx",
-        "src/app/caring-contacts/plans/new/page.tsx"
+        "src/app/caring-contacts/plans/new/page.tsx",
+        "src/app/caring-contacts/schedule/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],

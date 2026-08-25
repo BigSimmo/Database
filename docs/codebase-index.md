@@ -78,6 +78,7 @@ Smaller top-level directories that are easy to miss:
 | `/caring-contacts/patients` (the team's caseload: one row per plan, URL-driven state/identifier filter, no patient-identifying detail)                                                         | `src/app/caring-contacts/patients/page.tsx`                                               |
 | `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                  | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                   |
 | `/caring-contacts/plans/new` (the activation wizard: agreement, pathway, personalisation, review; started for one accepted referral named by `?referral=`)                                     | `src/app/caring-contacts/plans/new/page.tsx`                                              |
+| `/caring-contacts/schedule` (the team's day: three approved sending windows, contacts at no approved send time, named exceptions; the day travels in `?day=`)                            | `src/app/caring-contacts/schedule/page.tsx`                                               |
 | `/applications`                                                                                                                                                                                | `src/app/applications/route.ts`                                                           |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                   | `src/app/(search-app)/differentials/`                                                     |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                 | `src/app/(search-app)/dsm/`                                                               |
@@ -213,10 +214,20 @@ Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns 
 destination set: a destination carries an `href` only once its page exists, and every other one
 renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
 (Today), `/caring-contacts/patients` (the caseload), `/caring-contacts/patients/[patientId]`
-(one patient's episode) and `/caring-contacts/plans/new` (the activation wizard) are what is built
-so far. Every one of them is a page that reads the store through `auditedRead` rather than over
+(one patient's episode), `/caring-contacts/plans/new` (the activation wizard) and
+`/caring-contacts/schedule` (the team's day) are what is built so far. Every one of them is a page that reads the store through `auditedRead` rather than over
 HTTP, using the same access identity the matching API route records; filtering and, on the patient
 overview, the choice of which plan to open are carried in the URL and read by the Server Component.
+
+The Schedule screen is the one that must not let two different days read the same. `disposition`
+alone cannot separate a quiet day from a stopped one, so the screen states each day from `counts`,
+which partition a day with nothing due into already-sent, held-by-its-own-plan and never-will-be; a
+plan somebody created and never started is surfaced as its own automated state, because a discharged
+patient receiving nothing while the plan record looks complete is an operational failure rather than
+a quiet day. It derives no schedule rule of its own -- the windows, the holds, the exceptions and the
+counts all come from `src/lib/caring-contacts/schedule-view.ts` -- and it is the one workspace screen
+that deliberately does NOT read `listPatientNames`, so that the trail row meaning "somebody read
+patients' names" is not written every time a coordinator glances at a day.
 
 `/caring-contacts/plans/new` is the one screen with a deliberate client boundary (Ruling [109]).
 The page itself is still a Server Component -- it makes the audited reads, decides the actor's
