@@ -264,7 +264,14 @@ the same fact. It is listed as 2/14 rather than presented as an isolation.
 renders the paragraph for every option — and a null note renders as an _empty_ paragraph, so a case
 asserting the wording is absent passed against a screen that had gained an element per version. The
 negative case asserted on text where the condition controls an element. It now asserts on a stable
-handle, and N3 dies.
+handle, and N3 dies against the strengthened test: `2 failed | 70 passed`, on
+`expected [ <p …(2)></p> ] to have a length of +0 but got 1` — the empty paragraph the earlier
+assertion could not see.
+
+This one is worth more than its row. It is the only mutation in three rounds that survived, and what
+it caught was a test that read as a guarantee and was not one — the same defect class as I4, found the
+same way. A mutation round that produces no survivors has told you less than one that produces a
+single well-chosen one.
 
 **The vacuity pair — round 1 finding I4.** Two assertions had been rewritten _after_ their mutation
 into `expect(x).toHaveLength(plans.length)`, which on an empty store is `0 === 0`; the reserved-number
