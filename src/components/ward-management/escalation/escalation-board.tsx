@@ -67,28 +67,32 @@ export function EscalatedSection({ board, now }: { board: EscalationBoard; now: 
           None — no open movement carries a recorded escalation.
         </p>
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Movement</th>
-              <th scope="col">When</th>
-              <th scope="col">Units tried</th>
-              <th scope="col">Contact</th>
-              <th scope="col">Wait</th>
-            </tr>
-          </thead>
-          <tbody>
-            {board.escalated.map((entry) => (
-              <tr key={entry.movement.id}>
-                <td>{entry.movement.id}</td>
-                <td>{entry.movement.escalation ? formatInstant(entry.movement.escalation.at) : "No time recorded"}</td>
-                <td>{triedUnitsLabel(entry.triedUnits)}</td>
-                <td>{entry.movement.escalation?.contact ?? "No contact recorded"}</td>
-                <td>{elapsedLabel(entry.movement, now)}</td>
+        <div className={styles.tableScroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Movement</th>
+                <th scope="col">When</th>
+                <th scope="col">Units tried</th>
+                <th scope="col">Contact</th>
+                <th scope="col">Wait</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {board.escalated.map((entry) => (
+                <tr key={entry.movement.id}>
+                  <td>{entry.movement.id}</td>
+                  <td>
+                    {entry.movement.escalation ? formatInstant(entry.movement.escalation.at) : "No time recorded"}
+                  </td>
+                  <td>{triedUnitsLabel(entry.triedUnits)}</td>
+                  <td>{entry.movement.escalation?.contact ?? "No contact recorded"}</td>
+                  <td>{elapsedLabel(entry.movement, now)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
@@ -103,26 +107,28 @@ export function NowhereEligibleSection({ board, now }: { board: EscalationBoard;
           None — every open movement has at least one eligible ward right now.
         </p>
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Movement</th>
-              <th scope="col">Wait</th>
-              <th scope="col">Stage</th>
-              <th scope="col">Department</th>
-            </tr>
-          </thead>
-          <tbody>
-            {board.nowhereEligible.map((movement) => (
-              <tr key={movement.id}>
-                <td>{movement.id}</td>
-                <td>{elapsedLabel(movement, now)}</td>
-                <td>{stageCopy[movement.stage].label}</td>
-                <td>{departmentLabel(movement)}</td>
+        <div className={styles.tableScroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Movement</th>
+                <th scope="col">Wait</th>
+                <th scope="col">Stage</th>
+                <th scope="col">Department</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {board.nowhereEligible.map((movement) => (
+                <tr key={movement.id}>
+                  <td>{movement.id}</td>
+                  <td>{elapsedLabel(movement, now)}</td>
+                  <td>{stageCopy[movement.stage].label}</td>
+                  <td>{departmentLabel(movement)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

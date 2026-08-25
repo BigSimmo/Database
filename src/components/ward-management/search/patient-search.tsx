@@ -135,25 +135,27 @@ export function ResultsSection({ results, units, now }: { results: Movement[]; u
           No matches — no open movement fits the current search.
         </p>
       ) : (
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Movement</th>
-              <th scope="col">Stage</th>
-              <th scope="col">Department</th>
-              <th scope="col">Destination</th>
-              <th scope="col">Since arrival</th>
-              <th scope="col">
-                <span className="sr-only">Open</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {results.map((movement) => (
-              <ResultRow key={movement.id} movement={movement} units={units} now={now} />
-            ))}
-          </tbody>
-        </table>
+        <div className={styles.tableScroll}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th scope="col">Movement</th>
+                <th scope="col">Stage</th>
+                <th scope="col">Department</th>
+                <th scope="col">Destination</th>
+                <th scope="col">Since arrival</th>
+                <th scope="col">
+                  <span className="sr-only">Open</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((movement) => (
+                <ResultRow key={movement.id} movement={movement} units={units} now={now} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );
