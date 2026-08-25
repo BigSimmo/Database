@@ -82,6 +82,7 @@ npm run docs:check-links
 ## Process and review
 
 - [process-hardening.md](process-hardening.md) — verification gates, CI expectations, known debts
+- [continuous-integration.md](continuous-integration.md) — workflow concurrency keys, push exemption, and Guard 2 in-flight CI push guard
 - [testing.md](testing.md) — test execution, focused/live commands, Playwright ownership, flake policy
 - [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md) — labelled Safari and cold-launch PWA acceptance matrix
 - [productivity-workflows.md](productivity-workflows.md) — repo workflow planners (flightplan, triage, rag-lab, …)
@@ -95,6 +96,7 @@ npm run docs:check-links
 ## Plans and workstreams (living)
 
 - [mode-aware-clinical-ask-local-handover.md](mode-aware-clinical-ask-local-handover.md) — three-phase local integration, approval-gated staging/governance, and PR publication handover for Mode-aware Clinical Ask
+- [answer-page-redesign-handover.md](answer-page-redesign-handover.md) — build-and-merge handover for the chosen answer-page design: what claim-level citation data already exists, the three-PR order it forces, the design contract, and the gates and PR-body requirements that block the merge
 - [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
 - [no-unchecked-indexed-access-migration-plan.md](no-unchecked-indexed-access-migration-plan.md) — staged multi-PR rollout for the `noUncheckedIndexedAccess` TypeScript flag (ledger `#211`)
 - [ledger-id-scheme-proposal.md](ledger-id-scheme-proposal.md) — design for collision-free outstanding-issue ids so concurrent sessions stop contending on `issues:next-id` (ledger `#168`)

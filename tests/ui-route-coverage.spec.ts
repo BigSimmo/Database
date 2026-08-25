@@ -327,6 +327,9 @@ test.describe("previously uncovered production routes", () => {
 
     const card = page.locator("[data-therapy-result-card]").first();
     await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card).toHaveAttribute("data-therapy-result-featured", "");
+    await expect(card.getByText("Best match", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-therapy-result-highlight]")).toHaveCount(1);
 
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
@@ -334,6 +337,7 @@ test.describe("previously uncovered production routes", () => {
 
       const layout = await card.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
+        const borderLeft = Number.parseFloat(getComputedStyle(element).borderLeftWidth);
         const copy = element.querySelector<HTMLElement>("[data-therapy-result-copy]")!.getBoundingClientRect();
         const evidence = element.querySelector<HTMLElement>("[data-therapy-result-evidence]")!.getBoundingClientRect();
         const actions = element.querySelector<HTMLElement>("[data-therapy-result-actions]")!;
@@ -349,6 +353,7 @@ test.describe("previously uncovered production routes", () => {
         });
         return {
           card: { left: bounds.left, right: bounds.right },
+          borderLeft,
           copyLeft: copy.left,
           evidence: { left: evidence.left, right: evidence.right },
           buttons,
@@ -356,9 +361,12 @@ test.describe("previously uncovered production routes", () => {
       });
 
       if (width < 640) {
-        expect(Math.abs(layout.evidence.left - layout.card.left), `${width}px evidence left edge`).toBeLessThanOrEqual(
-          1,
-        );
+        // Featured cards carry the intentional 3px best-match accent edge.
+        // The evidence panel remains full-bleed inside that border.
+        expect(
+          Math.abs(layout.evidence.left - (layout.card.left + layout.borderLeft)),
+          `${width}px evidence left edge`,
+        ).toBeLessThanOrEqual(1);
         expect(
           Math.abs(layout.card.right - layout.evidence.right),
           `${width}px evidence right edge`,

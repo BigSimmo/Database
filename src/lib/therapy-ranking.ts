@@ -16,6 +16,11 @@ const normalize = (value: string | null | undefined) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/** True only when the scorer can derive at least one searchable token. */
+export function hasSearchableTherapyQuery(query: string | null | undefined): boolean {
+  return Boolean(normalize(query));
+}
+
 /**
  * The single Therapy ranking contract used by both the dedicated catalogue and
  * universal discovery. Keeping one scorer prevents a search handoff from

@@ -6,6 +6,7 @@ import type { WorkspaceOverlayDefinition } from "./definitions";
 import {
   clearStagedWorkspaceOverlayCommit,
   commitForHistoryEntry,
+  consumeWorkspaceOverlayCommit,
   commitRefusalFor,
   nextWorkspaceOverlayCommitToken,
   noStagedWorkspaceOverlayCommit,
@@ -263,34 +264,34 @@ export function WorkspaceOverlays() {
   }, []);
 
   /**
-   * Confirming an overlay records the decision the opening control stated, then
-   * closes it.
-   *
-   * The throw is not defensive padding. `commitRefusal` is handed to the host,
-   * which refuses the action whenever it applies to the row, so reaching here with
-   * no recordable commit means the refusal was not applied — and the failure that
-   * would otherwise follow is silent: a confirm control that appears to work and
-   * writes nothing, which is precisely the defect Ruling 87 exists to prevent.
-   * Loud is the conservative direction; nothing has been recorded at this point.
+   * Read-only rows are exits and recovery actions, not records. Mutating rows
+   * atomically claim the staged commit before invoking it, so a second activation
+   * while history.back() is still pending cannot produce a duplicate write.
    */
   const recordDecision = useCallback(
     (definition: WorkspaceOverlayDefinition) => {
-      if (commit === null || commit.kind !== "record") {
-        throw new Error(
-          `The overlay "${definition.id}" was confirmed with no recordable commit staged for it. ` +
-            `A control must open an overlay through openWorkspaceOverlayWithCommit, and the host must ` +
-            `refuse the action whenever its commit refusal applies to the row (Ruling 87).`,
-        );
+      if (!definition.mutatesState) {
+        closeWorkspaceOverlay();
+        return;
       }
-      // `Promise.resolve` rather than `instanceof Promise`: a Server Action's return
-      // value need only be thenable, and a synchronous `record` returning undefined
+
+      const activeCommit = consumeWorkspaceOverlayCommit(entryCommitToken);
+      // A consumed or stale token means another activation has already started
+      // closing this entry. It is intentionally a no-op.
+      if (activeCommit === null) return;
+      if (activeCommit.kind !== "record") {
+        throw new Error(`The overlay "${definition.id}" attempted to record from a non-recording commit.`);
+      }
+
+      // Promise.resolve rather than instanceof Promise: a Server Action's return
+      // value need only be thenable, and a synchronous record returning undefined
       // costs one already-resolved promise.
-      void Promise.resolve(commit.record(definition.id)).catch((error: unknown) => {
+      void Promise.resolve(activeCommit.record(definition.id)).catch((error: unknown) => {
         setCommitFailure({ error });
       });
       closeWorkspaceOverlay();
     },
-    [commit],
+    [entryCommitToken],
   );
 
   return (

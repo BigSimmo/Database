@@ -34,10 +34,14 @@ function writeFixtureFile(fixtureRoot: string, relativePath: string, content: st
   fs.writeFileSync(absolutePath, content);
 }
 
-const NON_VISUAL_REDIRECT_PAGES = [
-  "src/app/(search-app)/documents/source/page.tsx",
-  "src/app/ward-management/constellation/page.tsx",
-] as const;
+// Mirrors CANONICAL_NON_VISUAL_ROUTES / adoption-contract.json's `nonVisualRouteContracts`.
+// The Ward Flow constellation redirect used to be the second entry here; it left this list
+// (not merely repointed to its new /mockups/ward-flow path) when Ward Flow's sandbox move took
+// every one of its routes out of the production census — see the "66 = 59 + 6 + 1" comment
+// below. `analyzeNextRedirectOnlyRoute` is still exercised against the moved file directly in
+// "recognises the retired constellation route as redirect-only" below; this list is only the
+// fixture set for declared, census-tracked non-visual routes.
+const NON_VISUAL_REDIRECT_PAGES = ["src/app/(search-app)/documents/source/page.tsx"] as const;
 
 function writeNonVisualRedirectFixtures(fixtureRoot: string) {
   for (const relativePath of NON_VISUAL_REDIRECT_PAGES) {
@@ -416,8 +420,8 @@ describe("design-system adoption manifest", () => {
   it("recognises the retired constellation route as redirect-only", () => {
     expect(
       analyzeNextRedirectOnlyRoute(
-        "src/app/ward-management/constellation/page.tsx",
-        read("src/app/ward-management/constellation/page.tsx"),
+        "src/app/mockups/ward-flow/constellation/page.tsx",
+        read("src/app/mockups/ward-flow/constellation/page.tsx"),
       ).redirectOnly,
     ).toBe(true);
   });
@@ -468,34 +472,22 @@ describe("design-system adoption manifest", () => {
     const manifest = {
       ...current,
       surfaces: current.surfaces.map((surface: { id: string }) =>
-        surface.id === "documents-source-legacy-redirect" ||
-        surface.id === "ward-management-constellation-legacy-redirect"
-          ? { ...surface, documentedDisposition: null }
-          : surface,
+        surface.id === "documents-source-legacy-redirect" ? { ...surface, documentedDisposition: null } : surface,
       ),
     };
 
     const failures = checkAdoptionManifest(manifest);
     expect(failures).toContain("documents-source-legacy-redirect legacy-redirect disposition is undocumented");
-    expect(failures).toContain(
-      "ward-management-constellation-legacy-redirect legacy-redirect disposition is undocumented",
-    );
   });
 
-  it("models the retired constellation route as a non-visual legacy redirect", () => {
-    const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
-    const redirect = manifest.surfaces.find(
-      (surface: { id: string }) => surface.id === "ward-management-constellation-legacy-redirect",
-    );
-    const owned = manifest.surfaces.find((surface: { id: string }) => surface.id === "ward-management");
-
-    expect(redirect).toMatchObject({
-      disposition: "legacy-redirect",
-      proofApplicability: "not-applicable",
-      routes: ["src/app/ward-management/constellation/page.tsx"],
-    });
-    expect(owned.routes).not.toContain("src/app/ward-management/constellation/page.tsx");
-  });
+  // The "models the retired constellation route as a non-visual legacy redirect" test that used
+  // to live here asserted the shape of the "ward-management-constellation-legacy-redirect" and
+  // "ward-management" surfaces. Both left docs/design-system/adoption-contract.json (and the
+  // manifest it generates) when Ward Flow's sandbox move took the whole prototype out of the
+  // production census — see the "66 = 59 + 6 + 1" comment above. Care Plan and Caring Contacts,
+  // the two other developer-gated mockups, were never declared as surfaces here at all, so Ward
+  // Flow leaving this contract is convergence with the existing pattern, not a new gap: nothing
+  // else in this file asserts a per-mockup surface shape for them either.
 
   it("does not let a visual catalogue opt out by relabelling itself as a legacy redirect", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
@@ -1361,14 +1353,20 @@ describe("design-system adoption manifest", () => {
     // reference-only; the assertion is a snapshot of adoption state, so moving a
     // component out of it is the expected shape of an adoption change, not a
     // weakened guard.
-    for (const name of ["ConfirmDialog"]) {
+    // `ConfirmDialog` left this list on 23 Aug 2026 when the settings surface put
+    // its two destructive privacy actions ("Clear saved items", "Reset
+    // preferences") behind a real confirmation instead of a single tap. Nothing
+    // in the reference-only set is reference-only any more, so the guard now
+    // rests entirely on the adopted half below.
+    const referenceOnlyComponents: string[] = [];
+    for (const name of referenceOnlyComponents) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles, `${name} should remain reference-only`).toEqual([]);
       expect(component.v2ShellMounted, `${name} should not claim a production v2 mount`).toBe(false);
     }
     // The other half of the same guard: an adopted component must actually be mounted,
     // so "adopted" can never mean an import with no production shell behind it.
-    for (const name of ["AnswerCard", "Quantity", "Button"]) {
+    for (const name of ["AnswerCard", "Quantity", "Button", "ConfirmDialog"]) {
       const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
       expect(component.productImportFiles.length, `${name} should be product-adopted`).toBeGreaterThan(0);
       expect(component.v2ShellMounted, `${name} should carry a production v2 mount`).toBe(true);
@@ -1412,17 +1410,20 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
-    // 82 = 59 + 6 + 13 + 4: the 59 production pages that preceded both changes,
-    // the six `<mode>/search` routes home consolidation split out of the bare paths,
-    // the thirteen-route Ward Flow synthetic patient-flow prototype (mode home,
-    // eight remaining workspace routes, ED/ward/officer role screens, the per-patient
-    // detail route, and the retired constellation redirect), and the four Caring
-    // Contacts workspace screens built so far (Today, the Patients caseload added by
-    // Phase 2B Task 5, the per-patient overview added by Task 6, and the activation
-    // wizard added by Task 7). Redirect stubs keep legacy deep links resolving and
-    // still count as declared routes. This is a census, so a route nobody intended to
-    // add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(82);
+    // 70 = 59 + 6 + 4 + 1: the 59 production pages that preceded both changes, the six
+    // `<mode>/search` routes home consolidation split out of the bare paths, the Caring
+    // Contacts workspace's four screens (Today, the Patients caseload from Phase 2B Task 5,
+    // the per-patient overview from Task 6 and the activation wizard from Task 7), plus
+    // `/factsheets/topics`. The sixteen-route Ward Flow synthetic patient-flow prototype (mode
+    // home, eight remaining workspace routes, ED/ward/officer role screens, the per-patient
+    // detail route, the Phase 4 shift handover, escalation board and patient search, and the
+    // retired constellation redirect) that used to bring this to 82 left the production census
+    // entirely in the sandbox move: it now lives at `/mockups/ward-flow/**`, developer-gated
+    // like Care Plan and Caring Contacts, and `discoveredRoutes` excludes every `/mockups`
+    // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
+    // resolving and still count as declared routes. This is a census, so a route nobody
+    // intended to add still fails the contract.
+    expect(manifest.routeCoverage.discovered).toHaveLength(70);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

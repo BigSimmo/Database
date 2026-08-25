@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "3a4868e6-281a-48c1-895b-82d6aade2bc7",
+  "createdOn": "2026-08-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "8b2a3f89-9bdb-4fb1-8fd0-35165d050263",
+    "reason": "Implemented the requested local source-card width constant in this owning answer-page change."
+  }
+}

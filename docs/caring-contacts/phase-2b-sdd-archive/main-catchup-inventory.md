@@ -3,12 +3,12 @@
 Written before the catch-up merge of `origin/main` into
 `claude/browser-test-gate-handoff-d5c1db`, so the merge can be audited against it afterwards.
 
-|                                                    |                                            |
-| -------------------------------------------------- | ------------------------------------------ |
-| Trunk HEAD at survey                               | `8fe77d59e0c54dc4562cbbfe92ab8ce4d396671e` |
-| `origin/main` at survey                            | `424db172e8ca650010b49d9f13b109c4defbef5a` |
-| Merge base                                         | `a5935dde2778f34e4991f4f2dd8061f8d3043cf5` |
-| Divergence                                         | trunk 226 ahead, 31 behind                 |
+|                                                     |                                            |
+| --------------------------------------------------- | ------------------------------------------ |
+| Trunk HEAD at survey                                | `8fe77d59e0c54dc4562cbbfe92ab8ce4d396671e` |
+| `origin/main` at survey                             | `424db172e8ca650010b49d9f13b109c4defbef5a` |
+| Merge base                                          | `a5935dde2778f34e4991f4f2dd8061f8d3043cf5` |
+| Divergence                                          | trunk 226 ahead, 31 behind                 |
 | Conflicts reported by `git merge-tree --write-tree` | 26                                         |
 
 The two `main` commits that touch caring-contacts are both squash merges of work cut from this
@@ -30,15 +30,15 @@ carries everything `main` added; a file with lines on the `main` side needed a l
 
 ## Summary of main-only findings
 
-| #   | Finding                                                        | Class                                          | Recovered into the merge?     |
-| --- | -------------------------------------------------------------- | ---------------------------------------------- | ----------------------------- |
-| 1   | Overlay double-activation guard (`consumeWorkspaceOverlayCommit`) | **Race / correctness on mutating overlays**    | **Yes**                       |
-| 2   | The two tests that prove finding 1                             | Test coverage for finding 1                    | **Yes** (auto-merged)         |
-| 3   | Patients directory privacy split — names out of GET URLs        | **Privacy — unresolved, owner decision**       | **No — flagged below**        |
-| 4   | Ward Flow sandbox move fallout in two shared test files         | Main's non-caring-contacts work                | **Yes**                       |
-| 5   | `ConfirmDialog` no longer reference-only in the census          | Main's non-caring-contacts work                | **Yes**                       |
-| 6   | Ruling 88 rename corrections in two Task 1 archive documents    | Doc correctness                                | **Yes**                       |
-| 7   | `serviceStateReferences` — a TypeScript-AST client-graph guard   | Superior alternative implementation            | **No — recommended follow-up** |
+| #   | Finding                                                           | Class                                       | Recovered into the merge?      |
+| --- | ----------------------------------------------------------------- | ------------------------------------------- | ------------------------------ |
+| 1   | Overlay double-activation guard (`consumeWorkspaceOverlayCommit`) | **Race / correctness on mutating overlays** | **Yes**                        |
+| 2   | The two tests that prove finding 1                                | Test coverage for finding 1                 | **Yes** (auto-merged)          |
+| 3   | Patients directory privacy split — names out of GET URLs          | **Privacy — unresolved, owner decision**    | **No — flagged below**         |
+| 4   | Ward Flow sandbox move fallout in two shared test files           | Main's non-caring-contacts work             | **Yes**                        |
+| 5   | `ConfirmDialog` no longer reference-only in the census            | Main's non-caring-contacts work             | **Yes**                        |
+| 6   | Ruling 88 rename corrections in two Task 1 archive documents      | Doc correctness                             | **Yes**                        |
+| 7   | `serviceStateReferences` — a TypeScript-AST client-graph guard    | Superior alternative implementation         | **No — recommended follow-up** |
 
 ---
 
@@ -150,9 +150,28 @@ consequences. Two documented rulings genuinely conflict (Ruling 13 versus the pr
 cites), and that is the owner's call, not a merge resolution.
 
 **Disposition in this merge.** The trunk's `patients-directory.tsx`, `page.tsx` and directory test
-are kept. `main`'s three new modules are **kept in the tree, currently unreferenced**, so the fix is
-recoverable rather than deleted; they compile and are not bundled. Deleting them would have been the
-silent, irreversible direction.
+are kept. `main`'s three new modules are **kept in the tree, currently unreferenced**, so the fix stays
+visible to the owner rather than being deleted; they compile, nothing renders them, and they are in no
+bundle.
+
+Keeping `patients-directory-client.tsx` is not free, and the workspace's own guard is what said so.
+`tests/caring-contacts-explained-automation.dom.test.tsx` asserts exact set equality between the
+`"use client"` files under `src/components/caring-contacts/workspace/` and `ALLOWED_CLIENT_COMPONENTS`,
+so an unlisted client component fails it. The file is therefore listed, with a comment stating plainly
+that it is `main`'s unadopted island and that nothing renders it. That is a truthful entry rather than a
+weakened guard: the set-equality check still refuses any other unlisted client component, and the
+module-graph check still proves this file and everything it imports never name the service-state module
+or type (verified — its graph reaches `automated-state`, `list-empty-state`, `unavailable-destination`
+and `patients-directory-row`, and `list-empty-state`'s single `ServiceStateBanner` mention is prose
+inside a block comment, which `stripSourceComments` removes).
+
+Restoring `main`'s versions verbatim, if the island is adopted:
+
+    git show 49642d65e:src/components/caring-contacts/workspace/patients-directory-client.tsx
+    git show 49642d65e:src/components/caring-contacts/workspace/patients-directory-row.ts
+    git show 49642d65e:src/lib/caring-contacts/patients-directory-filter.ts
+    git show 49642d65e:src/app/caring-contacts/patients/page.tsx
+    git show 49642d65e:tests/caring-contacts-patients-directory.dom.test.tsx
 
 **Recommended follow-up:** decide between (a) porting the client island onto the trunk's component,
 (b) dropping name matching from the URL search so only synthetic identifiers travel, or (c) an
@@ -305,3 +324,83 @@ something the trunk rewrote, with no unique behaviour:
 generated. They are regenerated from the merged tree rather than reconciled hunk by hunk.
 
 `scripts/generate-site-map.ts` is **not** generated and is hand-merged per finding 4.
+
+---
+
+## Found during the merge itself, not in the survey
+
+These are defects and trade-offs the survey could not see, because they only exist in the merged
+result. They are recorded here so the merge commit is not the only place they are written down.
+
+### A. `listPatientNames` was silently duplicated by the three-way merge
+
+**File:** `src/lib/caring-contacts/db/postgres-repository.ts`
+
+Both sides added `listPatientNames` to the Postgres store — `main` in the `49642d65e` squash, this
+trunk independently — at different offsets in the same object literal. Git's three-way merge found no
+textual conflict and kept **both**, producing two `async listPatientNames(context: ReadContext)`
+members in one object. `npm run typecheck` caught it:
+
+    src/lib/caring-contacts/db/postgres-repository.ts(2264,11): error TS2300: Duplicate identifier 'listPatientNames'.
+
+This is the failure mode a conflict-list-only review would have missed entirely — the file was never
+flagged as conflicted. The two method bodies were compared line by line and are **byte-identical**;
+only the preceding doc comments differ, and the trunk's comment is a strict superset of `main`'s (same
+two opening paragraphs, plus a third that narrows the claim from the page to this method and records
+that `listPlans` still selects `PLAN_COLUMNS`). The duplicate was removed and the trunk's comment kept.
+Nothing behavioural was dropped from either side.
+
+### B. `recordDecision` trades Ruling 87's loud failure for the race guard
+
+**File:** `src/components/caring-contacts/workspace/overlays/workspace-overlays.tsx`
+
+`main`'s `recordDecision` was taken whole, because it is the consumer half of finding 1 and the two
+recovered tests are written against it. It is not a pure gain, and the cost should be visible.
+
+The trunk's version threw when a confirmed overlay had no recordable commit staged, and its comment
+explains why: _"a confirm control that appears to work and writes nothing, which is precisely the
+defect Ruling 87 exists to prevent. Loud is the conservative direction."_ `main`'s version returns
+silently instead, because a null return from `consumeWorkspaceOverlayCommit` is also how the
+double-click no-op is expressed — the two cases are indistinguishable at that call site.
+
+So the merged code is louder about duplicate writes and quieter about missing ones. Distinguishing
+"never staged" from "already consumed" is possible but is new behaviour beyond either side, so it was
+not invented here. **Recommended:** decide whether Ruling 87's loud failure should be restored for the
+never-staged case specifically.
+
+### C. The site map's `/caring-contacts/patients` description understates the URL
+
+**File:** `scripts/generate-site-map.ts`
+
+The trunk's description — _"filtered by plan state or synthetic identifier through the URL"_ — predates
+`3450ebcb8`, which widened the same URL search to match patient names. It is now incomplete in exactly
+the direction finding 3 is about. `main`'s competing description is accurate for `main`'s architecture
+and false for this tree, so it could not be taken either. The trunk's text was kept verbatim rather
+than rewritten, because the correct wording depends on how finding 3 is decided.
+
+## Route census after the merge
+
+`docs/design-system/adoption-contract.json` was rebuilt as `main`'s file (Ward Flow's twelve route
+declarations and the constellation legacy-redirect surface removed, `/factsheets/topics` and
+`ChoiceChip` added) with the trunk's one change layered on: `caring-contacts-workspace` declares four
+routes rather than two. `npm run design-system:adoption:update` then reported **70 discovered routes,
+0 undeclared, 0 missing** — `main`'s 68 plus `/caring-contacts/patients/[patientId]` and
+`/caring-contacts/plans/new`. The assertion in `tests/design-system-adoption.test.ts` and its arithmetic
+comment were updated from `main`'s 68 to that measured 70; the number was read from the regenerated
+manifest, not predicted.
+
+## Verification run on the merged tree
+
+| Gate                             | Result                                                                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`              | pass, fresh run — `[gate-receipts] recorded a pass for "typecheck:internal" (5501 input files)`                |
+| `npm run test:cc-guards`         | `Test Files 18 passed (18)` / `Tests 398 passed (398)`                                                         |
+| Remaining caring-contacts suites | `Test Files 7 passed (7)` / `Tests 164 passed (164)`                                                           |
+| Recovered race-guard test        | `✓ records a staged mutating action only once while its close traversal is pending`                            |
+| Mutation proof of that test      | guard disabled → `expected "vi.fn()" to be called 1 times, but got 2 times`; restored                          |
+| `npx eslint --no-cache`          | 13 changed files, exit 0; a JSON run confirmed 5 of them were actually inspected, 0 errors and 0 warnings each |
+
+**Not run, and owed:** the full `npm run test` suite and every Playwright gate. Three implementers were
+live in other worktrees throughout, and the exclusive heavy lease would have starved them — one focused
+run was already refused mid-merge and had to wait for `cc-plan-detail` to release it. The broad suite
+belongs to the owner once those worktrees are finished.

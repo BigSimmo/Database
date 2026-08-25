@@ -1429,7 +1429,13 @@ test("shows a department its own patients, both clocks, and one outstanding item
 
 - [ ] **Step 3: Build it**
 
-Its own patients, filtered on `originEdId`. Each row carries **both clocks** — time in the department from `openedAt`, and the legal clock from `formedAt` where that is earlier, marked `data-community-formed="true"` when they differ — plus the four-hour access target, a police flag where `arrivalMode` says so, and **the single outstanding item**: a form, an examination, a transport request, or handover.
+Its own patients, filtered on `originEdId`. Each row carries **both clocks** — time in the department from `openedAt`, and the legal clock from `formedAt` where that is earlier, marked `data-community-formed="true"` when they differ — plus the 24-hour access target, a police flag where `arrivalMode` says so, and **the single outstanding item**: a form, an examination, a transport request, or handover.
+
+> **Superseded 2026-08-22.** This step originally named the access target as four hours (240
+> minutes). The product owner — the spec's own author — changed it to 24 hours (1440 minutes) for
+> this prototype, in response to a direct clinical question. `ED_ACCESS_TARGET_MINUTES` in
+> `ward-model.ts` and its tests carry the current value; nothing else about how the figure is
+> counted, rendered or safeguarded changed.
 
 Two forms: **raise a referral** (cohort, security, sex, specialling, legal status, urgency — dispatching `RAISE_REFERRAL`) and **record an examination** with its outcome (dispatching `RECORD_EXAMINATION`; `revoked` closes the movement).
 

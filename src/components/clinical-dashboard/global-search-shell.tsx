@@ -17,7 +17,12 @@ import {
 import dynamic from "next/dynamic";
 
 import { SettingsStateProvider } from "@/components/clinical-dashboard/SettingsStateProvider";
-import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
+import {
+  clearLegacyRecentQueries,
+  demoRecentQueryOwnerId,
+  loadRecentQueries,
+  recentQueriesChangeEvent,
+} from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -65,15 +70,9 @@ import {
 } from "@/lib/app-modes";
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
-import {
-  ClinicalAskComposerActions,
-  ClinicalAskWorkspace,
-} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
+import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 import { isClinicalAskModeId } from "@/lib/clinical-ask/contracts";
-import {
-  clinicalAskComposerChromeEnabled,
-  clinicalAskWorkspaceVisible,
-} from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
+import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
 
 // Namespaced mode homes share this client shell but never render the dashboard
@@ -113,6 +112,7 @@ import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib
 import {
   isAlwaysStandaloneShellPath,
   isDashboardOwnedModeHomePath,
+  isDictionaryCataloguePath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -468,6 +468,7 @@ function GlobalStandaloneSearchShellBody({
   // searchMode before router.push landed, which made isStandaloneModeHome false
   // for one frame (dock reserve + 200ms padding transition = choppy resize).
   const isStandaloneModeHome = !hasSubmittedModeSearch && !rendersDashboardSearch && isStandaloneModeHomePath(pathname);
+  const isDictionaryCatalogue = isDictionaryCataloguePath(pathname);
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations/");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -482,18 +483,12 @@ function GlobalStandaloneSearchShellBody({
   // the sidebar's cross-guide search usable by returning to Answer first.
   const openSidebarSearch = pathname === "/tools" ? () => startNewAnswerChat() : () => focusComposerInput(inputRef);
   const heroOwnsPhoneComposer = isStandaloneModeHome && mobileHomeComposerPlacement === "hero";
-  // Idle empty homes already have the search composer; Ask / Dictate appear
-  // once the draft has text or a search has been submitted. Therapy never
-  // mounts this rail — query-gated remounts were flickering the microphone.
-  const showClinicalAskDockChrome =
-    clinicalAskComposerChromeEnabled(clinicalAskMode) &&
-    !isToolDetailWithFooterSearch(pathname) &&
-    !isStandaloneModeHome &&
-    !(pathname === "/" && !hasSubmittedModeSearch && !query.trim());
   // This flag controls sm+ padding for standalone mode homes. Tools has no
   // shared composer, so it cannot reserve floating-composer space. Phone
   // clearance is resolved separately from heroOwnsPhoneComposer below.
-  const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
+  // Dictionary catalogue keeps the usual compact phone dock; sm+ still
+  // portals into the in-page slot under mode nav (`desktopHomeComposerSlotId`).
+  const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue;
   // Most standalone mode homes keep the in-flow hero pill at every width. Tools
   // deliberately has no shared composer. Document viewer routes own their own
   // floating composer, so
@@ -514,7 +509,6 @@ function GlobalStandaloneSearchShellBody({
       heroOwnsPhoneComposer,
       searchMode,
       differentialsCompareAddonActive,
-      clinicalAskActionsVisible: showClinicalAskDockChrome,
     }),
   );
 
@@ -621,12 +615,15 @@ function GlobalStandaloneSearchShellBody({
 
   useEffect(() => {
     let cancelled = false;
-    const frame = window.requestAnimationFrame(() => {
+    const reload = () => {
       if (!cancelled) setRecentQueries(loadRecentQueries(recentQueriesOwnerId));
-    });
+    };
+    const frame = window.requestAnimationFrame(reload);
+    window.addEventListener(recentQueriesChangeEvent, reload);
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
+      window.removeEventListener(recentQueriesChangeEvent, reload);
     };
   }, [recentQueriesOwnerId]);
 
@@ -816,11 +813,7 @@ function GlobalStandaloneSearchShellBody({
     return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
   }, [mainElement, chromeVisible]);
 
-  const renderSearchShellChrome = ({
-    clinicalAskSession,
-    clinicalAskOnline,
-    runModeClinicalAsk,
-  }: ClinicalAskShellBindings) => {
+  const renderSearchShellChrome = ({ clinicalAskSession }: ClinicalAskShellBindings) => {
     const startNewChat = () => startNewAnswerChat(clinicalAskSession.clear);
     const stageClinicalAskDraft = (draft: string) => {
       setQuery(draft);
@@ -917,21 +910,6 @@ function GlobalStandaloneSearchShellBody({
                 openAccountSetup("favourites");
               }}
               onAsk={submitSearch}
-              clinicalAskMode={clinicalAskMode ?? undefined}
-              onClinicalAsk={runModeClinicalAsk}
-              clinicalAskActive={clinicalAskSession.submitted}
-              clinicalAskActions={
-                showClinicalAskDockChrome && clinicalAskMode ? (
-                  <ClinicalAskComposerActions
-                    mode={clinicalAskMode}
-                    draft={query}
-                    active={clinicalAskSession.submitted}
-                    offline={!clinicalAskOnline}
-                    onDraftChange={setQuery}
-                    onAsk={runModeClinicalAsk}
-                  />
-                ) : undefined
-              }
               onClearQuery={() => {
                 setQuery("");
                 if (isStandaloneModeHome || searchMode === "calculators") {
@@ -963,13 +941,21 @@ function GlobalStandaloneSearchShellBody({
               desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
               showPhoneSuggestionTickerOnHome={isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)}
               searchComposerVisible={shouldShowSearchComposer}
-              desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+              desktopHomeComposerSlotId={
+                isStandaloneModeHome || isDictionaryCatalogue ? modeHomeDesktopComposerSlotId : undefined
+              }
               desktopPageComposerSlotId={
-                shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
+                shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue
+                  ? desktopPageComposerSlotId
+                  : undefined
               }
               // Most standalone homes keep the in-flow hero pill at every width.
               // Tools suppresses the shared composer at every breakpoint.
-              heroComposerBreakpoint={mobileHomeComposerPlacement === "footer" ? "sm-up" : "all"}
+              // Dictionary catalogue uses the usual compact phone dock; sm+
+              // still portals into the in-page slot under mode nav.
+              heroComposerBreakpoint={
+                mobileHomeComposerPlacement === "footer" || isDictionaryCatalogue ? "sm-up" : "all"
+              }
               // Phones: #main-content owns vertical scroll, so hide-on-scroll
               // collapses the top bar to hand space back to content.
               // Tablet and desktop portal search into normal page flow. The outer
@@ -1046,7 +1032,7 @@ function GlobalStandaloneSearchShellBody({
               data-testid="mobile-composer-reserve-pad"
               className="max-sm:pt-[var(--phone-overlay-chrome-h)] max-sm:pb-[var(--mobile-composer-reserve)]"
             >
-              {shouldShowSearchComposer && !isStandaloneModeHome ? (
+              {shouldShowSearchComposer && !isStandaloneModeHome && !isDictionaryCatalogue ? (
                 <DesktopComposerPortalSlot
                   id={desktopPageComposerSlotId}
                   data-testid="desktop-page-search-composer-slot"

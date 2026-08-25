@@ -80,7 +80,7 @@ describe("Therapy Compass responsive contract", () => {
     // bar, which folds its overflow into a sheet rather than off the screen
     // edge. Its own density and centring contract lives in mode-nav-contract.
     expect(registryModeNavSource).toContain("ModeNav");
-    expect(registryModeNavSource).toContain('"therapy-compass": "balanced-four"');
+    expect(registryModeNavSource).toContain('"therapy-compass": "extended"');
     expect(registryModeNavSource).not.toContain("overflow-x-auto");
     expect(registryModeNavSource).not.toContain("w-fit");
     expect(globalsSource).toContain("position: relative;");

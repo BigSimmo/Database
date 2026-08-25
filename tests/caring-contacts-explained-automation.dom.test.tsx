@@ -282,6 +282,20 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // the service with a distinctive incident note and asserts on the element tree the page returns,
   // so the note reaching this boundary under ANY prop name is a red test rather than a reading.
   "plan-wizard/plan-wizard.tsx",
+  // NOT A BOUNDARY THIS WORKSPACE CHOSE. `origin/main` split the Patients directory into a server
+  // wrapper plus this client island so a patient's name would stay out of the GET URL; that fix
+  // never came back to this trunk, whose directory is still a Server Component with a
+  // `method="get"` search. The catch-up merge carried the file in without adopting it, so nothing
+  // renders it today and it ships in no bundle.
+  //
+  // It is listed rather than deleted so the fix stays visible to the owner, and listing it is not
+  // a weakening: the set-equality check above still refuses any OTHER unlisted client component,
+  // and the module-graph check below still proves this file and everything it imports never name
+  // the service-state module or type. Finding 3 of
+  // `docs/caring-contacts/phase-2b-sdd-archive/main-catchup-inventory.md` is the decision that
+  // retires this entry -- by adopting the island, or by deleting it once the URL question is
+  // settled another way.
+  "patients-directory-client.tsx",
 ];
 
 /**

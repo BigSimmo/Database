@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ import { WORKSPACE_OVERLAY_DEFINITIONS } from "@/components/caring-contacts/work
 import {
   closeWorkspaceOverlay,
   openWorkspaceOverlay,
+  openWorkspaceOverlayWithCommit,
   WorkspaceOverlays,
 } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
 import { WORKSPACE_WIDTH_BREAKPOINTS, widthStateFor } from "@/components/caring-contacts/workspace/width-state";
@@ -434,6 +435,36 @@ describe("the overlay URL", () => {
     // branch it exercised, so it is asserted rather than assumed.
     expect(window.history.state, "the seeded workspace entry must carry no marker").toBeNull();
   }
+
+  it("lets an unstaged recovery action close its URL-opened overlay", async () => {
+    setViewportWidth(1440);
+    seedHistory();
+    render(<WorkspaceOverlays />);
+
+    act(() => openWorkspaceOverlay("session-expiry"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    await userEvent.click(action);
+
+    await waitFor(() => expect(screen.queryByTestId("workspace-overlay-content")).toBeNull());
+    expect(window.location.search).not.toContain("overlay=");
+  });
+
+  it("records a staged mutating action only once while its close traversal is pending", async () => {
+    setViewportWidth(1440);
+    seedHistory();
+    render(<WorkspaceOverlays />);
+    const record = vi.fn();
+
+    act(() => openWorkspaceOverlayWithCommit("pause", { kind: "record", record }));
+    const action = await screen.findByTestId("workspace-overlay-action");
+    act(() => {
+      fireEvent.click(action);
+      fireEvent.click(action);
+    });
+
+    expect(record).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByTestId("workspace-overlay-content")).toBeNull());
+  });
 
   it("does not reopen a dismissed overlay when the browser goes back", async () => {
     setViewportWidth(1440);
