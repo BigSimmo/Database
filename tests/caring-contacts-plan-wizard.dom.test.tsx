@@ -270,12 +270,19 @@ describe("the caring-contacts plan wizard — stage 1, agreement (Ruling [112])"
     expect(text).toMatch(/entered at personalisation/i);
   });
 
-  it("never tells a clinician the confirmations are kept, on a screen whose own panel says they are not", async () => {
-    // Round 1, finding M-6. The status line under the confirmations used to read "Both
-    // confirmations are recorded for this sign-up", directly beneath a panel stating that nothing
-    // in this domain records them. "Confirmed" is true; "recorded" is not, and the gap is with the
-    // owner as a schema decision — a screen implying it is already handled is the one thing that
-    // could make that decision look unnecessary.
+  it("says what the plan will record about the confirmations, and what it will not", async () => {
+    // THIS SENTENCE HAS NOW BEEN WRONG IN TWO DIRECTIONS AND CORRECT IN A THIRD.
+    //
+    // Round 1, M-6: "Both confirmations are recorded for this sign-up", directly beneath a panel
+    // saying nothing in this domain recorded them. Round 2, item 1: "Neither is stored anywhere",
+    // on a screen whose own draft notice says the opposite — the more dangerous direction, because
+    // a clinician on a shared ward computer reads it as a reason not to press Discard draft.
+    //
+    // Task 9b makes a third direction possible, and it is the one this case now guards hardest:
+    // there IS a record on the plan, and it records that the COORDINATOR confirmed a check. It does
+    // not record that the patient consented — agreement is held in the hospital record, not here —
+    // so a screen saying the plan records the agreement would be claiming something the domain
+    // cannot back, at the last moment before a plan is created.
     const user = userEvent.setup();
     const { container } = renderWizard();
     for (const box of screen.getAllByRole("checkbox")) await user.click(box);
@@ -285,12 +292,17 @@ describe("the caring-contacts plan wizard — stage 1, agreement (Ruling [112])"
     // wording was itself untrue in the other direction ("Neither is stored anywhere", on a screen
     // whose own draft notice says the opposite), and a looser assertion would not have caught it.
     expect(text).toContain(
-      "Both confirmations are ticked, so a pathway can be chosen. Neither is recorded on the plan; like everything else on this screen, they are kept on this computer until you finish or discard.",
+      "Both confirmations are ticked, so a pathway can be chosen. Each is recorded on the plan when the plan is created \u2014 that you confirmed it, and when. Until then, like everything else on this screen, they are kept on this computer until you finish or discard.",
     );
-    expect(text, "the screen claims the confirmations are recorded").not.toMatch(/confirmations are recorded/i);
-    // The understating direction is the more dangerous one on a shared ward computer: it gives a
-    // clinician a reason NOT to press Discard draft while a patient's details sit in this tab.
+    // The understating direction is still the more dangerous one on a shared ward computer: it
+    // gives a clinician a reason NOT to press Discard draft while a patient's details sit in this
+    // tab. Round 2's pin stays, because Task 9b did not make the ticks stop being held here.
     expect(text, "the screen denies keeping what it is in fact keeping").not.toMatch(/stored anywhere|kept anywhere/i);
+    // THE OVERSHOOT, which is new and is what the record made possible. What is recorded is the
+    // coordinator's confirmation, never the patient's consent.
+    expect(text, "the screen claims the plan records the patient's consent").not.toMatch(
+      /consent is recorded|records (?:the )?(?:patient(?:\u2019|')s )?consent/i,
+    );
   });
 
   it("shows roles in plain words, never as the domain's identifiers", async () => {
@@ -311,11 +323,20 @@ describe("the caring-contacts plan wizard — stage 1, agreement (Ruling [112])"
     );
   });
 
-  it("says plainly that the confirmations are not recorded anywhere", () => {
+  it("says plainly what the plan records about the confirmations, and where agreement really lives", () => {
     renderWizard();
-    // There is no field for either on a plan, so a screen that implied they were kept would be
-    // making a claim the domain cannot honour. See the Task 7 report.
-    expect(screen.getByText("Confirmed by you").closest("div")!).toHaveTextContent(/nothing in this domain records/i);
+    const panel = screen.getByText("Confirmed by you").closest("div")!;
+    // Task 7 found there was no field for either of these anywhere, and this case pinned the panel
+    // saying so. Task 9b added one, so that sentence is now the false one and this is the pin that
+    // stops it surviving.
+    expect(panel).not.toHaveTextContent(/nothing in this domain records/i);
+    // What the plan records is the coordinator's confirmation and the instant of it.
+    expect(panel).toHaveTextContent(/what the plan records is that you confirmed each of these, and when/i);
+    // And what it does NOT record: the patient's consent. Agreement is held in the hospital record,
+    // which this system is not connected to, so a panel claiming otherwise would be asserting
+    // something no read here could ever support.
+    expect(panel).toHaveTextContent(/not that the patient consented/i);
+    expect(panel).toHaveTextContent(/hospital record/i);
   });
 
   it("will not go to the pathway stage until both confirmations are ticked, and says why", async () => {
@@ -1018,20 +1039,23 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
     expect(stage).toHaveTextContent(FICTIONAL_PATIENT_MOBILES[1]);
   });
 
-  it("never presents the stage-1 confirmations as something the plan records", async () => {
+  it("names the plan's record of the confirmations as a confirmation, never as the patient's agreement", async () => {
     window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
     renderWizard();
     const stage = await screen.findByRole("region", { name: "Review and activation" });
 
-    // The mockup renders `Agreement confirmed: Yes` beside the patient's name, as though it were a
-    // stored fact. It is not stored today: `createPlanSchema` is `.strict()` with ten fields and
-    // `patientDetail` `.strict()` with four, and neither has a place for it. This screen is the
-    // last place a false reassurance could be introduced before a plan exists.
+    // The mockup renders `Agreement confirmed: Yes` beside the patient's name, as though the
+    // patient's agreement were a fact the plan holds. It is not, and Task 9b did not make it one:
+    // what the plan holds is that a coordinator confirmed they checked it. This screen is the last
+    // place a false reassurance could be introduced before a plan exists.
     expect(stage.textContent ?? "").not.toMatch(/agreement confirmed:\s*yes/i);
-    // What it says instead is TODAY'S fact, in place: confirmed here, not on the plan. Deliberately
-    // not "nothing in this domain records them" — that states a permanent property, and the owner
-    // has since decided the confirmations will be stored as an attestation.
-    expect(stage).toHaveTextContent(/not recorded on the plan/i);
+    // The sentence that WAS here — "they are not recorded on the plan" — is now false, and this is
+    // the pin that would have caught it surviving. What replaces it names the act and its actor.
+    expect(stage).not.toHaveTextContent(/not recorded on the plan/i);
+    expect(stage).toHaveTextContent(/records each of those on the plan as your confirmation/i);
+    // And the going-back sentence, which asserted the plan's record could not change either way.
+    // That was true when nothing was recorded and is false now.
+    expect(stage).toHaveTextContent(/changes what the plan will record/i);
   });
 
   it("states no contact count it did not measure", async () => {

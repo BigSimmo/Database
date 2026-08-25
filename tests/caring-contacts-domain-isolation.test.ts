@@ -4,7 +4,10 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
+
 const DOMAIN_ROOT = path.join(process.cwd(), "src", "lib", "caring-contacts");
+const CARING_CONTACTS_ASSURANCE_MIGRATION = "0006_caring_contacts_plan_assurances.sql";
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -208,5 +211,44 @@ describe("caring-contacts properties that only a source scan can hold", () => {
     expect(sql?.[1]).toBeDefined();
 
     expect(sql?.[1]).toBe(constant?.[1]);
+  });
+
+  it("keeps the attestation vocabulary identical in the domain and in its SQL check constraint", () => {
+    // The domain owns the closed set (`PLAN_ASSURANCES`); the constraint is the backstop against a
+    // write that reached the table another way. Nothing observable through the repository can hold
+    // the two equal: a constraint listing a value the domain does not know refuses nothing the
+    // domain would ever send, and one MISSING a value the domain knows refuses a plan the wizard
+    // could really create -- and that failure appears only against a real database.
+    const migration = readFileSync(
+      path.join(process.cwd(), "caring-contacts", "supabase", "migrations", CARING_CONTACTS_ASSURANCE_MIGRATION),
+      "utf8",
+    ).replace(/--.*/g, "");
+
+    const declaration = /assurance in \(([^)]*)\)/.exec(migration);
+
+    // Positive control: the constraint was found and really is a value list.
+    expect(declaration).not.toBeNull();
+    const listed = [...(declaration?.[1] ?? "").matchAll(/'([^']+)'/g)].map((match) => match[1]).sort();
+
+    expect(listed).toEqual([...PLAN_ASSURANCE_VALUES].sort());
+  });
+
+  it("never amends or deletes an attestation from the Postgres store", () => {
+    // Ruling [122]: a retention clearance must leave the attestation alone, and nothing anywhere
+    // rewrites one. The shared contract suite proves the clearance behaviourally -- but only when a
+    // database is available to run the Postgres half against, and this property is exactly the one
+    // whose absence would be silent offline.
+    //
+    // The whole file is scanned rather than the clearance's body, because the invariant is wider
+    // than the clearance: an attestation is written once, inside the transaction that creates its
+    // plan, and read afterwards. There is no amend path and there is no delete path.
+    const source = postgresStore();
+
+    // Positive control: the store really does touch this table, so the absences below are the
+    // invariant rather than a table this file never mentions.
+    expect(source).toContain("insert into caring_contacts.plan_assurances");
+
+    expect(source).not.toMatch(/delete from caring_contacts\.plan_assurances/);
+    expect(source).not.toMatch(/update caring_contacts\.plan_assurances/);
   });
 });

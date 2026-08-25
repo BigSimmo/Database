@@ -31,6 +31,8 @@ import {
   truncateCaringContactsData,
 } from "./helpers/caring-contacts-postgres";
 
+import { PLAN_ASSURANCE_VALUES } from "@/lib/caring-contacts/assurances";
+
 const TEAM_NORTH = "TEAM-NORTH";
 const TEAM_SOUTH = "TEAM-SOUTH";
 
@@ -51,6 +53,10 @@ const PATIENT_BEARING_TABLES: readonly string[] = Object.freeze([
   // the same way: a preference or training record leaking across teams still names a person.
   "notification_preferences",
   "training_records",
+  // Holds no patient content -- a closed value, an actor and an instant -- but it points directly
+  // at one patient's plan, and an attestation readable across teams would say who a team is
+  // contacting.
+  "plan_assurances",
 ]);
 
 let pool: Pool;
@@ -193,6 +199,97 @@ describe("caring-contact migrations", () => {
     // The cap is measured after surrounding whitespace is discounted, so padding cannot refuse a
     // reason the domain would have accepted -- the domain stores trimmed text and this must agree.
     await expect(setReason(`  ${"x".repeat(500)}  `)).resolves.toBeUndefined();
+  });
+
+  it("holds the plan assurances as a closed, undefaulted, team-scoped attestation", async () => {
+    // Migration 0006. Four properties, each a real defect if it were otherwise:
+    //
+    //   * THE VALUE SET IS CLOSED, and closed to the SAME set the domain knows. A check constraint
+    //     naming a different list from `PLAN_ASSURANCES` would let a write store an assurance no
+    //     screen can render, or refuse one the wizard sends.
+    //   * `attested_at` IS UNDEFAULTED, so a write that forgot the instant cannot look like one
+    //     that recorded it. `default now()` would make those two indistinguishable.
+    //   * `actor_id` IS NOT NULL. An attestation that cannot say who made it is not evidence, and
+    //     an anonymous row is worse than an absent one because it reads as proof.
+    //   * ONE ROW PER ASSURANCE PER PLAN, so one check cannot be recorded as two.
+    const { rows: columns } = await pool.query<{
+      column_name: string;
+      is_nullable: string;
+      column_default: string | null;
+    }>(
+      `select column_name, is_nullable, column_default from information_schema.columns
+       where table_schema = 'caring_contacts' and table_name = 'plan_assurances'`,
+    );
+    const byColumn = new Map(columns.map((row) => [row.column_name, row]));
+    expect(byColumn.get("attested_at")?.is_nullable).toBe("NO");
+    expect(byColumn.get("attested_at")?.column_default).toBeNull();
+    expect(byColumn.get("actor_id")?.is_nullable).toBe("NO");
+
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-ATTEST", patientId: "PATIENT-ATTEST" });
+
+    const attest = async (assurance: string, planId = "PLAN-ATTEST", teamId = TEAM_NORTH) =>
+      runInTeamSession(pool, { teamId, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId,
+          actorId: "ACTOR-NORTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: planId,
+          outcome: "allowed",
+          idempotencyKey: `attest-${planId}-${assurance}`,
+        });
+        await client.query(
+          `insert into caring_contacts.plan_assurances (plan_id, team_id, assurance, actor_id, attested_at)
+           values ($1, $2, $3, 'ACTOR-NORTH', now())`,
+          [planId, teamId, assurance],
+        );
+      });
+
+    // Every value the domain knows is accepted, and the loop is what keeps the two lists equal:
+    // adding a value to `PLAN_ASSURANCES` without adding it to the constraint fails here.
+    for (const assurance of PLAN_ASSURANCE_VALUES) {
+      await expect(attest(assurance)).resolves.toBeUndefined();
+    }
+
+    // Positive control above means this refusal is the check constraint acting rather than the
+    // insert never reaching the table.
+    await expect(attest("patient-said-yes-probably")).rejects.toThrow(/plan_assurances_assurance_check/);
+
+    // A repeat of one already written is refused by the key, so a single check cannot be recorded
+    // twice by a route that bypassed the domain's own named refusal.
+    await expect(attest(PLAN_ASSURANCE_VALUES[0])).rejects.toThrow(/plan_assurances_pkey/);
+  });
+
+  it("refuses an attestation attached to another team's plan", async () => {
+    // The composite foreign key, and the reason 0003 gives for `plan_assignments`: foreign-key
+    // checks bypass row-level security, so a bare `plan_id` reference would let TEAM-SOUTH attach a
+    // row to TEAM-NORTH's plan while claiming its own team -- visible to the wrong team and
+    // invisible to the right one.
+    await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-CROSS", patientId: "PATIENT-CROSS" });
+
+    await expect(
+      runInTeamSession(pool, { teamId: TEAM_SOUTH, auditToken: nextAuditToken() }, async (client) => {
+        await client.query("insert into caring_contacts.teams (id) values ($1) on conflict (id) do nothing", [
+          TEAM_SOUTH,
+        ]);
+        await insertAuditEvent(client, {
+          teamId: TEAM_SOUTH,
+          actorId: "ACTOR-SOUTH",
+          actorRoles: ["coordinator"],
+          action: "createPlan",
+          objectType: "plan",
+          objectId: "PLAN-CROSS",
+          outcome: "allowed",
+          idempotencyKey: "attest-cross",
+        });
+        await client.query(
+          `insert into caring_contacts.plan_assurances (plan_id, team_id, assurance, actor_id, attested_at)
+           values ($1, $2, $3, 'ACTOR-SOUTH', now())`,
+          ["PLAN-CROSS", TEAM_SOUTH, PLAN_ASSURANCE_VALUES[0]],
+        );
+      }),
+    ).rejects.toThrow(/plan_assurances_plan_fk/);
   });
 
   it("enables and forces row-level security on every patient-bearing table", async () => {
