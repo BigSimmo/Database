@@ -103,6 +103,14 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // single search slot of its own. It is not a search mode, and its synthetic
   // patient context must never enter shared search.
   const isCarePlanMockup = pathname === "/mockups/care-plan" || pathname.startsWith("/mockups/care-plan/");
+  // Ward Flow owns a complete operational shell — its own rail, its own in-page view navigation,
+  // and a single search slot of its own on the patient-search board. It is not a search mode, and
+  // its synthetic patient context must never enter shared search. Without this entry the shared
+  // composer renders a SECOND real search bar over the prototype and the coordinator screen stops
+  // being visible at all: every test in `ui-ward-management.spec.ts` failed on
+  // `[data-testid="ward-coordinator"]:visible` resolving to zero elements, while that element was
+  // plainly present in the served markup. Added when Ward Flow moved under `/mockups/ward-flow`.
+  const isWardFlowMockup = pathname === "/mockups/ward-flow" || pathname.startsWith("/mockups/ward-flow/");
 
   return (
     <GlobalMockupSearchShell
@@ -152,6 +160,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
         !isCarePlanMockup &&
+        !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup
       }
@@ -181,6 +190,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSidebarLiveMockup &&
         !isCaringContactMockup &&
         !isCarePlanMockup &&
+        !isWardFlowMockup &&
         !isDictionaryBrowseHeaderMockup &&
         !isDictionaryControlRowMockup
       }
