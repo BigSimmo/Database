@@ -24,9 +24,13 @@ typed extension point, described in full below.
 Tests added: `tests/caring-contacts-new-plan-page.dom.test.tsx`,
 `tests/caring-contacts-plan-wizard.dom.test.tsx`, `tests/caring-contacts-plan-draft.dom.test.tsx`.
 Tests changed: `tests/caring-contacts-workspace-shell.dom.test.tsx`,
-`tests/route-reachability.test.ts`, `tests/ui-caring-contacts-workspace.spec.ts`.
+`tests/route-reachability.test.ts`, `tests/ui-caring-contacts-workspace.spec.ts`,
+`tests/caring-contacts-explained-automation.dom.test.tsx`, `tests/design-system-adoption.test.ts` —
+the last two are workspace-wide guards that fired on the new screen; see §8.
 Docs regenerated/updated: `docs/site-map.md` (+ its description in `scripts/generate-site-map.ts`),
-`docs/codebase-index.md`.
+`docs/codebase-index.md`, `docs/design-system/adoption-contract.json`,
+`docs/design-system/adoption-manifest.json` and `docs/design-system/ADOPTION.md`
+(`npm run design-system:adoption:update`).
 
 ---
 
@@ -397,7 +401,47 @@ Both fixes were made and the three new test files re-run green against them befo
 
 `npm run test` — the gate of record, because `test:focused` refuses this change.
 
-<!-- FULL SUITE -->
+```
+ Test Files  833 passed | 3 skipped (836)
+      Tests  10074 passed | 74 skipped (10148)
+[test] exit=0
+```
+
+(The `check:function-grants: FAIL — …` lines that appear mid-run are one test's own positive-control
+fixtures printing their expected refusals, not failures.)
+
+**It was red first, on two workspace-wide guards, and both were right to fire.** Neither is in this
+change's own test files, which is exactly the reason the brief insists on the full suite:
+
+1. **`tests/design-system-adoption.test.ts`.** A production page route nobody declared fails the
+   adoption census closed. Fixed properly rather than by silencing it: the route was added to the
+   `caring-contacts-workspace` surface in `docs/design-system/adoption-contract.json`,
+   `npm run design-system:adoption:update` regenerated the manifest and `ADOPTION.md`, and the
+   census assertion moved from 81 routes to 82 with its arithmetic comment updated to say which
+   route is the new one. The surface's proof declarations were already in place and unchanged.
+2. **`tests/caring-contacts-explained-automation.dom.test.tsx`.** A new Client Component under
+   `workspace/` fails closed unless it is deliberately allowlisted. `plan-wizard/plan-wizard.tsx` is
+   now in `ALLOWED_CLIENT_COMPONENTS` with the three conditions that list requires, written out.
+
+   That guard needed one narrowing, and it is worth the reviewer's attention because it is a change
+   to a safety check. Its companion scan greps an allowlisted component's whole module graph for
+   `ServiceState` and `service-state` — over raw text, comments included. It fired twice on PROSE:
+   once on the wizard's own module note explaining that the record never crosses its boundary, and
+   once on `list-empty-state.tsx`, which describes its own design by comparing itself to
+   `ServiceStateBanner`. The alternative was deleting those explanations to make a check green,
+   which is the failure `tests/route-reachability.test.ts` records in its own words. So the scan now
+   reads comment-stripped source. That is a NARROWING, not a weakening: a type reaches a client
+   component through an import, an annotation or a prop, all of them code, and never through a
+   comment. Proved by mutation M12 below. The wizard's own note additionally avoids naming the type
+   at all, and says why.
+
+| #   | Mutation                                                                     | Predicted                                     | Observed                                                                                                                       | Verdict                 |
+| --- | ---------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| M12 | `import type { ServiceState } from "@/lib/caring-contacts/service-state";` added to the wizard as real code | the narrowed scan still goes red | `src/components/caring-contacts/workspace/plan-wizard/plan-wizard.tsx (reached from plan-wizard/plan-wizard.tsx) references the service-state module` | RED, prediction matched |
+
+The three new test files, the shell test, route-reachability, workspace-screens,
+interface-vocabulary, domain-isolation, explained-automation and design-system-adoption were each
+re-run individually and green before the full suite was run.
 
 ### Not run, and why
 
@@ -406,3 +450,13 @@ Both fixes were made and the three new test files re-run green against them befo
 - `npm run verify:cheap`, `verify:pr-local`, `verify:release` — not asked for, and the last is
   provider-backed.
 - Nothing provider-backed was run at all.
+
+---
+
+## 9. One thing observed, not caused
+
+A commit I did not make — `9b3bec53c`, "docs(caring-contacts): speed review — defer Group 4, name the
+guard set, stop serialising reviews", touching only `docs/caring-contacts/phase-2b-build-record.md` —
+landed on this branch between two of mine. Nothing about it conflicts with this task and I have left
+it exactly as it is; recording it only because a second writer on the same branch is worth knowing
+about before anyone rebases.
