@@ -551,7 +551,10 @@ describe("buildScheduleRange — named exceptions", () => {
     expect(day.exceptions.entries).toEqual([]);
     expect(day.counts.needsReview).toBe(0);
     expect(day.counts.alreadySent).toBe(1);
-    expect(day.windows.flatMap((window) => window.entries).map((entry) => entry.sendability)).toEqual(["alreadySent"]);
+    const routine = day.windows.flatMap((window) => window.entries);
+    expect(routine.map((entry) => entry.sendability)).toEqual(["alreadySent"]);
+    // A contact that went out is not "not sending", so it carries no reason for not sending.
+    expect(routine.map((entry) => entry.notSendingReason)).toEqual([null]);
     // Already sent is not still to send, so the day is not "due" -- and it is not empty either.
     expect(day.disposition).toBe("nothingDue");
   });
