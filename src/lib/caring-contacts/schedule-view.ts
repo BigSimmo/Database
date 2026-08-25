@@ -256,8 +256,9 @@ function notSendingReasonFor(stored: StoredContact): ScheduleNotSendingReason | 
     case "missed":
       return "missed";
     default:
-      // `contactSendability` classifies exactly these four as `willNotBeSent`; if it ever
-      // classifies a fifth, saying nothing is better than naming the wrong reason.
+      // Unreachable while every state `contactSendability` answers `willNotBeSent` for is named
+      // above. If one is ever added there and not here, saying nothing is better than naming the
+      // wrong reason, so this returns null rather than guessing.
       return null;
   }
 }
