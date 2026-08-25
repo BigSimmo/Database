@@ -134,7 +134,7 @@ describe("developer ingestion page — the four states (plan §4)", () => {
   it("a 500 response falls into the same fetch-failed bucket as a network error", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ error: "Request failed." }, 500));
     render(<DeveloperIngestionPage />);
-    expect(await screen.findByTestId("developer-ingestion-fetch-error")).toHaveTextContent(/could not reach/i);
+    expect(await screen.findByTestId("developer-ingestion-fetch-error")).toHaveTextContent(/could not be reached/i);
   });
 
   it("an unexpected payload shape degrades to the fetch-failed state rather than inventing zero jobs", async () => {
