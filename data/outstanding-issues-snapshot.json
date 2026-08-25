@@ -10,7 +10,7 @@
     "p2": 40,
     "p3": 33,
     "queued": 10,
-    "pending": 139,
+    "pending": 149,
     "resolved": 376
   },
   "queue": [
@@ -786,6 +786,12 @@
   ],
   "pending": [
     {
+      "request_id": "024829c4-b99d-4276-8cd9-152abb058a96",
+      "action": "add",
+      "summary": "The repo-awareness snapshot goes stale on any PR that waits, and it already reddened CI once",
+      "created_at": "2026-08-25"
+    },
+    {
       "request_id": "049e0356-b6ad-4382-8f34-958d2681c60e",
       "action": "add",
       "summary": "Caring Contacts: grow the safety-incident responder note into a lightweight patient case-note capability, and settle its retention disposition then",
@@ -1008,6 +1014,12 @@
       "created_at": "2026-08-23"
     },
     {
+      "request_id": "42f4db5a-d945-435a-b40f-c2666ac685e8",
+      "action": "add",
+      "summary": "check:repo-awareness-snapshot needs git, and nobody has established what it does without it",
+      "created_at": "2026-08-25"
+    },
+    {
       "request_id": "43122ce4-bfa2-43d1-83b0-f859eae6fc84",
       "action": "add",
       "summary": "Final Windows Lighthouse distribution shows a mobile-root timing regression that needs a synchronized control",
@@ -1116,6 +1128,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "649f837b-62d6-4662-905c-afd76c3c3857",
+      "action": "add",
+      "summary": "Every developer hub page renders twice in the browser during development",
+      "created_at": "2026-08-25"
+    },
+    {
       "request_id": "66ad26af-eac0-4157-8125-8644af34e455",
       "action": "cancel",
       "summary": "Cancel request a680a25f-5aa7-4a19-94bc-0f30fcf9a61d: Adversarial review found the tooling-only implementation does not complete the 205 real qualified-clinician attestations, so the done request would close #SBKXZ7 prematurely. Preserve it for audit but cancel its mutation; a separate update request records implemented tooling while keeping the row open.",
@@ -1150,6 +1168,12 @@
       "action": "done",
       "summary": "#308: Resolved by the 2026-08-23 current-main performance remediation. The production CLS attribution matrix now measures /documents/search at 0 on mobile and 0.000061, 0.000335, 0.000269, and 0.000021 at desktop 800/1280/1350/1440 after splitting generic-page composer ownership into a settled 184px reserve. The former 96-135px main displacement is absent, header geometry is stable from first observation, and hidden composer owners retain zero reserve. Evidence: docs/evidence/performance-remediation-2026-08-23.md; tests/search-route-ownership.test.ts; tests/header-scroll-hide-contract.test.ts.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "70bfa8ff-9850-45dd-8aeb-5b4dfcb0a1be",
+      "action": "add",
+      "summary": "Live freshness readouts round to whole hours, so a fresh fetch reads '0 hours ago'",
+      "created_at": "2026-08-25"
     },
     {
       "request_id": "73810780-d91c-403f-96ab-e659a75c8688",
@@ -1224,6 +1248,12 @@
       "created_at": "2026-08-24"
     },
     {
+      "request_id": "8832a173-bb25-480d-9c6d-93d06a9ed071",
+      "action": "add",
+      "summary": "prettierignore lists one generated data snapshot but not its sibling",
+      "created_at": "2026-08-25"
+    },
+    {
       "request_id": "8f2c28e6-aeef-4648-bb23-c1bd2222226b",
       "action": "done",
       "summary": "#5DYBQQ: Resolved 2026-08-23 at exact HEAD d5e7fe271189618de9f46d2ad19f18084aa620b1 with no Forms source or test change. npm run ensure reported http://localhost:4427; GET /api/local-project-id returned appName Clinical KB, projectId clinical-kb:8955bc2fbdf3, and safeLocalOrigin true. The repository wrapper npm run test:e2e -- tests/ui-forms-section-nav.spec.ts --project=chromium --grep \"expands information previews into one continuous answer\" --repeat-each=2 completed its isolated production build and typecheck, then passed the target in 2 of 2 Chromium repetitions with no retries. src/components/forms/form-detail-page.tsx, src/components/ui/disclosure.tsx, tests/ui-forms-section-nav.spec.ts, and tests/forms-information-disclosure.dom.test.tsx are byte-identical in the worktree, exact HEAD, and origin/main. The earlier missing-pg attempt was dependency/environment restoration only and is excluded from product evidence; no flake-ledger entry, quarantine, weakened assertion, or Forms code change was needed.",
@@ -1234,6 +1264,12 @@
       "action": "update",
       "summary": "#231: detail → PHASE 5.2 CONFIRMED SATISFIED with fresh data 2026-08-22 Perth (2026-08-21 UTC), not reopened. This row already recorded that remediation-plan Phase 5.2 is satisfied by S1's 2026-08-17 healthy-latency probes; the Phase 5 close-out re-measured production end to end and confirms it. Retrieval now costs 955 ms on the text fast path and 6,720 ms on hybrid (from 31,610 ms and 21,757 ms at the incident), against answerRouteBudgetMs.fast of 25,000 ms -- so retrieval consumes 4-27% of the fast budget and is no longer capable of binding it. The 2026-08-14 verdict that pre-generation latency WAS the binding cause stands for that window and is now closed out. Residual R4 (chronic ~30 s strong-route provider_timeout on metformin-renal-dosing and valproate-pregnancy, with a safe source-backed extractive fallback) is generation-side and unchanged; no separate R4 row was created, per this row's own instruction.  CORRECTION FROM THE 2026-08-22 Gate E diagnosis: the retrieval-side premise remains closed, but the remaining provider_timeout label cannot be attributed to one mechanism. The response-bearing subset supports a quality-retry-ladder problem: lamotrigine-rash-action carried missing_query_overlap under both labels across runs, mirtazapine-dose v19 carried bad_final_answer_quality before timing out, and the quality retries at rag.ts:3623 and rag.ts:3709 have no deadline-admission check. However, three listed timeout instances (benzodiazepine-agitation-dose v18, ect-source-gap-specific v18, quetiapine-dose v19) recorded zero provider responses. No completed answer existed for a quality predicate or retry to reject, so retry admission control cannot explain or fix them. NEXT: preserve these as two mechanisms. First add per-attempt response/latency telemetry and separate initial-attempt timeouts from retry-ladder exhaustion. Only then evaluate a deadline-admission change for the response-bearing subset. Do not raise answerRouteBudgetMs or weaken quality gates. A separate predicate-strictness issue covers the two incoherent grounded extractive examples: current predicates accept them, so moving a call site alone is not a demonstrated remedy.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "94df6827-7d34-4c5f-8357-6f23eceaca96",
+      "action": "add",
+      "summary": "Ingestion panel reports 'could not reach' when it reached the endpoint but could not parse the body",
+      "created_at": "2026-08-25"
     },
     {
       "request_id": "95c34442-94d5-49f9-ae47-17e2d2e11e9d",
@@ -1296,6 +1332,12 @@
       "created_at": "2026-08-22"
     },
     {
+      "request_id": "a47ce31c-9bb5-47a5-be78-ebd0aab2068b",
+      "action": "add",
+      "summary": "The review-state page renders 1.73 MB of HTML and no gate watches it",
+      "created_at": "2026-08-25"
+    },
+    {
       "request_id": "a4b0610d-ef92-4d1b-bcc8-3da0eb646d5a",
       "action": "add",
       "summary": "Caring Contacts: four bare foreign keys onto plans/contacts predate the composite same-team rule",
@@ -1324,6 +1366,12 @@
       "action": "cancel",
       "summary": "Cancel request e603434c-3ac2-40e2-bc36-d47e2e0e7efb: Adversarial review found three previously rejected role-qualified placeholders—dummy, fake and sample—were omitted from the new central trivial-token set. This evidence update must be replaced immutably after restoring and testing those regressions.",
       "created_at": "2026-08-23"
+    },
+    {
+      "request_id": "acdeda19-0ef8-4c4c-8b90-24d9f8fb799e",
+      "action": "add",
+      "summary": "repo-awareness snapshot emits two per-section documentation counts that nothing reads",
+      "created_at": "2026-08-25"
     },
     {
       "request_id": "ad833519-1b0b-4f02-b965-a7be0667cac4",
@@ -1456,6 +1504,18 @@
       "action": "add",
       "summary": "Caring Contacts: the frozen interaction matrix's 'Recovery action only' wording is ambiguous",
       "created_at": "2026-08-24"
+    },
+    {
+      "request_id": "ce620711-f358-4f79-af27-3f056e86d181",
+      "action": "add",
+      "summary": "FreshnessStamp has no way to say 'this panel is live' rather than 'revision unknown'",
+      "created_at": "2026-08-25"
+    },
+    {
+      "request_id": "d08853a7-65d9-4a85-bcc6-a15c4ddb38d9",
+      "action": "add",
+      "summary": "Developer hub pages repeat a labelled-section block 17 times; extract a PanelSection component",
+      "created_at": "2026-08-25"
     },
     {
       "request_id": "d4452409-69bf-4bb6-9ad7-dab654822940",
