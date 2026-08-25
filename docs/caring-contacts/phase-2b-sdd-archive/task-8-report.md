@@ -712,3 +712,148 @@ coverage gap already filed, not a new one.
 `docs/caring-contacts/phase-2b-build-record.md` — landed on this branch during this round. That is
 the ruling on my concern 2, recorded where it belongs; nothing about it conflicts with this task and
 I have left it exactly as it is.
+
+---
+
+# Round 2 — four items, and three corrections to what I claimed in round 1
+
+Commits: `cf858c0dc` (N-1, N-2), `b69932029` (items 2 and 3), plus this report.
+
+## N-1 — the screen's claim was a property of state, not of code
+
+**Confirmed, and the reviewer's phrasing is the whole finding.** `null` reached the schema because
+the UI could no longer write a value, not because anything enforced it. The path was live enough that
+my own draft suite still round-tripped `culturalIdentity: "Noongar"` through storage — a test I wrote
+and read past, because I was thinking about what the screen offers rather than about what the data
+can carry.
+
+**I defended both boundaries, and they are not two copies of one rule.**
+
+1. **`parseDraft` blanks a stored value** (the draft boundary). A draft written before the field was
+   removed survives in the same tab across a redeploy; blanking it there means the value cannot
+   re-enter the application at all, which is the earliest point at which it can be stopped.
+2. **`createPlanPatientDetail` returns `null` unconditionally** (the submit boundary). This is the
+   function Task 9 calls, and it must not emit a value whatever it is handed — including a detail
+   object built by hand that never went near storage, which is precisely what Task 9 will be doing.
+
+Neither subsumes the other: the first cannot constrain a caller who never reads a draft, and the
+second cannot stop a stale value from being read back into the running screen. They happen to agree
+today, and each has its own test and its own mutation (R2-M22, R2-M23).
+
+**Blanked rather than refused, and the choice is not cosmetic.** Returning `null` from
+`parsePatientDetail` would discard the whole draft — throwing away the patient's name and mobile
+number a clinician typed, in order to remove a field they were never offered. Blanking drops exactly
+the value that may no longer be supplied and keeps everything they did type. The key is still
+*required* to be a string first, so this is a decision about a recognised field rather than a silence
+about an unrecognised one; deleting the field from the type would have made it the silence instead,
+which is why the field stays (N-2's comment now says so).
+
+## Item 2 — my own check, turned on my own round-1 work
+
+**Both halves failed, and the reviewer is right on both.**
+
+**The I-3 assertions pinned the shape of the wrong sentence, not the rule.** They rejected two exact
+phrasings. `"provides aggregate reach reporting"` and `"reach figures are produced from this"` would
+both have passed — **and I have now demonstrated that rather than accepting it**: R2-M17 puts
+precisely that second sentence on the screen, and it matches neither of the two original regexes. It
+is the round-1 habit one level up, which is the part worth sitting with: I fixed two instances of
+"assert the shape, not the rule" and then wrote the fix for a third instance in the same shape.
+
+What I did about it: the refusal now covers a **family** of affirmative constructions rather than two
+sentences, and a **positive** assertion pins the counterfactual framing the honest wording depends on
+(`would depend on`, `connected to no hospital record`), so a rewrite into an affirmative claim has to
+defeat both halves. R2-M16, R2-M17 and R2-M18 prove all three parts fire.
+
+**And it is recorded in the comment as a shape-pin, not as the rule**, because it is at the limit of
+what an assertion can express here. The rule is "the screen makes no affirmative present-tense claim
+about a reach-reporting capability nobody has built" — a semantic property. A fourth phrasing outside
+the family still passes. That limitation is written at the site, in the same spirit as
+`strip-source-comments.ts`'s pinned known limitation, rather than left for the next reader to
+discover by writing one.
+
+**The second half — no mutation proof — is the more serious of the two**, because it is not a judgement
+call. My own stated rule has two clauses and I performed one. Both new guards are now proved:
+
+- The **id list** needed two mutations, and that is itself a finding. R2-M19 (re-adding the
+  cultural-identity input) goes red on `queryByRole("textbox", { name: /cultural/i })`, which fires
+  **first and short-circuits the case** — so the id list was still unproved after it. R2-M20 renames
+  the identifiers field's id, leaves the cultural query null, and reaches the list, which then fails
+  with `stage 3 collects a field it should not, or has lost one it should`. **An assertion behind a
+  sibling that fails first is not proved by a mutation that trips the sibling** — the ordering is part
+  of what has to be tested, and one mutation per case is not enough when a case holds two.
+
+## Item 3 — a true assertion with a lying failure message
+
+Swapped to `toBeEmptyDOMElement()`. The reviewer's reading of the matcher source is right — the old
+form is behaviourally correct here — and the reason to change it anyway is the better argument: the
+message it prints on failure tells a future reader the assertion is vacuous when it is not, and a
+reader who acts on that message **deletes a real check**. The failure mode is one step removed from
+the assertion, which is exactly the kind that survives review. R2-M21 proves the emptiness check
+fires.
+
+## Item 4 — the two small ones
+
+- **N-2 — fixed.** `patient-detail.ts` no longer says "A text input has no null; the plan does" about
+  an input that does not exist. It now says why the field is *kept*: so `parseDraft` can recognise the
+  key in an older draft and blank it deliberately, rather than ignoring it by omission.
+- **N-3 — fixed.** The round-1 itemisation was wrong. The actual shape: **four** new cases in the
+  cultural-identity describe, **one** for the live region, **two** for I-1, and **zero** for the notice
+  content pin — that is an assertion added inside an existing case, not a case. Two cultural-identity
+  cases were removed. Net +5, and 319 → 324 was right; the attribution was not. **The arithmetic being
+  right is what let the wrong attribution through**, which is worth naming: a total that reconciles
+  invites nobody to check its parts.
+
+## The three corrections to what I said in round 1
+
+**1. The §2.5 generalisation overshoots, and the narrower rule is the useful one.** I wrote "a
+document whose every sentence describes an unbuilt capability". That is false, and my own replacement
+copy proves it: the screen reproduces §2.5's negative constraints — never eligibility, never timing,
+never pathway, never message content, never a worklist row — because **those are true today**. Under
+the sweeping version I stated, my own text would have been self-contradictory.
+
+The accurate rule: **every affirmative capability sentence in §2.5 is unbuilt; the negative
+constraints are the part safe to reproduce.** That is narrower, checkable, and it is what I was
+actually doing. It also generalises properly — for any spec section describing a system that does not
+exist yet, the affirmatives are promises and the negatives are boundaries, and only the second kind
+can be repeated on a screen as fact.
+
+**2. On I-1, "finish the sentence" was too kind to myself.** I framed the report defect as an
+unfinished thought. It was not. *"`ready` is passed, and it arms when Task 9 builds review"* was **a
+prediction about a code path that had never executed, written as a property of the code** — and wrong
+on its own terms, because `ForwardControl` returns before it reads `ready`. The rule to carry is:
+**a mechanism you have not seen run is a hypothesis, and reporting it as coverage is the failure.**
+That is a different discipline from finishing a sentence; it is a rule about which claims require an
+observation before they may be written down.
+
+**3. My check depends on naming discipline, and that dependency should travel with it.** "For every
+assertion, name the wrong value it should reject, then confirm it rejects it" worked on M-1 and M-2
+because both cases were **named for the rule** — "inside the approved window", "not the staffed line
+or the crisis contact" — so the wrong value was derivable from the name. A vaguely named case yields
+nothing to name, and the check quietly returns nothing rather than failing. So the rule has a
+precondition: **name the case for the rule it enforces, or the check that would catch its tautology
+cannot run.**
+
+## Round 2 mutation log — every attempt, itemised, no aggregate
+
+| #      | Mutation                                                                        | Predicted                                                                                       | Observed                                                                                                                                                                       | Verdict                        |
+| ------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| R2-M16 | The removed sentence "It is used for aggregate reporting on programme reach" put back on the stage | 1 red, on the `is/are used for` member of the family                                            | `the stage makes an affirmative claim about an unbuilt capability: /\b(?:is\|are)\s+used\s+for\b/i`                                                                            | RED, prediction matched        |
+| R2-M17 | "Reach figures are produced from this" — a phrasing the ORIGINAL two regexes both allowed | 1 red, on the `reach figures` member; and it demonstrates the widening is not inert             | `the stage makes an affirmative claim about an unbuilt capability: /\breach\s+(?:figures\|numbers\|counts\|data)\b/i`. Checked against the round-1 pair by hand: neither matches it | RED, prediction matched        |
+| R2-M18 | "would depend on" removed from the absence statement                            | 1 red, on the positive counterfactual half                                                      | `expect(element).toHaveTextContent() … /would depend on/i`                                                                                                                     | RED, prediction matched        |
+| R2-M19 | The cultural-identity `TextField` put back                                      | 1 red on "offers no input for it" — **and I predicted it would fire on the FIRST assertion, leaving the id list unproved** | `expected <input …(6)></input> to be null`. The id list was never reached, exactly as predicted, which is why R2-M20 exists                                                    | RED, prediction matched        |
+| R2-M20 | The identifiers field's `id` renamed, so the cultural query stays null and the list is reached | 1 red on the id list itself                                                                     | `stage 3 collects a field it should not, or has lost one it should: expected [ Array(3) ] to deeply equal [ Array(3) ]`                                                        | RED, prediction matched        |
+| R2-M21 | The caution's condition replaced with `true`, so the region is never empty      | 2 red: the emptiness assertion, and the "clears when the number is reserved" half               | Exactly 2: `expect(element).toBeEmptyDOMElement()`, and `expected 'Entered by youA referral carries no n…' not to match /not one of the reserved fictional nu…/i`               | RED, prediction matched        |
+| R2-M22 | `parsePatientDetail` carries `culturalIdentity` through instead of blanking it  | 2 red in the draft suite                                                                        | Exactly 2, both `expected 'Noongar' to be ''` — the round-trip case with its named message, and the dedicated blanking case                                                    | RED, prediction matched        |
+| R2-M23 | `createPlanPatientDetail` returns the trimmed value again                       | 1 red in the patient-detail suite                                                                | `a supplied cultural identity was passed through to the plan: expected 'Noongar' to be null`                                                                                   | RED, prediction matched        |
+
+Each mutation confirmed present by its own `grep -c`, run as a separate command with `;`, against a
+committed file; `git status` clean after every revert. No anchor failed to match this round.
+
+**The N-1 fixes additionally have test-first evidence**, which is stronger than a mutation and is
+recorded here rather than only in the commit: the three N-1 cases were written before the fix and run
+before it, producing `3 failed | 24 passed (27)` with the messages `a supplied cultural identity was
+passed through to the plan: expected 'Noongar' to be null`, `a stored cultural identity survived a
+reload, so the screen's claim depends on nobody having one: expected 'Noongar' to be ''`, and
+`expected 'Noongar' to be ''`.
+
+## Round 2 gates
