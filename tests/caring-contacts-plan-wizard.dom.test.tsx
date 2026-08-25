@@ -1077,7 +1077,14 @@ describe("stage 4 — what is read back, and what is not claimed (Ruling [119])"
     expect(stage).not.toHaveTextContent(/still to confirm:[^.]*agreed to receive caring contacts/i);
     // It says what is outstanding, never that the patient refused. A coordinator who has not made a
     // confirmation has not learned anything about the patient.
-    expect(stage.textContent ?? "").not.toMatch(/did not agree|refused|declined/i);
+    //
+    // Scoped to the sentence rather than the whole region ON PURPOSE. The wizard's own vocabulary
+    // uses "refused" for a browser that would not let the page keep a draft, and for a write the
+    // service turned down; a region-wide match would couple this assertion to unrelated copy and go
+    // red for the wrong reason. The unit case in caring-contacts-plan-activation asserts the wider
+    // set against the sentence itself, which is where that claim belongs.
+    const outstanding = screen.getByText(/still to confirm/i);
+    expect(outstanding.textContent ?? "").not.toMatch(/did not agree|refused|declined|does not consent/i);
   });
 
   it("states no contact count it did not measure", async () => {
