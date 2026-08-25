@@ -23,7 +23,7 @@ vi.mock("@/lib/supabase/client", () => ({
 const PREFERENCES_KEY = "clinical-kb-preferences";
 
 function PreferencesProbe() {
-  const { preferences, setPreference, syncState, canRecordRecentSearches } = useAppPreferences();
+  const { preferences, setPreference, syncState, retrySync, canRecordRecentSearches } = useAppPreferences();
   return (
     <div>
       <span data-testid="sync">{syncState}</span>
@@ -38,6 +38,9 @@ function PreferencesProbe() {
       </button>
       <button type="button" onClick={() => setPreference("motion", "reduced")}>
         Reduced motion
+      </button>
+      <button type="button" onClick={retrySync}>
+        Retry sync
       </button>
     </div>
   );
@@ -94,26 +97,170 @@ describe("account preference bootstrap and write serialisation", () => {
     expect(mayRecordRecentSearches()).toBe(false);
   });
 
-  it("does not allow recent-search recording when account bootstrap fails", async () => {
+  it("omits the fresh-client privacy default when bootstrapping a missing account row", async () => {
+    const putBodies: Array<Record<string, unknown>> = [];
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method ?? "GET").toUpperCase();
       if (method === "GET" && String(input).includes("/api/account/preferences")) {
-        return Promise.resolve(new Response("upstream unavailable", { status: 503 }));
+        return Promise.resolve(Response.json({ preferences: null, updatedAt: null }));
+      }
+      if (method === "PUT" && String(input).includes("/api/account/preferences")) {
+        const patch = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        putBodies.push(patch);
+        return Promise.resolve(
+          Response.json({
+            // Simulate another device creating the row with an opt-out between
+            // this client's GET and its bootstrap PUT.
+            preferences: { ...DEFAULT_PREFERENCES, ...patch, saveRecentSearches: false },
+          }),
+        );
       }
       throw new Error(`Unexpected fetch: ${method} ${String(input)}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const { getByTestId } = render(<PreferencesProbe />);
-    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("error"));
+
+    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("synced"));
+    expect(putBodies).toHaveLength(1);
+    expect(putBodies[0]).not.toHaveProperty("saveRecentSearches");
+    expect(getByTestId("save-recent")).toHaveTextContent("off");
     expect(getByTestId("may-record")).toHaveTextContent("no");
     expect(mayRecordRecentSearches()).toBe(false);
   });
 
-  it("serializes preference PUTs so a delayed older snapshot cannot overwrite a newer one", async () => {
+  it("preserves an account opt-out when an unrelated setting changes after bootstrap fails", async () => {
+    const putBodies: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && String(input).includes("/api/account/preferences")) {
+        return Promise.resolve(new Response("upstream unavailable", { status: 503 }));
+      }
+      if (method === "PUT" && String(input).includes("/api/account/preferences")) {
+        const patch = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        putBodies.push(patch);
+        return Promise.resolve(
+          Response.json({
+            preferences: {
+              ...DEFAULT_PREFERENCES,
+              ...patch,
+              saveRecentSearches: false,
+            },
+          }),
+        );
+      }
+      throw new Error(`Unexpected fetch: ${method} ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getByRole, getByTestId } = render(<PreferencesProbe />);
+    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("error"));
+    expect(getByTestId("may-record")).toHaveTextContent("no");
+    expect(mayRecordRecentSearches()).toBe(false);
+
+    await act(async () => {
+      getByRole("button", { name: "Reduced motion" }).click();
+    });
+
+    await waitFor(() => expect(putBodies).toHaveLength(1));
+    expect(putBodies[0]).toEqual({ motion: "reduced" });
+    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("synced"));
+    expect(getByTestId("save-recent")).toHaveTextContent("off");
+    expect(getByTestId("may-record")).toHaveTextContent("no");
+    expect(mayRecordRecentSearches()).toBe(false);
+  });
+
+  it("preserves an account opt-out when an unrelated setting changes while bootstrap is in flight", async () => {
+    let resolveGet: ((response: Response) => void) | null = null;
+    const getPromise = new Promise<Response>((resolve) => {
+      resolveGet = resolve;
+    });
+    const putBodies: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && String(input).includes("/api/account/preferences")) return getPromise;
+      if (method === "PUT" && String(input).includes("/api/account/preferences")) {
+        const patch = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        putBodies.push(patch);
+        return Promise.resolve(
+          Response.json({
+            preferences: {
+              ...DEFAULT_PREFERENCES,
+              ...patch,
+              saveRecentSearches: false,
+            },
+          }),
+        );
+      }
+      throw new Error(`Unexpected fetch: ${method} ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getByRole, getByTestId } = render(<PreferencesProbe />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      getByRole("button", { name: "Compact" }).click();
+    });
+
+    await waitFor(() => expect(putBodies).toHaveLength(1));
+    expect(putBodies[0]).toEqual({ density: "compact" });
+    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("synced"));
+    expect(getByTestId("save-recent")).toHaveTextContent("off");
+    expect(getByTestId("may-record")).toHaveTextContent("no");
+    expect(mayRecordRecentSearches()).toBe(false);
+
+    await act(async () => {
+      resolveGet?.(
+        Response.json({
+          preferences: { ...DEFAULT_PREFERENCES, density: "compact", saveRecentSearches: false },
+        }),
+      );
+    });
+  });
+
+  it("retries a failed bootstrap with a read and never uploads the fresh-client default", async () => {
+    let getCount = 0;
+    const putBodies: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && String(input).includes("/api/account/preferences")) {
+        getCount += 1;
+        if (getCount === 1) return Promise.resolve(new Response("upstream unavailable", { status: 503 }));
+        return Promise.resolve(
+          Response.json({
+            preferences: { ...DEFAULT_PREFERENCES, saveRecentSearches: false },
+            updatedAt: "2026-08-25T00:00:00.000Z",
+          }),
+        );
+      }
+      if (method === "PUT" && String(input).includes("/api/account/preferences")) {
+        putBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+        return Promise.resolve(Response.json({ preferences: DEFAULT_PREFERENCES }));
+      }
+      throw new Error(`Unexpected fetch: ${method} ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getByRole, getByTestId } = render(<PreferencesProbe />);
+    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("error"));
+
+    await act(async () => {
+      getByRole("button", { name: "Retry sync" }).click();
+    });
+
+    await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("synced"));
+    expect(getCount).toBe(2);
+    expect(putBodies).toEqual([]);
+    expect(getByTestId("save-recent")).toHaveTextContent("off");
+    expect(getByTestId("may-record")).toHaveTextContent("no");
+    expect(mayRecordRecentSearches()).toBe(false);
+  });
+
+  it("serializes preference PUTs so a delayed older patch cannot overwrite a newer one", async () => {
     type PutResponse = { ok: boolean; status: number; json: () => Promise<{ preferences: unknown }> };
     const pendingPuts: Array<{
-      body: { density: string; motion: string };
+      body: Partial<typeof DEFAULT_PREFERENCES>;
       resolve: (response: PutResponse) => void;
     }> = [];
 
@@ -130,7 +277,7 @@ describe("account preference bootstrap and write serialisation", () => {
       if (method === "PUT" && String(input).includes("/api/account/preferences")) {
         return new Promise<PutResponse>((resolve) => {
           pendingPuts.push({
-            body: JSON.parse(String(init?.body)) as { density: string; motion: string },
+            body: JSON.parse(String(init?.body)) as Partial<typeof DEFAULT_PREFERENCES>,
             resolve,
           });
         });
@@ -142,7 +289,7 @@ describe("account preference bootstrap and write serialisation", () => {
     const { getByTestId, getByRole } = render(<PreferencesProbe />);
     await waitFor(() => expect(getByTestId("sync")).toHaveTextContent("synced"));
 
-    // Hold the first whole-snapshot PUT, then queue a newer snapshot while it
+    // Hold the first patch PUT, then queue a newer patch while it
     // is still deferred — the older request must not race ahead or finish last.
     await act(async () => {
       getByRole("button", { name: "Compact" }).click();
@@ -160,7 +307,7 @@ describe("account preference bootstrap and write serialisation", () => {
       pendingPuts[0]?.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ preferences: pendingPuts[0]?.body }),
+        json: async () => ({ preferences: { ...DEFAULT_PREFERENCES, ...pendingPuts[0]?.body } }),
       });
     });
 
@@ -171,7 +318,7 @@ describe("account preference bootstrap and write serialisation", () => {
       pendingPuts[1]?.resolve({
         ok: true,
         status: 200,
-        json: async () => ({ preferences: pendingPuts[1]?.body }),
+        json: async () => ({ preferences: { ...DEFAULT_PREFERENCES, ...pendingPuts[1]?.body } }),
       });
     });
 

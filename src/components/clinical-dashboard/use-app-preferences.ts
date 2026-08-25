@@ -42,10 +42,36 @@ const ignoreExpiredSession = () => undefined;
  */
 export type PreferenceSyncState = "local-only" | "syncing" | "synced" | "error";
 
+type PreferencePatch = Partial<AppPreferences>;
+
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException
     ? error.name === "AbortError"
     : (error as { name?: string })?.name === "AbortError";
+}
+
+function normalizeAuthoritativePreferences(value: unknown): AppPreferences | null {
+  if (typeof value !== "object" || value === null) return null;
+  if (typeof (value as Record<string, unknown>).saveRecentSearches !== "boolean") return null;
+  return normalizePreferences(value);
+}
+
+async function readAuthoritativePreferences(response: Response): Promise<AppPreferences | null> {
+  const payload = (await response.json().catch(() => null)) as { preferences?: unknown } | null;
+  return normalizeAuthoritativePreferences(payload?.preferences);
+}
+
+/**
+ * A fresh browser's `true` is only a local default, not an affirmative account
+ * choice. Omitting it lets the server create a new row with its own default but
+ * preserves a concurrently created account opt-out. A local `false` is always
+ * safe to send because it narrows retention.
+ */
+function bootstrapPreferencePatch(preferences: AppPreferences): PreferencePatch {
+  if (!preferences.saveRecentSearches) return preferences;
+  const patch: PreferencePatch = { ...preferences };
+  delete patch.saveRecentSearches;
+  return patch;
 }
 
 function useAuthSessionIfAvailable() {
@@ -73,7 +99,7 @@ let inMemoryFallback: AppPreferences | null = null;
 // between reads (a fresh object each call would loop the store forever).
 let cachedRaw: string | null = null;
 let cachedValue: AppPreferences = DEFAULT_PREFERENCES;
-let lastLocalPreferenceChangeAt = 0;
+let localPreferenceRevision = 0;
 /**
  * Module mirror of bootstrap readiness for non-React one-shot callers of
  * `mayRecordRecentSearches()`. Updated only from an effect inside
@@ -124,7 +150,7 @@ function subscribe(onChange: () => void) {
 }
 
 function persist(next: AppPreferences) {
-  lastLocalPreferenceChangeAt = Date.now();
+  localPreferenceRevision += 1;
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(next));
     inMemoryFallback = null;
@@ -200,15 +226,24 @@ export function useAppPreferences() {
   // bootstrap request answers.
   const [observedSync, setObservedSync] = useState<PreferenceSyncState | null>(null);
   const [sessionKey, setSessionKey] = useState(`${authEpoch}:${authStatus}`);
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0);
   // Only the newest write may set the resting sync state. Two quick toggles
   // otherwise race, and a slow first response can overwrite a fast second one —
   // showing "couldn't sync" for a write that has already succeeded.
   const writeSequenceRef = useRef(0);
-  // Serialize account PUTs so a delayed older whole-snapshot upsert cannot
-  // overwrite a newer one that already reached the server. The pending ref
-  // coalesces bursts: only the latest snapshot is sent when the chain drains.
+  // Serialize account PUTs so a delayed older patch cannot overwrite a newer
+  // one that already reached the server. The pending ref coalesces bursts:
+  // only the latest combined patch is sent when the chain drains.
   const writeChainRef = useRef(Promise.resolve());
-  const pendingWriteRef = useRef<AppPreferences | null>(null);
+  const pendingWriteRef = useRef<PreferencePatch | null>(null);
+
+  const acceptAccountPreferences = useCallback((accountPreferences: AppPreferences) => {
+    // A later local change may already be queued behind the request whose
+    // response supplied this account snapshot. Keep that patch visible while
+    // adopting the authoritative privacy value returned by the server.
+    const pendingPatch = pendingWriteRef.current;
+    persist(normalizePreferences(pendingPatch ? { ...accountPreferences, ...pendingPatch } : accountPreferences));
+  }, []);
 
   // Adjust during render rather than in an effect: a new session must not spend
   // a frame reporting the previous session's sync outcome, and an effect always
@@ -231,7 +266,7 @@ export function useAppPreferences() {
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     const controller = new AbortController();
-    const fetchStartedAt = Date.now();
+    const revisionAtFetchStart = localPreferenceRevision;
     void (async () => {
       try {
         const response = await fetch("/api/account/preferences", {
@@ -245,23 +280,31 @@ export function useAppPreferences() {
             setObservedSync("local-only");
             return;
           }
+          // An unrelated preference write started after this bootstrap read.
+          // Its response is now the newer authority on sync state.
+          if (localPreferenceRevision !== revisionAtFetchStart) return;
           setObservedSync("error");
           return;
         }
-        const payload = await response.json().catch(() => ({}));
+        const payload = (await response.json().catch(() => null)) as { preferences?: unknown } | null;
         // A local change made while this read was in flight is newer than what
         // the server returned; keep it rather than clobbering it, and treat the
         // pending write it already queued as the authority on sync state.
-        if (lastLocalPreferenceChangeAt > fetchStartedAt) return;
-        if (payload.preferences) {
-          persist(normalizePreferences(payload.preferences));
+        if (localPreferenceRevision !== revisionAtFetchStart) return;
+        const accountPreferences = normalizeAuthoritativePreferences(payload?.preferences);
+        if (accountPreferences) {
+          acceptAccountPreferences(accountPreferences);
           setObservedSync("synced");
+          return;
+        }
+        if (payload?.preferences !== null) {
+          setObservedSync("error");
           return;
         }
         const bootstrapResponse = await fetch("/api/account/preferences", {
           method: "PUT",
           headers: { "Content-Type": "application/json", ...authorizationHeader },
-          body: JSON.stringify(getSnapshot()),
+          body: JSON.stringify(bootstrapPreferencePatch(getSnapshot())),
           signal: controller.signal,
         });
         if (bootstrapResponse.status === 401) {
@@ -269,28 +312,40 @@ export function useAppPreferences() {
           setObservedSync("local-only");
           return;
         }
-        setObservedSync(bootstrapResponse.ok ? "synced" : "error");
+        if (!bootstrapResponse.ok) {
+          setObservedSync("error");
+          return;
+        }
+        const bootstrappedPreferences = await readAuthoritativePreferences(bootstrapResponse);
+        if (!bootstrappedPreferences) {
+          setObservedSync("error");
+          return;
+        }
+        acceptAccountPreferences(bootstrappedPreferences);
+        setObservedSync("synced");
       } catch (error) {
         // An abort is this effect being torn down, not a failure to report.
         if (isAbortError(error)) return;
+        if (localPreferenceRevision !== revisionAtFetchStart) return;
         setObservedSync("error");
       }
     })();
     return () => controller.abort();
-  }, [authEpoch, authStatus, authorizationHeader, markSessionExpired]);
+  }, [acceptAccountPreferences, authEpoch, authStatus, authorizationHeader, bootstrapAttempt, markSessionExpired]);
 
   useEffect(() => {
     applyPreferenceSideEffects(preferences);
   }, [preferences]);
 
   const persistAccountPreferences = useCallback(
-    (next: AppPreferences) => {
+    (patch: PreferencePatch) => {
       if (authStatus !== "authenticated") {
         setObservedSync("local-only");
         return;
       }
       const sequence = ++writeSequenceRef.current;
-      pendingWriteRef.current = next;
+      const queuedPatch = { ...pendingWriteRef.current, ...patch };
+      pendingWriteRef.current = queuedPatch;
       const settle = (state: PreferenceSyncState) => {
         if (sequence === writeSequenceRef.current) setObservedSync(state);
       };
@@ -298,29 +353,39 @@ export function useAppPreferences() {
       writeChainRef.current = writeChainRef.current
         .catch(() => undefined)
         .then(async () => {
-          // A newer setPreference already replaced the pending snapshot; let
-          // that later chain step send it instead of upserting this stale one.
-          if (pendingWriteRef.current !== next) return;
-          const snapshot = pendingWriteRef.current;
+          // A newer setPreference already replaced the pending patch; let that
+          // later chain step send it instead of upserting this stale one.
+          if (pendingWriteRef.current !== queuedPatch) return;
+          const pendingPatch = pendingWriteRef.current;
           pendingWriteRef.current = null;
           try {
             const response = await fetch("/api/account/preferences", {
               method: "PUT",
               headers: { "Content-Type": "application/json", ...authorizationHeader },
-              body: JSON.stringify(snapshot),
+              body: JSON.stringify(pendingPatch),
             });
             if (response.status === 401) {
               markSessionExpired();
               settle("local-only");
               return;
             }
-            settle(response.ok ? "synced" : "error");
+            if (!response.ok) {
+              settle("error");
+              return;
+            }
+            const accountPreferences = await readAuthoritativePreferences(response);
+            if (!accountPreferences) {
+              settle("error");
+              return;
+            }
+            acceptAccountPreferences(accountPreferences);
+            settle("synced");
           } catch {
             settle("error");
           }
         });
     },
-    [authStatus, authorizationHeader, markSessionExpired],
+    [acceptAccountPreferences, authStatus, authorizationHeader, markSessionExpired],
   );
 
   const setPreference = useCallback(
@@ -329,7 +394,7 @@ export function useAppPreferences() {
       if (current[key] === value) return;
       const next = { ...current, [key]: value };
       persist(next);
-      persistAccountPreferences(next);
+      persistAccountPreferences({ [key]: value } as Pick<AppPreferences, Key>);
     },
     [persistAccountPreferences],
   );
@@ -344,15 +409,22 @@ export function useAppPreferences() {
       const next = keys
         ? keys.reduce<AppPreferences>((draft, key) => ({ ...draft, [key]: DEFAULT_PREFERENCES[key] }), getSnapshot())
         : DEFAULT_PREFERENCES;
+      const resetKeys = keys ?? (Object.keys(DEFAULT_PREFERENCES) as ReadonlyArray<keyof AppPreferences>);
+      const patch = Object.fromEntries(resetKeys.map((key) => [key, DEFAULT_PREFERENCES[key]])) as PreferencePatch;
       persist(next);
-      persistAccountPreferences(next);
+      persistAccountPreferences(patch);
     },
     [persistAccountPreferences],
   );
 
   const retrySync = useCallback(() => {
-    persistAccountPreferences(getSnapshot());
-  }, [persistAccountPreferences]);
+    if (authStatus !== "authenticated") {
+      setObservedSync("local-only");
+      return;
+    }
+    setObservedSync(null);
+    setBootstrapAttempt((attempt) => attempt + 1);
+  }, [authStatus]);
 
   return {
     preferences,
