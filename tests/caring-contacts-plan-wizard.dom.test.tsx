@@ -45,6 +45,7 @@ import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/
 import { createPlanPatientDetail } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
 import {
   assertBuiltStageHasABody,
+  PATHWAY_PROVENANCE_TESTID,
   PlanWizard,
   type PlanWizardProps,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
@@ -1685,6 +1686,7 @@ describe("the pathway stage — approvals nobody gave are not presented as appro
     await reachPathwayStage(user);
 
     expect(screen.getByText(SYNTHETIC_NOTE)).toBeInTheDocument();
+    expect(screen.getAllByTestId(PATHWAY_PROVENANCE_TESTID)).toHaveLength(1);
 
     // Tied to the OPTION, not floating in the panel: the radio's `aria-describedby` region has to
     // contain it, or a screen reader announces an approval with no qualifier attached to it.
@@ -1702,5 +1704,8 @@ describe("the pathway stage — approvals nobody gave are not presented as appro
     expect(panel).toHaveTextContent(/Approved by the clinical programme lead/);
     expect(screen.queryByText(SYNTHETIC_NOTE)).toBeNull();
     expect(panel.textContent ?? "").not.toMatch(/invented|demonstration/i);
+    // The ELEMENT, not only its text. A null note renders as an empty paragraph, so asserting on
+    // wording alone cannot see the condition being removed -- a mutant survived exactly that gap.
+    expect(screen.queryAllByTestId(PATHWAY_PROVENANCE_TESTID)).toHaveLength(0);
   });
 });

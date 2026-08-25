@@ -112,6 +112,17 @@ import { StatedReason } from "./stated-reason";
  * "adjust schedule" sheet, and its own save/discard pair. Task 11 owns this group's overlay wiring;
  * the seams are named in the Task 7 and Task 8 reports rather than half-built here.
  */
+/**
+ * Identifies the provenance line at stage 2, so a test can assert the ELEMENT is absent rather than
+ * only its text.
+ *
+ * That distinction is not pedantry: it was found by a surviving mutant. Removing the `=== null`
+ * condition renders the paragraph for every option, and a null note renders as an EMPTY paragraph —
+ * so a case asserting "this wording is not on the screen" passed against a screen that had gained an
+ * element for every version. The negative case now asserts on this handle.
+ */
+export const PATHWAY_PROVENANCE_TESTID = "caring-contacts-pathway-provenance";
+
 export type PlanWizardPathwayOption = {
   id: string;
   /** The pathway's own cadence wording, taken from its frozen snapshot. Never written here. */
@@ -1054,7 +1065,10 @@ function PathwayStage({
                         with the option rather than after it.
                       */}
                       {option.provenanceNote === null ? null : (
-                        <p className="mt-1 text-xs leading-5 font-semibold text-[color:var(--text-heading)]">
+                        <p
+                          data-testid={PATHWAY_PROVENANCE_TESTID}
+                          className="mt-1 text-xs leading-5 font-semibold text-[color:var(--text-heading)]"
+                        >
                           {option.provenanceNote}
                         </p>
                       )}
