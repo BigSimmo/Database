@@ -26,7 +26,10 @@ import {
   parsePatientIdentifiers,
   personalisationIssues,
 } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
-import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
+import {
+  DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS,
+  FICTIONAL_CONTACTS_BY_ROLE,
+} from "@/lib/caring-contacts/synthetic-contacts";
 
 const COMPLETE = {
   patientName: "Rowan Example",
@@ -148,6 +151,23 @@ describe("the one authority this domain holds about numbers that cannot connect"
   it("names only the two reserved PATIENT mobiles, not the staffed line or the crisis contact", () => {
     // Offering the crisis-support number as a patient's own mobile would put a support line into a
     // recipient field, which is the one confusion this list must not create.
-    expect(DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS).toHaveLength(2);
+    //
+    // ROUND 1, M-2. The first version asserted `toHaveLength(2)` under this exact name, so swapping
+    // the crisis-support number in for a patient mobile passed it -- the assertion counted the list
+    // rather than checking what is in it, which is the tautology this task's own finding 3
+    // documented and then reproduced. Both halves are now named against the frozen record.
+    expect([...DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS]).toEqual([
+      FICTIONAL_CONTACTS_BY_ROLE.miraPatientMobile,
+      FICTIONAL_CONTACTS_BY_ROLE.rowanPatientMobile,
+    ]);
+    for (const serviceLine of [
+      FICTIONAL_CONTACTS_BY_ROLE.programmeStaffedLine,
+      FICTIONAL_CONTACTS_BY_ROLE.crisisSupportContact,
+    ]) {
+      expect(
+        [...DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS],
+        "a number a patient CALLS is offered as a number a patient receives on",
+      ).not.toContain(serviceLine);
+    }
   });
 });

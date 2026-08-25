@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { awstCalendarDay, toAwstParts } from "@/lib/caring-contacts/clock";
 import {
+  APPROVED_SEND_WINDOW,
   buildApprovedSchedule,
   FIRST_CONTACT_REASON_MAX_LENGTH,
   SENDING_PREFERENCE_OPTIONS,
@@ -285,11 +286,26 @@ describe("SENDING_PREFERENCE_OPTIONS — the wording a screen may render (Phase 
   });
 
   it("advertises every send time inside the approved window", () => {
-    // A belt-and-braces reading of the same rule from the wording side: if a preference were ever
-    // published whose advertised time fell outside 09:00-18:00, the load-time assertion in
-    // schedule.ts would already have thrown — this fails in a readable way if it ever does not.
+    // ROUND 1, M-1. The first version of this case asserted
+    // `/^(9|10|11|12|[1-5]):00 (am|pm) AWST$/`, which is named for the window and does not test it:
+    // "5:00 am AWST" matches, and 5am is four hours before the earliest send this domain permits.
+    // It was the same tautology this task's own finding 3 documented -- an assertion that reads a
+    // shape instead of the rule -- written twice more in the same diff by the person who wrote the
+    // finding. So this parses the advertised wording back to a 24-hour hour and compares it against
+    // APPROVED_SEND_WINDOW itself.
     for (const option of SENDING_PREFERENCE_OPTIONS) {
-      expect(option.sendTime).toMatch(/^(9|10|11|12|[1-5]):00 (am|pm) AWST$/);
+      const parsed = /^(\d{1,2}):00 (am|pm) AWST$/.exec(option.sendTime);
+      expect(parsed, `${option.preference} does not advertise an AWST wall-clock time`).not.toBeNull();
+      const twelveHour = Number(parsed![1]);
+      const meridiem = parsed![2];
+      const hour = meridiem === "pm" ? (twelveHour === 12 ? 12 : twelveHour + 12) : twelveHour === 12 ? 0 : twelveHour;
+
+      expect(hour, `${option.preference} is advertised before the earliest permitted send`).toBeGreaterThanOrEqual(
+        APPROVED_SEND_WINDOW.earliestHour,
+      );
+      expect(hour, `${option.preference} is advertised at or after the latest permitted send`).toBeLessThan(
+        APPROVED_SEND_WINDOW.latestHourExclusive,
+      );
     }
   });
 });
