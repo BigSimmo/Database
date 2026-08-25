@@ -92,6 +92,8 @@ const routeDescriptions: Record<string, string> = {
     "The team's caring-contact caseload: one row per plan, filtered by plan state or synthetic identifier through the URL. Carries no patient-identifying detail.",
   "/caring-contacts/patients/[patientId]":
     "One patient's caring-contact episode: who they are, the plan that is running, and every message in its twelve-month schedule. Reached from a caseload row; scoped to one plan, which `?plan=` names when the patient holds more than one.",
+  "/caring-contacts/plans/new":
+    "Putting a discharged patient onto a caring-contact plan: agreement, pathway, personalisation, then review and activation. Started for one accepted referral, which `?referral=` names; opened without one, it states what it needs.",
   "/calculators": "Psychiatry rating scale scoring and clinical decision calculators.",
   "/dictionary": "Clinical dictionary home with term search and category navigation.",
   "/dictionary/[slug]": "Source-governed clinical term definition, distinction, and reference detail.",

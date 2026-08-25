@@ -77,6 +77,7 @@ Smaller top-level directories that are easy to miss:
 | `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                                         | `src/app/caring-contacts/`                                                                |
 | `/caring-contacts/patients` (the team's caseload: one row per plan, URL-driven state/identifier filter, no patient-identifying detail)                                                         | `src/app/caring-contacts/patients/page.tsx`                                               |
 | `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                  | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                   |
+| `/caring-contacts/plans/new` (the activation wizard: agreement, pathway, personalisation, review; started for one accepted referral named by `?referral=`)                                    | `src/app/caring-contacts/plans/new/page.tsx`                                              |
 | `/applications`                                                                                                                                                                                | `src/app/applications/route.ts`                                                           |
 | `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                   | `src/app/(search-app)/differentials/`                                                     |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                 | `src/app/(search-app)/dsm/`                                                               |
@@ -211,12 +212,19 @@ is noindex, visibly marked synthetic, and has a single inbound entry from the To
 Inside the workspace, `src/components/caring-contacts/workspace/shell.tsx` owns the whole
 destination set: a destination carries an `href` only once its page exists, and every other one
 renders as an unavailable control that states what it will hold (Ruling 52). `/caring-contacts`
-(Today), `/caring-contacts/patients` (the caseload) and `/caring-contacts/patients/[patientId]`
-(one patient's episode) are what is built so far. Screens are
-Server Components that read the store through `auditedRead` rather than over HTTP, using the same
-access identity the matching API route records; filtering and, on the patient overview, the choice
-of which plan to open are carried in the URL and read by the
-Server Component, so a new screen adds no client boundary of its own.
+(Today), `/caring-contacts/patients` (the caseload), `/caring-contacts/patients/[patientId]`
+(one patient's episode) and `/caring-contacts/plans/new` (the activation wizard) are what is built
+so far. Every one of them is a page that reads the store through `auditedRead` rather than over
+HTTP, using the same access identity the matching API route records; filtering and, on the patient
+overview, the choice of which plan to open are carried in the URL and read by the Server Component.
+
+`/caring-contacts/plans/new` is the one screen with a deliberate client boundary (Ruling [109]).
+The page itself is still a Server Component -- it makes the audited reads, decides the actor's
+capability, and fails closed -- and it hands a lazily-imported `PlanWizard` the referral and the
+approved pathway versions, and nothing else. The service state, which carries an incident note,
+stays on the server; `plan-wizard/stages.ts` is where Tasks 8 and 9 flip stages 3 and 4 from
+unbuilt to built, and the wizard's in-progress draft lives in `sessionStorage` alone
+(`plan-wizard/plan-draft.ts`, Ruling [110]).
 
 The patient overview is the only screen permitted to call `getEpisode`, which is the one read that
 releases a patient's name, mobile number, identifiers and cultural identity together. Every other
