@@ -107,7 +107,7 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "ward-flow",
     name: "Ward flow",
-    summary: "Queue, capacity, transport, movements",
+    summary: "Synthetic prototype, not clinical decision support: queue, capacity, transport, movements",
     group: "reference",
     phase: 1,
     href: "/mockups/ward-flow",

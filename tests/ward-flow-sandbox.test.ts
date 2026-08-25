@@ -33,7 +33,7 @@ describe("Ward Flow is a developer-gated sandbox", () => {
   it("the developer-hub panel says what it is, at the point the decision to open it is made", () => {
     const panel = HUB_PANELS.find((entry) => entry.href === "/mockups/ward-flow");
     expect(panel).toBeDefined();
-    expect(panel?.summary).toContain("synthetic prototype");
+    expect(panel?.summary).toContain("Synthetic prototype");
     expect(panel?.summary).toContain("not clinical decision support");
   });
 });
