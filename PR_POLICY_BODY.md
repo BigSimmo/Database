@@ -53,18 +53,20 @@ This is a developer-hub mockup refactor + snapshot metadata cleanup; no clinical
 - [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
 <!-- CURSOR_SUMMARY -->
+
 ---
 
 > [!NOTE]
 > **Low Risk**
 > Refactor of dev-only mockup UI and generated snapshot shape with matching tests; no production auth, API, or payment paths touched.
-> 
+>
 > **Overview**
 > Introduces a shared **Server Component** `PanelSection` in `panel-primitives.tsx` and replaces repeated `<section aria-labelledby>` + heading markup across the five developer mockup panels (documentation, ledger, review-state, routes, test-health). Section headings, `h2`/`h3` levels, optional `data-testid`, and default spacing stay consistent without adding a client boundary.
-> 
+>
 > **Repo-awareness documentation metadata** no longer stores per-section `documents` / `uncatalogued` counts in the snapshot: `DocumentationSection.sections` is now `{ name }[]`, `buildDocumentationSection` only emits section names, and the committed `data/repo-awareness-snapshot.json` is regenerated. The documentation page still shows counts via `documentsBySection`, which groups live document rows.
-> 
+>
 > Adds `data/repo-awareness-snapshot.json` to **`.prettierignore`** (same rationale as the outstanding-issues snapshot) so generator formatting and `check:repo-awareness-snapshot` stay aligned.
-> 
+>
 > <sup>Reviewed by [Cursor Bugbot](https://cursor.com/bugbot) for commit 0c052c08df58974aa059fc52a4987e62afe0be10. Configure [here](https://www.cursor.com/dashboard/bugbot).</sup>
+
 <!-- /CURSOR_SUMMARY -->
