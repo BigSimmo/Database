@@ -418,6 +418,21 @@ function Stepper({ active }: { active: PlanWizardStage }) {
  * A `Record` rather than nested ternaries: the three answers are three different facts, and the
  * ternary version is how `"pending"` came to borrow `"held"`'s wording and claim something untrue.
  */
+/*
+ * ROUND 1, ITEM 5: THE NOTICE NAMES WHAT IT HOLDS.
+ *
+ * This wording was written for a draft that held two checkboxes, and said "what you enter here" —
+ * accurate, and no use at all for judging the risk once stage 3 puts a patient's NAME and MOBILE
+ * NUMBER into that storage on what is in practice a shared ward computer. A clinician reading the
+ * old sentence had no way to know which of those two drafts they were being told about.
+ *
+ * Ruling [110] is about this sentence. Naming the destination is necessary and was already done —
+ * "written to this computer's storage for this tab only" — but naming the destination without
+ * naming the CONTENT leaves the reader unable to weigh the "Discard draft" decision the same
+ * sentence points them at. Both halves now appear.
+ *
+ * "Name the destination, not the act" still holds; this adds to it rather than replacing it.
+ */
 const DRAFT_NOTICE_WORDING: Record<
   "pending" | "held" | "refused",
   { heading: string; because: string; changedBy: string }
@@ -427,12 +442,12 @@ const DRAFT_NOTICE_WORDING: Record<
     because:
       "This screen has not finished starting up, so nothing you enter has been written down. If JavaScript is turned off it never will be, and the controls below will not work either.",
     changedBy:
-      "Once the screen is ready, what you enter is kept on this computer for this tab only, and Discard draft removes it at once.",
+      "Once the screen is ready, what you enter — including the patient's name and mobile number — is kept on this computer for this tab only, and Discard draft removes it at once.",
   },
   held: {
     heading: "Kept on this computer until you close the tab",
     because:
-      "So that reloading the page does not lose a part-finished sign-up, what you enter here is written to this computer's storage for this tab only. It is not sent anywhere, and nothing is sent to any number from this screen.",
+      "So that reloading the page does not lose a part-finished sign-up, what you enter here — including the patient's name and mobile number — is written to this computer's storage for this tab only. It is not sent anywhere, and nothing is sent to any number from this screen.",
     changedBy:
       "Closing this tab removes it. Discard draft, below, removes it now — use it if you are stepping away from a shared computer.",
   },

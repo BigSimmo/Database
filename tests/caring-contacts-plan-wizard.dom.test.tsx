@@ -352,6 +352,12 @@ describe("the caring-contacts plan wizard — the draft (Ruling [110])", () => {
     expect(notice).toHaveTextContent(/What changes it:/);
     expect(notice).toHaveTextContent(/Closing this tab removes it/);
     expect(notice).toHaveTextContent(/Discard draft/);
+
+    // ROUND 1, ITEM 5. The notice was written when the draft held two checkboxes, and said "what you
+    // enter here" — true, and useless for judging the risk once stage 3 puts a patient's NAME and
+    // MOBILE NUMBER in that storage. Ruling [110] exists for exactly this sentence, so it names what
+    // it holds rather than leaving a clinician to infer it.
+    expect(notice, "the notice does not say what it is holding").toHaveTextContent(/name and mobile number/i);
   });
 });
 
