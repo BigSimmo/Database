@@ -4,8 +4,8 @@ import {
   CountTile,
   META_CLASS,
   MONO_CLASS,
+  PanelSection,
   ROW_CLASS,
-  SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import {
@@ -82,10 +82,10 @@ export default function DeveloperDocumentationPage() {
         still resolve is already guaranteed by a check that runs on every pull request, so it is not repeated here.
       </p>
 
-      <section aria-labelledby="developer-documentation-uncatalogued-heading" className="grid gap-3">
-        <h2 id="developer-documentation-uncatalogued-heading" className={SECTION_HEADING_CLASS}>
-          Not in the index · {counts.uncatalogued}
-        </h2>
+      <PanelSection
+        headingId="developer-documentation-uncatalogued-heading"
+        heading={`Not in the index · ${counts.uncatalogued}`}
+      >
         {uncatalogued.length > 0 ? (
           <ul data-testid="developer-documentation-uncatalogued" className="grid gap-2">
             {uncatalogued.map((document) => (
@@ -104,12 +104,12 @@ export default function DeveloperDocumentationPage() {
             Every document on disk is named in the index.
           </p>
         )}
-      </section>
+      </PanelSection>
 
-      <section aria-labelledby="developer-documentation-sections-heading" className="grid gap-3">
-        <h2 id="developer-documentation-sections-heading" className={SECTION_HEADING_CLASS}>
-          Every document · {counts.documents}
-        </h2>
+      <PanelSection
+        headingId="developer-documentation-sections-heading"
+        heading={`Every document · ${counts.documents}`}
+      >
         {/*
          * A wrapper rather than one `<ul>`: each area needs its own heading, and
          * a heading between `<li>` siblings is not valid list markup. Every
@@ -119,10 +119,13 @@ export default function DeveloperDocumentationPage() {
           {sections.map((section) => {
             const headingId = `developer-documentation-section-${section.name}`;
             return (
-              <section key={section.name} aria-labelledby={headingId} className="grid gap-2">
-                <h3 id={headingId} className="text-sm font-extrabold text-[color:var(--text-heading)]">
-                  {section.name} · {section.documents.length}
-                </h3>
+              <PanelSection
+                key={section.name}
+                headingId={headingId}
+                headingLevel="h3"
+                className="grid gap-2"
+                heading={`${section.name} · ${section.documents.length}`}
+              >
                 {section.documents.length > 0 ? (
                   <ul className="grid gap-2">
                     {section.documents.map((document) => (
@@ -132,11 +135,11 @@ export default function DeveloperDocumentationPage() {
                 ) : (
                   <p className={META_CLASS}>No documents are recorded under this section.</p>
                 )}
-              </section>
+              </PanelSection>
             );
           })}
         </div>
-      </section>
+      </PanelSection>
     </PanelPageShell>
   );
 }

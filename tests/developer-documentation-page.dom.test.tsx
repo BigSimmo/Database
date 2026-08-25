@@ -77,7 +77,7 @@ vi.mock("@/lib/developer-area/repo-awareness-snapshot", async (importOriginal) =
           ...snapshot,
           documentation: {
             ...snapshot.documentation,
-            sections: [...snapshot.documentation.sections, { name, documents: 0, uncatalogued: 0 }],
+            sections: [...snapshot.documentation.sections, { name }],
           },
         };
       }
