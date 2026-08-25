@@ -440,7 +440,7 @@ D:/Repos/Database/.claude/worktrees/browser-test-gate-handoff-d5c1db, started
 ```
 
 **The path above is written with forward slashes deliberately (corrected in round 1).** The original
-paste kept the record's Windows separators, and `` in `\worktreesrowser-…` is a BACKSPACE
+paste kept the record's Windows separators, and `\b` in `\worktrees\browser-…` is a BACKSPACE
 escape — it survived into the committed Markdown as a literal control byte, so the displayed field
 read `worktrees` with the `b` eaten. The evidence that actually carried the ownership argument was
 the process ancestry, not that path; a corrupted paste is a good reason not to lean on one.
