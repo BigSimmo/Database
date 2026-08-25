@@ -1,6 +1,6 @@
 # Ward Flow sidebar — adopt the repository's house sidebar pattern
 
-**Goal:** Give Ward Flow the same sidebar *approach and structure* the clinical
+**Goal:** Give Ward Flow the same sidebar _approach and structure_ the clinical
 application already uses, tailored to Ward Flow's own tokens, style and
 destinations.
 
@@ -22,7 +22,7 @@ Read from `src/components/clinical-dashboard/ClinicalSidebar.tsx` and
 2. **Three breakpoints, three shapes.** Phone: no rail at all — a `Sheet` drawer
    opened from the app header. Tablet (`md`): icon rail only, with a static brand
    mark and no expand control, because the expanded panel does not exist below
-   `lg`. Desktop (`lg`): icon rail *or* a 20rem labelled panel, chosen by the
+   `lg`. Desktop (`lg`): icon rail _or_ a 20rem labelled panel, chosen by the
    user.
 3. **The choice persists.** `useSidebarCollapsed` is an external store over
    `localStorage`, collapsed by default, with an in-memory fallback when storage

@@ -8,13 +8,7 @@ import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { WardDemoControls } from "./ward-demo-controls";
 import { WardRoleSwitcher } from "./ward-role-switcher";
 import { WARD_NAV_ICONS, WARD_VIEW_ICONS } from "./ward-nav-icons";
-import {
-  WARD_DEVELOPER_HUB_HREF,
-  WARD_NAV,
-  WARD_VIEWS,
-  type WardMode,
-  type WardNavItem,
-} from "./ward-nav";
+import { WARD_DEVELOPER_HUB_HREF, WARD_NAV, WARD_VIEWS, type WardMode, type WardNavItem } from "./ward-nav";
 
 import styles from "./ward-sidebar.module.css";
 
@@ -25,7 +19,26 @@ import styles from "./ward-sidebar.module.css";
  * point: the icon rail, this panel and this drawer all read `ward-nav.ts`, so a destination
  * added in one place appears in all three or in none.
  */
-export function WardSidebarContent({
+export function WardSidebarContent(props: {
+  activeMode?: WardMode;
+  showBrandRow?: boolean;
+  onCollapse?: () => void;
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      <WardSidebarNav {...props} />
+      <WardSidebarFooter onNavigate={props.onNavigate} />
+    </>
+  );
+}
+
+/**
+ * The navigation half. Split from the footer so the desktop panel can scroll this and pin that:
+ * on a 900px-tall screen the footer's role switcher and demo clock fell below the fold, which the
+ * icon rail had never let happen because it pinned its own bottom block.
+ */
+export function WardSidebarNav({
   activeMode,
   showBrandRow = true,
   onCollapse,
@@ -94,25 +107,32 @@ export function WardSidebarContent({
         items={WARD_NAV.filter((item) => item.group === "board")}
         onNavigate={onNavigate}
       />
-
-      <div className={styles.footer}>
-        {/* The role switcher and the demo clock are mounted here exactly as the rail mounts them
-            — same components, same behaviour. The clock is not a destination and never navigates;
-            it sits below the rule with every real link above it, as it does in the rail. */}
-        <div className={styles.footerControls}>
-          <WardRoleSwitcher />
-          <WardDemoControls />
-          <span className={styles.guest} aria-label="Guest workspace">
-            G
-          </span>
-        </div>
-        {/* The single way out of the sandbox. */}
-        <Link href={WARD_DEVELOPER_HUB_HREF} className={styles.link} onClick={onNavigate}>
-          <LayoutGrid aria-hidden="true" />
-          <span className={styles.linkLabel}>Back to the developer hub</span>
-        </Link>
-      </div>
     </>
+  );
+}
+
+/**
+ * The footer: the two live controls the rail also carries, plus the one way out of the sandbox.
+ * Pinned to the bottom of the desktop panel, scrolled with everything else in the drawer.
+ */
+export function WardSidebarFooter({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className={styles.footer}>
+      {/* The role switcher and the demo clock are mounted here exactly as the rail mounts them —
+          same components, same behaviour. The clock is not a destination and never navigates. */}
+      <div className={styles.footerControls}>
+        <WardRoleSwitcher />
+        <WardDemoControls />
+        <span className={styles.guest} aria-label="Guest workspace">
+          G
+        </span>
+      </div>
+      {/* The single way out of the sandbox. */}
+      <Link href={WARD_DEVELOPER_HUB_HREF} className={styles.link} onClick={onNavigate}>
+        <LayoutGrid aria-hidden="true" />
+        <span className={styles.linkLabel}>Back to the developer hub</span>
+      </Link>
+    </div>
   );
 }
 

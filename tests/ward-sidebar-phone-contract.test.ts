@@ -75,10 +75,7 @@ describe("Ward Flow sidebar — phone contract", () => {
 
   it("reserves the fixed phone bar's height in every shell it floats above", () => {
     const missing = shellFiles.filter((file) => !readModule(file).includes("padding-top: 3.5rem;"));
-    expect(
-      missing,
-      `shell(s) whose content would sit under the fixed phone bar: ${missing.join(", ")}`,
-    ).toEqual([]);
+    expect(missing, `shell(s) whose content would sit under the fixed phone bar: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("pushes each shell's own sticky header below the phone bar rather than under it", () => {

@@ -18,14 +18,7 @@
 
 /** The eight coordinator-level views. Ordered as the rail and the panel present them. */
 export type WardMode =
-  | "command"
-  | "network"
-  | "queue"
-  | "capacity"
-  | "movements"
-  | "exceptions"
-  | "transport"
-  | "governance";
+  "command" | "network" | "queue" | "capacity" | "movements" | "exceptions" | "transport" | "governance";
 
 export type WardViewItem = {
   id: WardMode;

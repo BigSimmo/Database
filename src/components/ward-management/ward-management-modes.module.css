@@ -61,6 +61,16 @@
   padding: 0 var(--ward-space-20);
 }
 
+/*
+ * The expanded sidebar panel names the prototype at the top of the screen already, so the header
+ * stops saying it a second time six inches to the right. The panel is a preceding sibling of this
+ * header inside the shell grid, which is what makes this expressible in CSS at all — neither
+ * component knows about the other.
+ */
+:global(aside[aria-label="Ward Flow sidebar"]) ~ .modeHeader .modeBrand {
+  display: none;
+}
+
 .modeIdentity {
   display: flex;
   min-width: 0;

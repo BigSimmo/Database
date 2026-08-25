@@ -98,8 +98,14 @@ test.describe("@mockup Ward Flow command view", () => {
    * short enough on both axes to force the rail's mode-link section into its scrollable
    * fallback, which is exactly the condition that exposed the regression.
    */
-  test("keeps every rail mode link at the 3rem tap-target floor on a short, narrow viewport", async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 640 });
+  test("keeps every rail mode link at the 3rem tap-target floor on the shortest viewport it appears at", async ({
+    page,
+  }) => {
+    // 641px is one pixel above the 40rem breakpoint below which the rail gives way to the phone
+    // bar and drawer, so this is the narrowest width the rail exists at at all — and 640px is
+    // still short enough to force its mode-link section into the scrollable fallback that
+    // exposed the original shrink regression.
+    await page.setViewportSize({ width: 641, height: 640 });
     await gotoWardFlow(page);
 
     const nav = page.getByRole("navigation", { name: "Ward Flow views" });
@@ -111,6 +117,46 @@ test.describe("@mockup Ward Flow command view", () => {
       expect(box!.height).toBeGreaterThanOrEqual(48);
       expect(box!.width).toBeGreaterThanOrEqual(48);
     }
+  });
+
+  /**
+   * The phone half of the same contract. Below 40rem the rail is gone — the 4.5rem icon column
+   * used to render unchanged on a 390px phone, 18% of the viewport — and the drawer carries the
+   * destinations instead. A tap-target floor that only ever measured the rail would say nothing
+   * about the surface a phone user actually touches.
+   */
+  test("replaces the rail with a reachable drawer on a phone, every control at the tap-target floor", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoWardFlow(page);
+
+    await expect(page.getByRole("complementary", { name: "Ward Flow" })).toBeHidden();
+
+    const menu = page.getByRole("button", { name: "Open Ward Flow menu" });
+    await expect(menu).toBeVisible();
+    const menuBox = await menu.boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(menuBox!.height).toBeGreaterThanOrEqual(48);
+    expect(menuBox!.width).toBeGreaterThanOrEqual(48);
+
+    await menu.click();
+    const drawer = page.getByRole("dialog");
+    await expect(drawer).toBeVisible();
+
+    const drawerLinks = await drawer.getByRole("link").all();
+    // Eight views, three role screens, three boards, and the one way out of the sandbox.
+    expect(drawerLinks.length).toBe(15);
+    for (const link of drawerLinks) {
+      const box = await link.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(48);
+    }
+
+    await drawer.getByRole("link", { name: "Capacity" }).click();
+    await expect(page.getByTestId("ward-mode-capacity")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expectNoPageOverflow(page);
   });
 
   test("routes a selected movement across the network diagram and explains the shortlist", async ({ page }) => {
