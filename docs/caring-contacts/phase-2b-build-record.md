@@ -2260,3 +2260,66 @@ stores and the shared contract is the same shape as Task 6b — a separately rev
 and Task 6b is the proven precedent. Task 9 has been told only two things: keep the request body
 composable so 9b's addition is additive, and prefer wording that states today's fact ("not recorded on
 the plan") over wording that asserts a permanent property, because the property is about to change.
+
+## A PROCESS FAILURE THAT WAS MINE — two implementers in one worktree
+
+**I dispatched Task 9's implementer and then resumed Task 8's for a third fix round, in the same
+worktree, at the same time.** The SDD method says in as many words: _never dispatch multiple
+implementation subagents in parallel (conflicts)._ I did it while explicitly congratulating myself in
+the ledger for applying the overlap lever correctly.
+
+**The lever I had reasoned about was sound; I then applied it to the wrong pair.** Reviews hold no
+lease and touch no file, so a review may overlap anything — that is what I wrote down and it is true.
+An implementer writes. Running Task 8's round 3 alongside Task 9's build was not the lever, it was the
+thing the lever's own reasoning excludes, and the distinction is one sentence long.
+
+**What it cost:** thirteen of Task 9's mutation results are void. Its implementer proved the
+interference rather than assuming it — two consecutive `git status` reads with nothing of its own
+running, the dirty file changing from `schedule.ts` to `plan-wizard.tsx` to `plan-activation.ts`. It
+also handed over on a dirty tree carrying the other session's live mutation and **left it rather than
+break the other round**, which was the right call. Nothing was lost: Task 8 finished and reverted, and
+the tree is clean at `b24ff382a`.
+
+**The near miss worth naming.** Task 9 also committed one of its own mutations with `git add -A` while
+a driver had it applied, then reverted it. **That is the same wildcard-staging error I made earlier
+the same day**, in the same worktree, from the other direction — I swept an implementer's uncommitted
+work into my ledger commit. Two agents, one repository, one shell habit. The rule is now: **stage
+explicit paths, never `-A`, in a shared worktree** — and its converse, commit each piece before you
+mutate the file it lives in, was already recorded.
+
+**The generalisable form, since "don't run two implementers" is already written down and was not
+enough:** _an overlap rule whose justification is a property of one role does not transfer to a role
+that lacks the property._ I had the reasoning — "a review holds no lock and writes no file" — sitting
+in the same document, and still generalised from "overlap worked last time" rather than from why.
+**Reasons transfer; precedents do not.**
+
+### Ruling [123] — stage 4 performs BOTH writes, and partial failure is a designed state
+
+Task 9's implementer found that `createPlan` sets `plan.state = "draft"` and that starting a plan is
+`activatePlan`, a separate write on a separate route — while the frozen overlay row says "Confirm and
+activate". It did one write and made the screen say only what the write did, flagging the mismatch
+rather than papering it. **That was the correct call at the time**: it left an honest screen rather
+than a false one.
+
+**I checked the design rather than reasoning from the description, and the row is not merely worded
+that way — its title is "Last check before the plan starts".** The wizard is the activation workflow;
+the implementation did half of it. So the code moves and the frozen copy does not. — Why: amending a
+frozen design row to match an incomplete implementation is the wrong direction of fit, and design
+non-regression 2 exists to stop exactly that.
+
+**The part that is a real design decision rather than a correction:** create-succeeded-activate-failed
+is reachable, recoverable, and must be handled as its own state — the plan exists as a draft and has
+not started. **On that outcome the draft is KEPT, which refines Ruling [117]'s "clear on success".**
+The draft holds the plan id and both idempotency keys, and that is precisely what makes a retry safe
+rather than duplicating; clearing it would throw away the only thing distinguishing "try again" from
+"create a second plan for this patient". Ruling [120]'s mechanism doing its actual job. — Cost if
+wrong: a draft that outlives a plan it already created is a stale tab-scoped record, cleared on tab
+close; the alternative risks two plans for one patient, which is the worst outcome available on this
+screen.
+
+**Ruling [119] was wrong on a mechanism and the implementer improved on it.** I named
+`summariseStoredContacts` for the screen to use; it lives in `repository.ts`, which names the
+service-state module, and the wizard's client module graph is scanned for exactly that. It used the
+function in the **test** instead, as a pin against a plan the in-memory store really built — which
+proves the screen's derivation against the domain's own answer **without dragging the domain into the
+client bundle.** Better than what I asked for; recorded so nobody "fixes" it back.
