@@ -1,8 +1,8 @@
 {
   "version": "repo-awareness-snapshot-v1",
   "captured_revision": {
-    "sha": "07d0cdff3666a03da9d23c8fe08d011e6784c633",
-    "committed_at": "2026-08-25T10:09:18+08:00"
+    "sha": "7773d909bcd7d4005406165bdc3d76825e45e221",
+    "committed_at": "2026-08-25T12:17:35+08:00"
   },
   "routes": {
     "modes": [
@@ -3521,94 +3521,58 @@
     ],
     "sections": [
       {
-        "name": "adr",
-        "documents": 1,
-        "uncatalogued": 1
+        "name": "adr"
       },
       {
-        "name": "archive",
-        "documents": 31,
-        "uncatalogued": 27
+        "name": "archive"
       },
       {
-        "name": "audit",
-        "documents": 19,
-        "uncatalogued": 9
+        "name": "audit"
       },
       {
-        "name": "care-plan",
-        "documents": 7,
-        "uncatalogued": 7
+        "name": "care-plan"
       },
       {
-        "name": "caring-contacts",
-        "documents": 66,
-        "uncatalogued": 66
+        "name": "caring-contacts"
       },
       {
-        "name": "codex",
-        "documents": 6,
-        "uncatalogued": 6
+        "name": "codex"
       },
       {
-        "name": "decisions",
-        "documents": 1,
-        "uncatalogued": 1
+        "name": "decisions"
       },
       {
-        "name": "design-system",
-        "documents": 8,
-        "uncatalogued": 2
+        "name": "design-system"
       },
       {
-        "name": "evidence",
-        "documents": 4,
-        "uncatalogued": 4
+        "name": "evidence"
       },
       {
-        "name": "plans",
-        "documents": 6,
-        "uncatalogued": 6
+        "name": "plans"
       },
       {
-        "name": "product",
-        "documents": 1,
-        "uncatalogued": 1
+        "name": "product"
       },
       {
-        "name": "prompts",
-        "documents": 13,
-        "uncatalogued": 13
+        "name": "prompts"
       },
       {
-        "name": "rag-behaviour",
-        "documents": 4,
-        "uncatalogued": 4
+        "name": "rag-behaviour"
       },
       {
-        "name": "rag-improvement",
-        "documents": 8,
-        "uncatalogued": 2
+        "name": "rag-improvement"
       },
       {
-        "name": "redesign",
-        "documents": 16,
-        "uncatalogued": 16
+        "name": "redesign"
       },
       {
-        "name": "root",
-        "documents": 98,
-        "uncatalogued": 23
+        "name": "root"
       },
       {
-        "name": "superpowers",
-        "documents": 91,
-        "uncatalogued": 91
+        "name": "superpowers"
       },
       {
-        "name": "ward-flow-phase-3-workspace",
-        "documents": 50,
-        "uncatalogued": 50
+        "name": "ward-flow-phase-3-workspace"
       }
     ],
     "counts": {
@@ -3627,6 +3591,14 @@
   },
   "review_state": {
     "records": [
+      {
+        "date": "2026-08-25",
+        "ref": "backup/pr-2333-prelinear-20260824",
+        "head": "7c5bb84e45d6925c6950cf5b96fff3a8cc479a7b",
+        "scope": "pr-ci-fix",
+        "outcome": "Fixed: prettier format:changed; PR_POLICY_BODY sync for Clinical Governance Preflight; empty commit retriggered PR Policy after body sync race. Review threads already resolved (fb8adf92). Required checks green (PR policy, Static PR, PR required). mergeStateStatus BEHIND vs moving main — merge-tree clean.",
+        "checks": "vitest:54/54; prettier:pass; pr-policy:pass; static-pr:pass; pr-required:pass"
+      },
       {
         "date": "2026-08-24",
         "ref": "2354",
@@ -24501,8 +24473,8 @@
       }
     ],
     "counts": {
-      "records": 2609,
-      "refs": 1591
+      "records": 2610,
+      "refs": 1592
     }
   }
 }
