@@ -124,7 +124,11 @@ async function seedApprovedVersion(
         snapshot: {
           cadenceLabels: CADENCE_LABELS,
           messageTextByType: { standard: "standard", first: "first", closing: "closing" },
-          ...(provenance === undefined ? {} : { provenance }),
+          // Cast exactly where the Postgres reader casts (`row.snapshot as PathwayVersionSnapshot`).
+          // That unchecked cast is the whole mechanism by which a provenance outside the union
+          // reaches a screen typed as one inside it, so a fixture that could not express it could
+          // not reproduce the defect.
+          ...(provenance === undefined ? {} : { provenance: provenance as PathwayVersionProvenance }),
         },
       } satisfies PathwayVersion,
     },
