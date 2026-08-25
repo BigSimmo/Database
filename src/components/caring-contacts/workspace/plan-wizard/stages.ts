@@ -21,22 +21,30 @@
 //   * the wizard's own render switch has the same `never` default, so a stage nobody handled does
 //     not compile there either.
 //
-// The one mistake no type can catch is the OPPOSITE one, and it is the one Task 9 can still make:
-// flipping an entry below to `built` and not writing the body. Nothing about the
-// types relates a table entry to a switch branch, so that is a runtime guard instead —
-// `assertBuiltStageHasABody` in the wizard throws rather than rendering a stepper over an empty
-// column, and `tests/caring-contacts-plan-wizard.dom.test.tsx` proves it fires.
+// The one mistake no type can catch is the OPPOSITE one: flipping an entry below to `built` and not
+// writing the body. Nothing about the types relates a table entry to a switch branch, so that is a
+// runtime guard instead — `assertBuiltStageHasABody` in the wizard throws rather than rendering a
+// stepper over an empty column.
+//
+// That guard is proved by calling it directly in `tests/caring-contacts-plan-wizard.dom.test.tsx`,
+// and it is worth saying why rather than only where. This comment claimed the same thing from Task 7
+// onward and NOTHING TESTED IT: the sentence described a mechanism nobody had run, in the one guard
+// protecting the mistake Tasks 8 and 9 could each actually make. Task 9 found it and proved it. A
+// render can no longer reach it at all now that every stage is built, so it is exported and called.
 //
 // `contactSendability` in `src/lib/caring-contacts/model.ts` is the local precedent for this shape,
 // and its note says why an exhaustive switch beats a list: a list is something a person has to
 // remember to extend, and this does not compile at all when a member is added and left behind.
 //
-// WHAT TASK 8 CHANGED, AND WHAT TASK 9 CHANGES. Exactly one entry each in
-// `planWizardStageImplementation` — flipping `personalisation` (Task 8, done) or `review` (Task 9)
-// from `not-built` to `built` — plus the matching branch in the wizard's render switch. Nothing
-// else: the stepper reads this table, and the forward control asks this function whether the next
-// stage is built, so both follow. Task 8 confirmed that: flipping the entry and writing the body
-// turned stage 2's unavailable destination into a real Continue with no edit at that call site.
+// WHAT TASKS 8 AND 9 CHANGED. Exactly one entry each in `planWizardStageImplementation` — flipping
+// `personalisation` (Task 8) and then `review` (Task 9) from `not-built` to `built` — plus the
+// matching branch in the wizard's render switch. Nothing else: the stepper reads this table, and
+// the forward control asks this function whether the next stage is built, so both follow. Both
+// tasks confirmed it: flipping the entry and writing the body turned the previous stage's
+// unavailable destination into a real Continue with no edit at that call site.
+//
+// EVERY STAGE IS NOW BUILT, so `not-built` is returned by nothing. The variant stays because it is
+// the extension point a fifth stage would use, and because Ruling 52 lives in it.
 
 /**
  * The stages in the order a coordinator walks them: agreement, pathway, personalisation, review
@@ -93,12 +101,12 @@ export function planWizardStageImplementation(stage: PlanWizardStage): PlanWizar
     case "agreement":
     case "pathway":
     case "personalisation":
-      return { kind: "built" };
+    // Task 9 built this one, and it was the last. `not-built` is therefore returned by nothing
+    // today: the variant, `UnbuiltStagePanel` and `ForwardControl`'s unavailable branch are all
+    // UNREACHED rather than dead, and they are kept as the extension point a fifth stage would use.
+    // Ruling 52 is what they implement, and deleting them would mean re-deriving it.
     case "review":
-      return {
-        kind: "not-built",
-        reason: PLAN_WIZARD_STAGE_DEFINITIONS.review.purpose,
-      };
+      return { kind: "built" };
     default: {
       const unclassified: never = stage;
       return unclassified;

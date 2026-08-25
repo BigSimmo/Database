@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarDays,
   CircleAlert,
   ClipboardCheck,
   FileCheck2,
@@ -11,12 +12,20 @@ import {
   Trash2,
   UserRoundCheck,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
+import { patientPlanRoute } from "@/lib/caring-contacts-routes";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
-import type { SendingPreferenceOption } from "@/lib/caring-contacts/schedule";
+import {
+  firstContactDayBounds,
+  FIRST_CONTACT_REASON_MAX_LENGTH,
+  type SendingPreferenceOption,
+} from "@/lib/caring-contacts/schedule";
 
+import { AutomatedState } from "../automated-state";
 import { ListEmptyState } from "../list-empty-state";
+import { WorkspaceOverlayTrigger } from "../overlays/overlay-trigger";
 import { UnavailableDestination } from "../unavailable-destination";
 import {
   clearPlanDraft,
@@ -28,9 +37,26 @@ import {
   subscribeToPlanDraft,
   writePlanDraft,
   type PlanDraft,
+  type PlanDraftAssurances,
 } from "./plan-draft";
 import {
+  createPlanRequestBody,
+  firstContactReasonIsRequired,
+  mintPlanSubmissionIdentity,
+  planSchedulePreview,
+  plannedScheduleSentence,
+  PLANNED_MESSAGE_TYPE_LABELS,
+  submissionRefusalWording,
+  TRANSPORT_REFUSALS,
+  type CreatePlanRequestBody,
+  type PlanActivationDraft,
+  type PlanSchedulePreview,
+  type PlanSubmissionIdentity,
+} from "./plan-activation";
+import {
+  createPlanPatientDetail,
   mobileIsDesignatedFictional,
+  parsePatientIdentifiers,
   personalisationIssues,
   type PersonalisationField,
   type PlanPatientDetailDraft,
@@ -180,6 +206,31 @@ const fieldClass =
 
 const headingClass = "text-sm font-semibold text-[color:var(--text-heading)]";
 
+/**
+ * The one endpoint this workspace writes to.
+ *
+ * A path literal, and it is the ONE exception to "hrefs come from `caring-contacts-routes.ts`",
+ * because that module declares PAGE destinations a clinician navigates to and this is an API route
+ * nothing links to. `plans/route.ts` is where the contract lives; the body it accepts is assembled
+ * in exactly one place (`createPlanRequestBody`), so a field added to that contract is an additive
+ * change there rather than a hunt through this component.
+ */
+const CREATE_PLAN_ENDPOINT = "/api/caring-contacts/plans";
+
+/**
+ * Where the one write has got to.
+ *
+ * `created` is a state of its own rather than a flag on `idle`, because after a successful write the
+ * draft is gone and the wizard would otherwise re-render as a brand-new sign-up at stage 1 for the
+ * moment before the navigation lands. A coordinator seeing the form reset would reasonably conclude
+ * nothing had been created.
+ */
+type PlanSubmissionState =
+  | { status: "idle" }
+  | { status: "sending" }
+  | { status: "refused"; refusal: string }
+  | { status: "created"; planId: string };
+
 /** One fact, with where it came from. The source line is the whole point — see Ruling [112]. */
 function SourcedFact({
   icon,
@@ -223,6 +274,10 @@ export function PlanWizard({
   const stored = useSyncExternalStore(subscribeToPlanDraft, planDraftSnapshot, planDraftServerSnapshot);
   const storage = useSyncExternalStore(subscribeToPlanDraft, readStorageState, readServerStorageState);
   const [discarded, setDiscarded] = useState(false);
+  const [submissionState, setSubmissionState] = useState<PlanSubmissionState>({ status: "idle" });
+  // `useRouter` is how a Client Component navigates in the App Router (Next 16). It is used ONCE,
+  // after a plan has been confirmed created and after the draft has been cleared -- see `activate`.
+  const router = useRouter();
 
   // A draft belonging to a DIFFERENT referral is removed rather than ignored, so one coordinator's
   // answers cannot sit in storage for the rest of the tab's life, referenced by nothing. This is a
@@ -234,6 +289,19 @@ export function PlanWizard({
 
   const draft =
     stored !== null && stored.referralId === referralId ? stored : emptyPlanDraft(referralId, referralPathwayVersionId);
+
+  // RULING [120]: minted at the moment stage 4 is REACHED, not at the moment it is confirmed.
+  //
+  // Two ways to arrive, so two call sites for one function. `goTo("review")` covers the ordinary
+  // path and mints in the same write that moves the stage, so the screen never renders once with no
+  // identity. This effect covers the other: a stored draft that already names `review` -- a reload,
+  // or a draft written before this build existed. Both go through `mintPlanSubmissionIdentity`, and
+  // neither re-mints, because a fresh plan id on a retry is how one patient gets two plans.
+  useEffect(() => {
+    if (draft.stage !== "review") return;
+    if (draft.submission !== null) return;
+    writePlanDraft({ ...draft, submission: mintPlanSubmissionIdentity() });
+  }, [draft]);
 
   /** Every change goes through here, so nothing can update the screen without updating the draft. */
   function update(change: (current: PlanDraft) => PlanDraft) {
@@ -250,6 +318,24 @@ export function PlanWizard({
   const implementation = planWizardStageImplementation(stage);
   const body = stageBody();
 
+  // The draft is gone the moment a plan is created, so the wizard would otherwise re-render as a
+  // fresh sign-up at stage 1 while the navigation is still in flight. This states what happened
+  // instead. It is not a substitute for navigating -- the push has already been called.
+  if (submissionState.status === "created") {
+    return (
+      <div className="flex min-w-0 flex-col gap-5" data-testid="caring-contacts-plan-wizard">
+        <section aria-label="Plan created" className={panelClass}>
+          <h2 className={headingClass}>The plan was created</h2>
+          <p className={`mt-1 ${mutedTextClass}`}>
+            The plan, the patient&rsquo;s details and the twelve-month schedule were created and recorded. Nothing was
+            sent to any number, and nothing from this sign-up is left on this computer.
+          </p>
+          <p className={`mt-2 ${mutedTextClass}`}>Taking you to the plan on the patient&rsquo;s own screen.</p>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-w-0 flex-col gap-5" data-testid="caring-contacts-plan-wizard">
       <Stepper active={stage} />
@@ -263,7 +349,80 @@ export function PlanWizard({
   );
 
   function goTo(next: PlanWizardStage) {
-    update((current) => ({ ...current, stage: next }));
+    update((current) => ({
+      ...current,
+      stage: next,
+      // Minted in the same write that moves the stage -- see the effect above for why there are two
+      // call sites and why neither re-mints.
+      submission: next === "review" && current.submission === null ? mintPlanSubmissionIdentity() : current.submission,
+    }));
+  }
+
+  /**
+   * The one write in this workspace, and the three orderings Ruling [117] is about.
+   *
+   *   1. CONFIRM SUCCESS, then clear the draft, then navigate. Clearing before the answer loses a
+   *      clinician's typing on a failure; navigating before clearing leaves a patient's name and
+   *      mobile number in this tab's storage on a shared ward computer with the screen already gone.
+   *   2. ON ANY FAILURE THE DRAFT SURVIVES -- a lost connection, a refusal, an unreadable answer
+   *      alike. Nothing below touches the draft on any path but the successful one.
+   *   3. THE REFUSAL SAYS WHICH FAILURE IT WAS, in words, in place. `writeHandler`'s codes
+   *      distinguish "you may not", "this already exists" and "the schedule could not be built", and
+   *      `submissionRefusalWording` is total over every one of them.
+   *
+   * It never rejects. The overlay host re-throws a rejected commit during render, which would land
+   * on `error.tsx` -- a whole-screen error for something this function can state in place, with the
+   * draft still in hand.
+   */
+  async function activate() {
+    const body = createPlanRequestBody({
+      submission: draft.submission,
+      referralId,
+      patientId,
+      pathwayVersionId: draft.pathwayVersionId,
+      activation: draft.activation,
+      sendingPreference: draft.sendingPreference,
+      patientDetail: createPlanPatientDetail(draft.patientDetail),
+    });
+    // Unreachable through the interface: the trigger's commit is `unavailable` whenever the body
+    // cannot be built, so the overlay refuses in place rather than opening a control that would land
+    // here. Guarded rather than asserted, because a caller is one edit away.
+    if (body === null) return;
+
+    setSubmissionState({ status: "sending" });
+
+    let answer: Response;
+    try {
+      answer = await fetch(CREATE_PLAN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      setSubmissionState({ status: "refused", refusal: TRANSPORT_REFUSALS.didNotReach });
+      return;
+    }
+
+    let payload: unknown;
+    try {
+      payload = await answer.json();
+    } catch {
+      // The plan MAY have been created -- an unreadable answer says nothing about what the service
+      // did. So the draft is kept and the wording refuses to claim either way; retrying is harmless
+      // because the identifiers are reused.
+      setSubmissionState({ status: "refused", refusal: TRANSPORT_REFUSALS.unreadableAnswer });
+      return;
+    }
+
+    if (!answer.ok) {
+      setSubmissionState({ status: "refused", refusal: refusalNameFrom(payload) });
+      return;
+    }
+
+    // Success is confirmed. Only now, and in this order.
+    clearPlanDraft();
+    setSubmissionState({ status: "created", planId: body.planId });
+    router.push(patientPlanRoute(patientId, body.planId));
   }
 
   function goBack() {
@@ -324,9 +483,28 @@ export function PlanWizard({
           />
         );
       case "review":
-        // Task 9 builds this one. The panel above states it; this returns nothing rather than a
-        // placeholder that would have to be found and deleted later.
-        return null;
+        return (
+          <ReviewStage
+            referralId={referralId}
+            patientId={patientId}
+            teamId={teamId}
+            actorId={actorId}
+            actorRoleLabels={actorRoleLabels}
+            assurances={draft.assurances}
+            detail={draft.patientDetail}
+            pathwayVersionId={draft.pathwayVersionId}
+            sendingPreference={draft.sendingPreference}
+            sendingPreferenceOptions={sendingPreferenceOptions}
+            activation={draft.activation}
+            submission={draft.submission}
+            state={submissionState}
+            onActivationChange={(change) =>
+              update((current) => ({ ...current, activation: { ...current.activation, ...change } }))
+            }
+            onActivate={activate}
+            onBack={goBack}
+          />
+        );
       default: {
         const unrendered: never = stage;
         return unrendered;
@@ -339,12 +517,18 @@ export function PlanWizard({
  * Fails loudly when a stage claims to be built and has no body.
  *
  * The `never` default in `stageBody` catches a stage nobody handled. It cannot catch the opposite
- * mistake, which is the one Task 9 can still make: flipping an entry in
+ * mistake, which is the one Tasks 8 and 9 could each have made: flipping an entry in
  * `planWizardStageImplementation` to `built` and not writing the body. That would render a stepper,
  * a notice, and an empty column where a clinician expects a patient's details — so it throws, and
  * `error.tsx` says nothing was sent and nothing was changed, both of which are true.
+ *
+ * EXPORTED SO IT CAN BE PROVED, and that is Task 9's finding rather than a preference. `stages.ts`
+ * said from Task 7 onward that the wizard's DOM suite proves this fires; nothing did. It was a
+ * mechanism nobody had run, written down as coverage, in the one guard protecting the mistake each
+ * later task could actually make. Now that every stage is built, no render can reach it at all — so
+ * the only honest proof is to call it, which `tests/caring-contacts-plan-wizard.dom.test.tsx` does.
  */
-function assertBuiltStageHasABody(body: ReactNode | null, stage: PlanWizardStage): ReactNode {
+export function assertBuiltStageHasABody(body: ReactNode | null, stage: PlanWizardStage): ReactNode {
   if (body === null) {
     throw new Error(
       `caring-contacts plan wizard: stage "${stage}" is marked built but this component renders no body for it.`,
@@ -1185,4 +1369,504 @@ function ForwardControl({
       <span className="truncate">Continue to {definition.label.toLowerCase()}</span>
     </button>
   );
+}
+
+/**
+ * Stage 4 — the whole plan read back, and the control that creates it.
+ *
+ * THE ONLY STAGE THAT WRITES, AND THE FIRST SCREEN IN THIS WORKSPACE THAT CREATES ANYTHING.
+ * Everything before it reads. That single fact is why most of this component is about failure
+ * rather than success: each of Ruling [117]'s three orderings is SILENT when it is reversed, and
+ * what a reversal costs is either a clinician's typing or a patient's mobile number left on a ward
+ * machine after the tab looked finished.
+ *
+ * WHAT IT COLLECTS, AND WHY THOSE TWO CONTROLS ARE ADJACENT (Rulings [118] and [121]). The
+ * discharge day is collected here because `createPlanSchema` requires `dischargeAt` and nothing in
+ * this domain carries one — the fourth value in this wizard whose approved design shows it arriving
+ * from a hospital record this system is not connected to. The first-contact day is defined ENTIRELY
+ * relative to it, so the two sit together: a date control anchored on a day nobody has entered means
+ * nothing, and the relationship has to be visible at the moment both are chosen.
+ *
+ * WHAT IT DERIVES (Ruling [119]). Every count comes from the schedule the domain builds for the
+ * dates on screen. The mockup's `"10-contact schedule"` heading is a literal and it is wrong: ten
+ * ENTRIES, the last of which is a closing message rather than one more caring contact, and only nine
+ * are sent when the first contact falls on discharge + 7. Moving the date is the system about to
+ * remove a message from a suicide-prevention schedule, so §4.4 requires that stated IN PLACE, before
+ * the choice is committed — which is why the preview is live rather than shown after the write.
+ *
+ * WHAT IT REFUSES TO CLAIM (Ruling [119] again). The mockup renders `Agreement confirmed: Yes` as a
+ * stored fact. It is not stored: `createPlanSchema` is `.strict()` with ten fields, `patientDetail`
+ * `.strict()` with four, and neither has a place for it. This screen is the last place a false
+ * reassurance could be introduced before a plan exists, so it states today's fact — confirmed in
+ * this sign-up, not recorded on the plan — rather than a permanent property. That distinction is
+ * deliberate and about to matter: the owner has decided the confirmations WILL be stored as an
+ * attestation, which is a schema change and a later task, and wording claiming they never are would
+ * have to be hunted down when it lands.
+ *
+ * WHAT CONFIRMING ACTUALLY DOES, said in place rather than implied by a verb. The POST creates the
+ * plan, its patient detail and its whole twelve-month schedule. The store creates it in the `draft`
+ * plan state; starting a created plan is `activatePlan`, a separate write on a separate route with
+ * its own `expectedVersion`, and no ruling covers performing two writes from this screen. So this
+ * screen performs the one write its brief names and SAYS SO — see the Task 9 report, which raises
+ * the gap rather than closing it by inventing a second write here.
+ */
+function ReviewStage({
+  referralId,
+  patientId,
+  teamId,
+  actorId,
+  actorRoleLabels,
+  assurances,
+  detail,
+  pathwayVersionId,
+  sendingPreference,
+  sendingPreferenceOptions,
+  activation,
+  submission,
+  state,
+  onActivationChange,
+  onActivate,
+  onBack,
+}: {
+  referralId: string;
+  patientId: string;
+  teamId: string;
+  actorId: string;
+  actorRoleLabels: readonly string[];
+  assurances: PlanDraftAssurances;
+  detail: PlanPatientDetailDraft;
+  pathwayVersionId: string | null;
+  sendingPreference: SendingPreference | null;
+  sendingPreferenceOptions: readonly SendingPreferenceOption[];
+  activation: PlanActivationDraft;
+  submission: PlanSubmissionIdentity | null;
+  state: PlanSubmissionState;
+  onActivationChange: (change: Partial<PlanActivationDraft>) => void;
+  onActivate: () => void;
+  onBack: () => void;
+}) {
+  const preview = planSchedulePreview({ activation, sendingPreference });
+  const bounds = firstContactDayBounds(activation.dischargeDay.trim());
+  const reasonRequired = firstContactReasonIsRequired({
+    dischargeDay: activation.dischargeDay,
+    firstContactDay: activation.firstContactDay,
+  });
+  const patientDetail = createPlanPatientDetail(detail);
+  const body = createPlanRequestBody({
+    submission,
+    referralId,
+    patientId,
+    pathwayVersionId,
+    activation,
+    sendingPreference,
+    patientDetail,
+  });
+  const chosenPreference = sendingPreferenceOptions.find((option) => option.preference === sendingPreference) ?? null;
+
+  return (
+    <section aria-label="Review and activation" className="flex min-w-0 flex-col gap-5">
+      <div className={panelClass}>
+        <h2 className={headingClass}>Read back before this plan is created</h2>
+        <p className={`mt-1 ${mutedTextClass}`}>
+          Every line below is what this plan will hold, with where it came from. Nothing here is a count this screen was
+          told; the schedule further down is worked out from the dates you choose.
+        </p>
+        <div className="mt-3 min-w-0">
+          <SourcedFact
+            icon={<IdCard aria-hidden="true" className="size-icon-md" />}
+            label="Referral"
+            value={referralId}
+            source="Read from the referral record"
+          />
+          <SourcedFact
+            icon={<IdCard aria-hidden="true" className="size-icon-md" />}
+            label="Patient identifier"
+            value={patientId}
+            source="Read from the referral record"
+          />
+          <SourcedFact
+            icon={<UserRoundCheck aria-hidden="true" className="size-icon-md" />}
+            label="Patient&rsquo;s name"
+            value={detail.patientName.trim() === "" ? "Not entered" : detail.patientName.trim()}
+            source="Entered by you at personalisation. A referral carries no name."
+          />
+          <SourcedFact
+            icon={<PhoneOff aria-hidden="true" className="size-icon-md" />}
+            label="Mobile number this plan will use"
+            value={detail.patientMobileNumber.trim() === "" ? "Not entered" : detail.patientMobileNumber.trim()}
+            source="Entered by you at personalisation. Nothing is ever sent to it from this prototype."
+          />
+          <SourcedFact
+            icon={<IdCard aria-hidden="true" className="size-icon-md" />}
+            label="Other identifiers"
+            value={
+              parsePatientIdentifiers(detail.patientIdentifiers).length === 0
+                ? "None given"
+                : parsePatientIdentifiers(detail.patientIdentifiers).join(", ")
+            }
+            source="Entered by you at personalisation"
+          />
+          <SourcedFact
+            icon={<ShieldCheck aria-hidden="true" className="size-icon-md" />}
+            label="Owning team"
+            value={teamId}
+            source="Read from the referral record, which this team accepted"
+          />
+          <SourcedFact
+            icon={<UserRoundCheck aria-hidden="true" className="size-icon-md" />}
+            label="Acting as"
+            value={`${actorId} — ${actorRoleLabels.join(", ")}`}
+            source="Read from the session you are signed in with"
+          />
+          <SourcedFact
+            icon={<FileCheck2 aria-hidden="true" className="size-icon-md" />}
+            label="Governed pathway version"
+            value={pathwayVersionId ?? "Not chosen"}
+            source="Chosen by you at the pathway stage, from versions two different people approved"
+          />
+          <SourcedFact
+            icon={<MessageSquareText aria-hidden="true" className="size-icon-md" />}
+            label="When in the day messages go out"
+            value={chosenPreference === null ? "Not chosen" : `${chosenPreference.label} — ${chosenPreference.sendTime}`}
+            source="Chosen by you at personalisation. One choice applies to every contact in this plan."
+          />
+        </div>
+      </div>
+
+      {/*
+        RULING [119], AND IT IS THE SENTENCE THIS SCREEN EXISTS TO GET RIGHT.
+
+        The approved mockup renders `Agreement confirmed: Yes` beside the patient's name, in a row
+        of read-back cards, which presents it as a fact the plan holds. It is not one. There is no
+        field for it on a plan and none in the request: `createPlanSchema` is `.strict()` with ten
+        fields and its `patientDetail` `.strict()` with four. A screen telling a coordinator the
+        consent question is handled, at the exact moment the owner is deciding it is not, is the
+        worst available failure here — this is the last surface before the plan exists.
+
+        The wording states TODAY'S FACT rather than a permanent property, deliberately. The owner has
+        since decided these confirmations will be stored as an attestation — who confirmed, what they
+        confirmed, when — which is a schema change and a later task. "Not recorded on the plan" is
+        true now and becomes false in one place when that lands; "nothing in this domain records
+        them" would have had to be hunted for.
+      */}
+      <StatedReason
+        heading={
+          assurances.patientAgreed && assurances.mobileIsPatientControlled
+            ? "Both confirmations were made by you in this sign-up"
+            : "The confirmations at the start of this sign-up are not both ticked"
+        }
+        because={
+          assurances.patientAgreed && assurances.mobileIsPatientControlled
+            ? "You confirmed that the patient agreed to receive caring contacts, and that the number is the patient's own. They are your confirmations in this session, not facts read from a record, and they are not recorded on the plan — nothing in the plan being created has a field for either."
+            : "At least one of the two confirmations at the start of this sign-up is not ticked. They are your own confirmations, not facts read from a record, and they are not recorded on the plan."
+        }
+        changedBy="Going back to the agreement stage changes what you confirmed. What the plan records is not changed by it either way."
+        icon={<ClipboardCheck aria-hidden="true" className="size-icon-md shrink-0" />}
+      />
+
+      <div className={panelClass}>
+        <h2 className={headingClass}>Discharge, and the day of the first contact</h2>
+        <p className={`mt-1 ${mutedTextClass}`}>
+          These two belong together: every date in this plan is counted from the discharge day, and the first contact is
+          chosen relative to it.
+        </p>
+
+        <div className="mt-4 grid min-w-0 gap-5 sm:grid-cols-2">
+          <DateField
+            id="caring-contacts-discharge-day"
+            label="Day the patient was discharged"
+            value={activation.dischargeDay}
+            onChange={(value) => onActivationChange({ dischargeDay: value })}
+            hint="AWST. Every date in this plan is counted from it."
+          />
+          <DateField
+            id="caring-contacts-first-contact-day"
+            label="Day of the first contact"
+            value={bounds === null ? "" : activation.firstContactDay === "" ? bounds.usual : activation.firstContactDay}
+            onChange={(value) => onActivationChange({ firstContactDay: value })}
+            min={bounds?.earliest}
+            max={bounds?.latest}
+            disabled={bounds === null}
+            hint={
+              bounds === null
+                ? "Enter the discharge day first. This day can only be chosen relative to it."
+                : `Usually ${bounds.usual}, the day after discharge. It can be moved from ${bounds.earliest} to ${bounds.latest}.`
+            }
+          />
+        </div>
+
+        {/*
+          THE DISCHARGE DAY IS ASKED FOR, AND THE ABSENCE OF A SOURCE IS STATED (Ruling [121]).
+          An input for a fact the approved design shows arriving from a hospital record reads as an
+          oversight unless the screen says why it is being typed. This is the fourth such field in
+          one wizard — stage 1's identity, stage 3's personalisation, the mobile number, and now
+          this — and the pattern is recorded in the build record rather than rediscovered each time.
+        */}
+        <div className="mt-4 min-w-0">
+          <StatedReason
+            heading="The discharge day has to be typed here"
+            because="A plan cannot be created without it: every contact date in the twelve months is counted from the discharge day in AWST. The design for this service reads it from the hospital record, and this prototype is connected to no hospital record, so there is nowhere for it to come from but you."
+            changedBy="Nothing on this screen. It needs the record it is meant to be read from, and that connection has not been built."
+            icon={<CalendarDays aria-hidden="true" className="size-icon-md shrink-0" />}
+          />
+        </div>
+
+        {reasonRequired ? (
+          <div className="mt-4 min-w-0">
+            <TextAreaField
+              id="caring-contacts-first-contact-reason"
+              label="Why the first contact is not on the usual day"
+              hint={`Recorded on the plan, and read back on the patient's screen. Up to ${FIRST_CONTACT_REASON_MAX_LENGTH} characters — a few sentences.`}
+              value={activation.firstContactReason}
+              onChange={(value) => onActivationChange({ firstContactReason: value })}
+            />
+          </div>
+        ) : null}
+
+        {/*
+          THE CONSEQUENCE, IN PLACE, BEFORE THE CHOICE IS COMMITTED (Ruling [118]).
+
+          Moving the first contact to discharge + 7 puts it on the same calendar day as the Week 1
+          contact, and two caring contacts must never land on one day — so the schedule keeps one and
+          the plan sends nine rather than ten. That is the system removing a message from a
+          suicide-prevention schedule as a side effect of a date choice, and §4.4's explained-
+          automation contract is at its sharpest here: it has to be said while the date is being
+          chosen, not reported afterwards.
+        */}
+        <div className="mt-4 flex min-w-0 flex-col gap-3">
+          {preview.kind === "incomplete"
+            ? preview.issues.map((issue) => (
+                <p key={issue.code} className={mutedTextClass}>
+                  {issue.message}
+                </p>
+              ))
+            : null}
+          {preview.kind === "refused" ? <RefusalStatement refusal={preview.refusal} /> : null}
+          {preview.kind === "ready"
+            ? preview.absorbed.map((contact) => (
+                <AutomatedState
+                  key={contact.sequence}
+                  state="Suppressed"
+                  because={`${contact.cadenceLabel} falls on the same calendar day as the first contact you have chosen, and two caring contacts must never land on one day, so the schedule keeps one of them. This plan will send ${preview.summary.stillToSend} messages rather than ${preview.summary.total}.`}
+                  changedBy="Choosing an earlier day for the first contact puts this message back into the schedule."
+                />
+              ))
+            : null}
+        </div>
+      </div>
+
+      <div className={panelClass}>
+        <h2 className={headingClass}>The schedule this plan will run</h2>
+        {preview.kind === "ready" ? (
+          <>
+            <p data-testid="caring-contacts-activation-schedule-summary" className={`mt-1 ${mutedTextClass}`}>
+              {plannedScheduleSentence(preview.summary)}
+            </p>
+            <ul aria-label="Twelve-month schedule" className="mt-3 flex min-w-0 flex-col gap-2">
+              {preview.contacts.map((contact) => {
+                const willNotBeSent = preview.absorbed.some((entry) => entry.sequence === contact.sequence);
+                return (
+                  <li
+                    key={contact.sequence}
+                    className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 forced-colors:border-[CanvasText]"
+                  >
+                    <p className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">
+                      {contact.cadenceLabel} &middot; {contact.calendarDay} (AWST)
+                    </p>
+                    <p className="mt-0.5 text-sm leading-6 text-[color:var(--text-muted)]">
+                      {PLANNED_MESSAGE_TYPE_LABELS[contact.messageType]}
+                      {willNotBeSent ? " · will not be sent" : ""}
+                    </p>
+                    {contact.messageType === "closing" ? (
+                      <p className="mt-0.5 max-w-[var(--measure)] text-xs leading-5 text-[color:var(--text-muted)]">
+                        The last message in the plan. It closes the twelve months and is not one more caring contact.
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+            {/*
+              No message TEXT is rendered here. Patient-visible copy is frozen and belongs to the
+              sealed domain's `message-copy`; a screen that hardcoded one of those strings would be a
+              defect even with the string correct. The preview the mockup opens from this stage is an
+              overlay, and Task 11 owns this group's overlay wiring.
+            */}
+            <p className={`mt-3 ${mutedTextClass}`}>
+              The wording of each message comes from the governed pathway version above, not from this screen. Nothing
+              in this prototype is ever sent to any number.
+            </p>
+          </>
+        ) : (
+          <p className={`mt-1 ${mutedTextClass}`}>
+            The schedule is worked out from the discharge day and the day of the first contact. It appears here as soon
+            as both are settled, so nothing about this plan is a number you have to take on trust.
+          </p>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-3">
+        {/*
+          WHAT CONFIRMING DOES, AND WHAT IT DOES NOT — said before the control, not after it.
+
+          `createPlan` records the plan in the `draft` plan state. Starting it is `activatePlan`, a
+          separate write on a separate route carrying its own `expectedVersion`, and this screen
+          performs the one write its brief names. Saying "activate" while doing that would be the
+          same class of overstatement as `Agreement confirmed: Yes` two panels up.
+        */}
+        <StatedReason
+          heading="Creating this plan does not start it, and nothing is ever sent from here"
+          because="Confirming creates the plan, the patient's details and the whole twelve-month schedule above, and records who created it on the access trail. The plan is created in draft: its messages are scheduled and the plan is not running. This prototype is connected to no messaging provider at all, so nothing reaches any handset from this workspace whatever state a plan is in."
+          changedBy="Starting a created plan is a separate step and this workspace does not have it yet. The plan and its schedule appear on the patient's own screen as soon as it is created."
+          icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
+        />
+
+        {state.status === "refused" ? <RefusalStatement refusal={state.refusal} /> : null}
+
+        <p role="status" className={mutedTextClass}>
+          {state.status === "sending"
+            ? "Creating the plan. Nothing has been created until this says so."
+            : state.status === "refused"
+              ? "The plan was not created. Everything you entered is still on this computer."
+              : ""}
+        </p>
+
+        <div className="flex min-w-0 flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+          <button type="button" onClick={onBack} className={secondaryControlClass}>
+            <span className="truncate">Back to personalisation</span>
+          </button>
+          {/*
+            THE ONE OVERLAY THIS TASK WIRES. Task 11 owns this group's overlay wiring and every other
+            seam is named in the Task 9 report — but a control that WRITES with no confirmation step
+            is not something to ship and fix later. `overlay-trigger.tsx` requires a commit handler
+            at the type level precisely so a screen cannot open a decision surface it has not wired,
+            and `{ kind: "unavailable" }` is how a screen says, in its own words, what cannot be done
+            yet: the overlay opens and states the reason rather than leaving a dead button behind it.
+          */}
+          <WorkspaceOverlayTrigger
+            overlayId="final-activation"
+            commit={
+              body === null || state.status === "sending"
+                ? { kind: "unavailable", reason: unavailableReasonFor({ preview, body, state, patientDetail }) }
+                : { kind: "record", record: onActivate }
+            }
+            className={primaryControlClass}
+          >
+            <ClipboardCheck aria-hidden="true" className="size-icon-md shrink-0" />
+            <span className="truncate">Create this plan</span>
+          </WorkspaceOverlayTrigger>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Why the plan cannot be created right now, in the clinician's own terms.
+ *
+ * Rendered by the overlay itself, as the reason its decision control points at — so a coordinator
+ * who opens the confirmation is told what is missing rather than finding a control that does
+ * nothing. Ordered from the earliest missing thing to the latest, because the first sentence is the
+ * one that gets read.
+ */
+function unavailableReasonFor(input: {
+  preview: PlanSchedulePreview;
+  body: CreatePlanRequestBody | null;
+  state: PlanSubmissionState;
+  patientDetail: ReturnType<typeof createPlanPatientDetail>;
+}): string {
+  if (input.state.status === "sending") {
+    return "The plan is being created now. Nothing else can be confirmed until that finishes.";
+  }
+  if (input.patientDetail === null) {
+    return "The patient's name and mobile number are needed before a plan can be created. They are entered on the personalisation stage.";
+  }
+  if (input.preview.kind === "incomplete") {
+    return input.preview.issues.map((issue) => issue.message).join(" ");
+  }
+  if (input.preview.kind === "refused") {
+    return submissionRefusalWording(input.preview.refusal).because;
+  }
+  return "Something this plan needs has not been settled yet, so nothing can be created. The stages behind this one say which.";
+}
+
+/** One refusal, in the three-part shape §4.4 sets, with the wording resolved from its name. */
+function RefusalStatement({ refusal }: { refusal: string }) {
+  const wording = submissionRefusalWording(refusal);
+  return (
+    <StatedReason
+      heading={wording.heading}
+      because={wording.because}
+      changedBy={wording.changedBy}
+      icon={<CircleAlert aria-hidden="true" className="size-icon-md shrink-0" />}
+    />
+  );
+}
+
+/**
+ * One labelled calendar-day field.
+ *
+ * Native `disabled` rather than `aria-disabled`, and the difference is the rule rather than a
+ * preference: the first-contact day is inert only until the discharge day is entered, which is
+ * TRANSIENT inertness and exactly what the native attribute is for. `aria-disabled` plus an inert
+ * handler is for a destination that will not exist however long you wait, and the two are never
+ * combined on one control.
+ */
+function DateField({
+  id,
+  label,
+  value,
+  onChange,
+  hint,
+  min,
+  max,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  hint: string;
+  min?: string;
+  max?: string;
+  disabled?: boolean;
+}) {
+  const hintId = `${id}-hint`;
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-medium text-[color:var(--text-heading)]">
+        {label}
+      </label>
+      <input
+        type="date"
+        id={id}
+        value={value}
+        min={min}
+        max={max}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        aria-describedby={hintId}
+        className={fieldClass}
+      />
+      <p id={hintId} className={mutedTextClass}>
+        {hint}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The refusal name in a body the API refused with, or a named stand-in.
+ *
+ * `handler.ts` answers every refusal with `{ refusal: string }` and nothing else -- no patient data
+ * ever travels in one. Anything else arriving here is an answer this screen did not expect, and it
+ * is named as that rather than guessed at: `submissionRefusalWording` is total, so an unrecognised
+ * name is still explained and still says the draft survived.
+ */
+function refusalNameFrom(payload: unknown): string {
+  if (typeof payload === "object" && payload !== null && "refusal" in payload) {
+    const named = (payload as { refusal: unknown }).refusal;
+    if (typeof named === "string" && named !== "") return named;
+  }
+  return TRANSPORT_REFUSALS.unreadableAnswer;
 }

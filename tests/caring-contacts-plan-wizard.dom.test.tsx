@@ -21,19 +21,36 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+
+// The wizard navigates once, after a plan has been created and after the draft has been cleared.
+// `useRouter` is the App Router hook a Client Component uses for that (Next 16); there is no router
+// in jsdom, so the push is recorded instead and its ORDER against the clear is what Ruling [117] is
+// about.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: navigation.push }),
+}));
 
 import {
   PLAN_DRAFT_STORAGE_KEY,
   clearPlanDraft,
   readPlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
+import { WorkspaceOverlays } from "@/components/caring-contacts/workspace/overlays/workspace-overlays";
+import { clearStagedWorkspaceOverlayCommit } from "@/components/caring-contacts/workspace/overlays/overlay-commits";
 import { createPlanPatientDetail } from "@/components/caring-contacts/workspace/plan-wizard/patient-detail";
-import { PlanWizard, type PlanWizardProps } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
+import {
+  assertBuiltStageHasABody,
+  PlanWizard,
+  type PlanWizardProps,
+} from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
 import { planWizardStageImplementation } from "@/components/caring-contacts/workspace/plan-wizard/stages";
-import { SENDING_PREFERENCE_OPTIONS } from "@/lib/caring-contacts/schedule";
+import { CARING_CONTACTS_PLAN_QUERY_PARAM, patientRoute } from "@/lib/caring-contacts-routes";
+import { firstContactDayBounds, FIRST_CONTACT_REASON_MAX_LENGTH, SENDING_PREFERENCE_OPTIONS } from "@/lib/caring-contacts/schedule";
 import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 import { stripSourceComments } from "./helpers/strip-source-comments";
@@ -95,16 +112,94 @@ async function reachPersonalisationStage(user: ReturnType<typeof userEvent.setup
   return screen.getByRole("region", { name: "Personalisation" });
 }
 
+/** Ticks the confirmations, chooses a pathway, fills stage 3, and moves to stage 4. */
+async function reachReviewStage(user: ReturnType<typeof userEvent.setup>) {
+  await reachPersonalisationStage(user);
+  await user.type(screen.getByLabelText(/Patient.s name/i), "Rowan Example");
+  await user.type(screen.getByLabelText(/Mobile number this plan will use/i), FICTIONAL_PATIENT_MOBILES[1]);
+  await user.click(screen.getByRole("radio", { name: /Morning/ }));
+  await user.click(screen.getByRole("button", { name: /^Continue to review/ }));
+  return screen.getByRole("region", { name: "Review and activation" });
+}
+
+/** The discharge day every stage-4 case works from, and the days the schedule allows around it. */
+const DISCHARGE_DAY = "2026-03-10";
+
+function bounds() {
+  const resolved = firstContactDayBounds(DISCHARGE_DAY);
+  if (resolved === null) throw new Error("the fixture discharge day is not a calendar day");
+  return resolved;
+}
+
+/** A stored draft filled in as far as the end of stage 3 and sitting on the review stage. */
+function reviewReadyDraft(overrides: Record<string, unknown> = {}) {
+  return {
+    referralId: REFERRAL,
+    stage: "review",
+    assurances: { patientAgreed: true, mobileIsPatientControlled: true },
+    pathwayVersionId: NAMED_PATHWAY,
+    patientDetail: {
+      patientName: "Rowan Example",
+      patientMobileNumber: FICTIONAL_PATIENT_MOBILES[1],
+      patientIdentifiers: "SYN-MRN-4471",
+      culturalIdentity: "",
+    },
+    sendingPreference: "morning",
+    activation: { dischargeDay: DISCHARGE_DAY, firstContactDay: "", firstContactReason: "" },
+    submission: null,
+    ...overrides,
+  };
+}
+
+/**
+ * The wizard AND the overlay host, because stage 4's write goes through a confirmation overlay.
+ *
+ * `WorkspaceOverlays` is mounted by the shell in production and takes no props; rendering it beside
+ * the wizard is what lets a case press the confirm control rather than reach past it and call the
+ * commit directly. A test that called the commit itself would prove the write and not the
+ * confirmation step, which is the half Ruling [117] is actually about.
+ */
+function renderWizardWithOverlays(overrides: Partial<PlanWizardProps> = {}) {
+  const rendered = renderWizard(overrides);
+  render(<WorkspaceOverlays />);
+  return rendered;
+}
+
+/** Opens the confirmation overlay from stage 4 and presses its own decision control. */
+async function confirmActivation(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByTestId("workspace-overlay-trigger"));
+  const action = await screen.findByTestId("workspace-overlay-action");
+  await user.click(action);
+  return action;
+}
+
+/** One `fetch` answer, recording the call order against the draft clear and the navigation. */
+function stubFetch(answer: () => Promise<Response>) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async () => answer());
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
 beforeEach(() => {
   window.sessionStorage.clear();
   window.localStorage.clear();
   // The store holds module-level state that clearing storage by hand does not reach.
   clearPlanDraft();
+  // The staged overlay commit lives in a module-scoped slot, so it outlives a render exactly as the
+  // browser tab does. Emptying it is what stops one case's staged intent answering the next one's.
+  clearStagedWorkspaceOverlayCommit();
+  navigation.push.mockClear();
+  // jsdom reports 1024px; the overlay host needs a width to choose a modality at all.
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  window.history.pushState(null, "", "/caring-contacts/plans/new");
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   clearPlanDraft();
+  clearStagedWorkspaceOverlayCommit();
 });
 
 describe("the caring-contacts plan wizard — stage 1, agreement (Ruling [112])", () => {
@@ -430,24 +525,21 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     for (const label of ["Agreement", "Pathway", "Personalisation", "Review and activation"]) {
       expect(within(stepper).getByText(label)).toBeInTheDocument();
     }
-    // One, not two: Task 8 built personalisation, and Task 9 builds review and activation.
-    expect(within(stepper).getAllByText("not built yet")).toHaveLength(1);
+    // None. Task 9 built review and activation, which was the last one.
+    expect(within(stepper).queryAllByText("not built yet")).toHaveLength(0);
   });
 
-  it("offers review and activation as an unavailable control with a stated reason, never a dead end", async () => {
+  it("offers a real Continue to review and activation, and the way back is a real control", async () => {
     const user = userEvent.setup();
     renderWizard();
     await reachPersonalisationStage(user);
 
-    const forward = screen.getByRole("button", { name: /^Review and activation/ });
-    // Ruling 52 and docs/wiring-conventions.md: `aria-disabled` plus an inert handler, never the
-    // native attribute, so the stated reason stays reachable by keyboard.
-    expect(forward).toHaveAttribute("aria-disabled", "true");
-    expect(forward).not.toHaveAttribute("disabled");
-    expect(forward).toHaveAttribute("title", expect.stringContaining("coming soon"));
-    const describedBy = forward.getAttribute("aria-describedby");
-    expect(describedBy).toBeTruthy();
-    expect(document.getElementById(describedBy!)?.textContent ?? "").toContain("is not built yet");
+    // Task 9 flipped the table entry and wrote the body; this control followed with no edit at its
+    // call site, which is what the extension point was for. It is a NATIVE `disabled` when stage 3
+    // is incomplete -- transient inertness -- and never `aria-disabled`, which is for a destination
+    // that will not exist however long you wait.
+    const forward = screen.getByRole("button", { name: /^Continue to review/ });
+    expect(forward).not.toHaveAttribute("aria-disabled");
 
     // And the way back from stage 3 is a real control.
     await user.click(screen.getByRole("button", { name: /Back to pathway/ }));
@@ -461,10 +553,22 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     expect(planWizardStageImplementation("agreement")).toEqual({ kind: "built" });
     expect(planWizardStageImplementation("pathway")).toEqual({ kind: "built" });
     expect(planWizardStageImplementation("personalisation")).toEqual({ kind: "built" });
-    expect(planWizardStageImplementation("review").kind).toBe("not-built");
+    expect(planWizardStageImplementation("review")).toEqual({ kind: "built" });
   });
 
-  it("will require the activation stage to clear the draft the moment Task 9 builds it", () => {
+  it("fails loudly when a stage is marked built and no body was written for it", () => {
+    // `stages.ts` has claimed since Task 7 that this file proves `assertBuiltStageHasABody` fires.
+    // NOTHING DID. It was a description of a mechanism nobody had run, written as coverage, in the
+    // one guard protecting the mistake each of Tasks 8 and 9 could actually make -- and by Task 9
+    // every stage is built, so no render reaches the not-built branch at all and the claim could
+    // never have been checked by accident either. Proved directly now, which is why the function is
+    // exported.
+    expect(() => assertBuiltStageHasABody(null, "review")).toThrow(/is marked built but this component renders no body/);
+    // And it is not a throw-for-everything: a body that exists passes straight through.
+    expect(assertBuiltStageHasABody("a body", "review")).toBe("a body");
+  });
+
+  it("requires the activation stage to clear the draft, now that it is built", () => {
     // Round 1, finding M-1. The draft suite's "clears on successful activation" case calls
     // `clearPlanDraft()` directly, so it proves the seam works and nothing about whether Task 9
     // uses it. THIS is the case that arms itself: it does nothing while the review stage is
@@ -501,30 +605,20 @@ describe("the caring-contacts plan wizard — the stages Tasks 8 and 9 build", (
     ).toBeGreaterThan(1);
   });
 
-  it("renders the unbuilt stage's own panel rather than an empty column, if one is ever reached", async () => {
-    // Not reachable through the controls today — the forward control from stage 2 is an unavailable
-    // one. It is reachable from a stored draft naming that stage, which is what this sets up.
-    window.sessionStorage.setItem(
-      PLAN_DRAFT_STORAGE_KEY,
-      JSON.stringify({
-        referralId: REFERRAL,
-        stage: "review",
-        assurances: { patientAgreed: true, mobileIsPatientControlled: true },
-        pathwayVersionId: NAMED_PATHWAY,
-        patientDetail: {
-          patientName: "Rowan Example",
-          patientMobileNumber: FICTIONAL_PATIENT_MOBILES[1],
-          patientIdentifiers: "",
-          culturalIdentity: "",
-        },
-        sendingPreference: "morning",
-      }),
-    );
+  it("returns a stored draft to the stage it names, including the one that writes", async () => {
+    // This case used to prove the UNBUILT-stage panel, which was the only thing a stored draft
+    // naming `review` could reach. Task 9 built that stage, so what a stored draft naming it now
+    // proves is the thing worth proving: a clinician who reloads on the last screen before the plan
+    // exists comes back to it rather than to the start of the sign-up.
+    //
+    // `UnbuiltStagePanel` and `ForwardControl`'s unavailable branch are now unreachable: every
+    // member of the stage union is built. They are kept as the extension point for a fifth stage
+    // and are unreached rather than dead, which is stated where they live -- see the Task 9 report.
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
     renderWizard();
 
-    expect(await screen.findByRole("group", { name: "Review and activation is not built yet" })).toBeInTheDocument();
-    const region = screen.getByRole("region", { name: "Review and activation" });
-    expect(within(region).getByRole("button", { name: "Back" })).toBeInTheDocument();
+    const region = await screen.findByRole("region", { name: "Review and activation" });
+    expect(within(region).getByRole("button", { name: /Back to personalisation/ })).toBeInTheDocument();
   });
 });
 
@@ -856,6 +950,381 @@ describe("stage 3 — the sending preference (kept from the mockup, minus its co
     }
     for (const control of within(stage).getAllByRole("button")) {
       expect(control.className, `${control.textContent?.trim()} is not a production tap target`).toContain("min-h-tap");
+    }
+  });
+});
+
+/**
+ * Stage 4 — review and activation. The only stage that writes.
+ *
+ * Everything before this reads. That single fact is why most of these cases are about failure: the
+ * three orderings in Ruling [117] are each silent when reversed, and the cost of each is a
+ * clinician's typing or a patient's mobile number left on a ward machine.
+ */
+describe("stage 4 — what is read back, and what is not claimed (Ruling [119])", () => {
+  it("reads the plan back from what was actually entered, and sources each fact", async () => {
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    expect(stage).toHaveTextContent(REFERRAL);
+    expect(stage).toHaveTextContent(PATIENT);
+    expect(stage).toHaveTextContent(TEAM);
+    expect(stage).toHaveTextContent(NAMED_PATHWAY);
+    expect(stage).toHaveTextContent("Rowan Example");
+    expect(stage).toHaveTextContent(FICTIONAL_PATIENT_MOBILES[1]);
+  });
+
+  it("never presents the stage-1 confirmations as something the plan records", async () => {
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    // The mockup renders `Agreement confirmed: Yes` beside the patient's name, as though it were a
+    // stored fact. It is not stored today: `createPlanSchema` is `.strict()` with ten fields and
+    // `patientDetail` `.strict()` with four, and neither has a place for it. This screen is the
+    // last place a false reassurance could be introduced before a plan exists.
+    expect(stage.textContent ?? "").not.toMatch(/agreement confirmed:\s*yes/i);
+    // What it says instead is TODAY'S fact, in place: confirmed here, not on the plan. Deliberately
+    // not "nothing in this domain records them" — that states a permanent property, and the owner
+    // has since decided the confirmations will be stored as an attestation.
+    expect(stage).toHaveTextContent(/not recorded on the plan/i);
+  });
+
+  it("states no contact count it did not measure", async () => {
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    // Ruling [119]: the mockup's `"10-contact schedule"` heading is a literal and it is wrong —
+    // ten ENTRIES, of which the last is a closing message, and only nine are sent when the first
+    // contact moves to discharge + 7.
+    expect(stage.textContent ?? "").not.toMatch(/10-contact schedule/i);
+    // The closing message is named as its own kind rather than counted as one more caring contact.
+    expect(stage).toHaveTextContent(/closing message/i);
+  });
+});
+
+describe("stage 4 — the discharge day and the first contact, side by side (Rulings [118] and [121])", () => {
+  it("collects the discharge day here, because nothing in this domain carries one", async () => {
+    const user = userEvent.setup();
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify(
+        reviewReadyDraft({ activation: { dischargeDay: "", firstContactDay: "", firstContactReason: "" } }),
+      ),
+    );
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    const discharge = within(stage).getByLabelText(/day the patient was discharged/i);
+    expect(discharge).toHaveAttribute("type", "date");
+    // Empty rather than defaulted to today: a discharge day the screen guessed is a clinical fact
+    // it invented, and every date in the plan is counted from it.
+    expect(discharge).toHaveValue("");
+    // And the screen says why it is asking, rather than leaving it looking like an oversight.
+    expect(stage).toHaveTextContent(/counted from it/i);
+
+    await user.type(discharge, DISCHARGE_DAY);
+    expect(within(stage).getByLabelText(/day of the first contact/i)).toHaveValue(bounds().usual);
+  });
+
+  it("offers exactly the days the schedule accepts, defaulting to the usual one", async () => {
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    const firstContact = within(stage).getByLabelText(/day of the first contact/i);
+    // Read off `firstContactDayBounds`, which derives them from the same constants
+    // `buildApprovedSchedule` refuses against. A `min`/`max` written into the screen would be a
+    // second copy of the rule, free to go on offering a day the schedule had stopped taking.
+    expect(firstContact).toHaveAttribute("min", bounds().earliest);
+    expect(firstContact).toHaveAttribute("max", bounds().latest);
+    expect(firstContact).toHaveValue(bounds().usual);
+  });
+
+  it("shows the consequence of moving the day to discharge + 7 BEFORE anything is committed", async () => {
+    const user = userEvent.setup();
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    // On the usual day nothing is suppressed and the screen must not say anything is.
+    expect(stage.textContent ?? "").not.toMatch(/absorbed|suppressed/i);
+
+    const firstContact = within(stage).getByLabelText(/day of the first contact/i);
+    await user.clear(firstContact);
+    await user.type(firstContact, bounds().latest);
+    await user.type(within(stage).getByLabelText(/why the first contact/i), "Agreed with the ward before discharge.");
+
+    // RULING [118]'s own sentence: the system is about to remove a contact from a
+    // suicide-prevention schedule as a side effect of a date choice, and it must say so in place,
+    // while the choice is still being made. `fetch` is never stubbed in this case, so nothing has
+    // been committed and nothing could have been.
+    await waitFor(() => expect(within(stage).getByRole("group", { name: /suppressed/i })).toBeInTheDocument());
+    expect(stage).toHaveTextContent(/Week 1/);
+    expect(stage).toHaveTextContent(/9 still to send/i);
+  });
+
+  it("asks for a reason on a moved day, and names the schedule's own two refusals apart", async () => {
+    const user = userEvent.setup();
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizard();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    // No reason is asked for while the first contact is on the usual day, because none is required.
+    expect(within(stage).queryByLabelText(/why the first contact/i)).toBeNull();
+
+    const firstContact = within(stage).getByLabelText(/day of the first contact/i);
+    await user.clear(firstContact);
+    await user.type(firstContact, bounds().earliest);
+
+    const reason = await within(stage).findByLabelText(/why the first contact/i);
+    // `first-contact-reason-required` — stated, not merely implied by an inert control.
+    await waitFor(() => expect(stage).toHaveTextContent(/without a reason for the moved day/i));
+
+    await user.click(reason);
+    await user.paste("x".repeat(FIRST_CONTACT_REASON_MAX_LENGTH + 1));
+    // `first-contact-reason-too-long` — a DIFFERENT refusal, and the two must not read alike: one
+    // says write something, the other says write less. A single "the schedule could not be built"
+    // for both would leave a clinician deleting the reason they were just asked for.
+    await waitFor(() => expect(stage).toHaveTextContent(/reason is too long/i));
+    expect(stage.textContent ?? "").not.toMatch(/without a reason for the moved day/i);
+  });
+});
+
+describe("stage 4 — the identifiers are minted once and reused (Ruling [120])", () => {
+  it("mints a plan identifier and an idempotency key when the stage is reached, and keeps them", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await reachReviewStage(user);
+
+    const minted = readPlanDraft(REFERRAL)?.submission ?? null;
+    expect(minted).not.toBeNull();
+    expect(minted?.planId).toBeTruthy();
+    expect(minted?.idempotencyKey).toBeTruthy();
+
+    // Back to stage 3 and forward again is exactly the shape a clinician takes after a failure, and
+    // it must not mint a second identity: a fresh plan id on the retry is how one patient ends up
+    // with two plans, two schedules and two sets of messages.
+    await user.click(screen.getByRole("button", { name: /Back to personalisation/ }));
+    await user.click(screen.getByRole("button", { name: /^Continue to review/ }));
+    expect(
+      readPlanDraft(REFERRAL)?.submission,
+      "the identifiers were minted again on a second visit, so a retry would create a second plan",
+    ).toEqual(minted);
+  });
+});
+
+describe("stage 4 — the write, and the three orderings (Ruling [117])", () => {
+  it("writes nothing until the confirmation overlay's own decision control is used", async () => {
+    const user = userEvent.setup();
+    const fetched = stubFetch(async () => jsonResponse({ value: null }));
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+
+    // Opening the decision surface is not the decision. Task 3 built `overlay-trigger.tsx` to
+    // require a commit handler at the TYPE level so a screen cannot open one it has not wired; this
+    // is the other half — the wiring must not fire on the way in.
+    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    expect(await screen.findByTestId("workspace-overlay-action")).toBeInTheDocument();
+    expect(fetched).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId("workspace-overlay-action"));
+    await waitFor(() => expect(fetched).toHaveBeenCalledTimes(1));
+  });
+
+  it("confirms the plan was created, THEN clears the draft, THEN navigates", async () => {
+    const user = userEvent.setup();
+    const order: string[] = [];
+    const fetched = stubFetch(async () => {
+      order.push("fetch-answered");
+      // The draft is still here at the moment the answer arrives: clearing before the response
+      // would lose a clinician's typing on any failure.
+      order.push(readPlanDraft(REFERRAL) === null ? "draft-already-cleared" : "draft-still-held");
+      return jsonResponse({ value: null });
+    });
+    navigation.push.mockImplementation(() => {
+      order.push(readPlanDraft(REFERRAL) === null ? "navigate-after-clear" : "navigate-before-clear");
+    });
+
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+    await confirmActivation(user);
+
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledTimes(1));
+    expect(fetched).toHaveBeenCalledTimes(1);
+    // Navigating before clearing leaves a patient's name and mobile number in that tab's storage on
+    // a shared ward computer, with the screen already gone — which is what Ruling [110]'s third
+    // requirement exists to prevent.
+    expect(order).toEqual(["fetch-answered", "draft-still-held", "navigate-after-clear"]);
+    expect(readPlanDraft(REFERRAL)).toBeNull();
+    expect(window.sessionStorage.getItem(PLAN_DRAFT_STORAGE_KEY)).toBeNull();
+  });
+
+  it("navigates to the plan it just created, on the patient's own screen", async () => {
+    const user = userEvent.setup();
+    stubFetch(async () => jsonResponse({ value: null }));
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+    const minted = readPlanDraft(REFERRAL)?.submission ?? null;
+    await confirmActivation(user);
+
+    await waitFor(() => expect(navigation.push).toHaveBeenCalledTimes(1));
+    const href = navigation.push.mock.calls[0][0] as string;
+    // Built from `caring-contacts-routes.ts`, never a path literal, and it must be a route that
+    // exists: `/caring-contacts/plans/<id>` has no page, so linking there would be a 404.
+    expect(href.startsWith(patientRoute(PATIENT))).toBe(true);
+    expect(href).toContain(`${CARING_CONTACTS_PLAN_QUERY_PARAM}=${minted?.planId}`);
+  });
+
+  it("keeps the whole draft when the write fails, whichever way it fails", async () => {
+    const failures = [
+      { label: "a lost connection", answer: async () => Promise.reject(new TypeError("Failed to fetch")) },
+      { label: "a permission refusal", answer: async () => jsonResponse({ refusal: "action-not-granted" }, 403) },
+      { label: "an existing plan", answer: async () => jsonResponse({ refusal: "duplicate-active-plan" }, 409) },
+      {
+        label: "a schedule refusal",
+        answer: async () => jsonResponse({ refusal: "first-contact-reason-required" }, 422),
+      },
+      { label: "an answer that is not JSON", answer: async () => new Response("<html>", { status: 200 }) },
+    ];
+
+    for (const failure of failures) {
+      const user = userEvent.setup();
+      window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+      const fetched = stubFetch(failure.answer);
+      const view = renderWizardWithOverlays();
+      await screen.findByRole("region", { name: "Review and activation" });
+      await confirmActivation(user);
+
+      await waitFor(() => expect(fetched).toHaveBeenCalled());
+      // A clinician who has typed a name, a mobile number and identifiers and then meets a failure
+      // must lose none of it. This is the path nobody writes a test for and the one a real
+      // clinician meets first.
+      await waitFor(() =>
+        expect(
+          readPlanDraft(REFERRAL)?.patientDetail.patientName,
+          `${failure.label}: the draft was lost on a failed write`,
+        ).toBe("Rowan Example"),
+      );
+      expect(
+        navigation.push,
+        `${failure.label}: the screen navigated away from a plan that was not created`,
+      ).not.toHaveBeenCalled();
+
+      view.unmount();
+      vi.restoreAllMocks();
+      clearPlanDraft();
+      clearStagedWorkspaceOverlayCommit();
+      navigation.push.mockClear();
+      window.sessionStorage.clear();
+    }
+  });
+
+  it("says WHICH failure it was, in place, and never only that something went wrong", async () => {
+    const cases = [
+      { refusal: "action-not-granted", status: 403, expected: /role cannot create a plan/i },
+      { refusal: "duplicate-active-plan", status: 409, expected: /already has a plan/i },
+      { refusal: "first-contact-reason-required", status: 422, expected: /without a reason for the moved day/i },
+    ];
+
+    for (const item of cases) {
+      const user = userEvent.setup();
+      window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+      stubFetch(async () => jsonResponse({ refusal: item.refusal }, item.status));
+      const view = renderWizardWithOverlays();
+      const stage = await screen.findByRole("region", { name: "Review and activation" });
+      await confirmActivation(user);
+
+      await waitFor(() => expect(stage, `${item.refusal} was not explained in place`).toHaveTextContent(item.expected));
+      expect(stage.textContent ?? "", `${item.refusal} was reported as a general failure`).not.toMatch(
+        /something went wrong/i,
+      );
+      // And the clinician is told their typing survived, which is the fact they need first.
+      expect(stage).toHaveTextContent(/still on this computer/i);
+
+      view.unmount();
+      vi.restoreAllMocks();
+      clearPlanDraft();
+      clearStagedWorkspaceOverlayCommit();
+      window.sessionStorage.clear();
+    }
+  });
+
+  it("retries with the SAME plan identifier, so a second press cannot create a second plan", async () => {
+    const user = userEvent.setup();
+    const bodies: { planId: string; idempotencyKey: string }[] = [];
+    let answered = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      bodies.push(JSON.parse(String((init as RequestInit).body)));
+      answered += 1;
+      // The first attempt is refused for a reason that clears by itself, which is exactly when a
+      // clinician presses again.
+      return answered === 1 ? jsonResponse({ refusal: "service-stopped" }, 423) : jsonResponse({ value: null });
+    });
+
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+
+    await confirmActivation(user);
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    await confirmActivation(user);
+    await waitFor(() => expect(bodies).toHaveLength(2));
+
+    const [first, second] = bodies;
+    // THE WHOLE POINT of a caller-supplied key. Reused, the second attempt is refused as a replay
+    // and returns the first attempt's own answer; minted fresh, it creates a second plan for one
+    // patient — two schedules, two sets of messages, found by the patient rather than the system.
+    expect(second.planId, "the retry minted a new plan identifier").toBe(first.planId);
+    expect(second.idempotencyKey, "the retry minted a new idempotency key").toBe(first.idempotencyKey);
+  });
+
+  it("offers no decision control at all while the plan could not be created", async () => {
+    const user = userEvent.setup();
+    const fetched = stubFetch(async () => jsonResponse({ value: null }));
+    window.sessionStorage.setItem(
+      PLAN_DRAFT_STORAGE_KEY,
+      JSON.stringify(
+        reviewReadyDraft({ activation: { dischargeDay: "", firstContactDay: "", firstContactReason: "" } }),
+      ),
+    );
+    renderWizardWithOverlays();
+    await screen.findByRole("region", { name: "Review and activation" });
+
+    await user.click(screen.getByTestId("workspace-overlay-trigger"));
+    const action = await screen.findByTestId("workspace-overlay-action");
+
+    // The overlay opens and states what cannot be done, rather than the screen offering a dead
+    // button behind it — the shape `overlay-commits.ts` calls `{ kind: "unavailable" }`, whose
+    // reason the host renders as text the control points at.
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    await user.click(action);
+    expect(fetched).not.toHaveBeenCalled();
+  });
+
+  it("puts production tap targets on the controls it adds", async () => {
+    window.sessionStorage.setItem(PLAN_DRAFT_STORAGE_KEY, JSON.stringify(reviewReadyDraft()));
+    renderWizardWithOverlays();
+    const stage = await screen.findByRole("region", { name: "Review and activation" });
+
+    // 48px, and never `min-h-11`: this repo's floor exceeds even the AAA-level criterion because
+    // 44px hit a sub-pixel rounding flake in `ui-smoke`. On the element that contains the control,
+    // not on a wrapping div — a 48px wrapper around a 20px control is dead space that looks
+    // tappable.
+    for (const control of [
+      within(stage).getByLabelText(/day the patient was discharged/i),
+      within(stage).getByLabelText(/day of the first contact/i),
+      within(stage).getByRole("button", { name: /Back to personalisation/ }),
+      screen.getByTestId("workspace-overlay-trigger"),
+    ]) {
+      const name = control.getAttribute("id") ?? control.textContent ?? "a control";
+      expect(control.className, `${name} is not a production tap target`).toContain("min-h-tap");
+      expect(control.className, `${name} uses the 44px step`).not.toContain("min-h-11");
     }
   });
 });

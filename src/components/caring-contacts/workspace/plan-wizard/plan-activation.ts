@@ -495,6 +495,39 @@ export function submissionRefusalWording(refusal: string): SubmissionRefusalWord
   };
 }
 
+/**
+ * What each kind of message in the schedule is called.
+ *
+ * A SECOND COPY OF `MESSAGE_TYPE_LABELS` IN `patient-overview.tsx`, AND IT IS STATED RATHER THAN
+ * PRETENDED AWAY. That module cannot be imported here: it reads `repository.ts`, which names the
+ * service-state module, and `tests/caring-contacts-explained-automation.dom.test.tsx` scans this
+ * wizard's whole client module graph for exactly that name. So the two screens hold the same three
+ * strings and nothing keeps them in step. The right home is a module both can import — see the Task
+ * 9 report, which names it as a seam rather than leaving the duplication for the next reader to
+ * discover.
+ *
+ * The closing message has its own label because it is its own kind: it ends the plan and is not one
+ * more caring contact. Calling it one would overstate the plan by one message.
+ */
+export const PLANNED_MESSAGE_TYPE_LABELS: Readonly<Record<PlannedContact["messageType"], string>> = Object.freeze({
+  first: "First message",
+  standard: "Caring contact",
+  closing: "Closing message",
+});
+
+/**
+ * The schedule summary as a sentence, built from what was measured.
+ *
+ * Ruling [94]: the invariant is stated and the number is not restated in prose around it. The
+ * numbers here ARE the measurement — they come from `plannedScheduleSummary` above, which comes
+ * from the domain — so this is the one place a count belongs.
+ */
+export function plannedScheduleSentence(summary: PlannedScheduleSummary): string {
+  const entries = `${summary.total} ${summary.total === 1 ? "entry" : "entries"}`;
+  if (summary.willNotBeSent === 0) return `${entries}, and every one of them will be sent.`;
+  return `${entries}: ${summary.stillToSend} still to send, and ${summary.willNotBeSent} that will not be sent.`;
+}
+
 /** The refusal names this screen uses for a failure that never reached the service. */
 export const TRANSPORT_REFUSALS = Object.freeze({
   didNotReach: "request-did-not-reach-the-service",
