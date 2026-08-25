@@ -3801,6 +3801,7 @@ function ClinicalDashboardContent({
                         followUpSuggestionsDisabled={loading}
                         crossModeQueries={crossModeQueries}
                         onCrossModeSearch={handleCrossModeSearch}
+                        onScopeDocument={handleScopeDocument}
                       />
                     </>
                   ) : null
